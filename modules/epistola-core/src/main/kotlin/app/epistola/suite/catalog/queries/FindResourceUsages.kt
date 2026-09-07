@@ -68,12 +68,12 @@ class FindResourceUsagesHandler(
                 SELECT DISTINCT
                     n.value -> 'props' ->> 'stencilId' AS resource_slug,
                     dt.name AS ref_name,
-                    tv.catalog_key AS ref_catalog
+                    dt.catalog_key AS ref_catalog
                 FROM template_versions tv
-                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
+                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
                 CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
                 WHERE tv.tenant_key = :tenantKey
-                  AND tv.catalog_key != :catalogKey
+                  AND dt.catalog_key != :catalogKey
                   AND tv.status IN ('draft', 'published')
                   AND n.value ->> 'type' = 'stencil'
                   AND n.value -> 'props' ->> 'catalogKey' = :catalogKeyStr
@@ -98,13 +98,13 @@ class FindResourceUsagesHandler(
                 SELECT DISTINCT
                     a.id::text AS resource_slug,
                     dt.name AS ref_name,
-                    tv.catalog_key AS ref_catalog
+                    dt.catalog_key AS ref_catalog
                 FROM template_versions tv
-                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
+                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
                 CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
                 JOIN assets a ON a.tenant_key = tv.tenant_key AND a.catalog_key = :catalogKey AND a.id::text = n.value -> 'props' ->> 'assetId'
                 WHERE tv.tenant_key = :tenantKey
-                  AND tv.catalog_key != :catalogKey
+                  AND dt.catalog_key != :catalogKey
                   AND tv.status IN ('draft', 'published')
                   AND n.value ->> 'type' = 'image'
                 """,

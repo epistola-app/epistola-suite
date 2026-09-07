@@ -15,6 +15,7 @@ import app.epistola.suite.quality.queries.GetQualityFinding
 import app.epistola.suite.quality.queries.ListQualityFindings
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
@@ -63,11 +64,11 @@ class UnknownSeverityIntegrationTest : IntegrationTestBase() {
                 """
                 INSERT INTO quality_findings (
                     tenant_key, id, source_id, rule_id, severity, subject_urn, subject_type,
-                    ignore_scope_urn, catalog_key, template_key, variant_key, node_ids,
+                    ignore_scope_urn, template_resource_id, variant_key, node_ids,
                     message, fingerprint, context, status, first_seen_at, last_seen_at
                 ) VALUES (
                     :tenantKey, :id, 'remote-checker', 'remote.rule', :severity, :subjectUrn, :subjectType,
-                    :ignoreScopeUrn, :catalogKey, :templateKey, :variantKey, '{}',
+                    :ignoreScopeUrn, ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}, :variantKey, '{}',
                     'A remote checker used its own vocabulary', :fingerprint, '{}'::jsonb, 'OPEN', NOW(), NOW()
                 )
                 """,

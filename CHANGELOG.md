@@ -4,6 +4,31 @@
 
 ## [Unreleased]
 
+- **[dev]** refactor(catalogs): **Templates are keyed by identity, not by where they live.** The
+  last and largest of the seven: a template's address sat in the primary key of eight tables across
+  three modules, and relocation had been weakening those foreign keys to `ON UPDATE CASCADE` to
+  make a move work — the option [ADR 0014](docs/adr/0014-safe-catalog-resource-relocation.md)
+  rejected, and a direct contradiction of its own rule that no foreign key is weakened to make a
+  move succeed. Variants, versions, contract versions, activations, quality findings and load-test
+  runs now name the template itself, so a move updates one row and every cascade is gone.
+  Generation history still records the address it was produced at, but gains a backfilled
+  `template_resource_id` so a renamed template's documents stay findable. Two latent holes closed
+  along the way: a generate and a load-test start each accepted a version identified only by
+  catalog, variant and number, so a version of a _different_ template in the same catalog satisfied
+  the check.
+- **[dev]** refactor(catalogs): **Stencils are keyed by identity, not by where they live.** A
+  stencil version carried a copy of its parent's address alongside a pointer to the parent — the
+  same fact stated twice, with nothing forcing the two to agree, and roughly ten queries filtering
+  on the copy. Versions name the stencil now, and read the address back through it, so a move
+  updates one row. The two interim migrations that added and then patched that copy are gone,
+  replaced by one that ships the final shape.
+- **[dev]** refactor(catalogs): **Fonts and assets are keyed by identity, not by where they live.**
+  A font face named its family and its backing binary through one shared `catalog_key`, so neither
+  could move without dragging the other's reference along — the reason `asset_catalog_key` was
+  added in the first place. A face now names both by identity, which dissolves that by construction:
+  the extra column is gone, so is the undocumented rule that a face's binary had to live in the
+  family's own catalog, and moving either resource leaves the other untouched. The resource-graph
+  now reports a face's asset in the asset's own catalog rather than assuming the family's.
 - **[dev]** refactor(catalogs): **Themes are keyed by identity, not by where they live.** A template's
   own theme binding and the tenant-wide default now name the theme itself rather than a copy of its
   address, so moving or renaming a theme updates a single row. Both were previously among the six

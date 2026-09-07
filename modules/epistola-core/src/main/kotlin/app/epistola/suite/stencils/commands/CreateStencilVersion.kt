@@ -14,7 +14,10 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
+import app.epistola.suite.stencils.STENCIL_VERSION_COLUMNS
+import app.epistola.suite.stencils.STENCIL_VERSION_PARENT_JOIN
 import app.epistola.suite.stencils.model.StencilVersion
+import app.epistola.suite.stencils.stencilAtAddress
 import app.epistola.suite.templates.validation.ParameterSchemaValidator
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.validation.ValidationException
@@ -72,8 +75,9 @@ class CreateStencilVersionHandler(
             // Check if a draft already exists (idempotent)
             val existingDraft = handle.createQuery(
                 """
-            SELECT * FROM stencil_versions
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId AND status = 'draft'
+            SELECT $STENCIL_VERSION_COLUMNS $STENCIL_VERSION_PARENT_JOIN
+            WHERE stencil.tenant_key = :tenantId AND stencil.catalog_key = :catalogKey
+              AND stencil.id = :stencilId AND versions.status = 'draft'
             """,
             )
                 .bind("tenantId", command.stencilId.tenantKey)
@@ -94,7 +98,7 @@ class CreateStencilVersionHandler(
                 """
             SELECT COALESCE(MAX(id), 0) + 1
             FROM stencil_versions
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId
+            WHERE tenant_key = :tenantId AND stencil_resource_id = ${stencilAtAddress("tenantId", "catalogKey", "stencilId")}
             """,
             )
                 .bind("tenantId", command.stencilId.tenantKey)
@@ -119,7 +123,7 @@ class CreateStencilVersionHandler(
                     """
                 SELECT content::text AS content, parameter_schema::text AS parameter_schema
                 FROM stencil_versions
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId
+                WHERE tenant_key = :tenantId AND stencil_resource_id = ${stencilAtAddress("tenantId", "catalogKey", "stencilId")}
                 ORDER BY (status = 'published') DESC, id DESC
                 LIMIT 1
                 """,
@@ -153,13 +157,12 @@ class CreateStencilVersionHandler(
 
             handle.createQuery(
                 """
-            INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, stencil_resource_id, content, parameter_schema, status, created_at, created_by)
+            INSERT INTO stencil_versions (id, tenant_key, stencil_resource_id, content, parameter_schema, status, created_at, created_by)
             VALUES (
-                :id, :tenantId, :catalogKey, :stencilId,
-                (SELECT resource_id FROM stencils WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :stencilId),
+                :id, :tenantId, ${stencilAtAddress("tenantId", "catalogKey", "stencilId")},
                 :content::jsonb, :parameterSchema::jsonb, 'draft', NOW(), :createdBy
             )
-            RETURNING *
+            RETURNING *, CAST(:stencilId AS TEXT) AS stencil_key
             """,
             )
                 .bind("id", VersionKey.of(nextVersionId))

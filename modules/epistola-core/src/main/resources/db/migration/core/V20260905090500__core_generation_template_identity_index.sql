@@ -5,11 +5,11 @@
 -- columns stay pinned to where the template lived at generation time, so a lookup by the template's
 -- current address misses everything produced before it moved.
 --
--- Partial on NOT NULL deliberately. template_resource_id is filled forward only, so every row
--- written before V20260905090400 has NULL and can never be found this way -- indexing those entries
--- would cost space for rows the index can never serve. Partition retention ages them out, and the
--- predicate is implied by any equality lookup on the column, so the planner matches it without the
--- query having to mention it.
+-- Partial on NOT NULL deliberately. V20260905090400 backfills the column, so a NULL means the
+-- generating template has since been deleted -- a row no lookup by identity can ever want.
+-- Indexing those would cost space for entries the index can never serve, and the predicate is
+-- implied by any equality lookup on the column, so the planner matches it without the query having
+-- to mention it.
 --
 -- created_at DESC is part of the key, not decoration. These tables are RANGE-partitioned on
 -- created_at, so "newest first, paginated" can walk partitions in order and stop early -- but only
@@ -23,10 +23,11 @@
 -- cannot prune probes every partition. That is bounded -- partitions are monthly and retention is
 -- configured in months -- and partitions holding no match cost nothing.
 --
--- Note on cost: CREATE INDEX on a partitioned table recurses into every partition. The build itself
--- is trivial here (all existing rows are NULL, so the index starts empty) but each partition is
--- still scanned. If generation history is large enough that this is disruptive at upgrade time, the
--- alternative is CREATE INDEX ON ONLY, then per-partition CONCURRENTLY builds attached afterwards.
+-- Note on cost: CREATE INDEX on a partitioned table recurses into every partition, and since
+-- V20260905090400 backfills the column the build is over real rows rather than an empty index.
+-- Flyway runs a migration in one transaction, so CONCURRENTLY is not available here; an operator
+-- whose generation history makes this disruptive can build it out of band instead --
+-- CREATE INDEX ON ONLY, then per-partition CONCURRENTLY builds attached afterwards.
 CREATE INDEX idx_documents_template_resource_id
     ON documents (tenant_key, template_resource_id, created_at DESC)
     WHERE template_resource_id IS NOT NULL;

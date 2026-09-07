@@ -34,6 +34,7 @@ import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
@@ -174,7 +175,7 @@ class CatalogContentBuilder(
                 LEFT JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
                 LEFT JOIN LATERAL (
                     SELECT data_model, data_examples FROM contract_versions
-                    WHERE tenant_key = dt.tenant_key AND catalog_key = dt.catalog_key AND template_key = dt.id
+                    WHERE tenant_key = dt.tenant_key AND template_resource_id = dt.resource_id
                     ORDER BY CASE status WHEN 'published' THEN 0 ELSE 1 END, id DESC
                     LIMIT 1
                 ) cv ON TRUE
@@ -205,12 +206,12 @@ class CatalogContentBuilder(
                     FROM template_variants v
                     LEFT JOIN LATERAL (
                         SELECT template_model FROM template_versions
-                        WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND template_key = :templateKey AND variant_key = v.id
+                        WHERE tenant_key = :tenantKey AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = v.id
                           AND status = 'published'
                         ORDER BY id DESC
                         LIMIT 1
                     ) vv ON TRUE
-                    WHERE v.tenant_key = :tenantKey AND v.catalog_key = :catalogKey AND v.template_key = :templateKey
+                    WHERE v.tenant_key = :tenantKey AND v.template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
                     """,
                 )
                     .bind("tenantKey", tenantKey)

@@ -11,6 +11,7 @@ import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.model.createDefaultTemplateModel
 import app.epistola.suite.templates.services.TemplateDocumentPreparation
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -53,9 +54,9 @@ class DraftVersionFactory(
             """
             SELECT 1
             FROM template_variants tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
-            WHERE tv.tenant_key = :tenantId AND tv.catalog_key = :catalogKey AND tv.id = :variantId
-              AND tv.template_key = :templateId
+            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
+            WHERE tv.tenant_key = :tenantId AND tv.id = :variantId
+              AND tv.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
             FOR UPDATE OF tv
             """,
         )
@@ -73,8 +74,8 @@ class DraftVersionFactory(
             """
             SELECT *
             FROM template_versions
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId
-              AND template_key = :templateId AND status = 'draft'
+            WHERE tenant_key = :tenantId AND variant_key = :variantId
+              AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND status = 'draft'
             """,
         )
             .bind("tenantId", variantId.tenantKey)
@@ -94,8 +95,8 @@ class DraftVersionFactory(
             """
             SELECT COALESCE(MAX(id), 0) + 1 as next_id
             FROM template_versions
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId
-              AND template_key = :templateId
+            WHERE tenant_key = :tenantId AND variant_key = :variantId
+              AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
             """,
         )
             .bind("tenantId", variantId.tenantKey)
@@ -116,8 +117,8 @@ class DraftVersionFactory(
             handle.createQuery(
                 """
                 SELECT template_model::text FROM template_versions
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                  AND template_key = :templateKey AND variant_key = :variantKey
+                WHERE tenant_key = :tenantKey
+                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = :variantKey
                   AND status = 'published'
                 ORDER BY id DESC LIMIT 1
                 """,
@@ -142,7 +143,7 @@ class DraftVersionFactory(
         val contractVersionId = handle.createQuery(
             """
             SELECT id FROM contract_versions
-            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND template_key = :templateKey
+            WHERE tenant_key = :tenantKey AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
             ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
             LIMIT 1
             """,
@@ -158,8 +159,8 @@ class DraftVersionFactory(
 
         return handle.createQuery(
             """
-            INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, referenced_paths, created_at, created_by)
-            VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, :referencedPaths::jsonb, NOW(), :createdBy)
+            INSERT INTO template_versions (id, tenant_key, template_resource_id, variant_key, template_model, status, contract_version, referenced_paths, created_at, created_by)
+            VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :variantId, :templateModel::jsonb, 'draft', :contractVersion, :referencedPaths::jsonb, NOW(), :createdBy)
             RETURNING *
             """,
         )

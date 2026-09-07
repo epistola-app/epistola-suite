@@ -111,13 +111,11 @@ class GetThemeUsagePageHandler(
                 FROM template_versions version
                 JOIN template_variants variant
                   ON variant.tenant_key = version.tenant_key
-                 AND variant.catalog_key = version.catalog_key
-                 AND variant.template_key = version.template_key
+                 AND variant.template_resource_id = version.template_resource_id
                  AND variant.id = version.variant_key
                 JOIN document_templates template
                   ON template.tenant_key = variant.tenant_key
-                 AND template.catalog_key = variant.catalog_key
-                 AND template.id = variant.template_key
+                 AND template.resource_id = variant.template_resource_id
                 JOIN tenants tenant ON tenant.id = version.tenant_key
                 LEFT JOIN themes template_theme
                   ON template_theme.tenant_key = template.tenant_key

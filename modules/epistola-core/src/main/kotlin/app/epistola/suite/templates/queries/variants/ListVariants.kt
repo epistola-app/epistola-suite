@@ -11,6 +11,8 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.TemplateVariant
+import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.templateJoin
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -30,11 +32,11 @@ class ListVariantsHandler(
     override fun handle(query: ListVariants): List<TemplateVariant> = jdbi.withHandle<List<TemplateVariant>, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT tv.id, tv.tenant_key, tv.template_key, tv.title, tv.description, tv.attributes, tv.is_default, tv.created_at, tv.updated_at, tv.created_by, tv.updated_by
+                SELECT tv.id, tv.tenant_key, template.id AS template_key, tv.title, tv.description, tv.attributes, tv.is_default, tv.created_at, tv.updated_at, tv.created_by, tv.updated_by
                 FROM template_variants tv
-                WHERE tv.template_key = :templateId
-                  AND tv.tenant_key = :tenantId
-                  AND tv.catalog_key = :catalogKey
+                ${templateJoin("tv")}
+                WHERE tv.tenant_key = :tenantId
+                  AND tv.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 ORDER BY tv.is_default DESC, tv.created_at ASC
                 """,
         )

@@ -16,25 +16,3 @@ CREATE TABLE catalog_resource_aliases (
 
 COMMENT ON TABLE catalog_resource_aliases IS
     'Tenant-local historical resource addresses. Each alias points directly to the current stable identity.';
-
--- Stencil versions are the first owned hierarchy migrated to stable parent identity.
--- Legacy address columns remain for backwards-compatible reads during the alpha.
-ALTER TABLE stencil_versions ADD COLUMN stencil_resource_id UUID;
-
-UPDATE stencil_versions versions
-SET stencil_resource_id = stencils.resource_id
-FROM stencils
-WHERE stencils.tenant_key = versions.tenant_key
-  AND stencils.catalog_key = versions.catalog_key
-  AND stencils.id = versions.stencil_key;
-
-ALTER TABLE stencil_versions ALTER COLUMN stencil_resource_id SET NOT NULL;
-ALTER TABLE stencil_versions
-    DROP CONSTRAINT stencil_versions_tenant_key_catalog_key_stencil_key_fkey,
-    ADD CONSTRAINT fk_stencil_versions_stable_parent
-        FOREIGN KEY (tenant_key, stencil_resource_id)
-        REFERENCES stencils(tenant_key, resource_id)
-        ON DELETE CASCADE;
-
-CREATE INDEX idx_stencil_versions_stable_parent
-    ON stencil_versions(tenant_key, stencil_resource_id);

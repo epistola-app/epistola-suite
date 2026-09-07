@@ -32,6 +32,7 @@ import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.ListDocumentTemplatesHandler
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -73,13 +74,14 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         jdbi.withHandle<Unit, Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_model, data_examples, status, created_at)
-                VALUES (1, :tenantKey, 'default', :templateKey, :dataModel::jsonb, :dataExamples::jsonb, 'draft', NOW())
-                ON CONFLICT (tenant_key, catalog_key, template_key) WHERE status = 'draft'
+                INSERT INTO contract_versions (id, tenant_key, template_resource_id, data_model, data_examples, status, created_at)
+                VALUES (1, :tenantKey, ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}, :dataModel::jsonb, :dataExamples::jsonb, 'draft', NOW())
+                ON CONFLICT (tenant_key, template_resource_id) WHERE status = 'draft'
                 DO UPDATE SET data_model = :dataModel::jsonb, data_examples = :dataExamples::jsonb
                 """,
             )
                 .bind("tenantKey", tenantKey)
+                .bind("catalogKey", "default")
                 .bind("templateKey", templateKey)
                 .bind("dataModel", dataModel)
                 .bind("dataExamples", dataExamples)

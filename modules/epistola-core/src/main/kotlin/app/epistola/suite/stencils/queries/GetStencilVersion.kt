@@ -10,6 +10,8 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.stencils.STENCIL_VERSION_COLUMNS
+import app.epistola.suite.stencils.STENCIL_VERSION_PARENT_JOIN
 import app.epistola.suite.stencils.model.StencilVersion
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -30,8 +32,9 @@ class GetStencilVersionHandler(
     override fun handle(query: GetStencilVersion): StencilVersion? = jdbi.withHandle<StencilVersion?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT * FROM stencil_versions
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId AND id = :versionId
+            SELECT $STENCIL_VERSION_COLUMNS $STENCIL_VERSION_PARENT_JOIN
+            WHERE stencil.tenant_key = :tenantId AND stencil.catalog_key = :catalogKey
+              AND stencil.id = :stencilId AND versions.id = :versionId
             """,
         )
             .bind("tenantId", query.versionId.tenantKey)

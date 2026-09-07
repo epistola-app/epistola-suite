@@ -19,6 +19,7 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.tenants.queries.GetTenant
@@ -96,8 +97,8 @@ class PreviewVariantHandler(
             handle.createQuery(
                 """
                 SELECT data_model FROM contract_versions
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                  AND template_key = :templateKey
+                WHERE tenant_key = :tenantKey
+                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
                   AND status IN ('draft', 'published')
                 ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
                 LIMIT 1
@@ -141,8 +142,7 @@ class PreviewVariantHandler(
                 SELECT template_model as draft_template_model
                 FROM template_versions
                 WHERE tenant_key = :tenantId
-                  AND catalog_key = :catalogKey
-                  AND template_key = :templateId
+                  AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                   AND variant_key = :variantId
                   AND status IN ('draft', 'published')
                 ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC

@@ -15,6 +15,7 @@ import app.epistola.suite.documents.queries.PreviewVariant
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.NoActiveVersionException
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
@@ -253,8 +254,8 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                         """
                         UPDATE template_versions
                         SET template_model = jsonb_set(template_model, '{root}', '"missing-root"'::jsonb)
-                        WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                          AND template_key = :templateKey AND variant_key = :variantKey
+                        WHERE tenant_key = :tenantKey
+                          AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = :variantKey
                         """,
                     )
                         .bind("tenantKey", setup.tenant.id)

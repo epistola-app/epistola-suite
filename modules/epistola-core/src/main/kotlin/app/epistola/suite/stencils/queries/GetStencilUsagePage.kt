@@ -17,6 +17,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.model.StencilUsageDetail
 import app.epistola.suite.stencils.model.StencilUsagePage
+import app.epistola.suite.stencils.stencilAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -61,22 +62,21 @@ private val USAGE_CTES = """
     WITH latest_stencil AS (
         SELECT COALESCE(MAX(id), 0) AS latest_published_version
         FROM stencil_versions
-        WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
-          AND stencil_key = :stencilId AND status = 'published'
+        WHERE tenant_key = :tenantId AND stencil_resource_id = ${stencilAtAddress("tenantId", "catalogKey", "stencilId")} AND status = 'published'
     ),
     usage AS (
-        SELECT tv.template_key, tv.catalog_key, c.type AS catalog_type, dt.name AS template_name,
+        SELECT dt.id AS template_key, dt.catalog_key, c.type AS catalog_type, dt.name AS template_name,
                tv.variant_key, tv.id AS version_id, tv.status AS version_status,
                COALESCE((node.value -> 'props' ->> 'version')::int, 0) AS stencil_version,
                COUNT(*) AS instance_count
         FROM template_versions tv
-        JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
-        JOIN catalogs c ON c.tenant_key = tv.tenant_key AND c.id = tv.catalog_key
+        JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
+        JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.id = dt.catalog_key
         CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS node(key, value)
         WHERE tv.tenant_key = :tenantId
           AND node.value ->> 'type' = 'stencil'
           AND node.value -> 'props' ->> 'stencilId' = :stencilId
-        GROUP BY tv.template_key, tv.catalog_key, c.type, dt.name, tv.variant_key, tv.id, tv.status,
+        GROUP BY dt.id, dt.catalog_key, c.type, dt.name, tv.variant_key, tv.id, tv.status,
                  COALESCE((node.value -> 'props' ->> 'version')::int, 0)
     ),
     flagged AS (

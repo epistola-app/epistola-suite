@@ -16,6 +16,8 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.StencilVersionNotDraftException
 import app.epistola.suite.stencils.StencilVersionNotFoundException
 import app.epistola.suite.stencils.model.StencilVersion
+import app.epistola.suite.stencils.stencilAtAddress
+import app.epistola.suite.stencils.updateStencilVersionsReturning
 import app.epistola.suite.templates.validation.ParameterSchemaValidator
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.template.model.TemplateDocument
@@ -55,14 +57,10 @@ class UpdateStencilDraftHandler(
             val parameterSchemaJson = command.parameterSchema?.let { objectMapper.writeValueAsString(it) }
 
             handle.createQuery(
-                """
-            UPDATE stencil_versions
-            SET content = :content::jsonb,
-                parameter_schema = :parameterSchema::jsonb
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId AND id = :versionId
-              AND status = 'draft'
-            RETURNING *
-            """,
+                updateStencilVersionsReturning(
+                    "content = :content::jsonb, parameter_schema = :parameterSchema::jsonb",
+                    "id = :versionId AND status = 'draft'",
+                ),
             )
                 .bind("tenantId", command.versionId.tenantKey)
                 .bind("catalogKey", command.versionId.catalogKey)
@@ -81,7 +79,7 @@ class UpdateStencilDraftHandler(
         val exists = handle.createQuery(
             """
             SELECT 1 FROM stencil_versions
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId AND id = :versionId
+            WHERE tenant_key = :tenantId AND stencil_resource_id = ${stencilAtAddress("tenantId", "catalogKey", "stencilId")} AND id = :versionId
             """,
         )
             .bind("tenantId", versionId.tenantKey)

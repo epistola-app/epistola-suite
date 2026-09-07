@@ -42,8 +42,8 @@ class GetLoadTestRunHandler(
                 r.id,
                 r.batch_id,
                 r.tenant_key,
-                r.catalog_key,
-                r.template_key,
+                template.catalog_key,
+                template.id AS template_key,
                 r.variant_key,
                 r.version_key,
                 r.environment_key,
@@ -85,6 +85,8 @@ class GetLoadTestRunHandler(
                     ), 0)
                 END as failed_count
             FROM load_test_runs r
+            JOIN document_templates template ON template.tenant_key = r.tenant_key
+                                            AND template.resource_id = r.template_resource_id
             WHERE r.id = :runId
               AND r.tenant_key = :tenantId
             """,

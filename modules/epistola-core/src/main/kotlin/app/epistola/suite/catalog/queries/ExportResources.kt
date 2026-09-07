@@ -326,13 +326,18 @@ class ExportFontsHandler(
         val wantedKeys = fonts.map { it.catalogKey to it.slug }.toSet()
         val variantsByFont = handle.createQuery(
             """
-            SELECT catalog_key, font_slug, weight, italic, asset_key
-            FROM font_variants
-            WHERE tenant_key = :tenantKey
-              AND source = 'ASSET'
-              AND catalog_key IN (<catalogs>)
-              AND font_slug IN (<slugs>)
-            ORDER BY catalog_key, font_slug, italic, weight
+            SELECT family.catalog_key, family.slug AS font_slug,
+                   faces.weight, faces.italic, binary_asset.id AS asset_key
+            FROM font_variants faces
+            JOIN fonts family ON family.tenant_key = faces.tenant_key AND family.resource_id = faces.font_resource_id
+            JOIN assets binary_asset
+              ON binary_asset.tenant_key = faces.tenant_key
+             AND binary_asset.resource_id = faces.asset_resource_id
+            WHERE faces.tenant_key = :tenantKey
+              AND faces.source = 'ASSET'
+              AND family.catalog_key IN (<catalogs>)
+              AND family.slug IN (<slugs>)
+            ORDER BY family.catalog_key, family.slug, faces.italic, faces.weight
             """,
         )
             .bind("tenantKey", query.tenantKey)

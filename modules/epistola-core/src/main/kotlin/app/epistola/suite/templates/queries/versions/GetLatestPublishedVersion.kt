@@ -11,6 +11,7 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.TemplateVersion
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -48,8 +49,7 @@ class GetLatestPublishedVersionHandler(
                     contract_version
                 FROM template_versions
                 WHERE tenant_key = :tenantId
-                  AND catalog_key = :catalogKey
-                  AND template_key = :templateId
+                  AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                   AND variant_key = :variantId
                   AND status = 'published'
                 ORDER BY id DESC

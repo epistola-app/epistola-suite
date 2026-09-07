@@ -13,6 +13,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.templateJoin
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -92,10 +93,11 @@ class UpdateAttributeDefinitionHandler(
                     val valuesInUse = removedValues.filter { value ->
                         handle.createQuery(
                             """
-                            SELECT COUNT(*) FROM template_variants
-                            WHERE tenant_key = :tenantId
-                              AND catalog_key = :catalogKey
-                              AND attributes ->> :attributeKey = :value
+                            SELECT COUNT(*) FROM template_variants variants
+                            ${templateJoin("variants")}
+                            WHERE variants.tenant_key = :tenantId
+                              AND template.catalog_key = :catalogKey
+                              AND variants.attributes ->> :attributeKey = :value
                             """,
                         )
                             .bind("tenantId", command.id.tenantKey)

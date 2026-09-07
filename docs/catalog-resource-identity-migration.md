@@ -81,15 +81,15 @@ Two independent axes determine the work for a type, and they rank differently:
 - **What I own** — child and version tables that must be re-keyed onto the parent's `resource_id`
   and stripped of denormalised address columns.
 
-| Type                            | Who points at me                               | What I own                            |
-| ------------------------------- | ---------------------------------------------- | ------------------------------------- |
-| `variant_attribute_definitions` | variant attributes JSONB map — **done**        | — **done**                            |
-| `code_lists`                    | 1 relational FK — **re-keyed**                 | `code_list_entries` — **re-keyed**    |
-| `assets`                        | content `IMAGE_ASSET`, `font_variants`         | —                                     |
-| `fonts`                         | content `FONT_FAMILY`, theme fingerprints      | `font_variants`                       |
-| `themes`                        | content `THEME_OVERRIDE`, 2 FKs — **re-keyed** | —                                     |
-| `stencils`                      | content `STENCIL_INSERTION`                    | `stencil_versions` (already re-keyed) |
-| `document_templates`            | **nothing**                                    | **7 FKs, 3 modules, partitioned**     |
+| Type                            | Who points at me                               | What I own                         |
+| ------------------------------- | ---------------------------------------------- | ---------------------------------- |
+| `variant_attribute_definitions` | variant attributes JSONB map — **done**        | — **done**                         |
+| `code_lists`                    | 1 relational FK — **re-keyed**                 | `code_list_entries` — **re-keyed** |
+| `assets`                        | content `IMAGE_ASSET`, `font_variants`         | —                                  |
+| `fonts`                         | content `FONT_FAMILY`, theme fingerprints      | `font_variants`                    |
+| `themes`                        | content `THEME_OVERRIDE`, 2 FKs — **re-keyed** | —                                  |
+| `stencils`                      | content `STENCIL_INSERTION` — **re-keyed**     | `stencil_versions` — **re-keyed**  |
+| `document_templates`            | **nothing**                                    | 7 FKs, 3 modules — **re-keyed**    |
 
 Templates invert: nothing references a template as a dependency, so their reference work is nil and
 all their difficulty is in what they own.

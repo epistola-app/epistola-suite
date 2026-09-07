@@ -13,6 +13,7 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.DataExample
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.template.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -61,23 +62,22 @@ class GetEditorContextHandler(
                 tv.attributes as variant_attributes,
                 COALESCE(draft.template_model, published.template_model) as draft_template_model
             FROM template_variants tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
+            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
             LEFT JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
-            LEFT JOIN template_versions draft ON draft.tenant_key = tv.tenant_key AND draft.catalog_key = tv.catalog_key AND draft.template_key = tv.template_key AND draft.variant_key = tv.id AND draft.status = 'draft'
+            LEFT JOIN template_versions draft ON draft.tenant_key = tv.tenant_key AND draft.template_resource_id = tv.template_resource_id AND draft.variant_key = tv.id AND draft.status = 'draft'
             LEFT JOIN LATERAL (
                 SELECT template_model FROM template_versions
-                WHERE tenant_key = tv.tenant_key AND catalog_key = tv.catalog_key AND template_key = tv.template_key AND variant_key = tv.id AND status = 'published'
+                WHERE tenant_key = tv.tenant_key AND template_resource_id = tv.template_resource_id AND variant_key = tv.id AND status = 'published'
                 ORDER BY id DESC LIMIT 1
             ) published ON draft.template_model IS NULL
             LEFT JOIN LATERAL (
                 SELECT data_model, data_examples FROM contract_versions
-                WHERE tenant_key = dt.tenant_key AND catalog_key = dt.catalog_key AND template_key = dt.id
+                WHERE tenant_key = dt.tenant_key AND template_resource_id = dt.resource_id
                 ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
                 LIMIT 1
             ) cv ON TRUE
-            WHERE tv.template_key = :templateId
-              AND tv.tenant_key = :tenantId
-              AND tv.catalog_key = :catalogKey
+            WHERE tv.tenant_key = :tenantId
+              AND tv.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
               AND tv.id = :variantId
             """,
         )

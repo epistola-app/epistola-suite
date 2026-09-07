@@ -7,6 +7,7 @@ package app.epistola.suite.fonts.queries
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.fonts.FACES_OF_FAMILY_AT_ADDRESS
 import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -50,11 +51,8 @@ class GetFontFamilyFingerprintHandler(
         val faces = jdbi.withHandle<List<FaceHash>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT weight, italic, content_hash
-                FROM font_variants
-                WHERE tenant_key = :tenantKey
-                  AND catalog_key = :catalogKey
-                  AND font_slug = :slug
+                SELECT faces.weight, faces.italic, faces.content_hash
+                $FACES_OF_FAMILY_AT_ADDRESS
                 """,
             )
                 .bind("tenantKey", query.tenantId)

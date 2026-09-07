@@ -280,8 +280,8 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
             .describedAs("a face referenced by the family's old catalog must follow the alias")
             .isEqualTo(before)
 
-        // The faces followed the family, and the backing asset stayed where it was: the two are
-        // independent since V20260905090700 split asset_catalog_key out.
+        // The faces followed the family, and the backing asset stayed where it was: since
+        // V20260905090700 a face names both by identity, so neither move disturbs the other.
         assertThat(withMediator { ResolveFontFace(tenant.id, shared, slug, 400, italic = false).query() }).isEqualTo(before)
     }
 }

@@ -21,6 +21,7 @@ import app.epistola.suite.stencils.StencilNodeKeys
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.services.TemplateDocumentPreparation
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.templates.validation.requireValidDataContractSchema
@@ -276,7 +277,7 @@ class ImportTemplatesHandler(
             handle.createUpdate(
                 """
                     DELETE FROM contract_versions
-                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND status = 'draft'
+                    WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND status = 'draft'
                     """,
             )
                 .bind("tenantId", tenantId.key)
@@ -288,7 +289,7 @@ class ImportTemplatesHandler(
                 """
                     SELECT COALESCE(MAX(id), 0) + 1
                     FROM contract_versions
-                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId
+                    WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                     """,
             )
                 .bind("tenantId", tenantId.key)
@@ -299,8 +300,8 @@ class ImportTemplatesHandler(
 
             handle.createUpdate(
                 """
-                    INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_model, data_examples, status, published_at, created_at, created_by)
-                    VALUES (:id, :tenantId, :catalogKey, :templateId, :dataModel::jsonb, :dataExamples::jsonb, 'published', NOW(), NOW(), :createdBy)
+                    INSERT INTO contract_versions (id, tenant_key, template_resource_id, data_model, data_examples, status, published_at, created_at, created_by)
+                    VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :dataModel::jsonb, :dataExamples::jsonb, 'published', NOW(), NOW(), :createdBy)
                     """,
             )
                 .bind("id", nextContractVersionId)
@@ -317,7 +318,7 @@ class ImportTemplatesHandler(
                 """
                     UPDATE template_versions
                     SET contract_version = :contractVersion
-                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId
+                    WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                     """,
             )
                 .bind("tenantId", tenantId.key)
@@ -331,7 +332,7 @@ class ImportTemplatesHandler(
         handle.createUpdate(
             """
                 UPDATE template_variants SET is_default = FALSE
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND is_default = TRUE
+                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND is_default = TRUE
                 """,
         )
             .bind("tenantId", tenantId.key)
@@ -349,9 +350,9 @@ class ImportTemplatesHandler(
 
             handle.createUpdate(
                 """
-                    INSERT INTO template_variants (id, tenant_key, catalog_key, template_key, title, attributes, is_default, created_at, updated_at, created_by, updated_by)
-                    VALUES (:id, :tenantId, :catalogKey, :templateId, :title, :attributes::jsonb, :isDefault, NOW(), NOW(), :createdBy, :updatedBy)
-                    ON CONFLICT (tenant_key, catalog_key, template_key, id) DO UPDATE
+                    INSERT INTO template_variants (id, tenant_key, template_resource_id, title, attributes, is_default, created_at, updated_at, created_by, updated_by)
+                    VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :title, :attributes::jsonb, :isDefault, NOW(), NOW(), :createdBy, :updatedBy)
+                    ON CONFLICT (tenant_key, template_resource_id, id) DO UPDATE
                     SET title = :title, attributes = :attributes::jsonb, is_default = :isDefault, updated_at = NOW(), updated_by = :updatedBy
                     """,
             )
@@ -372,7 +373,7 @@ class ImportTemplatesHandler(
             val latestContractVersion = handle.createQuery(
                 """
                     SELECT id FROM contract_versions
-                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND status = 'published'
+                    WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND status = 'published'
                     ORDER BY id DESC LIMIT 1
                     """,
             )
@@ -391,7 +392,7 @@ class ImportTemplatesHandler(
         handle.createUpdate(
             """
                 DELETE FROM template_variants
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId
+                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                   AND id NOT IN (<variantIds>)
                 """,
         )
@@ -448,7 +449,7 @@ class ImportTemplatesHandler(
         handle.createUpdate(
             """
                 DELETE FROM template_versions
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND status = 'draft'
+                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND variant_key = :variantId AND status = 'draft'
                 """,
         )
             .bind("tenantId", tenantId.key)
@@ -463,7 +464,7 @@ class ImportTemplatesHandler(
             """
                 SELECT COALESCE(MAX(id), 0) + 1
                 FROM template_versions
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId
+                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND variant_key = :variantId
                 """,
         )
             .bind("tenantId", tenantId.key)
@@ -475,8 +476,8 @@ class ImportTemplatesHandler(
 
         handle.createUpdate(
             """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, referenced_paths, published_at, created_at, created_by)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'published', :contractVersion, :referencedPaths::jsonb, NOW(), NOW(), :createdBy)
+                INSERT INTO template_versions (id, tenant_key, template_resource_id, variant_key, template_model, status, contract_version, referenced_paths, published_at, created_at, created_by)
+                VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :variantId, :templateModel::jsonb, 'published', :contractVersion, :referencedPaths::jsonb, NOW(), NOW(), :createdBy)
                 """,
         )
             .bind("id", VersionKey.of(nextVersionId))
@@ -502,7 +503,7 @@ class ImportTemplatesHandler(
             """
             SELECT id
             FROM template_versions
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND status = 'published'
+            WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND variant_key = :variantId AND status = 'published'
             ORDER BY id DESC
             LIMIT 1
             """,
@@ -520,9 +521,9 @@ class ImportTemplatesHandler(
         // Upsert activation
         handle.createUpdate(
             """
-            INSERT INTO environment_activations (tenant_key, catalog_key, environment_key, template_key, variant_key, version_key, activated_at)
-            VALUES (:tenantId, :catalogKey, :environmentId, :templateId, :variantId, :versionId, NOW())
-            ON CONFLICT (tenant_key, catalog_key, environment_key, template_key, variant_key)
+            INSERT INTO environment_activations (tenant_key, environment_key, template_resource_id, variant_key, version_key, activated_at)
+            VALUES (:tenantId, :environmentId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :variantId, :versionId, NOW())
+            ON CONFLICT (tenant_key, environment_key, template_resource_id, variant_key)
             DO UPDATE SET version_key = :versionId, activated_at = NOW()
             """,
         )

@@ -19,6 +19,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.SelfManagedTransaction
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
@@ -89,11 +90,13 @@ class StartLoadTestHandler(
                 SELECT EXISTS (
                     SELECT 1
                     FROM template_variants
-                    WHERE tenant_key = :tenantId AND id = :variantId AND template_key = :templateId
+                    WHERE tenant_key = :tenantId AND id = :variantId
+                      AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 )
                 """,
             )
                 .bind("templateId", command.templateId)
+                .bind("catalogKey", command.catalogKey)
                 .bind("variantId", command.variantId)
                 .bind("tenantId", command.tenantId)
                 .mapTo<Boolean>()
@@ -110,11 +113,15 @@ class StartLoadTestHandler(
                     SELECT EXISTS (
                         SELECT 1
                         FROM template_versions
-                        WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
+                        WHERE tenant_key = :tenantId
+                          AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+                          AND variant_key = :variantId AND id = :versionId
                     )
                     """,
                 )
                     .bind("versionId", command.versionId)
+                    .bind("catalogKey", command.catalogKey)
+                    .bind("templateId", command.templateId)
                     .bind("variantId", command.variantId)
                     .bind("tenantId", command.tenantId)
                     .mapTo<Boolean>()
@@ -149,12 +156,14 @@ class StartLoadTestHandler(
             val run = handle.createQuery(
                 """
                 INSERT INTO load_test_runs (
-                    id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
+                    id, tenant_key, template_resource_id, variant_key, version_key, environment_key,
                     target_count, concurrency_level, test_data, status
                 )
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :versionId, :environmentId,
+                VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :variantId, :versionId, :environmentId,
                         :targetCount, :concurrencyLevel, :testData::jsonb, :status)
-                RETURNING id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
+                RETURNING id, tenant_key, CAST(:catalogKey AS TEXT) AS catalog_key,
+                          CAST(:templateId AS TEXT) AS template_key,
+                          variant_key, version_key, environment_key,
                           target_count, concurrency_level, test_data, status, claimed_by, claimed_at,
                           completed_count, failed_count, total_duration_ms, avg_response_time_ms,
                           min_response_time_ms, max_response_time_ms, p50_response_time_ms,

@@ -20,6 +20,7 @@ import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.createDefaultTemplateModel
 import app.epistola.suite.templates.services.TemplateDocumentPreparation
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
@@ -92,8 +93,8 @@ class CreateDocumentTemplateHandler(
                 val variantId = VariantKey.INITIAL
                 handle.createUpdate(
                     """
-                INSERT INTO template_variants (id, tenant_key, catalog_key, template_key, title, attributes, is_default, created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :title, '{}'::jsonb, TRUE, NOW(), NOW(), :createdBy, :updatedBy)
+                INSERT INTO template_variants (id, tenant_key, template_resource_id, title, attributes, is_default, created_at, updated_at, created_by, updated_by)
+                VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :title, '{}'::jsonb, TRUE, NOW(), NOW(), :createdBy, :updatedBy)
                 """,
                 )
                     .bind("id", variantId)
@@ -109,8 +110,8 @@ class CreateDocumentTemplateHandler(
                 val contractVersionId = VersionKey.of(1)
                 handle.createUpdate(
                     """
-                INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_examples, status, created_at, created_by)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, '[]'::jsonb, 'draft', NOW(), :createdBy)
+                INSERT INTO contract_versions (id, tenant_key, template_resource_id, data_examples, status, created_at, created_by)
+                VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, '[]'::jsonb, 'draft', NOW(), :createdBy)
                 """,
                 )
                     .bind("id", contractVersionId)
@@ -126,8 +127,8 @@ class CreateDocumentTemplateHandler(
 
                 handle.createUpdate(
                     """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, referenced_paths, created_at, created_by)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, :referencedPaths::jsonb, NOW(), :createdBy)
+                INSERT INTO template_versions (id, tenant_key, template_resource_id, variant_key, template_model, status, contract_version, referenced_paths, created_at, created_by)
+                VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :variantId, :templateModel::jsonb, 'draft', :contractVersion, :referencedPaths::jsonb, NOW(), :createdBy)
                 """,
                 )
                     .bind("id", versionId)

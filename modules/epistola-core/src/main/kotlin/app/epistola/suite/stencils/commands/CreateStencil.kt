@@ -18,6 +18,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.stencils.Stencil
+import app.epistola.suite.stencils.stencilAtAddress
 import app.epistola.suite.templates.validation.ParameterSchemaValidator
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
@@ -120,10 +121,9 @@ class CreateStencilHandler(
                     val parameterSchemaJson = command.parameterSchema?.let { objectMapper.writeValueAsString(it) }
                     handle.createUpdate(
                         """
-                        INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, stencil_resource_id, content, parameter_schema, status, created_at, created_by)
+                        INSERT INTO stencil_versions (id, tenant_key, stencil_resource_id, content, parameter_schema, status, created_at, created_by)
                         VALUES (
-                            :id, :tenantId, :catalogKey, :stencilId,
-                            (SELECT resource_id FROM stencils WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :stencilId),
+                            :id, :tenantId, ${stencilAtAddress("tenantId", "catalogKey", "stencilId")},
                             :content::jsonb, :parameterSchema::jsonb, 'draft', NOW(), :createdBy
                         )
                         """,

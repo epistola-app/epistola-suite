@@ -9,6 +9,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.templateJoin
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel
@@ -154,14 +155,21 @@ class TenantResourceGraphBuilder(
 
         handle.createQuery(
             """
-                SELECT catalog_key::text, font_slug::text, asset_key::text, weight, italic
-                FROM font_variants
-                WHERE tenant_key = :tenantKey AND source = 'ASSET'
+                SELECT family.catalog_key::text, family.slug::text AS font_slug,
+                       binary_asset.catalog_key::text AS asset_catalog_key,
+                       binary_asset.id::text AS asset_key,
+                       faces.weight, faces.italic
+                FROM font_variants faces
+                JOIN fonts family ON family.tenant_key = faces.tenant_key AND family.resource_id = faces.font_resource_id
+                JOIN assets binary_asset
+                  ON binary_asset.tenant_key = faces.tenant_key
+                 AND binary_asset.resource_id = faces.asset_resource_id
+                WHERE faces.tenant_key = :tenantKey AND faces.source = 'ASSET'
             """,
         ).bind("tenantKey", tenantKey).map { rs, _ ->
             Occurrence(
                 source = ResourceAddress(CatalogResourceType.FONT, rs.getString("catalog_key"), rs.getString("font_slug")),
-                selector = ReferenceSelector(CatalogResourceType.ASSET, rs.getString("catalog_key"), rs.getString("asset_key")),
+                selector = ReferenceSelector(CatalogResourceType.ASSET, rs.getString("asset_catalog_key"), rs.getString("asset_key")),
                 kind = "font-face-asset",
                 semantics = ReferenceSemantics.RUNTIME,
                 qualification = ReferenceQualification.EXPLICIT,
@@ -171,8 +179,10 @@ class TenantResourceGraphBuilder(
 
         handle.createQuery(
             """
-                SELECT tv.catalog_key::text, tv.template_key::text, tv.id::text variant_key, attribute.key attribute_key
+                SELECT template.catalog_key::text, template.id::text AS template_key,
+                       tv.id::text variant_key, attribute.key attribute_key
                 FROM template_variants tv
+                ${templateJoin("tv")}
                 CROSS JOIN LATERAL jsonb_object_keys(tv.attributes) attribute(key)
                 WHERE tv.tenant_key = :tenantKey
             """,
@@ -207,9 +217,13 @@ class TenantResourceGraphBuilder(
 
     private fun loadTemplateReferences(handle: Handle, tenantKey: TenantKey, includeHistory: Boolean): List<Occurrence> = handle.createQuery(
         """
-            SELECT catalog_key::text, template_key::text, variant_key::text, id, status, template_model::text, resolved_theme::text
-            FROM template_versions
-            WHERE tenant_key = :tenantKey AND (:includeHistory OR status IN ('draft', 'published'))
+            SELECT template.catalog_key::text, template.id::text AS template_key,
+                   version.variant_key::text, version.id, version.status,
+                   version.template_model::text, version.resolved_theme::text
+            FROM template_versions version
+            ${templateJoin("version")}
+            WHERE version.tenant_key = :tenantKey
+              AND (:includeHistory OR version.status IN ('draft', 'published'))
         """,
     ).bind("tenantKey", tenantKey).bind("includeHistory", includeHistory).map { rs, _ ->
         val source = ResourceAddress(CatalogResourceType.TEMPLATE, rs.getString("catalog_key"), rs.getString("template_key"))
@@ -225,9 +239,13 @@ class TenantResourceGraphBuilder(
 
     private fun loadStencilReferences(handle: Handle, tenantKey: TenantKey, includeHistory: Boolean): List<Occurrence> = handle.createQuery(
         """
-            SELECT catalog_key::text, stencil_key::text, id, status, content::text
-            FROM stencil_versions
-            WHERE tenant_key = :tenantKey AND (:includeHistory OR status IN ('draft', 'published'))
+            SELECT stencil.catalog_key::text, stencil.id::text AS stencil_key,
+                   versions.id, versions.status, versions.content::text
+            FROM stencil_versions versions
+            JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
+                                 AND stencil.resource_id = versions.stencil_resource_id
+            WHERE versions.tenant_key = :tenantKey
+              AND (:includeHistory OR versions.status IN ('draft', 'published'))
         """,
     ).bind("tenantKey", tenantKey).bind("includeHistory", includeHistory).map { rs, _ ->
         val source = ResourceAddress(CatalogResourceType.STENCIL, rs.getString("catalog_key"), rs.getString("stencil_key"))

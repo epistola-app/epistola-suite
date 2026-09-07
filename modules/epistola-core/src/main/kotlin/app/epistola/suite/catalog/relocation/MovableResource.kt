@@ -48,6 +48,9 @@ enum class MovableResource(
      * Referenced from template and stencil content. Published references to it keep their old
      * address and resolve through the alias; the only published bytes a move touches are the
      * relative references inside the moving stencil's own versions, pinned to the catalog it leaves.
+     *
+     * Keyed by identity (`V20260905090900`), as are its versions: they name the stencil rather
+     * than carrying a copy of its address, so a move updates one row.
      */
     STENCIL(
         CatalogResourceType.STENCIL,
@@ -72,12 +75,12 @@ enum class MovableResource(
     /**
      * Nothing references a template as a catalog dependency, so there is no content to re-point.
      * All of a template's coupling is downstream: its variants, versions, contract versions,
-     * activations, quality findings and load-test runs follow it by `ON UPDATE CASCADE`, while
-     * generation history deliberately does not — see `V20260905090400__core_template_relocation`.
+     * activations, quality findings and load-test runs name its identity and so follow it without
+     * a cascade, while generation history deliberately does not -- it keeps the address recorded
+     * at the time, see `V20260905090400__core_template_relocation`.
      *
-     * Unlike stencils and attributes this type is not yet re-keyed onto its identity; the address
-     * still sits in those primary keys and the cascade does the work. That is the same interim
-     * shape stencils are in, not the target model.
+     * The largest of the seven: the address sat in eight tables' primary keys across three
+     * modules, so re-keying it is what let every one of relocation's weakened foreign keys go.
      */
     TEMPLATE(
         CatalogResourceType.TEMPLATE,
@@ -107,6 +110,8 @@ enum class MovableResource(
      *
      * References are not rewritten: `IMAGE_ASSET` resolves tenant-globally rather than relative to
      * the containing catalog, so a stored reference means the same thing wherever its owner lives.
+     * Keyed by identity (`V20260905090700`), so a font face pointing at one is undisturbed by a
+     * move.
      */
     ASSET(
         CatalogResourceType.ASSET,
@@ -123,8 +128,9 @@ enum class MovableResource(
      * family is not at the address the content names — otherwise a moved family would silently
      * render as the built-in fallback rather than failing.
      *
-     * Its faces follow by `ON UPDATE CASCADE`. A face's backing asset does not: it has its own
-     * `asset_catalog_key` since `V20260905090700`, so a font and its asset move independently.
+     * Keyed by identity (`V20260905090700`), as are its faces: a face names its family and its
+     * backing asset by identity rather than through a shared catalog column, so a font and its
+     * asset move independently and neither move touches a face.
      */
     FONT(
         CatalogResourceType.FONT,

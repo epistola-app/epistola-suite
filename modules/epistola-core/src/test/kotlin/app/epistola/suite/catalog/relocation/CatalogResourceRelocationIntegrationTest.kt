@@ -60,6 +60,7 @@ import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.templateJoin
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
@@ -424,7 +425,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         }
         // Content published before references were qualified on write stored this relatively. No
         // command writes that shape any more, so the qualification is stripped from the row.
-        stripQualification("stencil_versions", "content", "{themeRef,catalogKey}", tenant.id, sourceCatalog, "stencil_key", header.key.value)
+        stripQualification("stencil_versions", "content", "{themeRef,catalogKey}", tenant.id, sourceCatalog, stencilOwner, header.key.value)
 
         val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(headerAddress.movedTo(targetCatalog))).query() }
         assertThat(preview.blockers).isEmpty()
@@ -433,7 +434,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         withMediator { MoveCatalogResources(tenant.id, listOf(headerAddress.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 
         // The published version now says what it always meant: the theme in the catalog it left.
-        val published = publishedJson("stencil_versions", "content", tenant.id, targetCatalog, "stencil_key", header.key.value)
+        val published = publishedJson("stencil_versions", "content", tenant.id, targetCatalog, stencilOwner, header.key.value)
         assertThat(published.path("themeRef").path("catalogKey").stringValue()).isEqualTo(sourceCatalog.value)
         val graph = withMediator { GetTenantResourceGraph(tenant.id, includeHistory = true).query() }
         assertThat(graph.edges)
@@ -463,7 +464,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             UpdateDraft(variantId, templateEmbedding(stencilId.key.value)).execute()
             PublishVersion(VersionId(GetDraft(variantId).query()!!.id, variantId)).execute()
         }
-        stripQualification("template_versions", "template_model", "{nodes,stencil-instance,props,catalogKey}", tenant.id, sourceCatalog, "template_key", templateId.key.value)
+        stripQualification("template_versions", "template_model", "{nodes,stencil-instance,props,catalogKey}", tenant.id, sourceCatalog, templateOwner, templateId.key.value)
 
         val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog))).query() }
         assertThat(preview.blockers).isEmpty()
@@ -472,7 +473,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
 
         // Relative meant "letters" when it was published. After the move that is spelled out, so
         // neither the published version nor a draft reopened from it resolves against "shared".
-        val published = publishedJson("template_versions", "template_model", tenant.id, targetCatalog, "template_key", templateId.key.value)
+        val published = publishedJson("template_versions", "template_model", tenant.id, targetCatalog, templateOwner, templateId.key.value)
         assertThat(published.path("nodes").path("stencil-instance").path("props").path("catalogKey").stringValue()).isEqualTo(sourceCatalog.value)
         val movedVariant = VariantId(VariantKey.INITIAL, TemplateId(templateId.key, CatalogId(targetCatalog, tenantId)))
         val draft = withMediator {
@@ -483,11 +484,23 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         withMediator { PublishVersion(VersionId(draft.id, movedVariant)).execute() }
     }
 
+    /**
+     * How a versions table names the resource that owns it, as a bindable predicate on
+     * `(:tenantKey, :catalogKey, :ownerKey)`. Stencil versions name their stencil's identity, so
+     * the address has to be resolved through it; template versions still carry the address.
+     */
+    private val stencilOwner =
+        "stencil_resource_id = (SELECT resource_id FROM stencils " +
+            "WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id = :ownerKey)"
+    private val templateOwner =
+        "template_resource_id = (SELECT resource_id FROM document_templates " +
+            "WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id = :ownerKey)"
+
     /** Removes a qualification the write path added, to plant content in its pre-qualification shape. */
-    private fun stripQualification(table: String, column: String, path: String, tenantKey: TenantKey, catalogKey: CatalogKey, ownerColumn: String, ownerKey: String) {
+    private fun stripQualification(table: String, column: String, path: String, tenantKey: TenantKey, catalogKey: CatalogKey, owner: String, ownerKey: String) {
         jdbi.useHandle<Exception> { handle ->
             val stripped = handle.createUpdate(
-                "UPDATE $table SET $column = $column #- :path::text[] WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND $ownerColumn = :ownerKey AND status = 'published'",
+                "UPDATE $table SET $column = $column #- :path::text[] WHERE tenant_key = :tenantKey AND $owner AND status = 'published'",
             )
                 .bind("path", path)
                 .bind("tenantKey", tenantKey)
@@ -498,9 +511,9 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         }
     }
 
-    private fun publishedJson(table: String, column: String, tenantKey: TenantKey, catalogKey: CatalogKey, ownerColumn: String, ownerKey: String): JsonNode = jdbi.withHandle<JsonNode, Exception> { handle ->
+    private fun publishedJson(table: String, column: String, tenantKey: TenantKey, catalogKey: CatalogKey, owner: String, ownerKey: String): JsonNode = jdbi.withHandle<JsonNode, Exception> { handle ->
         val raw = handle.createQuery(
-            "SELECT $column::text FROM $table WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND $ownerColumn = :ownerKey AND status = 'published'",
+            "SELECT $column::text FROM $table WHERE tenant_key = :tenantKey AND $owner AND status = 'published'",
         )
             .bind("tenantKey", tenantKey)
             .bind("catalogKey", catalogKey)
@@ -597,8 +610,10 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         // The template and its owned hierarchy followed.
         assertThat(withMediator { ResolveCatalogResourceAddress(tenant.id, address).query()!! }.canonical.catalogKey)
             .isEqualTo(targetCatalog.value)
-        assertThat(catalogKeysIn("template_variants", tenant.id)).containsExactly(targetCatalog.value)
-        assertThat(catalogKeysIn("template_versions", tenant.id)).containsExactly(targetCatalog.value)
+        // The hierarchy no longer stores a catalog of its own: it follows the template's, which is
+        // the point of the re-key, so reading it back through the template is the real assertion.
+        assertThat(catalogKeysOfTemplatesOwning("template_variants", tenant.id)).containsExactly(targetCatalog.value)
+        assertThat(catalogKeysOfTemplatesOwning("template_versions", tenant.id)).containsExactly(targetCatalog.value)
 
         // Generation history did not: it records where the template lived at the time.
         assertThat(catalogKeysIn("documents", tenant.id)).containsExactly(sourceCatalog.value)
@@ -645,6 +660,21 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
 
     private fun catalogKeysIn(table: String, tenantKey: TenantKey): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
         handle.createQuery("SELECT DISTINCT catalog_key::text FROM $table WHERE tenant_key = :tenantKey")
+            .bind("tenantKey", tenantKey)
+            .mapTo(String::class.java)
+            .list()
+    }
+
+    /** Where the templates owning every row of [table] live. Only the table name is interpolated. */
+    private fun catalogKeysOfTemplatesOwning(table: String, tenantKey: TenantKey): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT DISTINCT template.catalog_key::text
+            FROM $table owned
+            ${templateJoin("owned")}
+            WHERE owned.tenant_key = :tenantKey
+            """,
+        )
             .bind("tenantKey", tenantKey)
             .mapTo(String::class.java)
             .list()
@@ -1039,8 +1069,9 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
     private fun variantAttributes(tenantKey: TenantKey, templateId: TemplateId, variantId: VariantId): Map<String, String> = jdbi.withHandle<Map<String, String>, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT attributes::text FROM template_variants
-                WHERE tenant_key = :tenantKey AND template_key = :templateKey AND id = :variantKey
+                SELECT variants.attributes::text FROM template_variants variants
+                ${templateJoin("variants")}
+                WHERE variants.tenant_key = :tenantKey AND template.id = :templateKey AND variants.id = :variantKey
                 """,
         )
             .bind("tenantKey", tenantKey)

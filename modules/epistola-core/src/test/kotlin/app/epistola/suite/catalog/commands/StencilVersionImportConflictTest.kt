@@ -36,6 +36,7 @@ import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.template.model.ThemeRef
@@ -268,7 +269,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
                     """
                     SELECT template_model::text
                     FROM template_versions
-                    WHERE tenant_key = :t AND catalog_key = :c AND template_key = :tpl
+                    WHERE tenant_key = :t AND template_resource_id = ${templateAtAddress("t", "c", "tpl")}
                     ORDER BY id DESC LIMIT 1
                     """,
                 )
@@ -338,7 +339,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
                     """
                     SELECT template_model::text
                     FROM template_versions
-                    WHERE tenant_key = :t AND catalog_key = :c AND template_key = :tpl
+                    WHERE tenant_key = :t AND template_resource_id = ${templateAtAddress("t", "c", "tpl")}
                     ORDER BY id DESC LIMIT 1
                     """,
                 )

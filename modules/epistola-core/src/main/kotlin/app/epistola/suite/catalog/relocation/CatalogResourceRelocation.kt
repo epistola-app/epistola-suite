@@ -16,6 +16,8 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.templateJoin
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel
@@ -162,8 +164,8 @@ class MoveCatalogResourcesHandler(
                 is JsonRewrite.TemplateVersion -> handle.createUpdate(
                     """
                     UPDATE template_versions SET template_model = :replacement::jsonb
-                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                      AND template_key = :templateKey AND variant_key = :variantKey AND id = :version
+                    WHERE tenant_key = :tenantKey
+                      AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = :variantKey AND id = :version
                       AND template_model = :expected::jsonb
                     """,
                 )
@@ -176,8 +178,11 @@ class MoveCatalogResourcesHandler(
                 is JsonRewrite.StencilVersion -> handle.createUpdate(
                     """
                     UPDATE stencil_versions SET content = :replacement::jsonb
-                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                      AND stencil_key = :stencilKey AND id = :version
+                    WHERE tenant_key = :tenantKey
+                      AND stencil_resource_id = (SELECT resource_id FROM stencils
+                                                  WHERE tenant_key = :tenantKey
+                                                    AND catalog_key = :catalogKey AND id = :stencilKey)
+                      AND id = :version
                       AND content = :expected::jsonb
                     """,
                 )
@@ -189,8 +194,8 @@ class MoveCatalogResourcesHandler(
                 is JsonRewrite.VariantAttributes -> handle.createUpdate(
                     """
                     UPDATE template_variants SET attributes = :replacement::jsonb
-                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                      AND template_key = :templateKey AND id = :variantKey
+                    WHERE tenant_key = :tenantKey
+                      AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND id = :variantKey
                       AND attributes = :expected::jsonb
                     """,
                 )
@@ -617,10 +622,12 @@ class CatalogResourceMovePlanner(
         val newKey = target.catalogKey + "." + target.key
         return handle.createQuery(
             """
-            SELECT catalog_key::text, template_key::text, id::text variant_key, attributes::text
-            FROM template_variants
-            WHERE tenant_key = :tenantKey AND attributes ?? :oldKey
-            ORDER BY catalog_key, template_key, id
+            SELECT template.catalog_key::text, template.id::text AS template_key,
+                   variants.id::text variant_key, variants.attributes::text
+            FROM template_variants variants
+            ${templateJoin("variants")}
+            WHERE variants.tenant_key = :tenantKey AND variants.attributes ?? :oldKey
+            ORDER BY template.catalog_key, template.id, variants.id
             """,
         )
             .bind("tenantKey", tenantKey)
@@ -645,10 +652,12 @@ class CatalogResourceMovePlanner(
         if (owners != null && owners.isEmpty()) return emptyList()
         return handle.createQuery(
             """
-            SELECT catalog_key::text, template_key::text owner_key, variant_key::text, id, status, template_model::text json
-            FROM template_versions
-            WHERE tenant_key = :tenantKey ${ownerFilter(owners, "template_key")}
-            ORDER BY catalog_key, template_key, variant_key, id
+            SELECT template.catalog_key::text, template.id::text owner_key,
+                   versions.variant_key::text, versions.id, versions.status, versions.template_model::text json
+            FROM template_versions versions
+            ${templateJoin("versions")}
+            WHERE versions.tenant_key = :tenantKey ${ownerFilter(owners, "template.id", "template.catalog_key")}
+            ORDER BY template.catalog_key, template.id, versions.variant_key, versions.id
             """,
         )
             .bind("tenantKey", tenantKey)
@@ -663,10 +672,13 @@ class CatalogResourceMovePlanner(
         if (owners != null && owners.isEmpty()) return emptyList()
         return handle.createQuery(
             """
-            SELECT catalog_key::text, stencil_key::text owner_key, id, status, content::text json
-            FROM stencil_versions
-            WHERE tenant_key = :tenantKey ${ownerFilter(owners, "stencil_key")}
-            ORDER BY catalog_key, stencil_key, id
+            SELECT stencil.catalog_key::text, stencil.id::text owner_key,
+                   versions.id, versions.status, versions.content::text json
+            FROM stencil_versions versions
+            JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
+                                 AND stencil.resource_id = versions.stencil_resource_id
+            WHERE versions.tenant_key = :tenantKey ${ownerFilter(owners, "stencil.id", "stencil.catalog_key")}
+            ORDER BY stencil.catalog_key, stencil.id, versions.id
             """,
         )
             .bind("tenantKey", tenantKey)
@@ -682,10 +694,10 @@ class CatalogResourceMovePlanner(
      * tenant. Only the column name is interpolated, and it is a literal from the caller; the
      * addresses are bound.
      */
-    private fun ownerFilter(owners: Set<ResourceAddress>?, keyColumn: String): String = if (owners == null) {
+    private fun ownerFilter(owners: Set<ResourceAddress>?, keyColumn: String, catalogColumn: String = "catalog_key"): String = if (owners == null) {
         ""
     } else {
-        owners.indices.joinToString(" OR ", prefix = "AND (", postfix = ")") { "(catalog_key = :ownerCatalog$it AND $keyColumn = :ownerKey$it)" }
+        owners.indices.joinToString(" OR ", prefix = "AND (", postfix = ")") { "($catalogColumn = :ownerCatalog$it AND $keyColumn = :ownerKey$it)" }
     }
 
     private fun org.jdbi.v3.core.statement.Query.bindOwners(owners: Set<ResourceAddress>?) = apply {

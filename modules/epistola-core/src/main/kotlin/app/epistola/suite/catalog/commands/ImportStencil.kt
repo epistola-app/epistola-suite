@@ -15,6 +15,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
+import app.epistola.suite.stencils.stencilAtAddress
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_COLUMN_LENGTH
@@ -126,7 +127,7 @@ class ImportStencilHandler(
             handle.createUpdate(
                 """
                 DELETE FROM stencil_versions
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND stencil_key = :stencilKey AND status = 'draft'
+                WHERE tenant_key = :tenantKey AND stencil_resource_id = ${stencilAtAddress("tenantKey", "catalogKey", "stencilKey")} AND status = 'draft'
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
@@ -145,9 +146,7 @@ class ImportStencilHandler(
                 SELECT (content = :content::jsonb
                         AND parameter_schema IS NOT DISTINCT FROM :parameterSchema::jsonb) AS matches
                 FROM stencil_versions
-                WHERE tenant_key = :tenantKey
-                  AND catalog_key = :catalogKey
-                  AND stencil_key = :stencilKey
+                WHERE tenant_key = :tenantKey AND stencil_resource_id = ${stencilAtAddress("tenantKey", "catalogKey", "stencilKey")}
                   AND id = :version
                 """,
             )
@@ -188,7 +187,7 @@ class ImportStencilHandler(
                     )
                     OnStencilConflict.RENUMBER -> {
                         val newVersion = handle.createQuery(
-                            "SELECT COALESCE(MAX(id), 0) + 1 FROM stencil_versions WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND stencil_key = :stencilKey",
+                            "SELECT COALESCE(MAX(id), 0) + 1 FROM stencil_versions WHERE tenant_key = :tenantKey AND stencil_resource_id = ${stencilAtAddress("tenantKey", "catalogKey", "stencilKey")}",
                         )
                             .bind("tenantKey", command.tenantKey)
                             .bind("catalogKey", command.catalogKey)
@@ -218,10 +217,9 @@ class ImportStencilHandler(
     ) {
         handle.createUpdate(
             """
-            INSERT INTO stencil_versions (id, tenant_key, catalog_key, stencil_key, stencil_resource_id, content, parameter_schema, status, published_at, created_at, created_by)
+            INSERT INTO stencil_versions (id, tenant_key, stencil_resource_id, content, parameter_schema, status, published_at, created_at, created_by)
             VALUES (
-                :id, :tenantKey, :catalogKey, :stencilKey,
-                (SELECT resource_id FROM stencils WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id = :stencilKey),
+                :id, :tenantKey, ${stencilAtAddress("tenantKey", "catalogKey", "stencilKey")},
                 :content::jsonb, :parameterSchema::jsonb, 'published', NOW(), NOW(), :createdBy
             )
             """,

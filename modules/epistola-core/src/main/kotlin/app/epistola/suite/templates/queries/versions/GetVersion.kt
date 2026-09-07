@@ -11,6 +11,7 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.TemplateVersion
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -34,12 +35,10 @@ class GetVersionHandler(
                        ver.created_at, ver.published_at, ver.archived_at,
                        ver.rendering_defaults_version, ver.resolved_theme, ver.contract_version
                 FROM template_versions ver
-                JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.catalog_key = ver.catalog_key AND tv.template_key = ver.template_key AND tv.id = ver.variant_key
                 WHERE ver.id = :versionId
                   AND ver.variant_key = :variantId
                   AND ver.tenant_key = :tenantId
-                  AND ver.catalog_key = :catalogKey
-                  AND tv.template_key = :templateId
+                  AND ver.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 """,
         )
             .bind("versionId", query.versionId.key)
