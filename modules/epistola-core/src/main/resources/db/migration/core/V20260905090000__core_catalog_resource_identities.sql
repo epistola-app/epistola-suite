@@ -17,8 +17,11 @@ CREATE TABLE catalog_resources (
     -- of these are longer than that, so the names would be silently clipped and hard to reference.
     CONSTRAINT uq_catalog_resources_typed_identity UNIQUE (tenant_key, resource_id, resource_type),
     CONSTRAINT uq_catalog_resources_address UNIQUE (tenant_key, resource_type, catalog_key, resource_key),
+    -- Deferrable so a restore can plant a tenant's identities before the import recreates the
+    -- catalogs holding them, inside one transaction. The check still holds at commit.
     CONSTRAINT fk_catalog_resources_catalog
-        FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE,
+        FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE
+        DEFERRABLE INITIALLY IMMEDIATE,
     CONSTRAINT chk_catalog_resources_type
         CHECK (resource_type IN ('asset', 'codeList', 'font', 'attribute', 'theme', 'stencil', 'template'))
 );
