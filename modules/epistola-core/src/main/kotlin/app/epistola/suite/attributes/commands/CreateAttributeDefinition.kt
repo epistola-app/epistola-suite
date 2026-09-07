@@ -4,6 +4,7 @@
 
 package app.epistola.suite.attributes.commands
 
+import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
@@ -84,12 +85,18 @@ class CreateAttributeDefinitionHandler(
                 handle.createQuery(
                     """
                 INSERT INTO variant_attribute_definitions (id, tenant_key, catalog_key, display_name, allowed_values,
-                                                           code_list_catalog_key, code_list_slug,
+                                                           code_list_resource_id,
                                                            created_at, updated_at)
                 VALUES (:id, :tenantId, :catalogKey, :displayName, :allowedValues::jsonb,
-                        :codeListCatalogKey, :codeListSlug,
+                        ${boundCodeListAtAddress("tenantId")},
                         NOW(), NOW())
-                RETURNING *
+                RETURNING id, tenant_key, catalog_key, display_name, allowed_values, created_at, updated_at,
+                          (SELECT catalog_key FROM code_lists cl
+                            WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
+                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id) AS code_list_catalog_key,
+                          (SELECT slug FROM code_lists cl
+                            WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
+                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id) AS code_list_slug
                 """,
                 )
                     .bind("id", command.id.key)

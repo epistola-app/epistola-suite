@@ -865,15 +865,26 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
 
         assertThat(withMediator { ResolveCatalogResourceAddress(tenant.id, address).query()!! }.canonical.catalogKey)
             .isEqualTo(targetCatalog.value)
-        // Owned entries and the binding follow by ON UPDATE CASCADE rather than by the command
-        // touching either table, so this is what proves the cascade is actually in place.
-        assertThat(entryCatalogsFor(tenant.id, codeListId.key.value)).containsOnly(targetCatalog.value)
+        // Nothing cascaded, because nothing stored the address: the entries and the binding name
+        // the code list itself, so they follow it by construction rather than by being rewritten.
+        assertThat(entriesOwnedBy(tenant.id, targetCatalog, codeListId.key.value)).containsExactly("en", "nl")
         assertThat(boundCodeListCatalog(tenant.id, attributeId)).isEqualTo(targetCatalog.value)
     }
 
-    private fun entryCatalogsFor(tenantKey: TenantKey, slug: String): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
-        handle.createQuery("SELECT catalog_key::text FROM code_list_entries WHERE tenant_key = :tenantKey AND code_list_slug = :slug")
+    /** The codes owned by the code list now at this address, reached through its identity. */
+    private fun entriesOwnedBy(tenantKey: TenantKey, catalogKey: CatalogKey, slug: String): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT entries.code
+            FROM code_list_entries entries
+            JOIN code_lists lists
+              ON lists.tenant_key = entries.tenant_key AND lists.resource_id = entries.code_list_resource_id
+            WHERE entries.tenant_key = :tenantKey AND lists.catalog_key = :catalogKey AND lists.slug = :slug
+            ORDER BY entries.code
+            """,
+        )
             .bind("tenantKey", tenantKey)
+            .bind("catalogKey", catalogKey)
             .bind("slug", slug)
             .mapTo(String::class.java)
             .list()
@@ -882,8 +893,10 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
     private fun boundCodeListCatalog(tenantKey: TenantKey, attributeId: AttributeId): String? = jdbi.withHandle<String?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT code_list_catalog_key::text FROM variant_attribute_definitions
-            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id = :id
+            SELECT lists.catalog_key::text
+            FROM variant_attribute_definitions a
+            JOIN code_lists lists ON lists.tenant_key = a.tenant_key AND lists.resource_id = a.code_list_resource_id
+            WHERE a.tenant_key = :tenantKey AND a.catalog_key = :catalogKey AND a.id = :id
             """,
         )
             .bind("tenantKey", tenantKey)

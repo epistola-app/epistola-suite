@@ -134,9 +134,11 @@ class TenantResourceGraphBuilder(
 
         handle.createQuery(
             """
-                SELECT catalog_key::text, id::text, code_list_catalog_key::text, code_list_slug::text
-                FROM variant_attribute_definitions
-                WHERE tenant_key = :tenantKey AND code_list_slug IS NOT NULL
+                SELECT a.catalog_key::text, a.id::text,
+                       cl.catalog_key::text AS code_list_catalog_key, cl.slug::text AS code_list_slug
+                FROM variant_attribute_definitions a
+                JOIN code_lists cl ON cl.tenant_key = a.tenant_key AND cl.resource_id = a.code_list_resource_id
+                WHERE a.tenant_key = :tenantKey
             """,
         ).bind("tenantKey", tenantKey).map { rs, _ ->
             Occurrence(

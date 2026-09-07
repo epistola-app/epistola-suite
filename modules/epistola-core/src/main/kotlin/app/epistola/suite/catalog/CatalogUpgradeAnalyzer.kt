@@ -175,8 +175,8 @@ class CatalogUpgradeAnalyzer(
             FROM variant_attribute_definitions
             WHERE tenant_key = :t
               AND catalog_key != :c
-              AND code_list_catalog_key = :c
-              AND code_list_slug = :slug
+              AND code_list_resource_id = (SELECT resource_id FROM code_lists
+                                            WHERE tenant_key = :t AND catalog_key = :c AND slug = :slug)
             """,
         ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
             .map { rs, _ ->

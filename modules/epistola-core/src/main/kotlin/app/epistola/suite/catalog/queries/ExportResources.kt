@@ -87,14 +87,15 @@ class ExportAttributesHandler(
         val sql = buildString {
             append(
                 """
-                SELECT id, catalog_key, display_name, allowed_values::text,
-                       code_list_catalog_key, code_list_slug
-                FROM variant_attribute_definitions
-                WHERE tenant_key = :tenantKey
+                SELECT a.id, a.catalog_key, a.display_name, a.allowed_values::text,
+                       cl.catalog_key AS code_list_catalog_key, cl.slug AS code_list_slug
+                FROM variant_attribute_definitions a
+                LEFT JOIN code_lists cl ON cl.tenant_key = a.tenant_key AND cl.resource_id = a.code_list_resource_id
+                WHERE a.tenant_key = :tenantKey
                 """,
             )
-            if (query.catalogKey != null) append(" AND catalog_key = :catalogKey")
-            if (query.slugs != null) append(" AND id IN (<slugs>)")
+            if (query.catalogKey != null) append(" AND a.catalog_key = :catalogKey")
+            if (query.slugs != null) append(" AND a.id IN (<slugs>)")
         }
         val q = handle.createQuery(sql).bind("tenantKey", query.tenantKey)
         if (query.catalogKey != null) q.bind("catalogKey", query.catalogKey)
@@ -178,12 +179,15 @@ class ExportCodeListsHandler(
         val wantedKeys = codeLists.map { (cat, slug, _) -> cat to slug }.toSet()
         val entriesByList = handle.createQuery(
             """
-            SELECT catalog_key, code_list_slug, code, label, sort_order, hidden
-            FROM code_list_entries
-            WHERE tenant_key = :tenantKey
-              AND catalog_key IN (<catalogs>)
-              AND code_list_slug IN (<slugs>)
-            ORDER BY catalog_key, code_list_slug, sort_order, code
+            SELECT lists.catalog_key, lists.slug AS code_list_slug, entries.code, entries.label,
+                   entries.sort_order, entries.hidden
+            FROM code_list_entries entries
+            JOIN code_lists lists
+              ON lists.tenant_key = entries.tenant_key AND lists.resource_id = entries.code_list_resource_id
+            WHERE entries.tenant_key = :tenantKey
+              AND lists.catalog_key IN (<catalogs>)
+              AND lists.slug IN (<slugs>)
+            ORDER BY lists.catalog_key, lists.slug, entries.sort_order, entries.code
             """,
         )
             .bind("tenantKey", query.tenantKey)

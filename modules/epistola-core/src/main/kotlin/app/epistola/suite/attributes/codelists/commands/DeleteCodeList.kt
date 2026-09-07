@@ -4,6 +4,7 @@
 
 package app.epistola.suite.attributes.codelists.commands
 
+import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Command
@@ -47,8 +48,7 @@ class DeleteCodeListHandler(
                 """
                 SELECT COUNT(*) FROM variant_attribute_definitions
                 WHERE tenant_key = :tenantKey
-                  AND code_list_catalog_key = :catalogKey
-                  AND code_list_slug = :slug
+                  AND code_list_resource_id = $CODE_LIST_AT_ADDRESS
                 """,
             )
                 .bind("tenantKey", command.id.tenantKey)

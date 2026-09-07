@@ -87,10 +87,11 @@ enum class MovableResource(
     ),
 
     /**
-     * Referenced by a relational binding from `variant_attribute_definitions` rather than from
-     * versioned content, so nothing has to be rewritten: the binding and the owned entries follow
-     * by `ON UPDATE CASCADE` — see `V20260905090600__core_code_list_relocation`. That is also why
-     * moving one cannot break a published document: no payload names a code list.
+     * Keyed by identity (`V20260905090600`), so its entries and the attributes bound to it
+     * reference the code list itself rather than where it happens to live: a move or a rename
+     * updates one row and nothing cascades or is rewritten. Queries that need the address read it
+     * from `code_lists`, which keeps the public shape unchanged. No payload names a code list, so
+     * no published document can break either way.
      */
     CODE_LIST(
         CatalogResourceType.CODE_LIST,

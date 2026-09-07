@@ -31,10 +31,11 @@ class GetAttributeDefinitionHandler(
             """
                 SELECT a.id, a.tenant_key, a.catalog_key, c.type AS catalog_type,
                        a.display_name, a.allowed_values,
-                       a.code_list_catalog_key, a.code_list_slug,
+                       cl.catalog_key AS code_list_catalog_key, cl.slug AS code_list_slug,
                        a.created_at, a.updated_at
                 FROM variant_attribute_definitions a
                 JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.id = a.catalog_key
+                LEFT JOIN code_lists cl ON cl.tenant_key = a.tenant_key AND cl.resource_id = a.code_list_resource_id
                 WHERE a.id = :id AND a.tenant_key = :tenantId AND a.catalog_key = :catalogKey
                 """,
         )

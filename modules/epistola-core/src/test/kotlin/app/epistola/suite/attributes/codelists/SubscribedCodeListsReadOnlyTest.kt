@@ -171,8 +171,13 @@ class SubscribedCodeListsReadOnlyTest : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO code_list_entries (tenant_key, catalog_key, code_list_slug, code, label, sort_order, hidden)
-                VALUES (:tenantKey, :catalogKey, :slug, :code, :label, 0, FALSE)
+                INSERT INTO code_list_entries (tenant_key, code_list_resource_id, code, label, sort_order, hidden)
+                VALUES (
+                    :tenantKey,
+                    (SELECT resource_id FROM code_lists
+                      WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug),
+                    :code, :label, 0, FALSE
+                )
                 """,
             )
                 .bind("tenantKey", tenantId.key)
