@@ -183,7 +183,10 @@ class ThemeStyleResolver(
                     ResourceAddress(CatalogResourceType.THEME, requested.value, themeId.value),
                 )
                     ?.takeIf { it.resolvedViaAlias }
-                    ?.let { getTheme(tenantId, CatalogKey.of(it.canonical.catalogKey), themeId) }
+                    // Both halves of the canonical address: a relocation renames as well as moves,
+                    // and a renamed theme that resolved to nothing would fall back to the tenant
+                    // default rather than fail, so the document renders in the wrong theme.
+                    ?.let { getTheme(tenantId, CatalogKey.of(it.canonical.catalogKey), ThemeKey.of(it.canonical.key)) }
             }
     }
 

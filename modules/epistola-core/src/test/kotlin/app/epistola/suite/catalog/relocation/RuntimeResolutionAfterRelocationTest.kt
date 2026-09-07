@@ -95,6 +95,76 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
             .isNotNull()
     }
 
+    /**
+     * Renaming is the same operation as moving here, and the earlier tests only ever moved. That
+     * gap hid a real bug: each fallback took the canonical *catalog* but kept the *requested* key,
+     * so a rename resolved to nothing. None of these failures is loud — a theme falls back to the
+     * tenant default, a font to the built-in typeface, an image simply disappears — so only an
+     * assertion catches them.
+     */
+    @Test
+    fun `a renamed theme is still found by content naming its old key`() {
+        val tenant = createTenant("Theme rename runtime")
+        val tenantId = TenantId(tenant.id)
+        val letters = CatalogKey.of("letters")
+        val themeKey = ThemeKey.of("brand")
+
+        withMediator {
+            CreateCatalog(tenant.id, letters, "Letters").execute()
+            CreateTheme(ThemeId(themeKey, CatalogId(letters, tenantId)), "Brand").execute()
+        }
+        val address = ResourceAddress(CatalogResourceType.THEME, letters.value, themeKey.value)
+
+        val renamed = address.renamedTo("house-style")
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(renamed)).query() }
+        assertThat(preview.blockers).isEmpty()
+        withMediator { MoveCatalogResources(tenant.id, listOf(renamed), preview.planFingerprint).execute() }
+
+        assertThat(themeStyleResolver.resolveTheme(tenant.id, themeKey, null, emptyTemplate(), templateCatalogKey = letters))
+            .describedAs("a themeRef naming the theme's old key must follow the alias")
+            .isNotNull()
+    }
+
+    @Test
+    fun `a renamed font family still serves the face content asks for`() {
+        val tenant = createTenant("Font rename runtime")
+        val tenantId = TenantId(tenant.id)
+        val letters = CatalogKey.of("letters")
+        val slug = FontKey.of("acme-sans")
+
+        withMediator {
+            CreateCatalog(tenant.id, letters, "Letters").execute()
+            val face = UploadAsset(
+                tenantId = tenant.id,
+                name = "acme-sans-regular.ttf",
+                mediaType = AssetMediaType.TTF,
+                content = ttfBytes(),
+                width = null,
+                height = null,
+                catalogKey = letters,
+            ).execute().id
+            ImportFont(
+                tenantId = tenantId,
+                catalogKey = letters,
+                slug = slug.value,
+                name = "Acme Sans",
+                kind = FontKind.SANS.wire,
+                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = face)),
+            ).execute()
+        }
+        val before = withMediator { ResolveFontFace(tenant.id, letters, slug, 400, italic = false).query() }
+        assertThat(before).isNotNull()
+
+        val renamed = ResourceAddress(CatalogResourceType.FONT, letters.value, slug.value).renamedTo("acme-grotesk")
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(renamed)).query() }
+        assertThat(preview.blockers).isEmpty()
+        withMediator { MoveCatalogResources(tenant.id, listOf(renamed), preview.planFingerprint).execute() }
+
+        assertThat(withMediator { ResolveFontFace(tenant.id, letters, slug, 400, italic = false).query() })
+            .describedAs("a face referenced by the family's old slug must follow the alias")
+            .isEqualTo(before)
+    }
+
     @Test
     fun `a template still finds its theme after the theme moves`() {
         val tenant = createTenant("Theme relocation runtime")

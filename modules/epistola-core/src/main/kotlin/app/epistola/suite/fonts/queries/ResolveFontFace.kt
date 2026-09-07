@@ -110,7 +110,10 @@ class ResolveFontFaceHandler(
                     ResourceAddress(CatalogResourceType.FONT, query.catalogKey.value, query.slug.value),
                 )
                     ?.takeIf { it.resolvedViaAlias }
-                    ?.let { handle.loadFaces(query.tenantId, CatalogKey.of(it.canonical.catalogKey), query.slug) }
+                    // Both halves of the canonical address: a relocation renames as well as moves,
+                    // and a renamed family under the requested slug would silently resolve to
+                    // nothing -- which FontCache turns into the built-in font rather than an error.
+                    ?.let { handle.loadFaces(query.tenantId, CatalogKey.of(it.canonical.catalogKey), FontKey.of(it.canonical.key)) }
                     ?: emptyList()
             }
         }

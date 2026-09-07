@@ -69,7 +69,16 @@ class GetAssetContentHandler(
                         ResourceAddress(CatalogResourceType.ASSET, requested.value, query.assetId.value.toString()),
                     )
                         ?.takeIf { it.resolvedViaAlias }
-                        ?.let { handle.loadAssetMeta(query.tenantId, query.assetId, CatalogKey.of(it.canonical.catalogKey)) }
+                        // Both halves of the canonical address, not just the catalog: relocation
+                        // renames as well as moves, and for an asset the key *is* the id content
+                        // refers to, so keeping the requested one would miss every renamed asset.
+                        ?.let {
+                            handle.loadAssetMeta(
+                                query.tenantId,
+                                AssetKey.of(it.canonical.key),
+                                CatalogKey.of(it.canonical.catalogKey),
+                            )
+                        }
                 }
         } ?: return null
 
