@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- **[user]** feat(templates): **A template can be moved from its own settings tab.** A Location
+  section states which catalog the template is in and opens the move dialog for it, so relocating
+  one template no longer means finding it again in the organise browser. Present only when the
+  tenant has relocation on, the catalog is authored, and the user may manage catalogs.
 - **[user]** fix(catalogs): **Organise says what a move did, and stops showing the form afterwards.**
   "Resources moved." did not say how many or where, and a deep-linked resource was re-selected as
   soon as the move finished — putting the form back, looking as though nothing had happened. The
