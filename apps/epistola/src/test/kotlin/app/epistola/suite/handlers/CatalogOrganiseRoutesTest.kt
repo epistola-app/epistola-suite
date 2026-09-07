@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import tools.jackson.databind.ObjectMapper
@@ -111,6 +112,41 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
             body.path("resources").forEach { node -> node.path("note").takeIf { it.isString }?.let { add(it.stringValue()) } }
         }
         assertThat(notes).allSatisfy { assertThat(it).doesNotContainIgnoringCase("read-only") }
+    }
+
+    @Test
+    fun `the single-resource move is a dialog for HTMX and a page for a pasted link`() {
+        val tenantId = tenantWithStencil("Organise single")
+        val resource = "stencil:letters:header"
+        val url = "/tenants/$tenantId/catalogs/organise/move?resource=$resource"
+
+        val page = restTemplate.getForEntity(url, String::class.java)
+        assertThat(page.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(page.body).contains("data-single=\"$resource\"")
+        // A pasted link has to stand on its own, so it carries the shell rather than a bare dialog.
+        assertThat(page.body).doesNotContain("move-resource-dialog")
+
+        val dialog = restTemplate.exchange(
+            url,
+            HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { set("HX-Request", "true") }),
+            String::class.java,
+        )
+        assertThat(dialog.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(dialog.body).contains("move-resource-dialog")
+        assertThat(dialog.body).contains("data-single=\"$resource\"")
+    }
+
+    @Test
+    fun `the single-resource move is absent without the relocation toggle`() {
+        val tenant = createTenant("Organise single off")
+
+        val response = restTemplate.getForEntity(
+            "/tenants/${tenant.id}/catalogs/organise/move?resource=stencil:letters:header",
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
     }
 
     @Test

@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+- **[user]** feat(catalogs): **Organise picks one destination for the whole selection.** Every row
+  had its own catalog dropdown, so moving twelve resources to one place meant twelve identical
+  choices and twelve chances to pick wrong. The destination is now chosen once above the table and
+  a row can still take its own with "Choose separately", which is also where a rename lives. A
+  select-all covers everything the current filter shows.
+- **[user]** feat(catalogs): **A single resource can be moved from its own page.**
+  `/catalogs/organise/move?resource=<type>:<catalog>:<key>` shows one resource, where it can go,
+  and what the move would rewrite. It answers with a dialog to HTMX, so a resource page can open it
+  in place, and with a full page to a pasted link — one URL that works from either direction.
 - **[user]** fix(catalogs): **The organise page no longer keeps its loading placeholder on screen.**
   "Loading resources…" sat in a panel above the browser that had replaced it. The element renders
   into light DOM so the app's stylesheet reaches it, and Lit appends to a render root rather than

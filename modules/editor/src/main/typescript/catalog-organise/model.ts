@@ -21,9 +21,17 @@ export interface OrganiseResource {
 }
 
 /** A destination chosen for one selected resource. Empty fields mean "unchanged". */
+/**
+ * Where one selected resource is going.
+ *
+ * `overridden` is what separates "this row follows the shared destination" from "this row was
+ * deliberately given its own": a row that merely happens to match the shared catalog still follows
+ * it, so changing the shared destination moves it too.
+ */
 export interface Destination {
   catalog: string;
   key: string;
+  overridden: boolean;
 }
 
 export interface RelocationPlan {

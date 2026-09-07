@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- Single-resource move. The same component as the browser, focused on one resource: reusing it
+     keeps preview, execute and blocker rendering in one place rather than growing a second
+     implementation of each. -->
+<th:block th:fragment="content">
+    <div th:replace="~{epistola-web/page-header :: page-header(pageTitle='Move resource')}"></div>
+    <ep-catalog-organise
+            th:attr="data-base-url=@{/tenants/{tenantId}/catalogs/organise(tenantId=${tenantId})},data-single=${resource}">
+        <div class="ep-panel" style="padding: var(--ep-space-6);">Loading resource…</div>
+    </ep-catalog-organise>
+</th:block>
+
+<th:block th:fragment="dialog">
+    <dialog id="move-resource-dialog" class="ep-dialog" data-testid="move-resource-dialog">
+        <div class="ep-dialog-header">
+            <h3>Move resource</h3>
+        </div>
+        <div class="ep-dialog-body">
+            <ep-catalog-organise
+                    th:attr="data-base-url=@{/tenants/{tenantId}/catalogs/organise(tenantId=${tenantId})},data-single=${resource}">
+                <p class="ep-text-muted">Loading resource…</p>
+            </ep-catalog-organise>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-outline" data-close-dialog="move-resource-dialog">Close</button>
+        </div>
+    </dialog>
+</th:block>
+</body>
+</html>

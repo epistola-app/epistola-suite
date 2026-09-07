@@ -37,11 +37,15 @@ export class CatalogOrganise extends LitElement {
 
   @property({ attribute: 'data-base-url' }) baseUrl = '';
   @property({ attribute: 'data-preselected' }) preselected = '';
+  /** Focus on one resource: `<type>:<catalog>:<key>`. Empty renders the browser. */
+  @property({ attribute: 'data-single' }) single = '';
 
   @state() private catalogs: OrganiseCatalog[] = [];
   @state() private resources: OrganiseResource[] = [];
   @state() private search = '';
   @state() private catalogFilter = '';
+  /** Destination for every selected row that has not overridden it. */
+  @state() private sharedDestination = '';
   @state() private selected = new Map<string, Destination>();
   @state() private preview?: RelocationPreview;
   @state() private busy = false;
@@ -76,17 +80,46 @@ export class CatalogOrganise extends LitElement {
 
   /** Runs once, after the first load: a deep link names resources that must exist to be selected. */
   private applyDeepLink(): void {
-    if (!this.preselected || this.selected.size > 0) return;
-    const wanted = new Set(this.preselected.split(',').filter(Boolean));
+    const deepLinked = this.single || this.preselected;
+    if (!deepLinked || this.selected.size > 0) return;
+    const wanted = new Set(deepLinked.split(',').filter(Boolean));
     for (const resource of this.resources) {
-      if (wanted.has(resource.id)) this.selected.set(resource.id, { catalog: '', key: '' });
+      if (wanted.has(resource.id))
+        this.selected.set(resource.id, { catalog: '', key: '', overridden: false });
     }
     if (this.selected.size > 0) this.requestUpdate();
   }
 
   private toggle(resource: OrganiseResource): void {
     if (this.selected.has(resource.id)) this.selected.delete(resource.id);
-    else this.selected.set(resource.id, { catalog: '', key: '' });
+    else this.selected.set(resource.id, { catalog: '', key: '', overridden: false });
+    this.invalidatePreview();
+  }
+
+  /** Selects everything currently visible, or clears the selection when all of it is selected. */
+  private toggleAll(visible: OrganiseResource[]): void {
+    const allSelected =
+      visible.length > 0 && visible.every((resource) => this.selected.has(resource.id));
+    if (allSelected) visible.forEach((resource) => this.selected.delete(resource.id));
+    else {
+      visible.forEach((resource) => {
+        if (!this.selected.has(resource.id)) {
+          this.selected.set(resource.id, { catalog: '', key: '', overridden: false });
+        }
+      });
+    }
+    this.invalidatePreview();
+  }
+
+  /**
+   * The destination a row is actually going to: its own when it overrode, the shared one otherwise.
+   * Blank means "stay where it is", which is what makes a rename-only relocation expressible.
+   */
+  private destinationFor(destination: Destination): string {
+    return destination.overridden ? destination.catalog : this.sharedDestination;
+  }
+
+  private invalidatePreview(): void {
     this.preview = undefined;
     this.applied = false;
     this.requestUpdate();
@@ -96,9 +129,29 @@ export class CatalogOrganise extends LitElement {
     const current = this.selected.get(id);
     if (!current) return;
     this.selected.set(id, { ...current, ...patch });
-    this.preview = undefined;
-    this.applied = false;
-    this.requestUpdate();
+    this.invalidatePreview();
+  }
+
+  /**
+   * Starts an override from wherever the row was already heading, so revealing the control never
+   * silently changes the destination — only the fact that the shared one no longer applies.
+   */
+  private beginOverride(resource: OrganiseResource): void {
+    const current = this.selected.get(resource.id);
+    if (!current) return;
+    this.selected.set(resource.id, {
+      ...current,
+      catalog: this.sharedDestination,
+      overridden: true,
+    });
+    this.invalidatePreview();
+  }
+
+  private endOverride(resource: OrganiseResource): void {
+    const current = this.selected.get(resource.id);
+    if (!current) return;
+    this.selected.set(resource.id, { ...current, catalog: '', key: '', overridden: false });
+    this.invalidatePreview();
   }
 
   /** A destination left blank means "unchanged", so a rename needs no catalog and vice versa. */
@@ -111,7 +164,7 @@ export class CatalogOrganise extends LitElement {
           type: resource.type,
           catalog: resource.catalogKey,
           key: resource.key,
-          targetCatalog: destination.catalog || resource.catalogKey,
+          targetCatalog: this.destinationFor(destination) || resource.catalogKey,
           targetKey: destination.key.trim() || undefined,
         },
       ];
@@ -177,19 +230,97 @@ export class CatalogOrganise extends LitElement {
     return (this.preview?.blockers ?? []).filter((blocker) => !blocker.source);
   }
 
+  /** The resource this element is focused on, or undefined while loading or if it is gone. */
+  private get focused(): OrganiseResource | undefined {
+    return this.single ? this.resources.find((resource) => resource.id === this.single) : undefined;
+  }
+
+  /**
+   * One resource, one destination. No table, no filters: everything here is about the resource the
+   * caller already chose, which is what makes this worth a separate surface rather than the browser
+   * with a row preselected.
+   */
+  private renderSingle() {
+    const resource = this.focused;
+    if (this.busy && !resource) return html`<p class="ep-text-muted">Loading resource…</p>`;
+    if (!resource) {
+      return html`<p class="ep-text-error" data-testid="organise-single-missing">
+        That resource cannot be moved. It may have been deleted, or it lives in a catalog this
+        tenant does not author.
+      </p>`;
+    }
+
+    const destination = this.selected.get(resource.id);
+    const authored = this.catalogs.filter((catalog) => catalog.type === 'authored');
+
+    return html`
+      <div class="ep-panel" style="padding: var(--ep-space-4); margin-bottom: var(--ep-space-4);">
+        <p style="margin-top: 0;">
+          <strong>${resource.name}</strong>
+          <span class="ep-text-muted"
+            >· ${resource.type} · currently in ${resource.catalogName}</span
+          >
+        </p>
+        ${resource.note ? html`<p class="ep-text-muted">${resource.note}</p>` : nothing}
+        <label class="ep-label"
+          >Move to
+          <select
+            class="ep-input ep-input-sm"
+            data-testid="organise-single-destination"
+            .value=${destination?.catalog ?? ''}
+            @change=${(event: Event) => {
+              if (!(event.currentTarget instanceof HTMLSelectElement)) return;
+              this.setDestination(resource.id, {
+                catalog: event.currentTarget.value,
+                overridden: true,
+              });
+            }}
+          >
+            <option value="">Stay in ${resource.catalogName}</option>
+            ${authored
+              .filter((catalog) => catalog.key !== resource.catalogKey)
+              .map((catalog) => html`<option value=${catalog.key}>${catalog.name}</option>`)}
+          </select>
+        </label>
+        <label class="ep-label"
+          >New key (optional)
+          <input
+            class="ep-input ep-input-sm"
+            type="text"
+            placeholder=${resource.key}
+            .value=${destination?.key ?? ''}
+            @input=${(event: InputEvent) => {
+              if (!(event.currentTarget instanceof HTMLInputElement)) return;
+              this.setDestination(resource.id, {
+                key: event.currentTarget.value,
+                overridden: true,
+              });
+            }}
+          />
+        </label>
+      </div>
+      ${this.renderSummary()}
+    `;
+  }
+
   protected render() {
     const visible = this.catalogFilter
       ? this.resources.filter((resource) => resource.catalogKey === this.catalogFilter)
       : this.resources;
     const authored = this.catalogs.filter((catalog) => catalog.type === 'authored');
 
-    return html`
+    const banners = html`
       ${this.error ? html`<p class="ep-alert ep-alert-error" role="alert">${this.error}</p>` : nothing}
       ${
         this.applied
           ? html`<p class="ep-alert ep-alert-success" role="status">Resources moved.</p>`
           : nothing
       }
+    `;
+    if (this.single) return html`${banners} ${this.renderSingle()}`;
+
+    return html`
+      ${banners}
       <div
         class="ep-panel"
         style="padding: var(--ep-space-4); margin-bottom: var(--ep-space-4); display: flex; gap: var(--ep-space-4); flex-wrap: wrap;"
@@ -226,8 +357,46 @@ export class CatalogOrganise extends LitElement {
         </label>
       </div>
 
-      ${this.renderResources(visible, authored)} ${this.renderSummary()}
+      ${this.renderDestinationBar(authored)} ${this.renderResources(visible, authored)}
+      ${this.renderSummary()}
     `;
+  }
+
+  /**
+   * One destination for the whole selection. Rows that overrode it are called out here rather than
+   * only in their own row, so the count always explains itself without scanning the table.
+   */
+  private renderDestinationBar(authored: OrganiseCatalog[]) {
+    if (this.selected.size === 0) return nothing;
+    const overridden = [...this.selected.values()].filter(
+      (destination) => destination.overridden,
+    ).length;
+
+    return html`<div
+      class="ep-panel"
+      style="padding: var(--ep-space-4); margin-bottom: var(--ep-space-4); display: flex; gap: var(--ep-space-4); align-items: center; flex-wrap: wrap;"
+    >
+      <label class="ep-label"
+        >Move selected to
+        <select
+          class="ep-input ep-input-sm"
+          data-testid="organise-shared-destination"
+          .value=${this.sharedDestination}
+          @change=${(event: Event) => {
+            if (!(event.currentTarget instanceof HTMLSelectElement)) return;
+            this.sharedDestination = event.currentTarget.value;
+            this.invalidatePreview();
+          }}
+        >
+          <option value="">Leave where they are</option>
+          ${authored.map((catalog) => html`<option value=${catalog.key}>${catalog.name}</option>`)}
+        </select>
+      </label>
+      <span class="ep-text-muted">
+        ${this.selected.size}
+        selected${overridden > 0 ? html` · ${overridden} with their own destination` : nothing}
+      </span>
+    </div>`;
   }
 
   private renderResources(visible: OrganiseResource[], authored: OrganiseCatalog[]) {
@@ -245,12 +414,19 @@ export class CatalogOrganise extends LitElement {
     return html`<table class="ep-table">
       <thead>
         <tr>
-          <th></th>
+          <th>
+            <input
+              type="checkbox"
+              aria-label="Select all shown"
+              data-testid="organise-select-all"
+              ?checked=${visible.length > 0 && visible.every((resource) => this.selected.has(resource.id))}
+              @change=${() => this.toggleAll(visible)}
+            />
+          </th>
           <th>Resource</th>
           <th>Type</th>
           <th>Catalog</th>
-          <th>Move to catalog</th>
-          <th>New key</th>
+          <th>Destination</th>
         </tr>
       </thead>
       <tbody>
@@ -277,39 +453,7 @@ export class CatalogOrganise extends LitElement {
               ${resource.note ? html`<br /><small class="ep-text-muted">${resource.note}</small>` : nothing}
             </td>
             <td>
-              ${
-                destination
-                  ? html`<select
-                      .value=${destination.catalog}
-                      @change=${(event: Event) => {
-                        if (!(event.currentTarget instanceof HTMLSelectElement)) return;
-                        this.setDestination(resource.id, { catalog: event.currentTarget.value });
-                      }}
-                    >
-                      <option value="">Stay in ${resource.catalogName}</option>
-                      ${authored
-                        .filter((catalog) => catalog.key !== resource.catalogKey)
-                        .map(
-                          (catalog) => html`<option value=${catalog.key}>${catalog.name}</option>`,
-                        )}
-                    </select>`
-                  : nothing
-              }
-            </td>
-            <td>
-              ${
-                destination
-                  ? html`<input
-                      type="text"
-                      placeholder=${resource.key}
-                      .value=${destination.key}
-                      @input=${(event: InputEvent) => {
-                        if (!(event.currentTarget instanceof HTMLInputElement)) return;
-                        this.setDestination(resource.id, { key: event.currentTarget.value });
-                      }}
-                    />`
-                  : nothing
-              }
+              ${destination ? this.renderDestinationCell(resource, destination, authored) : nothing}
               ${blockers.map(
                 (blocker) => html`<br /><small class="ep-text-error">${blocker.message}</small>`,
               )}
@@ -318,6 +462,70 @@ export class CatalogOrganise extends LitElement {
         })}
       </tbody>
     </table>`;
+  }
+
+  /**
+   * A selected row shows where it is heading in words, and offers to take its own destination. The
+   * override is opt-in so the common case — everything going to one place — needs no per-row
+   * interaction at all, and a rename stays reachable without leaving the page.
+   */
+  private renderDestinationCell(
+    resource: OrganiseResource,
+    destination: Destination,
+    authored: OrganiseCatalog[],
+  ) {
+    if (!destination.overridden) {
+      const target = authored.find((catalog) => catalog.key === this.sharedDestination);
+      return html`
+        ${
+          target && target.key !== resource.catalogKey
+            ? html`→ <strong>${target.name}</strong>`
+            : html`<span class="ep-text-muted">stays in ${resource.catalogName}</span>`
+        }
+        <button
+          type="button"
+          class="ep-btn ep-btn-sm ep-btn-ghost"
+          data-testid=${`organise-override-${resource.id}`}
+          @click=${() => this.beginOverride(resource)}
+        >
+          Choose separately
+        </button>
+      `;
+    }
+
+    return html`
+      <select
+        class="ep-input ep-input-sm"
+        .value=${destination.catalog}
+        @change=${(event: Event) => {
+          if (!(event.currentTarget instanceof HTMLSelectElement)) return;
+          this.setDestination(resource.id, { catalog: event.currentTarget.value });
+        }}
+      >
+        <option value="">Stay in ${resource.catalogName}</option>
+        ${authored
+          .filter((catalog) => catalog.key !== resource.catalogKey)
+          .map((catalog) => html`<option value=${catalog.key}>${catalog.name}</option>`)}
+      </select>
+      <input
+        class="ep-input ep-input-sm"
+        type="text"
+        aria-label=${`New key for ${resource.name}`}
+        placeholder=${resource.key}
+        .value=${destination.key}
+        @input=${(event: InputEvent) => {
+          if (!(event.currentTarget instanceof HTMLInputElement)) return;
+          this.setDestination(resource.id, { key: event.currentTarget.value });
+        }}
+      />
+      <button
+        type="button"
+        class="ep-btn ep-btn-sm ep-btn-ghost"
+        @click=${() => this.endOverride(resource)}
+      >
+        Follow the rest
+      </button>
+    `;
   }
 
   private renderSummary() {

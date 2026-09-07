@@ -34,6 +34,7 @@ class CatalogRoutes(
             // Reorganising is its own page: a browser across catalogs that allows moving. Deep
             // linkable via ?resource=<type>:<catalog>:<key>, repeatable.
             GET("/organise", organise::page)
+            GET("/organise/move", organise::move)
             GET("/organise/resources", organise::resources)
             POST("/organise/preview", organise::preview)
             POST("/organise/execute", organise::execute)

@@ -84,7 +84,12 @@ written before it existed resolve through their recorded address instead.
 - Export relativizes references back to their own catalog, so an exported catalog stays installable
   under a different key. Stored form is absolute, wire form is relative.
 - `/tenants/{tenantId}/catalogs/organise` is the product surface: a browser across catalogs that
-  allows moving. Deep-linkable via `?resource=<type>:<catalog>:<key>`, repeatable. The resource
+  allows moving. One destination is chosen for the whole selection; a row may take its own, which
+  is also how a rename is expressed. Deep-linkable via `?resource=<type>:<catalog>:<key>`,
+  repeatable.
+- `/tenants/{tenantId}/catalogs/organise/move?resource=<type>:<catalog>:<key>` is the focused
+  single-resource surface, for linking from the resource's own page. It answers with a dialog to
+  HTMX and a full page otherwise, so the same URL works embedded and pasted. The resource
   graph links to it rather than hosting the operation — the graph diagnoses, this applies. REST and
   MCP operations are intentionally deferred until the command contract and authorization model have
   settled.

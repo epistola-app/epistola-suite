@@ -17,6 +17,7 @@ import app.epistola.suite.catalog.relocation.StaleCatalogResourceMovePlanExcepti
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
+import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
@@ -56,6 +57,39 @@ class CatalogOrganiseHandler {
                 "preselected" to request.params()["resource"].orEmpty().joinToString(","),
             ),
         )
+    }
+
+    /**
+     * The focused move surface for one resource, deep-linked as
+     * `?resource=<type>:<catalog>:<key>`.
+     *
+     * One endpoint serves both shapes: HTMX gets the dialog, so a resource page can open it in
+     * place, and a pasted link gets the full page. Splitting them would mean a link that only works
+     * when clicked from the right page.
+     */
+    fun move(request: ServerRequest): ServerResponse {
+        if (!request.relocationEnabled()) return ServerResponse.notFound().build()
+        val tenantKey = request.tenantKey()
+        val resource = request.param("resource").orElse("")
+        if (resource.isBlank()) return ServerResponse.badRequest().build()
+
+        val model = mapOf(
+            "tenantId" to tenantKey.value,
+            "resource" to resource,
+        )
+        return if (request.isHtmx) {
+            ServerResponse.ok().render("catalogs/organise-move :: dialog", model)
+        } else {
+            ServerResponse.ok().render(
+                "layout/shell",
+                model + mapOf(
+                    "contentView" to "catalogs/organise-move",
+                    "pageTitle" to "Move resource - Epistola",
+                    "tenant" to GetTenant(tenantKey).query(),
+                    "activeNavSection" to "catalog-organise",
+                ),
+            )
+        }
     }
 
     fun resources(request: ServerRequest): ServerResponse {
