@@ -21,14 +21,24 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
+
+    @Autowired
+    private lateinit var transactionManager: PlatformTransactionManager
 
     @Test
     fun `command-created resources receive stable internal identities`() {
@@ -102,4 +112,84 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
         val catalogKey: String,
         val key: String,
     )
+
+    /**
+     * The sync trigger's INSERT branch reads the registry for an identity already at this address,
+     * then writes one. Between those two steps another transaction can do the same, and both would
+     * register a different identity at the same public address -- after which the address resolves
+     * to whichever row is read first, and the loser's aliases and generation history point at an
+     * identity nothing can reach by name.
+     *
+     * Nothing in the trigger prevents that; the unique constraint on the address does, which is why
+     * it is worth a test of its own. Racing two threads and hoping they collide proves nothing --
+     * run that way they simply happen one after the other and any arrangement passes. So the
+     * overlap is made real: one create runs inside a transaction this test holds open, taking the
+     * address's index entry without committing it, while the second attempts the same address.
+     */
+    @Test
+    fun `two transactions cannot register different identities at one address`() {
+        val tenant = createTenant("Identity race")
+        val catalogKey = CatalogKey.of("letters")
+        val themeId = ThemeId(ThemeKey.of("brand"), CatalogId(catalogKey, TenantId(tenant.id)))
+        withMediator { CreateCatalog(tenant.id, catalogKey, "Letters").execute() }
+
+        val holderReady = CountDownLatch(1)
+        val releaseHolder = CountDownLatch(1)
+        val holderThread = Executors.newSingleThreadExecutor()
+        val contenderThread = Executors.newSingleThreadExecutor()
+        try {
+            val holder = holderThread.submit {
+                withMediator {
+                    TransactionTemplate(transactionManager).executeWithoutResult {
+                        CreateTheme(id = themeId, name = "Brand").execute()
+                        holderReady.countDown()
+                        // Hold the address's uncommitted index entry while the contender tries for it.
+                        releaseHolder.await(HOLD_SECONDS, TimeUnit.SECONDS)
+                    }
+                }
+            }
+            assertThat(holderReady.await(HOLD_SECONDS, TimeUnit.SECONDS)).isTrue()
+
+            val contender = contenderThread.submit<Result<Unit>> {
+                withMediator {
+                    runCatching {
+                        CreateTheme(id = themeId, name = "Brand again").execute()
+                        Unit
+                    }
+                }
+            }
+
+            // The contender blocks on the uncommitted index entry rather than registering a second
+            // identity, and is refused once the holder commits.
+            assertThatThrownBy { contender.get(1, TimeUnit.SECONDS) }
+                .describedAs("the contender must block on the held address, not race past it")
+                .isInstanceOf(TimeoutException::class.java)
+            releaseHolder.countDown()
+            holder.get(HOLD_SECONDS, TimeUnit.SECONDS)
+            assertThat(contender.get(HOLD_SECONDS, TimeUnit.SECONDS).isFailure)
+                .describedAs("the second create at the same address must be refused")
+                .isTrue()
+        } finally {
+            releaseHolder.countDown()
+            holderThread.shutdownNow()
+            contenderThread.shutdownNow()
+        }
+
+        val registered = jdbi.withHandle<Int, Exception> { handle ->
+            handle
+                .createQuery(
+                    "SELECT count(*) FROM catalog_resources WHERE tenant_key = :t " +
+                        "AND resource_type = 'theme' AND catalog_key = :c AND resource_key = 'brand'",
+                )
+                .bind("t", tenant.id)
+                .bind("c", catalogKey)
+                .mapTo(Int::class.java)
+                .one()
+        }
+        assertThat(registered).describedAs("one address, one identity").isEqualTo(1)
+    }
+
+    private companion object {
+        const val HOLD_SECONDS = 10L
+    }
 }
