@@ -119,6 +119,14 @@ BEGIN
         SET catalog_key = NEW.catalog_key,
             resource_key = resource_key_value
         WHERE tenant_key = OLD.tenant_key AND resource_id = OLD.resource_id;
+        -- Guarded like the INSERT branch above. Without this a missing registry row lets the
+        -- domain row move while the registry keeps the old address: the resource stays addressable
+        -- at an address it no longer occupies, and is unreachable at the one it does, with nothing
+        -- raised. Every public address lookup reads this table, so the failure would be total and
+        -- silent.
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'catalog resource % has no identity registry row', OLD.resource_id;
+        END IF;
     END IF;
 
     RETURN NEW;

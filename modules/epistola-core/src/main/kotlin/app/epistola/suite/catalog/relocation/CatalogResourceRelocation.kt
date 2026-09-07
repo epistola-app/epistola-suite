@@ -309,6 +309,13 @@ class CatalogResourceMovePlanner(
                     source,
                 )
             }
+            if (source.key != target.key && MovableResource.of(source.type)?.renameable == false) {
+                blockers += blocker(
+                    "rename-unsupported",
+                    "${source.type.wireName} keys are generated identifiers, so they cannot be renamed",
+                    source,
+                )
+            }
             if (catalogTypes[source.catalogKey] != "AUTHORED") {
                 blockers += blocker("source-read-only", "${source.catalogKey} must be authored and editable", source)
             }

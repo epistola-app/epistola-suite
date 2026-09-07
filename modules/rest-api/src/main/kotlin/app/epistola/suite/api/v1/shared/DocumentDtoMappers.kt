@@ -137,13 +137,12 @@ internal fun GenerateDocumentRequest.toCommand(
 }
 
 internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
-    tenantId: String,
+    template: TemplateId,
     objectMapper: ObjectMapper,
 ): app.epistola.suite.documents.commands.BatchGenerationItem {
     require(variantId == null || attributes == null) {
         "Cannot specify both variantId and attributes"
     }
-    val template = canonicalTemplate(tenantId, catalogId, templateId)
     return app.epistola.suite.documents.commands.BatchGenerationItem(
         catalogKey = template.catalogKey,
         templateId = template.key,
@@ -199,7 +198,12 @@ internal fun GenerateBatchRequest.toCommand(
     objectMapper: ObjectMapper,
 ) = app.epistola.suite.documents.commands.GenerateDocumentBatch(
     tenantId = TenantKey.of(tenantId),
-    items = items.map { it.toBatchItem(tenantId, objectMapper) },
+    // One lookup per distinct address rather than per item. A batch is uncapped, and resolving
+    // inside the map made an otherwise-batched handler do a query and a pool checkout per row for
+    // something that answers the same way every time.
+    items = resolveCanonicalTemplates(tenantId, items.map { it.catalogId to it.templateId }).let { canonical ->
+        items.map { it.toBatchItem(canonical.getValue(it.catalogId to it.templateId), objectMapper) }
+    },
     batchRoutingKey = routingKey,
 )
 
@@ -223,3 +227,11 @@ internal fun PreviewDocumentRequest.toQuery(
 
 /** The template's current address, for a request that may name the one it had before a move. */
 private fun canonicalTemplate(tenantId: String, catalogId: String, templateId: String): TemplateId = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), TenantId(TenantKey.of(tenantId)))).canonical()
+
+/** [canonicalTemplate] for a batch, resolving each distinct address once. */
+private fun resolveCanonicalTemplates(
+    tenantId: String,
+    addresses: List<Pair<String, String>>,
+): Map<Pair<String, String>, TemplateId> = addresses
+    .distinct()
+    .associateWith { (catalogId, templateId) -> canonicalTemplate(tenantId, catalogId, templateId) }

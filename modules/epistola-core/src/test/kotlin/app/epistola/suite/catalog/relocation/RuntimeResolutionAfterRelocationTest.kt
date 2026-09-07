@@ -37,6 +37,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.io.ResourceLoader
+import java.util.UUID
 
 /**
  * Assets and fonts are resolved while rendering, by the address the content names. Relocating one
@@ -123,6 +124,33 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
         assertThat(themeStyleResolver.resolveTheme(tenant.id, themeKey, null, emptyTemplate(), templateCatalogKey = letters))
             .describedAs("a themeRef naming the theme's old key must follow the alias")
             .isNotNull()
+    }
+
+    @Test
+    fun `an asset cannot be renamed, because its key is what content resolves by`() {
+        val tenant = createTenant("Asset rename refused")
+        val letters = CatalogKey.of("letters")
+        val assetKey = withMediator {
+            CreateCatalog(tenant.id, letters, "Letters").execute()
+            UploadAsset(
+                tenantId = tenant.id,
+                name = "logo.png",
+                mediaType = AssetMediaType.PNG,
+                content = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47),
+                width = 1,
+                height = 1,
+                catalogKey = letters,
+            ).execute().id
+        }
+
+        // An unqualified image reference carries no catalog, so it resolves by this id alone --
+        // there would be nothing left to find the alias with.
+        val renamed = ResourceAddress(CatalogResourceType.ASSET, letters.value, assetKey.value.toString())
+            .renamedTo(UUID.randomUUID().toString())
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(renamed)).query() }
+
+        assertThat(preview.blockers).anySatisfy { assertThat(it.code).isEqualTo("rename-unsupported") }
+        assertThat(preview.executable).isFalse()
     }
 
     @Test

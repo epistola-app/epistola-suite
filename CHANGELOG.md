@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+- **[user]** fix(catalogs): **An asset cannot be renamed.** Its key is a generated UUID, and an
+  unqualified image reference resolves by that id alone — with no catalog to find an alias with, a
+  rename would leave the image unreachable. `MovableResource` now records which types have a
+  generated key, and the preview refuses the rename rather than accepting one that breaks content.
+- **[perf]** perf(api): **A batch generate resolves each template address once, not once per item.**
+  Every item did its own canonical-address lookup — a query and a pool checkout each, serially,
+  before the batch command was dispatched — in a handler otherwise carefully batched. Batches are
+  uncapped, so the cost grew with the request.
+- **[dev]** fix(catalogs): **Two identity triggers no longer fail silently.** The registry's UPDATE
+  branch would leave a stale address if its row were missing, making the resource addressable only
+  at an address it no longer occupies; the generation-history fill assigned NULL when it matched no
+  template, which since this release's dropped foreign keys means a row that is neither validated
+  nor resolvable. Both now raise.
 - **[user]** fix(catalogs): **A renamed theme, font or asset is still found by content naming its old
   address.** Relocation renames as well as moves, but the three render-time alias fallbacks took the
   canonical _catalog_ while keeping the _requested key_, so only a catalog change resolved. None of

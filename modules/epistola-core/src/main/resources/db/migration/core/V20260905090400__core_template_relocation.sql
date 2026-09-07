@@ -107,6 +107,14 @@ BEGIN
         WHERE tenant_key = NEW.tenant_key
           AND catalog_key = NEW.catalog_key
           AND id = NEW.template_key;
+        -- SELECT INTO assigns NULL and carries on when it matches nothing. Since this migration
+        -- drops the foreign keys that used to reject such a row, failing open here would persist
+        -- generation history that is neither validated nor resolvable -- the exact hole the
+        -- composite key used to close.
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'no template % in catalog % for tenant %',
+                NEW.template_key, NEW.catalog_key, NEW.tenant_key;
+        END IF;
     END IF;
     RETURN NEW;
 END;

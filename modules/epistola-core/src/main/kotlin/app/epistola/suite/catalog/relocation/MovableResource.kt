@@ -34,6 +34,15 @@ enum class MovableResource(
      * special case in the executor. Never interpolated from caller input.
      */
     val keyColumnType: String? = null,
+    /**
+     * Whether a relocation may change this type's key.
+     *
+     * False where the key is a generated identifier rather than a name. Renaming one is not a
+     * rename in any useful sense, and it breaks the references that resolve by that identifier
+     * alone -- an unqualified image reference carries no catalog, so nothing is left to find the
+     * alias with.
+     */
+    val renameable: Boolean = true,
 ) {
     /**
      * Referenced from template and stencil content. Published references to it keep their old
@@ -105,6 +114,7 @@ enum class MovableResource(
         emptySet(),
         // assets.id is the UUID-backed ASSET_KEY domain, unlike every other key here.
         keyColumnType = "ASSET_KEY",
+        renameable = false,
     ),
 
     /**
