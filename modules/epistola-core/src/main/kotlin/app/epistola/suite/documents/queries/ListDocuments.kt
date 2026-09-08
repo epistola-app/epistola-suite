@@ -104,9 +104,13 @@ class ListDocumentsHandler(
 /**
  * Generation history belongs to a template by identity, not only by address. A document generated
  * before its template was renamed still records the old key, but its `template_resource_id` (filled
- * on insert) is the template's own, so it is found through the key the template has now. Rows older
- * than that column were never backfilled and can only match by key -- which is also what keeps a
- * bare-key lookup meaning what it did before relocation existed.
+ * on insert) is the template's own, so it is found through the key the template has now.
+ *
+ * Rows written before that column existed are deliberately not backfilled -- doing so would have
+ * meant rewriting every partition of the largest table in the product at upgrade time. They match
+ * by key alone, which is also what keeps a bare-key lookup meaning what it did before relocation
+ * existed, and the gap closes by itself: partitions are monthly and retention is measured in
+ * months, so every surviving row carries the identity within one window.
  */
 internal const val DOCUMENTS_OF_TEMPLATE = """
     AND (template_key = :templateId

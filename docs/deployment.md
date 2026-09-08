@@ -20,6 +20,10 @@ enrollment, namespace selection, credential handling, and publication
 operations are documented in
 [`catalog-exchange-publication.md`](catalog-exchange-publication.md).
 
+> **Upgrading an existing installation?** See [`upgrades.md`](upgrades.md) — some releases require
+> a maintenance window, and tenant backups taken before a breaking migration cannot be restored
+> after it.
+
 ## Database migrations: `migration.mode`
 
 Migrations run as a **separate, explicit step** by default (issue #431). The

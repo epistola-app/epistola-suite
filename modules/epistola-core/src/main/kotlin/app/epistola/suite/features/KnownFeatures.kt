@@ -140,7 +140,8 @@ object KnownFeatures {
         RESOURCE_RELOCATION to FeatureMetadata(
             "Resource relocation",
             "Enables previewing and moving authored catalog resources while preserving old references " +
-                "through stable identities and aliases. The alpha supports stencils, variant attributes and templates.",
+                "through stable identities and aliases. Supports all seven resource types; an asset can be " +
+                "moved but not renamed, because its key is a generated identifier.",
             stage = FeatureStage.ALPHA,
         ),
         CATALOG_PUBLISHING to FeatureMetadata(

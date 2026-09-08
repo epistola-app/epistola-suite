@@ -4,6 +4,33 @@
 
 ## [Unreleased]
 
+- **[user]** feat(db)!: **This release needs a maintenance window, and invalidates existing tenant
+  backups.** Re-keying every catalog resource onto a stable identity drops the address columns from
+  nine tables, so application code from the previous version cannot read the new schema. The
+  `pre-upgrade` Job commits it while the old pods are still serving, and the rolling update then
+  replaces them a quarter at a time — so the upgrade must be run with the application scaled to
+  zero. Separately, every tenant backup taken before the upgrade becomes unrestorable the moment it
+  commits (the column sets genuinely differ, so the compatibility headers say so) — take a
+  database-level backup first, and a fresh tenant backup afterwards rather than waiting for the
+  daily schedule. Full procedure in the new [Upgrades](docs/upgrades.md) guide.
+- **[dev]** perf(db): **The identity migration no longer rewrites the two largest tables.**
+  Generation history is filled forward, as it was originally, rather than backfilled: backfilling
+  meant a full row rewrite of every partition of `documents` and `document_generation_requests`
+  inside one transaction, holding `ACCESS EXCLUSIVE` on both throughout, to buy correctness only for
+  rows written before the upgrade — which retention removes within one window anyway. The redundant
+  `count(*)` over both tables (whose result was discarded) goes with it, and the two partitioned
+  indexes are created `ON ONLY` with per-partition children attached, so nothing scans generation
+  history at upgrade time. The foreign-key drops are now ordered, so every run takes its locks in
+  the same sequence instead of whatever `pg_constraint` returns.
+- **[dev]** fix(db): **A migration launched outside Helm keeps its own timeouts.** The migration JVM
+  inherited the application's 30-second socket timeout and 60-second leak detector, which are tuned
+  for request work and abort long DDL. The Helm chart relaxed both for its Job, but a migration
+  started any other way — the documented standalone container, a CI gate — got no such help.
+  `MigrationLauncher` now relaxes them itself.
+- **[dev]** perf(db): **Six duplicate identity indexes removed.** Each re-keyed table carried a
+  unique constraint on `(tenant_key, resource_id)` that became an exact duplicate of its primary key
+  once the key swapped, and every foreign key bound to the duplicate rather than the key. Dropped at
+  the swap, before the dependants' foreign keys are added, so they bind to the primary key.
 - **[dev]** test(catalogs): **The one-address-one-identity rule is now tested.** The sync trigger's
   insert path reads the registry then writes it, and nothing in the trigger stops two transactions
   registering different identities at the same address — the unique constraint on the address does.

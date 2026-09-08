@@ -116,6 +116,16 @@ object MigrationLauncher {
                     *args,
                     "--epistola.migration.mode=migrate",
                     "--spring.flyway.clean-disabled=true",
+                    // The app's 30s socketTimeout and 60s leak detector are tuned for request
+                    // work: they break a wedged read and flag a connection held too long. Long
+                    // DDL does neither -- an index build or a large ALTER reads nothing from the
+                    // socket for as long as it takes -- so inherited unchanged they abort the
+                    // migration partway. The Helm chart already relaxes both for its Job, but a
+                    // migration launched any other way (the documented standalone `docker run`,
+                    // a CI gate, a bare JVM) got no such help. Relaxed here so the migration JVM
+                    // carries its own timeouts wherever it is started from.
+                    "--spring.datasource.hikari.data-source-properties.socketTimeout=0",
+                    "--spring.datasource.hikari.leak-detection-threshold=0",
                 )
                 .close()
             logger.info("Database migration completed successfully")

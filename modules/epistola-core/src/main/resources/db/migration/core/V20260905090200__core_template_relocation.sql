@@ -40,15 +40,17 @@ ALTER TABLE environment_activations ADD COLUMN template_resource_id UUID;
 ALTER TABLE documents ADD COLUMN template_resource_id UUID;
 ALTER TABLE document_generation_requests ADD COLUMN template_resource_id UUID;
 
--- 2. Backfill, asserting every row found its template ------------------------------------------------
+-- 2. Backfill the hierarchy, asserting every row found its template ------------------------------------
+-- Only the hierarchy. Generation history is deliberately NOT backfilled -- see step 6, where the
+-- reasoning belongs with the columns it concerns. These four tables are bounded (versions are
+-- capped at 200 per variant), so the rewrite is small and the assertion is affordable.
 DO $$
 DECLARE
     dependant TEXT;
     unmatched BIGINT;
 BEGIN
     FOREACH dependant IN ARRAY ARRAY[
-        'template_variants', 'template_versions', 'contract_versions', 'environment_activations',
-        'documents', 'document_generation_requests'
+        'template_variants', 'template_versions', 'contract_versions', 'environment_activations'
     ] LOOP
         EXECUTE format(
             'UPDATE %I dependant SET template_resource_id = templates.resource_id
@@ -61,9 +63,7 @@ BEGIN
         EXECUTE format(
             'SELECT count(*) FROM %I WHERE template_resource_id IS NULL', dependant
         ) INTO unmatched;
-        -- Generation history is exempt: its foreign keys are dropped below precisely because a
-        -- record may outlive its template, so a row that no longer matches one is expected.
-        IF unmatched > 0 AND dependant NOT IN ('documents', 'document_generation_requests') THEN
+        IF unmatched > 0 THEN
             RAISE EXCEPTION '% rows in % reference a template that does not exist', unmatched, dependant;
         END IF;
     END LOOP;
@@ -95,6 +95,10 @@ BEGIN
           -- A partition carries a copy of each of its parent's constraints, which cannot be
           -- dropped on the child. Dropping the parent's takes them with it.
           AND con.conparentid = 0
+        -- Ordered so every run takes ACCESS EXCLUSIVE on the same tables in the same sequence.
+        -- Unordered, pg_constraint's row order decides it, and two concurrent upgrades -- or an
+        -- upgrade beside live traffic -- can each hold what the other is about to ask for.
+        ORDER BY con.conrelid::regclass::text, con.conname
     LOOP
         EXECUTE format(
             'ALTER TABLE %s DROP CONSTRAINT %I', constraint_row.owning_table, constraint_row.conname
@@ -111,6 +115,11 @@ END $$;
 -- 4. Swap the keys ------------------------------------------------------------------------------------
 ALTER TABLE document_templates
     DROP CONSTRAINT document_templates_pkey,
+    -- The unique constraint that stood in for the primary key while the address still held it
+    -- is now an exact duplicate of it. Dropped here, before the dependants' foreign keys are
+    -- added below, so those bind to the primary key rather than to a second identical index
+    -- that every write would then have to maintain.
+    DROP CONSTRAINT uq_document_templates_resource_id,
     ADD CONSTRAINT document_templates_pkey PRIMARY KEY (tenant_key, resource_id),
     ADD CONSTRAINT uq_document_templates_address UNIQUE (tenant_key, catalog_key, id);
 
@@ -185,9 +194,25 @@ COMMENT ON COLUMN documents.catalog_key IS
 COMMENT ON COLUMN document_generation_requests.catalog_key IS
     'Catalog the template lived in when generation was requested. A historical fact: it does not follow a later relocation.';
 COMMENT ON COLUMN documents.template_resource_id IS
-    'Stable identity of the generating template. Null only where the template has since been deleted; those rows keep their recorded address. No foreign key: adding one would scan every partition at upgrade time, and a dangling id simply fails to join.';
+    'Stable identity of the generating template. Filled forward from this migration on; null on older rows, which resolve by their recorded address instead. No foreign key: adding one would scan every partition at upgrade time, and a dangling id simply fails to join.';
 COMMENT ON COLUMN document_generation_requests.template_resource_id IS
-    'Stable identity of the generating template. Null only where the template has since been deleted.';
+    'Stable identity of the generating template. Filled forward from this migration on; null on older rows.';
+
+-- Filled forward, never backfilled -- deliberately, and this is the one place in the migration
+-- where that choice is worth its cost.
+--
+-- Backfilling would mean a full row rewrite of every partition of the two largest tables in the
+-- product, inside this transaction, holding ACCESS EXCLUSIVE on both throughout, and it would make
+-- the partial indexes below full-size rather than empty. What it would buy is the identity on rows
+-- written BEFORE this upgrade -- and those are exactly the rows retention removes: partitions are
+-- monthly and `epistola.partitions.retention-months` defaults to 3, so within one retention window
+-- every surviving row carries the identity anyway. The backfill happens by itself.
+--
+-- Until then those rows are found by their recorded address, which is what ListDocuments'
+-- DOCUMENTS_OF_TEMPLATE predicate does: match the address OR the identity. The gap that leaves is
+-- narrow and self-closing -- a template renamed shortly after the upgrade hides pre-upgrade rows
+-- that would have aged out regardless -- and paying for it with the whole upgrade window is the
+-- wrong trade.
 
 -- Filled by trigger rather than at the three production insert sites, so a future writer -- or a
 -- test fake -- cannot silently omit it.
@@ -230,11 +255,10 @@ CREATE TRIGGER trg_generation_requests_template_identity
 -- columns stay pinned to where the template lived at generation time, so a lookup by the template's
 -- current address misses everything produced before it moved.
 --
--- Partial on NOT NULL deliberately. The backfill above fills the column, so a NULL means the
--- generating template has since been deleted -- a row no lookup by identity can ever want.
--- Indexing those would cost space for entries the index can never serve, and the predicate is
--- implied by any equality lookup on the column, so the planner matches it without the query having
--- to mention it.
+-- Partial on NOT NULL deliberately, and that is what makes it cheap to create here: the column is
+-- filled forward, so at build time every existing row is NULL and the index starts empty. It fills
+-- as generation happens. The predicate is implied by any equality lookup on the column, so the
+-- planner matches it without the query having to mention it.
 --
 -- created_at DESC is part of the key, not decoration. These tables are RANGE-partitioned on
 -- created_at, so "newest first, paginated" can walk partitions in order and stop early -- but only
@@ -248,15 +272,50 @@ CREATE TRIGGER trg_generation_requests_template_identity
 -- cannot prune probes every partition. That is bounded -- partitions are monthly and retention is
 -- configured in months -- and partitions holding no match cost nothing.
 --
--- Note on cost: CREATE INDEX on a partitioned table recurses into every partition, and since
--- the column is backfilled above, the build is over real rows rather than an empty index.
--- Flyway runs a migration in one transaction, so CONCURRENTLY is not available here; an operator
--- whose generation history makes this disruptive can build it out of band instead --
--- CREATE INDEX ON ONLY, then per-partition CONCURRENTLY builds attached afterwards.
+-- ON ONLY, so this is a catalogued parent index and nothing is scanned at upgrade time. Each
+-- partition's own index is attached as the partition is created -- new partitions inherit it from
+-- the parent, and existing ones are attached below. Without ON ONLY, CREATE INDEX recurses into
+-- every partition, and Flyway's single transaction rules out CONCURRENTLY, so a plain create would
+-- scan the whole of generation history with writes blocked.
 CREATE INDEX idx_documents_template_resource_id
-    ON documents (tenant_key, template_resource_id, created_at DESC)
+    ON ONLY documents (tenant_key, template_resource_id, created_at DESC)
     WHERE template_resource_id IS NOT NULL;
 
 CREATE INDEX idx_generation_requests_template_resource_id
-    ON document_generation_requests (tenant_key, template_resource_id, created_at DESC)
+    ON ONLY document_generation_requests (tenant_key, template_resource_id, created_at DESC)
     WHERE template_resource_id IS NOT NULL;
+
+-- Existing partitions get their own index and are attached to the parent. Each build is over rows
+-- whose column is entirely NULL, so the partial predicate matches nothing and the build is
+-- effectively free -- the scan is a read, not the rewrite a backfill would have made it.
+DO $$
+DECLARE
+    parent TEXT;
+    partition_name TEXT;
+    index_name TEXT;
+BEGIN
+    FOREACH parent IN ARRAY ARRAY['documents', 'document_generation_requests'] LOOP
+        FOR partition_name IN
+            SELECT child.relname
+            FROM pg_inherits
+            JOIN pg_class child ON child.oid = pg_inherits.inhrelid
+            WHERE pg_inherits.inhparent = parent::regclass
+            ORDER BY child.relname
+        LOOP
+            index_name := partition_name || '_template_resource_id_idx';
+            EXECUTE format(
+                'CREATE INDEX %I ON %I (tenant_key, template_resource_id, created_at DESC)
+                   WHERE template_resource_id IS NOT NULL',
+                index_name, partition_name
+            );
+            EXECUTE format(
+                'ALTER INDEX %I ATTACH PARTITION %I',
+                CASE parent
+                    WHEN 'documents' THEN 'idx_documents_template_resource_id'
+                    ELSE 'idx_generation_requests_template_resource_id'
+                END,
+                index_name
+            );
+        END LOOP;
+    END LOOP;
+END $$;

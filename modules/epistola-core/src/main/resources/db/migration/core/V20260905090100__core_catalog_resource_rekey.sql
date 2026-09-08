@@ -110,6 +110,11 @@ ALTER TABLE variant_attribute_definitions
 -- The address keeps its uniqueness; it is simply no longer what anything references.
 ALTER TABLE code_lists
     DROP CONSTRAINT code_lists_pkey,
+    -- The unique constraint that stood in for the primary key while the address still held it
+    -- is now an exact duplicate of it. Dropped here, before the dependants' foreign keys are
+    -- added below, so those bind to the primary key rather than to a second identical index
+    -- that every write would then have to maintain.
+    DROP CONSTRAINT uq_code_lists_resource_id,
     ADD CONSTRAINT code_lists_pkey PRIMARY KEY (tenant_key, resource_id),
     ADD CONSTRAINT uq_code_lists_address UNIQUE (tenant_key, catalog_key, slug);
 
@@ -217,11 +222,21 @@ ALTER TABLE font_variants
 -- 4. Swap the keys ---------------------------------------------------------------------------------
 ALTER TABLE fonts
     DROP CONSTRAINT fonts_pkey,
+    -- The unique constraint that stood in for the primary key while the address still held it
+    -- is now an exact duplicate of it. Dropped here, before the dependants' foreign keys are
+    -- added below, so those bind to the primary key rather than to a second identical index
+    -- that every write would then have to maintain.
+    DROP CONSTRAINT uq_fonts_resource_id,
     ADD CONSTRAINT fonts_pkey PRIMARY KEY (tenant_key, resource_id),
     ADD CONSTRAINT uq_fonts_address UNIQUE (tenant_key, catalog_key, slug);
 
 ALTER TABLE assets
     DROP CONSTRAINT assets_pkey,
+    -- The unique constraint that stood in for the primary key while the address still held it
+    -- is now an exact duplicate of it. Dropped here, before the dependants' foreign keys are
+    -- added below, so those bind to the primary key rather than to a second identical index
+    -- that every write would then have to maintain.
+    DROP CONSTRAINT uq_assets_resource_id,
     ADD CONSTRAINT assets_pkey PRIMARY KEY (tenant_key, resource_id),
     ADD CONSTRAINT uq_assets_address UNIQUE (tenant_key, catalog_key, id);
 
@@ -314,6 +329,11 @@ ALTER TABLE tenants
 -- 4. Swap the key ---------------------------------------------------------------------------------
 ALTER TABLE themes
     DROP CONSTRAINT themes_pkey,
+    -- The unique constraint that stood in for the primary key while the address still held it
+    -- is now an exact duplicate of it. Dropped here, before the dependants' foreign keys are
+    -- added below, so those bind to the primary key rather than to a second identical index
+    -- that every write would then have to maintain.
+    DROP CONSTRAINT uq_themes_resource_id,
     ADD CONSTRAINT themes_pkey PRIMARY KEY (tenant_key, resource_id),
     ADD CONSTRAINT uq_themes_address UNIQUE (tenant_key, catalog_key, id);
 
@@ -391,6 +411,11 @@ ALTER TABLE stencil_versions
 -- 4. Swap the key -----------------------------------------------------------------------------------
 ALTER TABLE stencils
     DROP CONSTRAINT stencils_pkey,
+    -- The unique constraint that stood in for the primary key while the address still held it
+    -- is now an exact duplicate of it. Dropped here, before the dependants' foreign keys are
+    -- added below, so those bind to the primary key rather than to a second identical index
+    -- that every write would then have to maintain.
+    DROP CONSTRAINT uq_stencils_resource_id,
     ADD CONSTRAINT stencils_pkey PRIMARY KEY (tenant_key, resource_id),
     ADD CONSTRAINT uq_stencils_address UNIQUE (tenant_key, catalog_key, id);
 

@@ -338,7 +338,10 @@ class DataPreservationMigrationIT {
                 .describedAs("generation history must survive its template foreign keys being dropped")
                 .isEqualTo("invoice.pdf")
             assertThat(one("SELECT count(*) FROM documents WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND template_resource_id IS NULL"))
-                .describedAs("history keeps its recorded address and gains the identity, so a later rename stays resolvable")
+                .describedAs("generation history is filled forward, never backfilled: rewriting every partition at upgrade time is the one cost this migration refuses to pay")
+                .isEqualTo("1")
+            assertThat(one("SELECT count(*) FROM template_variants WHERE tenant_key = '$TENANT' AND template_resource_id IS NULL"))
+                .describedAs("the hierarchy IS backfilled -- it is bounded, and its foreign keys require it")
                 .isEqualTo("0")
 
             // Intentional scoped cleanup (V20260708110402, issue #668): the retired
