@@ -334,6 +334,9 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
                 .sortedBy { it.id.value }
             assertThat(versions.map { it.id.value }).containsExactly(1, 2)
 
+            // Read from storage rather than through GetLatestPublishedVersion: this wants the
+            // newest version whatever its status, and that query filters to published. Going
+            // through it does not narrow the assertion, it changes the subject.
             val templateModelJson = jdbi.withHandle<String, Exception> { handle ->
                 handle.createQuery(
                     """

@@ -4,6 +4,20 @@
 
 ## [Unreleased]
 
+- **[dev]** test(db): **The migrated schema is now asserted, not just the data in it.**
+  `SchemaHygieneAppTest` runs against `pg_catalog` at the app level, where every module's migrations
+  are merged. Two kinds of check: hygiene invariants that should hold of any healthy schema — no two
+  indexes over the same columns of a table, no constraint name sitting at PostgreSQL's 63-character
+  truncation limit, no partitioned index missing a partition — and the identity model itself, so a
+  migration that half-applies or a later one that quietly undoes it fails here rather than at
+  runtime. It found three real problems on its first run, only one of which was new.
+- **[dev]** perf(db): **A duplicate index on `api_keys` is gone.** `key_hash` is declared `UNIQUE`,
+  which already indexes it; the explicit `idx_api_keys_key_hash` alongside it has been maintained by
+  every key write since the table was created, and could never be chosen over the unique index.
+- **[dev]** refactor(db): **Relocatable resource types are a seeded table, not a `CHECK`.** Adding an
+  eighth type is now an `INSERT` rather than dropping and recreating a constraint, matching how
+  `asset_types` already works. Two constraints on `catalog_release_publications` whose generated
+  names PostgreSQL had truncated are renamed, so a later migration can reference them safely.
 - **[user]** feat(db)!: **This release needs a maintenance window, and invalidates existing tenant
   backups.** Re-keying every catalog resource onto a stable identity drops the address columns from
   nine tables, so application code from the previous version cannot read the new schema. The

@@ -507,6 +507,9 @@ class ImportTemplatesTest : IntegrationTestBase() {
             assertThat(results.single().status).isEqualTo(ImportStatus.CREATED)
         }
 
+        // Read from storage, not through GetLatestPublishedVersion: that query does not project
+        // referenced_paths, and TemplateVersion defaults the field to an empty set -- so going
+        // through it would assert nothing while appearing to pass.
         val referencedPaths = jdbi.withHandle<String, Exception> { handle ->
             handle.createQuery(
                 """

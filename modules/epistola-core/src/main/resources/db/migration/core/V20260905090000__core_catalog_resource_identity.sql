@@ -3,6 +3,25 @@
 -- that retains its historical addresses. A backup taken before this carries neither, and one taken
 -- after cannot be read by a suite that has no registry.
 
+-- The resource types that can be relocated.
+--
+-- A seeded table rather than a CHECK or an enum, matching how `asset_types` already works: adding
+-- an eighth relocatable type is an INSERT, not an ALTER that has to drop and recreate a constraint
+-- on a table under load. CLAUDE.md states this as the house rule for asset media types, and the
+-- reasoning is the same here.
+--
+-- The values are the catalog wire names, so the registry's resource_type is the same token that
+-- appears in an export and in a public address.
+CREATE TABLE catalog_resource_types (
+    resource_type VARCHAR(20) PRIMARY KEY
+);
+
+COMMENT ON TABLE catalog_resource_types IS
+    'Relocatable catalog resource types. Extend by inserting a row -- no enum, no CHECK to widen.';
+
+INSERT INTO catalog_resource_types (resource_type) VALUES
+    ('asset'), ('codeList'), ('font'), ('attribute'), ('theme'), ('stencil'), ('template');
+
 -- Stable, tenant-local identity for movable catalog resources, and the addresses they leave behind.
 --
 -- Three things that used to be one are separated here. IDENTITY (resource_id) is what every
@@ -37,8 +56,8 @@ CREATE TABLE catalog_resources (
     CONSTRAINT fk_catalog_resources_catalog
         FOREIGN KEY (tenant_key, catalog_key) REFERENCES catalogs(tenant_key, id) ON DELETE CASCADE
         DEFERRABLE INITIALLY IMMEDIATE,
-    CONSTRAINT chk_catalog_resources_type
-        CHECK (resource_type IN ('asset', 'codeList', 'font', 'attribute', 'theme', 'stencil', 'template'))
+    CONSTRAINT fk_catalog_resources_type
+        FOREIGN KEY (resource_type) REFERENCES catalog_resource_types(resource_type)
 );
 
 COMMENT ON TABLE catalog_resources IS
@@ -272,8 +291,11 @@ CREATE TABLE catalog_resource_aliases (
     resource_key TEXT NOT NULL,
     target_resource_id UUID NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (tenant_key, resource_type, catalog_key, resource_key),
-    FOREIGN KEY (tenant_key, target_resource_id, resource_type)
+    CONSTRAINT catalog_resource_aliases_pkey PRIMARY KEY (tenant_key, resource_type, catalog_key, resource_key),
+    -- Named: the generated name for this key would be truncated at 63 characters, which makes it
+    -- unstable to reference from a later migration.
+    CONSTRAINT fk_catalog_resource_aliases_target
+        FOREIGN KEY (tenant_key, target_resource_id, resource_type)
         REFERENCES catalog_resources(tenant_key, resource_id, resource_type)
         ON DELETE CASCADE
 );
