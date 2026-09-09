@@ -106,6 +106,64 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
         assertThat(deletedIdentityExists).isFalse()
     }
 
+    /**
+     * Identities are minted by `uuidv7()`, so they are time-ordered rather than random: a new one
+     * lands at the right-hand edge of every index keyed on it instead of anywhere in it. That is
+     * the whole reason for requiring PostgreSQL 18, so it is worth asserting rather than assuming —
+     * a silent fallback to a random UUID would cost index locality on the busiest keys in the
+     * schema and nothing would fail.
+     */
+    @Test
+    fun `minted identities are time-ordered UUIDv7 values`() {
+        val tenant = createTenant("Identity version")
+        val tenantId = TenantId(tenant.id)
+        val catalogKey = CatalogKey.of("letters")
+        val catalogId = CatalogId(catalogKey, tenantId)
+
+        withMediator {
+            CreateCatalog(tenant.id, catalogKey, "Letters").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("first"), catalogId), "First").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("second"), catalogId), "Second").execute()
+        }
+
+        // Ordered by creation, so the identities should come back ascending if they are time-based.
+        val identities = jdbi.withHandle<List<UUID>, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT resource_id FROM catalog_resources
+                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND resource_type = 'template'
+                ORDER BY resource_key
+                """,
+            )
+                .bind("tenantKey", tenant.id)
+                .bind("catalogKey", catalogKey)
+                .map { rs, _ -> rs.getObject("resource_id", UUID::class.java) }
+                .list()
+        }
+
+        assertThat(identities).hasSize(2)
+        assertThat(identities.map { it.version() }).describedAs("UUID version nibble").containsOnly(7)
+        assertThat(identities.map { it.variant() }).describedAs("RFC 4122 variant").containsOnly(2)
+
+        // A v4 with the version nibble forced to 7 would pass the checks above; only the embedded
+        // timestamp proves the value is actually time-based. Compared against the *database* clock,
+        // which is what minted it -- a test clock does not reach uuidv7().
+        val databaseNowMillis = jdbi.withHandle<Long, Exception> { handle ->
+            handle.createQuery("SELECT (extract(epoch from now()) * 1000)::bigint").mapTo(Long::class.java).one()
+        }
+        val timestamps = identities.map { it.mostSignificantBits ushr 16 }
+        assertThat(timestamps).allSatisfy { millis ->
+            assertThat(millis).isBetween(databaseNowMillis - 60_000, databaseNowMillis + 60_000)
+        }
+
+        // Ordered on the most significant bits, not UUID.compareTo: that compares both longs
+        // signed, and the low long's top bit is random. The high long carries the timestamp and
+        // v7's sub-millisecond precision, and is positive for any realistic date.
+        assertThat(identities.map { it.mostSignificantBits })
+            .describedAs("later identity sorts after the earlier one")
+            .isSorted()
+    }
+
     private data class IdentityRow(
         val resourceId: UUID,
         val type: String,

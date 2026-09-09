@@ -16,6 +16,26 @@ For how migrations are wired (`migration.mode`, the Job, the init container), se
 [`deployment.md`](deployment.md#database-migrations-migrationmode). For how migrations are authored,
 see [`migrations.md`](migrations.md).
 
+## PostgreSQL 18 is required
+
+From the catalog-resource-identity release onward the suite needs **PostgreSQL 18 or later**;
+identities are minted with `uuidv7()`, added in 18. The first migration checks the server version
+and stops with
+
+```
+ERROR:  Epistola requires PostgreSQL 18 or later from this release; this server is 17.5
+```
+
+before any DDL runs, so an older server costs you a failed migration rather than a half-applied
+one. Upgrade the database first, then the suite — and note that a major PostgreSQL upgrade is its
+own maintenance window on top of the one below.
+
+Check what you are on:
+
+```bash
+psql "$DATABASE_URL" -tAc "SHOW server_version;"
+```
+
 ## The two kinds of upgrade
 
 **Additive.** The migration only adds — a column, a table, an index, a seeded row. Old application

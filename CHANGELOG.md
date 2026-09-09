@@ -4,6 +4,25 @@
 
 ## [Unreleased]
 
+- **[user]** feat(db)!: **PostgreSQL 18 is now the minimum.** Catalog resource identities are minted
+  with `uuidv7()`, which 17 does not have — so identities are time-ordered rather than random, and
+  a new one lands at the right-hand edge of the index instead of anywhere in it. The first identity
+  migration checks `server_version_num` and stops with a named error before taking any lock, so an
+  older server costs a failed migration rather than a half-applied one. Upgrade the database before
+  the suite; see [Upgrading](docs/upgrades.md#postgresql-18-is-required). Which PostgreSQL versions
+  a release supports is still nowhere machine-readable — [#909](https://github.com/epistola-app/epistola-suite/issues/909)
+  tracks declaring and publishing that properly.
+- **[dev]** fix(test): **The test Postgres container moves to 18, and its tmpfs with it.** PostgreSQL
+  18's image stores its cluster in a major-version subdirectory (`/var/lib/postgresql/18/docker`)
+  and refuses to start if it finds a mount on the old `/var/lib/postgresql/data` path — so the
+  version bump alone failed every context in the suite until the tmpfs moved up one level. It is
+  still RAM-backed.
+- **[dev]** test(db): **`NOT NULL` is exempt from the constraint-name-length check.** PostgreSQL 18
+  made `NOT NULL` a real catalog constraint where 17 kept it as `pg_attribute.attnotnull` alone, so
+  two long-named columns appeared in `SchemaHygieneAppTest` overnight with no schema change behind
+  them. They are exempt because the instability the check is about cannot reach them: the name comes
+  from a single column, and every migration in the tree uses `SET NOT NULL` / `DROP NOT NULL` rather
+  than naming one.
 - **[dev]** refactor(catalog): **A resource's identity is a type, not a bare `UUID`.**
   `ResourceIdentity` replaces `java.util.UUID` everywhere a catalog resource's stable identity is
   carried — the relocation planner, the identity registry, the resource graph, quality ignores —

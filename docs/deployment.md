@@ -3,6 +3,14 @@
 How Epistola Suite is deployed with the Helm chart (`charts/epistola`). For the
 migration model itself see [`migrations.md`](migrations.md).
 
+## Requirements
+
+**PostgreSQL 18 or later.** Catalog resource identities are minted with `uuidv7()`, which
+PostgreSQL 17 does not have. The first migration checks `server_version_num` and refuses with a
+named error before taking any lock, so an older server fails the migration rather than the
+application. Upgrade the database **before** the suite — see
+[`upgrades.md`](upgrades.md#postgresql-18-is-required).
+
 ## Epistola Exchange publication
 
 Suite-to-Exchange catalog publication is a default-off outbound integration.

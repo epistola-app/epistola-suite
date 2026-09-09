@@ -97,6 +97,14 @@ class SchemaHygieneAppTest : BaseIntegrationTest() {
      * is not wrong, but it is unstable: add a column to the key and the name changes, so a later
      * migration that drops it by name breaks. Anything at exactly the limit was almost certainly
      * generated rather than chosen, and should be named explicitly.
+     *
+     * `NOT NULL` is excluded, and the exclusion is the interesting part. PostgreSQL 18 made `NOT
+     * NULL` a real catalog constraint (`contype = 'n'`) where 17 and earlier kept it as nothing but
+     * `pg_attribute.attnotnull` — so raising the floor to 18 made two long-named columns appear
+     * here overnight, with no schema change behind them. They are exempt because the instability
+     * this test is about cannot reach them: the name is derived from one column
+     * (`<table>_<column>_not_null`), so adding columns never changes it, and nothing drops one by
+     * name anyway — every migration in the tree uses `SET NOT NULL` / `DROP NOT NULL`.
      */
     @Test
     fun `no constraint name sits at the truncation limit`() {
@@ -108,6 +116,7 @@ class SchemaHygieneAppTest : BaseIntegrationTest() {
                     FROM pg_constraint con
                     JOIN pg_namespace n ON n.oid = con.connamespace
                     WHERE n.nspname = 'public' AND length(con.conname) >= 63
+                      AND con.contype <> 'n'
                     ORDER BY 1
                     """,
                 )
