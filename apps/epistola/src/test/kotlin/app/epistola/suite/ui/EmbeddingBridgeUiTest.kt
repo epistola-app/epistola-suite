@@ -172,6 +172,32 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
     }
 
     @Test
+    fun `opening the template editor fires a navigated message for the editor path`() {
+        val tenant = createTestTenant()
+        installMessageCapture()
+
+        createTemplateViaUi(tenant, "Editor Bridge", "editor-bridge")
+
+        gotoAndReady("/tenants/${tenant.id}/templates/default/editor-bridge")
+        page.locator("[data-testid='template-tab'][data-tab-name='variants']").click()
+        page.htmxSettle()
+        // The editor is a standalone full page outside the shell
+        // (hx-boost="false"), so this is a real reload — the init script
+        // reinstalls the capture and only the editor page's messages remain.
+        page.locator("a[title='Open editor']").click()
+        assertThat(page.locator("#editor-container")).isVisible()
+
+        val navigated = latestMessageOfType("navigated")
+        checkNotNull(navigated) { "expected a 'navigated' message, got: ${capturedMessages()}" }
+        val message = navigated["message"] as Map<*, *>
+        Assertions.assertThat(message["path"] as String).endsWith("/editor")
+        val resource = message["resource"] as Map<*, *>
+        Assertions.assertThat(resource["resourceType"]).isEqualTo("template")
+        Assertions.assertThat(resource["catalogKey"]).isEqualTo("default")
+        Assertions.assertThat(resource["key"]).isEqualTo("editor-bridge")
+    }
+
+    @Test
     fun `a host navigate message drives real navigation to the identified resource`() {
         val tenant = createTestTenant()
         installMessageCapture()

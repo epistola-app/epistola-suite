@@ -47,8 +47,10 @@ flag:
    dropped on every request the embedded page's own JS/htmx makes back to its
    own origin. See ADR 0015 for why this is scoped this narrowly.
 3. **The bridge script and its config JSON island** are included in the
-   rendered shell at all (`fragments/htmx.html`, `layout/shell.html`) —
-   entirely absent from the page when embedding is off.
+   rendered shell (`fragments/htmx.html`, `layout/shell.html`) and in the
+   standalone template-editor page (`templates/editor.html`, which is a full
+   page outside the shell) — entirely absent from the page when embedding is
+   off.
 
 ## The message protocol
 

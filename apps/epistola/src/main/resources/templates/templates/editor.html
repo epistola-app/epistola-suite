@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${templateName + ' - Edit - Epistola'}">Edit Template - Epistola</title>
     <th:block th:replace="~{fragments/styles :: styles}" />
+    <!-- Embedding bridge config (docs/embedding.md, ADR 0015) — demo-mode only.
+         This page is standalone (no layout/shell), so it carries its own copy
+         of the island the shell renders; without it embed-bridge.js stays inert
+         and no navigated/resource-changed messages leave the editor. -->
+    <script type="application/json" id="epistola-embed-config" th:if="${embeddingEnabled}" th:inline="javascript">
+        /*[[${allowedParentOrigins}]]*/ []
+    </script>
     <th:block th:replace="~{fragments/htmx :: htmx}" />
     <link rel="stylesheet" th:href="@{/css/shell.css}">
     <link rel="stylesheet" th:href="@{/editor/template-editor.css}">
