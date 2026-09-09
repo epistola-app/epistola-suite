@@ -160,3 +160,6 @@ installation path is actually wanted.
 - **No automatic upgrading.** Deliberate — see ADR 0021.
 - **No usage reporting to Exchange**, and therefore no use of its bulk upgrades feed. ADR 0021
   explains the trade.
+- **No renaming on install, no dependency display, and nothing a publisher can leave for the
+  installer to supply.** All three are one design, recorded as a draft in
+  [ADR 0022](adr/0022-installation-bindings.md).
