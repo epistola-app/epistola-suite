@@ -112,7 +112,7 @@ Exchange publishes no catalog wire-format version on a release, so a release pub
 Epistola is only rejected when it is imported, with a message saying to upgrade this installation.
 Catalogs subscribed from a manifest URL do not have this limitation — their manifest carries the
 version, so the list shows "out of sync" or "upgrade Epistola" without a download. See
-[ADR 0020](adr/0020-catalog-upstream-release-discovery.md).
+[ADR 0021](adr/0021-catalog-upstream-release-discovery.md).
 
 ## Permissions
 
@@ -139,6 +139,6 @@ installation path is actually wanted.
 - **No resource-level diff before an upgrade.** A URL-subscribed catalog gets one, built by walking
   the source manifest; an Exchange release is an archive, so its dialog shows release metadata and
   states the abort guarantee instead. A real diff would mean downloading before previewing.
-- **No automatic upgrading.** Deliberate — see ADR 0020.
-- **No usage reporting to Exchange**, and therefore no use of its bulk upgrades feed. ADR 0020
+- **No automatic upgrading.** Deliberate — see ADR 0021.
+- **No usage reporting to Exchange**, and therefore no use of its bulk upgrades feed. ADR 0021
   explains the trade.

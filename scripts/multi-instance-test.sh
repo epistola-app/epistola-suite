@@ -33,7 +33,9 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="${MIT_WORKDIR:-/tmp/epistola-multi-instance}"
-JAR_DIR="$REPO/apps/epistola/build/libs"
+# Overridable: the demo distribution is a separate app since the demo split, and it is the one
+# that seeds a tenant and an API key -- which the load-test tooling needs.
+JAR_DIR="${MIT_JAR_DIR:-$REPO/apps/epistola/build/libs}"
 PORTS=(4000 4010 4020)
 NODES=(node-a node-b node-c)
 LB_PORT=4444
@@ -42,7 +44,7 @@ PGPORT=4001
 DEMO_KEY="epk_demo_000000000000000000000000000000000000"
 VND="application/vnd.epistola.v1+json"
 COMMON_ARGS=(
-  --spring.profiles.active=local
+  --spring.profiles.active="${MIT_PROFILES:-local}"
   --epistola.support.enabled=false
   --spring.session.timeout=4h
   --epistola.generation.polling.stale-timeout-minutes=1
@@ -70,8 +72,13 @@ node_pid() { # index
 # Resolve the bootable fat jar. `bootJar` also emits an `epistola-*-plain.jar`
 # (the plain library jar, no Main-Class) — feeding that to `java -jar` fails with
 # "no main manifest attribute", so exclude it explicitly.
+#
+# Newest by modification time, not first alphabetically. A jar left behind by an
+# older release (`epistola-1.0.0-RC4.jar`) sorts before today's (`epistola-dev.jar`)
+# and would be picked silently — so the harness would test the previous version and
+# pass, which is worse than failing.
 boot_jar() {
-  ls "$JAR_DIR"/epistola-*.jar 2>/dev/null | grep -v -- '-plain\.jar' | head -1
+  ls -t "$JAR_DIR"/epistola-*.jar 2>/dev/null | grep -v -- '-plain\.jar' | head -1
 }
 
 start_node() { # index

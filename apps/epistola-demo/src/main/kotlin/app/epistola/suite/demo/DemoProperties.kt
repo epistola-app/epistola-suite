@@ -25,9 +25,14 @@ data class DemoProperties(
 
     /**
      * A single credential that authenticates **every** endpoint under `/api` as a superuser, for the
-     * demo website to call Epistola on a visitor's behalf. Supplied only through the environment
-     * (`EPISTOLA_DEMO_SHAREDSECRET`), never committed. Blank — the default — means no such
+     * demo website to call Epistola on a visitor's behalf. Blank — the default — means no such
      * credential exists.
+     *
+     * Deployments supply their own through the environment (`EPISTOLA_DEMO_SHAREDSECRET`) and must
+     * never commit it. The one committed value is the `demo`+`local` document in
+     * `application-demo.yaml`: deliberately unmistakable and low-entropy so it cannot be mistaken
+     * for a real credential, and unreachable from the published demo image, which runs `demo`
+     * without `local`.
      */
     val sharedSecret: String = "",
 ) {

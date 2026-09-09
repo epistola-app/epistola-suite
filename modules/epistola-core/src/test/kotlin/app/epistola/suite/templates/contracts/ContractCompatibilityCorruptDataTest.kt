@@ -15,6 +15,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.contracts.queries.CheckTemplateVersionCompatibility
 import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -55,8 +56,8 @@ class ContractCompatibilityCorruptDataTest : IntegrationTestBase() {
                 """
                 UPDATE template_versions
                 SET referenced_paths = '{"not": "an array"}'::jsonb
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                  AND template_key = :templateKey AND variant_key = :variantKey AND id = :versionId
+                WHERE tenant_key = :tenantKey
+                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = :variantKey AND id = :versionId
                 """,
             )
                 .bind("tenantKey", templateId.tenantKey)

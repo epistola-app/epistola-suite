@@ -4,6 +4,8 @@
 
 package app.epistola.suite.catalog.graph
 
+import app.epistola.suite.common.ids.ResourceIdentity
+
 enum class CatalogResourceType(val wireName: String) {
     ASSET("asset"),
     CODE_LIST("codeList"),
@@ -19,10 +21,24 @@ data class ResourceAddress(
     val catalogKey: String,
     val key: String,
 ) {
-    val id: String get() = "${type.wireName}:$catalogKey:$key"
+    /**
+     * Stable text form, used for sorting, blocker messages, graph ids and the organise deep link.
+     *
+     * Shaped like [app.epistola.suite.common.ids.EntityIdBase.path]: a colon after the type, then
+     * the address as a path. The tenant is left out because every surface carrying one of these
+     * already names the tenant elsewhere in its URL.
+     */
+    val id: String get() = "${type.wireName}:$catalogKey/$key"
 }
 
 data class ResourceNode(
+    /**
+     * Stable tenant-local identity, unchanged by a relocation.
+     *
+     * The address is what authors and catalog exchange use, but it moves. Callers that need to
+     * follow a resource across a move -- notably relocation itself -- hold this instead.
+     */
+    val resourceId: ResourceIdentity,
     val address: ResourceAddress,
     val name: String,
     val catalogName: String,
@@ -78,6 +94,7 @@ data class ResourceEdge(
     val qualification: ReferenceQualification,
     val resolution: ReferenceResolution,
     val evidence: List<ReferenceEvidence>,
+    val resolvedViaAlias: Boolean = false,
 ) {
     val evidenceCount: Int get() = evidence.size
 }

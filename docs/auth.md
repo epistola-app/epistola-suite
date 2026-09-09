@@ -542,7 +542,9 @@ model, so that the demo website can call Epistola on behalf of a visitor whose t
 moments earlier at login and has no API key of its own.
 
 ```bash
-# >= 32 characters. Supplied only through the environment, never committed.
+# >= 32 characters. Deployments supply their own through the environment and never commit it.
+# Running the demo app locally (`local,demo`) already has a fixed placeholder — see
+# `apps/epistola-demo/src/main/resources/application-demo.yaml`.
 export EPISTOLA_DEMO_SHAREDSECRET=$(openssl rand -hex 32)
 
 curl -H "Authorization: ApiKey $EPISTOLA_DEMO_SHAREDSECRET" \

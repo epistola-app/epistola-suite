@@ -4,19 +4,14 @@
 
 package app.epistola.suite.handlers
 
-import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
-import app.epistola.suite.testing.FakeExchangeServer
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.http.HttpStatus
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 
 /**
  * What an administrator sees when Exchange answers with something Suite cannot use.
@@ -27,7 +22,7 @@ import org.springframework.test.context.DynamicPropertySource
  * it produced a blank 500 — the worst possible diagnostics for the moment you are trying to get
  * two services talking.
  */
-class ExchangeProtocolFailureHandlerTest : BaseIntegrationTest() {
+class ExchangeProtocolFailureHandlerTest : ExchangeHandlerTestBase() {
 
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
@@ -50,21 +45,5 @@ class ExchangeProtocolFailureHandlerTest : BaseIntegrationTest() {
         assertThat(response.body).contains("somewhere-else.example")
         // Still the settings page, so the administrator can correct it and retry.
         assertThat(response.body).contains("Tenant connection")
-    }
-
-    companion object {
-        private val exchange = FakeExchangeServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun exchangeProperties(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.exchange.enabled") { "true" }
-            registry.add("epistola.exchange.base-url") { exchange.baseUrl }
-            registry.add("epistola.exchange.allow-http") { "true" }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stopExchange() = exchange.close()
     }
 }

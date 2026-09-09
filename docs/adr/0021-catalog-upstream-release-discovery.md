@@ -1,4 +1,4 @@
-# ADR 0020: Discovering that a subscribed catalog has a newer release
+# ADR 0021: Discovering that a subscribed catalog has a newer release
 
 - **Status:** Accepted — implemented
 - **Date:** 2026-09-04

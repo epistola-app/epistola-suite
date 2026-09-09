@@ -12,6 +12,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.analysis.TemplateCompatibilityResult
 import app.epistola.suite.templates.contracts.TemplateVersionCompatibilityEvaluator
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.core.JacksonException
@@ -52,10 +53,10 @@ class CheckTemplateVersionCompatibilityHandler(
                 SELECT tv.referenced_paths, cv.data_model as contract_data_model
                 FROM template_versions tv
                 LEFT JOIN contract_versions cv
-                    ON cv.tenant_key = tv.tenant_key AND cv.catalog_key = tv.catalog_key
-                       AND cv.template_key = tv.template_key AND cv.id = tv.contract_version
-                WHERE tv.tenant_key = :tenantKey AND tv.catalog_key = :catalogKey
-                  AND tv.template_key = :templateKey AND tv.variant_key = :variantKey
+                    ON cv.tenant_key = tv.tenant_key
+                 AND cv.template_resource_id = tv.template_resource_id AND cv.id = tv.contract_version
+                WHERE tv.tenant_key = :tenantKey
+                  AND tv.template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND tv.variant_key = :variantKey
                   AND tv.id = :versionId
                 """,
             )

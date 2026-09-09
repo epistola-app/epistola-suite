@@ -4,7 +4,11 @@
 
 package app.epistola.suite.attributes.commands
 
+import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
+import app.epistola.suite.catalog.graph.CatalogResourceType
+import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.identity.requireAddressAvailable
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.CodeListId
@@ -71,17 +75,28 @@ class CreateAttributeDefinitionHandler(
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         return executeOrThrowDuplicate("attribute", command.id.key.value) {
             jdbi.withHandle<VariantAttributeDefinition, Exception> { handle ->
+                requireAddressAvailable(
+                    handle,
+                    command.id.tenantKey,
+                    ResourceAddress(CatalogResourceType.ATTRIBUTE, command.id.catalogKey.value, command.id.key.value),
+                )
                 val allowedValuesJson = objectMapper.writeValueAsString(command.allowedValues)
 
                 handle.createQuery(
                     """
                 INSERT INTO variant_attribute_definitions (id, tenant_key, catalog_key, display_name, allowed_values,
-                                                           code_list_catalog_key, code_list_slug,
+                                                           code_list_resource_id,
                                                            created_at, updated_at)
                 VALUES (:id, :tenantId, :catalogKey, :displayName, :allowedValues::jsonb,
-                        :codeListCatalogKey, :codeListSlug,
+                        ${boundCodeListAtAddress("tenantId")},
                         NOW(), NOW())
-                RETURNING *
+                RETURNING id, tenant_key, catalog_key, display_name, allowed_values, created_at, updated_at,
+                          (SELECT catalog_key FROM code_lists cl
+                            WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
+                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id) AS code_list_catalog_key,
+                          (SELECT slug FROM code_lists cl
+                            WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
+                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id) AS code_list_slug
                 """,
                 )
                     .bind("id", command.id.key)

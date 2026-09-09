@@ -554,7 +554,7 @@ a stand-in Exchange over real HTTP instead (`CatalogPublicationWorkerIntegration
   compatibility design; UI behavior already exists ([#863](https://github.com/epistola-app/epistola-suite/issues/863)).
 - ~~Define the inbound Exchange browse/install/subscription experience separately.~~
   Delivered — see [catalog-exchange-installation.md](catalog-exchange-installation.md)
-  and [ADR 0020](adr/0020-catalog-upstream-release-discovery.md).
+  and [ADR 0021](adr/0021-catalog-upstream-release-discovery.md).
 - Define organization replacement/migration separately from reauthorization.
 - **Ask Exchange about the impact of a namespace move before allowing it.** Exchange is
   the only side that can see whether the old namespace still has consumers. A move nobody

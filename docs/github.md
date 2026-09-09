@@ -38,17 +38,26 @@ All workflows are defined in `.github/workflows/`.
 - Every pull request targeting `main` (or a `release/**` branch)
 - Every `v*` tag (the app-release build — see [Docker Publishing](#docker-publishing))
 
-**What it does:**
+**What it does:** the pipeline is shaped around one rule: the test jobs wait for
+nothing they do not need. Tool versions come from `.mise.toml` via `mise-action`.
 
-1. Checks out the code
-2. Sets up JDK 25 (Temurin) and Node.js 24
-3. Runs `gradle build` which:
-   - Compiles Kotlin backend
-   - Builds TypeScript editor module
-   - Runs all tests (requires Docker for Testcontainers)
-   - Runs ktlint checks
+| Job                     | Waits for                | Does                                                                                                                                                                                    |
+| ----------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `compile`               | nothing                  | `pnpm build` (editor bundle + registry check), then one Gradle invocation `checkMigrationVersions testClasses`; uploads the Gradle build cache so the other jobs reuse compiled classes |
+| `frontend-checks`       | nothing                  | `pnpm lint:check`, `format:check`, `license:check`, `pnpm test`                                                                                                                         |
+| `sbom`                  | `compile`                | backend + frontend CycloneDX SBOMs, third-party notices, VEX export, Trivy scans (critical = fail)                                                                                      |
+| `test-unit-integration` | `compile`                | `gradle test koverXmlReport` (Kover-instrumented unit + integration tests, aggregated coverage, test-run metrics artifact)                                                              |
+| `test-ui`               | `compile`                | `gradle uiTest` (Playwright; browser cache keyed on the Playwright version)                                                                                                             |
+| `coverage`              | both test jobs           | coverage badge, `main` pushes only                                                                                                                                                      |
+| `docker`                | tests, checks and `sbom` | image build and publish, `v*` tags or PRs labelled `publish`                                                                                                                            |
 
-**Required checks:** The build job must pass before merging PRs.
+Every Gradle invocation on CI pays the full configuration phase (the
+configuration cache is never reused across jobs), which is why `compile` runs one
+invocation rather than one per task, and why nothing but the test tasks runs in
+the test jobs.
+
+**Required checks:** all of `compile`, `frontend-checks`, `sbom` and both test jobs
+must pass before merging PRs.
 
 ### Docker Publishing
 

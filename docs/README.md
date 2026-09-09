@@ -118,6 +118,8 @@ that implement it live in [`modules/rest-api`](../modules/rest-api).
 | Doc                                                        | Status   | What it covers                                                           |
 | ---------------------------------------------------------- | -------- | ------------------------------------------------------------------------ |
 | [Deployment](deployment.md)                                | Current  | Deploying with the `charts/epistola` Helm chart.                         |
+| [Upgrades](upgrades.md)                                    | Current  | Additive vs breaking upgrades, maintenance windows, and rollback.        |
+| [Load test results](load-test-results.md)                  | Current  | Running log of measured throughput, by named hardware profile.           |
 | [Metrics & observability](metrics.md)                      | Current  | Exposed metrics and wiring your own OpenTelemetry pipeline.              |
 | [Application logs](application-logs.md)                    | Current  | Persisting Logback events into a bounded, queryable table.               |
 | [Audit log](audit-log.md)                                  | Current  | The PII-free, append-only record of who did and read what.               |

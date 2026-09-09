@@ -35,7 +35,7 @@ class CountDocumentsHandler(
     override fun handle(query: CountDocuments): Long = jdbi.withHandle<Long, Exception> { handle ->
         val sql = StringBuilder("SELECT COUNT(*) FROM documents WHERE tenant_key = :tenantId")
         if (query.templateId != null) {
-            sql.append(" AND template_key = :templateId")
+            sql.append(DOCUMENTS_OF_TEMPLATE)
         }
         if (query.correlationId != null) {
             sql.append(" AND correlation_id = :correlationId")

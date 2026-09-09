@@ -13,6 +13,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.ActivationNotFoundException
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -58,8 +59,8 @@ class RemoveActivationHandler(
         val rowsDeleted = handle.createUpdate(
             """
                 DELETE FROM environment_activations
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND environment_key = :environmentId
-                  AND template_key = :templateId AND variant_key = :variantId
+                WHERE tenant_key = :tenantId AND environment_key = :environmentId
+                  AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND variant_key = :variantId
                 """,
         )
             .bind("tenantId", command.variantId.tenantKey)

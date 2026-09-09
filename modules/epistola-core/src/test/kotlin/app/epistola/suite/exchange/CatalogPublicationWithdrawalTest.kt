@@ -15,18 +15,13 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.FakeExchangeServer
-import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 
 /**
  * Withdrawing a publication an administrator no longer wants.
@@ -34,16 +29,13 @@ import org.springframework.test.context.DynamicPropertySource
  * Queueing the wrong release is an ordinary mistake, and the only previous exits were to wait for
  * Exchange, exhaust the retries, or disconnect the tenant.
  */
-class CatalogPublicationWithdrawalTest : IntegrationTestBase() {
+class CatalogPublicationWithdrawalTest : ExchangeIntegrationTestBase() {
 
     @Autowired
     private lateinit var worker: CatalogPublicationWorker
 
     @Autowired
     private lateinit var jdbi: Jdbi
-
-    @BeforeEach
-    fun resetExchange() = exchange.reset()
 
     @Test
     fun `a queued publication can be withdrawn and queued again later`() {
@@ -151,20 +143,4 @@ class CatalogPublicationWithdrawalTest : IntegrationTestBase() {
     private fun state(tenantKey: TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(tenantKey, catalogKey).query())
 
     private fun publication(tenantKey: TenantKey, catalogKey: CatalogKey) = state(tenantKey, catalogKey).publications.single()
-
-    companion object {
-        private val exchange = FakeExchangeServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun exchangeProperties(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.exchange.enabled") { "true" }
-            registry.add("epistola.exchange.base-url") { exchange.baseUrl }
-            registry.add("epistola.exchange.allow-http") { "true" }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stopExchange() = exchange.close()
-    }
 }

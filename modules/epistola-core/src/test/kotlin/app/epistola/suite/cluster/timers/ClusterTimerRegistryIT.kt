@@ -25,12 +25,9 @@ import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-@TestPropertySource(
-    properties = [
-        "epistola.cluster.timers.lease-duration-ms=30000",
-        "epistola.cluster.timers.retry-delay-ms=30000",
-    ],
-)
+// Mutates installation-wide cluster rows (reclaims leases, disables and triggers timers), so it needs a
+// database of its own; see docs/testing.md on private contexts.
+@TestPropertySource(properties = ["epistola.test.private-context=cluster-timer-registry"])
 class ClusterTimerRegistryIT : IntegrationTestBase() {
 
     @Autowired

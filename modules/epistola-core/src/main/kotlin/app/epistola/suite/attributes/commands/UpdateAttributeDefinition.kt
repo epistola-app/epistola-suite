@@ -4,6 +4,7 @@
 
 package app.epistola.suite.attributes.commands
 
+import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AttributeId
@@ -12,6 +13,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.templateJoin
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -91,10 +93,11 @@ class UpdateAttributeDefinitionHandler(
                     val valuesInUse = removedValues.filter { value ->
                         handle.createQuery(
                             """
-                            SELECT COUNT(*) FROM template_variants
-                            WHERE tenant_key = :tenantId
-                              AND catalog_key = :catalogKey
-                              AND attributes ->> :attributeKey = :value
+                            SELECT COUNT(*) FROM template_variants variants
+                            ${templateJoin("variants")}
+                            WHERE variants.tenant_key = :tenantId
+                              AND template.catalog_key = :catalogKey
+                              AND variants.attributes ->> :attributeKey = :value
                             """,
                         )
                             .bind("tenantId", command.id.tenantKey)
@@ -118,11 +121,16 @@ class UpdateAttributeDefinitionHandler(
                 UPDATE variant_attribute_definitions
                 SET display_name           = :displayName,
                     allowed_values         = :allowedValues::jsonb,
-                    code_list_catalog_key  = :codeListCatalogKey,
-                    code_list_slug         = :codeListSlug,
+                    code_list_resource_id  = ${boundCodeListAtAddress("tenantId")},
                     updated_at          = NOW()
                 WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
-                RETURNING *
+                RETURNING id, tenant_key, catalog_key, display_name, allowed_values, created_at, updated_at,
+                          (SELECT catalog_key FROM code_lists cl
+                            WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
+                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id) AS code_list_catalog_key,
+                          (SELECT slug FROM code_lists cl
+                            WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
+                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id) AS code_list_slug
                 """,
             )
                 .bind("id", command.id.key)

@@ -33,6 +33,7 @@ import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
 import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.services.VariantResolver
 import app.epistola.suite.templates.services.VariantSelectionCriteria
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.tenants.TenantNotFoundException
 import app.epistola.suite.tenants.queries.GetTenant
@@ -182,7 +183,7 @@ class PreviewDocumentHandler(
             handle.createQuery(
                 """
                 SELECT id FROM template_variants
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND is_default = TRUE
+                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND is_default = TRUE
                 """,
             )
                 .bind("tenantId", tenantId)

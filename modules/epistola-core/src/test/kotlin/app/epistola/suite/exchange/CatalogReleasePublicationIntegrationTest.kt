@@ -19,22 +19,18 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.SetTenantCatalogPublishingDefault
 import app.epistola.suite.testing.FakeExchangeServer
-import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Test
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 
 /**
  * The release-time half of publication: which releases get queued, and that queueing never
  * depends on Exchange being reachable. The worker's half lives in
  * [CatalogPublicationWorkerIntegrationTest].
  */
-class CatalogReleasePublicationIntegrationTest : IntegrationTestBase() {
+class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
 
     @Test
     fun `a release with nowhere to publish still succeeds and queues nothing`() {
@@ -195,21 +191,5 @@ class CatalogReleasePublicationIntegrationTest : IntegrationTestBase() {
             FakeExchangeServer.OAUTH_APPLICATION_ID,
             exchange.baseUrl,
         ).execute()
-    }
-
-    companion object {
-        private val exchange = FakeExchangeServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun exchangeProperties(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.exchange.enabled") { "true" }
-            registry.add("epistola.exchange.base-url") { exchange.baseUrl }
-            registry.add("epistola.exchange.allow-http") { "true" }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stopExchange() = exchange.close()
     }
 }

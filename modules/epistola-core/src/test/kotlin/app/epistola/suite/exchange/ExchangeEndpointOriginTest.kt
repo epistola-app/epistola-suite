@@ -7,15 +7,9 @@ package app.epistola.suite.exchange
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
-import app.epistola.suite.testing.FakeExchangeServer
-import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 
 /**
  * Where a discovered OAuth endpoint is allowed to point.
@@ -26,9 +20,7 @@ import org.springframework.test.context.DynamicPropertySource
  * is asking for the credentials to be delivered somewhere else, and the OAuth metadata spec is
  * happy to let it: nothing but this check stands in the way.
  */
-class ExchangeEndpointOriginTest : IntegrationTestBase() {
-    @BeforeEach
-    fun resetExchange() = exchange.reset()
+class ExchangeEndpointOriginTest : ExchangeDiscoveryIntegrationTestBase() {
 
     @Test
     fun `an endpoint on another origin is refused rather than trusted`() {
@@ -54,23 +46,5 @@ class ExchangeEndpointOriginTest : IntegrationTestBase() {
                 StartExchangeConnection(tenant.id, "https://suite.example/oauth/exchange/callback").execute()
             }.doesNotThrowAnyException()
         }
-    }
-
-    companion object {
-        private val exchange = FakeExchangeServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun exchangeProperties(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.exchange.enabled") { "true" }
-            registry.add("epistola.exchange.discovery-url") { "${exchange.baseUrl}/.well-known/epistola/exchange.json" }
-            // The fake serves plaintext on loopback, so HTTPS is relaxed; the origin rule under test
-            // is separate from it and applies either way.
-            registry.add("epistola.exchange.allow-http") { "true" }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stopExchange() = exchange.close()
     }
 }

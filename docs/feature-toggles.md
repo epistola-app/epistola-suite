@@ -145,6 +145,8 @@ rule in `components.css`.
 | `editor-walkthrough`          | Guided in-editor tour of the template editor (client-side onboarding) | Alpha  | `false` |
 | `catalog-publishing`          | Durable publication of authored catalog releases to Epistola Exchange | Alpha  | `false` |
 | `catalog-installing`          | Browsing Epistola Exchange and installing catalogs published there    | Alpha  | `false` |
+| `resource-graph`              | Tenant-wide catalog resource-reference explorer                       | Alpha  | `false` |
+| `resource-relocation`         | Move and rename authored catalog resources between catalogs           | Alpha  | `false` |
 
 \* Hub-only features (`KnownFeatures.HUB_ONLY`) default to `epistola.support.enabled` — see above.
 

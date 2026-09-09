@@ -4,6 +4,8 @@
 
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TenantKey
@@ -14,6 +16,8 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.StencilVersionNotDraftException
 import app.epistola.suite.stencils.StencilVersionNotFoundException
 import app.epistola.suite.stencils.model.StencilVersion
+import app.epistola.suite.stencils.stencilAtAddress
+import app.epistola.suite.stencils.updateStencilVersionsReturning
 import app.epistola.suite.templates.validation.ParameterSchemaValidator
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.template.model.TemplateDocument
@@ -49,18 +53,14 @@ class UpdateStencilDraftHandler(
         templateDocumentValidator.validateStencil(command.content)
         parameterSchemaValidator.validate(command.parameterSchema)
         return jdbi.inTransaction<StencilVersion, Exception> { handle ->
-            val contentJson = objectMapper.writeValueAsString(command.content)
+            val contentJson = qualifiedContentJson(command.content, command.versionId.catalogKey)
             val parameterSchemaJson = command.parameterSchema?.let { objectMapper.writeValueAsString(it) }
 
             handle.createQuery(
-                """
-            UPDATE stencil_versions
-            SET content = :content::jsonb,
-                parameter_schema = :parameterSchema::jsonb
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId AND id = :versionId
-              AND status = 'draft'
-            RETURNING *
-            """,
+                updateStencilVersionsReturning(
+                    "content = :content::jsonb, parameter_schema = :parameterSchema::jsonb",
+                    "id = :versionId AND status = 'draft'",
+                ),
             )
                 .bind("tenantId", command.versionId.tenantKey)
                 .bind("catalogKey", command.versionId.catalogKey)
@@ -79,7 +79,7 @@ class UpdateStencilDraftHandler(
         val exists = handle.createQuery(
             """
             SELECT 1 FROM stencil_versions
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId AND id = :versionId
+            WHERE tenant_key = :tenantId AND stencil_resource_id = ${stencilAtAddress("tenantId", "catalogKey", "stencilId")} AND id = :versionId
             """,
         )
             .bind("tenantId", versionId.tenantKey)
@@ -95,5 +95,16 @@ class UpdateStencilDraftHandler(
         } else {
             StencilVersionNotFoundException(versionId.tenantKey, versionId.stencilKey, versionId.catalogKey, versionId.key)
         }
+    }
+
+    /**
+     * Stored references always name the catalog they resolve against, so relocating this stencil
+     * later cannot change what an already-written reference means. Assets stay unqualified: they
+     * resolve tenant-globally.
+     */
+    private fun qualifiedContentJson(content: TemplateDocument, catalogKey: CatalogKey): String {
+        val model = objectMapper.valueToTree<JsonNode>(content)
+        ResourceReferenceSites.qualifyRelative(model, catalogKey.value)
+        return objectMapper.writeValueAsString(model)
     }
 }

@@ -25,12 +25,9 @@ import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-@TestPropertySource(
-    properties = [
-        "epistola.cluster.scheduled-tasks.lease-duration-ms=30000",
-        "epistola.cluster.scheduled-tasks.retry-delay-ms=30000",
-    ],
-)
+// Mutates installation-wide cluster rows (reclaims leases, disables and triggers tasks), so it needs a
+// database of its own; see docs/testing.md on private contexts.
+@TestPropertySource(properties = ["epistola.test.private-context=cluster-scheduled-task-registry"])
 class ClusterScheduledTaskRegistryIT : IntegrationTestBase() {
 
     @Autowired

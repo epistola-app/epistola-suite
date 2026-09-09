@@ -40,7 +40,7 @@ class ResourceInstallOrderTest {
     }
 
     @Test
-    fun `assets install before fonts (FK font_variants asset_key)`() {
+    fun `assets install before fonts (FK font_variants asset_resource_id)`() {
         assertThat(RESOURCE_INSTALL_ORDER.getValue("asset"))
             .isLessThan(RESOURCE_INSTALL_ORDER.getValue("font"))
     }

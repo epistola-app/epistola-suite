@@ -81,6 +81,29 @@ epistola:
           - CONTENT_AUTHOR
           - DOCUMENT_GENERATOR
           - CONTENT_PUBLISHER
+      # Training accounts, each in their own sandbox tenant derived from the username. `sandbox`
+      # needs a LoginMembershipResolver, which the `demo` profile supplies; under plain `local`
+      # there is none and they fall back to `tenant` below, so the same file works either way.
+      - username: trainee1@demo
+        password: trainee1
+        display-name: Trainee One
+        sandbox: true
+        tenant: demo
+        roles:
+          - CONTENT_VIEWER
+          - CONTENT_AUTHOR
+          - DOCUMENT_GENERATOR
+          - CONTENT_PUBLISHER
+      - username: trainee2@demo
+        password: trainee2
+        display-name: Trainee Two
+        sandbox: true
+        tenant: demo
+        roles:
+          - CONTENT_VIEWER
+          - CONTENT_AUTHOR
+          - DOCUMENT_GENERATOR
+          - CONTENT_PUBLISHER
   catalog:
     allow-http: true
   # Keep the deployment gate inherited as false, but make opting in locally

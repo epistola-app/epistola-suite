@@ -5,8 +5,12 @@
 package app.epistola.suite.catalog
 
 import app.epistola.suite.common.ids.TenantKey
+import com.github.benmanes.caffeine.cache.Caffeine
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
+
+/** Count bound of the per-resource fingerprint cache; there are a handful of bundled catalogs. */
+private const val MAX_CACHED_CLASSPATH_CATALOGS: Long = 64
 
 /**
  * Computes the deterministic content fingerprint of a catalog — from the live
@@ -26,6 +30,15 @@ class CatalogFingerprintService(
     private val canonicalizer = CatalogCanonicalizer(objectMapper)
 
     /** Fingerprint of the live working copy of a catalog. */
+    // Per-resource fingerprints of a classpath source are a pure function of bundle content, which
+    // cannot change while this JVM runs, yet every tenant that installs the bundled catalog
+    // canonicalised and hashed all of its resources again (most of what RegisterCatalog costs per
+    // tenant). Cached per manifest URL with a small count bound; there are a handful of bundled
+    // catalogs. file: and HTTP sources are computed every time, as before.
+    private val classpathResourceFingerprints = Caffeine.newBuilder()
+        .maximumSize(MAX_CACHED_CLASSPATH_CATALOGS)
+        .build<String, Map<String, String>>()
+
     fun fingerprint(tenantKey: TenantKey, catalogKey: CatalogKey): String = canonicalizer.fingerprint(contentBuilder.build(tenantKey, catalogKey))
 
     fun evaluate(
@@ -60,6 +73,15 @@ class CatalogFingerprintService(
      * release at preview time (source-vs-source, no install round-trip noise).
      */
     fun perResourceFingerprintsFromSource(manifestUrl: String, authType: AuthType, credential: String?): Map<String, String> {
+        if (manifestUrl.startsWith("classpath:")) {
+            return classpathResourceFingerprints.get(manifestUrl) {
+                computePerResourceFingerprintsFromSource(it, authType, credential)
+            }
+        }
+        return computePerResourceFingerprintsFromSource(manifestUrl, authType, credential)
+    }
+
+    private fun computePerResourceFingerprintsFromSource(manifestUrl: String, authType: AuthType, credential: String?): Map<String, String> {
         val manifest = catalogClient.fetchManifest(manifestUrl, authType, credential)
         val detailBytes = LinkedHashMap<String, ByteArray>()
         for (entry in manifest.resources) {

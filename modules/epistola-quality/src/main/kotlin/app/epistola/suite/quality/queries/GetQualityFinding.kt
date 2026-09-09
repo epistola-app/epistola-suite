@@ -12,6 +12,8 @@ import app.epistola.suite.quality.QualityFinding
 import app.epistola.suite.quality.QualitySourceId
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.TEMPLATE_ADDRESS_COLUMNS
+import app.epistola.suite.templates.templateJoin
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -42,7 +44,7 @@ class GetQualityFindingHandler(
     override fun handle(query: GetQualityFinding): QualityFinding? = jdbi.withHandle<QualityFinding?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT f.*,
+            SELECT f.*, $TEMPLATE_ADDRESS_COLUMNS,
                    CASE WHEN f.status = 'RESOLVED'             THEN 'RESOLVED'
                         WHEN i.finding_fingerprint IS NOT NULL THEN 'IGNORED'
                         ELSE 'OPEN' END AS effective_status,
@@ -50,6 +52,7 @@ class GetQualityFindingHandler(
                    (f.source_id <> :manualSourceId) AS reconciled,
                    COALESCE(c.comment_count, 0)::int AS comment_count
             FROM quality_findings f
+            ${templateJoin("f")}
             LEFT JOIN quality_finding_ignores i
                    ON i.tenant_key       = f.tenant_key
                   AND i.ignore_scope_urn = f.ignore_scope_urn

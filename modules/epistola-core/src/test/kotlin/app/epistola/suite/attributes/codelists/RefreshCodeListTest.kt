@@ -27,7 +27,6 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.springframework.test.context.TestPropertySource
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
 
@@ -42,7 +41,6 @@ import java.util.concurrent.atomic.AtomicReference
  * fetcher with `http://localhost:<port>/…` — production keeps the default
  * (`https` only).
  */
-@TestPropertySource(properties = ["epistola.codelists.allow-http=true"])
 class RefreshCodeListTest : IntegrationTestBase() {
 
     private lateinit var server: HttpServer

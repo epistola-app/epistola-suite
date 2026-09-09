@@ -74,8 +74,8 @@ class FindFontUsagesHandler(
             """
             SELECT DISTINCT dt.name AS name
             FROM template_versions ver
-            JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.template_key = ver.template_key AND tv.id = ver.variant_key
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.id = tv.template_key
+            JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.template_resource_id = ver.template_resource_id AND tv.id = ver.variant_key
+            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
             WHERE ver.tenant_key = :tenantKey
               AND ver.status IN ('draft', 'published')
               AND jsonb_path_exists(ver.template_model, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))

@@ -4,34 +4,14 @@
 
 package app.epistola.suite.observability
 
-import app.epistola.suite.testing.TestcontainersConfiguration
-import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.BaseIntegrationTest
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
 import org.springframework.http.HttpStatus
-import org.springframework.test.context.ActiveProfiles
 
-@Import(TestcontainersConfiguration::class, UnloggedTablesTestConfiguration::class)
-@SpringBootTest(
-    classes = [app.epistola.suite.EpistolaSuiteApplication::class],
-    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-    properties = [
-        "epistola.demo.enabled=false",
-        "management.prometheus.metrics.export.enabled=true",
-        "management.endpoint.health.show-components=always",
-    ],
-)
-@AutoConfigureTestRestTemplate
-@ActiveProfiles("test")
-@Tag("integration")
-class PrometheusEndpointTest {
-
+class PrometheusEndpointTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 

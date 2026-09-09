@@ -22,6 +22,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.themes.ResolvedThemeSnapshot
@@ -62,8 +63,8 @@ class PublishVersionHandler(
             handle.createQuery(
                 """
                 SELECT 1 FROM template_variants
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
-                  AND template_key = :templateId AND id = :variantId
+                WHERE tenant_key = :tenantId
+                  AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND id = :variantId
                 FOR UPDATE
                 """,
             )
@@ -79,7 +80,7 @@ class PublishVersionHandler(
                 """
                 SELECT *
                 FROM template_versions
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND id = :versionId
+                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND variant_key = :variantId AND id = :versionId
                 FOR UPDATE
                 """,
             )
@@ -103,8 +104,8 @@ class PublishVersionHandler(
                 val contractStatus = handle.createQuery(
                     """
                     SELECT status FROM contract_versions
-                    WHERE tenant_key = :tk AND catalog_key = :ck
-                      AND template_key = :tpk AND id = :cv
+                    WHERE tenant_key = :tk
+                      AND template_resource_id = ${templateAtAddress("tk", "ck", "tpk")} AND id = :cv
                     FOR UPDATE
                     """,
                 )
@@ -148,7 +149,7 @@ class PublishVersionHandler(
                     SET status = 'published', published_at = NOW(),
                         rendering_defaults_version = :renderingDefaultsVersion,
                         resolved_theme = CAST(:resolvedTheme AS JSONB)
-                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND id = :versionId
+                    WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND variant_key = :variantId AND id = :versionId
                     """,
                 )
                     .bind("tenantId", command.versionId.tenantKey)
@@ -165,7 +166,7 @@ class PublishVersionHandler(
             handle.createQuery(
                 """
                 SELECT * FROM template_versions
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND variant_key = :variantId AND id = :versionId
+                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND variant_key = :variantId AND id = :versionId
                 """,
             )
                 .bind("tenantId", command.versionId.tenantKey)
@@ -286,11 +287,14 @@ class PublishVersionHandler(
             if (pinned.isNotEmpty()) {
                 val publishedPairs: Set<Pair<String, Int>> = handle.createQuery(
                     """
-                    SELECT stencil_key, id FROM stencil_versions
-                    WHERE tenant_key = :tenantKey
-                      AND catalog_key = :catalogKey
-                      AND status = 'published'
-                      AND stencil_key IN (<stencilIds>)
+                    SELECT stencil.id AS stencil_key, versions.id
+                    FROM stencil_versions versions
+                    JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
+                                         AND stencil.resource_id = versions.stencil_resource_id
+                    WHERE stencil.tenant_key = :tenantKey
+                      AND stencil.catalog_key = :catalogKey
+                      AND versions.status = 'published'
+                      AND stencil.id IN (<stencilIds>)
                     """,
                 )
                     .bind("tenantKey", tenantKey)
@@ -308,11 +312,14 @@ class PublishVersionHandler(
             if (unpinned.isNotEmpty()) {
                 val publishedStencils: Set<String> = handle.createQuery(
                     """
-                    SELECT DISTINCT stencil_key FROM stencil_versions
-                    WHERE tenant_key = :tenantKey
-                      AND catalog_key = :catalogKey
-                      AND status = 'published'
-                      AND stencil_key IN (<stencilIds>)
+                    SELECT DISTINCT stencil.id AS stencil_key
+                    FROM stencil_versions versions
+                    JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
+                                         AND stencil.resource_id = versions.stencil_resource_id
+                    WHERE stencil.tenant_key = :tenantKey
+                      AND stencil.catalog_key = :catalogKey
+                      AND versions.status = 'published'
+                      AND stencil.id IN (<stencilIds>)
                     """,
                 )
                     .bind("tenantKey", tenantKey)

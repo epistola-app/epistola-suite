@@ -8,14 +8,9 @@ import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.FakeExchangeServer
-import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 
 /**
  * Enrollment through the **public discovery document**, which is the path a real deployment takes.
@@ -29,10 +24,7 @@ import org.springframework.test.context.DynamicPropertySource
  * (`{"version":1,"issuer":…,"baseUrl":…}`), so the parser is checked against the real contract
  * rather than against our own reading of it.
  */
-class ExchangeDiscoveryIntegrationTest : IntegrationTestBase() {
-
-    @BeforeEach
-    fun resetExchange() = exchange.reset()
+class ExchangeDiscoveryIntegrationTest : ExchangeDiscoveryIntegrationTestBase() {
 
     @Test
     fun `enrollment resolves endpoints through the discovery document`() {
@@ -88,19 +80,5 @@ class ExchangeDiscoveryIntegrationTest : IntegrationTestBase() {
 
     companion object {
         private const val CALLBACK = "https://suite.example/oauth/exchange/callback"
-        private val exchange = FakeExchangeServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun exchangeProperties(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.exchange.enabled") { "true" }
-            // Deliberately no base-url: this is the discovery path.
-            registry.add("epistola.exchange.discovery-url") { "${exchange.baseUrl}/.well-known/epistola/exchange.json" }
-            registry.add("epistola.exchange.allow-http") { "true" }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stopExchange() = exchange.close()
     }
 }

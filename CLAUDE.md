@@ -91,7 +91,7 @@ epistola-suite-modules/
   [`docs/catalog-exchange-publication.md`](docs/catalog-exchange-publication.md),
   [`docs/catalog-exchange-installation.md`](docs/catalog-exchange-installation.md),
   [ADR 0018](docs/adr/0018-durable-catalog-publication-to-exchange.md) and
-  [ADR 0020](docs/adr/0020-catalog-upstream-release-discovery.md).
+  [ADR 0021](docs/adr/0021-catalog-upstream-release-discovery.md).
 - **Resource references**: tenant-wide reference discovery and traversal live in
   `catalog/graph/` and are documented in [`docs/resource-reference-graph.md`](docs/resource-reference-graph.md).
   New catalog-resource reference shapes must be added to this graph authority with resolution and

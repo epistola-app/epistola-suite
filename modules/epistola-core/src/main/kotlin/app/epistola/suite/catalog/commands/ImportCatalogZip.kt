@@ -942,11 +942,14 @@ class ImportCatalogZipHandler(
             )
             SELECT i.slug AS slug, i.version AS version
             FROM incoming i
+            JOIN stencils s
+              ON s.tenant_key  = :tenantKey
+             AND s.catalog_key = :catalogKey
+             AND s.id          = i.slug
             JOIN stencil_versions sv
-              ON sv.tenant_key  = :tenantKey
-             AND sv.catalog_key = :catalogKey
-             AND sv.stencil_key = i.slug
-             AND sv.id          = i.version
+              ON sv.tenant_key          = s.tenant_key
+             AND sv.stencil_resource_id = s.resource_id
+             AND sv.id                  = i.version
             WHERE sv.content <> i.content
         """.trimIndent()
 

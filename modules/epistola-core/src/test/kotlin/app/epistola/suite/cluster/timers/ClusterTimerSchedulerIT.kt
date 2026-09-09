@@ -4,6 +4,7 @@
 
 package app.epistola.suite.cluster.timers
 
+import app.epistola.suite.cluster.ClusterRecordingHandlersConfiguration
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -13,8 +14,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.TestConfiguration
-import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.TestPropertySource
 import java.time.Duration
@@ -22,13 +21,10 @@ import java.time.OffsetDateTime
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
-@TestPropertySource(
-    properties = [
-        "epistola.cluster.timers.lease-duration-ms=30000",
-        "epistola.cluster.timers.retry-delay-ms=30000",
-    ],
-)
-@Import(ClusterTimerSchedulerIT.TimerHandlerConfiguration::class)
+// Dispatches and reclaims installation-wide cluster rows; sharing a database with the other
+// scheduler test made polls see each other's state. Needs a database of its own.
+@TestPropertySource(properties = ["epistola.test.private-context=cluster-timer-scheduler"])
+@Import(ClusterRecordingHandlersConfiguration::class)
 class ClusterTimerSchedulerIT : IntegrationTestBase() {
 
     @Autowired
@@ -139,12 +135,6 @@ class ClusterTimerSchedulerIT : IntegrationTestBase() {
 
     private fun findTimer(timerKey: String): ClusterTimer? = withMediator {
         GetClusterTimer(timerKey).query()
-    }
-
-    @TestConfiguration
-    class TimerHandlerConfiguration {
-        @Bean
-        fun recordingClusterTimerHandler(): RecordingClusterTimerHandler = RecordingClusterTimerHandler()
     }
 }
 

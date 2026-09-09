@@ -38,7 +38,7 @@ CI by default; opt in when you want a fresh datapoint.
   reflects pool=64; do not transplant directly into capacity-planning
   for a production deployment with default settings.
 - **Postgres via Testcontainers** — single container per test class,
-  fresh DB. Postgres 17 (whatever the suite's testcontainers config
+  fresh DB. Postgres 18 (whatever the suite's testcontainers config
   pins). No tuning beyond defaults; full WAL, no UNLOGGED override.
 - **JobPoller disabled** —
   `epistola.generation.polling.enabled=false`. We're measuring drain

@@ -24,6 +24,20 @@
                     </dd>
                     <dt>ID</dt>
                     <dd><code th:text="${template.id}"></code></dd>
+                    <dt>Catalog</dt>
+                    <dd>
+                        <code th:text="${catalogId}">default</code>
+                        <!-- Moving is its own page; this opens the focused dialog for just this
+                             template, so relocating one does not mean finding it there again. -->
+                        <button th:if="${resourceRelocationEnabled and auth.has('CATALOG_MANAGE') and editable}"
+                                type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                data-testid="template-move-action"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/organise/move(tenantId=${tenantId},resource='template:' + ${catalogId} + '/' + ${template.id})}"
+                                hx-target="#move-resource-mount" hx-swap="innerHTML"
+                                style="margin-left: var(--ep-space-2);">
+                            Move…
+                        </button>
+                    </dd>
                     <dt>Created</dt>
                     <dd th:text="${#temporals.format(template.createdAt, 'yyyy-MM-dd HH:mm')}"></dd>
                     <dt>Modified</dt>
@@ -110,6 +124,7 @@
         <!-- Behaviors (name edit keyboard UX, delete confirm) live in
              /js/pages/template-detail.js (ADR 0010: no inline scripts). -->
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+        <div id="move-resource-mount" data-dialog-mount></div>
     </th:block>
 
     <!-- OOB companion for the rename response: syncs the page header's title

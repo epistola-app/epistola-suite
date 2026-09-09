@@ -87,14 +87,15 @@ class ExportAttributesHandler(
         val sql = buildString {
             append(
                 """
-                SELECT id, catalog_key, display_name, allowed_values::text,
-                       code_list_catalog_key, code_list_slug
-                FROM variant_attribute_definitions
-                WHERE tenant_key = :tenantKey
+                SELECT a.id, a.catalog_key, a.display_name, a.allowed_values::text,
+                       cl.catalog_key AS code_list_catalog_key, cl.slug AS code_list_slug
+                FROM variant_attribute_definitions a
+                LEFT JOIN code_lists cl ON cl.tenant_key = a.tenant_key AND cl.resource_id = a.code_list_resource_id
+                WHERE a.tenant_key = :tenantKey
                 """,
             )
-            if (query.catalogKey != null) append(" AND catalog_key = :catalogKey")
-            if (query.slugs != null) append(" AND id IN (<slugs>)")
+            if (query.catalogKey != null) append(" AND a.catalog_key = :catalogKey")
+            if (query.slugs != null) append(" AND a.id IN (<slugs>)")
         }
         val q = handle.createQuery(sql).bind("tenantKey", query.tenantKey)
         if (query.catalogKey != null) q.bind("catalogKey", query.catalogKey)
@@ -178,12 +179,15 @@ class ExportCodeListsHandler(
         val wantedKeys = codeLists.map { (cat, slug, _) -> cat to slug }.toSet()
         val entriesByList = handle.createQuery(
             """
-            SELECT catalog_key, code_list_slug, code, label, sort_order, hidden
-            FROM code_list_entries
-            WHERE tenant_key = :tenantKey
-              AND catalog_key IN (<catalogs>)
-              AND code_list_slug IN (<slugs>)
-            ORDER BY catalog_key, code_list_slug, sort_order, code
+            SELECT lists.catalog_key, lists.slug AS code_list_slug, entries.code, entries.label,
+                   entries.sort_order, entries.hidden
+            FROM code_list_entries entries
+            JOIN code_lists lists
+              ON lists.tenant_key = entries.tenant_key AND lists.resource_id = entries.code_list_resource_id
+            WHERE entries.tenant_key = :tenantKey
+              AND lists.catalog_key IN (<catalogs>)
+              AND lists.slug IN (<slugs>)
+            ORDER BY lists.catalog_key, lists.slug, entries.sort_order, entries.code
             """,
         )
             .bind("tenantKey", query.tenantKey)
@@ -238,7 +242,7 @@ class ExportStencilsHandler(
                 FROM stencils s
                 JOIN LATERAL (
                     SELECT id, content, parameter_schema FROM stencil_versions
-                    WHERE tenant_key = s.tenant_key AND stencil_key = s.id
+                    WHERE tenant_key = s.tenant_key AND stencil_resource_id = s.resource_id
                       AND status = 'published'
                     ORDER BY id DESC
                     LIMIT 1
@@ -322,13 +326,18 @@ class ExportFontsHandler(
         val wantedKeys = fonts.map { it.catalogKey to it.slug }.toSet()
         val variantsByFont = handle.createQuery(
             """
-            SELECT catalog_key, font_slug, weight, italic, asset_key
-            FROM font_variants
-            WHERE tenant_key = :tenantKey
-              AND source = 'ASSET'
-              AND catalog_key IN (<catalogs>)
-              AND font_slug IN (<slugs>)
-            ORDER BY catalog_key, font_slug, italic, weight
+            SELECT family.catalog_key, family.slug AS font_slug,
+                   faces.weight, faces.italic, binary_asset.id AS asset_key
+            FROM font_variants faces
+            JOIN fonts family ON family.tenant_key = faces.tenant_key AND family.resource_id = faces.font_resource_id
+            JOIN assets binary_asset
+              ON binary_asset.tenant_key = faces.tenant_key
+             AND binary_asset.resource_id = faces.asset_resource_id
+            WHERE faces.tenant_key = :tenantKey
+              AND faces.source = 'ASSET'
+              AND family.catalog_key IN (<catalogs>)
+              AND family.slug IN (<slugs>)
+            ORDER BY family.catalog_key, family.slug, faces.italic, faces.weight
             """,
         )
             .bind("tenantKey", query.tenantKey)

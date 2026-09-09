@@ -30,6 +30,7 @@ import app.epistola.suite.api.v1.shared.UnsupportedSortException
 import app.epistola.suite.api.v1.shared.VariantVersionInfo
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toSummaryDto
+import app.epistola.suite.catalog.identity.canonical
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -172,7 +173,7 @@ class EpistolaTemplateApi(
         templateId: String,
     ): ResponseEntity<TemplateDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val template = GetDocumentTemplate(id = templateIdComposite).query()
             ?: throw TemplateNotFoundException(tenantIdComposite.key, templateIdComposite.key)
         val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
@@ -187,7 +188,7 @@ class EpistolaTemplateApi(
         updateTemplateRequest: UpdateTemplateRequest,
     ): ResponseEntity<TemplateDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val template = UpdateDocumentTemplate(
             id = templateIdComposite,
             name = updateTemplateRequest.name,
@@ -249,7 +250,7 @@ class EpistolaTemplateApi(
         validateTemplateDataRequest: ValidateTemplateDataRequest,
     ): ResponseEntity<TemplateDataValidationResult> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         GetDocumentTemplate(id = templateIdComposite).query()
             ?: throw TemplateNotFoundException(tenantIdComposite.key, templateIdComposite.key)
 
@@ -279,7 +280,7 @@ class EpistolaTemplateApi(
         templateId: String,
     ): ResponseEntity<Unit> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val deleted = DeleteDocumentTemplate(id = templateIdComposite).execute()
         return if (deleted) {
             ResponseEntity.noContent().build()
@@ -303,7 +304,7 @@ class EpistolaTemplateApi(
         ListSorting.rejectUnsupportedSort(sort, direction)
         val typedTenantId = TenantKey.of(tenantId)
         val tenantIdComposite = TenantId(typedTenantId)
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         // Bounded per-template collection: fetch and slice in application code.
         val variants = ListVariants(templateId = templateIdComposite).query()
         val slice = Pagination.paginate(variants, page, size)
@@ -322,7 +323,7 @@ class EpistolaTemplateApi(
     ): ResponseEntity<VariantDto> {
         val typedTenantId = TenantKey.of(tenantId)
         val tenantIdComposite = TenantId(typedTenantId)
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val variantIdComposite = VariantId(VariantKey.of(createVariantRequest.id), templateIdComposite)
         val variant = CreateVariant(
             id = variantIdComposite,
@@ -342,7 +343,7 @@ class EpistolaTemplateApi(
     ): ResponseEntity<VariantDto> {
         val typedTenantId = TenantKey.of(tenantId)
         val tenantIdComposite = TenantId(typedTenantId)
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val variant = GetVariant(variantId = variantIdComposite).query()
             ?: throw TemplateVariantNotFoundException(typedTenantId, templateIdComposite.key, variantIdComposite.key)
@@ -361,7 +362,7 @@ class EpistolaTemplateApi(
             ?: throw ValidationException(field = "attributes", message = "Variant attributes are required")
         val typedTenantId = TenantKey.of(tenantId)
         val tenantIdComposite = TenantId(typedTenantId)
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val variant = UpdateVariant(
             variantId = variantIdComposite,
@@ -380,7 +381,7 @@ class EpistolaTemplateApi(
     ): ResponseEntity<Unit> {
         val typedTenantId = TenantKey.of(tenantId)
         val tenantIdComposite = TenantId(typedTenantId)
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val deleted = DeleteVariant(
             variantId = variantIdComposite,
@@ -400,7 +401,7 @@ class EpistolaTemplateApi(
     ): ResponseEntity<VariantDto> {
         val typedTenantId = TenantKey.of(tenantId)
         val tenantIdComposite = TenantId(typedTenantId)
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val variant = SetDefaultVariant(
             variantId = variantIdComposite,
@@ -418,7 +419,7 @@ class EpistolaTemplateApi(
         variantId: String,
     ): ResponseEntity<VersionDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         // Verify variant exists before distinguishing "variant not found" from "no draft"
         GetVariant(variantId = variantIdComposite).query()
@@ -435,7 +436,7 @@ class EpistolaTemplateApi(
         variantId: String,
     ): ResponseEntity<VersionDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val draft = CreateVersion(variantId = variantIdComposite).execute()
             ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
@@ -452,7 +453,7 @@ class EpistolaTemplateApi(
         val templateModel = updateDraftRequest.templateModel
             ?: throw ValidationException(field = "templateModel", message = "Template model is required")
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val draft = UpdateDraft(
             variantId = variantIdComposite,
@@ -468,7 +469,7 @@ class EpistolaTemplateApi(
         variantId: String,
     ): ResponseEntity<VersionDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         GetVariant(variantId = variantIdComposite).query()
             ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
@@ -486,7 +487,7 @@ class EpistolaTemplateApi(
         variantId: String,
     ): ResponseEntity<Unit> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         GetVariant(variantId = variantIdComposite).query()
             ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
@@ -503,7 +504,7 @@ class EpistolaTemplateApi(
         variantId: String,
     ): ResponseEntity<ActivationListResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val activations = ListActivations(variantId = variantIdComposite).query()
         return ResponseEntity.ok(ActivationListResponse(items = activations.map { it.toDto() }))
@@ -518,7 +519,7 @@ class EpistolaTemplateApi(
     ): ResponseEntity<Unit> {
         val typedTenantId = TenantKey.of(tenantId)
         val tenantIdComposite = TenantId(typedTenantId)
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val environmentIdComposite = EnvironmentId(EnvironmentKey.of(environmentId), tenantIdComposite)
         RemoveActivation(
@@ -536,7 +537,7 @@ class EpistolaTemplateApi(
         variantId: String,
     ): ResponseEntity<VersionDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val environmentIdComposite = EnvironmentId(EnvironmentKey.of(environment), tenantIdComposite)
         // Verify variant exists before distinguishing "variant not found" from "no active version"
@@ -563,7 +564,7 @@ class EpistolaTemplateApi(
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val versions = ListVersions(variantId = variantIdComposite).query()
         // Bounded per-variant collection: filter, then slice in application code so
@@ -590,7 +591,7 @@ class EpistolaTemplateApi(
         versionId: Int,
     ): ResponseEntity<VersionDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val versionIdComposite = VersionId(VersionKey.of(versionId), variantIdComposite)
         val version = GetVersion(versionId = versionIdComposite).query()
@@ -609,7 +610,7 @@ class EpistolaTemplateApi(
         val templateModel = updateDraftRequest.templateModel
             ?: throw ValidationException(field = "templateModel", message = "Template model is required")
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val versionIdComposite = VersionId(VersionKey.of(versionId), variantIdComposite)
         val version = UpdateVersion(
@@ -628,7 +629,7 @@ class EpistolaTemplateApi(
         publishVersionRequest: PublishVersionRequest,
     ): ResponseEntity<VersionDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val versionIdComposite = VersionId(VersionKey.of(versionId), variantIdComposite)
         val environmentIdComposite = EnvironmentId(EnvironmentKey.of(publishVersionRequest.environmentId), tenantIdComposite)
@@ -647,7 +648,7 @@ class EpistolaTemplateApi(
         versionId: Int,
     ): ResponseEntity<VersionDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val versionIdComposite = VersionId(VersionKey.of(versionId), variantIdComposite)
         val archived = ArchiveVersion(

@@ -38,6 +38,8 @@ data class FeatureDefaults(
     val editorWalkthrough: Boolean = false,
     /** Tenant-wide catalog resource-reference explorer. Off while the feature is ALPHA. */
     val resourceGraph: Boolean = false,
+    /** Moving resources between authored catalogs. Off while the feature is ALPHA. */
+    val resourceRelocation: Boolean = false,
     /** Publishing catalog releases to Exchange. Off while the feature is ALPHA. */
     val catalogPublishing: Boolean = false,
     /** Browsing Exchange and installing catalogs from it. Off while the feature is ALPHA. */
@@ -49,6 +51,7 @@ data class FeatureDefaults(
         KnownFeatures.AI_CHAT -> aiChat
         KnownFeatures.EDITOR_WALKTHROUGH -> editorWalkthrough
         KnownFeatures.RESOURCE_GRAPH -> resourceGraph
+        KnownFeatures.RESOURCE_RELOCATION -> resourceRelocation
         KnownFeatures.CATALOG_PUBLISHING -> catalogPublishing
         KnownFeatures.CATALOG_INSTALLING -> catalogInstalling
         else -> false

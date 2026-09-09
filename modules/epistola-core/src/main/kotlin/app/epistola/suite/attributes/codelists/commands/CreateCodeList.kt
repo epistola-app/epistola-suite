@@ -8,6 +8,9 @@ import app.epistola.suite.attributes.codelists.model.CodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.AuthType
+import app.epistola.suite.catalog.graph.CatalogResourceType
+import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.identity.requireAddressAvailable
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.crypto.Secret
@@ -68,6 +71,11 @@ class CreateCodeListHandler(
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         return executeOrThrowDuplicate("code-list", command.id.key.value) {
             jdbi.inTransaction<CodeList, Exception> { handle ->
+                requireAddressAvailable(
+                    handle,
+                    command.id.tenantKey,
+                    ResourceAddress(CatalogResourceType.CODE_LIST, command.id.catalogKey.value, command.id.key.value),
+                )
                 val inserted = handle.createQuery(
                     """
                     INSERT INTO code_lists (slug, tenant_key, catalog_key, display_name, description,

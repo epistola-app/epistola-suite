@@ -12,6 +12,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.model.TemplateVariant
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -52,8 +53,8 @@ class UpdateVariantHandler(
                 """
                 UPDATE template_variants
                 SET title = :title, attributes = :attributes::jsonb, updated_at = NOW(), updated_by = :updatedBy
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId AND template_key = :templateId
-                RETURNING *
+                WHERE tenant_key = :tenantId AND id = :variantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+                RETURNING *, CAST(:templateId AS TEXT) AS template_key
                 """,
             )
                 .bind("tenantId", command.variantId.tenantKey)

@@ -13,6 +13,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -50,10 +51,9 @@ class GetDeploymentMatrixHandler(
                     ea.version_key,
                     ea.activated_at
                 FROM environment_activations ea
-                JOIN template_variants tv ON tv.tenant_key = ea.tenant_key AND tv.catalog_key = ea.catalog_key AND tv.template_key = ea.template_key AND tv.id = ea.variant_key
-                WHERE ea.template_key = :templateId
-                  AND ea.tenant_key = :tenantId
-                  AND ea.catalog_key = :catalogKey
+                JOIN template_variants tv ON tv.tenant_key = ea.tenant_key AND tv.template_resource_id = ea.template_resource_id AND tv.id = ea.variant_key
+                WHERE ea.tenant_key = :tenantId
+                  AND ea.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 ORDER BY tv.created_at ASC, ea.environment_key ASC
                 """,
         )

@@ -24,6 +24,16 @@
   text-align: center;
 }
 
+/* Size utilities. The --ep-text-* tokens existed but these classes did not, so markup reaching
+   for `text-sm`/`text-xs` rendered at the default size with nothing to show it had asked. */
+.text-sm {
+  font-size: var(--ep-text-sm);
+}
+
+.text-xs {
+  font-size: var(--ep-text-xs);
+}
+
 /* ── Text truncation ──────────────────────────────────────────────────── */
 
 .text-truncate {

@@ -35,6 +35,7 @@ object KnownFeatures {
     val QUALITY = FeatureKey.of("quality")
     val AI_CHAT = FeatureKey.of("ai-chat")
     val RESOURCE_GRAPH = FeatureKey.of("resource-graph")
+    val RESOURCE_RELOCATION = FeatureKey.of("resource-relocation")
     val CATALOG_PUBLISHING = FeatureKey.of("catalog-publishing")
 
     /**
@@ -68,6 +69,7 @@ object KnownFeatures {
         AI_CHAT,
         EDITOR_WALKTHROUGH,
         RESOURCE_GRAPH,
+        RESOURCE_RELOCATION,
         CATALOG_PUBLISHING,
         CATALOG_INSTALLING,
     )
@@ -146,6 +148,13 @@ object KnownFeatures {
             "Resource graph",
             "Enables the tenant-wide catalog resource reference explorer. It exposes runtime, " +
                 "authoring, and provenance relationships, including missing and ambiguous references.",
+            stage = FeatureStage.ALPHA,
+        ),
+        RESOURCE_RELOCATION to FeatureMetadata(
+            "Resource relocation",
+            "Enables previewing and moving authored catalog resources while preserving old references " +
+                "through stable identities and aliases. Supports all seven resource types; an asset can be " +
+                "moved but not renamed, because its key is a generated identifier.",
             stage = FeatureStage.ALPHA,
         ),
         CATALOG_PUBLISHING to FeatureMetadata(
