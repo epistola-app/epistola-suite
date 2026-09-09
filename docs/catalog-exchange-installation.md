@@ -125,6 +125,13 @@ Resource identities still exist for installed resources — they are minted by a
 insert, like any other resource — so an installed catalog participates in the reference graph and in
 alias resolution. Uninstalling releases them along with the catalog.
 
+Those identities are **this installation's own**. A `resource_id` is internal and is never
+serialized into catalog exchange data, so an installed catalog is addressed on the wire by
+`(type, catalog_key, resource_key)` exactly as the publisher wrote it, and gets fresh identities
+here. The one archive that does carry identities is the tenant _snapshot_ (`identities.json`, from
+archive schema 2), because restoring a tenant has to put back the identities it had — a different
+archive, built and read by different code.
+
 ## Permissions
 
 Installing requires **both** `CATALOG_MANAGE` and `TEMPLATE_EDIT`.

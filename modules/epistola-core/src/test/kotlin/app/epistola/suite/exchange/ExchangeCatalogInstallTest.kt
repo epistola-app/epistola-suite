@@ -48,6 +48,9 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
 
+    /** The throwaway tenant the most recent [releaseArchive] published from. */
+    private var lastPublisher: TenantKey? = null
+
     @Test
     fun `a release becomes a subscribed catalog that remembers where it came from`() {
         val consumer = connectedTenant("install-basic")
@@ -67,6 +70,28 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             // subscribed catalog. A scheme rather than columns of its own.
             assertThat(installed.sourceUrl).isEqualTo("exchange:acme/invoices")
         }
+    }
+
+    /**
+     * Relocation's `resource_id` is documented as internal — "never serialized into public URLs or
+     * catalog exchange data". This is that promise, checked from the consumer's side: a catalog
+     * installed from Exchange gets identities minted by its own trigger, not the publisher's,
+     * because the wire format never carried them. If it ever did, two installations would share an
+     * identity that each believes it owns.
+     */
+    @Test
+    fun `an installed catalog gets its own resource identities, not the publisher's`() {
+        val consumer = connectedTenant("install-identities")
+        exchange.publish("acme", "invoices", releaseArchive("invoices", "1.0.0"), version = "1.0.0")
+        val publisher = requireNotNull(lastPublisher)
+
+        withMediator { InstallExchangeCatalog(consumer, "acme", "invoices").execute() }
+
+        val published = resourceIdentities(publisher, "invoices")
+        val installed = resourceIdentities(consumer, "invoices")
+        assertThat(published).isNotEmpty()
+        assertThat(installed).hasSameSizeAs(published)
+        assertThat(installed).doesNotContainAnyElementsOf(published)
     }
 
     @Test
@@ -285,6 +310,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
      */
     private fun releaseArchive(slug: String, version: String): ByteArray {
         val publisher = createTenant("publisher-$slug-$version").id
+        lastPublisher = publisher
         val catalogKey = CatalogKey.of(slug)
         return withMediator {
             CreateCatalog(publisher, catalogKey, "Invoices").execute()
@@ -295,6 +321,13 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             ReleaseCatalogVersion(tenantKey = publisher, catalogKey = catalogKey, version = version).execute()
             ExportCatalogZip(tenantKey = publisher, catalogKey = catalogKey).execute().zipBytes
         }
+    }
+
+    /** The resource identities relocation's registry holds for one catalog. */
+    private fun resourceIdentities(tenant: TenantKey, catalogKey: String): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
+        handle.createQuery(
+            "SELECT resource_id::text FROM catalog_resources WHERE tenant_key = :t AND catalog_key = :c",
+        ).bind("t", tenant).bind("c", catalogKey).mapTo(String::class.java).list()
     }
 
     /**
