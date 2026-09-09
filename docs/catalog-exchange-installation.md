@@ -114,6 +114,17 @@ Catalogs subscribed from a manifest URL do not have this limitation — their ma
 version, so the list shows "out of sync" or "upgrade Epistola" without a download. See
 [ADR 0021](adr/0021-catalog-upstream-release-discovery.md).
 
+## Relocation
+
+Resources in an installed catalog **cannot be moved or renamed**. Relocation refuses a move whose
+source or target is not an `AUTHORED` catalog, and an installed catalog is `SUBSCRIBED` — so the
+Organise page will not offer them. That is the right answer rather than a gap: the catalog is a
+mirror, and an address the publisher did not choose would be overwritten by the next upgrade.
+
+Resource identities still exist for installed resources — they are minted by a database trigger on
+insert, like any other resource — so an installed catalog participates in the reference graph and in
+alias resolution. Uninstalling releases them along with the catalog.
+
 ## Permissions
 
 Installing requires **both** `CATALOG_MANAGE` and `TEMPLATE_EDIT`.

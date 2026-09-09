@@ -4,7 +4,6 @@
 
 package app.epistola.suite.catalog
 
-import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
@@ -19,12 +18,12 @@ import app.epistola.suite.exchange.InstallExchangeCatalog
 import app.epistola.suite.exchange.StartExchangeConnection
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
+import app.epistola.suite.handlers.ExchangeHandlerTestBase
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.FakeExchangeServer
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
@@ -33,8 +32,6 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import org.springframework.util.LinkedMultiValueMap
 
 /**
@@ -44,7 +41,7 @@ import org.springframework.util.LinkedMultiValueMap
  * being asserted is the server contract — which fragment comes back, what it says, and that a
  * refusal arrives as a refusal rather than an error page.
  */
-class ExchangeCatalogHandlerTest : BaseIntegrationTest() {
+class ExchangeCatalogHandlerTest : ExchangeHandlerTestBase() {
 
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
@@ -233,7 +230,6 @@ class ExchangeCatalogHandlerTest : BaseIntegrationTest() {
     }
 
     private fun connectedTenant(name: String): TenantKey {
-        exchange.reset()
         val tenant = featureOnlyTenant(name)
         withMediator {
             SaveFeatureToggle(tenant, KnownFeatures.CATALOG_PUBLISHING, true).execute()
@@ -261,23 +257,5 @@ class ExchangeCatalogHandlerTest : BaseIntegrationTest() {
             ReleaseCatalogVersion(tenantKey = publisher, catalogKey = catalogKey, version = version).execute()
             ExportCatalogZip(tenantKey = publisher, catalogKey = catalogKey).execute().zipBytes
         }
-    }
-
-    companion object {
-        private val exchange = FakeExchangeServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun exchangeProperties(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.exchange.enabled") { "true" }
-            registry.add("epistola.exchange.base-url") { exchange.baseUrl }
-            registry.add("epistola.exchange.allow-http") { "true" }
-            // The background check must not race these; each test drives the state it needs.
-            registry.add("epistola.catalog.upstream-check.enabled") { "false" }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stopExchange() = exchange.close()
     }
 }

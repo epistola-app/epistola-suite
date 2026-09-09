@@ -21,18 +21,14 @@ import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.FakeExchangeServer
-import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeEach
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import java.io.ByteArrayOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -44,13 +40,13 @@ import java.util.zip.ZipOutputStream
  * what a publisher sends Exchange. Anything less would not go through the validator, the schema
  * gate, or the fingerprint check that the import actually performs.
  */
-class ExchangeCatalogInstallTest : IntegrationTestBase() {
+class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
 
     @Autowired
     private lateinit var upstreamChecks: CatalogUpstreamCheckStore
 
-    @BeforeEach
-    fun resetExchange() = exchange.reset()
+    @Autowired
+    private lateinit var jdbi: Jdbi
 
     @Test
     fun `a release becomes a subscribed catalog that remembers where it came from`() {
@@ -187,6 +183,11 @@ class ExchangeCatalogInstallTest : IntegrationTestBase() {
             assertThat(result.rolledBack).isTrue()
             assertThat(GetCatalog(consumer, CatalogKey.of("broken")).query()).isNull()
         }
+
+        // Relocation mints a resource identity from a database trigger on every resource insert,
+        // so a rollback that only removed the catalog would leave the registry describing
+        // resources that no longer exist. UnregisterCatalog cascades them; this is what says so.
+        assertThat(registeredResourceIdentities(consumer, "broken")).isZero()
     }
 
     /**
@@ -297,6 +298,18 @@ class ExchangeCatalogInstallTest : IntegrationTestBase() {
     }
 
     /**
+     * How many resource identities relocation's registry holds for one catalog.
+     *
+     * Scoped to the catalog rather than the tenant: every tenant is seeded with the system
+     * catalog, whose identities are none of this test's business.
+     */
+    private fun registeredResourceIdentities(tenant: TenantKey, catalogKey: String): Int = jdbi.withHandle<Int, Exception> { handle ->
+        handle.createQuery(
+            "SELECT COUNT(*) FROM catalog_resources WHERE tenant_key = :t AND catalog_key = :c",
+        ).bind("t", tenant).bind("c", catalogKey).mapTo(Int::class.java).one()
+    }
+
+    /**
      * A minimal, *valid* archive whose one asset cannot be imported.
      *
      * Suite addresses assets by UUID, so a slug-named one fails at import — which is the shape
@@ -336,21 +349,5 @@ class ExchangeCatalogInstallTest : IntegrationTestBase() {
             }
         }
         return out.toByteArray()
-    }
-
-    companion object {
-        private val exchange = FakeExchangeServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun exchangeProperties(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.exchange.enabled") { "true" }
-            registry.add("epistola.exchange.base-url") { exchange.baseUrl }
-            registry.add("epistola.exchange.allow-http") { "true" }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stopExchange() = exchange.close()
     }
 }

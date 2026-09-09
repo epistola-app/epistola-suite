@@ -5,15 +5,11 @@
 package app.epistola.suite.exchange
 
 import app.epistola.suite.testing.FakeExchangeServer
-import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.HttpClientErrorException
 
 /**
@@ -24,7 +20,7 @@ import org.springframework.web.client.HttpClientErrorException
  * than the cursor it contains, and the archive is the one response big enough that reading all of
  * it is itself the hazard.
  */
-class ExchangeCatalogClientTest : IntegrationTestBase() {
+class ExchangeCatalogClientTest : ExchangeIntegrationTestBase() {
 
     @Autowired
     private lateinit var client: ExchangeClient
@@ -32,8 +28,7 @@ class ExchangeCatalogClientTest : IntegrationTestBase() {
     private val archive = "PK pretend this is a catalog".toByteArray()
 
     @BeforeEach
-    fun resetExchange() {
-        exchange.reset()
+    fun publishCatalog() {
         exchange.publish("acme", "invoices", archive, version = "1.0.0", name = "Invoices")
     }
 
@@ -131,21 +126,8 @@ class ExchangeCatalogClientTest : IntegrationTestBase() {
         }.isInstanceOf(HttpClientErrorException.NotFound::class.java)
     }
 
-    companion object {
-        private const val TOKEN = "access-token"
-        private const val MAX_BYTES = 10L * 1024 * 1024
-        private val exchange = FakeExchangeServer()
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun exchangeProperties(registry: DynamicPropertyRegistry) {
-            registry.add("epistola.exchange.enabled") { "true" }
-            registry.add("epistola.exchange.base-url") { exchange.baseUrl }
-            registry.add("epistola.exchange.allow-http") { "true" }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stopExchange() = exchange.close()
+    private companion object {
+        const val TOKEN = "access-token"
+        const val MAX_BYTES = 10L * 1024 * 1024
     }
 }
