@@ -5,6 +5,7 @@
 package app.epistola.suite.quality.commands
 
 import app.epistola.suite.common.ids.QualityFindingKey
+import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -15,7 +16,6 @@ import app.epistola.suite.time.EpistolaClock
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
-import java.util.UUID
 
 /**
  * Marks a finding irrelevant, with a stated reason.
@@ -78,7 +78,7 @@ class IgnoreFindingHandler(
                         sourceId = rs.getString("source_id"),
                         ruleId = rs.getString("rule_id"),
                         fingerprint = rs.getString("fingerprint"),
-                        templateResourceId = rs.getObject("template_resource_id", UUID::class.java),
+                        templateResourceId = ResourceIdentity.of(rs.getString("template_resource_id")),
                     )
                 }
                 .findOne()
@@ -125,6 +125,6 @@ class IgnoreFindingHandler(
         val sourceId: String,
         val ruleId: String,
         val fingerprint: String,
-        val templateResourceId: UUID,
+        val templateResourceId: ResourceIdentity,
     )
 }

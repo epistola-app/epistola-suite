@@ -14,6 +14,7 @@ import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.graph.ResourceEdge
 import app.epistola.suite.catalog.graph.ResourceNode
 import app.epistola.suite.catalog.graph.TenantResourceGraph
+import app.epistola.suite.common.ids.ResourceIdentity
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.UUID
@@ -25,7 +26,7 @@ class CatalogDependencyCyclesTest {
         val addresses = edges.flatMap { listOf(it.first, it.second) }.distinct()
         return TenantResourceGraph(
             nodes = addresses.map {
-                ResourceNode(UUID.nameUUIDFromBytes(it.id.toByteArray()), it, it.key, it.catalogKey, "AUTHORED")
+                ResourceNode(ResourceIdentity.of(UUID.nameUUIDFromBytes(it.id.toByteArray())), it, it.key, it.catalogKey, "AUTHORED")
             },
             edges = edges.mapIndexed { index, (from, to) ->
                 ResourceEdge(
@@ -74,7 +75,7 @@ class CatalogDependencyCyclesTest {
     fun `an unresolved edge has no target catalog and cannot form a cycle`() {
         val header = address("letters", "header")
         val graph = TenantResourceGraph(
-            nodes = listOf(ResourceNode(UUID.randomUUID(), header, "Header", "letters", "AUTHORED")),
+            nodes = listOf(ResourceNode(ResourceIdentity.generate(), header, "Header", "letters", "AUTHORED")),
             edges = listOf(
                 ResourceEdge(
                     id = "dangling",

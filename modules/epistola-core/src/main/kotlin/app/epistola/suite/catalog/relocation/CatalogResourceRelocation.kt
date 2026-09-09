@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.graph.TenantResourceGraphBuilder
+import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -26,7 +27,6 @@ import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.security.MessageDigest
-import java.util.UUID
 
 data class ResourceMoveBlocker(
     val code: String,
@@ -82,7 +82,7 @@ fun ResourceAddress.renamedTo(key: String) = ResourceRelocation(this, copy(key =
 data class ResourceRelocationPlan(
     val source: ResourceAddress,
     val target: ResourceAddress,
-    val resourceId: UUID?,
+    val resourceId: ResourceIdentity?,
     val mutableRewriteCount: Int,
     val immutableReferenceCount: Int,
 )
@@ -301,7 +301,7 @@ class CatalogResourceMovePlanner(
         // An address a batch member is vacating is free for another member to take, so occupancy is
         // judged against the batch rather than against the current state alone.
         val vacated = relocations.map { it.source }.toSet()
-        val identities = mutableMapOf<ResourceAddress, UUID>()
+        val identities = mutableMapOf<ResourceAddress, ResourceIdentity>()
 
         for (relocation in relocations) {
             val (source, target) = relocation
@@ -461,7 +461,7 @@ class CatalogResourceMovePlanner(
             .toMap()
     }
 
-    private fun resolveIdentity(handle: Handle, tenantKey: TenantKey, source: ResourceAddress): UUID? = handle.createQuery(
+    private fun resolveIdentity(handle: Handle, tenantKey: TenantKey, source: ResourceAddress): ResourceIdentity? = handle.createQuery(
         """
         SELECT resource_id FROM catalog_resources
         WHERE tenant_key = :tenantKey AND resource_type = :resourceType
@@ -472,7 +472,9 @@ class CatalogResourceMovePlanner(
         .bind("resourceType", source.type.wireName)
         .bind("catalogKey", source.catalogKey)
         .bind("resourceKey", source.key)
-        .mapTo(UUID::class.java)
+        // Mapped by hand: JDBI's Kotlin plugin claims any Kotlin class for constructor binding
+        // before the column-mapper registry is consulted, so mapTo on a value class does not work.
+        .map { rs, _ -> ResourceIdentity.of(rs.getString("resource_id")) }
         .findOne()
         .orElse(null)
 
@@ -480,7 +482,7 @@ class CatalogResourceMovePlanner(
         handle: Handle,
         tenantKey: TenantKey,
         target: ResourceAddress,
-        movingResourceId: UUID?,
+        movingResourceId: ResourceIdentity?,
     ): Boolean = handle.createQuery(
         """
         SELECT EXISTS(

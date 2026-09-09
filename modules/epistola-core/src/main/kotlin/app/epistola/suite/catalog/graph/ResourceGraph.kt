@@ -4,6 +4,8 @@
 
 package app.epistola.suite.catalog.graph
 
+import app.epistola.suite.common.ids.ResourceIdentity
+
 enum class CatalogResourceType(val wireName: String) {
     ASSET("asset"),
     CODE_LIST("codeList"),
@@ -36,7 +38,7 @@ data class ResourceNode(
      * The address is what authors and catalog exchange use, but it moves. Callers that need to
      * follow a resource across a move -- notably relocation itself -- hold this instead.
      */
-    val resourceId: java.util.UUID,
+    val resourceId: ResourceIdentity,
     val address: ResourceAddress,
     val name: String,
     val catalogName: String,

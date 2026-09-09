@@ -4,17 +4,17 @@
 
 package app.epistola.suite.catalog.identity
 
+import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
-import java.util.UUID
 
 /** One resource's tenant-local identity, paired with the address it occupied when recorded. */
 data class ResourceIdentityRecord(
     val type: String,
     val catalogKey: String,
     val key: String,
-    val resourceId: UUID,
+    val resourceId: ResourceIdentity,
 )
 
 /** One retained historical address, and the identity it still resolves to. */
@@ -22,7 +22,7 @@ data class ResourceAliasRecord(
     val type: String,
     val catalogKey: String,
     val key: String,
-    val targetResourceId: UUID,
+    val targetResourceId: ResourceIdentity,
 )
 
 /**
@@ -70,7 +70,7 @@ class TenantResourceIdentityStore(
                         type = rs.getString("resource_type"),
                         catalogKey = rs.getString("catalog_key"),
                         key = rs.getString("resource_key"),
-                        resourceId = rs.getObject("resource_id", UUID::class.java),
+                        resourceId = ResourceIdentity.of(rs.getString("resource_id")),
                     )
                 }
                 .list()
@@ -96,7 +96,7 @@ class TenantResourceIdentityStore(
                         type = rs.getString("resource_type"),
                         catalogKey = rs.getString("catalog_key"),
                         key = rs.getString("resource_key"),
-                        targetResourceId = rs.getObject("target_resource_id", UUID::class.java),
+                        targetResourceId = ResourceIdentity.of(rs.getString("target_resource_id")),
                     )
                 }
                 .list()

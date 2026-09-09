@@ -59,6 +59,13 @@ Rules:
 5. Address is computed at the boundary — export, URLs, REST, MCP — and mapped back on import.
 6. Aliases become an external-redirect layer for bookmarked URLs and external callers. Expirable,
    and never consulted by internal resolution.
+7. In Kotlin an identity is a `ResourceIdentity`, never a bare `UUID` — one more `UUID` in a
+   signature full of them is exactly how a document id ends up where a template's identity belongs.
+   Deliberately not called `ResourceId`: in `common.ids` a `…Id` (`TemplateId`, `CatalogId`) is an
+   address chain, which is the one thing an identity is defined not to be. It binds through
+   `UuidIdArgumentFactory` and reads back through `UuidIdColumnMapper`; `mapTo(ResourceIdentity)`
+   does **not** work, because JDBI's Kotlin plugin claims the class for constructor binding first
+   (pinned by `JdbiUuidIdMapperIT`).
 
 ## Invariants during the migration
 

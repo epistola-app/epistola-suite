@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.identity
 
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -15,10 +16,9 @@ import app.epistola.suite.security.SystemInternal
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
-import java.util.UUID
 
 data class ResolvedCatalogResourceAddress(
-    val resourceId: UUID,
+    val resourceId: ResourceIdentity,
     val requested: ResourceAddress,
     val canonical: ResourceAddress,
     val resolvedViaAlias: Boolean,
@@ -113,7 +113,7 @@ internal fun Handle.resolveCatalogResourceAddress(tenantKey: TenantKey, address:
     .bind("resourceKey", address.key)
     .map { rs, _ ->
         ResolvedCatalogResourceAddress(
-            resourceId = rs.getObject("resource_id", UUID::class.java),
+            resourceId = ResourceIdentity.of(rs.getString("resource_id")),
             requested = address,
             canonical = ResourceAddress(
                 type = CatalogResourceType.entries.single { it.wireName == rs.getString("canonical_type") },

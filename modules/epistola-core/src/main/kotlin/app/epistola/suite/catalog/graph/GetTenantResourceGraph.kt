@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.graph
 
+import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -106,7 +107,7 @@ class TenantResourceGraphBuilder(
         .bind("tenantKey", tenantKey)
         .map { rs, _ ->
             ResourceNode(
-                resourceId = rs.getObject("resource_id", java.util.UUID::class.java),
+                resourceId = ResourceIdentity.of(rs.getString("resource_id")),
                 address = ResourceAddress(resourceType(rs.getString("resource_type")), rs.getString("catalog_key"), rs.getString("resource_key")),
                 name = rs.getString("resource_name"),
                 catalogName = rs.getString("catalog_name"),

@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+- **[dev]** refactor(catalog): **A resource's identity is a type, not a bare `UUID`.**
+  `ResourceIdentity` replaces `java.util.UUID` everywhere a catalog resource's stable identity is
+  carried — the relocation planner, the identity registry, the resource graph, quality ignores —
+  so a document id can no longer be passed where a template's identity belongs. Named for the
+  concept rather than the column: in `common.ids` a `…Id` is an address chain, which is the one
+  thing an identity is not. Storage is unchanged (`uuid`), and so is every wire format; typed keys
+  now bind through a shared `UuidIdArgumentFactory` rather than being unwrapped at each call site.
 - **[dev]** docs(perf): **Load test results are tracked over time.** `docs/load-test-results.md` logs
   each `epistola-load-test` run against a named hardware profile, so the effect of a change on
   throughput is visible rather than re-derived. Figures are only comparable within a profile, which

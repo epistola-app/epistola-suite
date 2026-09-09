@@ -27,6 +27,7 @@ import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
+import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.StencilVersionId
@@ -74,7 +75,6 @@ import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.nio.charset.StandardCharsets
-import java.util.UUID
 import java.util.zip.ZipInputStream
 
 class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
@@ -651,10 +651,10 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         }
     }
 
-    private fun documentTemplateIdentities(tenantKey: TenantKey): List<UUID> = jdbi.withHandle<List<UUID>, Exception> { handle ->
+    private fun documentTemplateIdentities(tenantKey: TenantKey): List<ResourceIdentity> = jdbi.withHandle<List<ResourceIdentity>, Exception> { handle ->
         handle.createQuery("SELECT DISTINCT template_resource_id FROM documents WHERE tenant_key = :tenantKey")
             .bind("tenantKey", tenantKey)
-            .mapTo(UUID::class.java)
+            .map { rs, _ -> ResourceIdentity.of(rs.getString("template_resource_id")) }
             .list()
     }
 

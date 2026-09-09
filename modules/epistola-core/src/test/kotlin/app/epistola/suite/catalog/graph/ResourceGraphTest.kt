@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.graph
 
+import app.epistola.suite.common.ids.ResourceIdentity
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 import org.junit.jupiter.api.Test
@@ -17,7 +18,7 @@ class ResourceGraphTest {
 
     private val graph = TenantResourceGraph(
         nodes = listOf(template, theme, font, asset).map {
-            ResourceNode(UUID.nameUUIDFromBytes(it.id.toByteArray()), it, it.key, it.catalogKey, "AUTHORED")
+            ResourceNode(ResourceIdentity.of(UUID.nameUUIDFromBytes(it.id.toByteArray())), it, it.key, it.catalogKey, "AUTHORED")
         },
         edges = listOf(
             edge("template-theme", template, theme),

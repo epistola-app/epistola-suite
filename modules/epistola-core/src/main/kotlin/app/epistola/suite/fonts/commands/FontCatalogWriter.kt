@@ -7,6 +7,7 @@ package app.epistola.suite.fonts.commands
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
+import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.fonts.assetAtAddress
 import app.epistola.suite.fonts.model.FontKind
@@ -15,7 +16,6 @@ import app.epistola.suite.fonts.model.sha256Hex
 import org.jdbi.v3.core.Handle
 import org.springframework.stereotype.Component
 import java.util.Optional
-import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -100,7 +100,7 @@ class FontCatalogWriter {
         // The families' identities come back from the upsert, so the faces are written against
         // them directly rather than by re-reading the addresses just written.
         val upserted = upsert
-            .map { rs, _ -> rs.getString("slug") to (rs.getObject("resource_id", UUID::class.java) to rs.getBoolean("inserted")) }
+            .map { rs, _ -> rs.getString("slug") to (ResourceIdentity.of(rs.getString("resource_id")) to rs.getBoolean("inserted")) }
             .toMap()
         val inserted = upserted.mapValues { (_, row) -> row.second }
         handle.createUpdate(
