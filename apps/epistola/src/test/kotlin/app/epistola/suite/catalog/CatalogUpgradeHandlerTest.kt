@@ -28,7 +28,7 @@ import java.nio.file.Files
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
+private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/fixture/catalog.json"
 
 /**
  * Handler-level coverage for the subscriber upgrade endpoints (preferred over a

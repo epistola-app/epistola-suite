@@ -3,8 +3,13 @@ spring:
     banner-mode: off
   datasource:
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
+      # One shared Postgres serves every Spring test context, so these bounds are per context but
+      # the budget is global. `minimum-idle` was the expensive part: a cached context that no test
+      # is using still held its floor open, so the cost grew with the number of contexts rather
+      # than with the work. Idle connections are now released instead.
+      maximum-pool-size: 8
+      minimum-idle: 0
+      idle-timeout: 10000
 
 epistola:
   logs:
@@ -16,3 +21,10 @@ epistola:
       enabled: true
       interval-ms: 100
       max-concurrent-jobs: 2
+  # Tests fetch catalogs and code lists from loopback HTTP fakes. Allowing plain http here is what
+  # lets those tests share the base context instead of booting one each; the refusal-by-default
+  # rule itself is covered by CatalogClientTest, a unit test with its own configuration.
+  catalog:
+    allow-http: true
+  codelists:
+    allow-http: true

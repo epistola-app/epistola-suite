@@ -232,6 +232,20 @@ class JobPoller(
     fun lastPollAgeMillis(): Long = System.currentTimeMillis() - lastPollAtMs.get()
 
     /**
+     * Test-only: runs one drain pass on the dedicated drain thread and blocks until it
+     * returns, so a caller can assert on state that pass is guaranteed to have already
+     * produced. Deliberately does not go through [requestDrain]'s coalescing flag —
+     * [drainExecutor] is single-threaded, so this always queues strictly after any
+     * already-submitted pass and still gives an exact happens-before guarantee, unlike
+     * polling [lastPollAgeMillis] (set at the *top* of [drain], before it claims or
+     * dispatches anything — proof a pass started, never proof one finished claiming).
+     */
+    fun awaitDrain(timeout: Duration = Duration.ofSeconds(5)) {
+        drainExecutor.submit(MediatorContext.runnable(mediator) { drain() })
+            .get(timeout.toMillis(), TimeUnit.MILLISECONDS)
+    }
+
+    /**
      * Continuously claim and process jobs until queue empty or at capacity.
      * Runs on dedicated single thread - no concurrency issues with claiming.
      */

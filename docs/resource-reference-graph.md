@@ -1,5 +1,8 @@
 # Resource reference graph
 
+> **Status:** Alpha, disabled by default. Breaking changes to this surface
+> may ship in a MINOR release.
+
 The resource reference graph is a tenant-wide, read-only view of how catalog resources depend on
 one another. It is an alpha feature, disabled by default; a tenant administrator can enable
 **Resource graph** under **Settings → Features**. Then open **Resources → Resource graph**, search

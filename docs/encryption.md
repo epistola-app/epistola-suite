@@ -9,6 +9,9 @@ alone never exposes a usable secret. This covers:
   remote code list).
 - **Hub credentials** — the support tier's `app_metadata` entry
   (`support.hub.credentials`).
+- **Exchange credentials** — the tenant's OAuth application secret, its
+  access/refresh tokens, and the pending PKCE verifier used for catalog
+  publication.
 
 > **API keys are different and are _not_ encrypted.** They are a verify-only
 > secret, so they are **hashed** (SHA-256) — the plaintext is never stored and
@@ -41,6 +44,12 @@ Persistence is transparent: domain types carry a `Secret` field, and JDBI's
 encrypt on write and decrypt on read. Code above the JDBI layer only ever sees
 plaintext via `Secret.value`, and `Secret.toString()` is redacted to prevent
 accidental logging.
+
+Credential-owning domains declare their encrypted columns through
+`EncryptedCredentialContributor`. The generic rotation and stale-key commands
+consume those declarations and contain no Exchange- or support-specific table
+knowledge. Exchange publication documents its credential lifecycle in
+[`catalog-exchange-publication.md`](catalog-exchange-publication.md).
 
 ## The keyset and key ids
 

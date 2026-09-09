@@ -12,6 +12,18 @@
  */
 
 @layer base {
+  /* The `hidden` attribute must actually hide.
+   *
+   * A component that sets its own `display` (`.alert` is flex, `.ep-row` is flex)
+   * sits in the `components` layer, which beats anything here on layer order alone —
+   * so a plain `[hidden] { display: none }` in this layer would lose and the element
+   * would stay on screen. `!important` reverses layer order, making this the one
+   * declaration that wins. Several components had each patched this for themselves;
+   * this is the general rule they were all working around. */
+  [hidden] {
+    display: none !important;
+  }
+
   *,
   *::before,
   *::after {

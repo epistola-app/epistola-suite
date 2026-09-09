@@ -37,8 +37,24 @@ enum class Permission {
     CATALOG_VIEW,
     CATALOG_MANAGE,
 
+    /**
+     * Publish a catalog release to Epistola Exchange, and decide the namespace it publishes into.
+     *
+     * Deliberately separate from [TEMPLATE_PUBLISH], which cuts an immutable release inside this
+     * installation. Sending one to Exchange leaves the building and cannot be taken back, so being
+     * trusted to release is not the same as being trusted to publish.
+     */
+    CATALOG_PUBLISH,
+
     /** Observability: application logs and diagnostics. */
     DIAGNOSTICS_VIEW,
+
+    /**
+     * Operational maintenance of diagnostics state, e.g. forgetting a dead cluster node.
+     * Split from [DIAGNOSTICS_VIEW] so reading the operations pages never implies mutating
+     * the runtime registries they show.
+     */
+    DIAGNOSTICS_MANAGE,
 
     /** Audit trail: view the PII-free "who did what, when" command log. */
     AUDIT_VIEW,
@@ -88,6 +104,7 @@ fun TenantRole.permissions(): Set<Permission> = when (this) {
     TenantRole.CONTENT_PUBLISHER -> setOf(
         Permission.TEMPLATE_PUBLISH,
         Permission.STENCIL_PUBLISH,
+        Permission.CATALOG_PUBLISH,
     )
     TenantRole.TENANT_ADMINISTRATOR -> setOf(
         Permission.TENANT_SETTINGS,
@@ -95,6 +112,7 @@ fun TenantRole.permissions(): Set<Permission> = when (this) {
         Permission.CATALOG_MANAGE,
         Permission.BACKUP_CREATE,
         Permission.DIAGNOSTICS_VIEW,
+        Permission.DIAGNOSTICS_MANAGE,
         Permission.AUDIT_VIEW,
         Permission.TENANT_RESTORE,
     )

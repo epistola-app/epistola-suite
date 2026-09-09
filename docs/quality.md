@@ -1,5 +1,8 @@
 # Quality checks
 
+> **Status:** Alpha, disabled by default (`epistola.features.quality`).
+> Breaking changes to this surface may ship in a MINOR release.
+
 A generic, extensible system for surfacing problems in templates — readability, grammar,
 cross-template consistency, and human review notes — in a tenant-wide report and (soon)
 directly in the template editor.

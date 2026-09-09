@@ -15,5 +15,6 @@ data class Tenant(
     val defaultThemeCatalogKey: CatalogKey? = CatalogKey.DEFAULT,
     val defaultThemeKey: ThemeKey?,
     val defaultLocale: String? = null,
+    val publishCatalogsByDefault: Boolean = false,
     val createdAt: OffsetDateTime,
 )

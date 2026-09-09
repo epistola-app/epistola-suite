@@ -143,5 +143,12 @@ rule in `components.css`.
 | `quality`                     | Quality checks ledger, report, and template-editor panel              | Alpha  | `false` |
 | `ai-chat`                     | AI chat panel in the template editor                                  | Alpha  | `false` |
 | `editor-walkthrough`          | Guided in-editor tour of the template editor (client-side onboarding) | Alpha  | `false` |
+| `catalog-publishing`          | Durable publication of authored catalog releases to Epistola Exchange | Alpha  | `false` |
 
 \* Hub-only features (`KnownFeatures.HUB_ONLY`) default to `epistola.support.enabled` — see above.
+
+`catalog-publishing` is additionally bounded by the hard, default-off
+`epistola.exchange.enabled` deployment gate. The feature toggle alone never
+permits outbound traffic. See
+[Publishing catalogs to Epistola Exchange](catalog-exchange-publication.md) for
+the complete setting precedence.

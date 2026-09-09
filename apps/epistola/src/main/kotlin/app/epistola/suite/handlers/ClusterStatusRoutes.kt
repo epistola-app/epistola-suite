@@ -20,6 +20,7 @@ class ClusterStatusRoutes(private val handler: ClusterStatusHandler) {
         "/tenants/{tenantId}/cluster".nest {
             GET("", handler::dashboard)
             GET("/refresh", handler::refresh)
+            POST("/nodes/{nodeId}/forget", handler::forgetNode)
         }
     }
 }

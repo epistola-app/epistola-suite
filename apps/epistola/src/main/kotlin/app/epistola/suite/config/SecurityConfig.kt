@@ -5,6 +5,7 @@
 package app.epistola.suite.config
 
 import app.epistola.suite.api.security.ApiKeyAuthenticationFilter
+import app.epistola.suite.api.security.ApiPreAuthenticationFilter
 import app.epistola.suite.api.security.ClientIdentityFilter
 import app.epistola.suite.api.v1.ApiProblemTypes
 import app.epistola.suite.api.v1.writeProblemDetail
@@ -59,8 +60,16 @@ class SecurityConfig(
     private val jwtAuthenticationConverter: EpistolaJwtAuthenticationConverter? = null,
     private val meterRegistry: MeterRegistry,
     private val objectMapper: ObjectMapper,
+    // Filters that run ahead of the API-key filter, contributed by whatever modules are on the
+    // classpath. Empty in the default image; the demo image supplies the shared-secret filter. This
+    // class deliberately does not name any of them — that is what lets demo mode be left out of the
+    // build entirely.
+    private val apiPreAuthenticationFilters: List<ApiPreAuthenticationFilter> = emptyList(),
+    // Optional per-user landing page for logins with no saved request. Absent unless something
+    // contributes one (today: demo mode).
+    private val postLoginTargetResolver: app.epistola.suite.security.PostLoginTargetResolver? = null,
 ) {
-    private val popupAwareAuthenticationSuccessHandler = PopupAwareAuthenticationSuccessHandler()
+    private val popupAwareAuthenticationSuccessHandler = PopupAwareAuthenticationSuccessHandler(postLoginTargetResolver)
 
     /**
      * Check if OAuth2 is configured (has client registrations).
@@ -142,6 +151,12 @@ class SecurityConfig(
                     writeProblemDetail(response, objectMapper, request, ApiProblemTypes.ACCESS_DENIED, "Access denied")
                 }
             }
+
+        // Ahead of the API-key filter, which they hand a validated principal to rather than
+        // authenticating themselves (see ApiPreAuthenticationFilter). Registered here, after the
+        // addFilterBefore above, because the reference filter's position in the chain is only known
+        // once that filter has itself been registered.
+        apiPreAuthenticationFilters.forEach { http.addFilterBefore(it, ApiKeyAuthenticationFilter::class.java) }
 
         // Add JWT resource server support when OAuth2/OIDC is configured
         if (jwtResourceServerEnabled) {

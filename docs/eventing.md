@@ -1,5 +1,11 @@
 # CQRS Eventing Architecture
 
+> **Status:** Design record. The command-eventing core it proposes is
+> implemented (`SpringMediator` publishes completed commands as events,
+> `EventLogSubscriber` writes the `event_log`, `@NotEventLogged` opts out).
+> The phased rollout and migration checklist below are the original plan and
+> are not a status report.
+
 ## Overview
 
 This document describes the evolution of the epistola-suite CQRS mediator pattern to support **command eventing**, **SQL boilerplate reduction**, and **distribution readiness**.

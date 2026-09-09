@@ -83,6 +83,19 @@ epistola:
           - CONTENT_PUBLISHER
   catalog:
     allow-http: true
+  # Keep the deployment gate inherited as false, but make opting in locally
+  # target the sibling epistola-exchange checkout without contacting public
+  # product discovery. OAuth metadata is still discovered and issuer-checked.
+  exchange:
+    # On for local dev: the rest of this block already points at the sibling
+    # epistola-exchange checkout, so leaving the deployment gate off made all of it
+    # dead config and hid the Exchange UI even with the catalog-publishing feature on.
+    enabled: true
+    base-url: http://exchange.localhost:4075
+    callback-url: http://localhost:4000/oauth/exchange/callback
+    # The sibling checkout is plaintext; every other profile refuses http:// so credentials
+    # and catalog archives are never sent in the clear.
+    allow-http: true
   editor:
     dev-server:
       auto-start: true
@@ -99,15 +112,18 @@ epistola:
     admin-email: dev@local
     environment: local
 
-  # Support tier is ON by default for local dev so the Backups/Upgrading features
-  # and the Support → Overview page are exercisable out of the box. It points
-  # straight at the local epistola-hub gRPC port (9090, plaintext), skipping the
-  # .well-known discovery dance. If the hub isn't running, registration retries in
-  # the background and the Overview page shows the connection as not reachable —
-  # so the suite runs fine without a hub. Set `--epistola.support.enabled=false`
-  # to turn the tier off entirely.
+  # Support tier is OFF by default for local dev. It is the commercial tier and
+  # needs a running epistola-hub; without one the suite still works, but
+  # registration retries in the background and every attempt logs a gRPC
+  # UNAVAILABLE stack trace. That is noise in every local session, for a tier most
+  # local work never touches.
+  #
+  # Turn it on when working on Backups, Upgrading or the Support → Overview page:
+  # start epistola-hub, then run with `--epistola.support.enabled=true`. The
+  # settings below already point at the local hub gRPC port (9090, plaintext) and
+  # skip the .well-known discovery dance, so that one flag is all it takes.
   support:
-    enabled: true
+    enabled: false
     hub:
       host: localhost
       port: 9090

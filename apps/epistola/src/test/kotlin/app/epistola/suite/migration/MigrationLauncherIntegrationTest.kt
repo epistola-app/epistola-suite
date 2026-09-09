@@ -6,7 +6,6 @@ package app.epistola.suite.migration
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.bootstrap.SystemCatalogBootstrap
-import app.epistola.suite.demo.DemoLoader
 import app.epistola.suite.documents.cleanup.PartitionMaintenanceScheduler
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -67,7 +66,6 @@ class MigrationLauncherIntegrationTest : BaseIntegrationTest() {
                     .isEqualTo(snapshot(appFlyway.configuration))
                 // The migration context never component-scans the app.
                 assertThat(ctx.getBeanNamesForType(PartitionMaintenanceScheduler::class.java)).isEmpty()
-                assertThat(ctx.getBeanNamesForType(DemoLoader::class.java)).isEmpty()
                 assertThat(ctx.getBeanNamesForType(SystemCatalogBootstrap::class.java)).isEmpty()
             }
         assertThat(appliedCount()).isGreaterThan(0)

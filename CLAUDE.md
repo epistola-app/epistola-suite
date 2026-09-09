@@ -26,11 +26,11 @@ onward.
 ```
 epistola-suite-modules/
 ├── apps/
+│   ├── epistola-demo/     # The demo distribution: apps/epistola + demo mode (see docs/auth.md)
 │   └── epistola/          # Spring Boot app (UI layer: Thymeleaf + HTMX)
 │       ├── handlers/      # UI request handlers
 │       ├── config/        # Thymeleaf, Security, UI config
 │       ├── htmx/          # HTMX utilities
-│       ├── demo/          # DemoLoader
 │       └── resources/
 │           ├── db/migration/        # Flyway migrations
 │           ├── templates/           # Thymeleaf templates
@@ -51,7 +51,7 @@ epistola-suite-modules/
 │   │   ├── config/        # JDBI, Jackson config
 │   │   └── api/           # REST API controllers
 │   ├── generation/        # Pure PDF rendering
-│   ├── rest-api/          # OpenAPI specs
+│   ├── rest-api/          # REST controllers for the epistola-contract API
 │   ├── editor/            # Lit + ProseMirror editors (template, theme, data contract)
 │   ├── epistola-mcp/      # MCP server for AI assistants (read-only tools at /api/mcp)
 │   └── testing/           # Shared test infrastructure (IntegrationTestBase, fixtures, Testcontainers)
@@ -62,15 +62,32 @@ epistola-suite-modules/
 
 ### Module Responsibilities
 
-- **apps/epistola**: UI layer only (Thymeleaf, HTMX, routes, handlers)
-- **modules/epistola-core**: All business logic (domains, commands, queries, REST API, JDBI config). **Catalog exchange lives here too**, in the `catalog/` package (`app.epistola.suite.catalog`) — import/export, remote catalog clients, bundled demo/system catalogs, and the tenant snapshot build/restore primitives (`catalog/snapshot/`). There is no separate catalog module.
+- **apps/epistola**: UI layer only (Thymeleaf, HTMX, routes, handlers). Publishes
+  `epistola-suite:{version}` and contains **no** demo code.
+- **apps/epistola-demo**: publishes `epistola-suite:{version}-demo` — depends on `apps/epistola` and
+  adds demo mode: a personal tenant per signed-in user, an optional all-tenant shared secret for the
+  REST API, and the bundled demo catalog. A separate artifact rather than a profile flag, because
+  demo mode changes who can reach what and nobody editing a production deployment's environment
+  should be one variable away from it. See [`docs/auth.md`](docs/auth.md#two-images).
+- **modules/epistola-core**: All business logic (domains, commands, queries, REST API, JDBI config). **Catalog exchange lives here too**, in the `catalog/` package (`app.epistola.suite.catalog`) — import/export, remote catalog clients, the bundled `system` catalog (the demo one ships in `apps/epistola-demo`), and the tenant snapshot build/restore primitives (`catalog/snapshot/`). There is no separate catalog module.
+- **Outbound catalog publication** to Epistola Exchange lives in core's `exchange/` package
+  (`app.epistola.suite.exchange`): enrollment, the OAuth client, the durable publication outbox and
+  its cluster worker. It is optional and default-off (`epistola.exchange.enabled`). The catalog
+  domain must **not** reference it: `ReleaseCatalogVersion` records publication intent through
+  `CatalogReleasePublicationPort` (in `catalog/`), which is handed the open release transaction so
+  the outbox write stays atomic without inverting the dependency. `ExchangeAvailability` is the one
+  place that answers "may this tenant publish?" (deployment gate **and** tenant feature);
+  `ExchangeNamespaceBinder` owns the immutable namespace binding rule; `CatalogPublicationStore`
+  owns the outbox SQL. UI reads `GetCatalogPublicationState` / `GetExchangeSettings` rather than
+  recomposing any of it. See [`docs/catalog-exchange-publication.md`](docs/catalog-exchange-publication.md)
+  and [ADR 0018](docs/adr/0018-durable-catalog-publication-to-exchange.md).
 - **Resource references**: tenant-wide reference discovery and traversal live in
   `catalog/graph/` and are documented in [`docs/resource-reference-graph.md`](docs/resource-reference-graph.md).
   New catalog-resource reference shapes must be added to this graph authority with resolution and
   lifecycle evidence. Existing deletion and upgrade scanners remain independent until deliberately
   migrated and parity-tested.
 - **modules/generation**: Pure PDF rendering (no business logic)
-- **modules/rest-api**: OpenAPI specifications
+- **modules/rest-api**: REST controllers implementing the `epistola-contract` OpenAPI surface
 - **modules/editor**: Lit + ProseMirror editors — template editor, theme editor, data contract editor (web components, no React)
 - **modules/epistola-mcp**: Model Context Protocol server for AI assistants. Mounts a Streamable HTTP endpoint at `/api/mcp` (under the existing `/api/**` security chain — per-tenant `Authorization: ApiKey` auth, with legacy `X-API-Key` support). Tools dispatch through the existing `SpringMediator` to existing queries; the module owns no domain logic. MVP is read-only (template/theme/stencil/contract discovery + document preview). See [`docs/mcp.md`](docs/mcp.md).
 - **modules/epistola-support**: Optional commercial-tier infrastructure that talks to the separate **epistola-hub** server. Owns the hub client wiring (registration loop, credentials persistence) and the `epistola.support.*` properties. Off by default (`epistola.support.enabled=false`) — OSS deployments ship the JAR but never construct any beans. Required-when-enabled installation identity properties live under `epistola.installation.*`. Commercial features (feedback sync, monitoring, quality checks, version compatibility) arrive as **per-feature modules** that depend on this one (`epistola-support-feedback`, `epistola-support-quality`, …).
@@ -210,7 +227,7 @@ The backend has **two distinct endpoint layers** that must NEVER be mixed:
 - **Authentication**: API key (`Authorization: ApiKey` header, with legacy `X-API-Key` support) or OAuth2 JWT Bearer token. Stateless, no CSRF.
 - **Implementation**: `@RestController` with `@RequestMapping("/api")` in `app.epistola.suite.api.v1` package
 - **Returns**: JSON DTOs (`application/vnd.epistola.v1+json`)
-- **OpenAPI spec**: `/modules/rest-api/src/main/resources/openapi/`
+- **OpenAPI spec**: owned by the external `epistola-contract` package; the suite consumes its generated server interfaces in `modules/rest-api`
 - **Purpose**: External system integration (stable, versioned API)
 
 ### 2. UI Handlers (Internal Use Only)
@@ -493,13 +510,13 @@ Spring profile (datasource `127.0.0.1:4001`), so don't run them alongside a loca
    - Example: `- **[dev]** fix(logs): **Recursion guard narrowed.** Scoped to the ApplicationLogIngestor logger.`
    - The dialog filters by **Audience** (Users/Developers/All), **Type** (the commit types), and **Scope**. Older released sections still use legacy Keep-a-Changelog `### ` headers (grandfathered — their type is mapped from the section, no scope); do not add `### ` headers to new entries. These conventions apply only to the root `CHANGELOG.md` (the Helm chart changelog is not shown in the UI). See [`CONTRIBUTING.md`](CONTRIBUTING.md#changelog-entries).
 
-8. **Update documentation** - Check if changes require updates to docs in `docs/`, KDoc comments, or CLAUDE.md. Search for references to changed conventions, APIs, or patterns.
+8. **Update documentation** - Check if changes require updates to docs in `docs/`, KDoc comments, or CLAUDE.md. Search for references to changed conventions, APIs, or patterns. A **new** page under `docs/` must be added to the [documentation index](docs/README.md) (and a new ADR to [`docs/adr/README.md`](docs/adr/README.md)); a page that is not current shipped behavior opens with a `> **Status:** …` banner.
 9. **Small commits** - Commit logical units of work separately
-10. **Cut a demo/system catalog release** - When modifying bundled resources in `modules/epistola-core/src/main/resources/epistola/catalogs/{demo,system}/`, bump `release.version` (SemVer, strictly increasing) **and** regenerate `release.fingerprint` in `catalog.json`: run `./gradlew :modules:epistola-core:unitTest --tests "*BundledCatalogFingerprintTest"`, paste the reported "actual" fingerprint, re-run green. The loaders detect changes by **fingerprint**, not the version string. See [`docs/catalog-versioning.md`](docs/catalog-versioning.md).
+10. **Cut a demo/system catalog release** - When modifying bundled resources in `modules/epistola-core/.../catalogs/system/` or `apps/epistola-demo/.../catalogs/demo/`, bump `release.version` (SemVer, strictly increasing) **and** regenerate `release.fingerprint` in `catalog.json`: run the fingerprint test for the catalog you touched — `./gradlew :apps:epistola-demo:unitTest --tests "*DemoCatalogFingerprintTest"` for the demo catalog (which lives in `apps/epistola-demo`), `./gradlew :modules:epistola-core:unitTest --tests "*BundledCatalogFingerprintTest"` for the system one — paste the reported "actual" fingerprint, re-run green. The loaders detect changes by **fingerprint**, not the version string. See [`docs/catalog-versioning.md`](docs/catalog-versioning.md).
 11. **Consider catalog impact** - Whenever you add, modify, or remove a resource (template, stencil, theme, data contract, etc.), consider whether the change affects catalog exchange in `modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/`. Check if catalog import/export, serialization formats, manifest schemas, or version handling need updating to stay consistent with the resource change. Note that a per-resource setting only round-trips if it is threaded through **all** of `ImportTemplates` (insert **and** both update paths), `CatalogContentBuilder` (the SELECT and the emitted resource), and the `epistola-contract` protocol model — a field missing from any one of those is silently dropped on re-import.
 12. **Consider all surfaces** - When adding, changing, or removing a feature, evaluate the impact on all three surfaces the suite exposes: the **web UI** (Thymeleaf + HTMX handlers in `apps/epistola`), the **REST API** (`modules/epistola-core/api` + OpenAPI spec in `modules/rest-api`), and the **MCP server** (`modules/epistola-mcp`). A capability change usually needs to be reflected in all three (or an explicit decision to scope it to a subset). Don't ship a feature on one surface and silently drift the others.
-13. **Keep components, registry, and demo catalog in sync** - When adding, changing, or removing an editor component, update both the component registry (`modules/editor/src/main/typescript/engine/registry.ts` — including `examples[]`) and the demo catalog (`modules/epistola-core/src/main/resources/epistola/catalogs/demo/`). The demo catalog is our kitchen sink: every feature should be exercised there in every reasonable way (variants, options, edge cases). New capability ⇒ new demo usage; changed signature ⇒ updated demo usage; removed component ⇒ removed demo usage (and bumped catalog version per item 10).
-14. **Every feature MUST be demonstrated in the demo catalog** - This is a hard requirement and a PR blocker, broader than item 13 (which is component-specific). No feature is complete until it is exercised in the demo catalog (`modules/epistola-core/src/main/resources/epistola/catalogs/demo/`). Any user-facing capability — a rendering feature, a generation option, an editor behavior, a new template/theme/stencil/data-contract capability — must ship with a concrete demo resource (new, or an update to an existing one) that uses it realistically, including reasonable variants and edge cases. If a feature genuinely cannot be represented in the demo catalog, the PR must state explicitly why. Bump the catalog version per item 10 whenever you touch demo resources.
+13. **Keep components, registry, and demo catalog in sync** - When adding, changing, or removing an editor component, update both the component registry (`modules/editor/src/main/typescript/engine/registry.ts` — including `examples[]`) and the demo catalog (`apps/epistola-demo/src/main/resources/epistola/catalogs/demo/`). The demo catalog is our kitchen sink: every feature should be exercised there in every reasonable way (variants, options, edge cases). New capability ⇒ new demo usage; changed signature ⇒ updated demo usage; removed component ⇒ removed demo usage (and bumped catalog version per item 10).
+14. **Every feature MUST be demonstrated in the demo catalog** - This is a hard requirement and a PR blocker, broader than item 13 (which is component-specific). No feature is complete until it is exercised in the demo catalog (`apps/epistola-demo/src/main/resources/epistola/catalogs/demo/`). Any user-facing capability — a rendering feature, a generation option, an editor behavior, a new template/theme/stencil/data-contract capability — must ship with a concrete demo resource (new, or an update to an existing one) that uses it realistically, including reasonable variants and edge cases. If a feature genuinely cannot be represented in the demo catalog, the PR must state explicitly why. Bump the catalog version per item 10 whenever you touch demo resources.
 15. **Fonts are a cross-surface catalog capability** - Fonts span the web UI, REST, MCP, catalog exchange and generation (an applied case of item 12); keep them in sync and consult [`docs/fonts.md`](docs/fonts.md) before changing font model/resolution/determinism. Allowed asset/font media types are the seeded `asset_types` lookup table, not a Kotlin enum or CHECK — add a new asset/font type by inserting a row (and registering it where code must handle it), never by widening a constraint. `AssetMediaType` is an open value class; branch on `AssetMediaCategory`, not a closed set.
 16. **Locale is resolved once and threaded to both render surfaces** - One BCP-47 locale per render via the `variant attribute → tenant default → app default` chain (`TenantLocaleResolver`); it feeds both the editor preview and the PDF renderer so they agree. Consult [`docs/locale.md`](docs/locale.md) before changing locale resolution, the `$formatDate` / `$formatLocaleNumber` token/picture support, or anything that must keep editor preview and PDF output in parity.
 17. **Handle vulnerabilities privately; publish repository-owned records** - The repository is the source of truth for published vulnerability information. Before disclosure, a draft GitHub Security Advisory and its temporary private fork are the required coordination and development workspace. After disclosure, the GitHub advisory is a synchronized mirror of the canonical repository record.
@@ -516,6 +533,7 @@ Spring profile (datasource `127.0.0.1:4001`), so don't run them alongside a loca
     - GitHub synchronization is opt-in per record through `database_specific.github.sync`. While preparing the record privately, use `state: draft`. Before the record reaches a public branch, populate `patched_release`, `patched_versions`, and the assigned GHSA alias. Set `state: published` only after the patched release exists; the validator rejects publication without `patched_versions`. Add any assigned CVE identifier to `aliases` as well.
     - Synchronizing or publishing the GitHub mirror is an explicit maintainer action after the advisory, patched release, and disclosure details are ready. Run `scripts/vulnerability_advisories.py sync-github` with `GITHUB_REPOSITORY` and a `SECURITY_ADVISORY_TOKEN` that has only `Repository security advisories: write` permission. The CLI never deletes advisories or requests CVEs.
     - Do not add automatic advisory synchronization to GitHub Actions. The `Vulnerability Advisories` workflow validates records and exports OSV artifacts only. Validation, rendering, and export must remain independent of GitHub and advisory credentials.
+    - **Third-party findings are a second record kind, not a second system.** A CVE a scanner reports against a component we ship is recorded under `vulnerabilities/` with `"kind": "dependency"` — the component (version-pinned purl), the findings, and an [OpenVEX](https://openvex.dev) `assessment` (`not_affected` / `affected` / `fixed` / `under_investigation`, with a justification for `not_affected`). They are **not** restated in `VULNERABILITIES.md` (the folder plus the VEX document are the index), are **excluded from the OSV export**, and can **never** sync to GitHub — the validator rejects a `sync: true` or a stray `affected` block. An OSV document asserts the named package is vulnerable, and neither "Epistola is vulnerable to someone else's CVE" nor an advisory about someone else's project is ours to publish. `pnpm vulnerabilities:export-vex` emits the VEX document that CI (via `TRIVY_VEX`) and operators apply to our SBOM. Prefer upgrading over arguing non-exploitability; record the reachability evidence either way. See [`docs/sbom.md`](docs/sbom.md#assessing-a-scanner-finding).
     - See [`VULNERABILITIES.md`](VULNERABILITIES.md) and [`scripts/vulnerability_advisories.py`](scripts/vulnerability_advisories.py) for the generated index and tooling contract.
 
 ## Don'ts

@@ -14,6 +14,7 @@ import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
+import app.epistola.suite.catalog.CatalogPublicationPolicy
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.MultipleStencilVersionsInUseException
 import app.epistola.suite.catalog.commands.AuthoredImportMode
@@ -27,6 +28,8 @@ import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.OnStencilConflict
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleasePublication
+import app.epistola.suite.catalog.commands.SetCatalogPublicationSettings
 import app.epistola.suite.catalog.commands.StencilVersionImportConflictsException
 import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
@@ -45,6 +48,11 @@ import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
 import app.epistola.suite.catalog.queries.ListCatalogsForManagement
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.exchange.CancelCatalogPublication
+import app.epistola.suite.exchange.GetCatalogPublicationState
+import app.epistola.suite.exchange.PublishCurrentCatalogRelease
+import app.epistola.suite.exchange.SetCatalogPublicationNamespace
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -56,10 +64,12 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
+import app.epistola.suite.validation.ValidationException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+import java.util.UUID
 
 private const val CATALOG_LOCALE_ATTRIBUTE = "system.locale"
 
@@ -302,6 +312,7 @@ class CatalogHandler {
                 "tenantId" to tenantId.key,
                 "catalogId" to catalogKey.value,
                 "status" to status,
+                "publication" to GetCatalogPublicationState(tenantId.key, catalogKey).query(),
             ),
         )
     }
@@ -317,6 +328,11 @@ class CatalogHandler {
             }
         }
 
+        // Resolved once: the dialog renders from it, and the checkbox is only an override where
+        // the catalog policy allows one. Listing publication history on every error re-render
+        // would be pure waste.
+        val publication = GetCatalogPublicationState(tenantId.key, catalogKey).query()
+
         fun reRenderWithError(message: String): ServerResponse {
             val status = GetCatalogReleaseStatus(tenantId.key, catalogKey).query()
             return ServerResponse.ok().render(
@@ -326,6 +342,7 @@ class CatalogHandler {
                     "catalogId" to catalogKey.value,
                     "status" to status,
                     "error" to message,
+                    "publication" to publication,
                 ),
             )
         }
@@ -335,23 +352,30 @@ class CatalogHandler {
         }
 
         val notes = form.formData["notes"]?.ifBlank { null }
+        val publicationChoice = when {
+            publication?.available != true || !publication.allowsReleaseOverride -> ReleasePublication.DEFAULT
+            request.params().getFirst("publishToExchange") == "true" -> ReleasePublication.PUBLISH
+            else -> ReleasePublication.SKIP
+        }
 
         return try {
+            if (publicationChoice == ReleasePublication.PUBLISH) {
+                chooseNamespaceIfOffered(request, tenantId.key, catalogKey)
+            }
             ReleaseCatalogVersion(
                 tenantKey = tenantId.key,
                 catalogKey = catalogKey,
                 version = form["version"],
                 notes = notes,
+                publication = publicationChoice,
             ).execute()
 
+            // Releasing is the start of something to watch, not the end of a dialog: publication
+            // runs in the background, so land on the catalog where its progress is shown.
             request.htmx {
-                fragment("catalogs/list", "release-done") {}
-                oob("catalogs/list", "catalog-list") {
-                    catalogListModel(request)
-                    "oob" to true
-                }
+                dialogLocation("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
                 onNonHtmx {
-                    redirect("/tenants/${tenantId.key}/catalogs?saved=true")
+                    redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
                 }
             }
         } catch (e: CatalogReleaseVersionException) {
@@ -359,6 +383,61 @@ class CatalogHandler {
         } catch (e: Exception) {
             logger.warn("Failed to release catalog: ${e.message}", e)
             reRenderWithError(e.message ?: "Failed to release catalog.")
+        }
+    }
+
+    /**
+     * Applies a namespace picked on the publish form. Offered only when the catalog has no binding
+     * and nothing would resolve one, so publishing would otherwise queue work that cannot move.
+     */
+    private fun chooseNamespaceIfOffered(request: ServerRequest, tenantKey: TenantKey, catalogKey: CatalogKey) {
+        request.params().getFirst("chosenNamespace")?.trim()?.ifBlank { null }?.let { namespace ->
+            SetCatalogPublicationNamespace(
+                tenantKey = tenantKey,
+                catalogKey = catalogKey,
+                namespace = namespace,
+                acknowledgeAlreadyPublished = request.params().getFirst("acknowledgeAlreadyPublished") == "true",
+            ).execute()
+        }
+    }
+
+    /** Rejects an unknown policy as a form error instead of letting `valueOf` become a 500. */
+    private fun publicationPolicy(raw: String?): CatalogPublicationPolicy = CatalogPublicationPolicy.entries.firstOrNull { it.name == raw }
+        ?: throw ValidationException("publicationPolicy", "Choose a valid publication policy.")
+
+    /**
+     * The button that offered this action was rendered from state that may have moved since — the
+     * working copy edited in another tab, a second administrator queueing first. Those races are
+     * exactly what the command validates, so a rejection returns the catalog page with the reason
+     * rather than an error page.
+     */
+    /** Withdraws a queued publication; rejections stay on the catalog page like the publish action. */
+    fun cancelPublication(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        return try {
+            CancelCatalogPublication(tenantId.key, UUID.fromString(request.pathVariable("publicationId"))).execute()
+            ServerResponse.status(303)
+                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
+                .build()
+        } catch (failure: ValidationException) {
+            logger.warn("Cancelling a publication of '{}' was rejected: {}", catalogKey.value, failure.message)
+            browse(request, error = failure.message)
+        }
+    }
+
+    fun publishCurrentRelease(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        return try {
+            chooseNamespaceIfOffered(request, tenantId.key, catalogKey)
+            PublishCurrentCatalogRelease(tenantId.key, catalogKey).execute()
+            ServerResponse.status(303)
+                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
+                .build()
+        } catch (failure: ValidationException) {
+            logger.warn("Publishing the current release of '{}' was rejected: {}", catalogKey.value, failure.message)
+            browse(request, error = failure.message)
         }
     }
 
@@ -470,7 +549,9 @@ class CatalogHandler {
         }
     }
 
-    fun browse(request: ServerRequest): ServerResponse {
+    fun browse(request: ServerRequest): ServerResponse = browse(request, error = null)
+
+    private fun browse(request: ServerRequest, error: String?): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
 
@@ -481,6 +562,11 @@ class CatalogHandler {
             val images = ListAssets(tenantId.key, catalogKey = catalogKey).query()
                 .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
             val imagesBySlug = images.associateBy { it.id.value.toString() }
+            val publication = if (result.catalog.type == CatalogType.AUTHORED) {
+                GetCatalogPublicationState(tenantId.key, catalogKey).query()
+            } else {
+                null
+            }
             // Per-stencil version-conflict map (slug → "v1, v2 still pinned by N
             // template(s) (latest v3)"). Empty when the catalog is exportable. Used by
             // the browse view to flag stencils that block export — mirrors the precheck
@@ -502,6 +588,8 @@ class CatalogHandler {
                 "tenantId" to tenantId.key
                 "activeNavSection" to "catalogs"
                 "catalog" to result.catalog
+                "publication" to publication
+                "publicationError" to error
                 "resources" to result.resources
                 "usageCounts" to usageCounts
                 "stencilVersionConflicts" to stencilVersionConflicts
@@ -536,6 +624,21 @@ class CatalogHandler {
         return try {
             val catalog = catalogForMetadata(tenantId.key, catalogKey)
             val current = catalog.catalogMetadata
+
+            if (section == CatalogMetadataSection.PUBLICATION) {
+                SetCatalogPublicationSettings(
+                    tenantKey = tenantId.key,
+                    catalogKey = catalogKey,
+                    policy = publicationPolicy(request.params().getFirst("publicationPolicy")),
+                ).execute()
+                // The namespace is a publishing decision, not catalog metadata, and carries its own
+                // permission — so it travels as its own command and is simply absent for anyone who
+                // may not set it.
+                chooseNamespaceIfOffered(request, tenantId.key, catalogKey)
+                return ServerResponse.noContent()
+                    .header("HX-Redirect", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
+                    .build()
+            }
 
             UpdateCatalogMetadata(
                 tenantKey = tenantId.key,
@@ -641,6 +744,7 @@ class CatalogHandler {
             "attributeFields" to descriptors.map { CatalogMetadataAttributeField(it, currentAttributes[it.qualifiedKey]) },
             "images" to images,
             "gallerySlugs" to (gallery + ""),
+            "publication" to GetCatalogPublicationState(tenantKey, catalogKey).query(),
         )
     }
 
@@ -657,6 +761,7 @@ class CatalogHandler {
         KEYWORDS("keywords", "Keywords"),
         PRESENTATION("presentation", "Presentation"),
         LICENSE("license", "License"),
+        PUBLICATION("publication", "Exchange publication"),
         ;
 
         companion object {

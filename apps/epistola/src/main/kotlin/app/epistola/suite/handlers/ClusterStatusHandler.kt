@@ -6,6 +6,7 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.cluster.ClusterNode
 import app.epistola.suite.cluster.ClusterProperties
+import app.epistola.suite.cluster.ForgetClusterNode
 import app.epistola.suite.cluster.ListClusterNodes
 import app.epistola.suite.cluster.RecordClusterHeartbeat
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
@@ -16,11 +17,14 @@ import app.epistola.suite.cluster.schedules.ListClusterScheduledTasks
 import app.epistola.suite.cluster.timers.ClusterTimer
 import app.epistola.suite.cluster.timers.ListClusterTimers
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.time.EpistolaClock
+import app.epistola.suite.validation.ValidationException
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -63,6 +67,44 @@ class ClusterStatusHandler(
         }
     }
 
+    /**
+     * Removes a stale node from the registry, then re-renders the table.
+     *
+     * The command re-checks liveness inside the delete, so a node that heartbeats between
+     * the page render and this call is refused rather than removed.
+     */
+    fun forgetNode(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val nodeId = request.pathVariable("nodeId")
+
+        try {
+            ForgetClusterNode(nodeId = nodeId, tenantKey = tenantId.key).execute()
+        } catch (e: ValidationException) {
+            // 422 rather than a 500: the request was rejected on its merits (still live,
+            // or already gone), so retrying is pointless. The confirm dialog reads
+            // `detail` and, on a 4xx, replaces Delete with Cancel.
+            val detail = e.message
+            return if (request.isHtmx) {
+                ServerResponse.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                    .header("Content-Type", "application/json")
+                    .body(mapOf("detail" to detail, "error" to detail))
+            } else {
+                ServerResponse.status(HttpStatus.SEE_OTHER)
+                    .header("Location", "/tenants/${tenantId.key}/cluster")
+                    .build()
+            }
+        }
+
+        val report = loadReport()
+        return request.htmx {
+            fragment("cluster/dashboard", "results") {
+                "tenantId" to tenantId.key
+                "report" to report
+            }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/cluster") }
+        }
+    }
+
     private fun loadReport(): ClusterStatusReport {
         val currentNode = RecordClusterHeartbeat.execute()
         val now = EpistolaClock.offsetDateTime()
@@ -73,6 +115,11 @@ class ClusterStatusHandler(
                 isCurrent = node.nodeId == currentNode.nodeId,
                 isActive = ageMs <= properties.idleTimeoutMs,
                 ageSeconds = ageMs / MILLIS_PER_SECOND,
+                // Not simply `!isActive`: a node lagging its heartbeat is still alive, and
+                // forgetting it deletes registrations only a restart re-creates. The button
+                // appears only once the command would actually accept it.
+                isForgettable = node.nodeId != currentNode.nodeId &&
+                    ageMs >= properties.forgettableNodeAge().toMillis(),
             )
         }
         val scheduledTaskNodeStates = ListClusterScheduledTaskNodeStates.query()
@@ -181,14 +228,50 @@ data class ClusterNodeStatus(
     val isCurrent: Boolean,
     val isActive: Boolean,
     val ageSeconds: Long,
+    /**
+     * Whether the Forget action is offered for this row.
+     *
+     * Deliberately a much older threshold than [isActive]'s: see
+     * [app.epistola.suite.cluster.ClusterProperties.forgettableNodeAge]. A row can read
+     * `stale` for a long time before it becomes forgettable, which is intended — the badge
+     * answers "is work routed here", the button answers "is this safe to delete".
+     */
+    val isForgettable: Boolean = false,
 ) {
     val statusLabel: String = if (isActive) "active" else "stale"
     val capabilitiesLabel: String = node.capabilities.ifEmpty { listOf("suite") }.joinToString(", ")
     val versionLabel: String = node.version ?: "-"
+
+    /**
+     * Coarse, two-unit relative age.
+     *
+     * A stale node can be weeks old, and a minutes-only form rendered that as "33474m ago".
+     * The exact timestamp is always on the cell's `title`, so this only has to be scannable.
+     */
     val ageLabel: String = when {
         ageSeconds < 1 -> "just now"
-        ageSeconds == 1L -> "1s ago"
-        ageSeconds < 60 -> "${ageSeconds}s ago"
-        else -> "${ageSeconds / 60}m ago"
+        ageSeconds < SECONDS_PER_MINUTE -> "${ageSeconds}s ago"
+        ageSeconds < SECONDS_PER_HOUR -> "${ageSeconds / SECONDS_PER_MINUTE}m ago"
+        ageSeconds < SECONDS_PER_DAY -> twoUnit(ageSeconds, SECONDS_PER_HOUR, "h", SECONDS_PER_MINUTE, "m")
+        else -> twoUnit(ageSeconds, SECONDS_PER_DAY, "d", SECONDS_PER_HOUR, "h")
+    }
+
+    private companion object {
+        const val SECONDS_PER_MINUTE = 60L
+        const val SECONDS_PER_HOUR = 3_600L
+        const val SECONDS_PER_DAY = 86_400L
+
+        /** "2h 3m ago", collapsing to "2h ago" when the smaller unit is zero. */
+        fun twoUnit(
+            seconds: Long,
+            majorUnit: Long,
+            majorSuffix: String,
+            minorUnit: Long,
+            minorSuffix: String,
+        ): String {
+            val major = seconds / majorUnit
+            val minor = (seconds % majorUnit) / minorUnit
+            return if (minor == 0L) "$major$majorSuffix ago" else "$major$majorSuffix $minor$minorSuffix ago"
+        }
     }
 }

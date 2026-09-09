@@ -5,7 +5,7 @@
   "prHourlyLimit": 5,
   "prConcurrentLimit": 10,
   "ignorePaths": ["**/test/resources/**"],
-  "constraints": { "pnpm": "11.18.0", "node": "24.19.0" },
+  "constraints": { "pnpm": "11.18.0", "node": "24.20.0" },
   "minimumReleaseAge": "7 days",
   "lockFileMaintenance": {
     "enabled": true,
@@ -26,6 +26,13 @@
       "groupSlug": "non-major",
       "automerge": true,
       "automergeType": "pr"
+    },
+    {
+      "description": "Epistola Exchange client: never automerged. A bump moves the wire contract Suite compiles against, which is the whole reason the client is typed - letting it merge unread would put the review back where it was, at runtime.",
+      "matchPackageNames": ["app.epistola.exchange*"],
+      "groupName": "epistola-exchange-client",
+      "groupSlug": "epistola-exchange-client",
+      "automerge": false
     },
     {
       "description": "Group epistola-contract packages (server SDK + editor model) together",

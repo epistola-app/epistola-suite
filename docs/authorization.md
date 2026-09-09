@@ -55,7 +55,7 @@ is a different duty from administering a tenant. An admin who also approves cont
 | Documents                                                             | `DOCUMENT_VIEW` / `DOCUMENT_GENERATE`                  | viewer / generator          |
 | Reference data (attributes, code lists, fonts)                        | `REFERENCE_VIEW` / `REFERENCE_EDIT`                    | viewer / author             |
 | Catalogs                                                              | `CATALOG_VIEW` / `CATALOG_MANAGE`                      | viewer / administrator      |
-| Diagnostics (logs, status)                                            | `DIAGNOSTICS_VIEW`                                     | administrator               |
+| Diagnostics (logs, status)                                            | `DIAGNOSTICS_VIEW` / `DIAGNOSTICS_MANAGE`              | administrator               |
 | Backups                                                               | `BACKUP_VIEW` / `BACKUP_CREATE`                        | viewer / administrator      |
 | **Destructive** (restore backup/snapshot, purge catalogs)             | `TENANT_RESTORE`                                       | administrator               |
 | Tenant config (feature toggles, defaults, environments, entitlements) | `TENANT_SETTINGS`                                      | administrator               |

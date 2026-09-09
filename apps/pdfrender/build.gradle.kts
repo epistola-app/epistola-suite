@@ -10,9 +10,9 @@ plugins {
 }
 
 // Security override: mirrors apps:epistola. epistola-core pulls spring-boot-starter-web,
-// so the embedded Tomcat (CVE-2026-41293 / CVE-2026-43512) must be pinned to 11.0.22 here too
-// until the Spring Boot BOM catches up. Read by io.spring.dependency-management.
-extra["tomcat.version"] = "11.0.22"
+// so the embedded Tomcat (CVE-2026-65182 / CVE-2026-65905 / CVE-2026-68525) must be pinned to
+// 11.0.25 here too until the Spring Boot BOM catches up. Read by io.spring.dependency-management.
+extra["tomcat.version"] = "11.0.25"
 
 dependencies {
     // The whole render/job pipeline (JobPoller, StaleJobRecovery, DocumentGenerationExecutor,
@@ -43,7 +43,11 @@ dependencies {
 // Enable the BuildProperties bean (build-info.properties) so the cluster node registry can
 // report this worker's version, same as apps:epistola.
 springBoot {
-    buildInfo()
+    buildInfo {
+        // See apps:epistola: a build time makes bootBuildInfo and everything
+        // downstream of resources/main never up-to-date, and nothing reads it.
+        excludes.add("time")
+    }
 }
 
 // CycloneDX SBOM for the worker's runtime classpath, embedded into the jar for Docker.
@@ -55,10 +59,18 @@ tasks.cyclonedxDirectBom {
     jsonOutput = layout.buildDirectory.file("sbom/bom.json").get().asFile
 }
 
-tasks.processResources {
-    dependsOn(tasks.cyclonedxDirectBom)
-    from(layout.buildDirectory.file("sbom/bom.json")) {
+// Embedded at archive level, not via processResources, so compiling and testing
+// this app never waits for the CycloneDX run (see apps:epistola).
+val sbomJson = tasks.cyclonedxDirectBom.map { it.jsonOutput }
+tasks.named<Jar>("jar") {
+    from(sbomJson) {
         into("META-INF/sbom")
+    }
+}
+tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
+    // Application classpath location inside the boot jar, as before (see apps:epistola).
+    from(sbomJson) {
+        into("BOOT-INF/classes/META-INF/sbom")
     }
 }
 

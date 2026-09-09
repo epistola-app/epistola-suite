@@ -1,18 +1,16 @@
 # v0.5 — Push-based collect with self-coordinating server cluster
 
-## Status
-
-**Design / not implemented.** Captured here so the question is
-discoverable when scale forces the conversation. Hard constraint
-(per the original design discussion): **no external infrastructure
-dependency**. No PG `LISTEN`/`NOTIFY`, no Redis, no NATS, no Kafka.
-The cross-instance routing required for push happens entirely
-within the application — a self-coordinating server cluster.
-
-This is substantially more ambitious than the v0.3 polling model.
-Probably 3–4 weeks of focused work plus rollout. Not a v0.4
-deliverable; v0.4 is the coordinated-rebalance work in
-[`v04-coordinated-rebalance.md`](v04-coordinated-rebalance.md).
+> **Status:** Design — not implemented. Captured here so the question is
+> discoverable when scale forces the conversation. Hard constraint (per the
+> original design discussion): **no external infrastructure dependency**. No
+> PG `LISTEN`/`NOTIFY`, no Redis, no NATS, no Kafka. The cross-instance
+> routing required for push happens entirely within the application — a
+> self-coordinating server cluster.
+>
+> This is substantially more ambitious than the v0.3 polling model. Probably
+> 3–4 weeks of focused work plus rollout. Not a v0.4 deliverable; v0.4 is the
+> coordinated-rebalance work in
+> [`v04-coordinated-rebalance.md`](v04-coordinated-rebalance.md).
 
 ## Why this exists
 

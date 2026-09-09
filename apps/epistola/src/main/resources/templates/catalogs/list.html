@@ -10,7 +10,7 @@
         <div class="alert alert-success" th:if="${saved}" data-testid="alert-success">
             Catalog settings updated successfully.
         </div>
-        <div class="alert alert-danger" th:if="${error != null}" th:text="${error}"></div>
+        <div class="alert alert-error" th:if="${error != null}" th:text="${error}"></div>
 
         <!-- Single, always-present swap region for every list mutation
              (create / remove / release / upgrade). It contains *either* the
@@ -199,6 +199,74 @@
                         <textarea id="release-notes" name="notes" class="ep-textarea" rows="3"
                                   placeholder="What changed in this release?"></textarea>
                     </div>
+                    <!--
+                      Nothing to publish into. Offering the instruction anyway is what strands
+                      someone: ticking it makes the namespace field required, and that field has no
+                      options to offer, so the form refuses to submit saying only "please select an
+                      item in the list". State the reason instead, and leave the release itself
+                      alone - it succeeds either way.
+                    -->
+                    <div class="form-group"
+                         th:if="${publication != null && publication.available
+                                  && publication.policy.name() != 'NEVER' && !publication.hasPublishableDestination}">
+                        <label class="text-muted">
+                            <input type="checkbox" disabled>
+                            Publish this version to Epistola Exchange
+                        </label>
+                        <p class="form-hint" th:if="${!publication.connected}">
+                            This tenant is not connected to Epistola Exchange. Connect it under
+                            <a th:href="@{/tenants/{tenantId}/exchange(tenantId=${tenantId})}">Settings &rarr; Exchange</a>,
+                            then publish this release from the catalog page.
+                        </p>
+                        <p class="form-hint" th:if="${publication.connected && publication.noNamespacesGranted}">
+                            This tenant's Exchange organization has not granted it a namespace to publish
+                            into. It has to grant one before anything from this catalog can be published.
+                        </p>
+                        <p class="form-hint" th:if="${publication.connected && !publication.noNamespacesGranted}">
+                            This catalog is bound to <code th:text="${publication.boundNamespace}">namespace</code>,
+                            which the Exchange connection no longer grants. Point it at a namespace this tenant
+                            still holds on the catalog page, and this release can be published afterwards.
+                        </p>
+                        <p class="form-hint">Releasing is unaffected: this version is created either way.</p>
+                    </div>
+                    <div class="form-group" th:if="${publication != null && publication.available
+                                  && (publication.hasPublishableDestination || publication.policy.name() == 'NEVER')}">
+                        <label th:if="${publication.allowsReleaseOverride && publication.canPublish}">
+                            <input type="checkbox" name="publishToExchange" value="true"
+                                   th:checked="${publication.defaultPublish}">
+                            Publish this version to Epistola Exchange
+                        </label>
+                        <p class="form-hint" th:if="${!publication.allowsReleaseOverride}"
+                           th:text="${publication.defaultPublish} ?
+                               'Catalog policy Always: this version will be queued for Exchange.' :
+                               'Catalog policy Never: this version will not be published to Exchange.'">
+                        </p>
+                        <p class="form-hint">The Suite release succeeds even when Exchange is unavailable; publication continues in the background.</p>
+                    </div>
+                    <div class="form-group" data-shown-when="publishToExchange"
+                         th:if="${publication != null && publication.available && publication.canPublish
+                                  && publication.policy.name() != 'NEVER' && publication.hasPublishableDestination}"
+                         th:hidden="${publication.allowsReleaseOverride && !publication.defaultPublish}">
+                        <th:block th:if="${publication.needsNamespaceChoice}">
+                            <label class="ep-label" for="release-namespace">Publish to namespace</label>
+                            <select id="release-namespace" class="ep-select" name="chosenNamespace"
+                                    data-required-when="publishToExchange"
+                                    th:required="${!publication.allowsReleaseOverride}">
+                                <option value="" th:if="${publication.suggestedNamespace == null}">Choose a namespace</option>
+                                <option th:each="option : ${publication.availableNamespaces}"
+                                        th:value="${option}" th:text="${option}"
+                                        th:selected="${option == publication.suggestedNamespace}">community</option>
+                            </select>
+                            <p class="form-hint">
+                                This catalog has not published before. The namespace becomes permanent once a
+                                release reaches Exchange.
+                            </p>
+                        </th:block>
+                        <p class="form-hint" th:unless="${publication.needsNamespaceChoice}">
+                            Publishes to <code th:text="${publication.boundNamespace}">namespace</code>.
+                        </p>
+                    </div>
+
                 </div>
                 <div class="ep-dialog-footer">
                     <button type="button" class="ep-btn ep-btn-ghost"
@@ -211,7 +279,6 @@
 
     <!-- Returned on a successful release: empties the container (removing the
          open dialog) while #catalog-list updates via OOB. -->
-    <th:block th:fragment="release-done"></th:block>
 
     <!-- Export confirmation — rendered by `exportCheck` after the catalog
          passes its stencil-version conflict precheck. -->
@@ -373,7 +440,7 @@
                             </p>
                         </div>
 
-                        <div class="alert alert-danger" th:if="${diff.hasConflicts}">
+                        <div class="alert alert-error" th:if="${diff.hasConflicts}">
                             <strong>Cannot apply — resources are still in use:</strong>
                             <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
                                 <li th:each="c : ${diff.conflicts}" th:text="${c}"></li>

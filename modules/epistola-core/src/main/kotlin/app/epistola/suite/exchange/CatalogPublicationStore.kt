@@ -1,0 +1,432 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package app.epistola.suite.exchange
+
+import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.common.ids.TenantKey
+import org.jdbi.v3.core.Handle
+import org.jdbi.v3.core.Jdbi
+import org.jdbi.v3.core.statement.StatementContext
+import org.springframework.stereotype.Component
+import java.sql.ResultSet
+import java.time.Duration
+import java.time.OffsetDateTime
+import java.util.UUID
+
+/**
+ * One publication in the outbox, without its archive.
+ *
+ * The retained ZIP can be as large as the catalog size limit, so it is never carried on this row:
+ * it is loaded with [CatalogPublicationStore.loadArchive] only on the branch that actually submits
+ * bytes. Claiming, polling, and retry accounting all work from metadata alone.
+ */
+data class CatalogReleasePublication(
+    val id: UUID,
+    val tenantKey: TenantKey,
+    val catalogKey: CatalogKey,
+    val version: String,
+    val namespace: String,
+    val status: CatalogPublicationStatus,
+    val idempotencyKey: UUID,
+    val remotePublicationId: UUID?,
+    val attempts: Int,
+    val archiveRetained: Boolean,
+    /**
+     * How long Exchange has been holding this submission without deciding, measured by the database
+     * clock because `submitted_at` is a database-owned timestamp. Null until it is submitted.
+     */
+    val submittedFor: Duration?,
+    /**
+     * How long this publication has been in flight, by the database clock that wrote `created_at`.
+     *
+     * Measured from when it was queued rather than from its last change: a submission Exchange is
+     * holding is re-polled every thirty seconds, so anything based on the last update would keep
+     * looking healthy for exactly as long as it kept failing to finish.
+     */
+    val inFlightFor: Duration,
+    /** Why this is not progressing, or null while nothing has gone wrong. */
+    val failure: ExchangeFailure?,
+    val createdAt: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
+) {
+    /**
+     * Still unfinished long after it should have been decided.
+     *
+     * Queued work moves within seconds once enrollment is complete, so this is a configuration,
+     * credential or remote problem rather than a slow Exchange — and it is worth saying so where
+     * the release was published from, not only on a settings page nobody has open.
+     */
+    val isStalled: Boolean get() = status.isActive && inFlightFor > STALL_THRESHOLD
+
+    companion object {
+        /** Shared with the tenant-wide activity summary, so both surfaces call the same wait long. */
+        val STALL_THRESHOLD: Duration = Duration.ofHours(1)
+    }
+}
+
+/** The longest-outstanding unfinished publication, with its age measured by the database clock. */
+data class OldestActivePublication(val since: OffsetDateTime, val age: Duration)
+
+/**
+ * Sole owner of the `catalog_release_publications` SQL — the durable publication outbox.
+ *
+ * The worker above it holds the state machine and the remote conversation; everything that reads
+ * or writes an outbox row goes through here, so lease handling, backoff arithmetic, and the
+ * archive-retention rule each exist once. Mirrors how `TenantBackupStore` fronts backup storage.
+ */
+@Component
+class CatalogPublicationStore(private val jdbi: Jdbi) {
+
+    /** Lease held by a node while it processes a claimed row; a crashed node's rows free up after this. */
+    private val claimLease: Duration = Duration.ofMinutes(5)
+
+    fun insert(
+        handle: Handle,
+        id: UUID,
+        tenantKey: TenantKey,
+        catalogKey: CatalogKey,
+        version: String,
+        fingerprint: String,
+        namespace: String,
+        archive: ByteArray,
+        idempotencyKey: UUID,
+    ) {
+        handle.createUpdate(
+            """
+            INSERT INTO catalog_release_publications
+                (id, tenant_key, catalog_key, version, fingerprint, namespace, status, idempotency_key)
+            VALUES (:id, :tenantKey, :catalogKey, :version, :fingerprint, :namespace, :status, :idempotencyKey)
+            """,
+        ).bind("id", id).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey).bind("version", version)
+            .bind("fingerprint", fingerprint).bind("namespace", namespace)
+            .bind("status", CatalogPublicationStatus.READY).bind("idempotencyKey", idempotencyKey).execute()
+        storeArchive(handle, id, archive)
+    }
+
+    /**
+     * Writes the retained bytes, replacing anything already held for this publication.
+     *
+     * Always in the caller's handle: for a release this is the transaction that creates the outbox
+     * row, and the archive is no more optional than the row is — a publication whose bytes did not
+     * survive the same commit is one the worker would claim and then fail to submit.
+     */
+    private fun storeArchive(handle: Handle, id: UUID, archive: ByteArray) {
+        handle.createUpdate(
+            """
+            INSERT INTO catalog_release_publication_archives (publication_id, bytes, size_bytes)
+            VALUES (:id, :bytes, :size)
+            ON CONFLICT (publication_id) DO UPDATE SET bytes = EXCLUDED.bytes, size_bytes = EXCLUDED.size_bytes
+            """,
+        ).bind("id", id).bind("bytes", archive).bind("size", archive.size.toLong()).execute()
+    }
+
+    /** Releases the retained bytes. A DELETE, so the space comes back without waiting on a vacuum. */
+    private fun releaseArchive(handle: Handle, id: UUID) {
+        handle.createUpdate("DELETE FROM catalog_release_publication_archives WHERE publication_id = :id")
+            .bind("id", id).execute()
+    }
+
+    /**
+     * Restarts a terminal publication with a fresh idempotency key, so Exchange does not deduplicate
+     * the new attempt against the old one. [archive] replaces the stored bytes when the caller had
+     * to rebuild them — a cancelled publication released its archive, a failed one kept it.
+     */
+    fun requeue(handle: Handle, id: UUID, namespace: String, idempotencyKey: UUID, archive: ByteArray? = null) {
+        handle.createUpdate(
+            """
+            UPDATE catalog_release_publications
+            SET namespace = :namespace, status = :status, idempotency_key = :idempotencyKey,
+                remote_publication_id = NULL, submitted_at = NULL, attempts = 0, next_attempt_at = NOW(),
+                claimed_at = NULL, error_code = NULL, error_detail = NULL, updated_at = NOW()
+            WHERE id = :id
+            """,
+        ).bind("namespace", namespace).bind("status", CatalogPublicationStatus.READY)
+            .bind("idempotencyKey", idempotencyKey).bind("id", id).execute()
+        // Null means the caller had nothing to rebuild because the archive was never released —
+        // a failed publication keeps its bytes, so leaving them untouched is the whole point.
+        archive?.let { storeArchive(handle, id, it) }
+    }
+
+    /** Withdraws a publication the administrator no longer wants, releasing its retained archive. */
+    fun cancel(handle: Handle, id: UUID, code: ExchangeFailureCode) {
+        handle.createUpdate(
+            """
+            UPDATE catalog_release_publications
+            SET status = :status, claimed_at = NULL,
+                error_code = :code, error_detail = NULL, updated_at = NOW()
+            WHERE id = :id
+            """,
+        ).bind("status", CatalogPublicationStatus.CANCELLED).bind("code", code).bind("id", id).execute()
+        releaseArchive(handle, id)
+    }
+
+    fun find(handle: Handle, id: UUID): CatalogReleasePublication? = handle.createQuery("$SELECT_METADATA WHERE id = :id FOR UPDATE")
+        .bind("id", id).map(::map).findOne().orElse(null)
+
+    fun findByVersion(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): CatalogReleasePublication? = handle.createQuery(
+        "${SELECT_METADATA} WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND version = :version FOR UPDATE",
+    ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey).bind("version", version)
+        .map(::map).findOne().orElse(null)
+
+    fun list(tenantKey: TenantKey, catalogKey: CatalogKey): List<CatalogReleasePublication> = jdbi.withHandle<List<CatalogReleasePublication>, Exception> { handle ->
+        handle.createQuery(
+            "$SELECT_METADATA WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey ORDER BY created_at DESC",
+        ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey).map(::map).list()
+    }
+
+    /**
+     * Takes up to [limit] due rows for this node. `FOR UPDATE SKIP LOCKED` keeps two pollers from
+     * taking the same row and the [claimLease] returns rows abandoned by a lost node.
+     */
+    fun claimDue(limit: Int): List<CatalogReleasePublication> = jdbi.inTransaction<List<CatalogReleasePublication>, Exception> { handle ->
+        val rows = handle.createQuery(
+            """
+            $SELECT_METADATA
+            WHERE status = ANY(:active)
+              AND next_attempt_at <= NOW()
+              AND (claimed_at IS NULL OR claimed_at < NOW() - :lease * INTERVAL '1 second')
+            ORDER BY created_at
+            FOR UPDATE SKIP LOCKED
+            LIMIT :limit
+            """,
+        ).bind("active", activeNames())
+            .bind("lease", claimLease.toSeconds()).bind("limit", limit).map(::map).list()
+        if (rows.isNotEmpty()) {
+            handle.createUpdate("UPDATE catalog_release_publications SET claimed_at = NOW() WHERE id = ANY(:ids)")
+                .bind("ids", rows.map(CatalogReleasePublication::id).toTypedArray()).execute()
+        }
+        rows
+    }
+
+    /** Loads the retained ZIP for one publication. Null once a terminal decision cleared it. */
+    fun loadArchive(id: UUID): ByteArray? = jdbi.withHandle<ByteArray?, Exception> { handle ->
+        handle.createQuery("SELECT bytes FROM catalog_release_publication_archives WHERE publication_id = :id")
+            .bind("id", id).map { rs, _ -> rs.getBytes("bytes") }.findOne().orElse(null)
+    }
+
+    /**
+     * Records Exchange's answer. A decision that [CatalogPublicationStatus.clearsArchive] releases
+     * the retained bytes; anything still in flight is re-polled after [pollDelay].
+     */
+    fun applyRemoteState(
+        id: UUID,
+        status: CatalogPublicationStatus,
+        remotePublicationId: UUID,
+        code: ExchangeFailureCode?,
+        detail: String?,
+        pollDelay: Duration,
+    ) = jdbi.useHandle<Exception> { handle ->
+        handle.createUpdate(
+            """
+            UPDATE catalog_release_publications
+            SET status = :status, remote_publication_id = :remoteId,
+                submitted_at = COALESCE(submitted_at, NOW()),
+                error_code = :code, error_detail = :detail, claimed_at = NULL,
+                next_attempt_at = NOW() + :delay * INTERVAL '1 second', updated_at = NOW()
+            WHERE id = :id
+            """,
+        ).bind("status", status).bind("remoteId", remotePublicationId)
+            .bind("code", code).bind("detail", detail)
+            .bind("delay", pollDelay.toSeconds()).bind("id", id).execute()
+        if (status.clearsArchive) releaseArchive(handle, id)
+    }
+
+    /**
+     * Accounts for a transient failure. Retries back off exponentially, and once [maxAttempts] is
+     * reached the row becomes `FAILED` — terminal until an administrator retries it — instead of
+     * retrying forever while holding a retained archive.
+     */
+    fun recordFailure(
+        id: UUID,
+        code: ExchangeFailureCode,
+        detail: String?,
+        attempts: Int,
+        maxAttempts: Int,
+        delay: Duration,
+    ): CatalogPublicationStatus {
+        val status = if (attempts + 1 >= maxAttempts) CatalogPublicationStatus.FAILED else CatalogPublicationStatus.RETRY
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                UPDATE catalog_release_publications
+                SET status = :status, attempts = attempts + 1,
+                    error_code = :code, error_detail = :detail, claimed_at = NULL,
+                    next_attempt_at = NOW() + :delay * INTERVAL '1 second', updated_at = NOW()
+                WHERE id = :id
+                """,
+            ).bind("status", status).bind("code", code).bind("detail", detail).bind("delay", delay.toSeconds()).bind("id", id).execute()
+        }
+        return status
+    }
+
+    /**
+     * Releases a claim without counting a failure and defers the next look. Used when a row is
+     * simply not actionable yet — enrollment is incomplete, or the tenant paused the feature — so
+     * waiting rows do not spin at the poll interval.
+     */
+    fun defer(id: UUID, delay: Duration, code: ExchangeFailureCode? = null, detail: String? = null) = jdbi.useHandle<Exception> { handle ->
+        handle.createUpdate(
+            """
+            UPDATE catalog_release_publications
+            SET claimed_at = NULL, next_attempt_at = NOW() + :delay * INTERVAL '1 second',
+                error_code = COALESCE(:code, error_code),
+                -- A code and its supporting detail are one reason and are replaced together. Keeping
+                -- the old code while clearing the detail - or worse, pairing a kept code with a
+                -- detail from a different failure - describes something that never happened.
+                error_detail = CASE WHEN CAST(:code AS TEXT) IS NULL THEN error_detail ELSE :detail END,
+                updated_at = NOW()
+            WHERE id = :id
+            """,
+        ).bind("delay", delay.toSeconds()).bind("code", code).bind("detail", detail).bind("id", id).execute()
+    }
+
+    /**
+     * Gives up on one publication without counting an attempt, leaving it `FAILED` — terminal for
+     * the worker, still holding its archive, and still retryable or cancellable by an administrator.
+     *
+     * Distinct from [recordFailure], which accounts for a transient error against the retry budget:
+     * this ends a wait that no amount of retrying would shorten.
+     */
+    fun abandon(id: UUID, code: ExchangeFailureCode) = jdbi.useHandle<Exception> { handle ->
+        handle.createUpdate(
+            """
+            UPDATE catalog_release_publications
+            SET status = :status, error_code = :code, error_detail = NULL, claimed_at = NULL, updated_at = NOW()
+            WHERE id = :id
+            """,
+        ).bind("status", CatalogPublicationStatus.FAILED).bind("code", code).bind("id", id).execute()
+    }
+
+    /** Re-points every publication that has not reached Exchange at a newly bound namespace. */
+    fun repointUnsubmitted(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, namespace: String) {
+        handle.createUpdate(
+            """
+            UPDATE catalog_release_publications
+            SET namespace = :namespace, status = 'READY', error_code = NULL, error_detail = NULL, updated_at = NOW()
+            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+              AND remote_publication_id IS NULL AND status = ANY(:active)
+            """,
+        ).bind("namespace", namespace).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey)
+            .bind("active", activeNames()).execute()
+    }
+
+    /** How many publications this tenant holds in each state. Aggregated in the database. */
+    fun countsByStatus(tenantKey: TenantKey): Map<CatalogPublicationStatus, Int> = jdbi.withHandle<Map<CatalogPublicationStatus, Int>, Exception> { handle ->
+        handle.createQuery(
+            "SELECT status, count(*) AS total FROM catalog_release_publications WHERE tenant_key = :tenantKey GROUP BY status",
+        ).bind("tenantKey", tenantKey)
+            .map { rs, _ -> CatalogPublicationStatus.valueOf(rs.getString("status")) to rs.getInt("total") }
+            .list().toMap()
+    }
+
+    /** The tenant's most recently touched publications across every catalog. */
+    fun recent(tenantKey: TenantKey, limit: Int): List<CatalogReleasePublication> = jdbi.withHandle<List<CatalogReleasePublication>, Exception> { handle ->
+        handle.createQuery("$SELECT_METADATA WHERE tenant_key = :tenantKey ORDER BY updated_at DESC LIMIT :limit")
+            .bind("tenantKey", tenantKey).bind("limit", limit).map(::map).list()
+    }
+
+    /**
+     * The tenant's longest-outstanding unfinished publication, or null if none is outstanding.
+     * This is the "is anything stuck?" signal: waiting is normal, waiting for days is not, and
+     * nothing else in the model distinguishes the two.
+     *
+     * The age is computed in the database because `created_at` is a database-owned timestamp —
+     * ageing it against the application clock would compare two different clocks.
+     */
+    fun oldestActive(tenantKey: TenantKey): OldestActivePublication? = jdbi.withHandle<OldestActivePublication?, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT min(created_at) AS oldest,
+                   EXTRACT(EPOCH FROM (NOW() - min(created_at))) AS age_seconds
+            FROM catalog_release_publications
+            WHERE tenant_key = :tenantKey AND status = ANY(:active)
+            """,
+        ).bind("tenantKey", tenantKey).bind("active", activeNames()).map { rs, _ ->
+            rs.getObject("oldest", OffsetDateTime::class.java)
+                ?.let { OldestActivePublication(it, Duration.ofSeconds(rs.getLong("age_seconds"))) }
+        }.findOne().orElse(null)
+    }
+
+    /** Installation-wide counts per state, for the leader-published gauges. */
+    fun installationCountsByStatus(): Map<CatalogPublicationStatus, Long> = jdbi.withHandle<Map<CatalogPublicationStatus, Long>, Exception> { handle ->
+        handle.createQuery("SELECT status, count(*) AS total FROM catalog_release_publications GROUP BY status")
+            .map { rs, _ -> CatalogPublicationStatus.valueOf(rs.getString("status")) to rs.getLong("total") }
+            .list().toMap()
+    }
+
+    /**
+     * Installation-wide bytes of release archives the outbox is still holding.
+     *
+     * A publication keeps its exact ZIP until Exchange decides, and a `FAILED` one keeps it
+     * indefinitely so an administrator can retry it. That is deliberate, and it is also the only
+     * unbounded thing here: without a number for it, a tenant whose publications have been failing
+     * for weeks shows up as disk that nothing accounts for.
+     */
+    fun installationRetainedArchiveBytes(): Double = jdbi.withHandle<Double, Exception> { handle ->
+        handle.createQuery(
+            "SELECT COALESCE(SUM(size_bytes), 0) AS bytes FROM catalog_release_publication_archives",
+        ).mapTo(Double::class.java).one()
+    }
+
+    /** Installation-wide age of the oldest unfinished publication, in seconds; 0 when there is none. */
+    fun installationOldestActiveAgeSeconds(): Double = jdbi.withHandle<Double, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT COALESCE(EXTRACT(EPOCH FROM (NOW() - min(created_at))), 0) AS age
+            FROM catalog_release_publications WHERE status = ANY(:active)
+            """,
+        ).bind("active", activeNames()).mapTo(Double::class.java).one()
+    }
+
+    /**
+     * Fails every still-active publication for a tenant. Used when the thing they were waiting on
+     * is gone for good — currently a disconnect. `FAILED` is terminal for the worker but keeps the
+     * retained archive, so the administrator's normal retry still applies after reconnecting.
+     */
+    fun abandonActive(handle: Handle, tenantKey: TenantKey, code: ExchangeFailureCode): Int = handle.createUpdate(
+        """
+        UPDATE catalog_release_publications
+        SET status = :failed, error_code = :code, error_detail = NULL, claimed_at = NULL, updated_at = NOW()
+        WHERE tenant_key = :tenantKey AND status = ANY(:active)
+        """,
+    ).bind("failed", CatalogPublicationStatus.FAILED).bind("code", code)
+        .bind("tenantKey", tenantKey)
+        .bind("active", activeNames())
+        .execute()
+
+    private fun activeNames() = CatalogPublicationStatus.active.map(CatalogPublicationStatus::name).toTypedArray()
+
+    private fun map(rs: ResultSet, _context: StatementContext) = CatalogReleasePublication(
+        id = rs.getObject("id", UUID::class.java),
+        tenantKey = TenantKey.of(rs.getString("tenant_key")),
+        catalogKey = CatalogKey.of(rs.getString("catalog_key")),
+        version = rs.getString("version"),
+        namespace = rs.getString("namespace"),
+        status = CatalogPublicationStatus.valueOf(rs.getString("status")),
+        idempotencyKey = rs.getObject("idempotency_key", UUID::class.java),
+        remotePublicationId = rs.getObject("remote_publication_id", UUID::class.java),
+        attempts = rs.getInt("attempts"),
+        archiveRetained = rs.getBoolean("archive_retained"),
+        submittedFor = rs.getLong("submitted_age_seconds").takeUnless { rs.wasNull() }?.let(Duration::ofSeconds),
+        inFlightFor = Duration.ofSeconds(rs.getLong("in_flight_age_seconds")),
+        failure = ExchangeFailure.of(rs.getString("error_code"), rs.getString("error_detail")),
+        createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
+        updatedAt = rs.getObject("updated_at", OffsetDateTime::class.java),
+    )
+
+    private companion object {
+        /** Never reads the retained bytes; only whether any are still held. */
+        const val SELECT_METADATA = """
+            SELECT id, tenant_key, catalog_key, version, namespace, status, idempotency_key,
+                   remote_publication_id, attempts,
+                   EXISTS(SELECT 1 FROM catalog_release_publication_archives a
+                          WHERE a.publication_id = catalog_release_publications.id) AS archive_retained,
+                   EXTRACT(EPOCH FROM (NOW() - submitted_at))::BIGINT AS submitted_age_seconds,
+                   EXTRACT(EPOCH FROM (NOW() - created_at))::BIGINT AS in_flight_age_seconds,
+                   error_code, error_detail, created_at, updated_at
+            FROM catalog_release_publications
+        """
+    }
+}

@@ -30,7 +30,7 @@ class EnsureSubscribedCatalogTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
 
-    private val demoUrl = "classpath:epistola/catalogs/demo/catalog.json"
+    private val demoUrl = "classpath:epistola/catalogs/fixture/catalog.json"
 
     @Test
     fun `first sight installs, re-run is a no-op, drifted fingerprint upgrades`() {

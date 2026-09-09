@@ -89,8 +89,6 @@ class ClientIdentityFilter(
     // \r / \n replacements come first because that's the literal pattern
     // CodeQL's java/log-injection sanitizer model recognizes; the regex pass
     // then sweeps remaining control chars (ESC, NUL, BEL, …).
-    private fun sanitizeForLog(value: String): String = value.replace("\r", "_").replace("\n", "_").replace(Regex("\\p{Cntrl}"), "_")
-
     private companion object {
         // Matches /api/tenants/<tenantId>/generation/collect — see contract spec/paths/generation-collect.yaml.
         private val COLLECT_PATH_REGEX = Regex("^/api/tenants/[^/]+/generation/collect/?$")

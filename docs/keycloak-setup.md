@@ -385,7 +385,7 @@ Pre-configured in the realm export (`apps/epistola/docker/keycloak/realm-export.
 | `generator@demo` | `generator` | Viewer, Generator                        | —                                   |
 | `manager@demo`   | `manager`   | Viewer, Author, Generator, Administrator | —                                   |
 
-Self-registration is enabled — new users can register with email + password. In demo mode (`epistola.demo.enabled=true`), users without group memberships are automatically assigned to a tenant derived from their email domain (e.g., `user@acme.io` → tenant `acme-io` with all roles).
+Self-registration is enabled — new users can register with email + password. In demo mode (`epistola.demo.enabled=true`), a user without group memberships gets a tenant **of their own**, derived from their whole email address (e.g. `user@acme.io` → tenant `user-acme-io`), with all tenant roles on it and no platform roles. See [Demo Profile](auth.md#demo-profile).
 
 ### OIDC Logout
 

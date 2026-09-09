@@ -1,5 +1,11 @@
 # AI Plugin Design Document
 
+> **Status:** Design. The editor-side AI panel ships behind the alpha,
+> default-off `ai-chat` feature toggle and currently talks to a mock
+> transport (`modules/editor/src/main/typescript/plugins/ai/`). The backend
+> plugin module described below (`modules/plugins/ai`) is not built, so the
+> paths and endpoints here are proposals rather than current code.
+
 ## Overview
 
 This document describes the design for the AI assistant plugin — the first plugin built on Epistola's [plugin architecture](plugins.md). The AI plugin enables users to build and modify templates through a conversational interface — describing what they want in natural language and having the AI produce structural changes to the template document. The current editor tab is an alpha surface behind the per-tenant `ai-chat` feature toggle, which is disabled by default.

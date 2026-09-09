@@ -19,6 +19,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
 import app.epistola.suite.tenants.commands.InvalidLocaleException
+import app.epistola.suite.tenants.commands.SetTenantCatalogPublishingDefault
 import app.epistola.suite.tenants.commands.SetTenantDefaultLocale
 import app.epistola.suite.tenants.queries.GetTenant
 import org.springframework.stereotype.Component
@@ -81,6 +82,18 @@ class DefaultsHandler(
             }
         }
 
+        return ServerResponse.status(303)
+            .header("Location", "/tenants/${tenantId.key.value}/defaults?saved=true")
+            .build()
+    }
+
+    fun updateCatalogPublishing(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
+        SetTenantCatalogPublishingDefault(
+            tenantId = tenantId.key,
+            publishByDefault = request.params().getFirst("publishByDefault") == "true",
+        ).execute()
         return ServerResponse.status(303)
             .header("Location", "/tenants/${tenantId.key.value}/defaults?saved=true")
             .build()

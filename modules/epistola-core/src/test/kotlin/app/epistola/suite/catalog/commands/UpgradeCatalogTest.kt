@@ -39,7 +39,7 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import kotlin.io.path.toPath
 
-private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
+private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/fixture/catalog.json"
 
 class UpgradeCatalogTest : IntegrationTestBase() {
 

@@ -320,7 +320,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
 
         whenever {
             val payload = LinkedMultiValueMap<String, String>()
-            payload.add("sourceUrl", "classpath:epistola/catalogs/demo/catalog.json")
+            payload.add("sourceUrl", "classpath:epistola/catalogs/fixture/catalog.json")
             restTemplate.postForEntity(
                 "/tenants/${t.id}/catalogs/subscribe",
                 HttpEntity(payload, htmxForm()),
@@ -636,7 +636,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             // Export the demo catalog from a publisher tenant to get a real ZIP…
             val publisher = tenant("Catalog Import Publisher")
             withMediator {
-                RegisterCatalog(publisher.id, sourceUrl = "classpath:epistola/catalogs/demo/catalog.json", authType = AuthType.NONE).execute()
+                RegisterCatalog(publisher.id, sourceUrl = "classpath:epistola/catalogs/fixture/catalog.json", authType = AuthType.NONE).execute()
                 InstallFromCatalog(tenantKey = publisher.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
                 zipHolder = ExportCatalogZip(tenantKey = publisher.id, catalogKey = CatalogKey.of("epistola-demo")).execute().zipBytes
             }

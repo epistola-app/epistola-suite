@@ -53,6 +53,33 @@
                 </form>
             </div>
         </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Catalog publishing</h2>
+                <p class="subtitle">
+                    Choose the default for new authored catalog releases. Each catalog can override this default.
+                </p>
+            </div>
+            <div class="card-content">
+                <form th:action="@{/tenants/{tenantId}/defaults/catalog-publishing(tenantId=${tenantId})}" method="post">
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="publishByDefault" value="true"
+                                   th:checked="${tenant.publishCatalogsByDefault}">
+                            Publish authored catalog releases by default
+                        </label>
+                        <p class="form-hint">
+                            This only queues a release when the deployment gate and the tenant's Catalog publishing
+                            feature are enabled. Catalog policies set to Always or Never take precedence.
+                        </p>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="ep-btn ep-btn-primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </th:block>
 </body>
 </html>

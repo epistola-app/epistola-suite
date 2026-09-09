@@ -1,5 +1,9 @@
 # Collect performance — measured limits
 
+> **Status:** Point-in-time measurements for the v0.3 collect mechanism.
+> Numbers are a record of one benchmarked build on specific hardware, not a
+> guarantee — re-measure before relying on them.
+
 This doc records measured performance numbers for the v0.3 collect
 mechanism (`/api/tenants/{tid}/generation/collect`). Each section
 below is a separate test scope; the matrix tables hold the numbers

@@ -1,5 +1,9 @@
 # Adaptive Batch Polling Logs
 
+> **Status:** Illustrative. The log lines below were captured from an
+> earlier build to show the _shape_ of adaptive-poll logging; exact wording,
+> fields, and values drift with the code.
+
 This document shows example log output from the adaptive batch job polling feature.
 
 ## Startup Logs

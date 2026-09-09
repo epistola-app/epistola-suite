@@ -20,11 +20,15 @@ if (buildNativeImage) {
     apply(plugin = "org.graalvm.buildtools.native")
 }
 
-// Security override: Spring Boot 4.0.6 manages tomcat-embed-core 11.0.21,
-// affected by CVE-2026-41293 and CVE-2026-43512 (both CRITICAL). Pin the
-// embedded Tomcat to the fixed 11.0.22 until the Spring Boot BOM catches up.
+// Security override: Spring Boot 4.1.1 manages tomcat-embed-core 11.0.24, which
+// Trivy flags CRITICAL for CVE-2026-65182 (security-constraint bypass),
+// CVE-2026-65905 (DIGEST replay) and CVE-2026-68525 (FORM auth bypass). None are
+// reachable here — the suite uses Spring Security filter chains, not container-
+// managed security (no web.xml, no DIGEST/FORM authenticator) — but 11.0.25 fixes
+// all three, so take the free upgrade rather than suppress. Drop this pin once the
+// Spring Boot BOM manages 11.0.25 or later.
 // Read by io.spring.dependency-management to override the managed version.
-extra["tomcat.version"] = "11.0.22"
+extra["tomcat.version"] = "11.0.25"
 
 dependencies {
     // Core business logic module (includes template-model, generation transitively)
@@ -151,9 +155,14 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-// Enable BuildProperties bean by generating build-info.properties
+// Enable the BuildProperties bean by generating build-info.properties. `time` is
+// excluded: its default is "now", which made bootBuildInfo, and through
+// resources/main also jar, bootJar and every test task of this app and the demo
+// app, never up-to-date. Nothing reads it; version, group, artifact and name stay.
 springBoot {
-    buildInfo()
+    buildInfo {
+        excludes.add("time")
+    }
 }
 
 // Configure CycloneDX SBOM generation for backend dependencies
@@ -295,12 +304,7 @@ val verifyHtmxVendored = tasks.register("verifyHtmxVendored") {
 }
 
 tasks.processResources {
-    // Copy SBOM to JAR resources for Docker embedding
-    dependsOn(tasks.cyclonedxDirectBom)
     dependsOn(verifyHtmxVendored)
-    from(layout.buildDirectory.file("sbom/bom.json")) {
-        into("META-INF/sbom")
-    }
     // Best-effort embed of the consolidated third-party notices for Docker distribution.
     // Deliberately NOT wired to generateThirdPartyNotices: the jk1 license-report task is
     // not configuration-cache compatible, so a hard dependency would discard the config
@@ -340,6 +344,26 @@ tasks.processResources {
     }
 }
 
+// The SBOM ships inside the distributable archives, not in resources/main. As a
+// processResources input it sat on the path of `classes`, which made every module
+// jar and the CycloneDX run a prerequisite of compiling and running this app's
+// tests (and, in CI, of every job that reuses the compiled classes). Embedding at
+// archive level keeps the same META-INF/sbom/bom.json in the jar, the boot jar and
+// (nested) the demo boot jar without gating anything else on it.
+val sbomJson = tasks.cyclonedxDirectBom.map { it.jsonOutput }
+tasks.named<Jar>("jar") {
+    from(sbomJson) {
+        into("META-INF/sbom")
+    }
+}
+
+// This is the only module with `@Tag("ui")` tests, so it is the one that makes
+// `check` (and therefore `gradle build`) run the hardened `uiTest` task. See the
+// convention plugin for why `test` excludes the ui tag.
+tasks.named("check") {
+    dependsOn("uiTest")
+}
+
 // Convenience task for generating SBOM standalone
 tasks.register("generateSbom") {
     group = "verification"
@@ -368,6 +392,22 @@ val buildRunImage = tasks.register<Exec>("buildRunImage") {
     group = "docker"
     description = "Build custom CNB run image with fontconfig and fonts"
     commandLine("docker", "build", "-t", "epistola-run:noble", file("docker/run-image").absolutePath)
+}
+
+tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
+    // Empty directories carry nothing, and a stale one is actively misleading: a cached
+    // `compileKotlin` output can leave behind a package directory whose sources have since moved
+    // (`app/epistola/suite/demo/`, when demo mode became its own app), so this artifact would appear
+    // to contain demo code it does not. Dropping empty directories makes the jar's contents a
+    // function of the sources rather than of the build cache's history.
+    includeEmptyDirs = false
+    // BOOT-INF/classes is the application classpath inside the boot jar and the
+    // image (docs/sbom.md reads /workspace/BOOT-INF/classes/META-INF/sbom/bom.json).
+    // Spring Boot's own CycloneDX integration additionally places
+    // META-INF/sbom/application.cdx.json at the archive root.
+    from(sbomJson) {
+        into("BOOT-INF/classes/META-INF/sbom")
+    }
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("bootBuildImage") {

@@ -34,7 +34,7 @@ Profiles are orthogonal — each controls a single concern:
 | `local`     | Dev experience: devtools, filesystem serving, editor watch. Implies form login + demo data.                                                                                  |
 | `localauth` | Form login with configurable users (env-var overridable)                                                                                                                     |
 | `keycloak`  | **Local-dev only** — adds an OAuth2/OIDC registration against a local Keycloak. Opt in with `local,keycloak`. Staging/production OIDC comes from env vars, not this profile. |
-| `demo`      | Load demo data only (no auth side effects)                                                                                                                                   |
+| `demo`      | Demo data, a personal tenant per signed-in user, and the optional API shared secret                                                                                          |
 | `prod`      | Production hardening: flyway clean disabled, tuned concurrency                                                                                                               |
 
 ### Environment Matrix
@@ -103,7 +103,10 @@ Override credentials via environment variables:
 
 ## Demo Profile
 
-The `demo` profile **only** loads demo data (tenant, themes, templates). It does not affect authentication. In staging/production, OIDC is supplied by env vars (Helm), so `demo` is combined with `prod` and/or `localauth` rather than a `keycloak` profile:
+The `demo` profile loads demo data (tenant, themes, templates) and adds two demo-only behaviours on
+top: a personal tenant per signed-in user, and an optional shared secret for the REST API. It does
+not change which authentication mechanisms exist. In staging/production, OIDC is supplied by env
+vars (Helm), so `demo` is combined with `prod` and/or `localauth` rather than a `keycloak` profile:
 
 ```bash
 # OAuth2 (from env vars) + demo data
@@ -112,6 +115,176 @@ SPRING_PROFILES_ACTIVE=demo
 # OAuth2 + form login + demo data
 SPRING_PROFILES_ACTIVE=demo,localauth
 ```
+
+**It only works on the `-demo` image** — see below.
+
+### Two images
+
+Demo mode is not a data-loading convenience. It gives every person who logs in a tenant of their
+own, and can carry a shared secret that authenticates every `/api` endpoint against every tenant
+with every permission. A profile flag is a weak boundary for that: anyone who can edit a
+deployment's environment is one variable away from it.
+
+So it is a **separate application**:
+
+| Image                           | Built from           | `SPRING_PROFILES_ACTIVE=demo` |
+| ------------------------------- | -------------------- | ----------------------------- |
+| `epistola-suite:{version}`      | `apps/epistola`      | **refuses to start**          |
+| `epistola-suite:{version}-demo` | `apps/epistola-demo` | enables demo mode             |
+
+`apps/epistola-demo` depends on `apps/epistola` and adds demo mode on top — the demo classes, the
+`demo` profile's configuration, and the bundled demo catalog. The production image contains none of
+it, so no amount of configuration can turn a production install into a demo: the code is not there
+to configure. Because the artifact is the boundary rather than the profile, `demo` and `prod` remain
+freely combinable, and a public demo keeps its production hardening.
+
+`DemoProfileImageValidator` turns the wrong-image mistake into a boot failure. Spring is perfectly
+happy with a profile no configuration file or bean responds to, so an operator who set `demo` on the
+production image would otherwise get a normal install, no demo data and no explanation, and might
+reasonably conclude demo mode was broken rather than absent. Each app tests the branch that is true
+for it — `apps/epistola` asserts the failure against its own classpath, `apps/epistola-demo` the
+pass — so neither has to stub anything.
+
+Two seams keep `apps/epistola` from naming demo mode at all, which is what makes leaving it out
+possible: the shared-secret filter reaches the `/api` chain through the `ApiPreAuthenticationFilter`
+marker in `modules/rest-api`, and the landing through `PostLoginTargetResolver` in
+`modules/epistola-core`. Neither mentions the demo.
+
+Running a demo locally:
+
+```bash
+./gradlew :apps:epistola-demo:bootRun --args='--spring.profiles.active=demo,local,localauth'
+```
+
+### A tenant per user
+
+When `epistola.demo.enabled=true` and an OIDC login carries **no** `/epistola/` groups and no flat
+roles, `DemoLoginMembershipResolver` gives that person a tenant of their own. The key is their email
+address's local part, then a short hash of the whole address:
+
+| Email                | Tenant key          |                                       |
+| -------------------- | ------------------- | ------------------------------------- |
+| `sander@degroot.dev` | `sander-665cdb`     |                                       |
+| `j.doe+test@acme.io` | `j-doe-test-6f7f03` |                                       |
+| `j.doe.test@acme.io` | `j-doe-test-9db5b1` | same label, different address         |
+| `admin@acme.io`      | `admin-94039b`      | reserved words are fine with a suffix |
+| `1st@acme.io`        | `u-1st-a5752e`      | a key must start with a letter        |
+| `日本@example.jp`    | `u-6196c7`          | nothing ASCII in the local part       |
+
+The tenant is named after the address that created it, and a new one is seeded with the bundled demo
+catalog plus `staging` and `production` environments.
+
+**Every** key is hashed, not only the ones that would otherwise clash. That makes uniqueness a
+property of the key rather than something to check for on each login, and it is why a reserved word,
+a leading digit or a local part with no ASCII in it all just work — the label in front of the hash is
+free to be whatever is readable, or nothing at all.
+
+#### The key derivation, exactly
+
+Deliberately reproducible without the application — no salt, no secret, no installation-specific
+input. This is an identifier, not a credential: it exists so two addresses cannot land in one
+tenant, and nothing is protected by its being hard to guess.
+
+Given a raw address:
+
+1. **Normalize.** Trim surrounding whitespace, lowercase. Everything below uses this form, including
+   the hash input.
+2. **Split on the first `@`.** The part before it is the _local part_; the part after it is the
+   _domain_. If either is empty or whitespace, there is no key — stop.
+3. **Slugify the local part** into a _label_: replace every run of characters outside `[a-z0-9]` with
+   a single `-`, then strip any leading and trailing `-`.
+4. **Make the label able to lead.** A `TenantKey` must start with a letter, and the label leads, so:
+   an empty label becomes `u`; a label starting with a digit is prefixed with `u-`; otherwise it is
+   used as is. Call the result the _stem_.
+5. **Truncate the stem** to 56 characters (63 − 6 for the hash − 1 for the separator), then strip a
+   trailing `-` again. This second strip matters: truncating can land on a hyphen, and `a--b` is not
+   a valid key.
+6. **Hash.** Take the first 6 hex characters of `sha256` over the normalized address, as UTF-8.
+7. **Join** with a hyphen: `<stem>-<hash>`.
+
+```bash
+# step 6, on its own
+printf %s "sander@degroot.dev" | sha256sum | cut -c1-6    # 665cdb   (shasum -a 256 on macOS)
+```
+
+A reference implementation of the whole thing:
+
+```python
+import hashlib, re
+
+def tenant_key(raw_email: str) -> str | None:
+    email = raw_email.strip().lower()
+    local, sep, domain = email.partition("@")
+    if not sep or not local.strip() or not domain.strip():
+        return None
+    label = re.sub(r"[^a-z0-9]+", "-", local).strip("-")
+    stem = "u" if not label else (label if label[0].isalpha() else f"u-{label}")
+    head = stem[:56].strip("-")
+    return f"{head}-{hashlib.sha256(email.encode()).hexdigest()[:6]}"
+```
+
+Worked examples, one per branch:
+
+| Email                | Label        | Stem         | Key                 |
+| -------------------- | ------------ | ------------ | ------------------- |
+| `sander@degroot.dev` | `sander`     | `sander`     | `sander-665cdb`     |
+| `j.doe+test@acme.io` | `j-doe-test` | `j-doe-test` | `j-doe-test-6f7f03` |
+| `admin@acme.io`      | `admin`      | `admin`      | `admin-94039b`      |
+| `1st@acme.io`        | `1st`        | `u-1st`      | `u-1st-a5752e`      |
+| `日本@example.jp`    | _(empty)_    | `u`          | `u-6196c7`          |
+| `a@b@c.com`          | `a`          | `a`          | `a-a2f315`          |
+
+Every step above is pinned by `DemoTenantKeyDerivationTest`, including the two that are easy to get
+wrong — the second `-` strip in step 5, and the fallback prefix counting against the cap — so this
+documentation cannot drift from the code without a test failing.
+
+#### What they can do
+
+| Tenant                | Roles                                                |
+| --------------------- | ---------------------------------------------------- |
+| Their own             | every `TenantRole`, including `TENANT_ADMINISTRATOR` |
+| The shared `demo` one | every `TenantRole` **except** `TENANT_ADMINISTRATOR` |
+| Globally / platform   | none                                                 |
+
+They also get read/write on the shared `demo` tenant because that is where the showcase content
+lives — the demo catalog's quality showcase, the seeded findings, the banner — so a visitor who only
+ever saw their own sandbox would miss most of what the demo is for. Not administration, though:
+`TENANT_ADMINISTRATOR` is what carries `TENANT_SETTINGS`, `TENANT_USERS`, `CATALOG_MANAGE` and
+`TENANT_RESTORE`, and a shared tenant any visitor could reconfigure or restore over is a demo that
+breaks for everyone else. Their own tenant is where they get to be an administrator.
+
+No global and no platform roles is what stops a demo user seeing a _third_ person's tenant
+(`ListTenants` filters on membership when there are no global roles and no `TENANT_MANAGER`) or
+creating further tenants (`CreateTenant` requires `TENANT_MANAGER`). Roles the identity provider
+grants take precedence: the resolver is only consulted when the token carried none, and platform
+roles from the token survive it.
+
+#### Landing straight in their own tenant
+
+With demo mode on, a login lands the visitor in `/tenants/<their own>` instead of the tenant picker.
+Everywhere else the picker is right — a customer works across several tenants and should choose. A
+demo visitor has one that is theirs, so choosing is a click between them and the product.
+
+This is a **post-login** decision, not a redirect on `GET /`. `DemoPostLoginTarget` implements
+`PostLoginTargetResolver`, which `PopupAwareAuthenticationSuccessHandler` consults for the default
+success URL. Two consequences follow, both deliberate:
+
+- **A saved request still wins.** Someone bounced to the login page from a deep link goes back to
+  that link, not to their tenant.
+- **The tenant list stays reachable.** The list _is_ `GET /` — there is no `GET /tenants` — and
+  "Switch tenant" in the nav, "Back to tenants" in the platform banner and the error pages' "Back to
+  Home" all point there. Redirecting the route would make the switcher a no-op and put the shared
+  `demo` tenant out of reach, which is the one every demo user was just granted read/write on.
+  `DemoTenantListReachableIT` guards this.
+
+When there is no personal tenant to land in — a principal whose memberships came from the identity
+provider rather than from this resolver — the resolver declines and login lands on `/` as usual.
+
+This applies to the **OIDC** path only. Form-login users (`local` / `localauth`) keep taking their
+tenant from `epistola.auth.local-users`.
+
+> Note that `local` also sets `epistola.demo.enabled=true`, so local development gets this behaviour
+> too — via Keycloak, not via form login.
 
 ## Production (OAuth2/OIDC)
 
@@ -360,6 +533,46 @@ Client                    ApiKeyAuthenticationFilter            Database
 ```
 
 The filter is registered in the `/api/**` security chain. Unlike session-based auth, API key requests are **stateless** — every request is validated independently.
+
+### Demo Shared Secret
+
+**Demo profile only.** A single credential that authenticates **every** `/api/**` endpoint against
+**every** tenant with **every** permission — a deliberate, total bypass of the tenant and permission
+model, so that the demo website can call Epistola on behalf of a visitor whose tenant was created
+moments earlier at login and has no API key of its own.
+
+```bash
+# >= 32 characters. Supplied only through the environment, never committed.
+export EPISTOLA_DEMO_SHAREDSECRET=$(openssl rand -hex 32)
+
+curl -H "Authorization: ApiKey $EPISTOLA_DEMO_SHAREDSECRET" \
+  https://demo.epistola.app/api/tenants/any-tenant/templates
+```
+
+It rides the existing `Authorization: ApiKey` scheme, so callers and SDKs need no new code path.
+Requests that do not carry it are unaffected: a real `epk_…` key, a bearer token or no credential at
+all is answered by `ApiKeyAuthenticationFilter` exactly as before.
+
+What confines it:
+
+| Guard    | Behaviour                                                                                                                           |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Profile  | Wired only under the `demo` profile — **not** the `epistola.demo.enabled` property, which `local` sets too.                         |
+| Startup  | A secret configured in any other profile **fails the boot** (`DemoSharedSecretSafetyValidator`) rather than being silently ignored. |
+| Length   | At least 32 characters, or the boot fails. It is an unauthenticated-guessable bearer credential with no rate limit in front of it.  |
+| Optional | With no secret configured, the demo profile starts exactly as before and the feature does not exist.                                |
+
+Requests are counted on `epistola.api.auth.attempts{result="demo_shared_secret"}`, and writes are
+attributed to a `Demo Shared Secret` service account rather than to a real user.
+
+Two things it deliberately does **not** do, because it is not bound to a tenant
+(`currentTenantId` is null):
+
+- `/api/mcp` — MCP tools take their tenant from the credential, so they cannot be used with it.
+- The partition block of `POST /api/ping` is omitted. `ClientIdentityFilter` also still requires
+  `X-EP-Node-Id` on `/api/ping` and the collect endpoint, as it does for any caller.
+
+See [ADR 0019](adr/0019-demo-api-shared-secret.md).
 
 ### When to Use
 

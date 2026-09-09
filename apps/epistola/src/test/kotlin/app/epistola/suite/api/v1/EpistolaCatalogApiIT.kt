@@ -39,7 +39,7 @@ import org.springframework.http.MediaType
 import org.springframework.test.context.ActiveProfiles
 import java.util.UUID
 
-private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
+private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/fixture/catalog.json"
 
 @Import(
     TestcontainersConfiguration::class,

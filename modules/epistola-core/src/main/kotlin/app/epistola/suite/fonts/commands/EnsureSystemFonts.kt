@@ -102,30 +102,30 @@ class EnsureSystemFontsHandler(
 
     override fun handle(command: EnsureSystemFonts) {
         val tenantId = TenantId(command.tenantKey)
-        // All eight bundled families in ONE transaction via the shared writer —
-        // previously this dispatched one ImportFont command (and one transaction +
-        // existence SELECT) per family. The faces are all classpath, hashed from
-        // the writer's per-JVM cache.
-        jdbi.inTransaction<Unit, Exception> { handle ->
-            for (font in SYSTEM_FONTS) {
-                val variants = BUNDLED_FACES.map { face ->
+        // All eight bundled families in ONE transaction and three statements via the
+        // shared writer. The faces are all classpath, hashed from the writer's per-JVM cache.
+        val fonts = SYSTEM_FONTS.map { font ->
+            FontCatalogWriter.FontSpec(
+                slug = font.slug,
+                name = font.name,
+                kind = font.kind.wire,
+                variants = BUNDLED_FACES.map { face ->
                     ImportFontVariant(
                         weight = face.weight,
                         italic = face.italic,
                         source = FontVariantSource.CLASSPATH,
                         classpathLocation = classpathLocation(font.slug, face.token),
                     )
-                }
-                fontCatalogWriter.writeFont(
-                    handle = handle,
-                    tenantId = tenantId,
-                    catalogKey = SYSTEM_CATALOG_KEY,
-                    slug = font.slug,
-                    name = font.name,
-                    kind = font.kind.wire,
-                    variants = variants,
-                )
-            }
+                },
+            )
+        }
+        jdbi.inTransaction<Unit, Exception> { handle ->
+            fontCatalogWriter.writeFonts(
+                handle = handle,
+                tenantId = tenantId,
+                catalogKey = SYSTEM_CATALOG_KEY,
+                fonts = fonts,
+            )
         }
         log.debug(
             "Ensured {} system font families for tenant {}",

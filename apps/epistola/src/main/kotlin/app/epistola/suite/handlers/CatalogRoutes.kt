@@ -25,6 +25,8 @@ class CatalogRoutes(private val handler: CatalogHandler) {
             POST("/{catalogId}/delete", handler::unregister)
             GET("/{catalogId}/release", handler::releaseDialog)
             POST("/{catalogId}/release", handler::release)
+            POST("/{catalogId}/publish-current", handler::publishCurrentRelease)
+            POST("/{catalogId}/publications/{publicationId}/cancel", handler::cancelPublication)
             GET("/{catalogId}/browse", handler::browse)
             GET("/{catalogId}/metadata", handler::metadataForm)
             POST("/{catalogId}/metadata", handler::updateMetadata)

@@ -20,8 +20,8 @@ dependencies {
     implementation(libs.jsonata)
 
     // GraalJS for JavaScript expression evaluation
-    implementation("org.graalvm.polyglot:polyglot:25.2.4")
-    implementation("org.graalvm.polyglot:js:25.2.4")
+    implementation("org.graalvm.polyglot:polyglot:25.3.4.1")
+    implementation("org.graalvm.polyglot:js:25.3.4.1")
 
     // QR code generation
     implementation("com.google.zxing:core:3.5.4")

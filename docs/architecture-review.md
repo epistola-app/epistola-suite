@@ -1,6 +1,7 @@
 # Architecture Review
 
-Date: 2026-06-08
+> **Status:** Point-in-time review, 2026-06-08. It records the module
+> boundaries as they stood on that date; it is not a standing specification.
 
 This review focuses on how Epistola Suite's modules interact, where integration boundaries are strong or weak, and what that implies for security and maintainability.
 

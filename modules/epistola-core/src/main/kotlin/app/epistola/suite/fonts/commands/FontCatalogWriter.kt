@@ -38,6 +38,14 @@ class FontCatalogWriter {
      * [assetBytes] supplies the bytes of an ASSET-backed face so its content hash
      * can be computed; classpath faces are hashed from cached classpath bytes.
      */
+    /** One font family to write: its slug, display name, kind and faces. */
+    data class FontSpec(
+        val slug: String,
+        val name: String,
+        val kind: String,
+        val variants: List<ImportFontVariant>,
+    )
+
     fun writeFont(
         handle: Handle,
         tenantId: TenantId,
@@ -47,54 +55,67 @@ class FontCatalogWriter {
         kind: String,
         variants: List<ImportFontVariant>,
         assetBytes: (variant: ImportFontVariant) -> ByteArray? = { null },
-    ): InstallStatus {
-        val fontSlug = FontKey.of(slug)
-        // Normalise through the enum so an unknown kind fails loudly here rather
-        // than as an opaque CHECK violation.
-        val kindWire = FontKind.fromWire(kind).wire
-        val tenantKey = tenantId.key
+    ): InstallStatus = writeFonts(handle, tenantId, catalogKey, listOf(FontSpec(slug, name, kind, variants)), assetBytes).getValue(slug)
 
-        val inserted = handle.createQuery(
+    /**
+     * Writes several families in three statements — one multi-row upsert of the families, one
+     * delete of their previous faces, one batch insert of the new faces — instead of three per
+     * family. The eight bundled families are seeded into every new tenant, so this is what turns
+     * twenty-four round trips per tenant into three. Returns the install status per slug.
+     */
+    fun writeFonts(
+        handle: Handle,
+        tenantId: TenantId,
+        catalogKey: CatalogKey,
+        fonts: List<FontSpec>,
+        assetBytes: (variant: ImportFontVariant) -> ByteArray? = { null },
+    ): Map<String, InstallStatus> {
+        if (fonts.isEmpty()) return emptyMap()
+        val tenantKey = tenantId.key
+        val keyed = fonts.map { it to FontKey.of(it.slug) }
+        val tuples = keyed.indices.joinToString(",\n") { i ->
+            "(:slug$i, :tenantKey, :catalogKey, :name$i, :kind$i, NOW(), NOW())"
+        }
+        val upsert = handle.createQuery(
             """
             INSERT INTO fonts (slug, tenant_key, catalog_key, name, kind, created_at, updated_at)
-            VALUES (:slug, :tenantKey, :catalogKey, :name, :kind, NOW(), NOW())
+            VALUES
+            $tuples
             ON CONFLICT (tenant_key, catalog_key, slug) DO UPDATE
-            SET name       = :name,
-                kind       = :kind,
+            SET name       = EXCLUDED.name,
+                kind       = EXCLUDED.kind,
                 updated_at = NOW()
-            RETURNING (xmax = 0) AS inserted
+            RETURNING slug, (xmax = 0) AS inserted
             """,
         )
-            .bind("slug", fontSlug)
             .bind("tenantKey", tenantKey)
             .bind("catalogKey", catalogKey)
-            .bind("name", name)
-            .bind("kind", kindWire)
-            .mapTo(Boolean::class.java)
-            .one()
-
-        // Replace variants atomically — the importing tenant has no local copy to
-        // preserve; the catalog file is the source of record.
+        keyed.forEachIndexed { i, (font, fontSlug) ->
+            upsert.bind("slug$i", fontSlug)
+                .bind("name$i", font.name)
+                .bind("kind$i", FontKind.fromWire(font.kind).wire)
+        }
+        val inserted = upsert.map { rs, _ -> rs.getString("slug") to rs.getBoolean("inserted") }.toMap()
         handle.createUpdate(
             """
             DELETE FROM font_variants
-            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND font_slug = :slug
+            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND font_slug IN (<slugs>)
             """,
         )
             .bind("tenantKey", tenantKey)
             .bind("catalogKey", catalogKey)
-            .bind("slug", fontSlug)
+            .bindList("slugs", keyed.map { it.second })
             .execute()
-
-        if (variants.isNotEmpty()) {
-            val batch = handle.prepareBatch(
-                """
-                INSERT INTO font_variants
-                    (tenant_key, catalog_key, font_slug, weight, italic, source, asset_key, classpath_location, content_hash)
-                VALUES (:tenantKey, :catalogKey, :slug, :weight, :italic, :source, :assetKey, :classpathLocation, :contentHash)
-                """,
-            )
-            for (variant in variants) {
+        val batch = handle.prepareBatch(
+            """
+            INSERT INTO font_variants
+                (tenant_key, catalog_key, font_slug, weight, italic, source, asset_key, classpath_location, content_hash)
+            VALUES (:tenantKey, :catalogKey, :slug, :weight, :italic, :source, :assetKey, :classpathLocation, :contentHash)
+            """,
+        )
+        var faces = 0
+        for ((font, fontSlug) in keyed) {
+            for (variant in font.variants) {
                 batch.bind("tenantKey", tenantKey)
                     .bind("catalogKey", catalogKey)
                     .bind("slug", fontSlug)
@@ -105,18 +126,15 @@ class FontCatalogWriter {
                     .bind("classpathLocation", variant.classpathLocation)
                     .bind("contentHash", contentHash(variant, assetBytes))
                     .add()
+                faces++
             }
-            batch.execute()
         }
-
-        return if (inserted) InstallStatus.INSTALLED else InstallStatus.UPDATED
+        if (faces > 0) batch.execute()
+        return keyed.associate { (font, fontSlug) ->
+            font.slug to if (inserted[fontSlug.value] == true) InstallStatus.INSTALLED else InstallStatus.UPDATED
+        }
     }
 
-    /**
-     * SHA-256 hex of a face's bytes, or `null` if they can't be loaded (a
-     * never-hashed face fails a published render loudly rather than rendering
-     * wrong). Classpath faces are cached by location; asset faces are hashed live.
-     */
     private fun contentHash(variant: ImportFontVariant, assetBytes: (ImportFontVariant) -> ByteArray?): String? = when (variant.source) {
         FontVariantSource.CLASSPATH -> variant.classpathLocation?.let(::classpathContentHash)
         FontVariantSource.ASSET -> runCatching { assetBytes(variant) }.getOrNull()?.let(::sha256Hex)

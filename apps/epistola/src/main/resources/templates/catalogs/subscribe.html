@@ -35,9 +35,12 @@
         <div class="ep-dialog-body">
             <div class="form-group">
                 <label class="ep-label" for="sourceUrl">Catalog URL</label>
+                <!-- No prefilled value: this used to default to the bundled demo catalog's
+                     classpath URL, which only exists in the -demo image, so on a production install
+                     the default was a URL that could not resolve. The placeholder and the hint below
+                     already say what a valid value looks like. -->
                 <input type="text" id="sourceUrl" name="sourceUrl" class="ep-input"
-                       required placeholder="https://example.com/catalog.json"
-                       value="classpath:epistola/catalogs/demo/catalog.json">
+                       required placeholder="https://example.com/catalog.json">
                 <span class="form-hint">
                     URL to the catalog manifest (<code>.json</code>). Supports <code>https://</code>, <code>classpath:</code>, and <code>file:///</code>.
                 </span>

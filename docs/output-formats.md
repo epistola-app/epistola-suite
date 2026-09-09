@@ -1,6 +1,6 @@
 # Multi-format output and channels — a discussion
 
-> **Status: exploratory. Nothing here is decided, and nothing here is scheduled.**
+> **Status:** Exploratory — nothing here is decided, and nothing here is scheduled.
 >
 > This document exists to think against. It surveys how Epistola might add a second
 > output format (HTML) for the same letter, and — later and much more speculatively —

@@ -1,8 +1,7 @@
 # Testability Improvements — Plan
 
-Status: **draft for discussion**
-Owner: TBD
-Last updated: 2026-05-21
+> **Status:** Draft for discussion — a proposed plan, not a description of the
+> current test suite. Owner: TBD. Last updated 2026-05-21.
 
 ## Why this plan exists
 

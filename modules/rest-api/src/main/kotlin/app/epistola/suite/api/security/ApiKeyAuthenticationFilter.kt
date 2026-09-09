@@ -226,7 +226,15 @@ class ApiKeyAuthenticationFilter(
         const val DEFAULT_HEADER_NAME = "X-API-Key"
         const val AUTHORIZATION_SCHEME_API_KEY = "ApiKey"
 
-        /** Request attribute key for the validated principal. */
+        /**
+         * Request attribute key for a principal already validated for this request.
+         *
+         * Set by this filter itself so an async re-dispatch skips the second lookup (see the class
+         * KDoc), and readable as an extension point: a filter registered ahead of this one may
+         * authenticate a request by publishing its principal here, and this filter will adopt it
+         * instead of parsing the credential. That is how the demo shared secret can travel in the
+         * `Authorization: ApiKey` header without tripping the `epk_` format check below.
+         */
         const val REQUEST_ATTR_PRINCIPAL = "app.epistola.suite.api.security.ApiKeyAuthenticationFilter.PRINCIPAL"
     }
 

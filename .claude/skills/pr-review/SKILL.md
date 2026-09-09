@@ -103,7 +103,7 @@ _shape_ of the change.
 ### Demo catalog & bundled-content version (PR blocker — high-miss)
 
 - **Every** new/changed user-facing capability is demonstrated in the demo
-  catalog (`modules/epistola-core/src/main/resources/epistola/catalogs/demo/`),
+  catalog (`apps/epistola-demo/src/main/resources/epistola/catalogs/demo/`),
   with realistic variants + edge cases. CLAUDE.md item 13 makes this a hard
   blocker; if a feature genuinely can't be shown there, the PR must say why.
 - **Any touch to bundled catalog resources** under

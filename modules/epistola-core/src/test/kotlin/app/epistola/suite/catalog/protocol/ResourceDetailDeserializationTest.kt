@@ -27,7 +27,7 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
 
     @Test
     fun `deserialize template resource detail`() {
-        val json = resourceLoader.getResource("classpath:epistola/catalogs/demo/resources/templates/hello-world.json").contentAsByteArray
+        val json = resourceLoader.getResource("classpath:epistola/catalogs/fixture/resources/templates/hello-world.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
         assertThat(detail.schemaVersion).isEqualTo(CATALOG_SCHEMA_VERSION)
@@ -42,7 +42,7 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
     @Test
     fun `advanced data contract demo contains valid complex examples`() {
         val json = resourceLoader
-            .getResource("classpath:epistola/catalogs/demo/resources/templates/advanced-data-contract.json")
+            .getResource("classpath:epistola/catalogs/fixture/resources/templates/advanced-data-contract.json")
             .contentAsByteArray
         val root = objectMapper.readTree(json)
         val dataModel = root.at("/resource/dataModel") as ObjectNode
@@ -60,7 +60,7 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
 
     @Test
     fun `deserialize theme resource detail`() {
-        val json = resourceLoader.getResource("classpath:epistola/catalogs/demo/resources/themes/corporate.json").contentAsByteArray
+        val json = resourceLoader.getResource("classpath:epistola/catalogs/fixture/resources/themes/corporate.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
         assertThat(detail.schemaVersion).isEqualTo(CATALOG_SCHEMA_VERSION)
@@ -74,7 +74,7 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
 
     @Test
     fun `deserialize attribute resource detail`() {
-        val json = resourceLoader.getResource("classpath:epistola/catalogs/demo/resources/attributes/language.json").contentAsByteArray
+        val json = resourceLoader.getResource("classpath:epistola/catalogs/fixture/resources/attributes/language.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
         // Catalog-wide wire version: every detail carries the bundle's
@@ -91,7 +91,7 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
 
     @Test
     fun `deserialize stencil resource detail`() {
-        val json = resourceLoader.getResource("classpath:epistola/catalogs/demo/resources/stencils/company-header.json").contentAsByteArray
+        val json = resourceLoader.getResource("classpath:epistola/catalogs/fixture/resources/stencils/company-header.json").contentAsByteArray
         val detail = objectMapper.readValue(json, ResourceDetail::class.java)
 
         assertThat(detail.schemaVersion).isEqualTo(CATALOG_SCHEMA_VERSION)

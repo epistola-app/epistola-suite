@@ -1,6 +1,6 @@
 # Stencil Parameters — Design
 
-> Status: stable — parameters are an intrinsic property of every stencil (the
+> **Status:** Stable — parameters are an intrinsic property of every stencil (the
 > parameter set is simply sometimes empty), so the authoring UI is always
 > available; there is no feature toggle.
 > Decision record: [`adr/0002-stencil-parameters.md`](./adr/0002-stencil-parameters.md)
@@ -271,7 +271,7 @@ the canvas converges to the resolved value. The cache invalidates on
 
 | Concern                       | Path                                                                                                        |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| DB column                     | `modules/epistola-core/src/main/resources/db/migration/V28__stencil_parameter_schema.sql`                   |
+| DB column                     | `modules/epistola-core/src/main/resources/db/migration/core/V20260515091400__core_stencils.sql`             |
 | Generic prop keys             | `modules/epistola-core/src/main/kotlin/.../templates/model/NodeParameterKeys.kt`                            |
 | Stencil-specific snapshot key | `modules/epistola-core/src/main/kotlin/.../stencils/StencilNodeKeys.kt`                                     |
 | Schema validator              | `modules/epistola-core/src/main/kotlin/.../templates/validation/ParameterSchemaValidator.kt`                |

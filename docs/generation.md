@@ -365,4 +365,4 @@ For high-volume or batch rendering:
 ## Related Documentation
 
 - [Roadmap](./roadmap.md) - Overall project phases
-- [API Specification](../modules/api-spec/) - OpenAPI definitions
+- [REST API](../modules/rest-api/) - Controllers implementing the `epistola-contract` OpenAPI surface
