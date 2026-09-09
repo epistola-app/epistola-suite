@@ -66,11 +66,13 @@ COMMENT ON TABLE catalog_upstream_checks IS
     'Last known upstream release state per subscribed catalog. Excluded from tenant backups: '
     'transient knowledge about a remote source, not tenant content.';
 
--- Two catalogs in a tenant must not claim the same upstream. Nothing could create such a
--- pair today (both would derive the same catalog key from the same manifest and collide on
--- the primary key first), but installing by Exchange coordinates makes the source something
--- chosen rather than derived, and silently mirroring one source into two catalogs would
--- leave each overwriting the other on every upgrade.
-CREATE UNIQUE INDEX catalogs_source_url_unique
-    ON catalogs (tenant_key, source_url)
-    WHERE source_url IS NOT NULL;
+-- Deliberately NO unique index on catalogs(tenant_key, source_url).
+--
+-- It was tempting: two catalogs mirroring one source would each overwrite the other on every
+-- upgrade. But a catalog's key comes from its source manifest's slug, and RegisterCatalog upserts
+-- on that key alone -- so a publisher who renames their catalog leaves the old row behind with the
+-- same source_url and a new row beside it. That pair is reachable on any installation that has ever
+-- subscribed to a URL, which would make this constraint fail the migration on somebody else's data,
+-- and refuse a legitimate re-subscribe afterwards. The rule this would enforce matters only for
+-- Exchange, where the source is chosen rather than derived, and ExchangeCatalogInstaller enforces it
+-- there before a byte is downloaded.
