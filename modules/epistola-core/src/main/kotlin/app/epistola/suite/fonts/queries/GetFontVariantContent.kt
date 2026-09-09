@@ -9,6 +9,7 @@ import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.fonts.FACES_OF_FAMILY_AT_ADDRESS
 import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -59,13 +60,10 @@ class GetFontVariantContentHandler(
         val pointer = jdbi.withHandle<VariantPointer?, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT source, asset_key, classpath_location
-                FROM font_variants
-                WHERE tenant_key = :tenantKey
-                  AND catalog_key = :catalogKey
-                  AND font_slug = :slug
-                  AND weight = :weight
-                  AND italic = :italic
+                SELECT faces.source, binary_asset.id AS asset_key, faces.classpath_location
+                $FACES_OF_FAMILY_AT_ADDRESS
+                  AND faces.weight = :weight
+                  AND faces.italic = :italic
                 """,
             )
                 .bind("tenantKey", query.tenantId)

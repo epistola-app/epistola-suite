@@ -8,6 +8,8 @@ import app.epistola.catalog.protocol.DependencyRef
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.commands.ExportCatalogZip
+import app.epistola.suite.catalog.identity.TenantResourceIdentities
+import app.epistola.suite.catalog.identity.TenantResourceIdentityStore
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.TenantKey
@@ -52,6 +54,7 @@ class BuildTenantSnapshotHandler(
     private val objectMapper: ObjectMapper,
     private val contentBuilder: CatalogContentBuilder,
     private val fingerprintService: CatalogFingerprintService,
+    private val identityStore: TenantResourceIdentityStore,
     private val buildProperties: BuildProperties?,
 ) : CommandHandler<BuildTenantSnapshot, TenantSnapshot> {
     private val suiteVersion: String get() = buildProperties?.version ?: "dev"
@@ -100,7 +103,10 @@ class BuildTenantSnapshotHandler(
                 catalogs = entries,
             )
 
-        val bytes = buildArchive(manifest, innerZips)
+        // Read after the catalogs, so it covers exactly what the archive carries.
+        val identities = identityStore.read(command.tenantKey, entries.map { it.catalogKey }.toSet())
+
+        val bytes = buildArchive(manifest, identities, innerZips)
         return TenantSnapshot(
             tenantKey = command.tenantKey,
             snapshotFingerprint = snapshotFingerprint,
@@ -146,12 +152,19 @@ class BuildTenantSnapshotHandler(
 
     private fun buildArchive(
         manifest: SnapshotManifest,
+        identities: TenantResourceIdentities,
         innerZips: Map<String, ByteArray>,
     ): ByteArray {
         val baos = ByteArrayOutputStream()
         ZipOutputStream(baos).use { zip ->
             zip.putNextEntry(ZipEntry("snapshot.json"))
             zip.write(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(manifest))
+            zip.closeEntry()
+
+            // Deliberately outside the fingerprint: identities are tenant-local bookkeeping, and a
+            // snapshot whose catalogs are unchanged must still dedup against the last one.
+            zip.putNextEntry(ZipEntry("identities.json"))
+            zip.write(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(identities))
             zip.closeEntry()
 
             for ((path, bytes) in innerZips) {
@@ -164,6 +177,6 @@ class BuildTenantSnapshotHandler(
     }
 
     private companion object {
-        const val SNAPSHOT_SCHEMA_VERSION = 1
+        const val SNAPSHOT_SCHEMA_VERSION = 2
     }
 }

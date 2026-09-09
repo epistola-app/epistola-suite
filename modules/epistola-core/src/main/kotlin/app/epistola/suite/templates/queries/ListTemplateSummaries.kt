@@ -94,15 +94,15 @@ class ListTemplateSummariesHandler(
                     c.type AS catalog_type,
                     dt.name,
                     dt.updated_at,
-                    COALESCE((SELECT COUNT(*) FROM template_variants tv WHERE tv.tenant_key = dt.tenant_key AND tv.template_key = dt.id), 0)::int as variant_count,
+                    COALESCE((SELECT COUNT(*) FROM template_variants tv WHERE tv.tenant_key = dt.tenant_key AND tv.template_resource_id = dt.resource_id), 0)::int as variant_count,
                     COALESCE((SELECT bool_or(ver.status = 'draft')
                               FROM template_versions ver
-                              JOIN template_variants tv ON ver.tenant_key = tv.tenant_key AND ver.template_key = tv.template_key AND ver.variant_key = tv.id
-                              WHERE tv.tenant_key = dt.tenant_key AND tv.template_key = dt.id), false) as has_draft,
+                              JOIN template_variants tv ON ver.tenant_key = tv.tenant_key AND ver.template_resource_id = tv.template_resource_id AND ver.variant_key = tv.id
+                              WHERE tv.tenant_key = dt.tenant_key AND tv.template_resource_id = dt.resource_id), false) as has_draft,
                     COALESCE((SELECT COUNT(*)
                               FROM template_versions ver
-                              JOIN template_variants tv ON ver.tenant_key = tv.tenant_key AND ver.template_key = tv.template_key AND ver.variant_key = tv.id
-                              WHERE tv.tenant_key = dt.tenant_key AND tv.template_key = dt.id AND ver.status = 'published'), 0)::int as published_version_count,
+                              JOIN template_variants tv ON ver.tenant_key = tv.tenant_key AND ver.template_resource_id = tv.template_resource_id AND ver.variant_key = tv.id
+                              WHERE tv.tenant_key = dt.tenant_key AND tv.template_resource_id = dt.resource_id AND ver.status = 'published'), 0)::int as published_version_count,
                     -- Total matching rows before LIMIT/OFFSET; Postgres evaluates the
                     -- window over the full filtered set, so it cannot drift from the page.
                     COUNT(*) OVER()::int AS total_count

@@ -21,3 +21,20 @@ epistola:
     enabled: true
     allowed-parent-origins:
       - https://epistola.app
+
+---
+# Local development only: activates when `demo` AND `local` are both on, which is how the demo app
+# is run from a working copy (`--spring.profiles.active=local,demo`). The published demo image runs
+# `demo` without `local`, so this value can never reach it, and DemoSharedSecretSafetyValidator
+# still refuses to start if the secret is ever set without `demo`.
+#
+# Deliberately unmistakable and low-entropy, like the value in DemoSharedSecretEndToEndIT: a
+# realistic-looking credential trips secret scanners and invites being copied somewhere real. Any
+# deployment wanting this feature supplies its own through EPISTOLA_DEMO_SHAREDSECRET.
+spring:
+  config:
+    activate:
+      on-profile: local
+epistola:
+  demo:
+    shared-secret: not-a-real-secret-only-used-in-local-dev

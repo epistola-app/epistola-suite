@@ -4,7 +4,14 @@
 
 package app.epistola.suite.mcp
 
+import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.graph.CatalogResourceType
+import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.relocation.MoveCatalogResources
+import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
+import app.epistola.suite.catalog.relocation.movedTo
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.UserKey
@@ -16,6 +23,7 @@ import app.epistola.suite.mcp.tools.TemplateMcpTools
 import app.epistola.suite.mcp.tools.VersionMcpTools
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
@@ -121,6 +129,27 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
         assertThat(info!!.id).isEqualTo(templateKey.value)
         assertThat(info.name).isEqualTo("Invoice")
         assertThat(info.catalogId).isEqualTo("default")
+    }
+
+    @Test
+    fun `get_template at its pre-move address returns the moved template`() {
+        val tenant = createTenant("MCP moved template")
+        val tenantId = TenantId(tenant.id)
+        val templateKey = TestIdHelpers.nextTemplateId()
+        withMediator {
+            CreateCatalog(tenant.id, CatalogKey.of("shared"), "Shared").execute()
+            CreateDocumentTemplate(TemplateId(templateKey, CatalogId.default(tenantId)), "Moved").execute()
+            val relocation = ResourceAddress(CatalogResourceType.TEMPLATE, CatalogKey.DEFAULT.value, templateKey.value).movedTo(CatalogKey.of("shared"))
+            val preview = PreviewCatalogResourceMove(tenant.id, listOf(relocation)).query()
+            MoveCatalogResources(tenant.id, listOf(relocation), preview.planFingerprint).execute()
+        }
+
+        val info = runAsApiKey(tenantId) {
+            templateMcpTools.getTemplate(catalogId = "default", templateId = templateKey.value)
+        }
+
+        assertThat(info).isNotNull
+        assertThat(info!!.catalogId).isEqualTo("shared")
     }
 
     @Test

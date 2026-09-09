@@ -53,6 +53,8 @@ import app.epistola.suite.exchange.CancelCatalogPublication
 import app.epistola.suite.exchange.GetCatalogPublicationState
 import app.epistola.suite.exchange.PublishCurrentCatalogRelease
 import app.epistola.suite.exchange.SetCatalogPublicationNamespace
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -84,6 +86,7 @@ class CatalogHandler {
         return ServerResponse.ok().page("catalogs/list") {
             "pageTitle" to "Catalogs - Epistola"
             "activeNavSection" to "catalogs"
+            "resourceRelocationEnabled" to request.relocationEnabled()
             catalogListModel(request)
             if (saved) "saved" to true
         }
@@ -1223,4 +1226,9 @@ class CatalogHandler {
         catalogListModel(request)
         "error" to error
     }
+
+    /**
+     * Whether to offer the Organise entry point. Alpha, so absent unless the tenant enables it.
+     */
+    private fun ServerRequest.relocationEnabled() = ResolveFeatureToggles(tenantId().key).query()[KnownFeatures.RESOURCE_RELOCATION] == true
 }

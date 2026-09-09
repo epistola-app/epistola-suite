@@ -4,6 +4,9 @@
 
 package app.epistola.suite.themes.commands
 
+import app.epistola.suite.catalog.graph.CatalogResourceType
+import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.identity.requireAddressAvailable
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
@@ -53,6 +56,11 @@ class CreateThemeHandler(
         val auditUser = currentUserIdOrNull()?.value
         return executeOrThrowDuplicate("theme", command.id.key.value) {
             jdbi.withHandle<Theme, Exception> { handle ->
+                requireAddressAvailable(
+                    handle,
+                    command.id.tenantKey,
+                    ResourceAddress(CatalogResourceType.THEME, command.id.catalogKey.value, command.id.key.value),
+                )
                 handle.createQuery(
                     """
                 INSERT INTO themes (id, tenant_key, catalog_key, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, updated_at, created_by, updated_by)

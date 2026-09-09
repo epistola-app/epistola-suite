@@ -17,6 +17,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.themes.updateTenantReturningTenant
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -65,12 +66,7 @@ class SetTenantDefaultLocaleHandler(
         }
 
         handle.createQuery(
-            """
-            UPDATE tenants
-            SET default_locale = :locale
-            WHERE id = :tenantId
-            RETURNING *
-            """,
+            updateTenantReturningTenant("default_locale = :locale", "id = :tenantId"),
         )
             .bind("tenantId", command.tenantId)
             .bind("locale", command.locale)

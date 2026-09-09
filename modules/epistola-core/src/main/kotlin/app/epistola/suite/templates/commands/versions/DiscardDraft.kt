@@ -12,6 +12,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.DraftHasNoPublishedBaseException
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -47,8 +48,8 @@ class DiscardDraftHandler(
             handle.createQuery(
                 """
                 SELECT 1 FROM template_variants
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
-                  AND template_key = :templateId AND id = :variantId
+                WHERE tenant_key = :tenantId
+                  AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND id = :variantId
                 FOR UPDATE
                 """,
             )
@@ -62,8 +63,8 @@ class DiscardDraftHandler(
             val hasPublished = handle.createQuery(
                 """
                 SELECT 1 FROM template_versions
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
-                  AND template_key = :templateId AND variant_key = :variantId
+                WHERE tenant_key = :tenantId
+                  AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND variant_key = :variantId
                   AND status = 'published'
                 LIMIT 1
                 """,
@@ -83,8 +84,8 @@ class DiscardDraftHandler(
             handle.createUpdate(
                 """
                 DELETE FROM template_versions
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
-                  AND template_key = :templateId AND variant_key = :variantId
+                WHERE tenant_key = :tenantId
+                  AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND variant_key = :variantId
                   AND status = 'draft'
                 """,
             )

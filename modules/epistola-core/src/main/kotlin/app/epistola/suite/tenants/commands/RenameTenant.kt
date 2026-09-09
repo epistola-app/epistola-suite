@@ -13,6 +13,7 @@ import app.epistola.suite.mediator.Routable
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.themes.updateTenantReturningTenant
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -50,12 +51,7 @@ class RenameTenantHandler(
     @Transactional
     override fun handle(command: RenameTenant): Tenant? = jdbi.withHandle<Tenant?, Exception> { handle ->
         handle.createQuery(
-            """
-            UPDATE tenants
-            SET name = :name
-            WHERE id = :tenantId
-            RETURNING *
-            """,
+            updateTenantReturningTenant("name = :name", "id = :tenantId"),
         )
             .bind("tenantId", command.tenantId)
             .bind("name", command.name)

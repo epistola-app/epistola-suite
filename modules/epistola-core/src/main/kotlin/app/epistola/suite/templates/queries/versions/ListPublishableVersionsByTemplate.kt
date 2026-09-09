@@ -13,6 +13,7 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.VersionStatus
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -47,10 +48,8 @@ class ListPublishableVersionsByTemplateHandler(
                     ver.id as version_key,
                     ver.status
                 FROM template_versions ver
-                JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.catalog_key = ver.catalog_key AND tv.template_key = ver.template_key AND tv.id = ver.variant_key
-                WHERE ver.template_key = :templateId
-                  AND ver.tenant_key = :tenantId
-                  AND ver.catalog_key = :catalogKey
+                WHERE ver.tenant_key = :tenantId
+                  AND ver.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                   AND ver.status IN ('draft', 'published')
                 ORDER BY ver.variant_key, ver.id DESC
                 """,

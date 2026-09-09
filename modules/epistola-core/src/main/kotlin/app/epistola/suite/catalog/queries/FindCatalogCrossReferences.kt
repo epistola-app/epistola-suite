@@ -38,8 +38,9 @@ class FindCatalogCrossReferencesHandler(
             """
             SELECT DISTINCT dt.name, dt.catalog_key
             FROM document_templates dt
+            JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
             WHERE dt.tenant_key = :tenantKey
-              AND dt.theme_catalog_key = :catalogKey
+              AND th.catalog_key = :catalogKey
               AND dt.catalog_key != :catalogKey
             """,
         )
@@ -54,12 +55,12 @@ class FindCatalogCrossReferencesHandler(
         // 2. Templates in other catalogs that use stencils from this catalog
         handle.createQuery(
             """
-            SELECT DISTINCT dt.name, tv.catalog_key
+            SELECT DISTINCT dt.name, dt.catalog_key
             FROM template_versions tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
+            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
             WHERE tv.tenant_key = :tenantKey
-              AND tv.catalog_key != :catalogKey
+              AND dt.catalog_key != :catalogKey
               AND tv.status IN ('draft', 'published')
               AND n.value ->> 'type' = 'stencil'
               AND n.value -> 'props' ->> 'catalogKey' = :catalogKeyStr
@@ -77,13 +78,13 @@ class FindCatalogCrossReferencesHandler(
         // 3. Templates in other catalogs that use assets from this catalog
         handle.createQuery(
             """
-            SELECT DISTINCT dt.name, tv.catalog_key
+            SELECT DISTINCT dt.name, dt.catalog_key
             FROM template_versions tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
+            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
             JOIN assets a ON a.tenant_key = tv.tenant_key AND a.catalog_key = :catalogKey AND a.id::text = n.value -> 'props' ->> 'assetId'
             WHERE tv.tenant_key = :tenantKey
-              AND tv.catalog_key != :catalogKey
+              AND dt.catalog_key != :catalogKey
               AND tv.status IN ('draft', 'published')
               AND n.value ->> 'type' = 'image'
             """,

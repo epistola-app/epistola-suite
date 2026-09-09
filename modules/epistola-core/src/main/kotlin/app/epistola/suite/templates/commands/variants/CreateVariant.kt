@@ -16,6 +16,7 @@ import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.createDefaultTemplateModel
 import app.epistola.suite.templates.services.TemplateDocumentPreparation
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
@@ -78,7 +79,7 @@ class CreateVariantHandler(
                 val existingCount = handle.createQuery(
                     """
                 SELECT COUNT(*) FROM template_variants
-                WHERE tenant_key = :tenantId AND template_key = :templateId AND catalog_key = :catalogKey
+                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 """,
                 )
                     .bind("tenantId", command.id.tenantKey)
@@ -90,9 +91,9 @@ class CreateVariantHandler(
 
                 val variant = handle.createQuery(
                     """
-                INSERT INTO template_variants (id, tenant_key, catalog_key, template_key, title, description, attributes, is_default, created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :title, :description, :attributes::jsonb, :isDefault, NOW(), NOW(), :createdBy, :updatedBy)
-                RETURNING *
+                INSERT INTO template_variants (id, tenant_key, template_resource_id, title, description, attributes, is_default, created_at, updated_at, created_by, updated_by)
+                VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :title, :description, :attributes::jsonb, :isDefault, NOW(), NOW(), :createdBy, :updatedBy)
+                RETURNING *, CAST(:templateId AS TEXT) AS template_key
                 """,
                 )
                     .bind("id", command.id.key)
@@ -109,13 +110,13 @@ class CreateVariantHandler(
 
                 // Create an initial draft version for the new variant with default template model (version ID = 1)
                 val versionId = VersionKey.of(1) // First version is always 1
-                val prepared = templateDocumentPreparation.prepare(createDefaultTemplateModel(variant.id))
+                val prepared = templateDocumentPreparation.prepare(createDefaultTemplateModel(variant.id), command.id.tenantKey, command.id.catalogKey)
 
                 // Resolve contract version: prefer draft (user may be editing), fall back to published
                 val contractVersionId = handle.createQuery(
                     """
                 SELECT id FROM contract_versions
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND template_key = :templateKey
+                WHERE tenant_key = :tenantKey AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
                 ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
                 LIMIT 1
                 """,
@@ -131,8 +132,8 @@ class CreateVariantHandler(
 
                 handle.createUpdate(
                     """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, referenced_paths, created_at, created_by)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, :referencedPaths::jsonb, NOW(), :createdBy)
+                INSERT INTO template_versions (id, tenant_key, template_resource_id, variant_key, template_model, status, contract_version, referenced_paths, created_at, created_by)
+                VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :variantId, :templateModel::jsonb, 'draft', :contractVersion, :referencedPaths::jsonb, NOW(), :createdBy)
                 """,
                 )
                     .bind("id", versionId)

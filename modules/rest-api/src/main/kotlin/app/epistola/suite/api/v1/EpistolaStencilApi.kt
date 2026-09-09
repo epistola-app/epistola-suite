@@ -23,6 +23,7 @@ import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toStencilVersionStatus
 import app.epistola.suite.api.v1.shared.toSummaryDto
+import app.epistola.suite.catalog.identity.canonical
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
@@ -122,7 +123,7 @@ class EpistolaStencilApi : StencilsApi {
         stencilId: String,
     ): ResponseEntity<StencilDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
 
         val stencil = GetStencil(id = stencilIdComposite).query()
             ?: throw StencilNotFoundException(tenantIdComposite.key, stencilIdComposite.key)
@@ -138,7 +139,7 @@ class EpistolaStencilApi : StencilsApi {
         updateStencilRequest: UpdateStencilRequest,
     ): ResponseEntity<StencilDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
 
         val stencil = UpdateStencil(
             id = stencilIdComposite,
@@ -157,7 +158,7 @@ class EpistolaStencilApi : StencilsApi {
         stencilId: String,
     ): ResponseEntity<Unit> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val deleted = DeleteStencil(id = stencilIdComposite).execute()
 
         return if (deleted) {
@@ -182,7 +183,7 @@ class EpistolaStencilApi : StencilsApi {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
 
         val versions = ListStencilVersions(
             stencilId = stencilIdComposite,
@@ -205,7 +206,7 @@ class EpistolaStencilApi : StencilsApi {
         createStencilVersionRequest: CreateStencilVersionRequest?,
     ): ResponseEntity<StencilVersionDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
 
         val version = CreateStencilVersion(
             stencilId = stencilIdComposite,
@@ -226,7 +227,7 @@ class EpistolaStencilApi : StencilsApi {
         versionId: Int,
     ): ResponseEntity<StencilVersionDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilIdComposite)
 
         val version = GetStencilVersion(versionId = versionIdComposite).query()
@@ -243,7 +244,7 @@ class EpistolaStencilApi : StencilsApi {
         updateStencilDraftRequest: UpdateStencilDraftRequest,
     ): ResponseEntity<StencilVersionDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilIdComposite)
         val content = updateStencilDraftRequest.content
             ?: throw ValidationException(field = "content", message = "Stencil draft content is required")
@@ -266,7 +267,7 @@ class EpistolaStencilApi : StencilsApi {
         versionId: Int,
     ): ResponseEntity<StencilVersionDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilIdComposite)
 
         val version = PublishStencilVersion(versionId = versionIdComposite).execute()
@@ -281,7 +282,7 @@ class EpistolaStencilApi : StencilsApi {
         versionId: Int,
     ): ResponseEntity<StencilVersionDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilIdComposite)
 
         val version = ArchiveStencilVersion(versionId = versionIdComposite).execute()
@@ -304,7 +305,7 @@ class EpistolaStencilApi : StencilsApi {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilIdComposite)
 
         val usages = GetStencilUsage(versionId = versionIdComposite).query()
@@ -337,7 +338,7 @@ class EpistolaStencilApi : StencilsApi {
         applyStencilUpgradeRequest: ApplyStencilUpgradeRequest,
     ): ResponseEntity<ApplyStencilUpgradeResponse> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
         val templateIdComposite = TemplateId(
             TemplateKey.of(applyStencilUpgradeRequest.templateId),
             CatalogId(CatalogKey.of(applyStencilUpgradeRequest.catalogKey), tenantIdComposite),

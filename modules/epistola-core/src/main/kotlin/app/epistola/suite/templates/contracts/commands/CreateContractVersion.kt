@@ -13,8 +13,10 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
+import app.epistola.suite.templates.REQUESTED_TEMPLATE_ADDRESS
 import app.epistola.suite.templates.contracts.model.ContractVersion
 import app.epistola.suite.templates.model.DataExamples
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.requireValidDataContractSchema
 import org.jdbi.v3.core.Jdbi
@@ -73,11 +75,11 @@ class CreateContractVersionHandler(
             // Check if a draft already exists (idempotent)
             val existingDraft = handle.createQuery(
                 """
-                SELECT id, tenant_key, catalog_key, template_key, schema, data_model, data_examples,
+                SELECT id, tenant_key, $REQUESTED_TEMPLATE_ADDRESS, schema, data_model, data_examples,
                        status, created_at, published_at, created_by
                 FROM contract_versions
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                  AND template_key = :templateKey AND status = 'draft'
+                WHERE tenant_key = :tenantKey
+                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND status = 'draft'
                 """,
             )
                 .bind("tenantKey", command.templateId.tenantKey)
@@ -94,7 +96,7 @@ class CreateContractVersionHandler(
                 """
                 SELECT COALESCE(MAX(id), 0) + 1
                 FROM contract_versions
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND template_key = :templateKey
+                WHERE tenant_key = :tenantKey AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
                 """,
             )
                 .bind("tenantKey", command.templateId.tenantKey)
@@ -110,11 +112,11 @@ class CreateContractVersionHandler(
             // Load latest published to copy from (if exists)
             val latestPublished = handle.createQuery(
                 """
-                SELECT id, tenant_key, catalog_key, template_key, schema, data_model, data_examples,
+                SELECT id, tenant_key, $REQUESTED_TEMPLATE_ADDRESS, schema, data_model, data_examples,
                        status, created_at, published_at, created_by
                 FROM contract_versions
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                  AND template_key = :templateKey AND status = 'published'
+                WHERE tenant_key = :tenantKey
+                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND status = 'published'
                 ORDER BY id DESC LIMIT 1
                 """,
             )
@@ -138,9 +140,9 @@ class CreateContractVersionHandler(
 
             val newDraft = handle.createQuery(
                 """
-                INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, schema, data_model, data_examples, status, created_at, created_by)
-                VALUES (:id, :tenantKey, :catalogKey, :templateKey, :schema::jsonb, :dataModel::jsonb, :dataExamples::jsonb, 'draft', NOW(), :createdBy)
-                RETURNING id, tenant_key, catalog_key, template_key, schema, data_model, data_examples, status, created_at, published_at, created_by
+                INSERT INTO contract_versions (id, tenant_key, template_resource_id, schema, data_model, data_examples, status, created_at, created_by)
+                VALUES (:id, :tenantKey, ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}, :schema::jsonb, :dataModel::jsonb, :dataExamples::jsonb, 'draft', NOW(), :createdBy)
+                RETURNING id, tenant_key, $REQUESTED_TEMPLATE_ADDRESS, schema, data_model, data_examples, status, created_at, published_at, created_by
                 """,
             )
                 .bind("id", VersionKey.of(nextVersionId))
@@ -159,8 +161,8 @@ class CreateContractVersionHandler(
                 """
                 UPDATE template_versions
                 SET contract_version = :newVersion
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                  AND template_key = :templateKey AND status = 'draft'
+                WHERE tenant_key = :tenantKey
+                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND status = 'draft'
                 """,
             )
                 .bind("tenantKey", command.templateId.tenantKey)

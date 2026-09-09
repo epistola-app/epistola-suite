@@ -16,10 +16,13 @@ import app.epistola.catalog.protocol.PublisherInfo
 import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.catalog.protocol.ResourceEntry
+import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.catalog.protocol.VariantEntry
 import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.catalog.graph.ReferenceSiteKind
+import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.queries.ExportAssets
 import app.epistola.suite.catalog.queries.ExportAttributes
 import app.epistola.suite.catalog.queries.ExportCodeLists
@@ -31,8 +34,10 @@ import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
+import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import java.util.UUID
 
@@ -78,9 +83,18 @@ class CatalogContentBuilder(
         val catalog = GetCatalog(tenantKey, catalogKey).query()
             ?: throw IllegalArgumentException("Catalog not found: $catalogKey")
 
-        val templates = loadTemplates(tenantKey, catalogKey)
+        val stencilAliases = loadStencilAliases(tenantKey)
+        val templates = loadTemplates(tenantKey, catalogKey, stencilAliases)
         val themes = ExportThemes(tenantKey, catalogKey = catalogKey).query()
-        val stencils = ExportStencils(tenantKey, catalogKey = catalogKey).query()
+        val stencils = ExportStencils(tenantKey, catalogKey = catalogKey).query().map { stencil ->
+            stencil.copy(
+                content = canonicalizeStencilAliases(
+                    objectMapper.valueToTree(stencil.content),
+                    catalogKey.value,
+                    stencilAliases,
+                ).let { objectMapper.treeToValue(it, TemplateDocument::class.java) },
+            )
+        }
         val attributes = ExportAttributes(tenantKey, catalogKey = catalogKey).query()
         val codeLists = ExportCodeLists(tenantKey, catalogKey = catalogKey).query()
         val fonts = ExportFonts(tenantKey, catalogKey = catalogKey).query()
@@ -131,12 +145,16 @@ class CatalogContentBuilder(
             ),
             resourceEntries = resourceEntries,
             resourceDetails = resourceDetails,
-            dependencies = findCrossCatalogDependencies(templates, attributes, themes, resourceEntries, catalogKey.value),
+            dependencies = findCrossCatalogDependencies(templates, stencils, attributes, themes, resourceEntries, catalogKey.value),
             assetContents = assetContents,
         )
     }
 
-    private fun loadTemplates(tenantKey: TenantKey, catalogKey: CatalogKey): List<TemplateResource> {
+    private fun loadTemplates(
+        tenantKey: TenantKey,
+        catalogKey: CatalogKey,
+        stencilAliases: Map<Pair<String, String>, Pair<String, String>>,
+    ): List<TemplateResource> {
         data class TemplateRow(
             val id: String,
             val name: String,
@@ -146,17 +164,18 @@ class CatalogContentBuilder(
             val dataModel: String?,
             val dataExamples: String?,
         )
-        data class VariantRow(val id: String, val title: String?, val attributes: String?, val templateModel: TemplateDocument?, val isDefault: Boolean)
+        data class VariantRow(val id: String, val title: String?, val attributes: String?, val templateModel: String?, val isDefault: Boolean)
 
         val templates = jdbi.withHandle<List<TemplateRow>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT dt.id, dt.name, dt.theme_key, dt.theme_catalog_key, dt.pdfa_enabled,
+                SELECT dt.id, dt.name, th.id AS theme_key, th.catalog_key AS theme_catalog_key, dt.pdfa_enabled,
                        cv.data_model::text, cv.data_examples::text
                 FROM document_templates dt
+                LEFT JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
                 LEFT JOIN LATERAL (
                     SELECT data_model, data_examples FROM contract_versions
-                    WHERE tenant_key = dt.tenant_key AND catalog_key = dt.catalog_key AND template_key = dt.id
+                    WHERE tenant_key = dt.tenant_key AND template_resource_id = dt.resource_id
                     ORDER BY CASE status WHEN 'published' THEN 0 ELSE 1 END, id DESC
                     LIMIT 1
                 ) cv ON TRUE
@@ -187,12 +206,12 @@ class CatalogContentBuilder(
                     FROM template_variants v
                     LEFT JOIN LATERAL (
                         SELECT template_model FROM template_versions
-                        WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND template_key = :templateKey AND variant_key = v.id
+                        WHERE tenant_key = :tenantKey AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = v.id
                           AND status = 'published'
                         ORDER BY id DESC
                         LIMIT 1
                     ) vv ON TRUE
-                    WHERE v.tenant_key = :tenantKey AND v.catalog_key = :catalogKey AND v.template_key = :templateKey
+                    WHERE v.tenant_key = :tenantKey AND v.template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
                     """,
                 )
                     .bind("tenantKey", tenantKey)
@@ -203,7 +222,7 @@ class CatalogContentBuilder(
                             id = rs.getString("id"),
                             title = rs.getString("title"),
                             attributes = rs.getString("attributes"),
-                            templateModel = rs.getString("template_model")?.let { objectMapper.readValue(it, TemplateDocument::class.java) },
+                            templateModel = rs.getString("template_model"),
                             isDefault = rs.getBoolean("is_default"),
                         )
                     }
@@ -213,7 +232,11 @@ class CatalogContentBuilder(
             val defaultVariant = variants.firstOrNull { it.isDefault } ?: variants.firstOrNull()
                 ?: return@mapNotNull null // Skip templates without variants
 
-            val defaultModel = defaultVariant.templateModel ?: return@mapNotNull null
+            val defaultModel = defaultVariant.templateModel
+                ?.let(objectMapper::readTree)
+                ?.let { canonicalizeStencilAliases(it, catalogKey.value, stencilAliases) }
+                ?.let { objectMapper.treeToValue(it, TemplateDocument::class.java) }
+                ?: return@mapNotNull null
 
             TemplateResource(
                 slug = template.id,
@@ -236,12 +259,68 @@ class CatalogContentBuilder(
                         id = v.id,
                         title = v.title,
                         attributes = v.attributes?.let { objectMapper.readValue(it, objectMapper.typeFactory.constructMapType(Map::class.java, String::class.java, String::class.java)) },
-                        templateModel = if (v.id == defaultVariant.id) null else v.templateModel,
+                        templateModel = if (v.id == defaultVariant.id) {
+                            null
+                        } else {
+                            v.templateModel
+                                ?.let(objectMapper::readTree)
+                                ?.let { canonicalizeStencilAliases(it, catalogKey.value, stencilAliases) }
+                                ?.let { objectMapper.treeToValue(it, TemplateDocument::class.java) }
+                        },
                         isDefault = v.isDefault,
                     )
                 },
             )
         }
+    }
+
+    private fun loadStencilAliases(tenantKey: TenantKey): Map<Pair<String, String>, Pair<String, String>> = jdbi.withHandle<Map<Pair<String, String>, Pair<String, String>>, Exception> { handle ->
+        handle.createQuery(
+            """
+                SELECT a.catalog_key, a.resource_key, r.catalog_key AS target_catalog_key, r.resource_key AS target_resource_key
+                FROM catalog_resource_aliases a
+                JOIN catalog_resources r
+                  ON r.tenant_key = a.tenant_key AND r.resource_id = a.target_resource_id
+                WHERE a.tenant_key = :tenantKey AND a.resource_type = 'stencil'
+                  -- Authoring reserves an aliased address (requireAddressAvailable), but import
+                  -- and backup restore reproduce stored state faithfully and may carry a resource
+                  -- that predates the alias. A canonical resource therefore still wins here,
+                  -- exactly as ResolveCatalogResourceAddress orders them.
+                  AND NOT EXISTS (
+                      SELECT 1 FROM catalog_resources shadow
+                      WHERE shadow.tenant_key = a.tenant_key
+                        AND shadow.resource_type = a.resource_type
+                        AND shadow.catalog_key = a.catalog_key
+                        AND shadow.resource_key = a.resource_key
+                  )
+                """,
+        )
+            .bind("tenantKey", tenantKey)
+            .map { rs, _ ->
+                (rs.getString("catalog_key") to rs.getString("resource_key")) to
+                    (rs.getString("target_catalog_key") to rs.getString("target_resource_key"))
+            }
+            .list()
+            .toMap()
+    }
+
+    /** Materialise stable aliases as canonical public addresses in portable catalog exports. */
+    private fun canonicalizeStencilAliases(
+        document: JsonNode,
+        containingCatalog: String,
+        aliases: Map<Pair<String, String>, Pair<String, String>>,
+    ): JsonNode = document.deepCopy().also { root ->
+        for (site in ResourceReferenceSites.scan(root)) {
+            if (site.kind != ReferenceSiteKind.STENCIL_INSERTION) continue
+            val requestedCatalog = site.catalogKey ?: containingCatalog
+            aliases[requestedCatalog to site.key]?.let { (targetCatalog, targetKey) ->
+                site.setCatalogKey(targetCatalog)
+                site.setKey(targetKey)
+            }
+        }
+        // Stored references are absolute so relocation cannot change their meaning; exported ones
+        // are relative to their own catalog so the ZIP stays installable under a different key.
+        ResourceReferenceSites.relativizeOwnCatalog(root, containingCatalog)
     }
 
     /**
@@ -250,6 +329,7 @@ class CatalogContentBuilder(
      */
     private fun findCrossCatalogDependencies(
         templates: List<TemplateResource>,
+        stencils: List<StencilResource>,
         attributes: List<AttributeResource>,
         themes: List<ThemeResource>,
         manifestResources: List<ResourceEntry>,
@@ -275,45 +355,45 @@ class CatalogContentBuilder(
             dependencies.add(DependencyRef.CodeList(catalogKey = target, slug = binding.slug))
         }
 
-        for (template in templates) {
-            val themeCatalog = template.themeCatalogKey
-            if (template.themeId != null && "theme:${template.themeId}" !in ownResources && themeCatalog != null && themeCatalog != catalogKey) {
-                dependencies.add(DependencyRef.Theme(catalogKey = themeCatalog, slug = template.themeId!!))
+        fun scanDocument(doc: TemplateDocument) {
+            DependencyScanner.documentFontRefs(doc).forEach(::addFontRef)
+
+            val themeRef = doc.themeRef
+            if (themeRef is app.epistola.template.model.ThemeRefOverride) {
+                val refCatalog = themeRef.catalogKey
+                if (refCatalog != null && refCatalog != catalogKey && "theme:${themeRef.themeId}" !in ownResources) {
+                    dependencies.add(DependencyRef.Theme(catalogKey = refCatalog, slug = themeRef.themeId))
+                }
             }
 
-            val docs = mutableListOf(template.templateModel)
-            template.variants.mapNotNull { it.templateModel }.forEach { docs.add(it) }
-
-            for (doc in docs) {
-                DependencyScanner.documentFontRefs(doc).forEach(::addFontRef)
-
-                val themeRef = doc.themeRef
-                if (themeRef is app.epistola.template.model.ThemeRefOverride) {
-                    val refCatalog = themeRef.catalogKey
-                    if (refCatalog != null && refCatalog != catalogKey && "theme:${themeRef.themeId}" !in ownResources) {
-                        dependencies.add(DependencyRef.Theme(catalogKey = refCatalog, slug = themeRef.themeId))
-                    }
-                }
-
-                for (node in doc.nodes.values) {
-                    when (node.type) {
-                        "stencil" -> {
-                            val refCatalog = node.props?.get("catalogKey") as? String
-                            val stencilId = node.props?.get("stencilId") as? String
-                            if (refCatalog != null && stencilId != null && refCatalog != catalogKey && "stencil:$stencilId" !in ownResources) {
-                                dependencies.add(DependencyRef.Stencil(catalogKey = refCatalog, slug = stencilId))
-                            }
+            for (node in doc.nodes.values) {
+                when (node.type) {
+                    "stencil" -> {
+                        val refCatalog = node.props?.get("catalogKey") as? String
+                        val stencilId = node.props?.get("stencilId") as? String
+                        if (refCatalog != null && stencilId != null && refCatalog != catalogKey && "stencil:$stencilId" !in ownResources) {
+                            dependencies.add(DependencyRef.Stencil(catalogKey = refCatalog, slug = stencilId))
                         }
-                        "image" -> {
-                            val assetId = node.props?.get("assetId") as? String
-                            if (assetId != null && "asset:$assetId" !in ownResources) {
-                                dependencies.add(DependencyRef.Asset(slug = assetId))
-                            }
+                    }
+                    "image" -> {
+                        val assetId = node.props?.get("assetId") as? String
+                        if (assetId != null && "asset:$assetId" !in ownResources) {
+                            dependencies.add(DependencyRef.Asset(slug = assetId))
                         }
                     }
                 }
             }
         }
+
+        for (template in templates) {
+            val themeCatalog = template.themeCatalogKey
+            if (template.themeId != null && "theme:${template.themeId}" !in ownResources && themeCatalog != null && themeCatalog != catalogKey) {
+                dependencies.add(DependencyRef.Theme(catalogKey = themeCatalog, slug = template.themeId!!))
+            }
+            scanDocument(template.templateModel)
+            template.variants.mapNotNull { it.templateModel }.forEach(::scanDocument)
+        }
+        stencils.forEach { scanDocument(it.content) }
 
         return dependencies.toList().ifEmpty { null }
     }

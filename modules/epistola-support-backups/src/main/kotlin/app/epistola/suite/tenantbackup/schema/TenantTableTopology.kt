@@ -154,7 +154,7 @@ class TenantTableTopology(
     /**
      * FK edges among the INCLUDE tables as `child dependsOn parent` pairs. Self-edges and the
      * `tenants`→`themes` default-theme edge are dropped (the latter is the cycle we break by nulling
-     * `default_theme_key` during restore).
+     * `default_theme_resource_id` during restore).
      */
     private fun loadForeignKeyEdges(
         handle: Handle,

@@ -45,7 +45,7 @@ class CreateTenantHandler(
     @Transactional
     override fun handle(command: CreateTenant): Tenant = executeOrThrowDuplicate("tenant", command.id.value) {
         val tenant = jdbi.withHandle<Tenant, Exception> { handle ->
-            // Insert tenant. Themes are optional — `default_theme_key` stays NULL
+            // Insert tenant. Themes are optional — `default_theme_resource_id` stays NULL
             // until a user (or future tenant setting) picks one. Templates without
             // a theme render with engine defaults (A4 portrait, 20mm margins,
             // Helvetica fallback). The bundled `system` catalog ships a `default`
@@ -54,7 +54,7 @@ class CreateTenantHandler(
                 """
                 INSERT INTO tenants (id, name, created_at)
                 VALUES (:id, :name, NOW())
-                RETURNING *
+                RETURNING *, NULL::text AS default_theme_catalog_key, NULL::text AS default_theme_key
                 """,
             )
                 .bind("id", command.id)

@@ -10,6 +10,7 @@ import {
   displayType,
   type EvidenceResponse,
   type ResourceEdge,
+  type ResourceFocusRef,
   type ResourceNode,
   type ResourceType,
   type SubgraphResponse,
@@ -60,11 +61,12 @@ function isResourceEdge(value: unknown): value is ResourceEdge {
 @customElement('ep-resource-graph')
 export class ResourceGraphExplorer extends LitElement {
   @property({ attribute: 'data-base-url' }) baseUrl = '';
+  @property({ attribute: 'data-relocation-enabled' }) relocationEnabled = 'false';
   @state() private search = '';
   @state() private searchResults: ResourceNode[] = [];
   @state() private searchResultsVisible = false;
   @state() private searching = false;
-  @state() private catalogOptions: Array<[string, string]> = [];
+  @state() private catalogOptions: Array<{ key: string; name: string; type: string }> = [];
   @state() private graph?: SubgraphResponse;
   @state() private selectedEdge?: ResourceEdge;
   @state() private evidence?: EvidenceResponse;
@@ -311,8 +313,6 @@ export class ResourceGraphExplorer extends LitElement {
         catalogKey: catalog,
         key,
         name: key,
-        catalogName: catalog,
-        catalogType: '',
       });
   }
 
@@ -337,10 +337,10 @@ export class ResourceGraphExplorer extends LitElement {
       if (!response.ok) throw new Error(`Could not load resources (${response.status})`);
       const body = (await response.json()) as {
         nodes: ResourceNode[];
-        catalogs: Array<{ key: string; name: string }>;
+        catalogs: Array<{ key: string; name: string; type: string }>;
       };
       if (sequence === this.searchSequence) {
-        this.catalogOptions = body.catalogs.map((catalog) => [catalog.key, catalog.name]);
+        this.catalogOptions = body.catalogs;
         if (showResults) {
           this.searchResults = body.nodes;
           this.searchResultsVisible = true;
@@ -364,7 +364,7 @@ export class ResourceGraphExplorer extends LitElement {
     void this.loadNodes(true);
   }
 
-  private async focusResource(node: ResourceNode): Promise<void> {
+  private async focusResource(node: ResourceFocusRef): Promise<void> {
     this.loading = true;
     this.error = '';
     this.search = node.name;
@@ -645,7 +645,9 @@ export class ResourceGraphExplorer extends LitElement {
             }}
           >
             <option value="">All catalogs</option>
-            ${this.catalogOptions.map(([key, name]) => html`<option value=${key}>${name}</option>`)}
+            ${this.catalogOptions.map(
+              (catalog) => html`<option value=${catalog.key}>${catalog.name}</option>`,
+            )}
           </select></label
         >
         <label
@@ -745,7 +747,31 @@ export class ResourceGraphExplorer extends LitElement {
       <h3>Uses</h3>
       ${list(outgoing)}
       <h3>Used by</h3>
-      ${list(incoming)}`;
+      ${list(incoming)} ${this.renderMoveResource()}`;
+  }
+
+  /**
+   * The graph notices a misplaced resource; it does not move it.
+   *
+   * Relocation lives on its own page under Catalogs, where catalogs are managed and a whole
+   * selection can be moved at once. This hands off with the focused resource already selected.
+   */
+  private renderMoveResource() {
+    const focus = this.graph?.focus;
+    if (this.relocationEnabled !== 'true' || !focus) return nothing;
+    const movableTypes = ['stencil', 'attribute', 'template'];
+    if (!movableTypes.includes(focus.type)) return nothing;
+
+    const organiseUrl = this.baseUrl.replace(
+      /\/resource-graph$/,
+      `/catalogs/organise?resource=${encodeURIComponent(`${focus.type}:${focus.catalogKey}:${focus.key}`)}`,
+    );
+    return html`<h3>Move resource <span class="badge">Alpha</span></h3>
+      <p>
+        <a href=${organiseUrl}>Organise catalogs</a> to move
+        <strong>${focus.catalogKey}/${focus.key}</strong> — and anything else that should move with
+        it.
+      </p>`;
   }
 
   private renderEvidence() {
@@ -815,5 +841,9 @@ export class ResourceGraphExplorer extends LitElement {
 declare global {
   interface HTMLElementTagNameMap {
     'ep-resource-graph': ResourceGraphExplorer;
+  }
+  interface Window {
+    /** Defined by the app shell (static/js/app-shell.js), which every UI page loads. */
+    getCsrfToken?: () => string;
   }
 }

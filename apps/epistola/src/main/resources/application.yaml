@@ -111,6 +111,9 @@ epistola:
     # Single migration knob (env: EPISTOLA_MIGRATION_MODE). One name, three
     # meanings — no overloaded tokens:
     #   embedded — app runs Flyway at boot (local/dev default, single-process).
+    #              Inherits the app's own socketTimeout below, which is tuned for
+    #              request work, not for DDL that reads nothing for minutes. Use
+    #              `migrate` (which relaxes it) for a large migration.
     #   migrate  — the dedicated migration step: main() detects this env value
     #              pre-Spring and runs the isolated MigrationLauncher (set by
     #              the Helm Job / init container). Never an application.yaml
@@ -198,6 +201,8 @@ epistola:
   features:
     ai-chat: false
     catalog-publishing: false
+    resource-graph: false
+    resource-relocation: false
   generation:
     # Whether THIS node performs PDF rendering. When true (default) the node advertises the
     # cluster `pdf-render` capability and claims render jobs; set false to keep the suite as a

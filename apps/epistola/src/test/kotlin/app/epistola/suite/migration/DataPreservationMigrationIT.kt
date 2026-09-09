@@ -109,6 +109,66 @@ class DataPreservationMigrationIT {
                        (2, '$TENANT', 'default', 'invoice', 'main',
                         '$DRAFT_TEMPLATE_MODEL'::jsonb, 'draft', NULL, '["customer.name","total"]'::jsonb);
 
+                INSERT INTO variant_attribute_definitions (id, tenant_key, catalog_key, display_name, allowed_values)
+                VALUES ('language', '$TENANT', 'default', 'Language', '["nl","en"]'::jsonb);
+
+                -- A second catalog, so the identity migrations are exercised against a
+                -- cross-catalog reference and not only against everything living in 'default'.
+                INSERT INTO catalogs (id, tenant_key, name, type)
+                VALUES ('shared', '$TENANT', 'Shared Catalog', 'AUTHORED');
+
+                INSERT INTO code_lists (slug, tenant_key, catalog_key, display_name, source_type)
+                VALUES ('countries', '$TENANT', 'shared', 'Countries', 'INLINE');
+
+                INSERT INTO code_list_entries (tenant_key, catalog_key, code_list_slug, code, label, sort_order)
+                VALUES ('$TENANT', 'shared', 'countries', 'nl', 'Netherlands', 0),
+                       ('$TENANT', 'shared', 'countries', 'be', 'Belgium', 1);
+
+                -- Bound across catalogs: the attribute is in 'default', its code list in 'shared'.
+                INSERT INTO variant_attribute_definitions
+                    (id, tenant_key, catalog_key, display_name, allowed_values, code_list_catalog_key, code_list_slug)
+                VALUES ('country', '$TENANT', 'default', 'Country', '[]'::jsonb, 'shared', 'countries');
+
+                INSERT INTO assets (id, tenant_key, catalog_key, name, media_type, size_bytes)
+                VALUES ('00000000-0000-0000-0000-000000000301', '$TENANT', 'default', 'logo.png', 'image/png', 512),
+                       ('00000000-0000-0000-0000-000000000302', '$TENANT', 'default', 'brand-regular.ttf', 'font/ttf', 2048);
+
+                INSERT INTO fonts (slug, tenant_key, catalog_key, name, kind)
+                VALUES ('brand', '$TENANT', 'default', 'Brand Sans', 'sans');
+
+                -- One face of each source: the ASSET face is the one whose binary pointer the
+                -- migration has to re-key, the CLASSPATH face the one it must leave unbound.
+                INSERT INTO font_variants
+                    (tenant_key, catalog_key, font_slug, weight, italic, source, asset_key, classpath_location, content_hash)
+                VALUES ('$TENANT', 'default', 'brand', 400, false, 'ASSET',
+                        '00000000-0000-0000-0000-000000000302', NULL, 'abc123'),
+                       ('$TENANT', 'default', 'brand', 700, false, 'CLASSPATH',
+                        NULL, 'epistola/fonts/brand/brand-Bold.ttf', 'def456');
+
+                INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_model, status, published_at)
+                VALUES (1, '$TENANT', 'default', 'invoice',
+                        '{"type":"object"}'::jsonb, 'published', NOW());
+
+                -- documents is partitioned like audit_log below; the fixture owns its partition.
+                CREATE TABLE documents_202606
+                    PARTITION OF documents
+                    FOR VALUES FROM ('2026-06-01 00:00:00+00') TO ('2026-07-01 00:00:00+00');
+
+                INSERT INTO documents (id, tenant_key, catalog_key, template_key, variant_key, version_key,
+                                       filename, size_bytes, created_at)
+                VALUES ('00000000-0000-0000-0000-000000000201', '$TENANT', 'default', 'invoice', 'main', 1,
+                        'invoice.pdf', 1024, '2026-06-23 10:00:00+00');
+
+                -- Partitioned like documents; the fixture owns its partition.
+                CREATE TABLE document_generation_requests_202606
+                    PARTITION OF document_generation_requests
+                    FOR VALUES FROM ('2026-06-01 00:00:00+00') TO ('2026-07-01 00:00:00+00');
+
+                INSERT INTO document_generation_requests
+                    (id, tenant_key, catalog_key, template_key, variant_key, version_key, data, status, created_at)
+                VALUES ('00000000-0000-0000-0000-000000000401', '$TENANT', 'default', 'invoice', 'main', 1,
+                        '{}'::jsonb, 'COMPLETED', '2026-06-23 10:00:00+00');
+
                 -- An orphaned toggle row for the retired 'stencil-parameters' feature (deleted by
                 -- V20260708110402) plus a control row for a still-live feature that must survive.
                 INSERT INTO feature_toggles (tenant_key, feature_key, enabled)
@@ -147,6 +207,12 @@ class DataPreservationMigrationIT {
                 rs.getString(1)
             }
 
+            // Hierarchy rows name the template's identity now, so every lookup resolves the
+            // seeded address through document_templates rather than filtering on a copy of it.
+            val ofInvoice =
+                "template_resource_id = (SELECT resource_id FROM document_templates " +
+                    "WHERE tenant_key = '$TENANT' AND catalog_key = 'default' AND id = 'invoice')"
+
             assertThat(one("SELECT name FROM tenants WHERE id = '$TENANT'"))
                 .isEqualTo("Preservation Tenant")
             assertThat(one("SELECT default_locale FROM tenants WHERE id = '$TENANT'"))
@@ -155,25 +221,128 @@ class DataPreservationMigrationIT {
                 .isEqualTo("AUTHORED")
             assertThat(one("SELECT document_styles::text FROM themes WHERE tenant_key = '$TENANT' AND id = 'brand'"))
                 .isEqualTo(one("SELECT '$THEME_STYLES'::jsonb::text"))
-            assertThat(one("SELECT theme_key FROM document_templates WHERE tenant_key = '$TENANT' AND id = 'invoice'"))
+            assertThat(
+                one(
+                    """
+                    SELECT theme.id FROM document_templates template
+                    JOIN themes theme ON theme.tenant_key = template.tenant_key
+                                     AND theme.resource_id = template.theme_resource_id
+                    WHERE template.tenant_key = '$TENANT' AND template.id = 'invoice'
+                    """,
+                ),
+            )
+                .describedAs("the template's theme address must have been re-keyed onto that theme's identity")
                 .isEqualTo("brand")
-            assertThat(one("SELECT title FROM template_variants WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND id = 'main'"))
+            assertThat(
+                one(
+                    """
+                    SELECT list.slug FROM variant_attribute_definitions attribute
+                    JOIN code_lists list ON list.tenant_key = attribute.tenant_key
+                                        AND list.resource_id = attribute.code_list_resource_id
+                    WHERE attribute.tenant_key = '$TENANT' AND attribute.id = 'country'
+                    """,
+                ),
+            )
+                .describedAs("a cross-catalog code-list binding must have been re-keyed onto that list's identity")
+                .isEqualTo("countries")
+            assertThat(
+                one(
+                    """
+                    SELECT count(*)::text FROM code_list_entries entries
+                    JOIN code_lists list ON list.tenant_key = entries.tenant_key
+                                        AND list.resource_id = entries.code_list_resource_id
+                    WHERE list.tenant_key = '$TENANT' AND list.catalog_key = 'shared' AND list.slug = 'countries'
+                    """,
+                ),
+            )
+                .describedAs("code-list entries must have followed their list onto its identity")
+                .isEqualTo("2")
+            assertThat(
+                one(
+                    """
+                    SELECT binary_asset.name
+                    FROM font_variants faces
+                    JOIN fonts family ON family.tenant_key = faces.tenant_key
+                                     AND family.resource_id = faces.font_resource_id
+                    JOIN assets binary_asset ON binary_asset.tenant_key = faces.tenant_key
+                                            AND binary_asset.resource_id = faces.asset_resource_id
+                    WHERE family.tenant_key = '$TENANT' AND family.slug = 'brand' AND faces.weight = 400
+                    """,
+                ),
+            )
+                .describedAs("an ASSET face must reach its family and its binary through both identities")
+                .isEqualTo("brand-regular.ttf")
+            assertThat(
+                one(
+                    """
+                    SELECT faces.classpath_location
+                    FROM font_variants faces
+                    JOIN fonts family ON family.tenant_key = faces.tenant_key
+                                     AND family.resource_id = faces.font_resource_id
+                    WHERE family.tenant_key = '$TENANT' AND family.slug = 'brand' AND faces.weight = 700
+                      AND faces.asset_resource_id IS NULL
+                    """,
+                ),
+            )
+                .describedAs("a CLASSPATH face has no binary, and the backfill must not invent one")
+                .isEqualTo("epistola/fonts/brand/brand-Bold.ttf")
+            assertThat(one("SELECT status FROM contract_versions WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 1"))
+                .isEqualTo("published")
+            assertThat(
+                one(
+                    """
+                    SELECT count(*)::text FROM stencil_versions versions
+                    JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
+                                         AND stencil.resource_id = versions.stencil_resource_id
+                    WHERE stencil.tenant_key = '$TENANT' AND stencil.id = 'header'
+                    """,
+                ),
+            )
+                .describedAs("both versions of a stencil must have followed it onto its identity")
+                .isEqualTo("2")
+            assertThat(
+                one(
+                    "SELECT status FROM document_generation_requests " +
+                        "WHERE id = '00000000-0000-0000-0000-000000000401'",
+                ),
+            )
+                .describedAs("generation history survives the template re-key, keeping its recorded address")
+                .isEqualTo("COMPLETED")
+            assertThat(one("SELECT title FROM template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'main'"))
                 .isEqualTo("Main Variant")
-            assertThat(one("SELECT title FROM template_variants WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND id = 'legacy'"))
+            assertThat(one("SELECT title FROM template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'legacy'"))
                 .describedAs("legacy NULL-title variant must be backfilled with its own slug")
                 .isEqualTo("legacy")
-            assertThat(one("SELECT title FROM template_variants WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND id = 'blanktitle'"))
+            assertThat(one("SELECT title FROM template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'blanktitle'"))
                 .describedAs("blank-title variant must be backfilled with its own slug")
                 .isEqualTo("blanktitle")
-            assertThat(one("SELECT template_model::text FROM template_versions WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND variant_key = 'main' AND id = 1"))
+            assertThat(one("SELECT template_model::text FROM template_versions WHERE tenant_key = '$TENANT' AND $ofInvoice AND variant_key = 'main' AND id = 1"))
                 .isEqualTo(one("SELECT '$TEMPLATE_MODEL'::jsonb::text"))
-            assertThat(one("SELECT status FROM template_versions WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND variant_key = 'main' AND id = 1"))
+            assertThat(one("SELECT status FROM template_versions WHERE tenant_key = '$TENANT' AND $ofInvoice AND variant_key = 'main' AND id = 1"))
                 .isEqualTo("published")
-            assertThat(one("SELECT referenced_paths::text FROM template_versions WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND variant_key = 'main' AND id = 1"))
+            assertThat(one("SELECT referenced_paths::text FROM template_versions WHERE tenant_key = '$TENANT' AND $ofInvoice AND variant_key = 'main' AND id = 1"))
                 .isEqualTo(one("""SELECT '["customer.name","total"]'::jsonb::text"""))
-            assertThat(one("SELECT template_model::text FROM template_versions WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND variant_key = 'main' AND id = 2"))
+            assertThat(one("SELECT template_model::text FROM template_versions WHERE tenant_key = '$TENANT' AND $ofInvoice AND variant_key = 'main' AND id = 2"))
                 .describedAs("draft stencil references must retain their published base and gain exact draft provenance")
                 .isEqualTo(one("SELECT '$MIGRATED_DRAFT_TEMPLATE_MODEL'::jsonb::text"))
+
+            // Relocation re-keyed attributes onto their identity (V20260905090100) and dropped the
+            // generation-history foreign keys into the template hierarchy (V20260905090200).
+            assertThat(one("SELECT display_name FROM variant_attribute_definitions WHERE tenant_key = '$TENANT' AND catalog_key = 'default' AND id = 'language'"))
+                .describedAs("attribute must survive its primary key moving onto resource_id")
+                .isEqualTo("Language")
+            assertThat(one("SELECT count(*) FROM catalog_resources WHERE tenant_key = '$TENANT' AND resource_type = 'attribute' AND catalog_key = 'default' AND resource_key = 'language'"))
+                .describedAs("RC1-era attribute must be registered with a stable identity")
+                .isEqualTo("1")
+            assertThat(one("SELECT filename FROM documents WHERE tenant_key = '$TENANT' AND catalog_key = 'default' AND template_key = 'invoice'"))
+                .describedAs("generation history must survive its template foreign keys being dropped")
+                .isEqualTo("invoice.pdf")
+            assertThat(one("SELECT count(*) FROM documents WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND template_resource_id IS NULL"))
+                .describedAs("generation history is filled forward, never backfilled: rewriting every partition at upgrade time is the one cost this migration refuses to pay")
+                .isEqualTo("1")
+            assertThat(one("SELECT count(*) FROM template_variants WHERE tenant_key = '$TENANT' AND template_resource_id IS NULL"))
+                .describedAs("the hierarchy IS backfilled -- it is bounded, and its foreign keys require it")
+                .isEqualTo("0")
 
             // Intentional scoped cleanup (V20260708110402, issue #668): the retired
             // stencil-parameters toggle's orphaned rows are gone, unrelated toggles survive.

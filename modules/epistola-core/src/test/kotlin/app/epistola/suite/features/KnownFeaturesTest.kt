@@ -113,6 +113,15 @@ class KnownFeaturesTest {
     }
 
     @Test
+    fun `resource relocation is toggle-only alpha and defaults off`() {
+        assertThat(KnownFeatures.stageOf(KnownFeatures.RESOURCE_RELOCATION)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
+        assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.RESOURCE_RELOCATION)
+        assertThat(KnownFeatures.HUB_ONLY).doesNotContain(KnownFeatures.RESOURCE_RELOCATION)
+        assertThat(FeatureDefaults().isEnabled(KnownFeatures.RESOURCE_RELOCATION)).isFalse()
+        assertThat(FeatureDefaults(resourceRelocation = true).isEnabled(KnownFeatures.RESOURCE_RELOCATION)).isTrue()
+    }
+
+    @Test
     fun `stable stage has no label so the UI renders no badge`() {
         assertThat(KnownFeatures.FeatureStage.STABLE.label).isNull()
         assertThat(KnownFeatures.FeatureStage.BETA.label).isEqualTo("Beta")

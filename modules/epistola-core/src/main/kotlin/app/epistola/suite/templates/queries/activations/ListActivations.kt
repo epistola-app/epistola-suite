@@ -11,6 +11,7 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.ActivationDetails
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -40,11 +41,9 @@ class ListActivationsHandler(
                     ea.activated_at
                 FROM environment_activations ea
                 JOIN environments e ON e.tenant_key = ea.tenant_key AND e.id = ea.environment_key
-                JOIN template_variants tv ON tv.tenant_key = ea.tenant_key AND tv.catalog_key = ea.catalog_key AND tv.template_key = ea.template_key AND tv.id = ea.variant_key
                 WHERE ea.variant_key = :variantId
                   AND ea.tenant_key = :tenantId
-                  AND ea.catalog_key = :catalogKey
-                  AND ea.template_key = :templateId
+                  AND ea.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 ORDER BY e.name ASC
                 """,
         )

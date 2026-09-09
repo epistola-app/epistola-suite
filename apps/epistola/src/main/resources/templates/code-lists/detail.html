@@ -22,7 +22,7 @@
                 <span th:text="${error}"></span>
             </div>
 
-            <div th:if="${codeList.lastRefreshedAt != null}" class="ep-text-xs ep-text-muted" style="margin-bottom: var(--ep-space-3);">
+            <div th:if="${codeList.lastRefreshedAt != null}" class="text-xs text-muted" style="margin-bottom: var(--ep-space-3);">
                 Last refreshed
                 <span th:text="${#temporals.format(codeList.lastRefreshedAt, 'yyyy-MM-dd HH:mm')}"></span>
                 <th:block th:if="${codeList.lastRefreshError != null}">

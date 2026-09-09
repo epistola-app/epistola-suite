@@ -6,6 +6,11 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.graph.CatalogResourceType
+import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.relocation.MoveCatalogResources
+import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
+import app.epistola.suite.catalog.relocation.movedTo
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -17,6 +22,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.contracts.commands.CreateContractVersion
@@ -26,6 +32,7 @@ import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.ListDocumentTemplatesHandler
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -67,13 +74,14 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         jdbi.withHandle<Unit, Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_model, data_examples, status, created_at)
-                VALUES (1, :tenantKey, 'default', :templateKey, :dataModel::jsonb, :dataExamples::jsonb, 'draft', NOW())
-                ON CONFLICT (tenant_key, catalog_key, template_key) WHERE status = 'draft'
+                INSERT INTO contract_versions (id, tenant_key, template_resource_id, data_model, data_examples, status, created_at)
+                VALUES (1, :tenantKey, ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}, :dataModel::jsonb, :dataExamples::jsonb, 'draft', NOW())
+                ON CONFLICT (tenant_key, template_resource_id) WHERE status = 'draft'
                 DO UPDATE SET data_model = :dataModel::jsonb, data_examples = :dataExamples::jsonb
                 """,
             )
                 .bind("tenantKey", tenantKey)
+                .bind("catalogKey", "default")
                 .bind("templateKey", templateKey)
                 .bind("dataModel", dataModel)
                 .bind("dataExamples", dataExamples)
@@ -635,6 +643,26 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             )
             assertThat(templates).hasSize(1)
         }
+    }
+
+    @Test
+    fun `GET template detail at its pre-move address lands on the moved template`() {
+        val tenant = createTenant("Moved template tenant")
+        val templateKey = TemplateKey.of("moved-invoice")
+        withMediator {
+            CreateCatalog(tenant.id, CatalogKey.of("shared"), "Shared").execute()
+            CreateDocumentTemplate(TemplateId(templateKey, CatalogId.default(TenantId(tenant.id))), "Moved Invoice").execute()
+            val relocation = ResourceAddress(CatalogResourceType.TEMPLATE, CatalogKey.DEFAULT.value, templateKey.value).movedTo(CatalogKey.of("shared"))
+            val preview = PreviewCatalogResourceMove(tenant.id, listOf(relocation)).query()
+            MoveCatalogResources(tenant.id, listOf(relocation), preview.planFingerprint).execute()
+        }
+
+        // TestRestTemplate follows the 303 to the canonical URL; without the redirect the old
+        // address is a 404, so landing on the page is the proof.
+        val response = restTemplate.getForEntity("/tenants/${tenant.id}/templates/default/${templateKey.value}", String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains("Moved Invoice")
     }
 
     @Test

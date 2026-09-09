@@ -11,6 +11,8 @@ import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.RequiresAuthentication
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.themes.TENANT_COLUMNS_WITH_THEME
+import app.epistola.suite.themes.TENANT_THEME_JOIN
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -36,17 +38,17 @@ class ListTenantsHandler(
         }
 
         val sql = buildString {
-            append("SELECT * FROM tenants WHERE 1=1")
+            append("SELECT $TENANT_COLUMNS_WITH_THEME FROM tenants t $TENANT_THEME_JOIN WHERE 1=1")
             if (accessibleTenantKeys != null) {
-                append(" AND id = ANY(:tenantKeys)")
+                append(" AND t.id = ANY(:tenantKeys)")
             }
             if (!query.searchTerm.isNullOrBlank()) {
-                append(" AND name ILIKE :searchTerm")
+                append(" AND t.name ILIKE :searchTerm")
             }
             if (!query.idPrefix.isNullOrBlank()) {
-                append(" AND id LIKE :idPrefix")
+                append(" AND t.id LIKE :idPrefix")
             }
-            append(" ORDER BY created_at DESC")
+            append(" ORDER BY t.created_at DESC")
         }
 
         val jdbiQuery = handle.createQuery(sql)

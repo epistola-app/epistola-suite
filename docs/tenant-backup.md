@@ -148,6 +148,22 @@ The **Upgrading** feature is independent: it keeps using the catalog _export_
 snapshot (`TenantSnapshotSyncService`) for its hub compatibility checks, so
 backups and upgrading toggle separately.
 
+### Identities in the export snapshot
+
+The export snapshot's archive carries `identities.json` beside the catalog ZIPs
+(schema version 2): the tenant's `catalog_resources` registry and its retained
+`catalog_resource_aliases`. It sits _beside_ the ZIPs rather than inside them
+because `resource_id` is deliberately absent from catalog exchange — it is
+tenant-local, and a snapshot is the one place a tenant's own state travels whole.
+
+`RestoreTenantSnapshot` plants those identities **before** importing, so the
+identity sync trigger adopts each recorded one instead of minting a fresh one.
+Without it a restore quietly breaks two things that outlive an address: the
+`template_resource_id` on generation history (no foreign key protects it, so a
+dangling one simply stops joining) and every retained alias, cascade-deleted with
+the identity it pointed at. A schema-1 archive has no `identities.json` and
+restores with fresh identities, exactly as it did when it was written.
+
 ## Adding a tenant-scoped table
 
 Every tenant-scoped table must be classified INCLUDE or DENY in

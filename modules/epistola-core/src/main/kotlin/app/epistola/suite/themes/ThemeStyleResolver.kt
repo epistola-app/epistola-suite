@@ -5,6 +5,9 @@
 package app.epistola.suite.themes
 
 import app.epistola.generation.pdf.SpacingScale
+import app.epistola.suite.catalog.graph.CatalogResourceType
+import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.identity.resolveCatalogResourceAddress
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -170,6 +173,21 @@ class ThemeStyleResolver(
         query.mapTo<Theme>()
             .findOne()
             .orElse(null)
+            // A qualified reference names the catalog the theme was in when the content was
+            // written. A relocated theme leaves an alias there, and this is the live resolution
+            // path, so without following it a template would silently fall back to the tenant
+            // default theme rather than render in the theme it names.
+            ?: catalogKey?.let { requested ->
+                handle.resolveCatalogResourceAddress(
+                    tenantId,
+                    ResourceAddress(CatalogResourceType.THEME, requested.value, themeId.value),
+                )
+                    ?.takeIf { it.resolvedViaAlias }
+                    // Both halves of the canonical address: a relocation renames as well as moves,
+                    // and a renamed theme that resolved to nothing would fall back to the tenant
+                    // default rather than fail, so the document renders in the wrong theme.
+                    ?.let { getTheme(tenantId, CatalogKey.of(it.canonical.catalogKey), ThemeKey.of(it.canonical.key)) }
+            }
     }
 
     /**

@@ -430,7 +430,7 @@ also prints the slowest classes and costliest commands at the end of each run.
 
 ## Performance Optimizations
 
-- **One Postgres per test JVM** — `TestRuntimeLifecycle` starts a single `postgres:17` container per
+- **One Postgres per test JVM** — `TestRuntimeLifecycle` starts a single `postgres:18` container per
   Gradle test task JVM and each Spring context gets its own logical database inside it (there is no
   cross-run container reuse; Ryuk or the launcher-session hook stops it at the end)
 - **Not a template database** — cloning each context's database from one migrated template

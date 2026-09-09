@@ -142,15 +142,15 @@
             <td>
                 <div class="log-msg" th:text="${log.message}">message</div>
                 <details th:if="${log.exception != null}" class="log-exception">
-                    <summary class="ep-text-muted ep-text-xs">Stack trace</summary>
+                    <summary class="text-muted text-xs">Stack trace</summary>
                     <pre th:text="${log.exception}">stack</pre>
                 </details>
             </td>
             <td>
                 <span th:if="${log.tenantKey != null}" th:text="${log.tenantKey}">tenant</span>
-                <span th:if="${log.tenantKey == null}" class="ep-text-muted" title="System / background log">system</span>
+                <span th:if="${log.tenantKey == null}" class="text-muted" title="System / background log">system</span>
             </td>
-            <td class="ep-text-muted log-logger" th:title="${log.instanceId}" th:text="${log.instanceId}">instance</td>
+            <td class="text-muted log-logger" th:title="${log.instanceId}" th:text="${log.instanceId}">instance</td>
         </tr>
     </tbody>
 

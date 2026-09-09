@@ -24,6 +24,7 @@ import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.queries.versions.GetVersion
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.withRequiredDataExample
@@ -91,8 +92,8 @@ class VersionScopingTest : IntegrationTestBase() {
                 """
                 SELECT referenced_paths::text
                 FROM template_versions
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                  AND template_key = :templateKey AND variant_key = :variantKey AND id = 1
+                WHERE tenant_key = :tenantKey
+                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = :variantKey AND id = 1
                 """,
             )
                 .bind("tenantKey", templateId.tenantKey)

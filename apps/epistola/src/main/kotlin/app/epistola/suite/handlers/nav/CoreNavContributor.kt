@@ -40,6 +40,21 @@ class CoreNavContributor : NavContributor {
         add(NavItem("authoring", "stencils", "Stencils", "stencils", 30))
         if (context.hasPermission(Permission.CATALOG_VIEW)) {
             add(NavItem("authoring", "catalogs", "Catalogs", "catalogs", 40))
+            // Its own page rather than a tab under Catalogs, so it is linkable and the Catalogs
+            // list stays about the catalogs themselves. The longer path suffix wins the
+            // active-section match, so browsing here does not light up Catalogs instead.
+            if (ResolveFeatureToggles(context.tenantKey).query()[KnownFeatures.RESOURCE_RELOCATION] == true) {
+                add(
+                    NavItem(
+                        "authoring",
+                        "catalog-organise",
+                        "Organise",
+                        "catalogs/organise",
+                        45,
+                        stage = KnownFeatures.stageOf(KnownFeatures.RESOURCE_RELOCATION),
+                    ),
+                )
+            }
         }
 
         // Resources

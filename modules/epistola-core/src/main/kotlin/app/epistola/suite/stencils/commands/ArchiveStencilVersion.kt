@@ -13,6 +13,8 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.StencilVersionNotFoundException
 import app.epistola.suite.stencils.StencilVersionNotPublishedException
 import app.epistola.suite.stencils.model.StencilVersion
+import app.epistola.suite.stencils.stencilAtAddress
+import app.epistola.suite.stencils.updateStencilVersionsReturning
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -40,7 +42,7 @@ class ArchiveStencilVersionHandler(
         val currentStatus = handle.createQuery(
             """
             SELECT status FROM stencil_versions
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId AND id = :versionId
+            WHERE tenant_key = :tenantId AND stencil_resource_id = ${stencilAtAddress("tenantId", "catalogKey", "stencilId")} AND id = :versionId
             """,
         )
             .bind("tenantId", command.versionId.tenantKey)
@@ -70,13 +72,10 @@ class ArchiveStencilVersionHandler(
         }
 
         handle.createQuery(
-            """
-            UPDATE stencil_versions
-            SET status = 'archived', archived_at = NOW()
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId AND id = :versionId
-              AND status = 'published'
-            RETURNING *
-            """,
+            updateStencilVersionsReturning(
+                "status = 'archived', archived_at = NOW()",
+                "id = :versionId AND status = 'published'",
+            ),
         )
             .bind("tenantId", command.versionId.tenantKey)
             .bind("catalogKey", command.versionId.catalogKey)

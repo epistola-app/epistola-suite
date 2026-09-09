@@ -4,6 +4,400 @@
 
 ## [Unreleased]
 
+- **[dev]** docs(catalog): **ADR 0020 (accepted) records where a catalog resource's address lives.** Review of
+  #869 spotted that a resource's current address is stored twice — on its own row and on its
+  `catalog_resources` registry row, kept in step by a trigger. The ADR re-examines that before the
+  branch merges and keeps it: making the registry the sole holder would trade seven domain-checked
+  key columns (`TEMPLATE_KEY`, `ASSET_KEY`, …) for one untyped `TEXT`, and cost the import path its
+  `ON CONFLICT` targets. A composite foreign key that would have made the copy structurally
+  impossible to diverge was checked against PostgreSQL 18 and rejected: `uuid` and `text` key
+  columns have no equality operator, so it works for six types and fails for `assets`.
+- **[user]** feat(db)!: **PostgreSQL 18 is now the minimum.** Catalog resource identities are minted
+  with `uuidv7()`, which 17 does not have — so identities are time-ordered rather than random, and
+  a new one lands at the right-hand edge of the index instead of anywhere in it. The first identity
+  migration checks `server_version_num` and stops with a named error before taking any lock, so an
+  older server costs a failed migration rather than a half-applied one. Upgrade the database before
+  the suite; see [Upgrading](docs/upgrades.md#postgresql-18-is-required). Which PostgreSQL versions
+  a release supports is still nowhere machine-readable — [#909](https://github.com/epistola-app/epistola-suite/issues/909)
+  tracks declaring and publishing that properly.
+- **[dev]** fix(test): **The test Postgres container moves to 18, and its tmpfs with it.** PostgreSQL
+  18's image stores its cluster in a major-version subdirectory (`/var/lib/postgresql/18/docker`)
+  and refuses to start if it finds a mount on the old `/var/lib/postgresql/data` path — so the
+  version bump alone failed every context in the suite until the tmpfs moved up one level. It is
+  still RAM-backed.
+- **[dev]** test(db): **`NOT NULL` is exempt from the constraint-name-length check.** PostgreSQL 18
+  made `NOT NULL` a real catalog constraint where 17 kept it as `pg_attribute.attnotnull` alone, so
+  two long-named columns appeared in `SchemaHygieneAppTest` overnight with no schema change behind
+  them. They are exempt because the instability the check is about cannot reach them: the name comes
+  from a single column, and every migration in the tree uses `SET NOT NULL` / `DROP NOT NULL` rather
+  than naming one.
+- **[dev]** refactor(catalog): **A resource's identity is a type, not a bare `UUID`.**
+  `ResourceIdentity` replaces `java.util.UUID` everywhere a catalog resource's stable identity is
+  carried — the relocation planner, the identity registry, the resource graph, quality ignores —
+  so a document id can no longer be passed where a template's identity belongs. Named for the
+  concept rather than the column: in `common.ids` a `…Id` is an address chain, which is the one
+  thing an identity is not. Storage is unchanged (`uuid`), and so is every wire format; typed keys
+  now bind through a shared `UuidIdArgumentFactory` rather than being unwrapped at each call site.
+- **[dev]** docs(perf): **Load test results are tracked over time.** `docs/load-test-results.md` logs
+  each `epistola-load-test` run against a named hardware profile, so the effect of a change on
+  throughput is visible rather than re-derived. Figures are only comparable within a profile, which
+  is why the hardware is a first-class column rather than a footnote.
+- **[dev]** fix(test): **The multi-instance harness could silently test the previous build.**
+  `boot_jar()` picked the alphabetically first jar, so a leftover `epistola-1.0.0-RC4.jar` won over
+  today's `epistola-dev.jar` — the harness passed while exercising a months-old build and schema.
+  It now takes the newest by modification time. `MIT_JAR_DIR` and `MIT_PROFILES` are also
+  overridable, since the demo distribution became a separate app and is the one that seeds the
+  tenant and API key load tooling needs.
+- **[dev]** test(db): **The migrated schema is now asserted, not just the data in it.**
+  `SchemaHygieneAppTest` runs against `pg_catalog` at the app level, where every module's migrations
+  are merged. Two kinds of check: hygiene invariants that should hold of any healthy schema — no two
+  indexes over the same columns of a table, no constraint name sitting at PostgreSQL's 63-character
+  truncation limit, no partitioned index missing a partition — and the identity model itself, so a
+  migration that half-applies or a later one that quietly undoes it fails here rather than at
+  runtime. It found three real problems on its first run, only one of which was new.
+- **[dev]** perf(db): **A duplicate index on `api_keys` is gone.** `key_hash` is declared `UNIQUE`,
+  which already indexes it; the explicit `idx_api_keys_key_hash` alongside it has been maintained by
+  every key write since the table was created, and could never be chosen over the unique index.
+- **[dev]** refactor(db): **Relocatable resource types are a seeded table, not a `CHECK`.** Adding an
+  eighth type is now an `INSERT` rather than dropping and recreating a constraint, matching how
+  `asset_types` already works. Two constraints on `catalog_release_publications` whose generated
+  names PostgreSQL had truncated are renamed, so a later migration can reference them safely.
+- **[user]** feat(db)!: **This release needs a maintenance window, and invalidates existing tenant
+  backups.** Re-keying every catalog resource onto a stable identity drops the address columns from
+  nine tables, so application code from the previous version cannot read the new schema. The
+  `pre-upgrade` Job commits it while the old pods are still serving, and the rolling update then
+  replaces them a quarter at a time — so the upgrade must be run with the application scaled to
+  zero. Separately, every tenant backup taken before the upgrade becomes unrestorable the moment it
+  commits (the column sets genuinely differ, so the compatibility headers say so) — take a
+  database-level backup first, and a fresh tenant backup afterwards rather than waiting for the
+  daily schedule. Full procedure in the new [Upgrades](docs/upgrades.md) guide.
+- **[dev]** perf(db): **The identity migration no longer rewrites the two largest tables.**
+  Generation history is filled forward, as it was originally, rather than backfilled: backfilling
+  meant a full row rewrite of every partition of `documents` and `document_generation_requests`
+  inside one transaction, holding `ACCESS EXCLUSIVE` on both throughout, to buy correctness only for
+  rows written before the upgrade — which retention removes within one window anyway. The redundant
+  `count(*)` over both tables (whose result was discarded) goes with it, and the two partitioned
+  indexes are created `ON ONLY` with per-partition children attached, so nothing scans generation
+  history at upgrade time. The foreign-key drops are now ordered, so every run takes its locks in
+  the same sequence instead of whatever `pg_constraint` returns.
+- **[dev]** fix(db): **A migration launched outside Helm keeps its own timeouts.** The migration JVM
+  inherited the application's 30-second socket timeout and 60-second leak detector, which are tuned
+  for request work and abort long DDL. The Helm chart relaxed both for its Job, but a migration
+  started any other way — the documented standalone container, a CI gate — got no such help.
+  `MigrationLauncher` now relaxes them itself.
+- **[dev]** perf(db): **Six duplicate identity indexes removed.** Each re-keyed table carried a
+  unique constraint on `(tenant_key, resource_id)` that became an exact duplicate of its primary key
+  once the key swapped, and every foreign key bound to the duplicate rather than the key. Dropped at
+  the swap, before the dependants' foreign keys are added, so they bind to the primary key.
+- **[dev]** test(catalogs): **The one-address-one-identity rule is now tested.** The sync trigger's
+  insert path reads the registry then writes it, and nothing in the trigger stops two transactions
+  registering different identities at the same address — the unique constraint on the address does.
+  The test makes the overlap real rather than hoping for it: one create holds an open transaction
+  with the address's index entry uncommitted while the second attempts it, proving the contender
+  blocks and is then refused.
+- **[dev]** fix(backup): **A restored tenant keeps its resource identities and its aliases.**
+  `RestoreTenantSnapshot` purges and re-imports, and neither identity table was in the snapshot — so
+  a restore handed every resource a fresh `resource_id`. That dangled the `template_resource_id` on
+  every generation record (deliberately unprotected by a foreign key, so it just stops joining) and
+  cascade-deleted every retained alias, meaning historical addresses silently stopped resolving.
+  Neither is visible until someone looks for a document by its template or follows a bookmark to a
+  moved resource. The snapshot archive now carries `identities.json` beside the catalog ZIPs
+  (schema version 2), and restore plants those identities before importing so the sync trigger
+  adopts each one. A version-1 archive restores exactly as it did before.
+- **[dev]** fix(db): **The identity migration no longer rewrites seven tables to add a column.**
+  `resource_id` was declared with `DEFAULT gen_random_uuid()`, and a volatile default makes Postgres
+  rewrite the whole table under `ACCESS EXCLUSIVE` — seven times, on the tables an upgrading
+  installation can least afford locked. Added nullable and backfilled instead, and the column keeps
+  no default: the sync trigger assigns it, which is what lets a caller that supplies its own
+  identity (a restore carrying the identities its snapshot recorded) be told apart from one that did
+  not. A collision between a supplied identity and the incumbent at that address is now raised
+  rather than silently resolved in the incumbent's favour, which would have discarded exactly what
+  the restore was carrying. The registry backfill also asserts one row per resource, and the two
+  constraints whose generated names Postgres would have truncated at 63 characters are named.
+- **[dev]** refactor(catalogs): **Templates are keyed by identity, not by where they live.** The
+  last and largest of the seven: a template's address sat in the primary key of eight tables across
+  three modules, and relocation had been weakening those foreign keys to `ON UPDATE CASCADE` to
+  make a move work — the option [ADR 0014](docs/adr/0014-safe-catalog-resource-relocation.md)
+  rejected, and a direct contradiction of its own rule that no foreign key is weakened to make a
+  move succeed. Variants, versions, contract versions, activations, quality findings and load-test
+  runs now name the template itself, so a move updates one row and every cascade is gone.
+  Generation history still records the address it was produced at, but gains a backfilled
+  `template_resource_id` so a renamed template's documents stay findable. Two latent holes closed
+  along the way: a generate and a load-test start each accepted a version identified only by
+  catalog, variant and number, so a version of a _different_ template in the same catalog satisfied
+  the check.
+- **[dev]** refactor(catalogs): **Stencils are keyed by identity, not by where they live.** A
+  stencil version carried a copy of its parent's address alongside a pointer to the parent — the
+  same fact stated twice, with nothing forcing the two to agree, and roughly ten queries filtering
+  on the copy. Versions name the stencil now, and read the address back through it, so a move
+  updates one row. The two interim migrations that added and then patched that copy are gone,
+  replaced by one that ships the final shape.
+- **[dev]** refactor(catalogs): **Fonts and assets are keyed by identity, not by where they live.**
+  A font face named its family and its backing binary through one shared `catalog_key`, so neither
+  could move without dragging the other's reference along — the reason `asset_catalog_key` was
+  added in the first place. A face now names both by identity, which dissolves that by construction:
+  the extra column is gone, so is the undocumented rule that a face's binary had to live in the
+  family's own catalog, and moving either resource leaves the other untouched. The resource-graph
+  now reports a face's asset in the asset's own catalog rather than assuming the family's.
+- **[dev]** refactor(catalogs): **Themes are keyed by identity, not by where they live.** A template's
+  own theme binding and the tenant-wide default now name the theme itself rather than a copy of its
+  address, so moving or renaming a theme updates a single row. Both were previously among the six
+  foreign keys relocation weakened to `ON UPDATE CASCADE`; neither needs one now. Queries that
+  report the address read it from `themes`, leaving the REST, export and UI shapes unchanged, and a
+  binding to an address that resolves to nothing is refused by the foreign key rather than silently
+  stored as "no theme" (which would have fallen the template back to the tenant default).
+- **[dev]** refactor(catalogs): **Code lists are keyed by identity, not by where they live.** The
+  first type taken to the model ADR 0014 accepted. Entries and attribute bindings now reference the
+  code list itself rather than a copy of its address, so moving or renaming one updates a single row
+  and cascades nothing. Queries that need the address read it from `code_lists`, which leaves the
+  REST, export and UI shapes unchanged. An attribute bound to an address that resolves to nothing is
+  still refused by the foreign key rather than silently stored as unbound.
+- **[user]** fix(catalogs): **An asset cannot be renamed.** Its key is a generated UUID, and an
+  unqualified image reference resolves by that id alone — with no catalog to find an alias with, a
+  rename would leave the image unreachable. `MovableResource` now records which types have a
+  generated key, and the preview refuses the rename rather than accepting one that breaks content.
+- **[perf]** perf(api): **A batch generate resolves each template address once, not once per item.**
+  Every item did its own canonical-address lookup — a query and a pool checkout each, serially,
+  before the batch command was dispatched — in a handler otherwise carefully batched. Batches are
+  uncapped, so the cost grew with the request.
+- **[dev]** fix(catalogs): **Two identity triggers no longer fail silently.** The registry's UPDATE
+  branch would leave a stale address if its row were missing, making the resource addressable only
+  at an address it no longer occupies; the generation-history fill assigned NULL when it matched no
+  template, which since this release's dropped foreign keys means a row that is neither validated
+  nor resolvable. Both now raise.
+- **[user]** fix(catalogs): **A renamed theme, font or asset is still found by content naming its old
+  address.** Relocation renames as well as moves, but the three render-time alias fallbacks took the
+  canonical _catalog_ while keeping the _requested key_, so only a catalog change resolved. None of
+  the failures was loud — a renamed theme fell back to the tenant default, a font to the built-in
+  typeface, an image simply vanished — and the tests only ever exercised moves, which is why they
+  passed.
+- **[user]** fix(templates): **Template settings shows which catalog the template is in.** It never
+  did, and moving one had arrived as a panel of its own — a fifth on a page that already had four.
+  Catalog is now a row in Details beside ID, with the move action inline, the same shape the Name
+  row already uses for editing in place.
+- **[dev]** feat(security): **A local user can be given its own sandbox tenant.** `sandbox: true` on
+  an `epistola.auth.local-users` entry routes that login through the same `LoginMembershipResolver`
+  the OIDC path uses, so it lands in a tenant derived from its username instead of a shared one.
+  Per user rather than per profile, because both shapes are wanted at once: an operator account
+  administering a known tenant beside training accounts that each want a private sandbox. Falls
+  back to the configured `tenant` — with a warning — when no resolver is present, so the same file
+  still works under plain `local`.
+- **[dev]** chore(config): **Two training logins on the local profile.** `trainee1@demo` and
+  `trainee2@demo`, each sandboxed under `local,demo` and ordinary members of the demo tenant
+  otherwise.
+- **[user]** fix(ui,design-system): **Muted and small text across the app is styled again.** Markup in
+  eleven places reached for `ep-text-muted`, `ep-text-sm`, `ep-text-xs` or `text-sm`; the first is a
+  wrong prefix for `text-muted`, and the size classes never existed at all — only the `--ep-text-*`
+  tokens behind them. Those elements rendered at default weight and size with nothing to show they
+  had asked for anything. The prefixes are corrected and `.text-sm` / `.text-xs` now exist.
+- **[dev]** test(architecture): **An undefined severity or text class fails the build.** A class the
+  stylesheets do not define renders as plain text — the page still loads and the markup still reads
+  as deliberate, so it survives review. `DesignSystemClassTest` checks every `alert`, `badge` and
+  `text-` class used in Thymeleaf templates and Lit components against the stylesheets.
+- **[user]** feat(templates): **A template can be moved from its own settings tab.** A Location
+  section states which catalog the template is in and opens the move dialog for it, so relocating
+  one template no longer means finding it again in the organise browser. Present only when the
+  tenant has relocation on, the catalog is authored, and the user may manage catalogs.
+- **[user]** fix(catalogs): **Organise says what a move did, and stops showing the form afterwards.**
+  "Resources moved." did not say how many or where, and a deep-linked resource was re-selected as
+  soon as the move finished — putting the form back, looking as though nothing had happened. The
+  message now names the count and destination, the shared destination resets, and the single-resource
+  view shows only the outcome once the move is done.
+- **[dev]** refactor(catalogs): **A resource address reads as a path.** `stencil:letters:header`
+  became `stencil:letters/header`, matching `EntityId.path()` — a colon after the type, slashes
+  within the address — so the organise deep link looks like every other identifier in the suite.
+  The tenant stays out of it because every surface carrying one already names the tenant in its URL.
+- **[user]** feat(catalogs): **Organise picks one destination for the whole selection.** Every row
+  had its own catalog dropdown, so moving twelve resources to one place meant twelve identical
+  choices and twelve chances to pick wrong. The destination is now chosen once above the table and
+  a row can still take its own with "Choose separately", which is also where a rename lives. A
+  select-all covers everything the current filter shows.
+- **[user]** feat(catalogs): **A single resource can be moved from its own page.**
+  `/catalogs/organise/move?resource=<type>:<catalog>/<key>` shows one resource, where it can go,
+  and what the move would rewrite. It answers with a dialog to HTMX, so a resource page can open it
+  in place, and with a full page to a pasted link — one URL that works from either direction.
+- **[user]** fix(catalogs): **The organise page no longer keeps its loading placeholder on screen.**
+  "Loading resources…" sat in a panel above the browser that had replaced it. The element renders
+  into light DOM so the app's stylesheet reaches it, and Lit appends to a render root rather than
+  replacing what is already there, so the pre-upgrade placeholder simply stayed.
+- **[user]** feat(catalogs): **Every catalog resource can now be moved between catalogs.** Themes
+  were the last type and the most connected: referenced from content (`themeRef`), from a
+  template's own binding, and from the tenant-wide default. The relational two follow by
+  `ON UPDATE CASCADE`; content references are rewritten in drafts and resolved through the alias in
+  published versions. `ThemeStyleResolver` follows the alias, so a template that names the theme's
+  old catalog renders in that theme instead of quietly falling back to the tenant default.
+  `unsupported-resource-type` now has no subject left, and a test asserts the set is complete
+  rather than the blocker merely being unused.
+- **[user]** feat(catalogs,fonts): **Assets and fonts can be moved between catalogs.** Both are
+  resolved while rendering, by the address the content names, so a move risked what no earlier
+  movable type could: a published document that renders _successfully_ but wrongly — a missing
+  image, or silently falling back to the built-in typeface. `GetAssetContent` and `ResolveFontFace`
+  now follow the alias when the address they are given no longer holds the resource.
+- **[dev]** fix(fonts): **A font face's asset is no longer pinned to the font's catalog.**
+  `font_variants.catalog_key` backed two foreign keys at once — the family's catalog and the
+  backing asset's — so one column could not follow two parents and moving either resource would
+  have dragged the other's reference along. The asset's catalog is now its own column, which also
+  lifts an undocumented restriction that a face's asset had to live in the font's catalog.
+- **[user]** feat(catalogs): **Code lists can be moved between catalogs.** The fourth relocatable
+  type, and the cheapest: nothing in versioned content names a code list, so a move rewrites no
+  payloads. Its entries and any attribute bound to it — including from another catalog — follow by
+  `ON UPDATE CASCADE`, so a rename carries them too.
+- **[dev]** feat(demo): **Running the demo app locally comes with a shared secret.** Exercising the
+  all-tenant `/api` credential meant exporting `EPISTOLA_DEMO_SHAREDSECRET` by hand every time. A
+  second document in `application-demo.yaml`, gated on `local`, now supplies a fixed placeholder —
+  so it applies to `local,demo` and cannot reach the published demo image, which runs `demo`
+  without `local`. The value is deliberately unmistakable and low-entropy, like the one in
+  `DemoSharedSecretEndToEndIT`: a realistic-looking credential trips secret scanners and invites
+  being copied somewhere real. Deployments still supply their own through the environment.
+- **[user]** fix(catalogs): **The organise browser offered nothing but read-only resources.** Every
+  row was disabled: the listing sent `catalogType` as `AUTHORED` while the page compared it against
+  `authored`, so the check was always true and no resource could be selected. Read-only catalogs are
+  now excluded server-side instead of being listed and disabled, which removes the comparison
+  altogether rather than correcting it.
+- **[user]** feat(catalogs): **Releasing a catalog no longer freezes its resources.** A released
+  source catalog produced a blocker, so a single local release — one nobody had ever pulled — made
+  every resource in that catalog permanently unmovable. It is now a `released-source` warning: the
+  move is well-defined locally, and whether a subscriber is affected is the operator's judgement.
+  Previews carry warnings alongside blockers, and a warning appearing between preview and execute
+  invalidates the plan just as a blocker does.
+- **[user]** fix(catalogs): **Organise uses the app's form controls.** Its search and catalog filter
+  were unstyled inputs; they now use the shared input styling, the buttons use the shared button
+  styling, and the empty state says which filter is hiding things.
+- **[user]** fix(catalogs): **Organise is reachable from the navigation.** Enabling the relocation
+  toggle revealed a button on the Catalogs page and nothing in the menu, so the feature looked
+  missing to anyone who turned it on and went looking for it — the resource graph, which it sits
+  beside conceptually, has had a nav item all along. Organise now appears under Authoring next to
+  Catalogs with its Alpha badge, and claims its own active section instead of highlighting Catalogs.
+- **[dev]** fix(migrations): **Relocation's schema changes land as one block, last.** They were
+  timestamped `20260822`–`20260831`, straddling the `20260824` Exchange migrations that `main`
+  already carries. Flyway runs with the default `outOfOrder=false`, so an installation that had
+  applied the Exchange migrations would have refused to start on a lower-versioned pending one.
+  All six are renumbered into a contiguous `20260905` block, keeping their relative order.
+  Legitimate because none has ever been part of a release — the rule against editing a migration
+  binds from the moment one ships.
+- **[user]** feat(catalogs,api,mcp): **Old addresses keep working after a move.** Only export and the
+  resource graph consulted aliases; every other surface answered 404 at a moved template's, stencil's
+  or attribute's previous `(catalog, key)`, which would have broken each integration generating from
+  a moved template. REST and MCP now resolve the address to the canonical one before dispatching —
+  through an authorisation-free `ResolveCanonicalResourceAddress`, so a generate-only key is not
+  refused at the resolution step — and UI `GET`s redirect to the canonical URL, variants and
+  versions included.
+- **[user]** feat(catalogs): **A resource whose published versions carry relative references can move.**
+  Content published before references were qualified on write stored a same-catalog dependency
+  relatively, and the `immutable-relative-reference` blocker then made its owner permanently
+  immovable — publishing again does not retire the old version. Relocation now pins such references
+  to the catalog they resolve against today, published versions included: the bytes change, the
+  meaning does not, and the released-catalog rule keeps released content untouched. Templates get
+  the same treatment; their own versions were not examined at all before, so a draft reopened after
+  a move would have been qualified against the wrong catalog. A batch that moves only templates now
+  reads only those templates' versions instead of the whole tenant.
+- **[user]** fix(documents): **Generation history follows a renamed template.** Listing and counting
+  a template's documents matched on the template key alone, so a document generated before its
+  template was renamed vanished from the template's history. Both queries now also match on the
+  `template_resource_id` the insert trigger records, which is what the identity index was added
+  for; rows older than that column still match by key.
+- **[dev]** test(migrations): **The RC1 preservation fixture seeds documents and attributes.** The
+  two tables touched by the identity migrations -- the attribute primary-key swap and the
+  generation-history foreign-key drops on a partitioned table -- had no RC1-era rows in
+  `DataPreservationMigrationIT`. It now plants one of each and checks the attribute gained a
+  registry identity while the document kept its address and, deliberately, no backfilled identity.
+- **[user]** fix(catalogs): **A vacated attribute address is reserved too.** `CreateAttributeDefinition`
+  now calls the shared address reservation, as stencil and template creation already did, so the
+  planner's "retained alias occupies the target" rule and the create path agree for every movable
+  type. A test moves one resource of each movable type and expects the replacement to be refused;
+  registering a new type without wiring the guard fails it.
+- **[user]** fix(catalogs): **Deleting a catalog drops the aliases it left behind.** Aliases at the
+  addresses of resources moved out of a catalog have no foreign key on it, so they outlived its
+  deletion and reserved those addresses for a catalog registered later under the same key, with no
+  page to release them from. `UnregisterCatalog` removes them with the catalog; published references
+  to those addresses stop resolving from then on.
+- **[user]** feat(catalogs): **Reorganising catalogs has its own page.** Relocation moves out of the
+  resource graph — a read-only diagnostic tool an author reorganising catalogs would not think to
+  open, and which could only act on one node — and onto `/catalogs/organise`: a browser across
+  catalogs that lets you select resources, choose where each goes, preview the impact, and apply it
+  as one batch. Deep-linkable via `?resource=<type>:<catalog>/<key>`, so anything that notices a
+  misplaced resource can hand off with it selected; the graph now links here instead of hosting the
+  move. Relocation no longer requires the `resource-graph` toggle.
+- **[user]** feat(catalogs): **Resources are relocated in batches, and a relocation can rename.**
+  A destination is now a full address, so a resource can change catalog, key, or both — moving and
+  renaming are the same operation. A batch is all-or-nothing: one transaction, one plan, and any
+  blocker stops every member, with blockers naming the member they belong to. A member may take an
+  address another member is vacating; two members exchanging addresses is refused in the preview,
+  because address uniqueness is checked per statement and no order avoids a transient collision.
+- **[user]** feat(catalogs): **Relocation refuses a move that would make two catalogs depend on
+  each other.** Snapshot restore orders catalogs topologically and fails outright on a cycle, so
+  such a move could have left a tenant's snapshots unrestorable — discovered later, by whoever was
+  trying to recover. Required by ADR 0014 and previously unimplemented.
+- **[dev]** feat(catalogs): **The resource graph carries stable resource identities.** Nodes now
+  expose the `resource_id` that survives a relocation, so a caller can follow a resource across a
+  move instead of guessing where it landed from its new address.
+- **[user]** fix(catalogs): **A template reopened after a relocation can be republished again.**
+  Reopening copied the published model verbatim, so the new draft still named the address the moved
+  resource had left; publish validation then looked for it there and refused, leaving the template
+  permanently unpublishable with nothing in the move preview hinting at it. Mutable content is now
+  canonicalised through the alias when it is written, while published versions keep their original
+  bytes.
+- **[dev]** test(catalogs): **Guard against registering a render-time-resolved type as movable.**
+  Stencil references are provenance — content is inlined at insert — so moving a stencil cannot
+  break generation. Themes, fonts and assets are resolved by address while rendering, so registering
+  one before its runtime lookup follows aliases would break every published template that uses it.
+  The guard makes that a build failure; all three have since been registered, each recording the
+  lookup that follows aliases and the test that proves it.
+- **[user]** feat(catalogs): **Templates can be moved between catalogs.** Variants, versions,
+  contract versions, environment activations, quality findings and load-test runs follow the
+  template. Generation history does not — it records the catalog a document was produced from, and
+  that stays true, while a new `template_resource_id` keeps the link to the template itself. Deleting
+  a template therefore no longer purges its generation history. Alpha, behind the
+  `resource-relocation` toggle.
+- **[dev]** fix(quality): **Ignored findings survive their template moving catalogs.** Finding and
+  ignore scope URNs embed the subject's address and are the join between the two, so a move would
+  have left ignores stale and silently reopened every ignored finding on the next submission.
+  Quality repoints its own rows through an immediate event handler, so core still knows nothing
+  about the module.
+- **[user]** feat(catalogs): **Variant attributes can be moved between catalogs.** The first type
+  re-keyed onto its stable identity, so relocation is a plain column update. Every reference to an
+  attribute is a key in a variant's attribute map, which the move rewrites — nothing is left
+  resolving through an alias. Alpha, behind the `resource-relocation` toggle.
+- **[dev]** refactor(catalogs): **Relocation is driven by a per-type descriptor.** `MovableResource`
+  declares which table a move updates and which content reference kinds target it, replacing four
+  hardcoded stencil checks. A type appears there only once its table is keyed by identity, so the
+  unsupported-type blocker is derived rather than maintained by hand.
+- **[dev]** docs(catalogs): **Resource relocation targets an ID-first model.** ADR 0014 now accepts
+  Option F: identity, location, and address are separated so a move is a single column update with
+  nothing to rewrite. Adds a sequenced per-table migration plan, ordered by measured foreign-key
+  coupling, and surfaces the generation-history decision that moving templates forces.
+- **[dev]** feat(catalogs): **Stored resource references now name their catalog.** Saving or
+  publishing fills in the containing catalog on relative references, so a published reference keeps
+  its meaning when its owner is relocated. Exports still travel relative to their own catalog, so a
+  catalog remains installable under a different key. Assets stay unqualified: they resolve
+  tenant-globally.
+- **[user]** feat(catalogs): **An address a moved resource left behind is reserved.** Creating a
+  resource at that address is rejected rather than silently repointing references published against
+  it; releasing the alias is explicit and previews what stops resolving. Alpha, behind the
+  `resource-relocation` toggle.
+- **[user]** fix(catalogs): **Catalog exports declare dependencies bound inside stencil content.**
+  Export scanned only template models, so a font, theme, or asset that a stencil bound in another
+  catalog never reached `manifest.dependencies` and a re-import was not told the other catalog was
+  required.
+- **[dev]** fix(catalogs): **Stencil versions cannot drift from their parent's address.** A
+  relocation-era migration left `stencil_versions.catalog_key` and `stencil_key` unconstrained while
+  ten queries still filtered on them; the address foreign key is restored with `ON UPDATE CASCADE`.
+- **[dev]** refactor(catalogs): **One authority for embedded resource references.** The resource
+  graph, catalog relocation, and catalog export walked template and stencil JSON with four separate
+  hand-written traversals that had already diverged on which shapes count as a reference. They now
+  share `ResourceReferenceSites`, so a new reference shape is declared once.
+- **[user]** fix(catalogs): **Stale relocation aliases no longer redirect exports.** A resource
+  re-created at an address a moved resource left behind now wins over that alias everywhere, so
+  exporting the source catalog keeps the new resource's own references instead of rewriting them to
+  the moved resource. Moving a resource back to a catalog it previously occupied is also supported,
+  and a relocation plan is only invalidated by edits that actually change the move.
+- **[dev]** perf(catalogs): **Stencil version lookups keep their tenant predicate.** Restores
+  `tenant_key` to the `stencil_versions` joins in the stencil list, catalog export, and export
+  conflict queries so they use `idx_stencil_versions_stable_parent` instead of scanning the table.
+- **[dev]** docs(catalogs): **Resource relocation now has an ID-first target architecture.** ADR
+  0014 accepts stable resource IDs as the target of internal relationships and typed reference
+  records, while retaining catalog/slug addresses for authoring and exchange and aliases for
+  historical compatibility.
 - **[dev]** perf(catalog,fonts): **Creating a tenant no longer re-reads the bundled catalog or seeds fonts one statement at a time.** Every `CreateTenant` installs the system catalog (in demo mode, once per signed-in user). The classpath catalog was read, schema-migrated and hashed again for every tenant — three manifest reads and a full pass over every resource detail and binary — and the eight bundled font families were written with twenty-four statements. `CatalogClient` now caches manifests, resource details and binaries for `classpath:` sources in a bounded Caffeine cache (32 MiB by source bytes, no TTL, the same shape as `FontByteCache`), and `CatalogFingerprintService` caches the per-resource fingerprints of such a source (the canonicalise-and-hash pass was most of what `RegisterCatalog` cost per tenant). That content cannot change while the process runs; `file:` and HTTP sources are never cached, and binaries are copied out on read. `FontCatalogWriter` writes a set of families in three statements: one multi-row upsert, one delete of the previous faces, one batch insert of the new ones. The canonicaliser also stops re-serialising every resource to a JSON tree just to look for an asset content URL; it reads it from the bound asset resource. Measured locally, full core suite: a tenant 75.9 → 56.4 ms, the font seed 15.6 → 4.4 ms, `RegisterCatalog` 5.8 → 2.6 ms. This is a tenant-creation latency change; on CI it is inside run-to-run noise.
 - **[dev]** perf(test): **Fewer Spring test contexts.** Context boots were the largest share of integration-test time (64 per CI run, 5 s each idle and 20 to 40 s under load, each with its own database), and most existed by accident rather than to test a configuration. The Exchange tests each started their own fake server and registered its port through `@DynamicPropertySource`, so twelve classes booted twelve contexts; they now share one `FakeExchangeServer` per JVM behind a base class that owns the single property source, holds a `@ResourceLock` so the classes that script the fake never overlap, and purges the installation-wide outbox before every test (the same in the app for its handler tests). Four cluster tests set lease and retry knobs to the production defaults and the two scheduler tests each imported their own recording-handler configuration; the no-op sources are gone and the handlers share one configuration, although the cluster tests themselves cannot share a context: they dispatch, reclaim and delete installation-wide rows, and sharing a database made their polls see each other's state. `allow-http` for the loopback catalog and code-list fakes and the Prometheus endpoint settings moved into the test profiles. The five cluster tests that genuinely need a database of their own now say so with an explicit `epistola.test.private-context` property instead of a value that happened to differ. Measured locally on the full suites: `epistola-core:integrationTest` 28 → 19 context boots, `apps:epistola:integrationTest` 16 → 14. See `docs/testing.md`, "One Spring context per configuration".
 - **[dev]** ci(build): **The test jobs wait only for compilation.** The pipeline's critical path was the whole `build` job (frontend lint, format, license and unit checks, then compile, then SBOMs, notices and two Trivy scans) followed by the test job, so about two minutes of work the tests never needed ran in front of them on every run — five minutes and more on the days npm was slow. `compile` now does only what the test jobs consume (`pnpm build` and a single `gradle checkMigrationVersions testClasses` invocation, since every extra Gradle call on CI pays the full configuration phase again), while `frontend-checks` and `sbom` run alongside the tests. Publishing still gates on all of them.
@@ -352,6 +746,15 @@ plus a session-expiry popup that now closes automatically after SSO.
   tags.** The same stored-XSS class in the stencil picker is fixed; stencil names and tags with
   markup or control characters are now rejected at the command boundary (descriptions escape on
   render but stay free text). (#644)
+- **[user]** feat(catalogs): **Authored stencils can be moved between catalogs in alpha.**
+  The resource graph previews affected draft and published references before moving, rewrites
+  mutable references, preserves published references through a stable identity and typed alias,
+  and exports aliases as canonical cross-catalog references. The independent alpha toggle is off
+  by default; released source catalogs and non-stencil resources remain blocked in this first cut.
+- **[dev]** feat(catalogs): **Catalog resources have stable tenant-local identities.** A shared
+  registry now assigns internal UUIDs to all seven top-level resource types, preserves typed public
+  slug addresses, and provides typed alias storage; stencil versions are the first owned hierarchy
+  linked to their parent's stable identity.
 - **[dev]** refactor(editor): **Expression selection and schema navigation boundaries tightened.**
   ProseMirror selection collapsing is centralized behind a typed text-editor interaction, while
   schema cursors now keep their canonical schema pointer and traversal path opaque.

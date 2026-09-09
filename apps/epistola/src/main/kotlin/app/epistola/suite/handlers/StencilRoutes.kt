@@ -15,6 +15,8 @@ class StencilRoutes(private val handler: StencilHandler) {
     @Bean
     fun stencilRouterFunction(): RouterFunction<ServerResponse> = router {
         "/tenants/{tenantId}/stencils".nest {
+            filter(CanonicalAddressRedirects::stencil)
+
             GET("", handler::list)
             GET("/search", handler::search)
             GET("/new", handler::newForm)
