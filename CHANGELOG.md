@@ -4,7 +4,7 @@
 
 ## [Unreleased]
 
-- **[dev]** docs(catalog): **ADR 0020 records where a catalog resource's address lives.** Review of
+- **[dev]** docs(catalog): **ADR 0020 (accepted) records where a catalog resource's address lives.** Review of
   #869 spotted that a resource's current address is stored twice — on its own row and on its
   `catalog_resources` registry row, kept in step by a trigger. The ADR re-examines that before the
   branch merges and keeps it: making the registry the sole holder would trade seven domain-checked

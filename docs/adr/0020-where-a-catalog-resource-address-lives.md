@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # ADR 0020: Where a catalog resource's address lives
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-09-09
 - **Discussants:** Epistola team
 - **Tags:** catalog, resources, schema, identity, relocation

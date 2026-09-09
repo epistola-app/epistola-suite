@@ -25,7 +25,7 @@ Back to the [documentation index](../README.md).
 | [0014](0014-safe-catalog-resource-relocation.md) Safe resource relocation             | Draft                          | Discussion record on relocating authored resources; not accepted.             |
 | [0015](0015-iframe-embedding-bridge.md) Iframe embedding bridge                       | Accepted                       | Iframe + `postMessage` bridge, demo-mode only.                                |
 | [0019](0019-demo-api-shared-secret.md) Demo API shared secret                         | Accepted — implemented         | All-tenant credential for the demo website, gated on the `demo` profile.      |
-| [0020](0020-where-a-catalog-resource-address-lives.md) Where a resource address lives | Proposed                       | Keeps the address on the resource row; registry copy stays a denormalisation. |
+| [0020](0020-where-a-catalog-resource-address-lives.md) Where a resource address lives | Accepted                       | Keeps the address on the resource row; registry copy stays a denormalisation. |
 
 ## Adding an ADR
 
