@@ -59,7 +59,12 @@ Rules:
 5. Address is computed at the boundary — export, URLs, REST, MCP — and mapped back on import.
 6. Aliases become an external-redirect layer for bookmarked URLs and external callers. Expirable,
    and never consulted by internal resolution.
-7. In Kotlin an identity is a `ResourceIdentity`, never a bare `UUID` — one more `UUID` in a
+7. The address lives on the resource's own row; `catalog_resources` keeps a copy, maintained by
+   `sync_catalog_resource_identity`, so polymorphic lookup does not need a seven-way `UNION`. That
+   duplication is deliberate and was re-examined before merge — see
+   [ADR 0020](adr/0020-where-a-catalog-resource-address-lives.md) for why the registry is not the
+   sole holder.
+8. In Kotlin an identity is a `ResourceIdentity`, never a bare `UUID` — one more `UUID` in a
    signature full of them is exactly how a document id ends up where a template's identity belongs.
    Deliberately not called `ResourceId`: in `common.ids` a `…Id` (`TemplateId`, `CatalogId`) is an
    address chain, which is the one thing an identity is defined not to be. It binds through
