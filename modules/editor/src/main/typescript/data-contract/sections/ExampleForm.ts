@@ -30,7 +30,7 @@ import {
 import { findRefType, getRefTypeById, type RefTypeId } from '../ref-types.js';
 import { scalarFromJsonSchema } from '../field-types.js';
 import { resolveSchemaForValue } from '../../json-schema/schema-resolution.js';
-import type { SchemaValidationError } from '../schema/validation.js';
+import { fieldIdFromPath, hasChildErrors, pathToErrorId } from '../validation-display.js';
 import './EpistolaRichTextInput.js';
 
 /** Resolve a JSON Schema property to a simple type label, including ref types. */
@@ -192,60 +192,10 @@ export function setNestedValue(obj: JsonObject, path: string, value: JsonValue):
 }
 
 // ---------------------------------------------------------------------------
-// Validation path utilities
-// ---------------------------------------------------------------------------
-
-/**
- * Convert a JSON Schema validation path (e.g., "$.users[0].email")
- * to the dot-separated form path used by the form renderer (e.g., "users.0.email").
- */
-export function validationPathToFormPath(path: string): string {
-  return path
-    .replace(/^\$\./, '') // strip leading "$."
-    .replace(/\[(\d+)\]/g, '.$1'); // convert [0] to .0
-}
-
-/**
- * Build a Map<formPath, errorMessage> from validation errors.
- * Used to drive inline error indicators on form fields.
- */
-export function buildFieldErrorMap(errors: SchemaValidationError[]): Map<string, string> {
-  const map = new Map<string, string>();
-  for (const err of errors) {
-    const formPath = validationPathToFormPath(err.path);
-    // Keep the first error per path (most relevant)
-    if (!map.has(formPath)) {
-      map.set(formPath, err.message);
-    }
-  }
-  return map;
-}
-
-/**
- * Check if any error path starts with the given prefix.
- * Used to show red dots on collapsed groups containing errors.
- */
-export function hasChildErrors(parentPath: string, errors: Map<string, string>): boolean {
-  const prefix = parentPath + '.';
-  for (const key of errors.keys()) {
-    if (key === parentPath || key.startsWith(prefix)) return true;
-  }
-  return false;
-}
-
-// ---------------------------------------------------------------------------
 // Render helpers
 // ---------------------------------------------------------------------------
 
 const NO_ERRORS: Map<string, string> = new Map();
-
-function pathToErrorId(path: string): string {
-  return `error-${path.replace(/\./g, '-')}`;
-}
-
-function fieldIdFromPath(path: string): string {
-  return `dc-field-${path.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
-}
 
 /**
  * Render the example form from a JSON Schema.

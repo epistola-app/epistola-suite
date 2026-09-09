@@ -99,6 +99,8 @@ export interface ArrayField extends BaseField {
   nestedFields?: SchemaField[];
   /** Minimum number of items in the array */
   minItems?: number;
+  /** Maximum number of items in the array */
+  maxItems?: number;
 }
 
 /** An object field with optional nested fields */
@@ -126,6 +128,7 @@ export interface SchemaFieldUpdate {
   minimum?: number | undefined;
   maximum?: number | undefined;
   minItems?: number | undefined;
+  maxItems?: number | undefined;
 }
 
 // =============================================================================
@@ -195,6 +198,12 @@ export type SchemaEditMode = 'visual' | 'json-only';
 // Validation & Save types
 // =============================================================================
 
+/**
+ * A single path+message validation problem. Carries both backend-returned
+ * save warnings/errors and anything computed client-side (example data
+ * checked against the schema, schema-field constraint checks) — one shape
+ * for both sources.
+ */
 export interface ValidationError {
   path: string;
   message: string;

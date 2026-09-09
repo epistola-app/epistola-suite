@@ -242,14 +242,14 @@ function mergeSchemas(
     }
 
     if (
-      (key === 'maximum' || key === 'minItems') &&
+      (key === 'maximum' || key === 'minItems' || key === 'maxItems') &&
       typeof baseValue === 'number' &&
       typeof extensionValue === 'number'
     ) {
       merged[key] =
-        key === 'maximum'
-          ? Math.min(baseValue, extensionValue)
-          : Math.max(baseValue, extensionValue);
+        key === 'minItems'
+          ? Math.max(baseValue, extensionValue)
+          : Math.min(baseValue, extensionValue);
       continue;
     }
 

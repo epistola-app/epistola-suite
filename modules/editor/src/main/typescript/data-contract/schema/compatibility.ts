@@ -62,6 +62,7 @@ const SUPPORTED_PROPERTY_KEYS = new Set([
   'minimum',
   'maximum',
   'minItems',
+  'maxItems',
 ]);
 
 /** Supported single-value types */

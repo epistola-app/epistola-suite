@@ -75,6 +75,29 @@ describe('normalizeSchemaForVisualEditor', () => {
     });
   });
 
+  it('merges allOf numeric bounds by narrowing (max/maxItems take the min, min/minItems take the max)', () => {
+    const result = normalizeSchemaForVisualEditor({
+      type: 'object',
+      properties: {
+        tags: {
+          type: 'array',
+          items: { type: 'string' },
+          minItems: 1,
+          maxItems: 10,
+          allOf: [{ type: 'array', items: { type: 'string' }, minItems: 3, maxItems: 5 }],
+        },
+      },
+    });
+
+    expect(result.issues).toEqual([]);
+    expect(result.schema?.properties?.tags).toEqual({
+      type: 'array',
+      items: { type: 'string' },
+      minItems: 3,
+      maxItems: 5,
+    });
+  });
+
   it('retains reference sibling annotations while inlining', () => {
     const result = normalizeSchemaForVisualEditor({
       type: 'object',

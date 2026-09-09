@@ -8,17 +8,18 @@ import { describe, expect, it } from 'vitest';
 import { render } from 'lit';
 import {
   arrayTargetLabel,
-  validationPathToFormPath,
-  buildFieldErrorMap,
-  hasChildErrors,
   toDateTimeLocal,
   dateTimeOffset,
   combineDateTime,
   renderExampleForm,
   setNestedValue,
 } from './ExampleForm.js';
-import type { SchemaValidationError } from '../schema/validation.js';
-import type { JsonObject, JsonSchema, JsonSchemaProperty } from '../types.js';
+import {
+  validationPathToFormPath,
+  buildFieldErrorMap,
+  hasChildErrors,
+} from '../validation-display.js';
+import type { JsonObject, JsonSchema, JsonSchemaProperty, ValidationError } from '../types.js';
 
 describe('example form placeholders', () => {
   it('renders field-name hints without assigning field values', () => {
@@ -522,7 +523,7 @@ describe('buildFieldErrorMap', () => {
   });
 
   it('maps validation paths to form paths', () => {
-    const errors: SchemaValidationError[] = [
+    const errors: ValidationError[] = [
       { path: '$.name', message: 'is required' },
       { path: '$.age', message: 'must be integer' },
     ];
@@ -532,13 +533,13 @@ describe('buildFieldErrorMap', () => {
   });
 
   it('handles array paths', () => {
-    const errors: SchemaValidationError[] = [{ path: '$.items[0]', message: 'must be string' }];
+    const errors: ValidationError[] = [{ path: '$.items[0]', message: 'must be string' }];
     const map = buildFieldErrorMap(errors);
     expect(map.get('items.0')).toBe('must be string');
   });
 
   it('keeps first error per path (deduplicates)', () => {
-    const errors: SchemaValidationError[] = [
+    const errors: ValidationError[] = [
       { path: '$.name', message: 'first error' },
       { path: '$.name', message: 'second error' },
     ];
@@ -547,7 +548,7 @@ describe('buildFieldErrorMap', () => {
   });
 
   it('handles nested object paths', () => {
-    const errors: SchemaValidationError[] = [
+    const errors: ValidationError[] = [
       { path: '$.address.street', message: 'is required' },
       { path: '$.users[0].email', message: 'must be string' },
     ];

@@ -74,13 +74,57 @@ class JsonSchemaValidator(
         val syntaxResult = validateSchema(objectMapper.writeValueAsString(schema))
         if (syntaxResult is SchemaValidationResult.Invalid) return syntaxResult
 
-        return if (requiresObjectAtRoot(schema, schema, emptySet())) {
-            SchemaValidationResult.Valid
-        } else {
-            SchemaValidationResult.Invalid(
+        if (!requiresObjectAtRoot(schema, schema, emptySet())) {
+            return SchemaValidationResult.Invalid(
                 "A data contract JSON Schema must require an object at its root",
             )
         }
+
+        val invalidItemsRangePath = findInvalidItemsRange(schema, "$")
+        if (invalidItemsRangePath != null) {
+            return SchemaValidationResult.Invalid(
+                "Property \"$invalidItemsRangePath\" has \"maxItems\" less than \"minItems\"",
+            )
+        }
+
+        return SchemaValidationResult.Valid
+    }
+
+    /**
+     * Finds the path of the first property whose `minItems`/`maxItems` pair is
+     * unsatisfiable (`maxItems < minItems`) — otherwise-valid JSON Schema (both
+     * keywords are independently non-negative integers per the meta-schema) that
+     * describes an array no value can ever match. Recurses into `properties`,
+     * `items`, and composition keywords so the check applies uniformly whether
+     * the schema was assembled by the visual editor or submitted directly.
+     */
+    private fun findInvalidItemsRange(schema: ObjectNode, path: String): String? {
+        val minItems = schema.get("minItems")?.takeIf { it.isNumber }?.asDouble()
+        val maxItems = schema.get("maxItems")?.takeIf { it.isNumber }?.asDouble()
+        if (minItems != null && maxItems != null && maxItems < minItems) return path
+
+        (schema.get("properties") as? ObjectNode)?.let { properties ->
+            for ((name, prop) in properties.properties()) {
+                if (prop is ObjectNode) {
+                    findInvalidItemsRange(prop, "$path.$name")?.let { return it }
+                }
+            }
+        }
+
+        (schema.get("items") as? ObjectNode)?.let { items ->
+            findInvalidItemsRange(items, "$path.items")?.let { return it }
+        }
+
+        for (keyword in listOf("allOf", "oneOf", "anyOf")) {
+            val members = schema.get(keyword) as? ArrayNode ?: continue
+            for (member in members) {
+                if (member is ObjectNode) {
+                    findInvalidItemsRange(member, "$path.$keyword")?.let { return it }
+                }
+            }
+        }
+
+        return null
     }
 
     private fun requiresObjectAtRoot(

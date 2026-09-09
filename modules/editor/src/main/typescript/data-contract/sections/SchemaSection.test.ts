@@ -17,6 +17,15 @@ const schema: VisualSchema = {
   fields: [
     { id: 'reference', name: 'reference', type: 'string', required: false },
     {
+      id: 'tags',
+      name: 'tags',
+      type: 'array',
+      arrayItemType: 'string',
+      required: false,
+      minItems: 1,
+      maxItems: 5,
+    },
+    {
       id: 'customer',
       name: 'customer',
       type: 'object',
@@ -58,9 +67,10 @@ function renderSection(
   selectedFieldId: string | null,
   readOnly = false,
   visualSchema: VisualSchema = schema,
+  fieldErrors: Map<string, string> = new Map(),
 ): HTMLElement {
   const uiState: SchemaUiState = {
-    warnings: [],
+    fieldErrors,
     canUndo: false,
     canRedo: false,
     selectedFieldId,
@@ -170,5 +180,64 @@ describe('SchemaSection name editing', () => {
     expect(input.value).toBe('reference');
     expect(callbacks.onCommand).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(input);
+  });
+});
+
+describe('SchemaSection array constraints', () => {
+  it('renders Min items and Max items with the field’s current values', () => {
+    const container = renderSection('tags');
+    const inputs = container.querySelectorAll<HTMLInputElement>(
+      '.dc-detail-constraints input[type="number"]',
+    );
+
+    expect(inputs).toHaveLength(2);
+    expect(inputs[0].value).toBe('1');
+    expect(inputs[1].value).toBe('5');
+  });
+
+  it('emits an updateField command with maxItems on change', () => {
+    const container = renderSection('tags');
+    const inputs = container.querySelectorAll<HTMLInputElement>(
+      '.dc-detail-constraints input[type="number"]',
+    );
+    inputs[1].value = '10';
+    inputs[1].dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(callbacks.onCommand).toHaveBeenCalledWith({
+      type: 'updateField',
+      fieldId: 'tags',
+      updates: { maxItems: 10 },
+    });
+  });
+
+  it('clears maxItems when the input is emptied', () => {
+    const container = renderSection('tags');
+    const inputs = container.querySelectorAll<HTMLInputElement>(
+      '.dc-detail-constraints input[type="number"]',
+    );
+    inputs[1].value = '';
+    inputs[1].dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(callbacks.onCommand).toHaveBeenCalledWith({
+      type: 'updateField',
+      fieldId: 'tags',
+      updates: { maxItems: undefined },
+    });
+  });
+
+  it('shows the field error inline next to the constraint inputs', () => {
+    const container = renderSection('tags', false, schema, new Map([['tags', 'bad range']]));
+
+    const error = container.querySelector('.dc-field-error');
+    expect(error?.textContent).toBe('bad range');
+    const inputs = container.querySelectorAll<HTMLInputElement>(
+      '.dc-detail-constraints input[type="number"]',
+    );
+    expect([...inputs].every((input) => input.classList.contains('dc-input-error'))).toBe(true);
+  });
+
+  it('renders no field error when the field has none', () => {
+    const container = renderSection('tags');
+    expect(container.querySelector('.dc-field-error')).toBeNull();
   });
 });

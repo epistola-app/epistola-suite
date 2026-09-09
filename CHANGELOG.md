@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+- **[user]** feat(data-contract): **Array fields support a `maxItems` constraint.** The Schema
+  Definition form now has a "Max items" input alongside "Min items", validated live (rejecting
+  `maxItems` below `minItems` with an inline message and a validation banner, both client- and
+  server-side) instead of only on save. Imported schemas with `maxItems` are now represented in
+  the visual editor instead of falling back to read-only JSON mode. (#840)
 - **[dev]** feat(generation): **Document workers now yield to a degraded
   database.** Every JDBI statement records a safe aggregate round-trip timer
   (bound through Micrometer after bootstrap, so it never joins the

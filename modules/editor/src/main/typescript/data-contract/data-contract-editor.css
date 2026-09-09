@@ -96,11 +96,6 @@
     border-radius: var(--ep-radius-full);
   }
 
-  .dc-contract-save-blocked {
-    font-size: var(--ep-text-xs);
-    color: var(--ep-red-600);
-  }
-
   .dc-page-content {
     display: flex;
     flex-direction: column;
@@ -1611,6 +1606,31 @@
   /* --------------------------------------------------------------------------
    * Breaking changes banner (live, in schema tab)
    * ---------------------------------------------------------------------- */
+
+  .dc-validation-banner {
+    padding: var(--ep-space-2) var(--ep-space-3);
+    margin-bottom: var(--ep-space-3);
+    background: var(--ep-red-50);
+    border: 1px solid var(--ep-red-200);
+    border-radius: var(--ep-radius-md);
+  }
+
+  .dc-validation-banner-message {
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-red-700);
+  }
+
+  .dc-validation-banner-message + .dc-validation-banner-message {
+    margin-top: var(--ep-space-1);
+  }
+
+  .dc-validation-banner-list {
+    margin: var(--ep-space-1) 0 0;
+    padding-left: var(--ep-space-4);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-red-700);
+  }
 
   .dc-breaking-changes-banner {
     display: flex;

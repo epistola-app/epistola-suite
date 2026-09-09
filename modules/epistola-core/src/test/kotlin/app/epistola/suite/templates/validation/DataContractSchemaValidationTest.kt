@@ -70,5 +70,90 @@ class DataContractSchemaValidationTest {
         assertThat(result).isInstanceOf(SchemaValidationResult.Invalid::class.java)
     }
 
+    @Test
+    fun `accepts an array property whose maxItems is not less than minItems`() {
+        val schema = schema(
+            """
+            {"type":"object","properties":{
+              "tags":{"type":"array","items":{"type":"string"},"minItems":1,"maxItems":5}
+            }}
+            """.trimIndent(),
+        )
+
+        assertThat(validator.validateDataContractSchema(schema)).isEqualTo(SchemaValidationResult.Valid)
+    }
+
+    @Test
+    fun `rejects an array property whose maxItems is less than minItems`() {
+        val result = validator.validateDataContractSchema(
+            schema(
+                """
+                {"type":"object","properties":{
+                  "tags":{"type":"array","items":{"type":"string"},"minItems":5,"maxItems":1}
+                }}
+                """.trimIndent(),
+            ),
+        )
+
+        assertThat(result).isEqualTo(
+            SchemaValidationResult.Invalid("Property \"\$.tags\" has \"maxItems\" less than \"minItems\""),
+        )
+    }
+
+    @Test
+    fun `accepts an equal maxItems and minItems combination`() {
+        val schema = schema(
+            """
+            {"type":"object","properties":{
+              "tags":{"type":"array","items":{"type":"string"},"minItems":3,"maxItems":3}
+            }}
+            """.trimIndent(),
+        )
+
+        assertThat(validator.validateDataContractSchema(schema)).isEqualTo(SchemaValidationResult.Valid)
+    }
+
+    @Test
+    fun `finds an invalid maxItems-minItems pair nested inside an object property`() {
+        val result = validator.validateDataContractSchema(
+            schema(
+                """
+                {"type":"object","properties":{
+                  "customer":{"type":"object","properties":{
+                    "tags":{"type":"array","items":{"type":"string"},"minItems":5,"maxItems":1}
+                  }}
+                }}
+                """.trimIndent(),
+            ),
+        )
+
+        assertThat(result).isEqualTo(
+            SchemaValidationResult.Invalid(
+                "Property \"\$.customer.tags\" has \"maxItems\" less than \"minItems\"",
+            ),
+        )
+    }
+
+    @Test
+    fun `finds an invalid maxItems-minItems pair nested inside array items`() {
+        val result = validator.validateDataContractSchema(
+            schema(
+                """
+                {"type":"object","properties":{
+                  "orders":{"type":"array","items":{"type":"object","properties":{
+                    "lines":{"type":"array","items":{"type":"string"},"minItems":5,"maxItems":1}
+                  }}}
+                }}
+                """.trimIndent(),
+            ),
+        )
+
+        assertThat(result).isEqualTo(
+            SchemaValidationResult.Invalid(
+                "Property \"\$.orders.items.lines\" has \"maxItems\" less than \"minItems\"",
+            ),
+        )
+    }
+
     private fun schema(json: String): ObjectNode = objectMapper.readValue(json, ObjectNode::class.java)
 }
