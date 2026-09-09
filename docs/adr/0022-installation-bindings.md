@@ -201,6 +201,13 @@ Roles are per catalog: every site in the catalog that names `logo` gets the same
 what "my logo" means to an installer. The exporter checks that every used role is declared and
 that the site kind matches the declared kind; the importer refuses an archive that fails either.
 
+A binding can also be made once per tenant, by role name and kind, in
+`tenant_role_bindings (tenant_key, role, kind, resource_id)`. Resolution is the catalog's own
+binding, then the tenant's, then the publisher's default. Binding `logo` once in tenant settings
+then serves every catalog that asks for a `logo`, which turns installing the second, third and
+fortieth catalog into a no-touch operation and makes role names a vocabulary worth sharing between
+publishers (re-use journey 5 below).
+
 ### D5. Applying a binding depends on the kind
 
 Three of the four kinds are references, and binding one is a rewrite of the reference at every site
@@ -248,8 +255,8 @@ already stores. This is the read side of epistola-exchange#6.
   on the manifest, a `role` on reference holders and on a template's default theme. Per ADR 0007
   that is a new `schemaVersion`; the migration from the previous version is a no-op on content, and
   an older installation refuses the newer archive rather than misreading it.
-- **The schema changes additively**: two new tables and a nullable role column on `templates` for
-  the default-theme site. Both tables are in the backup set.
+- **The schema changes additively**: three new tables and a nullable role column on `templates` for
+  the default-theme site. All three are in the backup set.
 - **Deleting a bound resource is already guarded.** The mirror holds the bound address, so the
   existing in-use scanners for themes, stencils and assets see the reference and refuse the delete
   like any other.
@@ -262,6 +269,99 @@ already stores. This is the read side of epistola-exchange#6.
   decision, because asset identities are tenant-global.
 - **Exchange gets a real gate.** "Self-contained or refused" becomes "every dependency resolvable
   or refused", which is the guarantee installers actually need.
+
+## What re-use looks like for the installer
+
+Sharing a catalog is only worth anything if the installer can actually use it. Five ways of
+re-using an installed catalog were walked through against the code as it stands, to check that the
+decisions above serve them and to be honest about what they leave.
+
+### 1. Use it as shipped
+
+A sector body publishes standard letters; a municipality installs them and generates from its case
+system.
+
+- **Find and evaluate.** Browse and search exist. Exchange shows the resource list and image
+  thumbnails; it shows **no rendered example of a template and no data contract**, although both
+  are in the archive — every template version ships its data model and examples. A person choosing
+  between two letter packs needs to see a letter. That is an Exchange feature, outside this ADR.
+- **Install and bind.** D1, D3 and D6.
+- **Deploy.** `ImportCatalogZip` hands `ImportTemplates` an empty `publishTo`, so an installed
+  template is published but **active in no environment**. A generation request that names an
+  environment fails with "No active version"; the deployment matrix is not gated for subscribed
+  catalogs, so a person can activate every variant in every environment by hand. And after an
+  **upgrade** the activation still points at the previous release's version — nothing moves it, so
+  production keeps generating the old letter until someone re-deploys. Whether that is a safety
+  property or a trap depends on being told, and today nobody is. Not part of this ADR, but the
+  install and upgrade dialogs are the place to offer "activate in …" and "keep environments on the
+  new release", and it belongs in the same rollout.
+- **Generate.** The REST request names catalog, template, variant (or selection attributes) and
+  environment. With D1 the catalog key is whatever the installer chose; the provenance on the
+  catalog page is what an integrator copies it from.
+- **Upgrade.** Bindings survive (D2). A change to a template's **data contract** is the change an
+  integrator fears, and neither path surfaces it: the URL path diffs resources, the Exchange path
+  shows release metadata. A contract diff needs the archive, so it is the upgrade preview ADR 0021
+  declined to build, with a sharper reason to build it.
+
+### 2. Build on it as a library
+
+A design agency publishes a house style — theme, fonts, header and footer stencils — and the
+installer authors their own templates on top.
+
+This works today and needs nothing from this ADR to keep working. The stencil and theme pickers
+are tenant-wide; an inserted stencil is a pinned copy that does not change under the author; the
+editor shows the upgrade indicator when the library moves on, and the bulk upgrade page applies it
+to drafts. A library release that **removes** a stencil still in use is refused as a whole
+(`CatalogUpgradeConflictException` names each use), which is correct, and the installer's way out
+is to detach each instance first.
+
+What the ADR adds is that the relationship becomes publishable: when the installer publishes a
+catalog of their own, its dependency on the library carries `exchange:agency/house-style` (D3), so
+a third party can install both under whatever keys they like.
+
+### 3. Derive from it
+
+The shared letter is almost right; the installer wants one extra paragraph, or a variant for a case
+the publisher did not foresee.
+
+This is the most common request and **the one nothing serves**: a subscribed template is
+read-only, variants cannot be added, and there is no copy or fork command (#755). Roles do not
+help — they change what a site points at, not what the publisher wrote. Option B was rejected as
+_the_ mechanism, not as a feature. **"Copy to my catalog"** is a one-resource import into an
+authored catalog, and the relativise-and-requalify machinery means the copy keeps pointing at the
+library's theme, stencils and assets rather than duplicating them. Recording where a copy came from
+(source, release, resource) is what would let the editor say "the original changed since you copied
+this", the way it already does for stencils. That is a decision of its own and should follow this
+one.
+
+### 4. Make it say who you are
+
+Every letter carries the sender's name, address, registration number and a signature line. A
+generic catalog cannot know them.
+
+Today a template has `sys.pages.*` and `sys.render.time` and nothing else that is not request
+data, so a generic letter either hardcodes the publisher's details — the demo catalog does — or
+pushes "sender" into its data contract for every caller to supply on every call. These are
+**values, not resources, and they are tenant-wide** — one organisation name, however many
+catalogs — so they are deliberately not roles. A tenant profile exposed to templates
+(`sys.tenant.name`, `sys.tenant.address`, …), edited once in tenant settings, is the sibling
+decision to this one and the second half of "generic catalogs actually work". Roles supply the
+logo; the profile supplies the name under it.
+
+### 5. One catalog, many tenants
+
+A holding installs the same catalog into each subsidiary's tenant; a consultancy into each
+client's. Per-tenant bindings and per-tenant local keys make this work, but "install, then bind
+three roles" repeated across forty tenants is forty times the same dialog. Hence the tenant-level
+binding in D4: bind `logo` once per tenant and every catalog that asks for `logo` is served. Role
+names thereby become a small shared vocabulary — `logo`, `house-style`, `letterhead` — that
+Exchange can recommend to publishers, which is what makes a no-touch install possible.
+
+### What the walk-through changed
+
+The tenant-level binding in D4, and three things named as out of scope so they are not mistaken
+for covered: activation on install and upgrade, a copy command with provenance, and a tenant
+profile for values.
 
 ## Rollout
 
@@ -276,7 +376,7 @@ The order matters more than the size of any step.
 4. **Suite: dependencies in the dialog** (D6, D7) — satisfied/missing, early refusal, "install
    `acme/shared` first". Finishes #917.
 5. **Suite: roles** (D4 to D6) — declarations in catalog settings, `role` in the editor's
-   inspectors, the two tables, `BindCatalogRole`, the dialog and catalog-page surfaces. Ships #918
+   inspectors, the three tables, `BindCatalogRole`, the dialog and catalog-page surfaces. Ships #918
    for all four kinds. Assets and themes first; fonts and stencils carry the extra checks in D5.
 6. **Demo catalog** — a generic letterhead catalog that declares a logo, a theme and a header role,
    installed into a second tenant with all three bound. It is the feature's only honest
