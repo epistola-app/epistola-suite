@@ -32,8 +32,13 @@ import java.util.HexFormat
  * abandoned without advancing anything if a single resource fails, so a bad release can never leave
  * a catalog half-upgraded.
  *
- * What is new is everything before that: deciding which release, refusing the ones that would
- * collide or cannot be trusted, and doing so *before* spending a download.
+ * What is new is everything before that: deciding which release, and refusing the ones that would
+ * collide, are too large, or cannot be trusted — all before spending a download.
+ *
+ * Not every refusal can come that early. An unmet cross-catalog dependency is only visible once the
+ * manifest is in hand, so it costs a download to discover: Exchange neither stores nor exposes a
+ * catalog's `dependencies`, though it parses them at publish time. Until it does, that check stays
+ * where the manifest is.
  *
  * Install and upgrade are the same six steps. They differ only in whether a catalog is already
  * there, which `ImportCatalogZip` works out for itself.
