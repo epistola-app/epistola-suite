@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+- **[dev]** docs(perf): **Load test results are tracked over time.** `docs/load-test-results.md` logs
+  each `epistola-load-test` run against a named hardware profile, so the effect of a change on
+  throughput is visible rather than re-derived. Figures are only comparable within a profile, which
+  is why the hardware is a first-class column rather than a footnote.
+- **[dev]** fix(test): **The multi-instance harness could silently test the previous build.**
+  `boot_jar()` picked the alphabetically first jar, so a leftover `epistola-1.0.0-RC4.jar` won over
+  today's `epistola-dev.jar` — the harness passed while exercising a months-old build and schema.
+  It now takes the newest by modification time. `MIT_JAR_DIR` and `MIT_PROFILES` are also
+  overridable, since the demo distribution became a separate app and is the one that seeds the
+  tenant and API key load tooling needs.
 - **[dev]** test(db): **The migrated schema is now asserted, not just the data in it.**
   `SchemaHygieneAppTest` runs against `pg_catalog` at the app level, where every module's migrations
   are merged. Two kinds of check: hygiene invariants that should hold of any healthy schema — no two
