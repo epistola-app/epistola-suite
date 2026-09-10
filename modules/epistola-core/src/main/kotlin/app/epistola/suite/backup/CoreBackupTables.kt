@@ -47,7 +47,10 @@ class CoreBackupTables : TenantBackupTableContributor {
     /**
      * Tenant-scoped tables deliberately NOT backed up and NEVER touched by restore — generated
      * documents (regenerable), the append-only collect feed and its cursors (must survive and stay
-     * monotonic for external consumers), and audit/runtime/membership tables.
+     * monotonic for external consumers), audit/runtime/membership tables, and knowledge about
+     * remote services — Exchange credentials, publication work, and the last-seen upstream release
+     * of a subscribed catalog. Those last describe somebody else's server as it was at backup time
+     * and would mislead if restored months later.
      */
     override fun excludedTables(): Set<String> = setOf(
         "documents",
@@ -65,5 +68,6 @@ class CoreBackupTables : TenantBackupTableContributor {
         "exchange_oauth_authorizations",
         "catalog_exchange_bindings",
         "catalog_release_publications",
+        "catalog_upstream_checks",
     )
 }

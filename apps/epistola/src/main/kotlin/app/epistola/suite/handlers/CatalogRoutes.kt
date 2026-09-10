@@ -13,12 +13,20 @@ import org.springframework.web.servlet.function.router
 @Configuration
 class CatalogRoutes(
     private val handler: CatalogHandler,
+    private val exchange: ExchangeCatalogHandler,
     private val organise: CatalogOrganiseHandler,
 ) {
     @Bean
     fun catalogRouterFunction(): RouterFunction<ServerResponse> = router {
         "/tenants/{tenantId}/catalogs".nest {
             GET("", handler::list)
+            // Registered before the {catalogId} routes below. `exchange` is a legal catalog slug,
+            // and while every per-catalog route carries a verb suffix that keeps these unambiguous
+            // today, relying on that is one route away from an ambush.
+            GET("/exchange", exchange::browse)
+            GET("/exchange/search", exchange::search)
+            GET("/exchange/{namespace}/{catalogKey}", exchange::detail)
+            POST("/exchange/{namespace}/{catalogKey}/install", exchange::install)
             GET("/new", handler::newForm)
             GET("/subscribe", handler::registerForm)
             POST("/subscribe", handler::register)
@@ -48,6 +56,8 @@ class CatalogRoutes(
             GET("/{catalogId}/upgrade-check", handler::upgradeCheck)
             GET("/{catalogId}/upgrade-preview", handler::upgradePreview)
             POST("/{catalogId}/upgrade", handler::upgrade)
+            GET("/{catalogId}/exchange-upgrade", exchange::upgradeDialog)
+            POST("/{catalogId}/exchange-upgrade", exchange::upgrade)
         }
     }
 }

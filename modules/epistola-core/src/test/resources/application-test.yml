@@ -26,5 +26,10 @@ epistola:
   # rule itself is covered by CatalogClientTest, a unit test with its own configuration.
   catalog:
     allow-http: true
+    upstream-check:
+      # Off across the suite. It is a background task that reaches out to every subscribed
+      # catalog's source, so leaving it on would have unrelated tests making network calls and
+      # holding pooled connections. Tests that exercise it drive the worker directly.
+      enabled: false
   codelists:
     allow-http: true

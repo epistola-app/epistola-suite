@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+    Browsing Epistola Exchange and installing from it.
+
+    The page owns the search; the dialog owns the version choice. Installing posts from the dialog
+    and, on success, closes it and refreshes the catalogs list out of band — the same stay-on-list
+    contract as subscribing to a URL, documented at the top of catalogs/subscribe.html.
+
+    A refusal renders into the open dialog's own error slot (#exchange-install-error) rather than
+    replacing the dialog, so nothing here navigates away from a half-made decision.
+-->
+<th:block th:fragment="content">
+    <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Browse Epistola Exchange',
+            backLinkHref=@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
+            backLinkLabel='Catalogs',
+            pageDescription='Install catalogs published on Epistola Exchange. An installed catalog is a read-only mirror, checked for newer releases in the background.'
+        )}"></div>
+
+    <div class="ep-card" style="margin-bottom: var(--ep-space-4);">
+        <div class="ep-card-body">
+            <label class="ep-label" for="exchange-search">Search</label>
+            <input type="search" id="exchange-search" name="q" class="ep-input"
+                   placeholder="Catalog name or key" th:value="${q}"
+                   autocomplete="off"
+                   th:hx-get="@{/tenants/{tenantId}/catalogs/exchange/search(tenantId=${tenantId})}"
+                   hx-trigger="keyup changed delay:300ms, search"
+                   hx-target="#exchange-results" hx-swap="innerHTML"
+                   data-testid="exchange-search" />
+        </div>
+    </div>
+
+    <div id="exchange-results">
+        <th:block th:replace="~{catalogs/exchange-browse :: results}"></th:block>
+    </div>
+
+    <!-- data-dialog-mount is what opens a <dialog> swapped in here (static/js/behaviors.js).
+         data-open-dialog is a *click trigger* for a button and does nothing on the dialog itself. -->
+    <div id="exchange-dialog-container" data-dialog-mount></div>
+</th:block>
+
+<!-- The result list, also returned on its own by the debounced search. -->
+<th:block th:fragment="results">
+    <div th:if="${!result.available}" class="alert alert-info" data-testid="exchange-unavailable">
+        <span th:text="${result.unavailable.message}"></span>
+        <a th:if="${result.unavailable.name() == 'NOT_CONNECTED'}"
+           th:href="@{/tenants/{tenantId}/exchange(tenantId=${tenantId})}">Go to Exchange settings</a>
+    </div>
+
+    <div th:if="${result.available and result.catalogs.isEmpty()}" class="empty-state" data-testid="exchange-empty">
+        <div class="empty-state-icon">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='search', class='ep-icon ep-icon-xl')}" />
+        </div>
+        <div class="empty-state-title">Nothing found</div>
+        <div class="empty-state-description">No catalog on Epistola Exchange matches that search.</div>
+    </div>
+
+    <div th:if="${result.available and !result.catalogs.isEmpty()}"
+         class="ep-table-scroll" role="region" aria-label="Exchange catalogs" tabindex="0">
+        <table class="ep-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Address</th>
+                    <th>Published by</th>
+                    <th>Latest</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="catalog : ${result.catalogs}">
+                    <td>
+                        <strong th:text="${catalog.name}"></strong>
+                        <div th:if="${catalog.description}" class="text-muted"
+                             style="font-size: var(--ep-text-xs);" th:text="${catalog.description}"></div>
+                    </td>
+                    <td><code style="font-size: var(--ep-text-xs);"
+                              th:text="${catalog.namespace + '/' + catalog.catalogKey}"></code></td>
+                    <td th:text="${catalog.organizationName}"></td>
+                    <td>
+                        <span th:if="${catalog.latestVersion}" th:text="'v' + ${catalog.latestVersion}"></span>
+                        <span th:unless="${catalog.latestVersion}" class="text-muted">no release</span>
+                    </td>
+                    <td class="actions">
+                        <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                th:disabled="${!canInstall or catalog.latestVersion == null}"
+                                th:title="${canInstall} ? 'Choose a version and install' : 'You need both catalog management and template editing permission to install'"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/exchange/{namespace}/{catalogKey}(tenantId=${tenantId},namespace=${catalog.namespace},catalogKey=${catalog.catalogKey})}"
+                                hx-target="#exchange-dialog-container" hx-swap="innerHTML"
+                                data-testid="exchange-install-open">
+                            Install
+                        </button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</th:block>
+
+<!-- Version picker + install. Newest first; only releases this tenant may actually install. -->
+<th:block th:fragment="detail-dialog">
+    <dialog id="exchange-install-dialog" class="ep-dialog">
+        <div class="ep-dialog-header">
+            <h3 th:text="${detail.catalog.name}">Catalog</h3>
+            <p class="text-muted" style="margin: var(--ep-space-1) 0 0; font-size: var(--ep-text-xs);"
+               th:text="${detail.catalog.namespace + '/' + detail.catalog.catalogKey}"></p>
+        </div>
+        <form th:hx-post="@{/tenants/{tenantId}/catalogs/exchange/{namespace}/{catalogKey}/install(tenantId=${tenantId},namespace=${detail.catalog.namespace},catalogKey=${detail.catalog.catalogKey})}"
+              hx-target="#exchange-dialog-container" hx-swap="innerHTML">
+            <div th:replace="~{epistola-web/form-error :: form-error(id='exchange-install-error')}"></div>
+            <div class="ep-dialog-body">
+                <p th:if="${detail.catalog.description}" th:text="${detail.catalog.description}"></p>
+
+                <!-- Said before the attempt rather than discovered by it: a catalog is addressed
+                     within a tenant by this id, so a clash is a refusal, not a merge. -->
+                <div th:if="${existing != null}" class="alert alert-error" data-testid="exchange-key-taken">
+                    This tenant already uses the catalog ID
+                    <code th:text="${localCatalogId}"></code>. Remove it before installing this one.
+                </div>
+
+                <div th:if="${detail.installable.isEmpty()}" class="alert alert-error">
+                    Epistola Exchange has no release of this catalog that can be installed.
+                </div>
+
+                <div class="form-group" th:if="${!detail.installable.isEmpty()}">
+                    <label class="ep-label" for="exchange-version">Version</label>
+                    <select id="exchange-version" name="version" class="ep-input" data-testid="exchange-version">
+                        <option th:each="release, iter : ${detail.installable}"
+                                th:value="${release.version}"
+                                th:selected="${iter.first}"
+                                th:text="${'v' + release.version + ' — ' + (release.sizeBytes / 1024) + ' KB'}"></option>
+                    </select>
+                    <p class="text-muted" style="font-size: var(--ep-text-xs); margin-top: var(--ep-space-2);">
+                        Installed as a read-only mirror. If any resource fails to install, nothing is
+                        changed at all.
+                    </p>
+                </div>
+            </div>
+            <div class="ep-dialog-footer">
+                <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog>Cancel</button>
+                <button type="submit" class="ep-btn ep-btn-primary"
+                        th:disabled="${existing != null or detail.installable.isEmpty() or !canInstall}"
+                        data-testid="exchange-install-submit">Install</button>
+            </div>
+        </form>
+    </dialog>
+</th:block>
+
+<!-- Upgrading an installed Exchange catalog. Release metadata, not a resource diff: that diff is
+     built by walking a manifest, and an Exchange release is an archive. -->
+<th:block th:fragment="upgrade-dialog">
+    <dialog id="exchange-upgrade-dialog" class="ep-dialog">
+        <div class="ep-dialog-header">
+            <h3>Update from Epistola Exchange</h3>
+        </div>
+        <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/exchange-upgrade(tenantId=${tenantId},catalogId=${catalogId})}"
+              hx-target="#exchange-dialog-container" hx-swap="innerHTML">
+            <div th:replace="~{epistola-web/form-error :: form-error(id='exchange-install-error')}"></div>
+            <div class="ep-dialog-body">
+                <div class="form-group">
+                    <span class="ep-label">Installed</span>
+                    <p style="margin: var(--ep-space-1) 0 0;">
+                        <strong th:text="${catalog.installedReleaseVersion != null ? 'v' + catalog.installedReleaseVersion : '—'}"></strong>
+                    </p>
+                </div>
+                <div class="form-group" th:if="${!detail.installable.isEmpty()}">
+                    <label class="ep-label" for="exchange-upgrade-version">Update to</label>
+                    <select id="exchange-upgrade-version" name="version" class="ep-input"
+                            data-testid="exchange-upgrade-version">
+                        <option th:each="release, iter : ${detail.installable}"
+                                th:value="${release.version}"
+                                th:selected="${iter.first}"
+                                th:text="'v' + ${release.version}"></option>
+                    </select>
+                    <p class="text-muted" style="font-size: var(--ep-text-xs); margin-top: var(--ep-space-2);">
+                        Resources in this catalog are replaced by the ones in that release, and any
+                        it no longer contains are removed. If a single resource fails, nothing is
+                        changed and the catalog stays on the version it is running.
+                    </p>
+                </div>
+                <div th:if="${detail.installable.isEmpty()}" class="alert alert-error">
+                    Epistola Exchange currently offers no installable release of this catalog.
+                </div>
+            </div>
+            <div class="ep-dialog-footer">
+                <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog>Cancel</button>
+                <button type="submit" class="ep-btn ep-btn-primary"
+                        th:disabled="${detail.installable.isEmpty() or !canInstall}"
+                        data-testid="exchange-upgrade-submit">Update</button>
+            </div>
+        </form>
+    </dialog>
+</th:block>
+
+</body>
+</html>

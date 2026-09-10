@@ -112,6 +112,20 @@ data class ImportCatalogZip(
      * the UI can prompt. The REST import sets it `true` (non-interactive).
      */
     val confirmMigration: Boolean = false,
+    /**
+     * Where this content came from, recorded on the catalog when the import **creates** it.
+     *
+     * Opaque here: the importer stores it and never resolves it. The scheme is what decides who
+     * can answer "is there a newer release?" later — `https:`/`file:`/`classpath:` name a manifest
+     * `CatalogClient` can fetch, and other schemes are answered by whichever `CatalogUpstreamProbe`
+     * claims them.
+     *
+     * Null for a ZIP somebody uploaded, which is the one subscribed catalog with no upstream to
+     * ask. An existing catalog never has its source rewritten by an import: a restore re-imports
+     * subscribed content without knowing the source (the `catalogs` row carries it and is restored
+     * separately), so a null here must leave an existing source alone rather than clear it.
+     */
+    val sourceUrl: String? = null,
 ) : Command<ImportCatalogZipResult>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
@@ -260,6 +274,18 @@ class ImportCatalogZipHandler(
             )
         }
 
+        // Re-pointing a mirror at a different upstream is never what an import means. Both sides
+        // null (a plain ZIP over a ZIP-managed catalog) and an incoming null (a restore, which
+        // carries the source on the restored `catalogs` row instead) stay allowed — only a
+        // declared source that disagrees with the recorded one is refused.
+        val existingSource = existingCatalog?.sourceUrl
+        if (existingSource != null && command.sourceUrl != null && existingSource != command.sourceUrl) {
+            throw IllegalArgumentException(
+                "Catalog '${catalogKey.value}' is installed from '$existingSource' — " +
+                    "cannot re-import it from '${command.sourceUrl}'. Remove it first.",
+            )
+        }
+
         // Renumber-on-stencil-conflict is mirror-incompatible. SUBSCRIBED *is*
         // a mirror by definition (source wins); AUTHORED REPLACE is the explicit
         // "make my catalog exactly this ZIP" mode. Allowing renumber there would
@@ -338,6 +364,7 @@ class ImportCatalogZipHandler(
                     catalogKey,
                     manifest.catalog.name,
                     manifest.catalog.description,
+                    command.sourceUrl,
                 )
             }
         }
@@ -548,18 +575,20 @@ class ImportCatalogZipHandler(
         catalogKey: CatalogKey,
         name: String,
         description: String?,
+        sourceUrl: String?,
     ) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (id, tenant_key, name, description, type, created_at, updated_at)
-                VALUES (:c, :t, :name, :description, 'SUBSCRIBED', NOW(), NOW())
+                INSERT INTO catalogs (id, tenant_key, name, description, type, source_url, created_at, updated_at)
+                VALUES (:c, :t, :name, :description, 'SUBSCRIBED', :sourceUrl, NOW(), NOW())
                 """,
             )
                 .bind("c", catalogKey)
                 .bind("t", tenantKey)
                 .bind("name", name)
                 .bind("description", description)
+                .bind("sourceUrl", sourceUrl)
                 .execute()
         }
     }
@@ -587,7 +616,7 @@ class ImportCatalogZipHandler(
                 SET installed_release_version = :version, installed_fingerprint = :fingerprint,
                     installed_resource_fingerprints = :resourceFingerprints::jsonb,
                     name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
-                    content_updated_at = NOW(), updated_at = NOW()
+                    installed_at = NOW(), content_updated_at = NOW(), updated_at = NOW()
                 WHERE tenant_key = :t AND id = :c
                 """,
             )

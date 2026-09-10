@@ -54,4 +54,22 @@ data class NavItem(
     val order: Int,
     /** Release maturity of the feature this item links to; renders a badge for non-stable stages. */
     val stage: FeatureStage = FeatureStage.STABLE,
+    /** Something waiting behind this item, shown as a count beside its label. Null renders nothing. */
+    val indicator: NavIndicator? = null,
+)
+
+/**
+ * A count on a nav item — "three catalogs have updates" — so a reader learns about it without
+ * being on the page that would say so.
+ *
+ * Deliberately small. This is nav chrome rendered on every page for every signed-in user, so a
+ * contributor must be able to produce it from one cheap query; anything that needs a remote call or
+ * a scan belongs behind a page, not here. [label] is what a screen reader is told, because a bare
+ * number beside a word is not a sentence.
+ */
+data class NavIndicator(
+    val count: Int,
+    val label: String,
+    /** Design-system badge variant, e.g. `badge-info`. */
+    val badgeClass: String = "badge-info",
 )
