@@ -287,14 +287,11 @@ system.
   between two letter packs needs to see a letter. That is an Exchange feature, outside this ADR.
 - **Install and bind.** D1, D3 and D6.
 - **Deploy.** `ImportCatalogZip` hands `ImportTemplates` an empty `publishTo`, so an installed
-  template is published but **active in no environment**. A generation request that names an
-  environment fails with "No active version"; the deployment matrix is not gated for subscribed
-  catalogs, so a person can activate every variant in every environment by hand. And after an
-  **upgrade** the activation still points at the previous release's version — nothing moves it, so
-  production keeps generating the old letter until someone re-deploys. Whether that is a safety
-  property or a trap depends on being told, and today nobody is. Not part of this ADR, but the
-  install and upgrade dialogs are the place to offer "activate in …" and "keep environments on the
-  new release", and it belongs in the same rollout.
+  template is published but **deployed to no environment**, and an upgrade leaves every existing
+  deployment on the previous release's version. That is deliberate and stays so: deploying is a
+  human decision, separate from installing content, as it is for stencil upgrades. What is missing
+  is making that decision once for a whole catalog rather than per template, variant and
+  environment, and being offered it from the install and upgrade dialogs — #920.
 - **Generate.** The REST request names catalog, template, variant (or selection attributes) and
   environment. With D1 the catalog key is whatever the installer chose; the provenance on the
   catalog page is what an integrator copies it from.
@@ -360,7 +357,7 @@ Exchange can recommend to publishers, which is what makes a no-touch install pos
 ### What the walk-through changed
 
 The tenant-level binding in D4, and three things named as out of scope so they are not mistaken
-for covered: activation on install and upgrade, a copy command with provenance, and a tenant
+for covered: deploying a whole catalog at once (#920), a copy command with provenance, and a tenant
 profile for values.
 
 ## Rollout
@@ -398,6 +395,7 @@ The order matters more than the size of any step.
 - #917 Show a catalog's dependencies before installing, and help satisfy them
 - #918 Let a published catalog leave an asset for the installer to supply
 - #919 Install a catalog under a different local key
+- #920 Deploy many templates at once, offered on install and upgrade
 - #850 Catalogs as cohesive install units; #755 read-only editor and the absence of a fork command
 - epistola-exchange#5 Self-containment gate tests the wrong manifest field;
   epistola-exchange#6 Store and expose a catalog release's dependencies
