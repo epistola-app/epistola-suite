@@ -396,9 +396,13 @@ The order matters more than the size of any step.
 - #918 Let a published catalog leave an asset for the installer to supply
 - #919 Install a catalog under a different local key
 - #920 Deploy many templates at once, offered on install and upgrade
+- #921 Give templates the organisation's own details through a tenant profile
+- #922 Copy a shared template into a catalog of your own, remembering where it came from
+- #923 Say when a catalog upgrade changes a template's data contract
 - #850 Catalogs as cohesive install units; #755 read-only editor and the absence of a fork command
 - epistola-exchange#5 Self-containment gate tests the wrong manifest field;
-  epistola-exchange#6 Store and expose a catalog release's dependencies
+  epistola-exchange#6 Store and expose a catalog release's dependencies;
+  epistola-exchange#7 Show a rendered example and the data contract for every template
 - [`docs/catalog-exchange-installation.md`](../catalog-exchange-installation.md),
   [`docs/resource-reference-graph.md`](../resource-reference-graph.md),
   [`docs/stencils.md`](../stencils.md) (content replacement), [`docs/fonts.md`](../fonts.md)
