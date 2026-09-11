@@ -155,6 +155,7 @@ that implement it live in [`modules/rest-api`](../modules/rest-api).
 | [Shortcuts: command runtime](shortcuts-command-runtime.md)               | Current  | Key normalization, resolution, chords and event policy.            |
 | [Shortcuts: plugin extension guide](shortcuts-plugin-extension-guide.md) | Current  | Adding plugin-provided keyboard shortcuts safely.                  |
 | [GitHub repository guide](github.md)                                     | Current  | CI/CD, issue management, releases and community features.          |
+| [Agent effectiveness review](agent-effectiveness-review.md)              | Record   | Instruction, skill, changelog and consistency health for AI work.  |
 | [Testability improvements](testability-improvements.md)                  | Proposed | A plan for shifting the integration-first test suite.              |
 
 ## Decision records
