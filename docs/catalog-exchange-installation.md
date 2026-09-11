@@ -48,8 +48,9 @@ that path already had:
 - The catalog arrives **read-only**. Editing controls are hidden and mutating commands refuse.
 - Resources are mirrored: what the release contains replaces what is there, and what it no longer
   contains is removed.
-- **If a single resource fails to install, nothing changes at all** — no resources are pruned, no
-  version is advanced, and the next attempt starts over. There is no half-installed state.
+- **The whole catalog installs, or none of it does.** There is no way to take a subset, and a
+  resource that fails takes the rest with it — no resources are pruned, no version is advanced, and
+  the next attempt starts over. See [Why a catalog is one unit](#why-a-catalog-is-one-unit).
 
 Before any of that, and before a byte is downloaded, an install can be refused for reasons worth
 knowing about.
@@ -82,6 +83,24 @@ Exchange's claim about its own body.
 
 The archive is verified against the SHA-256 published in the release listing — a different response
 from the one carrying the bytes. A mismatch is refused outright.
+
+## Why a catalog is one unit
+
+A catalog installs whole and upgrades whole. You cannot install three of its two hundred resources,
+and an upgrade does not preserve a subset you chose earlier.
+
+The reason is that a subset cannot be described. The version and fingerprint recorded against an
+installed catalog are the publisher's statement about a **release**, so "installed 1.2.0" on an
+installation holding part of 1.2.0 is not true, and every question asked afterwards inherits the
+ambiguity: whether a catalog this one depends on is satisfied, what an upgrade preview is comparing
+against, which resources a catalog-wide action covers.
+
+**A publisher who wants parts adopted independently publishes more than one catalog.** That puts the
+decision with the person who knows which resources belong together, and it makes the boundary
+visible to everyone installing, rather than leaving each consumer to invent a subset privately.
+
+An installation left partial by an earlier release of the Suite is topped up by its next install or
+upgrade. The upgrade preview lists what will be added before anything is applied.
 
 ## Updates
 
