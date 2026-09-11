@@ -246,7 +246,7 @@ class UpdateCatalogMetadataHandler(
 
         val available = ListAssets(command.tenantKey, catalogKey = command.catalogKey).query()
             .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
-            .mapTo(mutableSetOf()) { it.id.value.toString() }
+            .mapTo(mutableSetOf()) { it.id.value }
         validate("presentation", referenced.all(available::contains)) {
             "Presentation assets must be installed images from this catalog."
         }

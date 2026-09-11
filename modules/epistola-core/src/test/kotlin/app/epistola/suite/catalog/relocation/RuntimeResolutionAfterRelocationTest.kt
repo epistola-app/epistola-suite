@@ -79,7 +79,7 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
                 catalogKey = letters,
             ).execute().id
         }
-        val address = ResourceAddress(CatalogResourceType.ASSET, letters.value, assetKey.value.toString())
+        val address = ResourceAddress(CatalogResourceType.ASSET, letters.value, assetKey.value)
 
         // Content written while the asset lived in `letters` qualifies the reference with it.
         assertThat(withMediator { GetAssetContent(tenant.id, assetKey, letters).query() }).isNotNull()
@@ -145,7 +145,7 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
 
         // An unqualified image reference carries no catalog, so it resolves by this id alone --
         // there would be nothing left to find the alias with.
-        val renamed = ResourceAddress(CatalogResourceType.ASSET, letters.value, assetKey.value.toString())
+        val renamed = ResourceAddress(CatalogResourceType.ASSET, letters.value, assetKey.value)
             .renamedTo(UUID.randomUUID().toString())
         val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(renamed)).query() }
 

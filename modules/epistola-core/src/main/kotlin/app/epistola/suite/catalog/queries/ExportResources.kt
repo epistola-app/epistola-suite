@@ -347,7 +347,7 @@ class ExportFontsHandler(
                 (rs.getString("catalog_key") to rs.getString("font_slug")) to FontVariantEntry(
                     weight = rs.getInt("weight"),
                     italic = rs.getBoolean("italic"),
-                    assetSlug = rs.getObject("asset_key", java.util.UUID::class.java).toString(),
+                    assetSlug = rs.getString("asset_key"),
                 )
             }
             .list()

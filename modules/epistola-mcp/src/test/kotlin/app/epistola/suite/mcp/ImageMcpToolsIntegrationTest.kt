@@ -71,11 +71,11 @@ class ImageMcpToolsIntegrationTest : IntegrationTestBase() {
             imageMcpTools.listImages(catalogId = "default", search = "letterhead")
         }
         assertThat(listed).hasSize(1)
-        assertThat(listed.single().id).isEqualTo(image.id.value.toString())
+        assertThat(listed.single().id).isEqualTo(image.id.value)
         assertThat(listed.single().name).isEqualTo("letterhead-logo.png")
 
         val resolved = runAsApiKey(tenantId) {
-            imageMcpTools.getImage(catalogId = "default", imageId = image.id.value.toString())
+            imageMcpTools.getImage(catalogId = "default", imageId = image.id.value)
         }
         assertThat(resolved).isNotNull
         assertThat(resolved!!.mediaType).isEqualTo("image/png")
@@ -83,7 +83,7 @@ class ImageMcpToolsIntegrationTest : IntegrationTestBase() {
         assertThat(resolved.height).isEqualTo(80)
 
         val wrongCatalog = runAsApiKey(tenantId) {
-            imageMcpTools.getImage(catalogId = "system", imageId = image.id.value.toString())
+            imageMcpTools.getImage(catalogId = "system", imageId = image.id.value)
         }
         assertThat(wrongCatalog).isNull()
     }

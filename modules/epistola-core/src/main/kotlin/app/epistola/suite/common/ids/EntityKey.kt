@@ -318,21 +318,52 @@ value class StencilKey(@JsonValue override val value: String) : SlugKey<StencilK
 }
 
 /**
- * Typed key for Asset entities.
+ * Typed key for Asset entities: the asset's **public** key, not its identity.
+ *
+ * Text, like every other resource's key. It was a UUID until assets were the only resource type
+ * addressed by a machine identifier, which made a catalog naming its assets readably impossible to
+ * install — the importer parsed the slug straight back into a UUID. The stable internal identity is
+ * `ResourceIdentity` on the resource row, and that is still a UUID.
+ *
+ * The pattern is deliberately looser than [SlugKey]s like [StencilKey]: it allows a leading digit,
+ * because every asset created before this change is keyed by a UUID string and those must keep
+ * working. [generate] still mints one, so a newly uploaded asset behaves exactly as it did; naming
+ * an asset is a separate change.
  */
 @JvmInline
-value class AssetKey(@JsonValue override val value: UUID) : UuidKey<AssetKey> {
+value class AssetKey(@JsonValue override val value: String) : SlugKey<AssetKey> {
+    init {
+        require(value.length in 1..50) {
+            "Asset key must be 1-50 characters, got ${value.length}"
+        }
+        require(KEY_PATTERN.matches(value)) {
+            "Asset key must contain only lowercase letters, numbers and non-consecutive hyphens, and not start or end with a hyphen"
+        }
+    }
+
     companion object {
-        fun generate(): AssetKey = AssetKey(UUIDv7.generate())
-        fun of(value: UUID): AssetKey = AssetKey(value)
-        fun of(value: String): AssetKey = AssetKey(UUID.fromString(value))
+        /** Admits a UUID string (leading digit, hex segments) as well as a readable slug. */
+        private val KEY_PATTERN = Regex("^[a-z0-9]+(-[a-z0-9]+)*$")
+
+        /**
+         * Mints a key for a newly created asset.
+         *
+         * Still a UUID string: nothing in the product asks a person to name an asset yet, and
+         * deriving one from a filename raises collision and rename questions this change does not
+         * answer. What changed is which keys can be *read*, not which are written.
+         */
+        fun generate(): AssetKey = AssetKey(UUIDv7.generate().toString())
+        fun of(value: UUID): AssetKey = AssetKey(value.toString())
+        fun of(value: String): AssetKey = AssetKey(value)
 
         @JvmStatic
         @JsonCreator
-        fun fromJson(value: String): AssetKey = AssetKey(UUID.fromString(value))
+        fun fromJson(value: String): AssetKey = AssetKey(value)
+
+        fun validateOrNull(value: String): AssetKey? = runCatching { AssetKey(value) }.getOrNull()
     }
 
-    override fun toString(): String = value.toString()
+    override fun toString(): String = value
 }
 
 /**
