@@ -14,5 +14,19 @@
       "Edit(~/.aws/**)",
       "Edit(~/.gnupg/**)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/agent-hooks/changelog-read-guard.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
   }
 }
