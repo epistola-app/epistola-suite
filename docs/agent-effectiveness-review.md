@@ -627,7 +627,7 @@ canonical page and mark the rest "superseded by":
   v04/v05 collect proposals, and `CLAUDE.md`.
 - **Eventing:** `eventing.md`, `minimal-eventing.md`, `plans/architecture.md`, ADRs 0009 and 0016.
 - **HTMX and UI:** `htmx.md` (916 lines, with proposal-style sections), `dialog-forms.md`, ADR
-  0010, the `htmx-form` skill, `CLAUDE.md`.
+  0010, the `htmx-form` skill (since removed), `CLAUDE.md`.
 - **Testing:** `testing.md` (the accurate one), `testability-improvements.md`, two skills,
   `CLAUDE.md`.
 - **Catalogs:** about 25 pages under `exchange/`, `catalog-*.md` and ADRs 0014, 0020 and 0022, plus
@@ -720,6 +720,8 @@ grep -rn 'INSERT INTO' --include='*.kt' apps/*/src/test modules/*/src/test | wc 
 **Skills:**
 
 ```bash
+# The six skills below were removed by the change this review accompanies (P0.1);
+# run these at aa063b251 or earlier to reproduce the counts.
 grep -c 'CoreIntegrationTestBase' .claude/skills/unit-test/SKILL.md                      # 5
 grep -c 'onclick=' .claude/skills/htmx-form/SKILL.md                                     # 1
 grep -cE 'page\.navigate|waitForSelector\(".*\[open\]' .claude/skills/ui-test/SKILL.md   # 3

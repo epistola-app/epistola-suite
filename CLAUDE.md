@@ -4,7 +4,7 @@
 
 Epistola Suite is a document suite application with:
 
-- **Backend**: Spring Boot 4.0.0 + Kotlin 2.3.0 (JDK 25)
+- **Backend**: Spring Boot + Kotlin on JDK 25 (exact versions live in `gradle/libs.versions.toml`)
 - **Frontend**: Server-side rendered using Thymeleaf + HTMX
 - **Client Components**: Vite + TypeScript editor module (Node.js 24) for rich editing
 - **Architecture**: Multi-module Gradle monorepo
@@ -42,41 +42,34 @@ onward.
 ## Project Structure
 
 ```
-epistola-suite-modules/
+epistola-suite/
 ├── apps/
-│   ├── epistola-demo/     # The demo distribution: apps/epistola + demo mode (see docs/auth.md)
-│   └── epistola/          # Spring Boot app (UI layer: Thymeleaf + HTMX)
-│       ├── handlers/      # UI request handlers
-│       ├── config/        # Thymeleaf, Security, UI config
-│       ├── htmx/          # HTMX utilities
-│       └── resources/
-│           ├── db/migration/        # Flyway migrations
-│           ├── templates/           # Thymeleaf templates
-│           └── application.yml
+│   ├── epistola/          # The deployable app: UI (Thymeleaf + HTMX), security, bootstrap
+│   ├── epistola-demo/     # apps/epistola + demo mode and the demo catalog (see docs/auth.md)
+│   └── pdfrender/         # Headless render worker draining the shared job queue
 ├── modules/
-│   ├── epistola-core/     # Business logic (NEW)
-│   │   ├── tenants/       # Tenant domain
-│   │   ├── themes/        # Theme domain
-│   │   ├── templates/     # Template domain (incl. templates/validation/ — JSON Schema)
-│   │   ├── documents/     # Document generation domain
-│   │   ├── environments/  # Environment domain
-│   │   ├── catalog/       # Catalog exchange (import/export, snapshots, system catalogs)
-│   │   ├── mediator/      # CQRS mediator pattern
-│   │   ├── common/        # Shared utilities (IDs, UUIDv7)
-│   │   ├── validation/    # Command validation (ValidationException, codes, field limits)
-│   │   ├── generation/    # GenerationService (orchestration)
-│   │   ├── metadata/      # App metadata service
-│   │   ├── config/        # JDBI, Jackson config
-│   │   └── api/           # REST API controllers
-│   ├── generation/        # Pure PDF rendering
-│   ├── rest-api/          # REST controllers for the epistola-contract API
-│   ├── editor/            # Lit + ProseMirror editors (template, theme, data contract)
+│   ├── epistola-core/     # Domains, commands/queries, mediator, JDBI config, catalog + exchange
+│   ├── epistola-web/      # Shared web toolkit: the HTMX DSL, UI SPIs, shared fragments
+│   ├── epistola-crypto/   # Credential encryption at rest
+│   ├── epistola-audit/    # PII-free audit log (feature module)
+│   ├── epistola-quality/  # Quality-findings ledger (OSS feature module)
+│   ├── epistola-version-check/  # Daily check against the public releases feed
 │   ├── epistola-mcp/      # MCP server for AI assistants (read-only tools at /api/mcp)
-│   └── testing/           # Shared test infrastructure (IntegrationTestBase, fixtures, Testcontainers)
-├── docs/                  # Documentation
-├── scripts/               # Setup scripts
+│   ├── epistola-support/  # Commercial tier: hub client, plus the -feedback, -snapshots,
+│   │                      # -backups, -upgrading and -telemetry feature modules
+│   ├── rest-api/          # REST controllers implementing the epistola-contract API
+│   ├── generation/        # Pure PDF rendering
+│   ├── editor/            # Lit + ProseMirror editors (TypeScript, built with Vite)
+│   ├── loadtest/          # Embedded load-test feature
+│   └── testing/           # Shared test infrastructure (IntegrationTestBase, fixtures)
+├── docs/                  # Documentation (index: docs/README.md)
+├── scripts/               # Setup, vulnerability tooling, concurrency harnesses
 └── build.gradle.kts       # Root build configuration
 ```
+
+`settings.gradle.kts` is the authoritative list of Gradle projects. Each module owns its Flyway
+migrations under `src/main/resources/db/migration/<module>/`, and a feature module may ship its own
+Thymeleaf templates and handlers. `modules/design-system` is a pnpm package, not a Gradle project.
 
 ### Module Responsibilities
 
@@ -87,7 +80,8 @@ epistola-suite-modules/
   REST API, and the bundled demo catalog. A separate artifact rather than a profile flag, because
   demo mode changes who can reach what and nobody editing a production deployment's environment
   should be one variable away from it. See [`docs/auth.md`](docs/auth.md#two-images).
-- **modules/epistola-core**: All business logic (domains, commands, queries, REST API, JDBI config). **Catalog exchange lives here too**, in the `catalog/` package (`app.epistola.suite.catalog`) — import/export, remote catalog clients, the bundled `system` catalog (the demo one ships in `apps/epistola-demo`), and the tenant snapshot build/restore primitives (`catalog/snapshot/`). There is no separate catalog module.
+- **modules/epistola-core**: All business logic (domains, commands, queries, JDBI config). The REST
+  controllers are **not** here — they live in `modules/rest-api`. **Catalog exchange lives here too**, in the `catalog/` package (`app.epistola.suite.catalog`) — import/export, remote catalog clients, the bundled `system` catalog (the demo one ships in `apps/epistola-demo`), and the tenant snapshot build/restore primitives (`catalog/snapshot/`). There is no separate catalog module.
 - **Catalog exchange with Epistola Exchange** lives in core's `exchange/` package
   (`app.epistola.suite.exchange`): enrollment, the OAuth client, the durable publication outbox and
   its cluster worker (outbound), plus browsing, installing and the Exchange upstream probe
@@ -119,9 +113,9 @@ epistola-suite-modules/
 - **modules/rest-api**: REST controllers implementing the `epistola-contract` OpenAPI surface
 - **modules/editor**: Lit + ProseMirror editors — template editor, theme editor, data contract editor (web components, no React)
 - **modules/epistola-mcp**: Model Context Protocol server for AI assistants. Mounts a Streamable HTTP endpoint at `/api/mcp` (under the existing `/api/**` security chain — per-tenant `Authorization: ApiKey` auth, with legacy `X-API-Key` support). Tools dispatch through the existing `SpringMediator` to existing queries; the module owns no domain logic. MVP is read-only (template/theme/stencil/contract discovery + document preview). See [`docs/mcp.md`](docs/mcp.md).
-- **modules/epistola-support**: Optional commercial-tier infrastructure that talks to the separate **epistola-hub** server. Owns the hub client wiring (registration loop, credentials persistence) and the `epistola.support.*` properties. Off by default (`epistola.support.enabled=false`) — OSS deployments ship the JAR but never construct any beans. Required-when-enabled installation identity properties live under `epistola.installation.*`. Commercial features (feedback sync, monitoring, quality checks, version compatibility) arrive as **per-feature modules** that depend on this one (`epistola-support-feedback`, `epistola-support-quality`, …).
+- **modules/epistola-support**: Optional commercial-tier infrastructure that talks to the separate **epistola-hub** server. Owns the hub client wiring (registration loop, credentials persistence) and the `epistola.support.*` properties. Off by default (`epistola.support.enabled=false`) — OSS deployments ship the JAR but never construct any beans. Required-when-enabled installation identity properties live under `epistola.installation.*`. Commercial features (feedback sync, monitoring, version compatibility, telemetry) arrive as **per-feature modules** that depend on this one (`epistola-support-feedback`, `epistola-support-backups`, `epistola-support-telemetry`, …). Quality checks are **not** part of this tier: `epistola-quality` is an OSS feature module.
 - **modules/epistola-support-feedback**: The complete feedback feature — domain (model + commands/queries + migrations + static JS), the sync engine (`FeedbackSyncPort` + drivers + no-op fallback), the UI (handlers + `templates/feedback/**`), and the `HubFeedbackSyncAdapter`. The feature is freely usable; only the hub **sync** (the paid server component) is gated on `epistola.support.enabled` (no-op adapter keeps feedback local otherwise). UI visibility is gated by the `support-feedback` feature toggle.
-- **modules/epistola-support-snapshots**: The **catalog-export snapshot-sync layer**, now used by the **Upgrading** feature (the Backups feature moved to faithful local backups — see below). Building/restoring a tenant snapshot is an `epistola-core` primitive (`catalog/snapshot/` — `BuildTenantSnapshot` / `RestoreTenantSnapshot`); this module owns moving it to/from the hub: `SnapshotSyncPort` + `HubSnapshotSyncAdapter` (client-streaming upload / server-streaming download over the hub `CatalogSyncService`) + a no-op fallback, the `TenantSnapshotSyncService` (build → fingerprint-dedup → upload, plus the `app_metadata` **last-sync timestamp** that lets the two features coordinate), and the background `snapshotSystemPrincipal`. The hub calls are gated on `epistola.support.enabled`; the snapshot build/restore are not. Backups and Upgrading depend on this module, not on each other.
+- **modules/epistola-support-snapshots**: The **catalog-export snapshot-sync layer**, now used by the **Upgrading** feature (the Backups feature moved to faithful local backups — see below). Building/restoring a tenant snapshot is an `epistola-core` primitive (`catalog/snapshot/` — `BuildTenantSnapshot` / `RestoreTenantSnapshot`); this module owns moving it to/from the hub: `SnapshotSyncPort` + `HubSnapshotSyncAdapter` (client-streaming upload / server-streaming download over the hub `CatalogSyncService`) + a no-op fallback, the `TenantSnapshotSyncService` (build → fingerprint-dedup → upload, plus the `app_metadata` **last-sync timestamp** that lets the two features coordinate), and the background `snapshotSystemPrincipal`. The hub calls are gated on `epistola.support.enabled`; the snapshot build/restore are not. Upgrading depends on this module; Backups builds its own `tenantbackup` snapshot locally and depends on neither, so the two features toggle independently.
 - **modules/epistola-support-backups**: The **Backups feature** — daily faithful, full-fidelity tenant backups (the module's own `app.epistola.suite.tenantbackup` primitive: full version history, exact version numbers, merge-not-cascade restore, gated to the same schema version), stored **locally** in the `tenant_backups` table via the `TenantBackupStore` port and orchestrated by `TenantBackupService` (build → fingerprint-dedup → retain N). The daily `BackupScheduler` (per tenant with `support-backups` available; a native `single_owner` scheduled task active when `epistola.support.backups.scheduled.enabled=true`) and the Backups UI (list / back up now / restore-with-confirmation, `templates/backups/**`). It no longer rides `TenantSnapshotSyncService` (that stays with Upgrading), so the two features toggle independently. UI visibility is gated by the `support-backups` feature toggle. See [`docs/tenant-backup.md`](docs/tenant-backup.md).
 - **modules/epistola-support-upgrading**: The **Upgrading (compatibility) feature** — a read-only `CompatibilitySyncPort` + `HubCompatibilitySyncAdapter` that fetch the company-side compatibility-check results live, the Upgrading UI (`templates/upgrading/**`), and its **own** native `single_owner` `UpgradingSnapshotScheduler` that tops up snapshot freshness: it makes a snapshot only when none was synced (by Backups _or_ itself) within `epistola.support.upgrading.snapshot.max-age` (default 24h), reading the shared last-sync timestamp. UI visibility is gated by the `support-compatibility-check` feature toggle (the module/UI is still named "upgrading" pending a follow-up rename).
 - **modules/epistola-quality**: Quality checks — the findings **ledger** (model, commands/queries, migrations), the `QualityFindingSource` SPI and its in-process sources, and the daily sweep. An OSS feature module (depends on `epistola-core` + `epistola-web`, **not** the commercial support tier — the ledger works with the tier off). Deliberately outside core: core must never call quality (the generation pipeline emits, this module subscribes), and depending on core in this direction makes that a compile-time fact rather than a convention. Feature key `quality`, alpha, off by default. See [`docs/quality.md`](docs/quality.md).
@@ -138,15 +132,16 @@ namespace** at app runtime, so versions must be globally unique and ordered. A
 non-core migration that FKs to (or uses a `DOMAIN` from) a core table must
 timestamp **after** the core migration it depends on. Never edit a merged
 migration — add a new timestamped file. Folding `ALTER`s back into the original
-`CREATE` is a deliberate consolidation, verified byte-identical with
-`pg_dump --schema-only` before merge. See [`docs/migrations.md`](docs/migrations.md).
+`CREATE` is **no longer permitted** — the RC1 consolidation was the last one, and
+`CheckMigrationVersions` fails a PR that modifies an already-merged migration. See
+[`docs/migrations.md`](docs/migrations.md).
 
 ### Commercial-tier architecture (forward direction)
 
 - **`epistola-support`** owns commercial-tier infrastructure (hub client, registration, credentials). Per-feature modules layer on top.
 - **`epistola-web`** is the shared web/UI toolkit (the HTMX functional-web DSL — `htmx{}`, `page()`, `form{}`, request extensions — in package `app.epistola.suite.htmx`). Both `apps/epistola` and any per-feature UI module depend on it, so feature modules can host handlers/templates without depending on the app. The host app still owns the page chrome (`layout/shell`, `layout/nav`, `fragments/*`).
 - Per-feature modules MAY ship **UI** (Thymeleaf templates + `@Component` handlers in their own `src/main/resources/templates/...`). Spring/Thymeleaf merges classpath templates from every JAR; CSP and security wiring apply automatically. `apps/epistola` keeps being the host that composes UI from contributing modules — relax the "UI only in `apps/epistola`" rule when a feature module needs to contribute UI. **First example:** `epistola-support-feedback` ships the whole feedback feature including its UI (handlers + `templates/feedback/**`); the feature is freely usable and only the hub _sync_ (the paid server component) is gated on `epistola.support.enabled`.
-- **Extension points** use small SPIs, introduced one-at-a-time as features need them; the host collects all `@Component` contributions and composes them. Two exist, both in `epistola-web` and both handed the shared per-request `UiRequestContext` (`app.epistola.suite.htmx`: `tenantKey` + a `hasPermission` predicate). A contributor that needs feature state reads it through the `ResolveFeatureToggles(tenantKey)` query (see feature-toggle reads below), not by injecting a service:
+- **Extension points** use small SPIs, introduced one-at-a-time as features need them; the host collects all `@Component` contributions and composes them. Four exist, all in `epistola-web`: the two described below, plus `HomeNoticeContributor` (tenant-home notices, used by version-check) and `FragmentModelContributor`. The two below are handed the shared per-request `UiRequestContext` (`app.epistola.suite.htmx`: `tenantKey` + a `hasPermission` predicate). A contributor that needs feature state reads it through the `ResolveFeatureToggles(tenantKey)` query (see feature-toggle reads below), not by injecting a service:
   - **Navigation** — `NavContributor` (package `app.epistola.suite.htmx.nav`). A module declares `NavGroup`s and emits `NavItem`s for a request (filtering on permission and/or toggles); `NavMenuAggregator` merges all contributors, drops empty groups, and derives the active section from the request path, and `layout/nav` just iterates `navGroups`. The host's own menu is a `CoreNavContributor` in `apps/epistola`; `epistola-support` owns the Support group + Overview; each `epistola-support-*` feature module ships a contributor for its item.
   - **Footer chrome** — `FooterContributor` (package `app.epistola.suite.htmx.footer`) returns Thymeleaf `FooterFragment`s (`template :: fragment`); `FooterFragmentResolver` collects them and `fragments/footer` `th:replace`s each. Example: `epistola-support-feedback`'s `FeedbackFooterContributor` injects the feedback FAB.
 
@@ -194,8 +189,10 @@ Rules:
   })
   ```
 
-- Prefer `MediatorContext.current()` / `.send()` / `.query()` inside the bound
-  scope instead of passing Spring services deeper into application operations.
+- Dispatch with the mediator extensions `Command.execute()` / `Query.query()`
+  (`mediator/MediatorExtensions.kt`) inside the bound scope, instead of passing
+  Spring services deeper into application operations. They are the house idiom;
+  `mediator.send(...)` / `mediator.query(...)` are the low-level equivalents.
 - Database `NOW()`/`now()` is still correct for database-owned timestamps,
   triggers, row leases, claim/update comparisons, and other operations that must
   align with the database clock.
@@ -244,7 +241,9 @@ A strict CSP is enforced on all UI responses (`SecurityConfig.kt`): **`script-sr
 
 ### Editor component registrations
 
-Every editor component registration (`ComponentDefinition` in `modules/editor/src/main/typescript/engine/registry.ts`) must include at least one entry in `examples[]`. Backend tools (the MCP server's `list_component_types` / `get_component_type`) and design docs surface these as canonical usage. Each example is a self-contained `{ rootNodeId, nodes, slots }` `TemplateDocument` fragment showing one realistic way the component is used. Treat missing examples as a PR blocker.
+Every editor component registration (`ComponentDefinition` in `modules/editor/src/main/typescript/engine/registry.ts`) must include at least one entry in `examples[]`. Each example is a self-contained `{ rootNodeId, nodes, slots }` `TemplateDocument` fragment showing one realistic way the component is used. Treat missing examples as a PR blocker (`registry-examples.test.ts` enforces it).
+
+The **contract owns the component vocabulary**, examples included: `withContractMetadata` replaces the editor's copy with the contract's, the MCP server reads the registry from the contract jar, and `check-component-registry.mjs` (run by `pnpm build`) fails when the editor's projection differs. Changing a component's shape therefore needs a contract release — see [`docs/component-registry.md`](docs/component-registry.md).
 
 ## Backend Architecture: UI Handlers vs REST API
 
@@ -275,7 +274,8 @@ Always create a UI handler endpoint for UI needs. The REST API is only for exter
 ### Verification
 
 ```bash
-./gradlew test --tests UiRestApiSeparationTest
+# The repo-wide guard tests all live in apps/epistola; run pnpm build once first.
+./gradlew :apps:epistola:unitTest --tests "app.epistola.suite.architecture.*"
 ```
 
 ## Build Commands
@@ -298,6 +298,10 @@ pnpm install && pnpm build && ./gradlew build
 
 # Run the application
 ./gradlew :apps:epistola:bootRun
+
+# Run it with demo data (a tenant, the demo catalog and a well-known API key) —
+# use this when you need to see a change working, or to reach the MCP endpoint.
+./gradlew :apps:epistola-demo:bootRun --args='--spring.profiles.active=demo,local,localauth'
 
 # Run tests only
 ./gradlew test
@@ -333,12 +337,11 @@ of these to the exact same released version:
 - `modules/editor/package.json` — `@epistola.app/epistola-catalog`
 - `pnpm-lock.yaml` — regenerate it from the updated editor dependency
 
-Run `./gradlew checkContractVersionAlignment` after every contract bump. The task is also wired
-into the root `check`/`build` lifecycle and fails if the backend, editor, or lockfile versions
-drift. Renovate must keep the Maven and npm packages in the same `epistola-contract` group and
+Run `./gradlew checkContractVersionAlignment` after every contract bump. CI runs it in the compile
+job, and it fails if the backend, editor, or lockfile versions drift. Renovate must keep the Maven and npm packages in the same `epistola-contract` group and
 must include `gradle/libs.versions.toml` in its Gradle file matcher.
 
-CycloneDX 3.3.0 may print `Unknown keyword meta:enum` and
+CycloneDX may print `Unknown keyword meta:enum` and
 `Unknown keyword deprecated` while networknt validates SPDX schema metadata.
 These are upstream schema-vocabulary notices, not Gradle deprecations. Keep the
 generated SBOM validation enabled and remove this note when the upstream
@@ -362,12 +365,12 @@ pnpm --filter @epistola/editor watch
 
 - **Formatter**: oxfmt via `pnpm format` (enforced in CI)
 - **Always run `pnpm format`** before committing to auto-fix formatting across all file types (JSON, TypeScript, Markdown, CSS, etc.)
-- **Always run `pnpm format:check`** after committing to verify — this includes Markdown files, so documentation-only changes need formatting too
-- **Run `pnpm format:check`** to verify without modifying files
+- **Run `pnpm format:check`** to verify without modifying files. It covers Markdown too, so
+  documentation-only changes need formatting as well; CI runs it.
 
 ### Kotlin
 
-- **Linter**: ktlint (enforced in CI)
+- **Linter**: ktlint (enforced in CI's compile job, alongside `checkContractVersionAlignment`)
 - **Always run `./gradlew ktlintFormat`** after making Kotlin changes to auto-fix formatting
 - **Always run `./gradlew ktlintCheck`** before committing to verify code style
 - Kotlin compiler warnings and Gradle deprecations fail the build by default
@@ -390,21 +393,19 @@ pnpm --filter @epistola/editor watch
 
 Use [Conventional Commits](https://www.conventionalcommits.org/):
 
-| Prefix      | Purpose            | Version Bump |
-| ----------- | ------------------ | ------------ |
-| `feat:`     | New feature        | MINOR        |
-| `fix:`      | Bug fix            | PATCH        |
-| `docs:`     | Documentation      | PATCH        |
-| `chore:`    | Maintenance        | PATCH        |
-| `refactor:` | Code restructuring | PATCH        |
-| `test:`     | Test changes       | PATCH        |
-| `ci:`       | CI/CD changes      | PATCH        |
+The accepted types are the ones in `.husky/commitlint.config.js` — `feat`, `fix`, `docs`, `style`,
+`refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert` — which is also the vocabulary the
+CHANGELOG uses (minus `style` and `revert`). That config is the source of truth; this list is a
+copy. A scope is optional in a commit subject but **required** in a changelog entry.
+
+Release versions are chosen by the release process, not derived from commit types.
 
 **Breaking changes**: Use `feat!:` or `fix!:` or add `BREAKING CHANGE:` in footer.
 
 **Feature maturity vs. version bumps**: A feature can be **alpha** or **beta** (experimental/preview — wired but not yet tested/supported for production; flagged as such in code, docs, and the CHANGELOG) or **GA** (stable, supported). Breaking changes to **alpha or beta** features may ship in a **MINOR** release — they do **not** require a major version bump. Only breaking changes to **GA** features require a **MAJOR** bump (and, post-GA, a deliberate deprecation). So `feat!`/`fix!` scoped entirely to an alpha/beta surface is a minor, not a major; call out the alpha/beta scope in the CHANGELOG entry. (This is separate from **data stability**, which is non-negotiable from RC1 onward regardless of feature maturity — no destructive migrations, ever.)
 
-**Git hook**: Commit messages are validated by commitlint. Invalid messages will be rejected.
+**Git hook**: Commit messages are validated by commitlint — a local hook, installed by
+`scripts/init.sh`, so it is the only thing checking them; no CI job does.
 
 **Commit signing**: SSH commit signing is enabled. Commits will be signed automatically.
 
@@ -420,7 +421,9 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 
 - **Requires Docker** - Integration and UI tests use Testcontainers
 - Backend: JUnit 5 + Testcontainers
-- Always run `./gradlew unitTest integrationTest` before committing
+- Before committing, run the tests for what you touched — scope them to the module
+  (`./gradlew :modules:epistola-core:integrationTest --tests "*TenantCommandsTest"`) rather than
+  running everything. The table below says which task fits which change.
 - All PRs must pass CI checks
 - See `docs/testing.md` for the full testing guide
 
@@ -452,9 +455,8 @@ Compose commands to reach the state you need instead of reaching for SQL:
   `RecordApiKeyUsage` to mark one used).
 
 Raw SQL in a fixture is the **exception**, justified only when no command can produce the
-needed state — e.g. tables with no command (`consumer_nodes`, `consumer_partition_cursors`),
-or planting a **specific historical timestamp** the read path asserts against (commands
-write `NOW()`). When you do drop to SQL, add a one-line comment saying why so it doesn't
+needed state — e.g. an infrastructure table that no command writes, or planting a
+**specific historical timestamp** the read path asserts against (commands write `NOW()`). When you do drop to SQL, add a one-line comment saying why so it doesn't
 read as the default.
 
 ### UI test rules (enforced — issue #418)
@@ -478,7 +480,7 @@ pseudo, blind `waitForSelector("…[open]")`, bare `page.navigate`, and forensic
 | Thymeleaf templates, HTMX handlers    | `./gradlew integrationTest`                    |
 | UI interaction, JavaScript behavior   | `./gradlew uiTest`                             |
 | Before committing                     | `./gradlew unitTest integrationTest` (minimum) |
-| Before creating a PR                  | `./gradlew test` (all)                         |
+| Before creating a PR                  | `./gradlew test uiTest` (`test` excludes UI)   |
 
 ### Multi-instance & concurrency repro scripts (manual — not run by CI)
 
@@ -523,7 +525,7 @@ Spring profile (datasource `127.0.0.1:4001`), so don't run them alongside a loca
 ## When Making Changes
 
 1. **Read existing code first** - Understand patterns before modifying
-2. **Run tests** - `./gradlew test` before and after changes
+2. **Run tests** - the task that fits the change (see "When to Run Which Tests")
 3. **Format all files** - `pnpm format` before committing (covers JSON, TypeScript, Markdown, CSS, etc. — includes documentation-only changes)
 4. **Format Kotlin** - `./gradlew ktlintFormat` after making Kotlin changes
 5. **Check style** - `./gradlew ktlintCheck` before committing (must pass)
@@ -570,30 +572,15 @@ Spring profile (datasource `127.0.0.1:4001`), so don't run them alongside a loca
 - Don't skip tests or CI checks
 - Don't commit secrets or credentials
 - Don't modify `.github/workflows/` without understanding the impact
-- Don't change version numbers manually (automated via CI)
+- Don't bump the app version in `gradle.properties` outside the release process (CI asserts that a
+  `v*` tag matches it). Bundled-catalog `release.version` values **are** bumped by hand — see item 10.
 
-## GitHub Integration (MCP)
+## GitHub Integration
 
-This project uses a GitHub MCP server for AI-assisted issue and project management. When the MCP server is configured, you have access to GitHub tools for:
+Use the `gh` CLI for issues, pull requests and workflow runs. Reference issues in commits when
+fixing bugs (e.g. "fix: resolve login issue #123"), and check existing issues before filing a
+duplicate.
 
-- **Issues**: Create, update, list, and search issues
-- **Pull Requests**: Create, list, review, and manage PRs
-- **Projects**: Manage GitHub Projects for backlog tracking
-
-### Using GitHub MCP Tools
-
-When working with the backlog or issues:
-
-- Use the GitHub MCP tools to create issues for new features or bugs
-- Reference issues in commits when fixing bugs (e.g., "fix: resolve login issue #123")
-- Check existing issues before creating duplicates
-
-### Setup
-
-If the GitHub MCP server is not configured, run:
-
-```bash
-pnpm run setup:github-mcp
-```
-
-This will guide you through creating a fine-grained PAT with minimal permissions and store it securely in your OS credential manager.
+An optional GitHub MCP server is configured in `.mcp.json` for assistants that prefer tools over the
+CLI; `pnpm run setup:github-mcp` walks through creating a fine-grained PAT and storing it in the OS
+credential manager. Nothing depends on it being available.
