@@ -45,13 +45,13 @@
   "devDependencies": {
     "@types/node": "^24.10.4",
     "@types/qrcode": "^1.5.6",
-    "@vitest/coverage-v8": "^4.0.16",
+    "@vitest/coverage-v8": "^5.0.0",
     "generate-license-file": "^4.2.1",
     "globals": "^17.0.0",
     "happy-dom": "^20.0.0",
     "typescript": "7.0.2",
     "vite": "^8.0.0",
     "vite-node": "^6.0.0",
-    "vitest": "^4.0.16"
+    "vitest": "^5.0.0"
   }
 }
