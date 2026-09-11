@@ -119,6 +119,13 @@ class EpistolaCatalogApi : CatalogsApi {
         )
     }
 
+    /**
+     * `upgradeCatalogRequest.includeNewSlugs` is accepted and ignored. An upgrade now reconciles the
+     * whole manifest (issue #850), so newly published resources arrive whether or not a caller asks
+     * for them -- which is a superset of what the field ever requested. The field stays on the
+     * request because the REST surface is GA and removing it needs a major release; the contract
+     * should mark it deprecated at its next release.
+     */
     override fun upgradeCatalog(
         tenantId: String,
         catalogId: String,
@@ -127,7 +134,6 @@ class EpistolaCatalogApi : CatalogsApi {
         val result = UpgradeCatalog(
             tenantKey = TenantKey.of(tenantId),
             catalogKey = CatalogKey.of(catalogId),
-            includeNewSlugs = upgradeCatalogRequest?.includeNewSlugs ?: emptyList(),
         ).execute()
 
         return ResponseEntity.ok(

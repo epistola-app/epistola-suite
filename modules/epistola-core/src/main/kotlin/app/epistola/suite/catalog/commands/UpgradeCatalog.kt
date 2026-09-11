@@ -35,21 +35,19 @@ import tools.jackson.databind.ObjectMapper
  * stencils embedded in other template models, etc.), the entire upgrade
  * is rejected with a [CatalogUpgradeConflictException].
  *
- * [mode] defaults to [CatalogUpgradeMode.SELECTIVE]: only resources already
- * installed locally are upgraded, plus new resources explicitly listed in
- * [includeNewSlugs]. Managed bundled catalogs use [CatalogUpgradeMode.FULL]
- * to reconcile every manifest resource. Keeping the default selective
- * preserves the regular subscribed-catalog flow until issue #850 intentionally
- * removes it. [preserveResourceTypes] is reserved for resources explicitly
- * managed outside the manifest, such as the separately seeded system fonts.
+ * An upgrade reconciles the **whole** manifest: resources that are new since the installed release
+ * are added, changed ones are updated, and ones the publisher no longer publishes are removed,
+ * subject to the conflict check below. There is no selective mode. An upgrade that preserved a
+ * locally chosen subset made "installed 1.2.0" mean something different on every installation; a
+ * catalog is one install unit (see issue #850 and [InstallFromCatalog]).
+ *
+ * [preserveResourceTypes] is not an exception to that: it names resources deliberately managed
+ * outside the manifest, such as the system fonts seeded by `EnsureSystemFonts`, so reconciliation
+ * does not delete what the manifest was never responsible for.
  */
-enum class CatalogUpgradeMode { SELECTIVE, FULL }
-
 data class UpgradeCatalog(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
-    val includeNewSlugs: List<String> = emptyList(),
-    val mode: CatalogUpgradeMode = CatalogUpgradeMode.SELECTIVE,
     val preserveResourceTypes: Set<String> = emptySet(),
 ) : Command<UpgradeCatalogResult>,
     RequiresPermission,
@@ -130,19 +128,12 @@ class UpgradeCatalogHandler(
             }
         }
 
-        // 5. Selective upgrades preserve the locally chosen subset. Full
-        //    reconciliation installs/updates every resource in the manifest.
-        val manifestSlugSet = manifest.resources.map { it.slug }.toSet()
-        val newSlugs = command.includeNewSlugs.filter { it in manifestSlugSet }
-        val slugsToUpgrade = when (command.mode) {
-            CatalogUpgradeMode.SELECTIVE -> installedSlugs.values.flatten().map { it.slug } + newSlugs
-            CatalogUpgradeMode.FULL -> manifest.resources.map { it.slug }
-        }.distinct()
-        val installResults = if (slugsToUpgrade.isNotEmpty()) {
+        // 5. Reconcile the whole manifest. Resources added since the installed release arrive with
+        //    this upgrade rather than waiting to be asked for individually.
+        val installResults = if (manifest.resources.isNotEmpty()) {
             InstallFromCatalog(
                 tenantKey = command.tenantKey,
                 catalogKey = command.catalogKey,
-                resourceSlugs = slugsToUpgrade,
             ).execute()
         } else {
             emptyList()

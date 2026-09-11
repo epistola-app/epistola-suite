@@ -113,6 +113,18 @@ omit missing icon references and filter missing gallery entries while preserving
 the order of installed entries. The full source metadata remains stored so the
 presentation appears as assets are installed later.
 
+## Size a catalog to be adopted whole
+
+A consumer installs a catalog whole and upgrades it whole; there is no way to take a subset
+(see [the installation guide](catalog-exchange-installation.md#why-a-catalog-is-one-unit)). So the
+catalog boundary is the adoption boundary, and drawing it is an authoring decision, not something to
+leave to each consumer.
+
+Keep a catalog focused on resources that belong together and are adopted together. When two groups
+of resources have independent audiences or release rhythms — a house style versus a set of letters,
+say — publish them as two catalogs and declare the dependency between them. That is cheaper for
+everyone than one large catalog nobody wants all of.
+
 ## Cutting a release (AUTHORED)
 
 The web UI catalog list shows a **Release new version** action (AUTHORED only)
@@ -305,8 +317,9 @@ added later if automation demand appears.
   `vX · ZIP` (ZIP-managed mirror — no source URL, upgrade by re-importing),
   or `vX · check failed` (source unreachable). The "Review catalog upgrade"
   dialog shows the version delta, change buckets, conflicts with a
-  server-rendered disabled Apply, and an opt-in "also install new resources"
-  wired to `UpgradeCatalog.includeNewSlugs`. **Read parity:** REST
+  server-rendered disabled Apply, and the resources new in this release listed
+  for information — an upgrade reconciles the whole manifest, so they arrive
+  with it rather than being opted into. **Read parity:** REST
   `GET /tenants/{tenantId}/catalogs/{catalogId}/upgrade-preview`
   (`CatalogUpgradeDiff`) and MCP `preview_catalog_upgrade`; the upgrade
   _action_ stays UI-only. Still open: ZIP-import dry-run.

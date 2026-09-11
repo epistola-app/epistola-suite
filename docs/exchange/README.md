@@ -255,7 +255,7 @@ Templates may reference resources from other catalogs:
 
 During export, Epistola scans all template models and compares references against the catalog's own resources. Any reference to a resource NOT in the catalog is added to the `dependencies` list.
 
-During import, Epistola validates that all declared dependencies exist in the target tenant before installing. If any are missing, the import is rejected with a clear error listing what's needed.
+During a **ZIP import**, Epistola validates that all declared dependencies exist in the target tenant before installing. If any are missing, the import is rejected with a clear error listing what's needed. The **URL-subscribed** install path does not yet run this check ([#917](https://github.com/epistola-app/epistola-suite/issues/917)).
 
 Dependencies use a sealed type hierarchy:
 
@@ -337,13 +337,13 @@ Remote catalogs support three authentication types:
 
 1. Fetch catalog metadata from DB (source URL, auth type, credential)
 2. Fetch remote manifest via `CatalogClient.fetchManifest()`
-3. Filter resources by optional slug list (or install all)
-4. Resolve transitive dependencies via `DependencyResolver`
+3. Take **every** resource in the manifest — a catalog is one install unit, and there is no way to ask for a subset (see [#850](https://github.com/epistola-app/epistola-suite/issues/850))
+4. Run `DependencyResolver` over that set: it can add nothing to a complete manifest, but it validates that every same-catalog reference points at a resource the manifest declares
 5. Sort by install order: assets, attributes, themes, stencils, templates
 6. For each resource, fetch the detail JSON and call the type-specific importer
 7. Asset binaries are fetched separately via `CatalogClient.fetchBinaryContent()`
 
-Before installing, the import validates that all declared cross-catalog dependencies exist in the target tenant. If any are missing, the import is rejected with a descriptive error.
+> **Cross-catalog dependencies are not checked on this path.** `ImportCatalogZip` verifies that a manifest's declared `dependencies[]` exist in the target tenant before it writes anything; the URL-subscribed path above does not, so a catalog that depends on another tenant-local catalog installs and fails later at render. Tracked in [#917](https://github.com/epistola-app/epistola-suite/issues/917).
 
 The import runs within `CatalogImportContext.runAsImport {}` to bypass editability checks on the subscribed catalog.
 
