@@ -338,7 +338,14 @@ export class EpistolaDataContractEditor extends LitElement {
                     this._schemaWarnings.length > 0
                       ? html`
                           <ul class="dc-validation-banner-list">
-                            ${this._schemaWarnings.map((w) => html`<li>${w.message}</li>`)}
+                            ${this._schemaWarnings.map(
+                              (w) => html`
+                                <li>
+                                  <code class="dc-validation-banner-path">${w.path}</code>
+                                  ${w.message}
+                                </li>
+                              `,
+                            )}
                           </ul>
                         `
                       : nothing
@@ -896,6 +903,10 @@ export class EpistolaDataContractEditor extends LitElement {
     this._saveSuccess = false;
     this._saveError = null;
     this._canForceSave = false;
+    // Backend warnings are only meaningful until the next edit — otherwise the
+    // top banner keeps showing a stale rejection after the author has already
+    // started fixing it.
+    this._schemaWarnings = [];
   }
 
   // ---------------------------------------------------------------------------

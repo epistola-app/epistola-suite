@@ -155,5 +155,74 @@ class DataContractSchemaValidationTest {
         )
     }
 
+    @Test
+    fun `rejects minItems and maxItems split across an allOf member`() {
+        val result = validator.validateDataContractSchema(
+            schema(
+                """
+                {"type":"object","properties":{
+                  "tags":{"type":"array","items":{"type":"string"},"minItems":5,"allOf":[{"maxItems":1}]}
+                }}
+                """.trimIndent(),
+            ),
+        )
+
+        assertThat(result).isEqualTo(
+            SchemaValidationResult.Invalid("Property \"\$.tags\" has \"maxItems\" less than \"minItems\""),
+        )
+    }
+
+    @Test
+    fun `accepts minItems and maxItems split across an allOf member when satisfiable together`() {
+        val schema = schema(
+            """
+            {"type":"object","properties":{
+              "tags":{"type":"array","items":{"type":"string"},"minItems":1,"allOf":[{"maxItems":5}]}
+            }}
+            """.trimIndent(),
+        )
+
+        assertThat(validator.validateDataContractSchema(schema)).isEqualTo(SchemaValidationResult.Valid)
+    }
+
+    @Test
+    fun `rejects a oneOf branch made unsatisfiable by an inherited sibling minItems`() {
+        val result = validator.validateDataContractSchema(
+            schema(
+                """
+                {"type":"object","properties":{
+                  "tags":{"type":"array","items":{"type":"string"},"minItems":5,
+                    "oneOf":[{"maxItems":1},{"maxItems":10}]}
+                }}
+                """.trimIndent(),
+            ),
+        )
+
+        assertThat(result).isEqualTo(
+            SchemaValidationResult.Invalid("Property \"\$.tags.oneOf\" has \"maxItems\" less than \"minItems\""),
+        )
+    }
+
+    @Test
+    fun `rejects minItems and maxItems split across a draft-07 tuple items entry`() {
+        // Array-form (tuple) `items` is only valid syntax under draft-07 — the 2020-12 default
+        // dialect replaced it with `prefixItems` and rejects it before this check ever runs.
+        val result = validator.validateDataContractSchema(
+            schema(
+                """
+                {"${'$'}schema":"http://json-schema.org/draft-07/schema#","type":"object","properties":{
+                  "row":{"type":"array","items":[
+                    {"type":"array","items":{"type":"string"},"minItems":5,"maxItems":1}
+                  ]}
+                }}
+                """.trimIndent(),
+            ),
+        )
+
+        assertThat(result).isEqualTo(
+            SchemaValidationResult.Invalid("Property \"\$.row.items[0]\" has \"maxItems\" less than \"minItems\""),
+        )
+    }
+
     private fun schema(json: String): ObjectNode = objectMapper.readValue(json, ObjectNode::class.java)
 }

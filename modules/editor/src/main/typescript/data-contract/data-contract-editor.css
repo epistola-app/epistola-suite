@@ -540,70 +540,6 @@
   }
 
   /* --------------------------------------------------------------------------
-   * Validation messages
-   * ---------------------------------------------------------------------- */
-
-  .dc-validation-messages {
-    background: var(--ep-amber-50);
-    border: 1px solid var(--ep-amber-200);
-    border-radius: var(--ep-radius-md);
-    padding: var(--ep-space-3);
-    margin-bottom: var(--ep-space-3);
-  }
-
-  .dc-validation-header {
-    display: flex;
-    align-items: center;
-    gap: var(--ep-space-2);
-    margin-bottom: var(--ep-space-2);
-  }
-
-  .dc-validation-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    border-radius: var(--ep-radius-full);
-    background: var(--ep-amber-500);
-    color: var(--ep-white);
-    font-size: 11px;
-    font-weight: 700;
-    flex-shrink: 0;
-  }
-
-  .dc-validation-title {
-    font-size: var(--ep-text-xs);
-    font-weight: 600;
-    color: var(--ep-amber-800);
-  }
-
-  .dc-validation-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-
-  .dc-validation-item {
-    display: flex;
-    gap: var(--ep-space-2);
-    padding: var(--ep-space-1) 0;
-    font-size: var(--ep-text-xs);
-    color: var(--ep-amber-800);
-  }
-
-  .dc-validation-path {
-    font-family: var(--ep-font-mono);
-    font-size: var(--ep-text-xs);
-    color: var(--ep-amber-600);
-    flex-shrink: 0;
-  }
-
-  .dc-validation-message {
-    color: var(--ep-amber-800);
-  }
-
-  /* --------------------------------------------------------------------------
    * Example form — improved tree layout (compact nested syntax)
    * ---------------------------------------------------------------------- */
 
@@ -1630,6 +1566,12 @@
     padding-left: var(--ep-space-4);
     font-size: var(--ep-text-xs);
     color: var(--ep-red-700);
+  }
+
+  .dc-validation-banner-path {
+    font-family: var(--ep-font-mono);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-red-600);
   }
 
   .dc-breaking-changes-banner {
