@@ -9,6 +9,24 @@ Epistola Suite is a document suite application with:
 - **Client Components**: Vite + TypeScript editor module (Node.js 24) for rich editing
 - **Architecture**: Multi-module Gradle monorepo
 
+## Where to look
+
+Before writing code in an area, read its page: those are maintained and specific, while this file
+is a summary. The right-hand column is what fails the build when you get it wrong — run it rather
+than guessing.
+
+| When you touch                 | Read                                                                                                                       | Enforced by                                                                                                        |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Thymeleaf templates, static JS | [`docs/htmx.md`](docs/htmx.md), [`docs/dialog-forms.md`](docs/dialog-forms.md), [`docs/brandguide.md`](docs/brandguide.md) | `CspTemplateComplianceTest`, `DesignSystemClassTest`, `IconUsageTest`, `PageHeaderUsageTest`, `InputMaxLengthTest` |
+| Any test                       | [`docs/testing.md`](docs/testing.md)                                                                                       | `UiTestHygieneTest`                                                                                                |
+| Commands and queries           | `security/Authorized.kt`, and `environments/commands/CreateEnvironment.kt` as the exemplar                                 | `MediatorWiringTest`, `AuthorizationCoverageTest`, `DomainBoundaryTest`                                            |
+| Application time               | [`docs/clock.md`](docs/clock.md)                                                                                           | `ApplicationClockUsageTest`                                                                                        |
+| Flyway migrations              | [`docs/migrations.md`](docs/migrations.md)                                                                                 | `checkMigrationVersions`, `SchemaHygieneAppTest`, `TenantTableTopologyDriftIntegrationTest`                        |
+| Editor components              | [`docs/component-registry.md`](docs/component-registry.md), [`docs/editor-features.md`](docs/editor-features.md)           | `registry-examples.test.ts`, `check-component-registry.mjs` (both run by `pnpm build`)                             |
+| REST API                       | `api/v1/ProblemDetails.kt` for errors; bump the contract in three places at once                                           | `checkContractVersionAlignment`, `UiRestApiSeparationTest`                                                         |
+| Bundled system or demo catalog | [`docs/catalog-versioning.md`](docs/catalog-versioning.md)                                                                 | `BundledCatalogFingerprintTest`, `DemoCatalogFingerprintTest`                                                      |
+| Catalog import/export          | [`docs/exchange/README.md`](docs/exchange/README.md)                                                                       | `CatalogExchangeIndependenceTest`                                                                                  |
+
 ## Release Status
 
 **Epistola Suite 1.0.0 is generally available — the first GA release (31 July 2026).**
