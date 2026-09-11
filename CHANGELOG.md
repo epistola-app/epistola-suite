@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- **[dev]** ci(build): **CI now runs the checks the conventions claimed it ran.** `ktlintCheck` and `checkContractVersionAlignment` only hang off Gradle's `check` task, which CI stopped invoking when `gradle build` was dropped in May, so Kotlin style and a half-finished contract bump could reach `main` with every required check green. Both now ride the existing compile invocation, and `pnpm lint:css` — a script with a config that ran nowhere — joins the frontend checks. All three pass today, so this pins current behaviour rather than fixing a backlog.
+
 - **[user]** fix(changelog): **Breaking changes are filed under their own type again, and say so.** The dialog's parser did not accept the `!` that marks a breaking change, so every such entry — "PostgreSQL 18 is now the minimum" among them — landed in the untyped Chores bucket with its raw `feat(db)!:` prefix showing in the text. It now reads the marker, files the entry under its real type and scope, and leads the chip row with a Breaking badge. Two entries written as `feat!(exchange):` are corrected to the documented `feat(exchange)!:`, and a new test checks every `[Unreleased]` entry against the documented format, which is what let these through.
 
 - **[dev]** fix(build): **`--tests` filters no longer fail modules that do not have the test.** The `test` task was the only one that still failed a module when a `--tests` filter matched nothing there, so the documented `./gradlew test --tests SomeTest` broke as soon as it was run from the root — which is exactly how the repo-wide guard tests are invoked.

@@ -70,8 +70,13 @@ jobs:
 
       # One invocation, not two: the configuration cache is never reused on CI, so
       # every extra `gradle` call pays the full configuration phase again.
-      - name: Check migration versions and compile
-        run: gradle checkMigrationVersions testClasses
+      # ktlintCheck and checkContractVersionAlignment ride along here because they
+      # only hang off `check`, which CI stopped running when `gradle build` went
+      # away — so CLAUDE.md claimed an enforcement that did not exist. Both are
+      # cheap (ktlint over the whole repo is seconds) and fail fast on style or a
+      # half-finished contract bump.
+      - name: Check migrations, style, contract alignment and compile
+        run: gradle checkMigrationVersions ktlintCheck checkContractVersionAlignment testClasses
 
       # setup-gradle does NOT share the local build cache across jobs, so we
       # ship it explicitly. It is content-addressed (location-independent), so
@@ -124,6 +129,11 @@ jobs:
 
       - name: Lint
         run: pnpm lint:check
+
+      # stylelint has a script and a config but ran nowhere, so CSS drift was
+      # caught only by review.
+      - name: Lint CSS
+        run: pnpm lint:css
 
       - name: Check format
         run: pnpm format:check
