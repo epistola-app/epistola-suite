@@ -471,41 +471,38 @@
                             This catalog is already up to date — nothing to apply.
                         </p>
 
+                        <!--/* New, updated and removed are named, not just counted, and all three
+                               read the same way: an upgrade reconciles the whole manifest (#850), so
+                               every one of them is something this button is about to do. Additions
+                               used to be a checkbox list because they were opt-in; the choice is
+                               gone, the visibility is not. */-->
                         <div class="form-group" th:if="${diff.hasChanges}">
-                            <span class="ep-label">Changes</span>
+                            <span class="ep-label">This upgrade will</span>
                             <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
-                                <li th:if="${!diff.metadataChanges.isEmpty()}">
-                                    Catalog metadata changed
+                                <li th:if="${!diff.added.isEmpty()}">
+                                    install <strong th:text="${diff.added.size()}"></strong> new
                                     <span class="form-hint"
-                                          th:text="${'(' + #strings.listJoin(diff.metadataChanges, ', ') + ')'}"></span>
+                                          th:text="${'(' + #strings.listJoin(diff.added.![type + '/' + slug], ', ') + ')'}"></span>
                                 </li>
                                 <li th:if="${!diff.changed.isEmpty()}">
-                                    <strong th:text="${diff.changed.size()}"></strong> changed
+                                    update <strong th:text="${diff.changed.size()}"></strong> changed
                                     <span class="form-hint"
                                           th:text="${'(' + #strings.listJoin(diff.changed.![type + '/' + slug], ', ') + ')'}"></span>
                                 </li>
                                 <li th:if="${!diff.removed.isEmpty()}">
-                                    <strong th:text="${diff.removed.size()}"></strong> removed
+                                    remove <strong th:text="${diff.removed.size()}"></strong>
                                     <span class="form-hint"
                                           th:text="${'(' + #strings.listJoin(diff.removed.![type + '/' + slug], ', ') + ')'}"></span>
                                 </li>
-                                <li th:if="${!diff.added.isEmpty()}">
-                                    <strong th:text="${diff.added.size()}"></strong> new (not installed by default)
+                                <li th:if="${!diff.metadataChanges.isEmpty()}">
+                                    update the catalog's own details
+                                    <span class="form-hint"
+                                          th:text="${'(' + #strings.listJoin(diff.metadataChanges, ', ') + ')'}"></span>
                                 </li>
                                 <li th:if="${!diff.unchanged.isEmpty()}" class="text-muted">
-                                    <span th:text="${diff.unchanged.size()}"></span> unchanged
+                                    leave <span th:text="${diff.unchanged.size()}"></span> unchanged
                                 </li>
                             </ul>
-                        </div>
-
-                        <!--/* Additions are listed, not offered: an upgrade reconciles the whole
-                               manifest (#850), so everything the publisher added arrives with it. */-->
-                        <div class="form-group" th:if="${!diff.added.isEmpty()}">
-                            <span class="ep-label">New in this release</span>
-                            <ul class="ep-stack ep-gap-1" style="margin-top: var(--ep-space-1);">
-                                <li th:each="a : ${diff.added}" th:text="${a.type} + '/' + ${a.slug}"></li>
-                            </ul>
-                            <span class="form-hint">These are installed as part of the upgrade.</span>
                         </div>
                     </th:block>
                 </div>
