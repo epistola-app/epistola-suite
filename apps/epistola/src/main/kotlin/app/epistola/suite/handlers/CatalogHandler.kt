@@ -51,6 +51,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.exchange.CancelCatalogPublication
 import app.epistola.suite.exchange.ExchangeSourceUri
 import app.epistola.suite.exchange.GetCatalogPublicationState
+import app.epistola.suite.exchange.GetExchangeCatalogLink
 import app.epistola.suite.exchange.PublishCurrentCatalogRelease
 import app.epistola.suite.exchange.SetCatalogPublicationNamespace
 import app.epistola.suite.features.KnownFeatures
@@ -564,6 +565,10 @@ class CatalogHandler {
             } else {
                 null
             }
+            // The catalog's page on Exchange, when it came from there. Null for a plain URL
+            // subscription, a ZIP import, or an authored catalog — the view falls back to the text
+            // it rendered before. Resolved once per page: the rows append to it themselves.
+            val exchangeCatalogUrl = GetExchangeCatalogLink(tenantId.key, result.catalog.sourceUrl).query()
             // Per-stencil version-conflict map (slug → "v1, v2 still pinned by N
             // template(s) (latest v3)"). Empty when the catalog is exportable. Used by
             // the browse view to flag stencils that block export — mirrors the precheck
@@ -585,6 +590,7 @@ class CatalogHandler {
                 "tenantId" to tenantId.key
                 "activeNavSection" to "catalogs"
                 "catalog" to result.catalog
+                "exchangeCatalogUrl" to exchangeCatalogUrl
                 "publication" to publication
                 "publicationError" to error
                 "resources" to result.resources

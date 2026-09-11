@@ -40,7 +40,15 @@
                 </div>
                 <div th:if="${catalog.sourceUrl}" class="catalog-detail-summary-item catalog-detail-source">
                     <span class="catalog-detail-label">Source</span>
-                    <code class="catalog-detail-value" th:text="${catalog.sourceUrl}"></code>
+                    <a th:if="${exchangeCatalogUrl != null}"
+                       th:href="${exchangeCatalogUrl}"
+                       class="catalog-detail-value"
+                       target="_blank" rel="noopener noreferrer"
+                       hx-boost="false"
+                       title="View this catalog on Epistola Exchange">
+                        <code th:text="${catalog.sourceUrl}"></code>
+                    </a>
+                    <code th:if="${exchangeCatalogUrl == null}" class="catalog-detail-value" th:text="${catalog.sourceUrl}"></code>
                 </div>
             </div>
 
@@ -410,8 +418,22 @@
                                        th:href="@{/tenants/{tenantId}/images(tenantId=${tenantId},catalog=${catalog.id})}"
                                        th:text="${resource.name}"></a>
                                 </th:block>
-                                <!-- Subscribed: plain text -->
-                                <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" th:text="${resource.name}"></span>
+                                <!--/* Subscribed: the resource has no local page (it is a read-only
+                                       mirror), but a catalog installed from Exchange has one there —
+                                       /catalogs/{namespace}/{key}/resources/{type}/{slug}, built by
+                                       appending to the catalog root the handler resolved once. A
+                                       private catalog's page asks the reader to sign in, which is
+                                       Exchange's call to make, not ours to pre-empt. Everything else
+                                       subscribed stays plain text. */-->
+                                <th:block th:if="${catalog.type.name() == 'SUBSCRIBED'}">
+                                    <a th:if="${exchangeCatalogUrl != null}"
+                                       th:href="${exchangeCatalogUrl + '/resources/' + resource.type + '/' + resource.slug}"
+                                       th:text="${resource.name}"
+                                       target="_blank" rel="noopener noreferrer"
+                                       hx-boost="false"
+                                       th:title="'View ' + ${resource.name} + ' on Epistola Exchange'"></a>
+                                    <span th:if="${exchangeCatalogUrl == null}" th:text="${resource.name}"></span>
+                                </th:block>
                             </td>
                             <td th:title="${resource.slug}"><code th:text="${resource.slug}"></code></td>
                             <td th:title="${resource.description}">
