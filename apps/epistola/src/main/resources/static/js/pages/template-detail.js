@@ -286,6 +286,7 @@
       initialExamples: initialExamples,
       readonly: readonly,
       saveControlsContainer: document.getElementById('contract-save-controls'),
+      validationAlertContainer: document.getElementById('contract-validation-alert'),
       callbacks: readonly
         ? {}
         : {
@@ -304,6 +305,7 @@
                     success: false,
                     error: err.detail ?? err.message,
                     warnings: err.warnings,
+                    errors: err.errors,
                   };
                 }
                 const result = await response.json();
@@ -326,6 +328,7 @@
                     success: false,
                     error: err.detail ?? err.message,
                     warnings: err.warnings,
+                    errors: err.errors,
                   };
                 }
                 const result = await response.json();

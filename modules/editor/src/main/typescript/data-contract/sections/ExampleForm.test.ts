@@ -216,6 +216,45 @@ describe('array item actions', () => {
       ),
     ).toBe(true);
   });
+
+  it('shows an array-length error message below the array block', () => {
+    const container = document.createElement('div');
+    const errors = new Map([['tags', 'must have at most 2 items but found 3']]);
+    render(
+      renderExampleForm(schema, { tags: ['a', 'b', 'c'] }, () => {}, errors),
+      container,
+    );
+
+    const group = container.querySelector('details[aria-label="tags array"]')!;
+    const errorEl = group.parentElement!.querySelector('.dc-field-error');
+    expect(errorEl?.textContent).toBe('must have at most 2 items but found 3');
+  });
+
+  it('shows an array-length error message below an array-of-objects block', () => {
+    const container = document.createElement('div');
+    const errors = new Map([['contacts', 'must have at least 1 items']]);
+    render(
+      renderExampleForm(schema, { contacts: [] }, () => {}, errors),
+      container,
+    );
+
+    const group = container.querySelector('details[aria-label="contacts array of objects"]')!;
+    const errorEl = group.parentElement!.querySelector('.dc-field-error');
+    expect(errorEl?.textContent).toBe('must have at least 1 items');
+  });
+
+  it('shows an array-length error message below a nested-array block', () => {
+    const container = document.createElement('div');
+    const errors = new Map([['matrix', 'must have at most 1 items but found 2']]);
+    render(
+      renderExampleForm(schema, { matrix: [[], []] }, () => {}, errors),
+      container,
+    );
+
+    const group = container.querySelector('details[aria-label="matrix nested arrays"]')!;
+    const errorEl = group.parentElement!.querySelector('.dc-field-error');
+    expect(errorEl?.textContent).toBe('must have at most 1 items but found 2');
+  });
 });
 
 describe('advanced nested example schemas', () => {

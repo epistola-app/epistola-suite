@@ -224,6 +224,27 @@ describe('DataContractState', () => {
       expect(result.error).toBe('Network error');
     });
 
+    it('surfaces validation errors on failure (e.g. maxItems tightened below existing example length)', async () => {
+      const onSaveSchema = vi.fn().mockResolvedValue({
+        success: false,
+        errors: {
+          'properties.items': [
+            { path: 'properties.items', message: 'must NOT have more than 2 items' },
+          ],
+        },
+      });
+      const state = createState(testSchema, [], { onSaveSchema });
+      state.setDraftSchema(null);
+
+      const result = await state.saveSchema();
+
+      expect(result.success).toBe(false);
+      expect(result.errors?.['properties.items'][0].message).toBe(
+        'must NOT have more than 2 items',
+      );
+      expect(state.isSchemaDirty).toBe(true);
+    });
+
     it('returns failure when no callback (read-only)', async () => {
       const state = createState(testSchema);
       state.setDraftSchema(null);

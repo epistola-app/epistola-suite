@@ -36,6 +36,8 @@ export interface DataContractEditorOptions {
   readonly?: boolean;
   /** Host element for contract-wide save controls, or null in read-only mode */
   saveControlsContainer: HTMLElement | null;
+  /** Host element for the save-validation-errors alert, rendered above the save controls */
+  validationAlertContainer: HTMLElement | null;
 }
 
 export interface DataContractEditorInstance {
@@ -56,6 +58,7 @@ export function mountDataContractEditor(
     callbacks,
     readonly = false,
     saveControlsContainer,
+    validationAlertContainer,
   } = options;
 
   const editorEl = document.createElement('epistola-data-contract-editor');
@@ -63,6 +66,7 @@ export function mountDataContractEditor(
 
   editorEl.init(initialSchema, initialExamples, callbacks, readonly);
   editorEl.setSaveControlsContainer(saveControlsContainer);
+  editorEl.setValidationAlertContainer(validationAlertContainer);
 
   container.innerHTML = '';
   container.appendChild(editorEl);
@@ -70,6 +74,7 @@ export function mountDataContractEditor(
   return {
     unmount() {
       editorEl.setSaveControlsContainer(null);
+      editorEl.setValidationAlertContainer(null);
       editorEl.remove();
     },
   };

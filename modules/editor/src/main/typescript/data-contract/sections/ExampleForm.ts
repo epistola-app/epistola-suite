@@ -678,73 +678,79 @@ function renderArrayField(
   }
 
   const groupHasErrors = hasChildErrors(path, errors);
+  const groupError = errors.get(path);
 
   // Array of primitives
   return html`
-    <details
-      class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}"
-      aria-label="${name} array"
-    >
-      <summary class="dc-tree-group-header">
-        <span class="dc-tree-group-title">
-          ${name}${
-            isRequired ? html`<span class="dc-required-mark" aria-hidden="true">*</span>` : nothing
+    <div class="dc-tree-field">
+      <details
+        class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}"
+        aria-label="${name} array"
+      >
+        <summary class="dc-tree-group-header">
+          <span class="dc-tree-group-title">
+            ${name}${
+              isRequired
+                ? html`<span class="dc-required-mark" aria-hidden="true">*</span>`
+                : nothing
+            }
+          </span>
+          ${
+            groupHasErrors
+              ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
+              : nothing
           }
-        </span>
-        ${
-          groupHasErrors
-            ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
-            : nothing
-        }
-        <span class="dc-tree-type-badge" data-type="list" aria-hidden="true">${itemType}[]</span>
-        <span class="dc-tree-count-badge" aria-hidden="true">${items.length}</span>
-      </summary>
-      <div class="dc-tree-group-body dc-tree-group-body-array" role="list">
-        ${items.map((item, index) => {
-          const itemPath = `${path}.${index}`;
-          const itemError = errors.get(itemPath);
-          return html`
-            <div class="dc-array-item-row" role="listitem">
-              <span class="dc-array-item-number" aria-hidden="true">${index + 1}</span>
-              <div class="dc-array-item-content">
-                <div class="dc-array-item-input-wrapper">
-                  ${renderPrimitiveInput(
-                    itemType,
-                    item,
-                    `${name}[${index}]`,
-                    (newValue) => {
-                      const newItems = [...items];
-                      newItems[index] = newValue;
-                      onChange(path, newItems);
-                    },
-                    itemError,
-                    readOnly,
-                  )}
+          <span class="dc-tree-type-badge" data-type="list" aria-hidden="true">${itemType}[]</span>
+          <span class="dc-tree-count-badge" aria-hidden="true">${items.length}</span>
+        </summary>
+        <div class="dc-tree-group-body dc-tree-group-body-array" role="list">
+          ${items.map((item, index) => {
+            const itemPath = `${path}.${index}`;
+            const itemError = errors.get(itemPath);
+            return html`
+              <div class="dc-array-item-row" role="listitem">
+                <span class="dc-array-item-number" aria-hidden="true">${index + 1}</span>
+                <div class="dc-array-item-content">
+                  <div class="dc-array-item-input-wrapper">
+                    ${renderPrimitiveInput(
+                      itemType,
+                      item,
+                      `${name}[${index}]`,
+                      (newValue) => {
+                        const newItems = [...items];
+                        newItems[index] = newValue;
+                        onChange(path, newItems);
+                      },
+                      itemError,
+                      readOnly,
+                    )}
+                  </div>
+                  ${itemError ? html`<span class="dc-field-error">${itemError}</span>` : nothing}
                 </div>
-                ${itemError ? html`<span class="dc-field-error">${itemError}</span>` : nothing}
+                <button
+                  class="dc-array-item-remove"
+                  title="Remove item"
+                  aria-label="Remove item ${index + 1}"
+                  ?disabled=${readOnly}
+                  @click=${() => removeItem(index)}
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path
+                      d="M4 4l8 8M12 4l-8 8"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
               </div>
-              <button
-                class="dc-array-item-remove"
-                title="Remove item"
-                aria-label="Remove item ${index + 1}"
-                ?disabled=${readOnly}
-                @click=${() => removeItem(index)}
-              >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path
-                    d="M4 4l8 8M12 4l-8 8"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                  />
-                </svg>
-              </button>
-            </div>
-          `;
-        })}
-        ${renderAddArrayItemButton(path, addItem, readOnly)}
-      </div>
-    </details>
+            `;
+          })}
+          ${renderAddArrayItemButton(path, addItem, readOnly)}
+        </div>
+      </details>
+      ${groupError ? html`<span class="dc-field-error">${groupError}</span>` : nothing}
+    </div>
   `;
 }
 
@@ -767,95 +773,101 @@ function renderArrayOfObjects(
   readOnly: boolean,
 ): unknown {
   const groupHasErrors = hasChildErrors(path, errors);
+  const groupError = errors.get(path);
 
   return html`
-    <details
-      class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}"
-      aria-label="${name} array of objects"
-    >
-      <summary class="dc-tree-group-header">
-        <span class="dc-tree-group-title">
-          ${name}${
-            isRequired ? html`<span class="dc-required-mark" aria-hidden="true">*</span>` : nothing
+    <div class="dc-tree-field">
+      <details
+        class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}"
+        aria-label="${name} array of objects"
+      >
+        <summary class="dc-tree-group-header">
+          <span class="dc-tree-group-title">
+            ${name}${
+              isRequired
+                ? html`<span class="dc-required-mark" aria-hidden="true">*</span>`
+                : nothing
+            }
+          </span>
+          ${
+            groupHasErrors
+              ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
+              : nothing
           }
-        </span>
-        ${
-          groupHasErrors
-            ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
-            : nothing
-        }
-        <span class="dc-tree-type-badge" data-type="list" aria-hidden="true">object[]</span>
-        <span class="dc-tree-count-badge" aria-hidden="true">${items.length}</span>
-      </summary>
-      <div class="dc-tree-group-body dc-tree-group-body-array" role="list">
-        ${items.map((item, index) => {
-          const itemPath = `${path}.${index}`;
-          const itemHasErrors = hasChildErrors(itemPath, errors);
-          const effectiveItemSchema = resolveSchemaForValue(itemSchema, rootSchema, item);
-          const nestedRequired = new Set(effectiveItemSchema.required ?? []);
-          return html`
-            <details
-              class="dc-array-object-item ${itemHasErrors ? 'dc-tree-group-has-errors' : ''}"
-              role="listitem"
-              aria-label="Item ${index + 1}"
-            >
-              <summary class="dc-array-object-header">
-                <span class="dc-array-item-number dc-array-item-number-lg" aria-hidden="true"
-                  >${index + 1}</span
-                >
-                ${
-                  itemHasErrors
-                    ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
-                    : nothing
-                }
-                <div class="dc-array-object-spacer" aria-hidden="true"></div>
-                <button
-                  class="dc-array-item-remove dc-array-item-remove-subtle"
-                  title="Remove item"
-                  aria-label="Remove item ${index + 1}"
-                  ?disabled=${readOnly}
-                  @click=${(e: Event) => {
-                    e.preventDefault();
-                    removeItem(index);
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <path
-                      d="M4 4l8 8M12 4l-8 8"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                    />
-                  </svg>
-                </button>
-              </summary>
-              <div class="dc-array-object-content">
-                ${
-                  effectiveItemSchema.properties
-                    ? Object.entries(effectiveItemSchema.properties).map(
-                        ([nestedName, nestedProp]) =>
-                          renderFormField(
-                            nestedName,
-                            nestedProp,
-                            `${path}.${index}.${nestedName}`,
-                            rootData,
-                            rootSchema,
-                            nestedRequired.has(nestedName),
-                            onChange,
-                            depth + 1,
-                            errors,
-                            readOnly,
-                          ),
-                      )
-                    : nothing
-                }
-              </div>
-            </details>
-          `;
-        })}
-        ${renderAddArrayItemButton(path, addItem, readOnly)}
-      </div>
-    </details>
+          <span class="dc-tree-type-badge" data-type="list" aria-hidden="true">object[]</span>
+          <span class="dc-tree-count-badge" aria-hidden="true">${items.length}</span>
+        </summary>
+        <div class="dc-tree-group-body dc-tree-group-body-array" role="list">
+          ${items.map((item, index) => {
+            const itemPath = `${path}.${index}`;
+            const itemHasErrors = hasChildErrors(itemPath, errors);
+            const effectiveItemSchema = resolveSchemaForValue(itemSchema, rootSchema, item);
+            const nestedRequired = new Set(effectiveItemSchema.required ?? []);
+            return html`
+              <details
+                class="dc-array-object-item ${itemHasErrors ? 'dc-tree-group-has-errors' : ''}"
+                role="listitem"
+                aria-label="Item ${index + 1}"
+              >
+                <summary class="dc-array-object-header">
+                  <span class="dc-array-item-number dc-array-item-number-lg" aria-hidden="true"
+                    >${index + 1}</span
+                  >
+                  ${
+                    itemHasErrors
+                      ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
+                      : nothing
+                  }
+                  <div class="dc-array-object-spacer" aria-hidden="true"></div>
+                  <button
+                    class="dc-array-item-remove dc-array-item-remove-subtle"
+                    title="Remove item"
+                    aria-label="Remove item ${index + 1}"
+                    ?disabled=${readOnly}
+                    @click=${(e: Event) => {
+                      e.preventDefault();
+                      removeItem(index);
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path
+                        d="M4 4l8 8M12 4l-8 8"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                  </button>
+                </summary>
+                <div class="dc-array-object-content">
+                  ${
+                    effectiveItemSchema.properties
+                      ? Object.entries(effectiveItemSchema.properties).map(
+                          ([nestedName, nestedProp]) =>
+                            renderFormField(
+                              nestedName,
+                              nestedProp,
+                              `${path}.${index}.${nestedName}`,
+                              rootData,
+                              rootSchema,
+                              nestedRequired.has(nestedName),
+                              onChange,
+                              depth + 1,
+                              errors,
+                              readOnly,
+                            ),
+                        )
+                      : nothing
+                  }
+                </div>
+              </details>
+            `;
+          })}
+          ${renderAddArrayItemButton(path, addItem, readOnly)}
+        </div>
+      </details>
+      ${groupError ? html`<span class="dc-field-error">${groupError}</span>` : nothing}
+    </div>
   `;
 }
 
@@ -876,68 +888,74 @@ function renderArrayOfArrays(
   readOnly: boolean,
 ): unknown {
   const groupHasErrors = hasChildErrors(path, errors);
+  const groupError = errors.get(path);
 
   return html`
-    <details
-      class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}"
-      aria-label="${name} nested arrays"
-    >
-      <summary class="dc-tree-group-header">
-        <span class="dc-tree-group-title">
-          ${name}${
-            isRequired ? html`<span class="dc-required-mark" aria-hidden="true">*</span>` : nothing
+    <div class="dc-tree-field">
+      <details
+        class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}"
+        aria-label="${name} nested arrays"
+      >
+        <summary class="dc-tree-group-header">
+          <span class="dc-tree-group-title">
+            ${name}${
+              isRequired
+                ? html`<span class="dc-required-mark" aria-hidden="true">*</span>`
+                : nothing
+            }
+          </span>
+          ${
+            groupHasErrors
+              ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
+              : nothing
           }
-        </span>
-        ${
-          groupHasErrors
-            ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
-            : nothing
-        }
-        <span class="dc-tree-type-badge" data-type="list" aria-hidden="true">array[]</span>
-        <span class="dc-tree-count-badge" aria-hidden="true">${items.length}</span>
-      </summary>
-      <div class="dc-tree-group-body dc-tree-group-body-array" role="list">
-        ${items.map((_item, index) => {
-          const itemPath = `${path}.${index}`;
-          return html`
-            <div class="dc-array-item-row dc-array-item-row-nested" role="listitem">
-              <span class="dc-array-item-number" aria-hidden="true">${index + 1}</span>
-              <div class="dc-array-item-content">
-                ${renderFormField(
-                  `${name}[${index}]`,
-                  itemSchema,
-                  itemPath,
-                  rootData,
-                  rootSchema,
-                  true,
-                  onChange,
-                  depth + 1,
-                  errors,
-                  readOnly,
-                )}
+          <span class="dc-tree-type-badge" data-type="list" aria-hidden="true">array[]</span>
+          <span class="dc-tree-count-badge" aria-hidden="true">${items.length}</span>
+        </summary>
+        <div class="dc-tree-group-body dc-tree-group-body-array" role="list">
+          ${items.map((_item, index) => {
+            const itemPath = `${path}.${index}`;
+            return html`
+              <div class="dc-array-item-row dc-array-item-row-nested" role="listitem">
+                <span class="dc-array-item-number" aria-hidden="true">${index + 1}</span>
+                <div class="dc-array-item-content">
+                  ${renderFormField(
+                    `${name}[${index}]`,
+                    itemSchema,
+                    itemPath,
+                    rootData,
+                    rootSchema,
+                    true,
+                    onChange,
+                    depth + 1,
+                    errors,
+                    readOnly,
+                  )}
+                </div>
+                <button
+                  class="dc-array-item-remove"
+                  title="Remove item"
+                  aria-label="Remove item ${index + 1}"
+                  ?disabled=${readOnly}
+                  @click=${() => removeItem(index)}
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path
+                      d="M4 4l8 8M12 4l-8 8"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
               </div>
-              <button
-                class="dc-array-item-remove"
-                title="Remove item"
-                aria-label="Remove item ${index + 1}"
-                ?disabled=${readOnly}
-                @click=${() => removeItem(index)}
-              >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path
-                    d="M4 4l8 8M12 4l-8 8"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                  />
-                </svg>
-              </button>
-            </div>
-          `;
-        })}
-        ${renderAddArrayItemButton(path, addItem, readOnly)}
-      </div>
-    </details>
+            `;
+          })}
+          ${renderAddArrayItemButton(path, addItem, readOnly)}
+        </div>
+      </details>
+      ${groupError ? html`<span class="dc-field-error">${groupError}</span>` : nothing}
+    </div>
   `;
 }
 

@@ -1284,9 +1284,9 @@
     padding: var(--ep-space-0-5) var(--ep-space-2);
     font-size: var(--ep-text-xs);
     font-weight: 600;
-    color: var(--ep-amber-800);
-    background: var(--ep-amber-50);
-    border: 1px solid var(--ep-amber-200);
+    color: var(--ep-red-700);
+    background: var(--ep-red-50);
+    border: 1px solid var(--ep-red-200);
     border-radius: var(--ep-radius-full);
     margin-left: auto;
   }
@@ -1569,6 +1569,33 @@
   }
 
   .dc-validation-banner-path {
+    font-family: var(--ep-font-mono);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-red-600);
+  }
+
+  .dc-save-errors-banner {
+    padding: var(--ep-space-2) var(--ep-space-3);
+    margin-bottom: var(--ep-space-3);
+    background: var(--ep-red-50);
+    border: 1px solid var(--ep-red-200);
+    border-radius: var(--ep-radius-md);
+  }
+
+  .dc-save-errors-banner-title {
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-red-700);
+  }
+
+  .dc-save-errors-banner-list {
+    margin: var(--ep-space-1) 0 0;
+    padding-left: var(--ep-space-4);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-red-700);
+  }
+
+  .dc-save-errors-banner-path {
     font-family: var(--ep-font-mono);
     font-size: var(--ep-text-xs);
     color: var(--ep-red-600);

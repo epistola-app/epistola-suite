@@ -219,12 +219,14 @@ export interface UpdateDataExampleResult {
 export interface SaveSchemaResult {
   success: boolean;
   warnings?: Record<string, ValidationError[]>;
+  errors?: Record<string, ValidationError[]>;
   error?: string;
 }
 
 export interface SaveExamplesResult {
   success: boolean;
   warnings?: Record<string, ValidationError[]>;
+  errors?: Record<string, ValidationError[]>;
   error?: string;
 }
 
@@ -233,10 +235,18 @@ export interface SaveCallbacks {
     schema: JsonSchema | null,
     forceUpdate?: boolean,
     dataExamples?: DataExample[],
-  ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]>; error?: string }>;
-  onSaveDataExamples?: (
-    examples: DataExample[],
-  ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]>; error?: string }>;
+  ) => Promise<{
+    success: boolean;
+    warnings?: Record<string, ValidationError[]>;
+    errors?: Record<string, ValidationError[]>;
+    error?: string;
+  }>;
+  onSaveDataExamples?: (examples: DataExample[]) => Promise<{
+    success: boolean;
+    warnings?: Record<string, ValidationError[]>;
+    errors?: Record<string, ValidationError[]>;
+    error?: string;
+  }>;
   onUpdateDataExample?: (
     exampleId: string,
     updates: { name?: string; data?: JsonObject },

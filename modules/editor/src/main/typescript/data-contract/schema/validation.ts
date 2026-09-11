@@ -160,11 +160,19 @@ function validateProperty(
     }
   }
 
-  // Validate array items
-  if (expectedType === 'array' && Array.isArray(value) && schema.items) {
-    for (let i = 0; i < value.length; i++) {
-      const itemErrors = validateProperty(value[i], schema.items, `${path}[${i}]`, rootSchema);
-      errors.push(...itemErrors);
+  // Validate array length and items
+  if (expectedType === 'array' && Array.isArray(value)) {
+    if (schema.minItems !== undefined && value.length < schema.minItems) {
+      errors.push({ path, message: `must have at least ${schema.minItems} items` });
+    }
+    if (schema.maxItems !== undefined && value.length > schema.maxItems) {
+      errors.push({ path, message: `must have at most ${schema.maxItems} items` });
+    }
+    if (schema.items) {
+      for (let i = 0; i < value.length; i++) {
+        const itemErrors = validateProperty(value[i], schema.items, `${path}[${i}]`, rootSchema);
+        errors.push(...itemErrors);
+      }
     }
   }
 

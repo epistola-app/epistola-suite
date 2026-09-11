@@ -73,6 +73,10 @@ import { renderImportSchemaDialog } from './sections/ImportSchemaDialog.js';
 import { setNestedValue } from './sections/ExampleForm.js';
 import { buildFieldErrorMap } from './validation-display.js';
 import { renderContractSaveControls } from './sections/ContractSaveBar.js';
+import {
+  renderClientValidationBanner,
+  renderValidationErrorsAlert,
+} from './sections/ValidationErrorsAlert.js';
 import { completeExampleFromSchema } from './examples/example-generation.js';
 
 @customElement('epistola-data-contract-editor')
@@ -126,8 +130,10 @@ export class EpistolaDataContractEditor extends LitElement {
   @state() private _saving = false;
   @state() private _saveSuccess = false;
   @state() private _saveError: string | null = null;
+  @state() private _saveValidationErrors: ValidationError[] = [];
   @state() private _canForceSave = false;
   private _saveControlsContainer: HTMLElement | null = null;
+  private _validationAlertContainer: HTMLElement | null = null;
 
   // Per-example undo/redo stacks
   private _exampleHistories = new Map<string, SnapshotHistory<JsonObject>>();
@@ -214,6 +220,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
   override updated(): void {
     this._renderExternalSaveControls();
+    this._renderExternalValidationAlert();
     this._applyPendingFieldNameFocus();
   }
 
@@ -223,6 +230,7 @@ export class EpistolaDataContractEditor extends LitElement {
     window.removeEventListener('keydown', this._boundKeyDown);
     if (this._successTimer) clearTimeout(this._successTimer);
     this._clearExternalSaveControls();
+    this._clearExternalValidationAlert();
   }
 
   setSaveControlsContainer(container: HTMLElement | null): void {
@@ -231,6 +239,16 @@ export class EpistolaDataContractEditor extends LitElement {
     this._clearExternalSaveControls();
     this._saveControlsContainer = container;
     this._renderExternalSaveControls();
+    this.requestUpdate();
+  }
+
+  /** Host element for the save-validation-errors alert, rendered above the save bar. */
+  setValidationAlertContainer(container: HTMLElement | null): void {
+    if (this._validationAlertContainer === container) return;
+
+    this._clearExternalValidationAlert();
+    this._validationAlertContainer = container;
+    this._renderExternalValidationAlert();
     this.requestUpdate();
   }
 
@@ -319,6 +337,21 @@ export class EpistolaDataContractEditor extends LitElement {
     }
   }
 
+  private _renderExternalValidationAlert(): void {
+    if (!this._validationAlertContainer) return;
+
+    renderLit(
+      renderValidationErrorsAlert(this._saveValidationErrors),
+      this._validationAlertContainer,
+    );
+  }
+
+  private _clearExternalValidationAlert(): void {
+    if (this._validationAlertContainer) {
+      renderLit(nothing, this._validationAlertContainer);
+    }
+  }
+
   override render() {
     if (!this.contractState) {
       return html`<div class="dc-empty-state">No data contract loaded.</div>`;
@@ -326,34 +359,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
     return html`
       <div class="dc-editor-layout">
-        <!-- Validation banner: generic client-side summary + individual server-side messages -->
-        ${
-          this._clientValidationMessages.length > 0 || this._schemaWarnings.length > 0
-            ? html`
-                <div class="dc-validation-banner" role="alert">
-                  ${this._clientValidationMessages.map(
-                    (message) => html`<div class="dc-validation-banner-message">${message}</div>`,
-                  )}
-                  ${
-                    this._schemaWarnings.length > 0
-                      ? html`
-                          <ul class="dc-validation-banner-list">
-                            ${this._schemaWarnings.map(
-                              (w) => html`
-                                <li>
-                                  <code class="dc-validation-banner-path">${w.path}</code>
-                                  ${w.message}
-                                </li>
-                              `,
-                            )}
-                          </ul>
-                        `
-                      : nothing
-                  }
-                </div>
-              `
-            : nothing
-        }
+        ${renderClientValidationBanner(this._clientValidationMessages, this._schemaWarnings)}
         <!-- Breaking changes banner -->
         ${
           this._breakingChanges.length > 0
@@ -841,6 +847,7 @@ export class EpistolaDataContractEditor extends LitElement {
     this._saving = true;
     this._saveSuccess = false;
     this._saveError = null;
+    this._saveValidationErrors = [];
     this._canForceSave = false;
 
     try {
@@ -857,6 +864,9 @@ export class EpistolaDataContractEditor extends LitElement {
             this._schemaWarnings = Object.values(schemaResult.warnings).flat();
             // Offer force save when backend rejects with warnings
             this._canForceSave = true;
+          }
+          if (schemaResult.errors) {
+            this._saveValidationErrors = Object.values(schemaResult.errors).flat();
           }
           return;
         }
@@ -880,6 +890,9 @@ export class EpistolaDataContractEditor extends LitElement {
         const examplesResult = await state.saveExamples();
         if (!examplesResult.success) {
           this._saveError = examplesResult.error ?? 'Failed to save examples';
+          if (examplesResult.errors) {
+            this._saveValidationErrors = Object.values(examplesResult.errors).flat();
+          }
           return;
         }
         // Clear all example undo/redo histories on successful save
@@ -903,10 +916,11 @@ export class EpistolaDataContractEditor extends LitElement {
     this._saveSuccess = false;
     this._saveError = null;
     this._canForceSave = false;
-    // Backend warnings are only meaningful until the next edit — otherwise the
-    // top banner keeps showing a stale rejection after the author has already
+    // Backend warnings/errors are only meaningful until the next edit — otherwise
+    // the top banner keeps showing a stale rejection after the author has already
     // started fixing it.
     this._schemaWarnings = [];
+    this._saveValidationErrors = [];
   }
 
   // ---------------------------------------------------------------------------
