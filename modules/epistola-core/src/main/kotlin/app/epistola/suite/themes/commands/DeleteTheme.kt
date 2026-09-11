@@ -46,10 +46,11 @@ class DeleteThemeHandler(
         return jdbi.withHandle<Boolean, Exception> { handle ->
             val isDefaultTheme = handle.createQuery(
                 """
-                SELECT COUNT(*) FROM tenants
-                WHERE id = :tenantId
-                  AND default_theme_key = :themeId
-                  AND default_theme_catalog_key = :catalogKey
+                SELECT COUNT(*) FROM tenants t
+                JOIN themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
+                WHERE t.id = :tenantId
+                  AND th.id = :themeId
+                  AND th.catalog_key = :catalogKey
                 """,
             )
                 .bind("tenantId", command.id.tenantKey)

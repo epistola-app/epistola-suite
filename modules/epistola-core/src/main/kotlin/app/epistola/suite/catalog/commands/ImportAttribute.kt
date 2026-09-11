@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListKey
@@ -66,19 +67,20 @@ class ImportAttributeHandler(
                 """
                 INSERT INTO variant_attribute_definitions (
                     id, tenant_key, catalog_key, display_name, allowed_values,
-                    code_list_catalog_key, code_list_slug,
+                    code_list_resource_id,
                     created_at, updated_at
                 )
                 VALUES (
                     :id, :tenantKey, :catalogKey, :displayName, :allowedValues::jsonb,
-                    :codeListCatalogKey, :codeListSlug,
+                    ${boundCodeListAtAddress("tenantKey")},
                     NOW(), NOW()
                 )
+                -- The address is a unique constraint rather than the key now, but still a valid
+                -- conflict target, so re-importing an attribute keeps updating in place.
                 ON CONFLICT (tenant_key, catalog_key, id) DO UPDATE
                 SET display_name           = :displayName,
                     allowed_values         = :allowedValues::jsonb,
-                    code_list_catalog_key  = :codeListCatalogKey,
-                    code_list_slug         = :codeListSlug,
+                    code_list_resource_id  = ${boundCodeListAtAddress("tenantKey")},
                     updated_at          = NOW()
                 RETURNING (xmax = 0) AS inserted
                 """,

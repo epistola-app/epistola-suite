@@ -10,6 +10,8 @@ import app.epistola.suite.catalog.commands.AuthoredImportMode
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.PurgeTenantCatalogs
 import app.epistola.suite.catalog.commands.PurgeTenantCatalogsResult
+import app.epistola.suite.catalog.identity.TenantResourceIdentities
+import app.epistola.suite.catalog.identity.TenantResourceIdentityStore
 import app.epistola.suite.catalog.system.InstallSystemCatalog
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -66,12 +68,13 @@ data class RestoreResult(
 @Component
 class RestoreTenantSnapshotHandler(
     private val objectMapper: ObjectMapper,
+    private val identityStore: TenantResourceIdentityStore,
 ) : CommandHandler<RestoreTenantSnapshot, RestoreResult> {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     @Transactional
     override fun handle(command: RestoreTenantSnapshot): RestoreResult = CatalogImportContext.runAsImport {
-        val (manifest, innerZips) = parseArchive(command.archiveBytes)
+        val (manifest, identities, innerZips) = parseArchive(command.archiveBytes)
 
         // Validate fully BEFORE the destructive purge — a bad archive must not leave the tenant wiped.
         require(manifest.schemaVersion <= SUPPORTED_SCHEMA_VERSION) {
@@ -88,6 +91,12 @@ class RestoreTenantSnapshotHandler(
         val prior = PurgeTenantCatalogs(command.tenantKey).execute()
         InstallSystemCatalog(command.tenantKey).execute()
 
+        // Before the import, so the sync trigger adopts each recorded identity instead of minting a
+        // fresh one. Restoring with new identities would dangle the template_resource_id on every
+        // generation record (no foreign key protects it, so it just stops joining) and drop every
+        // retained alias with the identity it pointed at.
+        identityStore.plantIdentities(command.tenantKey, identities.resources)
+
         for (entry in ordered) {
             ImportCatalogZip(
                 tenantKey = command.tenantKey,
@@ -97,6 +106,9 @@ class RestoreTenantSnapshotHandler(
                 validateCrossCatalogDeps = false,
             ).execute()
         }
+
+        // After the import, so the identities they target exist again.
+        identityStore.plantAliases(command.tenantKey, identities.aliases)
 
         reapplyDefaultTheme(command.tenantKey, prior)
 
@@ -149,8 +161,17 @@ class RestoreTenantSnapshotHandler(
         return ordered
     }
 
-    private fun parseArchive(bytes: ByteArray): Pair<SnapshotManifest, Map<String, ByteArray>> {
+    private data class ParsedArchive(
+        val manifest: SnapshotManifest,
+        val identities: TenantResourceIdentities,
+        val innerZips: Map<String, ByteArray>,
+    )
+
+    private fun parseArchive(bytes: ByteArray): ParsedArchive {
         var manifest: SnapshotManifest? = null
+        // Absent from a schema-1 archive, which restores with fresh identities exactly as it did
+        // when it was written.
+        var identities = TenantResourceIdentities()
         val innerZips = mutableMapOf<String, ByteArray>()
         ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
             var entry = zip.nextEntry
@@ -160,17 +181,23 @@ class RestoreTenantSnapshotHandler(
                     when {
                         entry.name == "snapshot.json" ->
                             manifest = objectMapper.readValue(content, SnapshotManifest::class.java)
+                        entry.name == "identities.json" ->
+                            identities = objectMapper.readValue(content, TenantResourceIdentities::class.java)
                         entry.name.startsWith("catalogs/") -> innerZips[entry.name] = content
                     }
                 }
                 entry = zip.nextEntry
             }
         }
-        return (manifest ?: throw IllegalArgumentException("Snapshot archive is missing snapshot.json")) to innerZips
+        return ParsedArchive(
+            manifest ?: throw IllegalArgumentException("Snapshot archive is missing snapshot.json"),
+            identities,
+            innerZips,
+        )
     }
 
     private companion object {
         /** Highest snapshot manifest schema version this suite can restore. */
-        const val SUPPORTED_SCHEMA_VERSION = 1
+        const val SUPPORTED_SCHEMA_VERSION = 2
     }
 }

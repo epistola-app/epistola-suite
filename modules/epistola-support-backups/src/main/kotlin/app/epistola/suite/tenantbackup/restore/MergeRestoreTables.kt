@@ -12,6 +12,7 @@ import app.epistola.suite.tenantbackup.schema.TableSpec
 import app.epistola.suite.tenantbackup.schema.TenantTableTopology
 import org.jdbi.v3.core.Handle
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 /** Counts of what a merge-restore touched. */
 data class MergeRestoreResult(
@@ -50,12 +51,11 @@ class MergeRestoreTables(
         handle.execute("SET CONSTRAINTS ALL DEFERRED")
 
         val tenantRow = rowsByTable.getValue(TenantTableTopology.TENANTS).single()
-        val targetThemeKey = tenantRow["default_theme_key"]
-        val targetThemeCatalog = tenantRow["default_theme_catalog_key"]
+        val targetThemeResourceId = tenantRow["default_theme_resource_id"]
 
         // Break the tenants↔themes cycle before any theme is removed.
         handle
-            .createUpdate("UPDATE tenants SET default_theme_key = NULL WHERE id = :tk")
+            .createUpdate("UPDATE tenants SET default_theme_resource_id = NULL WHERE id = :tk")
             .bind("tk", tenantKey)
             .execute()
 
@@ -65,8 +65,7 @@ class MergeRestoreTables(
             val spec = entry.toSpec()
             val rows = rowsByTable[entry.table].orEmpty()
             if (entry.table == TenantTableTopology.TENANTS) {
-                val masked =
-                    tenantRow + mapOf("default_theme_key" to null, "default_theme_catalog_key" to null)
+                val masked = tenantRow + mapOf("default_theme_resource_id" to null)
                 upsert(handle, spec, masked)
                 rowsRestored += 1
             } else {
@@ -84,7 +83,7 @@ class MergeRestoreTables(
 
         val blobsRestored = mergeBlobs(handle, manifest, blobBytes)
 
-        reapplyDefaultTheme(handle, tenantKey, targetThemeCatalog, targetThemeKey)
+        reapplyDefaultTheme(handle, tenantKey, targetThemeResourceId)
 
         return MergeRestoreResult(
             tablesRestored = manifest.tables.size,
@@ -166,27 +165,18 @@ class MergeRestoreTables(
     private fun reapplyDefaultTheme(
         handle: Handle,
         tenantKey: String,
-        catalogKey: Any?,
-        themeKey: Any?,
+        themeResourceId: Any?,
     ) {
-        if (catalogKey == null || themeKey == null) return
-        val exists =
-            handle
-                .createQuery(
-                    "SELECT 1 FROM themes WHERE tenant_key = :tk AND catalog_key = :ck AND id = :id",
-                ).bind("tk", tenantKey)
-                .bind("ck", catalogKey.toString())
-                .bind("id", themeKey.toString())
-                .mapTo(Int::class.java)
-                .findOne()
-                .isPresent
-        if (!exists) return
+        if (themeResourceId == null) return
         handle
             .createUpdate(
-                "UPDATE tenants SET default_theme_catalog_key = :ck, default_theme_key = :id WHERE id = :tk",
+                """
+                UPDATE tenants SET default_theme_resource_id = :id
+                WHERE id = :tk
+                  AND EXISTS (SELECT 1 FROM themes WHERE tenant_key = :tk AND resource_id = :id)
+                """,
             ).bind("tk", tenantKey)
-            .bind("ck", catalogKey.toString())
-            .bind("id", themeKey.toString())
+            .bind("id", UUID.fromString(themeResourceId.toString()))
             .execute()
     }
 

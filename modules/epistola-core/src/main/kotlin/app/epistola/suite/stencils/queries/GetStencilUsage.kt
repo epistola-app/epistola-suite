@@ -39,10 +39,10 @@ class GetStencilUsageHandler(
         // Uses the GIN index on template_model for efficient JSONB traversal.
         handle.createQuery(
             """
-            SELECT tv.template_key, dt.name as template_name, tv.variant_key, tv.id as version_id,
+            SELECT dt.id AS template_key, dt.name as template_name, tv.variant_key, tv.id as version_id,
                    (node.value -> 'props' ->> 'version')::int as stencil_version
             FROM template_versions tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.id = tv.template_key
+            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS node(key, value)
             WHERE tv.tenant_key = :tenantId
               AND node.value ->> 'type' = 'stencil'

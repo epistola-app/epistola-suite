@@ -167,12 +167,23 @@ class SubscribedCodeListsReadOnlyTest : IntegrationTestBase() {
         }
     }
 
+    /**
+     * Seeded with SQL rather than a command, which is the exception the seeding rule allows: the
+     * commands refuse to write into a SUBSCRIBED catalog, and that refusal is the behaviour under
+     * test. There is no command that can produce this state, so producing it another way is the
+     * only way to test that the refusal holds.
+     */
     private fun seedEntry(tenantId: TenantId, catalog: CatalogKey, slug: String, code: String, label: String) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO code_list_entries (tenant_key, catalog_key, code_list_slug, code, label, sort_order, hidden)
-                VALUES (:tenantKey, :catalogKey, :slug, :code, :label, 0, FALSE)
+                INSERT INTO code_list_entries (tenant_key, code_list_resource_id, code, label, sort_order, hidden)
+                VALUES (
+                    :tenantKey,
+                    (SELECT resource_id FROM code_lists
+                      WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug),
+                    :code, :label, 0, FALSE
+                )
                 """,
             )
                 .bind("tenantKey", tenantId.key)

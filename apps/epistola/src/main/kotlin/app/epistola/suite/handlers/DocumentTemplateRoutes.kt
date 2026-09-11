@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates
 
+import app.epistola.suite.handlers.CanonicalAddressRedirects
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.servlet.function.RouterFunction
@@ -25,6 +26,8 @@ class DocumentTemplateRoutes(
     @Bean
     fun templateRoutes(): RouterFunction<ServerResponse> = router {
         "/tenants/{tenantId}/templates".nest {
+            filter(CanonicalAddressRedirects::template)
+
             // List and create (across all catalogs)
             GET("", handler::list)
             GET("/search", handler::search)

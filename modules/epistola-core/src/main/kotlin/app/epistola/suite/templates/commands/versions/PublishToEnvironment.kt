@@ -17,6 +17,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.VersionArchivedException
 import app.epistola.suite.templates.model.EnvironmentActivation
 import app.epistola.suite.templates.model.TemplateVersion
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -72,8 +73,8 @@ class PublishToEnvironmentHandler(
         val versionStatus = handle.createQuery(
             """
                 SELECT status FROM template_versions
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
-                  AND template_key = :templateId AND variant_key = :variantId AND id = :versionId
+                WHERE tenant_key = :tenantId
+                  AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND variant_key = :variantId AND id = :versionId
                 """,
         )
             .bind("tenantId", command.versionId.tenantKey)
@@ -107,11 +108,11 @@ class PublishToEnvironmentHandler(
         // 4. Upsert activation
         val activation = handle.createQuery(
             """
-                INSERT INTO environment_activations (tenant_key, catalog_key, environment_key, template_key, variant_key, version_key, activated_at)
-                VALUES (:tenantId, :catalogKey, :environmentId, :templateId, :variantId, :versionId, NOW())
-                ON CONFLICT (tenant_key, catalog_key, environment_key, template_key, variant_key)
+                INSERT INTO environment_activations (tenant_key, environment_key, template_resource_id, variant_key, version_key, activated_at)
+                VALUES (:tenantId, :environmentId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :variantId, :versionId, NOW())
+                ON CONFLICT (tenant_key, environment_key, template_resource_id, variant_key)
                 DO UPDATE SET version_key = :versionId, activated_at = NOW()
-                RETURNING *
+                RETURNING *, CAST(:catalogKey AS TEXT) AS catalog_key, CAST(:templateId AS TEXT) AS template_key
                 """,
         )
             .bind("tenantId", command.versionId.tenantKey)

@@ -43,15 +43,17 @@ class ListLoadTestRunsHandler(
     override fun handle(query: ListLoadTestRuns): List<LoadTestRun> = jdbi.withHandle<List<LoadTestRun>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
-                   target_count, concurrency_level, test_data, status, claimed_by, claimed_at,
-                   completed_count, failed_count, total_duration_ms, avg_response_time_ms,
-                   min_response_time_ms, max_response_time_ms, p50_response_time_ms,
-                   p95_response_time_ms, p99_response_time_ms, requests_per_second,
-                   success_rate_percent, error_summary, metrics, created_at, started_at, completed_at
-            FROM load_test_runs
-            WHERE tenant_key = :tenantId
-            ORDER BY created_at DESC
+            SELECT r.id, r.batch_id, r.tenant_key, template.catalog_key, template.id AS template_key,
+                   r.variant_key, r.version_key, r.environment_key,
+                   r.target_count, r.concurrency_level, r.test_data, r.status, r.claimed_by, r.claimed_at,
+                   r.completed_count, r.failed_count, r.total_duration_ms, r.avg_response_time_ms,
+                   r.min_response_time_ms, r.max_response_time_ms, r.p50_response_time_ms,
+                   r.p95_response_time_ms, r.p99_response_time_ms, r.requests_per_second,
+                   r.success_rate_percent, r.error_summary, r.metrics, r.created_at, r.started_at, r.completed_at
+            FROM load_test_runs r
+            JOIN document_templates template ON template.tenant_key = r.tenant_key AND template.resource_id = r.template_resource_id
+            WHERE r.tenant_key = :tenantId
+            ORDER BY r.created_at DESC
             LIMIT :limit
             """,
         )

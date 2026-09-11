@@ -10,9 +10,11 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.REQUESTED_TEMPLATE_ADDRESS
 import app.epistola.suite.templates.contracts.SchemaCompatibilityChecker
 import app.epistola.suite.templates.contracts.model.ContractVersion
 import app.epistola.suite.templates.model.DataExample
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.templates.validation.requireAtLeastOneDataExample
@@ -102,11 +104,11 @@ class PreviewContractUpdateHandler(
     ): ContractVersion? = jdbi.withHandle<ContractVersion?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_key, catalog_key, template_key, schema, data_model, data_examples,
+            SELECT id, tenant_key, $REQUESTED_TEMPLATE_ADDRESS, schema, data_model, data_examples,
                    status, created_at, published_at, created_by
             FROM contract_versions
-            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-              AND template_key = :templateKey AND status = :status
+            WHERE tenant_key = :tenantKey
+              AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND status = :status
             ORDER BY id DESC LIMIT 1
             """,
         )

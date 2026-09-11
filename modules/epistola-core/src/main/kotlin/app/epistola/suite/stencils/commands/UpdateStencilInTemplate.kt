@@ -14,8 +14,10 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.StencilNodeKeys
 import app.epistola.suite.stencils.model.StencilContentReplacer
+import app.epistola.suite.stencils.stencilAtAddress
 import app.epistola.suite.templates.commands.versions.DraftVersionFactory
 import app.epistola.suite.templates.services.TemplateDocumentPreparation
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Jdbi
@@ -96,7 +98,7 @@ class UpdateStencilInTemplateHandler(
                 """
             SELECT content::text AS content, parameter_schema::text AS parameter_schema
             FROM stencil_versions
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND stencil_key = :stencilId AND id = :versionId
+            WHERE tenant_key = :tenantId AND stencil_resource_id = ${stencilAtAddress("tenantId", "catalogKey", "stencilId")} AND id = :versionId
             """,
             )
                 .bind("tenantId", command.stencilId.tenantKey)
@@ -126,13 +128,13 @@ class UpdateStencilInTemplateHandler(
             )
 
             // 5. Validate and save the modified draft with its derived path index.
-            val prepared = templateDocumentPreparation.prepareDraft(upgrade.document)
+            val prepared = templateDocumentPreparation.prepareDraft(upgrade.document, command.variantId.tenantKey, command.variantId.catalogKey)
             handle.createUpdate(
                 """
             UPDATE template_versions
             SET template_model = :templateModel::jsonb,
                 referenced_paths = :referencedPaths::jsonb
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId
+            WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
               AND variant_key = :variantId AND id = :versionId AND status = 'draft'
             """,
             )

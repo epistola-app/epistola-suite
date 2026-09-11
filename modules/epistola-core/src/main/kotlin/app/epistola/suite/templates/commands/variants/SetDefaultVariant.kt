@@ -11,6 +11,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.TemplateVariant
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -38,7 +39,7 @@ class SetDefaultVariantHandler(
             """
                 SELECT EXISTS (
                     SELECT 1 FROM template_variants
-                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId AND template_key = :templateId
+                    WHERE tenant_key = :tenantId AND id = :variantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 )
                 """,
         )
@@ -56,7 +57,7 @@ class SetDefaultVariantHandler(
             """
                 UPDATE template_variants
                 SET is_default = FALSE
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND is_default = TRUE
+                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND is_default = TRUE
                 """,
         )
             .bind("tenantId", command.variantId.tenantKey)
@@ -69,12 +70,14 @@ class SetDefaultVariantHandler(
             """
                 UPDATE template_variants
                 SET is_default = TRUE
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId
-                RETURNING *
+                WHERE tenant_key = :tenantId AND id = :variantId
+                  AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+                RETURNING *, CAST(:templateId AS TEXT) AS template_key
                 """,
         )
             .bind("tenantId", command.variantId.tenantKey)
             .bind("catalogKey", command.variantId.catalogKey)
+            .bind("templateId", command.variantId.templateKey)
             .bind("variantId", command.variantId.key)
             .mapTo<TemplateVariant>()
             .findOne()

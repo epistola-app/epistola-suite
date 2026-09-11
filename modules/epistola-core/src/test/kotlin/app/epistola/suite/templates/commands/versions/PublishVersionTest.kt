@@ -39,6 +39,7 @@ import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.templates.queries.versions.ListVersions
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
@@ -150,8 +151,8 @@ class PublishVersionTest : IntegrationTestBase() {
                     """
                     UPDATE template_versions
                     SET template_model = jsonb_set(template_model, '{root}', '"missing-root"'::jsonb)
-                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                      AND template_key = :templateKey AND variant_key = :variantKey AND id = :versionId
+                    WHERE tenant_key = :tenantKey
+                      AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = :variantKey AND id = :versionId
                     """,
                 )
                     .bind("tenantKey", templateId.tenantKey)
@@ -220,8 +221,8 @@ class PublishVersionTest : IntegrationTestBase() {
                     """
                     UPDATE contract_versions
                     SET status = 'published', published_at = NOW()
-                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                      AND template_key = :templateKey AND id = :contractVersion
+                    WHERE tenant_key = :tenantKey
+                      AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND id = :contractVersion
                     """,
                 )
                     .bind("tenantKey", templateId.tenantKey)

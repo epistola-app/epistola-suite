@@ -95,6 +95,34 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `relocation contributes an Organise nav item and owns its active section`() {
+        val tenant = createTenant("Nav Organise")
+
+        // Off by default: enabling the toggle is the only thing that reveals it.
+        val without = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
+        assertThat(without).doesNotContain("nav-item-catalog-organise")
+
+        withMediator {
+            SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_RELOCATION, enabled = true).execute()
+        }
+
+        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
+        assertThat(body).contains("nav-item-catalog-organise")
+        assertThat(body).contains("/tenants/${tenant.id.value}/catalogs/organise")
+
+        // The organise page claims its own section rather than lighting up Catalogs: the
+        // aggregator resolves by longest matching path suffix, so "catalogs/organise" must win
+        // over "catalogs" here.
+        val organise = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs/organise", String::class.java).body!!
+        val normalised = organise.replace(Regex("\\s+"), " ")
+        // `class` is rendered before `data-testid`, so match the whole opening tag.
+        val organiseAnchor = Regex("""<a[^>]*nav-item-catalog-organise[^>]*>""").find(normalised)?.value
+        val catalogsAnchor = Regex("""<a[^>]*nav-item-catalogs[^>]*>""").find(normalised)?.value
+        assertThat(organiseAnchor).isNotNull().contains("active")
+        assertThat(catalogsAnchor).isNotNull().doesNotContain("active")
+    }
+
+    @Test
     fun `beta feature renders a maturity badge on its nav item`() {
         val tenant = createTenant("Nav Beta Badge")
         withMediator {

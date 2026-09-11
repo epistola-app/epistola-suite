@@ -14,7 +14,7 @@ import org.springframework.web.client.RestClient
 import java.time.Duration
 
 @Configuration
-@EnableConfigurationProperties(CatalogSizeLimits::class)
+@EnableConfigurationProperties(CatalogSizeLimits::class, CatalogUpstreamCheckProperties::class)
 class CatalogConfiguration {
 
     @Bean
@@ -43,4 +43,39 @@ class CatalogConfiguration {
 data class CatalogSizeLimits(
     val maxZipSize: DataSize = DataSize.ofMegabytes(10),
     val maxDecompressedSize: DataSize = DataSize.ofMegabytes(20),
+)
+
+/**
+ * How often a subscribed catalog's source is asked whether it has published anything newer.
+ *
+ * Two cadences, not one. [pollIntervalMs] is how often the cluster task looks for catalogs that are
+ * *due*; [interval] is how often any single catalog is actually asked. Conflating them would make
+ * the tick rate the request rate.
+ *
+ * ```yaml
+ * epistola:
+ *   catalog:
+ *     upstream-check:
+ *       enabled: true
+ *       interval: 6h
+ * ```
+ */
+@ConfigurationProperties(prefix = "epistola.catalog.upstream-check")
+data class CatalogUpstreamCheckProperties(
+    /**
+     * Turns background checking off entirely.
+     *
+     * On by default: subscribing to a catalog is already a decision to talk to its source, and the
+     * on-demand check has always made the same request. An installation that must not make
+     * unattended outbound calls sets this false and keeps the button.
+     */
+    val enabled: Boolean = true,
+    /** How often the task looks for due catalogs. Not the per-catalog rate. */
+    val pollIntervalMs: Long = 60_000,
+    /** How long a catalog's answer is treated as current. Jittered by ±15% when scheduling. */
+    val interval: Duration = Duration.ofHours(6),
+    /** How many catalogs one tick will check, so a large tenant spreads over several. */
+    val batchSize: Int = 25,
+    /** How long a claim is honoured before another node may take the catalog over. */
+    val claimLease: Duration = Duration.ofMinutes(5),
 )

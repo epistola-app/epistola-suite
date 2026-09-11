@@ -11,11 +11,22 @@ import org.springframework.web.servlet.function.ServerResponse
 import org.springframework.web.servlet.function.router
 
 @Configuration
-class CatalogRoutes(private val handler: CatalogHandler) {
+class CatalogRoutes(
+    private val handler: CatalogHandler,
+    private val exchange: ExchangeCatalogHandler,
+    private val organise: CatalogOrganiseHandler,
+) {
     @Bean
     fun catalogRouterFunction(): RouterFunction<ServerResponse> = router {
         "/tenants/{tenantId}/catalogs".nest {
             GET("", handler::list)
+            // Registered before the {catalogId} routes below. `exchange` is a legal catalog slug,
+            // and while every per-catalog route carries a verb suffix that keeps these unambiguous
+            // today, relying on that is one route away from an ambush.
+            GET("/exchange", exchange::browse)
+            GET("/exchange/search", exchange::search)
+            GET("/exchange/{namespace}/{catalogKey}", exchange::detail)
+            POST("/exchange/{namespace}/{catalogKey}/install", exchange::install)
             GET("/new", handler::newForm)
             GET("/subscribe", handler::registerForm)
             POST("/subscribe", handler::register)
@@ -28,6 +39,13 @@ class CatalogRoutes(private val handler: CatalogHandler) {
             POST("/{catalogId}/publish-current", handler::publishCurrentRelease)
             POST("/{catalogId}/publications/{publicationId}/cancel", handler::cancelPublication)
             GET("/{catalogId}/browse", handler::browse)
+            // Reorganising is its own page: a browser across catalogs that allows moving. Deep
+            // linkable via ?resource=<type>:<catalog>/<key>, repeatable.
+            GET("/organise", organise::page)
+            GET("/organise/move", organise::move)
+            GET("/organise/resources", organise::resources)
+            POST("/organise/preview", organise::preview)
+            POST("/organise/execute", organise::execute)
             GET("/{catalogId}/metadata", handler::metadataForm)
             POST("/{catalogId}/metadata", handler::updateMetadata)
             GET("/{catalogId}/usages", handler::resourceUsages)
@@ -38,6 +56,8 @@ class CatalogRoutes(private val handler: CatalogHandler) {
             GET("/{catalogId}/upgrade-check", handler::upgradeCheck)
             GET("/{catalogId}/upgrade-preview", handler::upgradePreview)
             POST("/{catalogId}/upgrade", handler::upgrade)
+            GET("/{catalogId}/exchange-upgrade", exchange::upgradeDialog)
+            POST("/{catalogId}/exchange-upgrade", exchange::upgrade)
         }
     }
 }

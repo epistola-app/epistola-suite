@@ -7,10 +7,21 @@ package app.epistola.suite.api.v1
 import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.graph.CatalogResourceType
+import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.relocation.MoveCatalogResources
+import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
+import app.epistola.suite.catalog.relocation.movedTo
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.TenantRole
+import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestcontainersConfiguration
@@ -83,6 +94,31 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<Boolean>(json, "$.variants[0].hasDraft")).isTrue
         assertThat(JsonPath.read<String>(json, "$.createdAt")).isNotBlank
         assertThat(JsonPath.read<String>(json, "$.lastModified")).isNotBlank
+    }
+
+    @Test
+    fun `get template at its pre-move address resolves to where it lives now`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "moved-${randomSuffix()}"
+        withMediator {
+            CreateCatalog(tenantKey, CatalogKey.of("shared"), "Shared").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenantKey))), "Moved").execute()
+            val relocation = ResourceAddress(CatalogResourceType.TEMPLATE, CatalogKey.DEFAULT.value, slug).movedTo(CatalogKey.of("shared"))
+            val preview = PreviewCatalogResourceMove(tenantKey, listOf(relocation)).query()
+            MoveCatalogResources(tenantKey, listOf(relocation), preview.planFingerprint).execute()
+        }
+
+        // An integration configured against the old address keeps working; a 404 here is what a
+        // relocation would otherwise have cost every external caller.
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.GET,
+            HttpEntity<Void>(baseHeaders(key)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(response.body!!, "$.id")).isEqualTo(slug)
     }
 
     @Test

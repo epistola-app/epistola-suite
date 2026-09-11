@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog
 
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
@@ -101,15 +102,20 @@ class CatalogUpgradeAnalyzer(
     private fun findThemeConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {
         handle.createQuery(
             """
-            SELECT name, catalog_key FROM document_templates
-            WHERE tenant_key = :t AND theme_catalog_key = :c AND theme_key = :slug AND catalog_key != :c
+            SELECT dt.name, dt.catalog_key FROM document_templates dt
+            JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
+            WHERE dt.tenant_key = :t AND th.catalog_key = :c AND th.id = :slug AND dt.catalog_key != :c
             """,
         ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
             .map { rs, _ -> "Theme '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
             .list().let { conflicts.addAll(it) }
 
         handle.createQuery(
-            "SELECT id FROM tenants WHERE id = :t AND default_theme_catalog_key = :c AND default_theme_key = :slug",
+            """
+            SELECT t.id FROM tenants t
+            JOIN themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
+            WHERE t.id = :t AND th.catalog_key = :c AND th.id = :slug
+            """,
         ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
             .mapTo(String::class.java).findOne().ifPresent {
                 conflicts.add("Theme '$slug' is the tenant default theme")
@@ -119,11 +125,11 @@ class CatalogUpgradeAnalyzer(
     private fun findStencilConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {
         handle.createQuery(
             """
-            SELECT DISTINCT dt.name, tv.catalog_key
+            SELECT DISTINCT dt.name, dt.catalog_key
             FROM template_versions tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
+            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
-            WHERE tv.tenant_key = :t AND tv.catalog_key != :c
+            WHERE tv.tenant_key = :t AND dt.catalog_key != :c
               AND tv.status IN ('draft', 'published')
               AND n.value ->> 'type' = 'stencil'
               AND n.value -> 'props' ->> 'catalogKey' = :cStr
@@ -138,7 +144,7 @@ class CatalogUpgradeAnalyzer(
         val activationCount = handle.createQuery(
             """
             SELECT COUNT(*) FROM environment_activations
-            WHERE tenant_key = :t AND catalog_key = :c AND template_key = :slug
+            WHERE tenant_key = :t AND template_resource_id = ${templateAtAddress("t", "c", "slug")}
             """,
         ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
             .mapTo(Long::class.java).one()
@@ -151,10 +157,10 @@ class CatalogUpgradeAnalyzer(
     private fun findAttributeConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {
         handle.createQuery(
             """
-            SELECT DISTINCT dt.name, v.catalog_key
+            SELECT DISTINCT dt.name, dt.catalog_key
             FROM template_variants v
-            JOIN document_templates dt ON dt.tenant_key = v.tenant_key AND dt.catalog_key = v.catalog_key AND dt.id = v.template_key
-            WHERE v.tenant_key = :t AND v.catalog_key != :c
+            JOIN document_templates dt ON dt.tenant_key = v.tenant_key AND dt.resource_id = v.template_resource_id
+            WHERE v.tenant_key = :t AND dt.catalog_key != :c
               AND jsonb_exists(v.attributes::jsonb, :slug)
             """,
         ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
@@ -175,8 +181,8 @@ class CatalogUpgradeAnalyzer(
             FROM variant_attribute_definitions
             WHERE tenant_key = :t
               AND catalog_key != :c
-              AND code_list_catalog_key = :c
-              AND code_list_slug = :slug
+              AND code_list_resource_id = (SELECT resource_id FROM code_lists
+                                            WHERE tenant_key = :t AND catalog_key = :c AND slug = :slug)
             """,
         ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
             .map { rs, _ ->
@@ -225,8 +231,7 @@ class CatalogUpgradeAnalyzer(
             FROM template_versions ver
             JOIN document_templates dt
               ON dt.tenant_key = ver.tenant_key
-             AND dt.catalog_key = ver.catalog_key
-             AND dt.id = ver.template_key
+             AND dt.resource_id = ver.template_resource_id
             WHERE ver.tenant_key = :t
               AND ver.status IN ('draft', 'published')
               AND jsonb_path_exists(ver.template_model, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))

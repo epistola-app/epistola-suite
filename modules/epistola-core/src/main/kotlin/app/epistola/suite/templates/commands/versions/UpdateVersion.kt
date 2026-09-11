@@ -16,6 +16,7 @@ import app.epistola.suite.templates.VersionNotDraftException
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.services.TemplateDocumentPreparation
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -40,13 +41,13 @@ class UpdateVersionHandler(
 ) : CommandHandler<UpdateVersion, TemplateVersion> {
     override fun handle(command: UpdateVersion): TemplateVersion {
         requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
-        val prepared = templateDocumentPreparation.prepareDraft(command.templateModel)
+        val prepared = templateDocumentPreparation.prepareDraft(command.templateModel, command.versionId.tenantKey, command.versionId.catalogKey)
         return jdbi.inTransaction<TemplateVersion, Exception> { handle ->
             handle.createQuery(
                 """
                 SELECT 1 FROM template_variants
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
-                  AND template_key = :templateId AND id = :variantId
+                WHERE tenant_key = :tenantId
+                  AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND id = :variantId
                 FOR UPDATE
                 """,
             )
@@ -61,8 +62,8 @@ class UpdateVersionHandler(
             val existing = handle.createQuery(
                 """
                 SELECT status FROM template_versions
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
-                  AND template_key = :templateId AND variant_key = :variantId AND id = :versionId
+                WHERE tenant_key = :tenantId
+                  AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND variant_key = :variantId AND id = :versionId
                 FOR UPDATE
                 """,
             )
@@ -91,8 +92,8 @@ class UpdateVersionHandler(
                 UPDATE template_versions
                 SET template_model = :templateModel::jsonb,
                     referenced_paths = :referencedPaths::jsonb
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
-                  AND template_key = :templateId AND variant_key = :variantId AND id = :versionId
+                WHERE tenant_key = :tenantId
+                  AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND variant_key = :variantId AND id = :versionId
                   AND status = 'draft'
                 RETURNING *
                 """,

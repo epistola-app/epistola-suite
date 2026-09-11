@@ -35,7 +35,7 @@ class FindStencilUsagesHandler(
             """
             SELECT DISTINCT dt.name
             FROM template_versions tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
+            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
             WHERE tv.tenant_key = :tenantId
               AND tv.status IN ('draft', 'published')

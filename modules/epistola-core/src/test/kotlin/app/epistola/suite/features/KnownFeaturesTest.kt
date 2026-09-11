@@ -113,6 +113,35 @@ class KnownFeaturesTest {
     }
 
     @Test
+    fun `resource relocation is toggle-only alpha and defaults off`() {
+        assertThat(KnownFeatures.stageOf(KnownFeatures.RESOURCE_RELOCATION)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
+        assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.RESOURCE_RELOCATION)
+        assertThat(KnownFeatures.HUB_ONLY).doesNotContain(KnownFeatures.RESOURCE_RELOCATION)
+        assertThat(FeatureDefaults().isEnabled(KnownFeatures.RESOURCE_RELOCATION)).isFalse()
+        assertThat(FeatureDefaults(resourceRelocation = true).isEnabled(KnownFeatures.RESOURCE_RELOCATION)).isTrue()
+    }
+
+    @Test
+    fun `catalog installing is toggle-only alpha and defaults off`() {
+        assertThat(KnownFeatures.stageOf(KnownFeatures.CATALOG_INSTALLING)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
+        // The hub contract has no feature to grant for this, so a key in SUPPORT_TIER would be
+        // permanently unavailable on every support-enabled installation.
+        assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.CATALOG_INSTALLING)
+        assertThat(KnownFeatures.HUB_ONLY).doesNotContain(KnownFeatures.CATALOG_INSTALLING)
+        assertThat(FeatureDefaults().isEnabled(KnownFeatures.CATALOG_INSTALLING)).isFalse()
+        assertThat(FeatureDefaults(catalogInstalling = true).isEnabled(KnownFeatures.CATALOG_INSTALLING)).isTrue()
+    }
+
+    @Test
+    fun `installing and publishing are separate keys`() {
+        // Sharing one key would mean switching off publishing silently stopped upgrade checks for
+        // catalogs already installed.
+        assertThat(KnownFeatures.CATALOG_INSTALLING).isNotEqualTo(KnownFeatures.CATALOG_PUBLISHING)
+        assertThat(FeatureDefaults(catalogPublishing = true).isEnabled(KnownFeatures.CATALOG_INSTALLING)).isFalse()
+        assertThat(FeatureDefaults(catalogInstalling = true).isEnabled(KnownFeatures.CATALOG_PUBLISHING)).isFalse()
+    }
+
+    @Test
     fun `stable stage has no label so the UI renders no badge`() {
         assertThat(KnownFeatures.FeatureStage.STABLE.label).isNull()
         assertThat(KnownFeatures.FeatureStage.BETA.label).isEqualTo("Beta")

@@ -20,9 +20,11 @@ The implemented flow is outbound publication:
 3. catalog/release settings decide whether an immutable release is queued;
 4. a durable worker submits the exact release ZIP and follows Exchange's result.
 
-This does not change the existing inbound catalog subscription, ZIP import, or
-installation flows. Browsing Exchange from Suite and turning an Exchange release
-into a Suite subscription remain separate product work. MCP is unchanged.
+This does not change the existing inbound catalog subscription or ZIP import
+flows. The inbound Exchange direction — browsing Exchange and installing a
+release as a subscribed catalog — is a separate delivery, documented in
+[catalog-exchange-installation.md](catalog-exchange-installation.md). MCP is
+unchanged.
 
 ## The four controls
 
@@ -550,7 +552,9 @@ a stand-in Exchange over real HTTP instead (`CatalogPublicationWorkerIntegration
 
 - Add the release-level override and publication id to the stable REST API after
   compatibility design; UI behavior already exists ([#863](https://github.com/epistola-app/epistola-suite/issues/863)).
-- Define the inbound Exchange browse/install/subscription experience separately.
+- ~~Define the inbound Exchange browse/install/subscription experience separately.~~
+  Delivered — see [catalog-exchange-installation.md](catalog-exchange-installation.md)
+  and [ADR 0021](adr/0021-catalog-upstream-release-discovery.md).
 - Define organization replacement/migration separately from reauthorization.
 - **Ask Exchange about the impact of a namespace move before allowing it.** Exchange is
   the only side that can see whether the old namespace still has consumers. A move nobody

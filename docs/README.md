@@ -74,6 +74,8 @@ under its title. That banner, not this table, is authoritative.
 | [Catalog contract compatibility](catalog-contract-compatibility.md) | Current | Suite impact of adopting the portable `epistola-catalog` aggregate.          |
 | [Resource reference graph](resource-reference-graph.md)             | Alpha   | Tenant-wide view of which resources depend on which.                         |
 | [Version axes](version-axes.md)                                     | Current | The independent "version" concepts and which question each answers.          |
+| [Exchange publication](catalog-exchange-publication.md)             | Alpha   | Publishing authored catalog releases to Epistola Exchange.                   |
+| [Exchange installation](catalog-exchange-installation.md)           | Alpha   | Browsing Epistola Exchange, installing from it, and how updates are noticed. |
 
 ## Platform runtime
 
@@ -116,6 +118,8 @@ that implement it live in [`modules/rest-api`](../modules/rest-api).
 | Doc                                                        | Status   | What it covers                                                           |
 | ---------------------------------------------------------- | -------- | ------------------------------------------------------------------------ |
 | [Deployment](deployment.md)                                | Current  | Deploying with the `charts/epistola` Helm chart.                         |
+| [Upgrades](upgrades.md)                                    | Current  | Additive vs breaking upgrades, maintenance windows, and rollback.        |
+| [Load test results](load-test-results.md)                  | Current  | Running log of measured throughput, by named hardware profile.           |
 | [Metrics & observability](metrics.md)                      | Current  | Exposed metrics and wiring your own OpenTelemetry pipeline.              |
 | [Application logs](application-logs.md)                    | Current  | Persisting Logback events into a bounded, queryable table.               |
 | [Audit log](audit-log.md)                                  | Current  | The PII-free, append-only record of who did and read what.               |

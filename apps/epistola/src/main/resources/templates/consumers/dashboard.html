@@ -229,7 +229,7 @@
                 <div class="ep-panel stat-card">
                     <div class="stat-card-value">
                         <span th:text="${report.totals.activeNodeCount}">0</span><span
-                            class="ep-text-muted"
+                            class="text-muted"
                             th:text="' / ' + ${report.totals.totalNodeCount}"> / 0</span>
                     </div>
                     <div class="stat-card-label">Active nodes</div>
@@ -346,10 +346,10 @@
                                           th:text="${node.isActive ? 'active' : 'stale'}">active</span>
                                 </td>
                                 <td>
-                                    <code th:if="${node.isActive}" class="ep-text-sm"
+                                    <code th:if="${node.isActive}" class="text-sm"
                                           th:title="${node.partitionsTitle}"
                                           th:text="${node.partitionsLabel}">0, 3, 7</code>
-                                    <span th:if="${!node.isActive}" class="ep-text-sm ep-text-muted"
+                                    <span th:if="${!node.isActive}" class="text-sm text-muted"
                                           th:title="${'Was assigned: ' + node.partitionsTitle}">— stale, not on ring</span>
                                 </td>
                             </tr>

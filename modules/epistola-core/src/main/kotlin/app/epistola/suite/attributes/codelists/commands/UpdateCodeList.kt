@@ -4,6 +4,7 @@
 
 package app.epistola.suite.attributes.codelists.commands
 
+import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
 import app.epistola.suite.attributes.codelists.model.CodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
@@ -99,7 +100,7 @@ class UpdateCodeListHandler(
                 handle.createUpdate(
                     """
                     DELETE FROM code_list_entries
-                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND code_list_slug = :slug
+                    WHERE tenant_key = :tenantKey AND code_list_resource_id = $CODE_LIST_AT_ADDRESS
                     """,
                 )
                     .bind("tenantKey", command.id.tenantKey)

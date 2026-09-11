@@ -9,6 +9,8 @@ import com.sun.net.httpserver.HttpServer
 import java.net.InetSocketAddress
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
+import java.util.HexFormat
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
@@ -70,6 +72,27 @@ class FakeExchangeServer : AutoCloseable {
 
     /** Lets a test hand back a different organization on a later authorization. */
     var organizationSlug: String = "acme"
+
+    /** Catalogs this Exchange hosts, keyed `namespace/catalogKey`. Populated by [publish]. */
+    val hostedCatalogs = linkedMapOf<String, FakeCatalog>()
+
+    /** Coordinates asked about, in order, so a test can assert how many calls a check actually made. */
+    val catalogLookups = mutableListOf<String>()
+
+    /** `namespace/catalogKey@version` for each archive served. */
+    val archiveDownloads = mutableListOf<String>()
+
+    /** Search terms received, in order. */
+    val searchQueries = mutableListOf<String?>()
+
+    /** Overrides the catalog-detail response, for refusals a hosted catalog cannot express. */
+    var catalogResponse: ((FakeCatalog?) -> Response)? = null
+
+    /** Overrides the archive response — a truncated body, a lying Content-Length, a 404. */
+    var archiveResponse: ((FakeRelease?) -> Response)? = null
+
+    /** When set, search answers with a `links.next` carrying this cursor, as a paged Exchange does. */
+    var nextSearchCursor: String? = null
 
     private val connections = AtomicInteger()
 
@@ -138,7 +161,73 @@ class FakeExchangeServer : AutoCloseable {
                 exchange.respond(submitResponse())
             }
         }
+        server.createContext("/api/v1/catalogs") { exchange ->
+            val query = exchange.queryParam("q")
+            searchQueries += query
+            val matches = hostedCatalogs.values.filter { catalog ->
+                query.isNullOrBlank() ||
+                    catalog.name.contains(query, ignoreCase = true) ||
+                    catalog.catalogKey.contains(query, ignoreCase = true)
+            }
+            exchange.respond(Response(200, catalogPage(matches)))
+        }
+        server.createContext("/api/v1/namespaces") { exchange ->
+            val segments = exchange.requestURI.path.trim('/').split('/')
+            // /api/v1/namespaces/{ns}/catalogs/{key}[/releases[/{version}/archive]]
+            val namespace = segments.getOrNull(3)
+            val catalogKey = segments.getOrNull(5)
+            val catalog = hostedCatalogs["$namespace/$catalogKey"]
+            when {
+                segments.size == 6 -> {
+                    catalogLookups += "$namespace/$catalogKey"
+                    catalogResponse?.let { exchange.respond(it(catalog)) }
+                        ?: exchange.respond(
+                            catalog?.let { Response(200, catalogSummary(it)) }
+                                ?: Response(404, PROBLEM_NOT_FOUND),
+                        )
+                }
+                segments.size == 7 && segments[6] == "releases" ->
+                    exchange.respond(
+                        catalog?.let { Response(200, releasePage(it)) } ?: Response(404, PROBLEM_NOT_FOUND),
+                    )
+                segments.size == 9 && segments[6] == "releases" && segments[8] == "archive" -> {
+                    val version = segments[7]
+                    val release = catalog?.releases?.firstOrNull { it.version == version }
+                    archiveResponse?.let { exchange.respond(it(release)) } ?: when {
+                        release == null -> exchange.respond(Response(404, PROBLEM_NOT_FOUND))
+                        else -> {
+                            archiveDownloads += "$namespace/$catalogKey@$version"
+                            exchange.respondBytes(200, "application/zip", release.archive, mapOf("ETag" to "\"${release.sha256}\""))
+                        }
+                    }
+                }
+                else -> exchange.respond(Response(404, PROBLEM_NOT_FOUND))
+            }
+        }
         server.start()
+    }
+
+    /**
+     * Hosts [archive] as `namespace/catalogKey` at [version], creating the catalog on first call.
+     *
+     * Releases are kept in the order published, which is also how Exchange orders them — by
+     * publication, not by SemVer — so a test can reproduce the case where those two disagree.
+     */
+    fun publish(
+        namespace: String,
+        catalogKey: String,
+        archive: ByteArray,
+        version: String,
+        name: String = catalogKey,
+        availability: String = "AVAILABLE",
+        scanState: String = "CLEAN",
+    ) {
+        val key = "$namespace/$catalogKey"
+        val existing = hostedCatalogs[key]
+            ?: FakeCatalog(namespace, catalogKey, name).also { hostedCatalogs[key] = it }
+        hostedCatalogs[key] = existing.copy(
+            releases = existing.releases + FakeRelease(version, archive, availability, scanState),
+        )
     }
 
     fun defaultToken(
@@ -181,6 +270,82 @@ class FakeExchangeServer : AutoCloseable {
         }
     """.trimIndent()
 
+    /**
+     * Every field the contract marks required is emitted, including ones Suite never reads, for the
+     * reason the publication body already states: a fake that answers with less than Exchange does
+     * is a fake that lets a broken client ship.
+     */
+    private fun catalogSummary(catalog: FakeCatalog): String = """
+        {
+          "namespace": "${catalog.namespace}",
+          "key": "${catalog.catalogKey}",
+          "name": "${catalog.name}",
+          "description": ${catalog.description?.let { "\"$it\"" } ?: "null"},
+          "ownerOrganizationId": "$OWNER_ORGANIZATION_ID",
+          "ownerOrganizationName": "Acme",
+          "visibility": "${catalog.visibility}",
+          "latestVersion": ${catalog.latestAvailableVersion?.let { "\"$it\"" } ?: "null"}
+        }
+    """.trimIndent()
+
+    private fun catalogPage(catalogs: Collection<FakeCatalog>): String {
+        // Exchange returns the next page as a full URL, not a bare cursor, so the fake does too -
+        // that difference is the whole reason the client has to pull the cursor back out.
+        val next = nextSearchCursor?.let { ""","next":"$baseUrl/api/v1/catalogs?limit=50&cursor=$it"""" }.orEmpty()
+        return """
+            {
+              "items": [${catalogs.joinToString(",") { catalogSummary(it) }}],
+              "links": {"self": "$baseUrl/api/v1/catalogs"$next}
+            }
+        """.trimIndent()
+    }
+
+    private fun releasePage(catalog: FakeCatalog): String = """
+        {
+          "items": [${catalog.releases.reversed().joinToString(",") { releaseBody(catalog, it) }}],
+          "links": {"self": "$baseUrl/api/v1/namespaces/${catalog.namespace}/catalogs/${catalog.catalogKey}/releases"}
+        }
+    """.trimIndent()
+
+    private fun releaseBody(catalog: FakeCatalog, release: FakeRelease): String = """
+        {
+          "namespace": "${catalog.namespace}",
+          "catalogKey": "${catalog.catalogKey}",
+          "version": "${release.version}",
+          "sha256": "${release.sha256}",
+          "size": ${release.archive.size},
+          "scanState": "${release.scanState}",
+          "availability": "${release.availability}",
+          "publishedAt": "$FIXED_TIMESTAMP",
+          "fingerprint": null
+        }
+    """.trimIndent()
+
+    /** A catalog this Exchange hosts. */
+    data class FakeCatalog(
+        val namespace: String,
+        val catalogKey: String,
+        val name: String,
+        val description: String? = null,
+        val visibility: String = "PUBLIC",
+        val releases: List<FakeRelease> = emptyList(),
+    ) {
+        /**
+         * What Exchange computes for `latestVersion`: the newest release anyone may install, so
+         * blocked and withdrawn ones are already excluded before a consumer ever sees them.
+         */
+        val latestAvailableVersion: String? get() = releases.lastOrNull { it.availability == "AVAILABLE" }?.version
+    }
+
+    class FakeRelease(
+        val version: String,
+        val archive: ByteArray,
+        val availability: String = "AVAILABLE",
+        val scanState: String = "CLEAN",
+    ) {
+        val sha256: String = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(archive))
+    }
+
     /** Restores default behaviour and clears recordings between tests sharing one server. */
     fun reset() {
         latestState.set(null)
@@ -196,6 +361,13 @@ class FakeExchangeServer : AutoCloseable {
         tokenResponse = { Response(200, defaultToken()) }
         submitResponse = { Response(200, publicationBody(remotePublicationId, "QUEUED")) }
         statusResponse = { Response(200, publicationBody(remotePublicationId, "ACCEPTED")) }
+        hostedCatalogs.clear()
+        catalogLookups.clear()
+        archiveDownloads.clear()
+        searchQueries.clear()
+        catalogResponse = null
+        archiveResponse = null
+        nextSearchCursor = null
     }
 
     private var stopped = false
@@ -216,6 +388,23 @@ class FakeExchangeServer : AutoCloseable {
             URLDecoder.decode(name, StandardCharsets.UTF_8) to URLDecoder.decode(value, StandardCharsets.UTF_8)
         }
 
+    private fun HttpExchange.queryParam(name: String): String? = requestURI.query
+        ?.split('&')
+        ?.filter(String::isNotBlank)
+        ?.map { it.split('=', limit = 2) }
+        ?.firstOrNull { it[0] == name }
+        ?.getOrNull(1)
+        ?.let { URLDecoder.decode(it, StandardCharsets.UTF_8) }
+
+    /** Bytes rather than JSON — a release archive is the one response that is not a document. */
+    private fun HttpExchange.respondBytes(status: Int, contentType: String, bytes: ByteArray, headers: Map<String, String> = emptyMap()) {
+        runCatching { requestBody.readBytes() }
+        responseHeaders.add("Content-Type", contentType)
+        headers.forEach { (name, value) -> responseHeaders.add(name, value) }
+        sendResponseHeaders(status, bytes.size.toLong())
+        responseBody.use { it.write(bytes) }
+    }
+
     private fun HttpExchange.respond(response: Response) {
         // com.sun.net.httpserver drops the response body if the request body was never consumed,
         // which turns a deliberate 401 into an empty one and hides the error the test is asserting.
@@ -232,6 +421,8 @@ class FakeExchangeServer : AutoCloseable {
     }
 
     companion object {
+        val OWNER_ORGANIZATION_ID: UUID = UUID.fromString("00000000-0000-4000-8000-0000000000b1")
+        const val PROBLEM_NOT_FOUND = """{"type":"about:blank","title":"Not Found","status":404}"""
         val OAUTH_APPLICATION_ID: UUID = UUID.fromString("00000000-0000-4000-8000-0000000000a1")
 
         /** Fixed so publication fixtures never carry a moving value. */

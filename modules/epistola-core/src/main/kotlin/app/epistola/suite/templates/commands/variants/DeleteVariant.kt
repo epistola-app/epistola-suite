@@ -11,6 +11,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -35,7 +36,7 @@ class DeleteVariantHandler(
             val isDefault = handle.createQuery(
                 """
                 SELECT is_default FROM template_variants
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId AND template_key = :templateId
+                WHERE tenant_key = :tenantId AND id = :variantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 """,
             )
                 .bind("tenantId", command.variantId.tenantKey)
@@ -53,7 +54,7 @@ class DeleteVariantHandler(
             val rowsAffected = handle.createUpdate(
                 """
                 DELETE FROM template_variants
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId AND template_key = :templateId
+                WHERE tenant_key = :tenantId AND id = :variantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 """,
             )
                 .bind("tenantId", command.variantId.tenantKey)

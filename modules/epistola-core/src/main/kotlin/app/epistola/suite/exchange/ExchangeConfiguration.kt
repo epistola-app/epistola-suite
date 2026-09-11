@@ -48,4 +48,20 @@ class ExchangeConfiguration(
             ).apply { setReadTimeout(properties.readTimeout) },
         )
         .build()
+
+    /**
+     * A second client for release archives only, because they are the one Exchange response
+     * measured in megabytes rather than milliseconds.
+     *
+     * Its own bean rather than a `mutate()` of the one above: mutation copies the request factory,
+     * so the read timeout — the only thing that needs to differ — is exactly what it cannot change.
+     */
+    @Bean
+    fun exchangeArchiveRestClient(properties: ExchangeProperties): RestClient = RestClient.builder()
+        .requestFactory(
+            JdkClientHttpRequestFactory(
+                HttpClient.newBuilder().connectTimeout(properties.connectTimeout).build(),
+            ).apply { setReadTimeout(properties.archiveReadTimeout) },
+        )
+        .build()
 }

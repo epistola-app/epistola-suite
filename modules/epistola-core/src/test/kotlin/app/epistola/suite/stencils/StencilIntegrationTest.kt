@@ -34,6 +34,7 @@ import app.epistola.suite.stencils.queries.ListStencils
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.withRequiredDataExample
@@ -261,8 +262,11 @@ class StencilIntegrationTest : IntegrationTestBase() {
                 """
                 UPDATE stencil_versions
                 SET content = jsonb_set(content, '{root}', '"missing-root"'::jsonb)
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                  AND stencil_key = :stencilKey AND id = 1
+                WHERE tenant_key = :tenantKey
+                  AND stencil_resource_id = (SELECT resource_id FROM stencils
+                                              WHERE tenant_key = :tenantKey
+                                                AND catalog_key = :catalogKey AND id = :stencilKey)
+                  AND id = 1
                 """,
             )
                 .bind("tenantKey", id.tenantKey)
@@ -445,8 +449,8 @@ class StencilIntegrationTest : IntegrationTestBase() {
                 """
                 SELECT referenced_paths::text
                 FROM template_versions
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                  AND template_key = :templateKey AND variant_key = :variantKey AND status = 'draft'
+                WHERE tenant_key = :tenantKey
+                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = :variantKey AND status = 'draft'
                 """,
             )
                 .bind("tenantKey", templateId.tenantKey)

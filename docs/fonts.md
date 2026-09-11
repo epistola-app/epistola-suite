@@ -12,14 +12,16 @@ How Epistola models, resolves and renders fonts.
 
 ## Model
 
-A **font family** (`fonts` table, catalog-scoped: `(tenant, catalog, slug)`)
-groups **faces** (`font_variants`, keyed by `(weight, italic)`). Each face
-points at one of:
+A **font family** (`fonts` table, keyed by `(tenant, resource_id)` and addressed
+as `(tenant, catalog, slug)`) groups **faces** (`font_variants`, keyed by the
+family's identity plus `(weight, italic)`). A face names its family and its
+binary by identity, so either can be relocated without disturbing the other.
+Each face points at one of:
 
 - **`CLASSPATH`** — a bundled file shipped once in the JAR (`source=CLASSPATH`,
   `classpath_location`). System fonts only; no `Asset` row, no per-tenant
   bytes.
-- **`ASSET`** — an ordinary `assets` row (`source=ASSET`, `asset_key`).
+- **`ASSET`** — an ordinary `assets` row (`source=ASSET`, `asset_resource_id`).
   Customer-uploaded faces; reuses all asset machinery (upload, content store,
   catalog export/import).
 

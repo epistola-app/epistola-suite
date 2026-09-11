@@ -16,6 +16,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.services.TemplateDocumentPreparation
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -40,14 +41,14 @@ class UpdateDraftHandler(
 ) : CommandHandler<UpdateDraft, TemplateVersion?> {
     override fun handle(command: UpdateDraft): TemplateVersion? {
         requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
-        val prepared = templateDocumentPreparation.prepareDraft(command.templateModel)
+        val prepared = templateDocumentPreparation.prepareDraft(command.templateModel, command.variantId.tenantKey, command.variantId.catalogKey)
         return jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
             // Verify the variant belongs to a template owned by the tenant
             val variantExists = handle.createQuery(
                 """
                 SELECT 1
                 FROM template_variants
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId AND template_key = :templateId
+                WHERE tenant_key = :tenantId AND id = :variantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 FOR UPDATE
                 """,
             )
@@ -72,8 +73,8 @@ class UpdateDraftHandler(
                 """
                 UPDATE template_versions
                 SET template_model = :templateModel::jsonb, referenced_paths = :referencedPaths::jsonb
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId
-                  AND template_key = :templateId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId
+                  AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                   AND status = 'draft'
                 RETURNING id
                 """,
@@ -93,12 +94,12 @@ class UpdateDraftHandler(
                 // Draft existed and was updated - return it
                 return@inTransaction handle.createQuery(
                     """
-                    SELECT id, tenant_key, catalog_key, variant_key, template_model, status,
+                    SELECT id, tenant_key, variant_key, template_model, status,
                            created_at, published_at, archived_at,
                            rendering_defaults_version, resolved_theme, contract_version
                     FROM template_versions
-                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId
-                      AND template_key = :templateId
+                    WHERE tenant_key = :tenantId AND variant_key = :variantId
+                      AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                       AND status = 'draft'
                     """,
                 )
@@ -116,8 +117,8 @@ class UpdateDraftHandler(
                 """
                 SELECT COALESCE(MAX(id), 0) + 1 as next_id
                 FROM template_versions
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId
-                  AND template_key = :templateId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId
+                  AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 """,
             )
                 .bind("tenantId", command.variantId.tenantKey)
@@ -138,7 +139,7 @@ class UpdateDraftHandler(
             val contractVersionId = handle.createQuery(
                 """
                 SELECT id FROM contract_versions
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND template_key = :templateKey
+                WHERE tenant_key = :tenantKey AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
                 ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
                 LIMIT 1
                 """,
@@ -154,9 +155,9 @@ class UpdateDraftHandler(
 
             handle.createQuery(
                 """
-                INSERT INTO template_versions (id, tenant_key, catalog_key, template_key, variant_key, template_model, status, contract_version, referenced_paths, created_at)
-                VALUES (:id, :tenantId, :catalogKey, :templateId, :variantId, :templateModel::jsonb, 'draft', :contractVersion, :referencedPaths::jsonb, NOW())
-                RETURNING id, tenant_key, catalog_key, variant_key, template_model, status,
+                INSERT INTO template_versions (id, tenant_key, template_resource_id, variant_key, template_model, status, contract_version, referenced_paths, created_at)
+                VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :variantId, :templateModel::jsonb, 'draft', :contractVersion, :referencedPaths::jsonb, NOW())
+                RETURNING id, tenant_key, variant_key, template_model, status,
                           created_at, published_at, archived_at,
                           rendering_defaults_version, resolved_theme, contract_version, referenced_paths
                 """,

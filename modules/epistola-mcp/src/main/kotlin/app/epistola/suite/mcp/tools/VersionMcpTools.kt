@@ -4,6 +4,7 @@
 
 package app.epistola.suite.mcp.tools
 
+import app.epistola.suite.catalog.identity.canonical
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -45,7 +46,7 @@ class VersionMcpTools(
         val tenantId = mcpTenantId()
         val vId = VariantId(
             VariantKey.of(variantId),
-            TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantId)),
+            TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantId)).canonical(),
         )
         return mediator.query(ListVersions(vId)).map { VersionInfo.from(it) }
     }
@@ -70,7 +71,7 @@ class VersionMcpTools(
         val tenantId = mcpTenantId()
         val variant = VariantId(
             VariantKey.of(variantId),
-            TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantId)),
+            TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantId)).canonical(),
         )
         return mediator.query(GetVersion(VersionId(VersionKey.of(versionId), variant)))
             ?.let(VersionContentInfo::from)

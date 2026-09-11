@@ -8,6 +8,7 @@ import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.FeatureKey
+import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -84,6 +85,12 @@ class JdbiConfig {
             // Register VersionId argument factory and column mapper for integer-based version IDs
             registerArgument(VersionIdArgumentFactory())
             registerColumnMapper(VersionKey::class.java, IntIdColumnMapper(VersionKey::of))
+
+            // Register the UuidId argument factory for every UUID-backed key, so a typed key binds
+            // without being unwrapped at the call site, and the column mappers for the ones read
+            // back as a key rather than a raw UUID.
+            registerArgument(UuidIdArgumentFactory())
+            registerColumnMapper(ResourceIdentity::class.java, UuidIdColumnMapper(ResourceIdentity::of))
 
             // Register AssetMediaType column mapper (varchar mime type → enum)
             registerColumnMapper(

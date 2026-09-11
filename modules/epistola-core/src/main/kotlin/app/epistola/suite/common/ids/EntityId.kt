@@ -40,8 +40,11 @@ data class TenantId(override val key: TenantKey) : EntityId<TenantKey, String, N
 }
 
 /**
- * Identifies a catalog within a tenant. Part of the resource identity chain:
- * TenantId → CatalogId → ResourceId (Template, Theme, Stencil, etc.)
+ * Identifies a catalog within a tenant. Part of the address chain:
+ * TenantId → CatalogId → the resource's own id (TemplateId, ThemeId, StencilId, ...).
+ *
+ * This chain is a resource's *address*, which moves. Its immutable identity is a separate value,
+ * [app.epistola.suite.common.ids.ResourceIdentity].
  */
 data class CatalogId(
     override val key: CatalogKey,

@@ -108,11 +108,11 @@
                             </td>
                             <td>
                                 <span th:if="${job.errorMessage != null}"
-                                      class="ep-text-sm ep-text-muted"
+                                      class="text-sm text-muted"
                                       style="max-width: 300px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
                                       th:title="${job.errorMessage}"
                                       th:text="${job.errorMessage}">Error</span>
-                                <span th:if="${job.errorMessage == null}" class="ep-text-muted">—</span>
+                                <span th:if="${job.errorMessage == null}" class="text-muted">—</span>
                             </td>
                             <td th:text="${#temporals.format(job.createdAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</td>
                             <td th:text="${job.completedAt != null ? #temporals.format(job.completedAt, 'yyyy-MM-dd HH:mm') : '—'}">—</td>

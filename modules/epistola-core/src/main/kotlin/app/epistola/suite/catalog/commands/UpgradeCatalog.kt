@@ -235,7 +235,7 @@ class UpgradeCatalogHandler(
                 SET installed_release_version = :version, installed_fingerprint = :fingerprint,
                     installed_resource_fingerprints = :resourceFingerprints::jsonb,
                     name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
-                    content_updated_at = NOW(), updated_at = NOW()
+                    installed_at = NOW(), content_updated_at = NOW(), updated_at = NOW()
                 WHERE tenant_key = :t AND id = :c
                 """,
             )

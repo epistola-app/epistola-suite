@@ -40,6 +40,26 @@ class ResourceGraphRoutesTest : BaseIntegrationTest() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.body).contains("<ep-resource-graph", "Resource graph")
+        assertThat(response.body).contains("data-relocation-enabled=\"false\"")
+    }
+
+    @Test
+    fun `relocation controls require their independent alpha toggle`() {
+        val tenant = createTenant("Graph relocation")
+        withMediator {
+            SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_GRAPH, enabled = true).execute()
+        }
+
+        // The graph links to the organise page rather than hosting the move, so what the toggle
+        // gates here is whether that link is offered at all.
+        val withoutRelocation = restTemplate.getForEntity("/tenants/${tenant.id}/resource-graph", String::class.java)
+        assertThat(withoutRelocation.body).contains("data-relocation-enabled=\"false\"")
+
+        withMediator {
+            SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_RELOCATION, enabled = true).execute()
+        }
+        val page = restTemplate.getForEntity("/tenants/${tenant.id}/resource-graph", String::class.java)
+        assertThat(page.body).contains("data-relocation-enabled=\"true\"")
     }
 
     @Test

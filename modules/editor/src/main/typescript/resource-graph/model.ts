@@ -14,6 +14,8 @@ export type ReferenceSemantics = 'runtime' | 'authoring' | 'provenance';
 export type Resolution = 'resolved' | 'missing' | 'ambiguous';
 
 export interface ResourceNode {
+  /** Stable identity; unlike the address, it survives a relocation. */
+  resourceId: string;
   id: string;
   type: ResourceType;
   catalogKey: string;
@@ -22,6 +24,16 @@ export interface ResourceNode {
   catalogName: string;
   catalogType: string;
 }
+
+/**
+ * What is needed to focus a resource: its address plus a label.
+ *
+ * Deliberately narrower than {@link ResourceNode}. Focus is reached from places that only have an
+ * address -- a URL the user pasted, or the destination of a move -- and inventing a
+ * {@link ResourceNode.resourceId} there would be a lie, since identity is something the server
+ * knows and the caller does not.
+ */
+export type ResourceFocusRef = Pick<ResourceNode, 'id' | 'type' | 'catalogKey' | 'key' | 'name'>;
 
 export interface ResourceAddress {
   id: string;
@@ -40,7 +52,33 @@ export interface ResourceEdge {
   semantics: ReferenceSemantics;
   qualification: string;
   resolution: Resolution;
+  resolvedViaAlias: boolean;
   evidenceCount: number;
+}
+
+/** One member of a relocation batch, as previewed. */
+export interface ResourceRelocationPlan {
+  source: ResourceAddress;
+  target: ResourceAddress;
+  mutableRewriteCount: number;
+  immutableReferenceCount: number;
+}
+
+export interface ResourceMoveBlocker {
+  code: string;
+  message: string;
+  /** The member this blocks, or absent when it is a property of the batch as a whole. */
+  source?: ResourceAddress;
+}
+
+export interface ResourceMovePreview {
+  relocations: ResourceRelocationPlan[];
+  /** Totals across the batch; each member's own counts are on its plan. */
+  mutableRewriteCount: number;
+  immutableReferenceCount: number;
+  blockers: ResourceMoveBlocker[];
+  planFingerprint: string;
+  executable: boolean;
 }
 
 export interface SubgraphResponse {

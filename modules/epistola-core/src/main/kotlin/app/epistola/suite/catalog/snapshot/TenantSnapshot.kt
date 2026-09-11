@@ -42,7 +42,14 @@ data class TenantSnapshot(
     }
 }
 
-/** Tenant-level manifest written as `snapshot.json` at the root of the snapshot archive. */
+/**
+ * Tenant-level manifest written as `snapshot.json` at the root of the snapshot archive.
+ *
+ * From schema version 2 the archive also carries `identities.json`: the tenant's identity registry
+ * and retained aliases. It sits beside the catalog ZIPs rather than inside them because
+ * `resource_id` is deliberately absent from catalog exchange -- it is tenant-local, and a snapshot
+ * is the one place a tenant's own state travels whole.
+ */
 data class SnapshotManifest(
     val schemaVersion: Int,
     val tenantKey: String,

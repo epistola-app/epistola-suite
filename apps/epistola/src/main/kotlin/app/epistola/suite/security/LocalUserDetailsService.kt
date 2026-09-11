@@ -7,8 +7,11 @@ package app.epistola.suite.security
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.query
 import app.epistola.suite.users.AuthProvider
 import app.epistola.suite.users.commands.EnsureUser
+import app.epistola.suite.users.queries.GetUserByExternalId
+import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Profile
 import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.security.core.userdetails.UserDetailsService
@@ -31,7 +34,11 @@ import java.util.UUID
 class LocalUserDetailsService(
     authProperties: AuthProperties,
     private val mediator: Mediator,
+    /** Present under the `demo` profile; absent otherwise, which is what makes `sandbox` optional. */
+    private val membershipResolver: LoginMembershipResolver? = null,
 ) : UserDetailsService {
+
+    private val logger = LoggerFactory.getLogger(javaClass)
 
     private val passwordEncoder = PasswordEncoderFactories.createDelegatingPasswordEncoder()
 
@@ -59,7 +66,7 @@ class LocalUserDetailsService(
             ),
         )
 
-        val principal = EpistolaPrincipal(
+        val principal = sandboxPrincipal(localUser, userId) ?: EpistolaPrincipal(
             userId = userId,
             externalId = localUser.username,
             email = localUser.username,
@@ -77,6 +84,44 @@ class LocalUserDetailsService(
             password = passwordEncoder.encode(localUser.password)
                 ?: throw IllegalStateException("Password encoding failed"),
             epistolaPrincipal = principal,
+        )
+    }
+
+    /**
+     * The principal for a `sandbox: true` user, or null to fall back to the configured tenant.
+     *
+     * The resolver both derives the tenant and creates it, so this is also what makes a sandbox
+     * exist at all. Its memberships replace the configured ones outright rather than merging: the
+     * point of a sandbox is that it is the user's own, and a leftover membership of a shared tenant
+     * would quietly undo that.
+     */
+    private fun sandboxPrincipal(localUser: LocalUserProperties, userId: UserKey): EpistolaPrincipal? {
+        if (!localUser.sandbox) return null
+        if (membershipResolver == null) {
+            logger.warn(
+                "Local user {} asks for a sandbox tenant but no LoginMembershipResolver is present " +
+                    "(the demo profile supplies one); falling back to the configured tenant '{}'.",
+                localUser.username,
+                localUser.tenant,
+            )
+            return null
+        }
+
+        // EnsureUser has just run, so the row exists; the resolver needs the domain object to
+        // persist the memberships it derives.
+        val user = mediator.query(GetUserByExternalId(localUser.username, AuthProvider.LOCAL)) ?: return null
+        val resolved = membershipResolver.resolve(localUser.username, user) ?: return null
+        val sandboxTenant = resolved.tenantMemberships.keys.firstOrNull() ?: return null
+
+        return EpistolaPrincipal(
+            userId = userId,
+            externalId = localUser.username,
+            email = localUser.username,
+            displayName = localUser.displayName,
+            tenantMemberships = resolved.tenantMemberships,
+            globalRoles = resolved.globalRoles,
+            platformRoles = resolved.platformRoles + localUser.platformRoles,
+            currentTenantId = sandboxTenant,
         )
     }
 

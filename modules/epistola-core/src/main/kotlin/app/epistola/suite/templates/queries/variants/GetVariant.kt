@@ -13,6 +13,8 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.VariantSummary
+import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.templateJoin
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -32,12 +34,12 @@ class GetVariantHandler(
     override fun handle(query: GetVariant): TemplateVariant? = jdbi.withHandle<TemplateVariant?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT tv.id, tv.tenant_key, tv.template_key, tv.title, tv.description, tv.attributes, tv.is_default, tv.created_at, tv.updated_at, tv.created_by, tv.updated_by
+                SELECT tv.id, tv.tenant_key, template.id AS template_key, tv.title, tv.description, tv.attributes, tv.is_default, tv.created_at, tv.updated_at, tv.created_by, tv.updated_by
                 FROM template_variants tv
+                ${templateJoin("tv")}
                 WHERE tv.id = :variantId
-                  AND tv.template_key = :templateId
                   AND tv.tenant_key = :tenantId
-                  AND tv.catalog_key = :catalogKey
+                  AND tv.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 """,
         )
             .bind("variantId", query.variantId.key)
@@ -70,17 +72,16 @@ class GetVariantSummariesHandler(
                     tv.title,
                     tv.attributes,
                     tv.is_default,
-                    EXISTS(SELECT 1 FROM template_versions ver WHERE ver.tenant_key = tv.tenant_key AND ver.catalog_key = tv.catalog_key AND ver.template_key = tv.template_key AND ver.variant_key = tv.id AND ver.status = 'draft') as has_draft,
+                    EXISTS(SELECT 1 FROM template_versions ver WHERE ver.tenant_key = tv.tenant_key AND ver.template_resource_id = tv.template_resource_id AND ver.variant_key = tv.id AND ver.status = 'draft') as has_draft,
                     COALESCE(
                         (SELECT jsonb_agg(ver.id ORDER BY ver.id)
                          FROM template_versions ver
-                         WHERE ver.tenant_key = tv.tenant_key AND ver.catalog_key = tv.catalog_key AND ver.template_key = tv.template_key AND ver.variant_key = tv.id AND ver.status = 'published'),
+                         WHERE ver.tenant_key = tv.tenant_key AND ver.template_resource_id = tv.template_resource_id AND ver.variant_key = tv.id AND ver.status = 'published'),
                         '[]'::jsonb
                     ) as published_versions
                 FROM template_variants tv
-                WHERE tv.template_key = :templateId
-                  AND tv.tenant_key = :tenantId
-                  AND tv.catalog_key = :catalogKey
+                WHERE tv.tenant_key = :tenantId
+                  AND tv.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 ORDER BY tv.is_default DESC, tv.created_at ASC
                 """,
         )

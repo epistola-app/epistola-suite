@@ -16,6 +16,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.queries.variants.ListVariants
+import app.epistola.suite.templates.templateJoin
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
@@ -506,14 +507,18 @@ class ImportTemplatesTest : IntegrationTestBase() {
             assertThat(results.single().status).isEqualTo(ImportStatus.CREATED)
         }
 
+        // Read from storage, not through GetLatestPublishedVersion: that query does not project
+        // referenced_paths, and TemplateVersion defaults the field to an empty set -- so going
+        // through it would assert nothing while appearing to pass.
         val referencedPaths = jdbi.withHandle<String, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT referenced_paths::text
-                FROM template_versions
-                WHERE tenant_key = :tenantKey AND catalog_key = 'default'
-                  AND template_key = :templateKey AND variant_key = 'default'
-                ORDER BY id DESC LIMIT 1
+                SELECT versions.referenced_paths::text
+                FROM template_versions versions
+                ${templateJoin("versions")}
+                WHERE versions.tenant_key = :tenantKey AND template.catalog_key = 'default'
+                  AND template.id = :templateKey AND versions.variant_key = 'default'
+                ORDER BY versions.id DESC LIMIT 1
                 """,
             )
                 .bind("tenantKey", tenant.id)

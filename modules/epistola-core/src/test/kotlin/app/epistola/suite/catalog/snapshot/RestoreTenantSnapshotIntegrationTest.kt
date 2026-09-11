@@ -11,8 +11,14 @@ import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.graph.CatalogResourceType
+import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.identity.ResolveCatalogResourceAddress
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.relocation.MoveCatalogResources
+import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
+import app.epistola.suite.catalog.relocation.movedTo
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
@@ -29,10 +35,12 @@ import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
+import java.util.UUID
 import java.util.zip.ZipInputStream
 
 /**
@@ -44,6 +52,9 @@ import java.util.zip.ZipInputStream
 class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
     @Autowired
     lateinit var objectMapper: ObjectMapper
+
+    @Autowired
+    lateinit var jdbi: Jdbi
 
     @Test
     fun `restore reproduces a tenant with a cross-catalog code-list binding and drops divergence`() {
@@ -115,6 +126,52 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
             val rebuilt = BuildTenantSnapshot(tenant.id).execute()
             assertThat(rebuilt.snapshotFingerprint).isEqualTo(originalFingerprint)
         }
+    }
+
+    @Test
+    fun `restore keeps the identities and aliases a moved resource left behind`() {
+        val tenant = createTenant("Restore Identity")
+        val tenantId = TenantId(tenant.id)
+        val origin = CatalogKey.of("origin")
+        val destination = CatalogKey.of("destination")
+        val themeAddress = ResourceAddress(CatalogResourceType.THEME, origin.value, "brand")
+
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = origin, name = "Origin").execute()
+            CreateCatalog(tenantKey = tenant.id, id = destination, name = "Destination").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(origin, tenantId)), name = "Brand").execute()
+        }
+
+        // Move it, so the tenant holds both an identity and the alias the move left at the old
+        // address -- the two things a restore used to discard without saying so.
+        withMediator {
+            val preview = PreviewCatalogResourceMove(tenant.id, listOf(themeAddress.movedTo(destination))).query()
+            MoveCatalogResources(tenant.id, listOf(themeAddress.movedTo(destination)), preview.planFingerprint).execute()
+        }
+
+        val identityBefore = themeIdentity(tenant.id.value, "destination", "brand")
+
+        val snapshot = withMediator { BuildTenantSnapshot(tenant.id).execute() }
+        withMediator { RestoreTenantSnapshot(tenant.id, snapshot.bytes).execute() }
+
+        assertThat(themeIdentity(tenant.id.value, "destination", "brand"))
+            .describedAs("a restored resource keeps its identity, so generation history still joins to it")
+            .isEqualTo(identityBefore)
+        assertThat(withMediator { ResolveCatalogResourceAddress(tenant.id, themeAddress).query() })
+            .describedAs("the alias is restored with it, so the old address keeps resolving")
+            .isNotNull()
+            .extracting { it!!.canonical }
+            .isEqualTo(ResourceAddress(CatalogResourceType.THEME, destination.value, "brand"))
+    }
+
+    private fun themeIdentity(tenantKey: String, catalogKey: String, key: String): UUID = jdbi.withHandle<UUID, Exception> { handle ->
+        handle
+            .createQuery("SELECT resource_id FROM themes WHERE tenant_key = :t AND catalog_key = :c AND id = :k")
+            .bind("t", tenantKey)
+            .bind("c", catalogKey)
+            .bind("k", key)
+            .mapTo(UUID::class.java)
+            .one()
     }
 
     private fun readManifest(bytes: ByteArray): SnapshotManifest {

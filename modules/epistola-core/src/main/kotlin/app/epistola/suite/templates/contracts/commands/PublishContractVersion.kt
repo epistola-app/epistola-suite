@@ -15,11 +15,13 @@ import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.REQUESTED_TEMPLATE_ADDRESS
 import app.epistola.suite.templates.contracts.SchemaCompatibilityChecker
 import app.epistola.suite.templates.contracts.model.ContractVersion
 import app.epistola.suite.templates.contracts.model.ContractVersionStatus
 import app.epistola.suite.templates.contracts.queries.CheckContractPublishImpact
 import app.epistola.suite.templates.contracts.queries.ContractPublishImpact
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.requireAtLeastOneDataExample
 import app.epistola.suite.templates.validation.requireValidDataContractSchema
@@ -83,11 +85,11 @@ class PublishContractVersionHandler(
             // 1. Load draft contract version
             val draft = handle.createQuery(
                 """
-                SELECT id, tenant_key, catalog_key, template_key, schema, data_model, data_examples,
+                SELECT id, tenant_key, $REQUESTED_TEMPLATE_ADDRESS, schema, data_model, data_examples,
                        status, created_at, published_at, created_by
                 FROM contract_versions
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                  AND template_key = :templateKey AND status = 'draft'
+                WHERE tenant_key = :tenantKey
+                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND status = 'draft'
                 FOR UPDATE
                 """,
             )
@@ -117,11 +119,11 @@ class PublishContractVersionHandler(
             // 3. Check backwards compatibility against previous published version
             val previousPublished = handle.createQuery(
                 """
-                SELECT id, tenant_key, catalog_key, template_key, schema, data_model, data_examples,
+                SELECT id, tenant_key, $REQUESTED_TEMPLATE_ADDRESS, schema, data_model, data_examples,
                        status, created_at, published_at, created_by
                 FROM contract_versions
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                  AND template_key = :templateKey AND status = 'published'
+                WHERE tenant_key = :tenantKey
+                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND status = 'published'
                 ORDER BY id DESC LIMIT 1
                 """,
             )
@@ -164,8 +166,8 @@ class PublishContractVersionHandler(
                 """
                 UPDATE contract_versions
                 SET status = 'published', published_at = NOW()
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                  AND template_key = :templateKey AND id = :versionId
+                WHERE tenant_key = :tenantKey
+                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND id = :versionId
                 """,
             )
                 .bind("tenantKey", command.templateId.tenantKey)
@@ -184,8 +186,8 @@ class PublishContractVersionHandler(
                         """
                         UPDATE template_versions
                         SET contract_version = :newVersion
-                        WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                          AND template_key = :templateKey AND contract_version = :oldVersion
+                        WHERE tenant_key = :tenantKey
+                          AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND contract_version = :oldVersion
                         """,
                     )
                         .bind("tenantKey", command.templateId.tenantKey)
@@ -201,8 +203,8 @@ class PublishContractVersionHandler(
                         """
                         UPDATE template_versions
                         SET contract_version = :newVersion
-                        WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                          AND template_key = :templateKey AND contract_version = :oldVersion
+                        WHERE tenant_key = :tenantKey
+                          AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND contract_version = :oldVersion
                           AND id NOT IN (<incompatibleIds>)
                         """,
                     )

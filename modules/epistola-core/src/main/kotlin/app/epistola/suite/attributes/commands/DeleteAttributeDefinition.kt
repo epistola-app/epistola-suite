@@ -10,6 +10,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.templateJoin
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -42,8 +43,10 @@ class DeleteAttributeDefinitionHandler(
             // Check if any variants still reference this attribute
             val variantCount = handle.createQuery(
                 """
-                SELECT COUNT(*) FROM template_variants
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND jsonb_exists(attributes, :attributeKey)
+                SELECT COUNT(*) FROM template_variants variants
+                ${templateJoin("variants")}
+                WHERE variants.tenant_key = :tenantId AND template.catalog_key = :catalogKey
+                  AND jsonb_exists(variants.attributes, :attributeKey)
                 """,
             )
                 .bind("tenantId", command.id.tenantKey)

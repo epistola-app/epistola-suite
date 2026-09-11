@@ -10,6 +10,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -51,14 +52,14 @@ class GetContractUsageOverviewHandler(
                        COALESCE(
                            (SELECT jsonb_agg(ea.environment_key ORDER BY ea.environment_key)
                             FROM environment_activations ea
-                            WHERE ea.tenant_key = tv.tenant_key AND ea.catalog_key = tv.catalog_key
-                              AND ea.template_key = tv.template_key AND ea.variant_key = tv.variant_key
+                            WHERE ea.tenant_key = tv.tenant_key
+                 AND ea.template_resource_id = tv.template_resource_id AND ea.variant_key = tv.variant_key
                               AND ea.version_key = tv.id),
                            '[]'::jsonb
                        )::text as active_environments
                 FROM template_versions tv
-                WHERE tv.tenant_key = :tenantKey AND tv.catalog_key = :catalogKey
-                  AND tv.template_key = :templateKey
+                WHERE tv.tenant_key = :tenantKey
+                  AND tv.template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
                   AND tv.status IN ('published', 'draft')
                 ORDER BY tv.variant_key, tv.id DESC
                 """,

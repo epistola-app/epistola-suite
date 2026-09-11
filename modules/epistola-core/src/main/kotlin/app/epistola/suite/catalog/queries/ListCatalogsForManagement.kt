@@ -10,6 +10,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.templateJoin
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.jdbi.v3.core.mapper.Nested
@@ -81,15 +82,25 @@ class ListCatalogsForManagementHandler(
             WITH activity(catalog_key, ts) AS (
                 SELECT id, content_updated_at         FROM catalogs                      WHERE tenant_key = :t
                 UNION ALL SELECT catalog_key, MAX(updated_at)   FROM document_templates            WHERE tenant_key = :t GROUP BY catalog_key
-                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM template_variants    WHERE tenant_key = :t GROUP BY catalog_key
+                UNION ALL SELECT template.catalog_key, MAX(variants.updated_at)
+                                 FROM template_variants variants ${templateJoin("variants")}
+                                 WHERE variants.tenant_key = :t GROUP BY template.catalog_key
                 UNION ALL SELECT catalog_key, MAX(updated_at)   FROM themes               WHERE tenant_key = :t GROUP BY catalog_key
                 UNION ALL SELECT catalog_key, MAX(updated_at)   FROM stencils             WHERE tenant_key = :t GROUP BY catalog_key
                 UNION ALL SELECT catalog_key, MAX(updated_at)   FROM variant_attribute_definitions WHERE tenant_key = :t GROUP BY catalog_key
                 UNION ALL SELECT catalog_key, MAX(updated_at)   FROM code_lists           WHERE tenant_key = :t GROUP BY catalog_key
                 UNION ALL SELECT catalog_key, MAX(updated_at)   FROM fonts                WHERE tenant_key = :t GROUP BY catalog_key
-                UNION ALL SELECT catalog_key, MAX(published_at) FROM template_versions    WHERE tenant_key = :t GROUP BY catalog_key
-                UNION ALL SELECT catalog_key, MAX(published_at) FROM contract_versions    WHERE tenant_key = :t GROUP BY catalog_key
-                UNION ALL SELECT catalog_key, MAX(published_at) FROM stencil_versions     WHERE tenant_key = :t GROUP BY catalog_key
+                UNION ALL SELECT template.catalog_key, MAX(versions.published_at)
+                                 FROM template_versions versions ${templateJoin("versions")}
+                                 WHERE versions.tenant_key = :t GROUP BY template.catalog_key
+                UNION ALL SELECT template.catalog_key, MAX(contracts.published_at)
+                                 FROM contract_versions contracts ${templateJoin("contracts")}
+                                 WHERE contracts.tenant_key = :t GROUP BY template.catalog_key
+                UNION ALL SELECT stencil.catalog_key, MAX(versions.published_at)
+                                 FROM stencil_versions versions
+                                 JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
+                                                      AND stencil.resource_id = versions.stencil_resource_id
+                                 WHERE versions.tenant_key = :t GROUP BY stencil.catalog_key
                 UNION ALL SELECT catalog_key, MAX(created_at)   FROM assets               WHERE tenant_key = :t GROUP BY catalog_key
             )
             SELECT c.*,

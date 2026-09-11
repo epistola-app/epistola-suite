@@ -14,6 +14,7 @@ import app.epistola.suite.quality.SubmitFindingsResult
 import app.epistola.suite.quality.SubmittedFinding
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -150,8 +151,8 @@ class SubmitQualityFindingsHandler(
             """
             SELECT md5(template_model::text)
             FROM template_versions
-            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-              AND template_key = :templateKey AND variant_key = :variantKey
+            WHERE tenant_key = :tenantKey
+              AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = :variantKey
               AND status IN ('draft', 'published')
             ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
             LIMIT 1
@@ -177,11 +178,11 @@ class SubmitQualityFindingsHandler(
             """
             INSERT INTO quality_findings (
                 tenant_key, id, source_id, rule_id, severity, subject_urn, subject_type, ignore_scope_urn,
-                catalog_key, template_key, variant_key, version_key, node_ids, path, message, message_code, docs_url,
+                template_resource_id, variant_key, version_key, node_ids, path, message, message_code, docs_url,
                 fingerprint, input_fingerprint, context, metadata, status, first_seen_at, last_seen_at, resolved_at
             ) VALUES (
                 :tenantKey, :id, :sourceId, :ruleId, :severity, :subjectUrn, :subjectType, :ignoreScopeUrn,
-                :catalogKey, :templateKey, :variantKey, :versionKey, :nodeIds, :path, :message, :messageCode, :docsUrl,
+                ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}, :variantKey, :versionKey, :nodeIds, :path, :message, :messageCode, :docsUrl,
                 :fingerprint, :inputFingerprint, :context::jsonb, :metadata::jsonb, 'OPEN', :now, :now, NULL
             )
             ON CONFLICT (tenant_key, source_id, subject_urn, fingerprint) DO UPDATE SET

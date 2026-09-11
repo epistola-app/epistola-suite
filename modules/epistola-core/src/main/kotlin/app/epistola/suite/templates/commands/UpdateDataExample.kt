@@ -11,8 +11,10 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.REQUESTED_TEMPLATE_ADDRESS
 import app.epistola.suite.templates.contracts.model.ContractVersion
 import app.epistola.suite.templates.model.DataExample
+import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.ValidationError
@@ -56,10 +58,10 @@ class UpdateDataExampleHandler(
             // Load and lock the draft contract version
             val draftContract = handle.createQuery(
                 """
-                SELECT *
+                SELECT *, $REQUESTED_TEMPLATE_ADDRESS
                 FROM contract_versions
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                  AND template_key = :templateKey AND status = 'draft'
+                WHERE tenant_key = :tenantKey
+                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND status = 'draft'
                 FOR UPDATE
                 """,
             )
@@ -102,8 +104,8 @@ class UpdateDataExampleHandler(
                 """
                 UPDATE contract_versions
                 SET data_examples = :dataExamples::jsonb
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                  AND template_key = :templateKey AND status = 'draft'
+                WHERE tenant_key = :tenantKey
+                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND status = 'draft'
                 """,
             )
                 .bind("tenantKey", command.templateId.tenantKey)

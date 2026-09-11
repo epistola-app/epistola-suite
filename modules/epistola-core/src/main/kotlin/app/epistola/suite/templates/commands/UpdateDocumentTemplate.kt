@@ -17,6 +17,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.themes.themeAtAddress
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.ValidationException
 import app.epistola.suite.validation.validate
@@ -66,11 +67,9 @@ class UpdateDocumentTemplateHandler(
             bindings["name"] = command.name
         }
         if (command.clearThemeId) {
-            updates.add("theme_key = NULL")
-            updates.add("theme_catalog_key = NULL")
+            updates.add("theme_resource_id = NULL")
         } else if (command.themeId != null) {
-            updates.add("theme_key = :themeId")
-            updates.add("theme_catalog_key = :themeCatalogKey")
+            updates.add("theme_resource_id = ${themeAtAddress("tenantId", "themeCatalogKey", "themeId")}")
             bindings["themeId"] = command.themeId
             bindings["themeCatalogKey"] = command.themeCatalogKey ?: CatalogKey.DEFAULT
         }

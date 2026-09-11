@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.graph.ResourceNode
 import app.epistola.suite.catalog.graph.TenantResourceGraph
 import app.epistola.suite.catalog.graph.TraversalDirection
 import app.epistola.suite.catalog.graph.traverse
+import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
@@ -36,6 +37,7 @@ class ResourceGraphHandler {
                 "tenantId" to tenantKey.value,
                 "tenant" to GetTenant(tenantKey).query(),
                 "activeNavSection" to "resource-graph",
+                "resourceRelocationEnabled" to request.resourceRelocationEnabled(),
             ),
         )
     }
@@ -55,9 +57,9 @@ class ResourceGraphHandler {
             .take(50)
             .map(::nodeDto)
             .toList()
-        val catalogs = graph.nodes.distinctBy { it.address.catalogKey }.map {
-            mapOf("key" to it.address.catalogKey, "name" to it.catalogName)
-        }.sortedBy { it["name"] }
+        val catalogs = ListCatalogs(request.tenantKey()).query().map {
+            mapOf("key" to it.id.value, "name" to it.name, "type" to it.type.name.lowercase())
+        }
         return json(mapOf("nodes" to nodes, "total" to matches.size, "catalogs" to catalogs))
     }
 
@@ -126,6 +128,7 @@ class ResourceGraphHandler {
     }
 
     private fun nodeDto(node: ResourceNode) = mapOf(
+        "resourceId" to node.resourceId.toString(),
         "id" to node.address.id,
         "type" to node.address.type.wireName,
         "catalogKey" to node.address.catalogKey,
@@ -145,6 +148,7 @@ class ResourceGraphHandler {
         "semantics" to edge.semantics.name.lowercase(),
         "qualification" to edge.qualification.name.lowercase(),
         "resolution" to edge.resolution.name.lowercase(),
+        "resolvedViaAlias" to edge.resolvedViaAlias,
         "evidenceCount" to edge.evidenceCount,
     )
 
@@ -160,7 +164,9 @@ class ResourceGraphHandler {
 
     private fun ServerRequest.tenantKey() = TenantKey.of(pathVariable("tenantId"))
     private fun ServerRequest.resourceGraphEnabled() = ResolveFeatureToggles(tenantKey()).query()[KnownFeatures.RESOURCE_GRAPH] == true
+    private fun ServerRequest.resourceRelocationEnabled() = ResolveFeatureToggles(tenantKey()).query()[KnownFeatures.RESOURCE_RELOCATION] == true
     private fun ServerRequest.requiredParam(name: String) = param(name).orElseThrow { IllegalArgumentException("Missing query parameter: $name") }
 
     private fun json(body: Any) = ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(body)
+    private fun conflict(body: Any) = ServerResponse.status(409).contentType(MediaType.APPLICATION_JSON).body(body)
 }

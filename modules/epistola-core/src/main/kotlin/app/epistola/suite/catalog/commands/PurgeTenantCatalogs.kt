@@ -49,7 +49,14 @@ class PurgeTenantCatalogsHandler(
     override fun handle(command: PurgeTenantCatalogs): PurgeTenantCatalogsResult = jdbi.withHandle<PurgeTenantCatalogsResult, Exception> { handle ->
         val prior =
             handle
-                .createQuery("SELECT default_theme_catalog_key, default_theme_key FROM tenants WHERE id = :tenantKey")
+                .createQuery(
+                    """
+                    SELECT th.catalog_key AS default_theme_catalog_key, th.id AS default_theme_key
+                    FROM tenants t
+                    LEFT JOIN themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
+                    WHERE t.id = :tenantKey
+                    """,
+                )
                 .bind("tenantKey", command.tenantKey)
                 .map { rs, _ ->
                     PurgeTenantCatalogsResult(rs.getString("default_theme_catalog_key"), rs.getString("default_theme_key"))
@@ -57,7 +64,7 @@ class PurgeTenantCatalogsHandler(
                 .orElse(PurgeTenantCatalogsResult(null, null))
 
         handle
-            .createUpdate("UPDATE tenants SET default_theme_key = NULL WHERE id = :tenantKey")
+            .createUpdate("UPDATE tenants SET default_theme_resource_id = NULL WHERE id = :tenantKey")
             .bind("tenantKey", command.tenantKey)
             .execute()
         handle

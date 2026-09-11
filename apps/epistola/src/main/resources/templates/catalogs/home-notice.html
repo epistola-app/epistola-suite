@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!-- Rendered by the tenant-home page through the HomeNotice SPI. `notice.data` is a
+         CatalogUpdatesNoticeData built from the recorded upstream check, so this costs no remote
+         call. Styled with the same version-update-card classes as the version-check banner, so the
+         two read as one system rather than two features that both happened to want a banner.
+
+         Withdrawn first and separately: an available update is an opportunity, a withdrawn release
+         is a fact about content already being used to generate documents. -->
+    <th:block th:fragment="banner">
+        <div th:if="${!notice.data.withdrawn.isEmpty()}"
+             class="version-update-card version-unsupported-card"
+             role="alert"
+             data-testid="catalog-withdrawn-notice">
+            <div class="version-update-row">
+                <div class="version-update-info">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-sm')}" />
+                    <span>
+                        <strong th:text="${notice.data.withdrawnHeadline}">A catalog release you are using has been withdrawn</strong>
+                    </span>
+                    <span class="version-update-summary" th:text="${notice.data.withdrawnSummary}">Invoices</span>
+                </div>
+                <div class="version-update-actions">
+                    <a th:href="@{/tenants/{tenantId}/catalogs(tenantId=${notice.data.tenantId})}"
+                       class="ep-btn ep-btn-outline ep-btn-sm">Review catalogs</a>
+                </div>
+            </div>
+        </div>
+
+        <div th:if="${!notice.data.available.isEmpty()}"
+             class="version-update-card"
+             data-testid="catalog-update-notice">
+            <div class="version-update-row">
+                <div class="version-update-info">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='circle-arrow-up', class='ep-icon ep-icon-sm')}" />
+                    <span>
+                        <strong th:text="${notice.data.availableHeadline}">1 catalog has an update available</strong>
+                    </span>
+                    <span class="version-update-summary" th:text="${notice.data.availableSummary}">Invoices v1.1.0</span>
+                </div>
+                <div class="version-update-actions">
+                    <a th:href="@{/tenants/{tenantId}/catalogs(tenantId=${notice.data.tenantId})}"
+                       class="ep-btn ep-btn-outline ep-btn-sm">Review updates</a>
+                </div>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.mcp.tools
 
+import app.epistola.suite.catalog.identity.canonical
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
@@ -71,7 +72,7 @@ class StencilMcpTools(
         @McpToolParam(description = "Stencil key.")
         stencilId: String,
     ): StencilInfo? {
-        val id = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
+        val id = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), mcpTenantId())).canonical()
         return mediator.query(GetStencil(id))?.let { StencilInfo.from(it) }
     }
 
@@ -89,7 +90,7 @@ class StencilMcpTools(
         @McpToolParam(description = "Stencil key.")
         stencilId: String,
     ): List<StencilVersionSummaryInfo> {
-        val id = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
+        val id = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), mcpTenantId())).canonical()
         return mediator.query(ListStencilVersions(id)).map { StencilVersionSummaryInfo.from(it) }
     }
 
@@ -112,7 +113,7 @@ class StencilMcpTools(
         val tenantId = mcpTenantId()
         val versionId = StencilVersionId(
             VersionKey.of(version),
-            StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantId)),
+            StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantId)).canonical(),
         )
         return mediator.query(GetStencilVersion(versionId))?.let { StencilVersionFullInfo.from(it) }
     }

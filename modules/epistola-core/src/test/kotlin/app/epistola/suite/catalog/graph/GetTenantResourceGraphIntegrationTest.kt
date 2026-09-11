@@ -8,9 +8,14 @@ import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ImportAttribute
+import app.epistola.suite.catalog.relocation.MoveCatalogResources
+import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
+import app.epistola.suite.catalog.relocation.movedTo
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.StencilId
+import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -21,6 +26,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariant
@@ -40,6 +46,35 @@ import org.junit.jupiter.api.Test
 import java.util.UUID
 
 class GetTenantResourceGraphIntegrationTest : IntegrationTestBase() {
+    @Test
+    fun `nodes carry the stable identity that survives a relocation`() {
+        val tenant = createTenant("Graph identity")
+        val tenantId = TenantId(tenant.id)
+        val letters = CatalogKey.of("letters")
+        val shared = CatalogKey.of("shared")
+        val stencilId = StencilId(StencilKey.of("header"), CatalogId(letters, tenantId))
+        val address = ResourceAddress(CatalogResourceType.STENCIL, letters.value, stencilId.key.value)
+
+        withMediator {
+            CreateCatalog(tenant.id, letters, "Letters").execute()
+            CreateCatalog(tenant.id, shared, "Shared").execute()
+            CreateStencil(stencilId, "Header").execute()
+        }
+
+        val before = withMediator { GetTenantResourceGraph(tenant.id).query() }
+            .nodes.single { it.address == address }
+
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(shared))).query() }
+        withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(shared)), preview.planFingerprint).execute() }
+
+        // The address changed; the identity did not. That is what lets a caller follow a resource
+        // across a move rather than guessing where it landed.
+        val after = withMediator { GetTenantResourceGraph(tenant.id).query() }
+            .nodes.single { it.resourceId == before.resourceId }
+        assertThat(after.address.catalogKey).isEqualTo(shared.value)
+        assertThat(after.address).isNotEqualTo(before.address)
+    }
+
     @Test
     fun `extracts command-created references with resolution and lifecycle evidence`() {
         val tenant = createTenant("Resource Graph")

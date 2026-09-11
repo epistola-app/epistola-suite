@@ -10,7 +10,9 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.REQUESTED_TEMPLATE_ADDRESS
 import app.epistola.suite.templates.contracts.model.ContractVersion
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -33,11 +35,11 @@ class GetLatestContractVersionHandler(
     override fun handle(query: GetLatestContractVersion): ContractVersion? = jdbi.withHandle<ContractVersion?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT id, tenant_key, catalog_key, template_key, schema, data_model, data_examples,
+                SELECT id, tenant_key, $REQUESTED_TEMPLATE_ADDRESS, schema, data_model, data_examples,
                        status, created_at, published_at, created_by
                 FROM contract_versions
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                  AND template_key = :templateKey
+                WHERE tenant_key = :tenantKey
+                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
                 ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
                 LIMIT 1
                 """,

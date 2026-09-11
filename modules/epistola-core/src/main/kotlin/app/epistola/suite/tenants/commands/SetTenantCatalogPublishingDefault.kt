@@ -13,6 +13,7 @@ import app.epistola.suite.mediator.Routable
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.themes.updateTenantReturningTenant
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -37,12 +38,7 @@ class SetTenantCatalogPublishingDefaultHandler(
 ) : CommandHandler<SetTenantCatalogPublishingDefault, Tenant> {
     override fun handle(command: SetTenantCatalogPublishingDefault): Tenant = jdbi.withHandle<Tenant, Exception> { handle ->
         handle.createQuery(
-            """
-                UPDATE tenants
-                SET publish_catalogs_by_default = :publishByDefault
-                WHERE id = :tenantId
-                RETURNING *
-                """,
+            updateTenantReturningTenant("publish_catalogs_by_default = :publishByDefault", "id = :tenantId"),
         )
             .bind("tenantId", command.tenantId)
             .bind("publishByDefault", command.publishByDefault)

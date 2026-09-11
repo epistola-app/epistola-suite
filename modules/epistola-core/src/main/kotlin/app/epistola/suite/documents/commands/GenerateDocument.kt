@@ -25,6 +25,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.services.VariantResolver
 import app.epistola.suite.templates.services.VariantSelectionCriteria
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
@@ -100,7 +101,7 @@ class GenerateDocumentHandler(
                 SELECT EXISTS (
                     SELECT 1
                     FROM template_variants
-                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId AND template_key = :templateId
+                    WHERE tenant_key = :tenantId AND id = :variantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 )
                 """,
             )
@@ -122,12 +123,14 @@ class GenerateDocumentHandler(
                     SELECT EXISTS (
                         SELECT 1
                         FROM template_versions
-                        WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId AND id = :versionId
+                        WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+                              AND variant_key = :variantId AND id = :versionId
                     )
                     """,
                 )
                     .bind("versionId", command.versionId)
                     .bind("catalogKey", command.catalogKey)
+                    .bind("templateId", command.templateId)
                     .bind("variantId", resolvedVariantId)
                     .bind("tenantId", command.tenantId)
                     .mapTo<Boolean>()
@@ -163,8 +166,8 @@ class GenerateDocumentHandler(
                 handle.createQuery(
                     """
                     SELECT id FROM template_versions
-                    WHERE tenant_key = :tenantId AND catalog_key = :catalogKey
-                      AND template_key = :templateId AND variant_key = :variantId
+                    WHERE tenant_key = :tenantId
+                      AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND variant_key = :variantId
                       AND status = 'published'
                     ORDER BY id DESC LIMIT 1
                     """,
@@ -226,7 +229,7 @@ class GenerateDocumentHandler(
             handle.createQuery(
                 """
                 SELECT id FROM template_variants
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND is_default = TRUE
+                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND is_default = TRUE
                 """,
             )
                 .bind("tenantId", tenantId)

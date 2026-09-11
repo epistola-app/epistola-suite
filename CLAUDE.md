@@ -70,17 +70,28 @@ epistola-suite-modules/
   demo mode changes who can reach what and nobody editing a production deployment's environment
   should be one variable away from it. See [`docs/auth.md`](docs/auth.md#two-images).
 - **modules/epistola-core**: All business logic (domains, commands, queries, REST API, JDBI config). **Catalog exchange lives here too**, in the `catalog/` package (`app.epistola.suite.catalog`) — import/export, remote catalog clients, the bundled `system` catalog (the demo one ships in `apps/epistola-demo`), and the tenant snapshot build/restore primitives (`catalog/snapshot/`). There is no separate catalog module.
-- **Outbound catalog publication** to Epistola Exchange lives in core's `exchange/` package
+- **Catalog exchange with Epistola Exchange** lives in core's `exchange/` package
   (`app.epistola.suite.exchange`): enrollment, the OAuth client, the durable publication outbox and
-  its cluster worker. It is optional and default-off (`epistola.exchange.enabled`). The catalog
+  its cluster worker (outbound), plus browsing, installing and the Exchange upstream probe
+  (inbound). It is optional and default-off (`epistola.exchange.enabled`). The catalog
   domain must **not** reference it: `ReleaseCatalogVersion` records publication intent through
   `CatalogReleasePublicationPort` (in `catalog/`), which is handed the open release transaction so
-  the outbox write stays atomic without inverting the dependency. `ExchangeAvailability` is the one
-  place that answers "may this tenant publish?" (deployment gate **and** tenant feature);
-  `ExchangeNamespaceBinder` owns the immutable namespace binding rule; `CatalogPublicationStore`
-  owns the outbox SQL. UI reads `GetCatalogPublicationState` / `GetExchangeSettings` rather than
-  recomposing any of it. See [`docs/catalog-exchange-publication.md`](docs/catalog-exchange-publication.md)
-  and [ADR 0018](docs/adr/0018-durable-catalog-publication-to-exchange.md).
+  the outbox write stays atomic without inverting the dependency. Inbound runs the other way and
+  needs no port: installing calls **into** `catalog` (`ImportCatalogZip`), and Exchange contributes a
+  `CatalogUpstreamProbe` — an interface `catalog` owns — so `exchange → catalog` stays the only
+  direction. `CatalogExchangeIndependenceTest` enforces this in bytecode.
+  `ExchangeAvailability` is the one place that answers "may this tenant publish?" **and** "may this
+  tenant install?" (deployment gate **and** the separate `catalog-publishing` / `catalog-installing`
+  features); `ExchangeNamespaceBinder` owns the immutable namespace binding rule;
+  `CatalogPublicationStore` owns the outbox SQL and `CatalogUpstreamCheckStore` (in `catalog/`) owns
+  the upstream-check SQL. UI reads `GetCatalogPublicationState` / `GetExchangeSettings` /
+  `GetCatalogUpstreamStates` rather than recomposing any of it. An installed catalog records where it
+  came from as a URI in `catalogs.source_url` (`exchange:namespace/key`), so a new source kind is a
+  new scheme rather than a migration. See
+  [`docs/catalog-exchange-publication.md`](docs/catalog-exchange-publication.md),
+  [`docs/catalog-exchange-installation.md`](docs/catalog-exchange-installation.md),
+  [ADR 0018](docs/adr/0018-durable-catalog-publication-to-exchange.md) and
+  [ADR 0021](docs/adr/0021-catalog-upstream-release-discovery.md).
 - **Resource references**: tenant-wide reference discovery and traversal live in
   `catalog/graph/` and are documented in [`docs/resource-reference-graph.md`](docs/resource-reference-graph.md).
   New catalog-resource reference shapes must be added to this graph authority with resolution and

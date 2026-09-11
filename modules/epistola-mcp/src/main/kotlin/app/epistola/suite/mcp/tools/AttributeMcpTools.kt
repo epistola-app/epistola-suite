@@ -6,6 +6,7 @@ package app.epistola.suite.mcp.tools
 
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
+import app.epistola.suite.catalog.identity.canonical
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -60,7 +61,7 @@ class AttributeMcpTools(
         attributeKey: String,
     ): AttributeInfo? {
         val tenantId = TenantId(mcpTenantKey())
-        val id = AttributeId(AttributeKey.of(attributeKey), CatalogId(CatalogKey.of(catalogId), tenantId))
+        val id = AttributeId(AttributeKey.of(attributeKey), CatalogId(CatalogKey.of(catalogId), tenantId)).canonical()
         return mediator.query(GetAttributeDefinition(id = id))?.let { AttributeInfo.from(it) }
     }
 }

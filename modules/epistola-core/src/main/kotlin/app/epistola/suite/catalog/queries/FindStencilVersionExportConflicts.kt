@@ -66,25 +66,27 @@ class FindStencilVersionExportConflictsHandler(
                     FROM stencils s
                     JOIN stencil_versions sv
                       ON sv.tenant_key = s.tenant_key
-                     AND sv.catalog_key = s.catalog_key
-                     AND sv.stencil_key = s.id
+                     AND sv.stencil_resource_id = s.resource_id
                      AND sv.status = 'published'
                     WHERE s.tenant_key = :tenantKey
                       AND s.catalog_key = :catalogKey
                     GROUP BY s.id
                 ),
                 latest_published_templates AS (
-                    SELECT DISTINCT ON (tenant_key, catalog_key, template_key, variant_key)
-                        template_key, variant_key, template_model
-                    FROM template_versions
-                    WHERE tenant_key = :tenantKey
-                      AND catalog_key = :catalogKey
-                      AND status = 'published'
-                    ORDER BY tenant_key, catalog_key, template_key, variant_key, id DESC
+                    SELECT DISTINCT ON (version.tenant_key, version.template_resource_id, version.variant_key)
+                        version.template_resource_id, version.variant_key, version.template_model
+                    FROM template_versions version
+                    JOIN document_templates template
+                      ON template.tenant_key = version.tenant_key
+                     AND template.resource_id = version.template_resource_id
+                    WHERE version.tenant_key = :tenantKey
+                      AND template.catalog_key = :catalogKey
+                      AND version.status = 'published'
+                    ORDER BY version.tenant_key, version.template_resource_id, version.variant_key, version.id DESC
                 ),
                 stencil_refs AS (
                     SELECT
-                        lpv.template_key,
+                        lpv.template_resource_id,
                         lpv.variant_key,
                         node.value -> 'props' ->> 'stencilId' AS stencil_id,
                         COALESCE((node.value -> 'props' ->> 'version')::int, 0) AS stencil_version,
@@ -95,7 +97,7 @@ class FindStencilVersionExportConflictsHandler(
                 )
                 SELECT DISTINCT
                     sr.stencil_id, s.name AS stencil_name, lsv.latest_published_version,
-                    sr.template_key, dt.name AS template_name,
+                    dt.id AS template_key, dt.name AS template_name,
                     sr.variant_key, tvar.title AS variant_title,
                     sr.stencil_version AS pinned_version
                 FROM stencil_refs sr
@@ -104,11 +106,9 @@ class FindStencilVersionExportConflictsHandler(
                                AND s.id = sr.stencil_id
                 JOIN latest_stencil_version lsv ON lsv.id = s.id
                 JOIN document_templates dt ON dt.tenant_key = :tenantKey
-                                          AND dt.catalog_key = :catalogKey
-                                          AND dt.id = sr.template_key
+                                          AND dt.resource_id = sr.template_resource_id
                 LEFT JOIN template_variants tvar ON tvar.tenant_key = :tenantKey
-                                                AND tvar.catalog_key = :catalogKey
-                                                AND tvar.template_key = sr.template_key
+                                                AND tvar.template_resource_id = sr.template_resource_id
                                                 AND tvar.id = sr.variant_key
                 WHERE sr.stencil_id IS NOT NULL
                   AND (sr.ref_catalog_key IS NULL OR sr.ref_catalog_key = :catalogKey)

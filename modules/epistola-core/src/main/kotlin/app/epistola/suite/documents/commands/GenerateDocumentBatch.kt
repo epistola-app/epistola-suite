@@ -26,6 +26,8 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.services.VariantResolver
 import app.epistola.suite.templates.services.VariantSelectionCriteria
+import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.templateJoin
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
@@ -150,7 +152,7 @@ class GenerateDocumentBatchHandler(
                     SELECT EXISTS (
                         SELECT 1
                         FROM template_variants
-                        WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :variantId AND template_key = :templateId
+                        WHERE tenant_key = :tenantId AND id = :variantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                     )
                     """,
                 )
@@ -171,12 +173,14 @@ class GenerateDocumentBatchHandler(
                         SELECT EXISTS (
                             SELECT 1
                             FROM template_versions
-                            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND variant_key = :variantId AND id = :versionId
+                            WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+                              AND variant_key = :variantId AND id = :versionId
                         )
                         """,
                     )
                         .bind("versionId", item.versionId)
                         .bind("catalogKey", item.catalogKey)
+                        .bind("templateId", item.templateId)
                         .bind("variantId", resolvedVariantId)
                         .bind("tenantId", command.tenantId)
                         .mapTo<Boolean>()
@@ -220,13 +224,15 @@ class GenerateDocumentBatchHandler(
                 val placeholders = needsResolution.indices.joinToString(", ") { i -> "(:c$i, :t$i, :v$i)" }
                 val query = handle.createQuery(
                     """
-                    SELECT DISTINCT ON (catalog_key, template_key, variant_key)
-                        catalog_key, template_key, variant_key, id as version_id
-                    FROM template_versions
-                    WHERE tenant_key = :tenantId
-                      AND (catalog_key, template_key, variant_key) IN ($placeholders)
-                      AND status = 'published'
-                    ORDER BY catalog_key, template_key, variant_key, id DESC
+                    SELECT DISTINCT ON (template.catalog_key, template.id, version.variant_key)
+                        template.catalog_key, template.id AS template_key, version.variant_key,
+                        version.id as version_id
+                    FROM template_versions version
+                    ${templateJoin("version")}
+                    WHERE version.tenant_key = :tenantId
+                      AND (template.catalog_key, template.id, version.variant_key) IN ($placeholders)
+                      AND version.status = 'published'
+                    ORDER BY template.catalog_key, template.id, version.variant_key, version.id DESC
                     """,
                 ).bind("tenantId", command.tenantId)
 
@@ -323,7 +329,7 @@ class GenerateDocumentBatchHandler(
             handle.createQuery(
                 """
                 SELECT id FROM template_variants
-                WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND template_key = :templateId AND is_default = TRUE
+                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND is_default = TRUE
                 """,
             )
                 .bind("tenantId", tenantId)

@@ -14,10 +14,12 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.REQUESTED_TEMPLATE_ADDRESS
 import app.epistola.suite.templates.contracts.SchemaCompatibilityChecker
 import app.epistola.suite.templates.contracts.TemplateVersionCompatibilityEvaluator
 import app.epistola.suite.templates.contracts.commands.IncompatibleVersion
 import app.epistola.suite.templates.contracts.model.ContractVersion
+import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -59,11 +61,11 @@ class CheckContractPublishImpactHandler(
         val draft = jdbi.withHandle<ContractVersion?, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT id, tenant_key, catalog_key, template_key, schema, data_model, data_examples,
+                SELECT id, tenant_key, $REQUESTED_TEMPLATE_ADDRESS, schema, data_model, data_examples,
                        status, created_at, published_at, created_by
                 FROM contract_versions
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                  AND template_key = :templateKey AND status = 'draft'
+                WHERE tenant_key = :tenantKey
+                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND status = 'draft'
                 """,
             )
                 .bind("tenantKey", query.templateId.tenantKey)
@@ -77,11 +79,11 @@ class CheckContractPublishImpactHandler(
         val previousPublished = jdbi.withHandle<ContractVersion?, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT id, tenant_key, catalog_key, template_key, schema, data_model, data_examples,
+                SELECT id, tenant_key, $REQUESTED_TEMPLATE_ADDRESS, schema, data_model, data_examples,
                        status, created_at, published_at, created_by
                 FROM contract_versions
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                  AND template_key = :templateKey AND status = 'published'
+                WHERE tenant_key = :tenantKey
+                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND status = 'published'
                 ORDER BY id DESC LIMIT 1
                 """,
             )
@@ -119,14 +121,14 @@ class CheckContractPublishImpactHandler(
                        COALESCE(
                            (SELECT jsonb_agg(ea.environment_key ORDER BY ea.environment_key)
                             FROM environment_activations ea
-                            WHERE ea.tenant_key = tv.tenant_key AND ea.catalog_key = tv.catalog_key
-                              AND ea.template_key = tv.template_key AND ea.variant_key = tv.variant_key
+                            WHERE ea.tenant_key = tv.tenant_key
+                 AND ea.template_resource_id = tv.template_resource_id AND ea.variant_key = tv.variant_key
                               AND ea.version_key = tv.id),
                            '[]'::jsonb
                        ) as active_environments
                 FROM template_versions tv
-                WHERE tv.tenant_key = :tenantKey AND tv.catalog_key = :catalogKey
-                  AND tv.template_key = :templateKey AND tv.contract_version = :oldVersion
+                WHERE tv.tenant_key = :tenantKey
+                  AND tv.template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND tv.contract_version = :oldVersion
                   AND tv.status IN ('published', 'archived')
                 """,
             )

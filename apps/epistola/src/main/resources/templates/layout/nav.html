@@ -33,6 +33,13 @@
                                 <span th:if="${item.stage.badgeClass != null}"
                                       th:class="${'badge ' + item.stage.badgeClass}"
                                       th:text="${item.stage.label}">Beta</span>
+                                <!-- A count beside the label, so something waiting is visible from
+                                     any page rather than only the one that would say so. -->
+                                <span th:if="${item.indicator != null}"
+                                      th:class="${'badge ' + item.indicator.badgeClass}"
+                                      th:title="${item.indicator.label}"
+                                      th:attr="aria-label=${item.indicator.label},data-testid=${'nav-indicator-' + item.sectionKey}"
+                                      th:text="${item.indicator.count}">3</span>
                             </a>
                         </div>
                     </div>
@@ -79,6 +86,11 @@
                         <span th:if="${item.stage.badgeClass != null}"
                               th:class="${'badge ' + item.stage.badgeClass}"
                               th:text="${item.stage.label}">Beta</span>
+                        <span th:if="${item.indicator != null}"
+                              th:class="${'badge ' + item.indicator.badgeClass}"
+                              th:title="${item.indicator.label}"
+                              th:attr="aria-label=${item.indicator.label},data-testid=${'nav-mobile-indicator-' + item.sectionKey}"
+                              th:text="${item.indicator.count}">3</span>
                     </a>
                 </div>
                 <div class="app-nav-mobile-footer">

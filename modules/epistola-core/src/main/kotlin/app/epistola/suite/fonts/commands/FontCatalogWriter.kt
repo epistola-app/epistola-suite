@@ -7,7 +7,9 @@ package app.epistola.suite.fonts.commands
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
+import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.fonts.assetAtAddress
 import app.epistola.suite.fonts.model.FontKind
 import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.fonts.model.sha256Hex
@@ -85,7 +87,7 @@ class FontCatalogWriter {
             SET name       = EXCLUDED.name,
                 kind       = EXCLUDED.kind,
                 updated_at = NOW()
-            RETURNING slug, (xmax = 0) AS inserted
+            RETURNING slug, resource_id, (xmax = 0) AS inserted
             """,
         )
             .bind("tenantKey", tenantKey)
@@ -95,30 +97,35 @@ class FontCatalogWriter {
                 .bind("name$i", font.name)
                 .bind("kind$i", FontKind.fromWire(font.kind).wire)
         }
-        val inserted = upsert.map { rs, _ -> rs.getString("slug") to rs.getBoolean("inserted") }.toMap()
+        // The families' identities come back from the upsert, so the faces are written against
+        // them directly rather than by re-reading the addresses just written.
+        val upserted = upsert
+            .map { rs, _ -> rs.getString("slug") to (ResourceIdentity.of(rs.getString("resource_id")) to rs.getBoolean("inserted")) }
+            .toMap()
+        val inserted = upserted.mapValues { (_, row) -> row.second }
         handle.createUpdate(
-            """
-            DELETE FROM font_variants
-            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND font_slug IN (<slugs>)
-            """,
+            "DELETE FROM font_variants WHERE tenant_key = :tenantKey AND font_resource_id IN (<families>)",
         )
             .bind("tenantKey", tenantKey)
-            .bind("catalogKey", catalogKey)
-            .bindList("slugs", keyed.map { it.second })
+            .bindList("families", keyed.map { upserted.getValue(it.second.value).first })
             .execute()
         val batch = handle.prepareBatch(
             """
             INSERT INTO font_variants
-                (tenant_key, catalog_key, font_slug, weight, italic, source, asset_key, classpath_location, content_hash)
-            VALUES (:tenantKey, :catalogKey, :slug, :weight, :italic, :source, :assetKey, :classpathLocation, :contentHash)
+                (tenant_key, font_resource_id, weight, italic, source, asset_resource_id, classpath_location, content_hash)
+            VALUES (:tenantKey, :fontResourceId, :weight, :italic, :source,
+                    ${assetAtAddress("tenantKey", "catalogKey", "assetKey")}, :classpathLocation, :contentHash)
             """,
         )
         var faces = 0
         for ((font, fontSlug) in keyed) {
             for (variant in font.variants) {
                 batch.bind("tenantKey", tenantKey)
+                    // A face's asset is written into the same catalog as the family, but only to
+                    // find it: the row stores the asset's identity, so either can relocate later
+                    // without the other.
                     .bind("catalogKey", catalogKey)
-                    .bind("slug", fontSlug)
+                    .bind("fontResourceId", upserted.getValue(fontSlug.value).first)
                     .bind("weight", variant.weight)
                     .bind("italic", variant.italic)
                     .bind("source", variant.source.name)

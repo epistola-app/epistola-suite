@@ -17,6 +17,9 @@ import app.epistola.suite.quality.QualitySourceId
 import app.epistola.suite.quality.QualitySubjectType
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.TEMPLATE_ADDRESS_COLUMNS
+import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.templateJoin
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -71,8 +74,8 @@ class GetFindingsForSubjectHandler(
             """
             SELECT md5(template_model::text)
             FROM template_versions
-            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-              AND template_key = :templateKey AND variant_key = :variantKey
+            WHERE tenant_key = :tenantKey
+              AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = :variantKey
               AND status IN ('draft', 'published')
             ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
             LIMIT 1
@@ -88,7 +91,7 @@ class GetFindingsForSubjectHandler(
 
         val findings = handle.createQuery(
             """
-            SELECT f.*,
+            SELECT f.*, $TEMPLATE_ADDRESS_COLUMNS,
                    CASE WHEN f.status = 'RESOLVED'             THEN 'RESOLVED'
                         WHEN i.finding_fingerprint IS NOT NULL THEN 'IGNORED'
                         ELSE 'OPEN' END AS effective_status,
@@ -96,6 +99,7 @@ class GetFindingsForSubjectHandler(
                    (f.source_id <> :manualSourceId) AS reconciled,
                    COALESCE(c.comment_count, 0)::int AS comment_count
             FROM quality_findings f
+            ${templateJoin("f")}
             -- The ignore is keyed on scope+fingerprint, never on the finding row, which is exactly
             -- why it survives a resolve/resurface cycle and a version publish.
             LEFT JOIN quality_finding_ignores i
@@ -110,8 +114,8 @@ class GetFindingsForSubjectHandler(
                 FROM quality_finding_comments qc
                 WHERE qc.tenant_key = f.tenant_key AND qc.finding_id = f.id
             ) c ON TRUE
-            WHERE f.tenant_key = :tenantKey AND f.catalog_key = :catalogKey
-              AND f.template_key = :templateKey AND f.variant_key = :variantKey
+            WHERE f.tenant_key = :tenantKey
+              AND f.template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND f.variant_key = :variantKey
             ORDER BY CASE f.severity WHEN 'ERROR' THEN 0 WHEN 'WARNING' THEN 1 ELSE 2 END,
                      f.last_seen_at DESC,
                      f.id

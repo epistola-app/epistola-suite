@@ -62,9 +62,9 @@
                         </td>
                         <td>
                             <a th:if="${item.sourcePath != null}" th:href="${item.sourceUrl}"
-                               class="ep-text-muted ep-text-sm" style="text-decoration: none;"
+                               class="text-muted text-sm" style="text-decoration: none;"
                                th:text="${item.sourcePath}">/path</a>
-                            <span th:if="${item.sourcePath == null}" class="ep-text-muted">—</span>
+                            <span th:if="${item.sourcePath == null}" class="text-muted">—</span>
                         </td>
                         <td><th:block th:insert="~{feedback/fragments/badges :: category-badge(${item.category})}" /></td>
                         <td><th:block th:insert="~{feedback/fragments/badges :: status-badge(${item.status})}" /></td>

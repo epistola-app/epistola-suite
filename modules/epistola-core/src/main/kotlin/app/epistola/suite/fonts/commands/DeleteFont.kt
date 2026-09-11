@@ -8,6 +8,7 @@ import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.FontId
+import app.epistola.suite.fonts.FACES_OF_FAMILY_AT_ADDRESS
 import app.epistola.suite.fonts.model.FontInUseException
 import app.epistola.suite.fonts.queries.FindFontUsages
 import app.epistola.suite.mediator.Command
@@ -90,10 +91,9 @@ class DeleteFontHandler(
         val assetKeys = jdbi.withHandle<List<AssetKey>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT asset_key
-                FROM font_variants
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND font_slug = :slug
-                  AND source = 'ASSET' AND asset_key IS NOT NULL
+                SELECT binary_asset.id AS asset_key
+                $FACES_OF_FAMILY_AT_ADDRESS
+                  AND faces.source = 'ASSET' AND faces.asset_resource_id IS NOT NULL
                 """,
             )
                 .bind("tenantKey", tenantKey)

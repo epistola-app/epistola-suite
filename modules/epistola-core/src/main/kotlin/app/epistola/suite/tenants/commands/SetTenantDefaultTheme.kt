@@ -16,6 +16,8 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.themes.ThemeNotFoundException
+import app.epistola.suite.themes.themeAtAddress
+import app.epistola.suite.themes.updateTenantReturningTenant
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -52,13 +54,7 @@ class SetTenantDefaultThemeHandler(
     override fun handle(command: SetTenantDefaultTheme): Tenant = jdbi.withHandle<Tenant, Exception> { handle ->
         if (command.themeId == null) {
             return@withHandle handle.createQuery(
-                """
-                UPDATE tenants
-                SET default_theme_key = NULL,
-                    default_theme_catalog_key = NULL
-                WHERE id = :tenantId
-                RETURNING *
-                """,
+                updateTenantReturningTenant("default_theme_resource_id = NULL", "id = :tenantId"),
             )
                 .bind("tenantId", command.tenantId)
                 .mapTo<Tenant>()
@@ -84,13 +80,10 @@ class SetTenantDefaultThemeHandler(
         }
 
         handle.createQuery(
-            """
-            UPDATE tenants
-            SET default_theme_key = :themeId,
-                default_theme_catalog_key = :catalogKey
-            WHERE id = :tenantId
-            RETURNING *
-            """,
+            updateTenantReturningTenant(
+                "default_theme_resource_id = ${themeAtAddress("tenantId", "catalogKey", "themeId")}",
+                "id = :tenantId",
+            ),
         )
             .bind("tenantId", command.tenantId)
             .bind("themeId", command.themeId)

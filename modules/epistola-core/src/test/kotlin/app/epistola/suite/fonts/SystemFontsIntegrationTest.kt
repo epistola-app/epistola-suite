@@ -128,8 +128,11 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
         val hashes = jdbi.withHandle<List<String?>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT content_hash FROM font_variants
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                SELECT faces.content_hash
+                FROM font_variants faces
+                JOIN fonts family ON family.tenant_key = faces.tenant_key
+                                 AND family.resource_id = faces.font_resource_id
+                WHERE family.tenant_key = :tenantKey AND family.catalog_key = :catalogKey
                 """,
             )
                 .bind("tenantKey", tenant.id.value)

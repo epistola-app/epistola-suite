@@ -15,6 +15,8 @@ import app.epistola.suite.quality.QualitySeverity
 import app.epistola.suite.quality.QualitySourceId
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.TEMPLATE_ADDRESS_COLUMNS
+import app.epistola.suite.templates.templateJoin
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -82,7 +84,7 @@ class ListQualityFindingsHandler(
                 """
                 SELECT x.*, COUNT(*) OVER()::int AS total_count
                 FROM (
-                    SELECT f.*,
+                    SELECT f.*, $TEMPLATE_ADDRESS_COLUMNS,
                            CASE WHEN f.status = 'RESOLVED'             THEN 'RESOLVED'
                                 WHEN i.finding_fingerprint IS NOT NULL THEN 'IGNORED'
                                 ELSE 'OPEN' END AS effective_status,
@@ -90,6 +92,7 @@ class ListQualityFindingsHandler(
                            (f.source_id <> :manualSourceId) AS reconciled,
                            COALESCE(c.comment_count, 0)::int AS comment_count
                     FROM quality_findings f
+                    ${templateJoin("f")}
                     LEFT JOIN quality_finding_ignores i
                            ON i.tenant_key       = f.tenant_key
                           AND i.ignore_scope_urn = f.ignore_scope_urn
@@ -105,8 +108,8 @@ class ListQualityFindingsHandler(
                     WHERE f.tenant_key = :tenantKey
                 """.trimIndent(),
             )
-            if (query.catalogKey != null) append(" AND f.catalog_key = :catalogKey")
-            if (query.templateKey != null) append(" AND f.template_key = :templateKey")
+            if (query.catalogKey != null) append(" AND template.catalog_key = :catalogKey")
+            if (query.templateKey != null) append(" AND template.id = :templateKey")
             if (query.sourceId != null) append(" AND f.source_id = :sourceId")
             if (query.ruleId != null) append(" AND f.rule_id = :ruleId")
             if (query.severity != null) append(" AND f.severity = :severity")

@@ -5,6 +5,7 @@
 package app.epistola.suite.fonts.queries
 
 import app.epistola.suite.common.ids.FontId
+import app.epistola.suite.fonts.FACES_OF_FAMILY_AT_ADDRESS
 import app.epistola.suite.fonts.model.FontVariantRow
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -33,12 +34,10 @@ class GetFontVariantsHandler(
     override fun handle(query: GetFontVariants): List<FontVariantRow> = jdbi.withHandle<List<FontVariantRow>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT weight, italic, source, asset_key, classpath_location
-            FROM font_variants
-            WHERE tenant_key = :tenantKey
-              AND catalog_key = :catalogKey
-              AND font_slug = :slug
-            ORDER BY italic ASC, weight ASC
+            SELECT faces.weight, faces.italic, faces.source,
+                   binary_asset.id AS asset_key, faces.classpath_location
+            $FACES_OF_FAMILY_AT_ADDRESS
+            ORDER BY faces.italic ASC, faces.weight ASC
             """,
         )
             .bind("tenantKey", query.fontId.tenantKey)

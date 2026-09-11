@@ -35,7 +35,20 @@ object KnownFeatures {
     val QUALITY = FeatureKey.of("quality")
     val AI_CHAT = FeatureKey.of("ai-chat")
     val RESOURCE_GRAPH = FeatureKey.of("resource-graph")
+    val RESOURCE_RELOCATION = FeatureKey.of("resource-relocation")
     val CATALOG_PUBLISHING = FeatureKey.of("catalog-publishing")
+
+    /**
+     * Browsing Epistola Exchange and installing catalogs from it.
+     *
+     * Its own key rather than a second meaning for [CATALOG_PUBLISHING]. The two directions are
+     * different conversations — publishing sends this tenant's content out; installing brings a
+     * third party's content in, through the schema migrator and into templates people generate
+     * from — and an operator can reasonably want one without the other. Sharing a key would also
+     * mean that switching off publishing silently stopped upgrade checks for catalogs already
+     * installed, which is the opposite of harmless.
+     */
+    val CATALOG_INSTALLING = FeatureKey.of("catalog-installing")
 
     /**
      * Editor walkthrough — a guided, driver.js-driven tour of the template editor.
@@ -48,7 +61,18 @@ object KnownFeatures {
      */
     val EDITOR_WALKTHROUGH = FeatureKey.of("editor-walkthrough")
 
-    val all: List<FeatureKey> = listOf(SUPPORT_FEEDBACK, SUPPORT_BACKUPS, SUPPORT_COMPATIBILITY_CHECK, QUALITY, AI_CHAT, EDITOR_WALKTHROUGH, RESOURCE_GRAPH, CATALOG_PUBLISHING)
+    val all: List<FeatureKey> = listOf(
+        SUPPORT_FEEDBACK,
+        SUPPORT_BACKUPS,
+        SUPPORT_COMPATIBILITY_CHECK,
+        QUALITY,
+        AI_CHAT,
+        EDITOR_WALKTHROUGH,
+        RESOURCE_GRAPH,
+        RESOURCE_RELOCATION,
+        CATALOG_PUBLISHING,
+        CATALOG_INSTALLING,
+    )
 
     /**
      * Features whose availability is gated by a hub **entitlement** when the support tier is enabled
@@ -126,9 +150,22 @@ object KnownFeatures {
                 "authoring, and provenance relationships, including missing and ambiguous references.",
             stage = FeatureStage.ALPHA,
         ),
+        RESOURCE_RELOCATION to FeatureMetadata(
+            "Resource relocation",
+            "Enables previewing and moving authored catalog resources while preserving old references " +
+                "through stable identities and aliases. Supports all seven resource types; an asset can be " +
+                "moved but not renamed, because its key is a generated identifier.",
+            stage = FeatureStage.ALPHA,
+        ),
         CATALOG_PUBLISHING to FeatureMetadata(
             "Catalog publishing",
             "Enables publishing authored catalog releases from Suite to Epistola Exchange.",
+            stage = FeatureStage.ALPHA,
+        ),
+        CATALOG_INSTALLING to FeatureMetadata(
+            "Catalog installing",
+            "Enables browsing Epistola Exchange and installing catalogs published there. Installed " +
+                "catalogs are read-only mirrors and are checked for newer releases in the background.",
             stage = FeatureStage.ALPHA,
         ),
     )

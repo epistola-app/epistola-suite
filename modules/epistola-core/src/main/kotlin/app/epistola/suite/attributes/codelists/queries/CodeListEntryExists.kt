@@ -4,6 +4,7 @@
 
 package app.epistola.suite.attributes.codelists.queries
 
+import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantKey
@@ -40,8 +41,7 @@ class CodeListEntryExistsHandler(
             SELECT 1
             FROM code_list_entries
             WHERE tenant_key = :tenantKey
-              AND catalog_key = :catalogKey
-              AND code_list_slug = :slug
+              AND code_list_resource_id = $CODE_LIST_AT_ADDRESS
               AND code = :code
             """,
         )

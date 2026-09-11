@@ -38,20 +38,20 @@ class GetStencilUsageDetailsHandler(
     override fun handle(query: GetStencilUsageDetails): List<StencilUsageDetail> = jdbi.withHandle<List<StencilUsageDetail>, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT tv.template_key, tv.catalog_key, c.type as catalog_type, dt.name as template_name,
+                SELECT dt.id AS template_key, dt.catalog_key, c.type as catalog_type, dt.name as template_name,
                        tv.variant_key, tv.id as version_id, tv.status as version_status,
                        COALESCE((node.value -> 'props' ->> 'version')::int, 0) as stencil_version,
                        COUNT(*) as instance_count
                 FROM template_versions tv
-                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_key = tv.catalog_key AND dt.id = tv.template_key
-                JOIN catalogs c ON c.tenant_key = tv.tenant_key AND c.id = tv.catalog_key
+                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
+                JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.id = dt.catalog_key
                 CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS node(key, value)
                 WHERE tv.tenant_key = :tenantId
                   AND node.value ->> 'type' = 'stencil'
                   AND node.value -> 'props' ->> 'stencilId' = :stencilId
-                GROUP BY tv.template_key, tv.catalog_key, c.type, dt.name, tv.variant_key, tv.id, tv.status,
+                GROUP BY dt.id, dt.catalog_key, c.type, dt.name, tv.variant_key, tv.id, tv.status,
                          COALESCE((node.value -> 'props' ->> 'version')::int, 0)
-                ORDER BY (CASE WHEN c.type = 'AUTHORED' THEN 0 ELSE 1 END), tv.catalog_key, dt.name, tv.variant_key, tv.id DESC
+                ORDER BY (CASE WHEN c.type = 'AUTHORED' THEN 0 ELSE 1 END), dt.catalog_key, dt.name, tv.variant_key, tv.id DESC
                 """,
         )
             .bind("tenantId", query.stencilId.tenantKey)

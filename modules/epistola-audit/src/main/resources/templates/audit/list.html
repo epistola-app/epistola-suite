@@ -149,17 +149,17 @@
             <td th:text="${entry.actorLabel}" th:title="${entry.actorUserId}">actor</td>
             <td class="audit-entity" th:with="link=${@auditEntityLinks.resolve(entry)}" th:title="${entry.entityId}">
                 <a th:if="${link.href != null}" th:href="@{${link.href}}" th:text="${link.label}">entity</a>
-                <span th:if="${link.href == null}" class="ep-text-muted" th:text="${link.label}">entity</span>
+                <span th:if="${link.href == null}" class="text-muted" th:text="${link.label}">entity</span>
             </td>
             <td>
                 <span th:classappend="'audit-outcome-' + ${entry.outcome}" th:text="${entry.outcome}">SUCCESS</span>
-                <div th:if="${entry.errorCode != null}" class="ep-text-muted ep-text-xs" th:text="${entry.errorCode}">CODE</div>
+                <div th:if="${entry.errorCode != null}" class="text-muted text-xs" th:text="${entry.errorCode}">CODE</div>
             </td>
             <td>
                 <span th:if="${entry.tenantKey != null}" th:text="${entry.tenantKey}">tenant</span>
-                <span th:if="${entry.tenantKey == null}" class="ep-text-muted" title="System / root action">system</span>
+                <span th:if="${entry.tenantKey == null}" class="text-muted" title="System / root action">system</span>
             </td>
-            <td class="ep-text-muted audit-entity" th:title="${entry.instanceId}" th:text="${entry.instanceId}">instance</td>
+            <td class="text-muted audit-entity" th:title="${entry.instanceId}" th:text="${entry.instanceId}">instance</td>
         </tr>
     </tbody>
 

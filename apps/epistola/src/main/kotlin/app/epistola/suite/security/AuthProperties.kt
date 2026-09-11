@@ -61,8 +61,24 @@ data class LocalUserProperties(
     val password: String,
     /** Display name shown in the UI. */
     val displayName: String = username,
-    /** Tenant key to assign membership to. */
+    /**
+     * Tenant key to assign membership to.
+     *
+     * Also the fallback when [sandbox] is set but no [LoginMembershipResolver] is present — the
+     * `demo` profile supplies that resolver, so a config file shared between profiles still works
+     * under plain `local`.
+     */
     val tenant: String = "demo",
+    /**
+     * Give this user their own tenant, derived from the username, instead of [tenant].
+     *
+     * Opt-in per user because the two shapes are both wanted at once: an operator account that
+     * administers a known tenant, and training accounts that each want a private sandbox. Requires
+     * a [LoginMembershipResolver] bean — one ships with the `demo` profile — and falls back to
+     * [tenant] with a warning when there is none, since the config cannot know which profile it
+     * will be read under.
+     */
+    val sandbox: Boolean = false,
     /** Tenant-scoped roles. */
     val roles: Set<TenantRole> = emptySet(),
     /** Platform-scoped roles. */

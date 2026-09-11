@@ -129,7 +129,14 @@ class LoadTestPoller(
                 last_progress_at = NOW()
             FROM claimed
             WHERE load_test_runs.id = claimed.id
-            RETURNING load_test_runs.id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
+            RETURNING load_test_runs.id, tenant_key,
+                      (SELECT catalog_key FROM document_templates
+                        WHERE tenant_key = load_test_runs.tenant_key
+                          AND resource_id = load_test_runs.template_resource_id) AS catalog_key,
+                      (SELECT id FROM document_templates
+                        WHERE tenant_key = load_test_runs.tenant_key
+                          AND resource_id = load_test_runs.template_resource_id) AS template_key,
+                      variant_key, version_key, environment_key,
                       target_count, concurrency_level, test_data, status, claimed_by, claimed_at,
                       completed_count, failed_count, total_duration_ms, avg_response_time_ms,
                       min_response_time_ms, max_response_time_ms, p50_response_time_ms,

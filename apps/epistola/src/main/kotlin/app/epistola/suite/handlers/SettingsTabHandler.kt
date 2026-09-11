@@ -4,6 +4,8 @@
 
 package app.epistola.suite.templates
 
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.mediator.query
 import app.epistola.suite.themes.queries.ListThemes
 import org.springframework.stereotype.Component
@@ -20,6 +22,16 @@ class SettingsTabHandler(
         val themes = ListThemes(tenantId = ctx.templateId.tenantId).query()
         val themeCatalogs = themes.groupBy { it.catalogKey.value }
 
-        return detailHelper.renderDetailPage(ctx, "settings", mapOf("themes" to themes, "themeCatalogs" to themeCatalogs))
+        return detailHelper.renderDetailPage(
+            ctx,
+            "settings",
+            mapOf(
+                "themes" to themes,
+                "themeCatalogs" to themeCatalogs,
+                // Alpha: the Location section is absent unless the tenant has relocation on.
+                "resourceRelocationEnabled" to
+                    (ResolveFeatureToggles(ctx.templateId.tenantKey).query()[KnownFeatures.RESOURCE_RELOCATION] == true),
+            ),
+        )
     }
 }
