@@ -64,6 +64,15 @@ function scoreSchemaMatch(
     return INCOMPATIBLE_SCORE;
   }
 
+  if (Array.isArray(value)) {
+    if (typeof schema.minItems === 'number' && value.length < schema.minItems) {
+      return INCOMPATIBLE_SCORE;
+    }
+    if (typeof schema.maxItems === 'number' && value.length > schema.maxItems) {
+      return INCOMPATIBLE_SCORE;
+    }
+  }
+
   let score = 1;
   if (isObject(value)) {
     const properties = schemaProperties(schema);

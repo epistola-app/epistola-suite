@@ -5,6 +5,15 @@
 import { html, nothing } from 'lit';
 import type { ValidationError } from '../types.js';
 
+/** Shared `<li>` rendering for a path+message error list, used by both banners below. */
+function renderErrorListItems(errors: ValidationError[], pathClass: string): unknown {
+  return errors.map(
+    (e) => html`
+      <li>${e.path ? html`<code class="${pathClass}">${e.path}</code>` : nothing} ${e.message}</li>
+    `,
+  );
+}
+
 /** Alert-style banner for server-rejected saves: a summary title plus the individual errors below it. */
 export function renderValidationErrorsAlert(errors: ValidationError[]): unknown {
   if (errors.length === 0) return nothing;
@@ -15,14 +24,7 @@ export function renderValidationErrorsAlert(errors: ValidationError[]): unknown 
         Couldn't save — ${errors.length} validation error${errors.length === 1 ? '' : 's'}
       </div>
       <ul class="dc-save-errors-banner-list">
-        ${errors.map(
-          (e) => html`
-            <li>
-              ${e.path ? html`<code class="dc-save-errors-banner-path">${e.path}</code>` : nothing}
-              ${e.message}
-            </li>
-          `,
-        )}
+        ${renderErrorListItems(errors, 'dc-save-errors-banner-path')}
       </ul>
     </div>
   `;
@@ -47,14 +49,7 @@ export function renderClientValidationBanner(
         warnings.length > 0
           ? html`
               <ul class="dc-validation-banner-list">
-                ${warnings.map(
-                  (w) => html`
-                    <li>
-                      <code class="dc-validation-banner-path">${w.path}</code>
-                      ${w.message}
-                    </li>
-                  `,
-                )}
+                ${renderErrorListItems(warnings, 'dc-validation-banner-path')}
               </ul>
             `
           : nothing

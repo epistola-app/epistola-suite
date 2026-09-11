@@ -67,4 +67,27 @@ describe('save validation errors banner', () => {
     expect(banner).not.toBeNull();
     expect(banner?.textContent).toContain('is too long');
   });
+
+  it('highlights the offending example inline, not just in the banner, on a per-example backend rejection', async () => {
+    const onSaveSchema = vi.fn().mockResolvedValue({
+      success: false,
+      error: 'Example data does not match the schema. Example 1 at items: is too long',
+      errors: {
+        'Example 1': [{ path: 'items', message: 'is too long' }],
+      },
+    });
+    const { editor, saveControls } = await mountEditor({ onSaveSchema });
+
+    editor.querySelector<HTMLButtonElement>('button[aria-label="Add field to customer"]')!.click();
+    await editor.updateComplete;
+
+    saveControls.querySelector<HTMLButtonElement>('.dc-save-btn')!.click();
+    await editor.updateComplete;
+    await new Promise((r) => setTimeout(r, 0));
+    await editor.updateComplete;
+
+    const errorBadge = editor.querySelector('.dc-example-chip-badge-error');
+    expect(errorBadge).not.toBeNull();
+    expect(errorBadge?.textContent).toBe('1');
+  });
 });

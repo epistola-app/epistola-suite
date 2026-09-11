@@ -71,7 +71,7 @@ import { renderMigrationDialog, migrationKey } from './sections/MigrationAssista
 import { renderJsonSchemaView } from './sections/JsonSchemaView.js';
 import { renderImportSchemaDialog } from './sections/ImportSchemaDialog.js';
 import { setNestedValue } from './sections/ExampleForm.js';
-import { buildFieldErrorMap } from './validation-display.js';
+import { buildFieldErrorMap, countDistinctErrorPaths } from './validation-display.js';
 import { renderContractSaveControls } from './sections/ContractSaveBar.js';
 import {
   renderClientValidationBanner,
@@ -265,7 +265,9 @@ export class EpistolaDataContractEditor extends LitElement {
 
   private get _totalExampleErrorCount(): number {
     let total = 0;
-    for (const errors of this._exampleValidationErrors.values()) total += errors.length;
+    for (const errors of this._exampleValidationErrors.values()) {
+      total += countDistinctErrorPaths(errors);
+    }
     return total;
   }
 
@@ -292,7 +294,8 @@ export class EpistolaDataContractEditor extends LitElement {
     if (!this._hasRequiredExample) {
       messages.push('Add at least one test data example before saving.');
     }
-    const issueCount = this._schemaFieldErrors.length + this._totalExampleErrorCount;
+    const issueCount =
+      countDistinctErrorPaths(this._schemaFieldErrors) + this._totalExampleErrorCount;
     if (issueCount > 0) {
       messages.push(
         `${issueCount} validation issue${issueCount === 1 ? '' : 's'} — fix the highlighted fields below.`,
@@ -574,13 +577,15 @@ export class EpistolaDataContractEditor extends LitElement {
     // Derive error counts per example for chip badges
     const exampleErrorCounts: Record<string, number> = {};
     for (const ex of state.dataExamples) {
-      exampleErrorCounts[ex.id] = (this._exampleValidationErrors.get(ex.id) ?? []).length;
+      exampleErrorCounts[ex.id] = countDistinctErrorPaths(
+        this._exampleValidationErrors.get(ex.id) ?? [],
+      );
     }
 
     const uiState: ExamplesUiState = {
       editingId: this._editingExampleId,
       fieldErrorMap,
-      validationErrorCount: errorsForSelected.length,
+      validationErrorCount: fieldErrorMap.size,
       exampleErrorCounts,
       canUndo: this._exampleCanUndo,
       canRedo: this._exampleCanRedo,
@@ -867,6 +872,7 @@ export class EpistolaDataContractEditor extends LitElement {
           }
           if (schemaResult.errors) {
             this._saveValidationErrors = Object.values(schemaResult.errors).flat();
+            this._mergeBackendExampleErrors(schemaResult.errors);
           }
           return;
         }
@@ -892,6 +898,7 @@ export class EpistolaDataContractEditor extends LitElement {
           this._saveError = examplesResult.error ?? 'Failed to save examples';
           if (examplesResult.errors) {
             this._saveValidationErrors = Object.values(examplesResult.errors).flat();
+            this._mergeBackendExampleErrors(examplesResult.errors);
           }
           return;
         }
@@ -910,6 +917,24 @@ export class EpistolaDataContractEditor extends LitElement {
       this._saving = false;
       this.requestUpdate();
     }
+  }
+
+  /**
+   * Merge a backend validation-errors map (keyed by example *name*, per the
+   * backend contract) into `_exampleValidationErrors` (keyed by example id)
+   * so a save-rejection also highlights the offending example inline, not
+   * just in the external banner.
+   */
+  private _mergeBackendExampleErrors(errors: Record<string, ValidationError[]>): void {
+    const state = this.contractState!;
+    const idByName = new Map(state.dataExamples.map((ex) => [ex.name, ex.id]));
+    const newErrors = new Map(this._exampleValidationErrors);
+    for (const [exampleName, exampleErrors] of Object.entries(errors)) {
+      const exampleId = idByName.get(exampleName);
+      if (!exampleId) continue;
+      newErrors.set(exampleId, [...(newErrors.get(exampleId) ?? []), ...exampleErrors]);
+    }
+    this._exampleValidationErrors = newErrors;
   }
 
   private _clearSaveStatus(): void {

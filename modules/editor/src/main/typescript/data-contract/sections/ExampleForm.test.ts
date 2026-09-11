@@ -19,6 +19,7 @@ import {
   buildFieldErrorMap,
   hasChildErrors,
 } from '../validation-display.js';
+import { validateDataAgainstSchema } from '../schema/validation.js';
 import type { JsonObject, JsonSchema, JsonSchemaProperty, ValidationError } from '../types.js';
 
 describe('example form placeholders', () => {
@@ -218,23 +219,36 @@ describe('array item actions', () => {
   });
 
   it('shows an array-length error message below the array block', () => {
+    const constrainedSchema: JsonSchema = {
+      ...schema,
+      properties: { ...schema.properties, tags: { ...schema.properties.tags, maxItems: 2 } },
+    };
+    const data = { tags: ['a', 'b', 'c'] };
+    const { errors } = validateDataAgainstSchema(data, constrainedSchema);
     const container = document.createElement('div');
-    const errors = new Map([['tags', 'must have at most 2 items but found 3']]);
     render(
-      renderExampleForm(schema, { tags: ['a', 'b', 'c'] }, () => {}, errors),
+      renderExampleForm(constrainedSchema, data, () => {}, buildFieldErrorMap(errors)),
       container,
     );
 
     const group = container.querySelector('details[aria-label="tags array"]')!;
     const errorEl = group.parentElement!.querySelector('.dc-field-error');
-    expect(errorEl?.textContent).toBe('must have at most 2 items but found 3');
+    expect(errorEl?.textContent).toBe('must have at most 2 items');
   });
 
   it('shows an array-length error message below an array-of-objects block', () => {
+    const constrainedSchema: JsonSchema = {
+      ...schema,
+      properties: {
+        ...schema.properties,
+        contacts: { ...schema.properties.contacts, minItems: 1 },
+      },
+    };
+    const data = { contacts: [] };
+    const { errors } = validateDataAgainstSchema(data, constrainedSchema);
     const container = document.createElement('div');
-    const errors = new Map([['contacts', 'must have at least 1 items']]);
     render(
-      renderExampleForm(schema, { contacts: [] }, () => {}, errors),
+      renderExampleForm(constrainedSchema, data, () => {}, buildFieldErrorMap(errors)),
       container,
     );
 
@@ -244,16 +258,21 @@ describe('array item actions', () => {
   });
 
   it('shows an array-length error message below a nested-array block', () => {
+    const constrainedSchema: JsonSchema = {
+      ...schema,
+      properties: { ...schema.properties, matrix: { ...schema.properties.matrix, maxItems: 1 } },
+    };
+    const data = { matrix: [[], []] };
+    const { errors } = validateDataAgainstSchema(data, constrainedSchema);
     const container = document.createElement('div');
-    const errors = new Map([['matrix', 'must have at most 1 items but found 2']]);
     render(
-      renderExampleForm(schema, { matrix: [[], []] }, () => {}, errors),
+      renderExampleForm(constrainedSchema, data, () => {}, buildFieldErrorMap(errors)),
       container,
     );
 
     const group = container.querySelector('details[aria-label="matrix nested arrays"]')!;
     const errorEl = group.parentElement!.querySelector('.dc-field-error');
-    expect(errorEl?.textContent).toBe('must have at most 1 items but found 2');
+    expect(errorEl?.textContent).toBe('must have at most 1 items');
   });
 });
 

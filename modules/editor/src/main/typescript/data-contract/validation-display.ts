@@ -38,6 +38,17 @@ export function buildFieldErrorMap(errors: ValidationError[]): Map<string, strin
 }
 
 /**
+ * Count distinct field paths in a validation error list — matches the number
+ * of inline indicators `buildFieldErrorMap` produces, so badges/summaries
+ * built from this agree with what's actually highlighted when multiple
+ * errors land on the same path (e.g. a contradictory minItems > maxItems
+ * schema can report both bounds for one array field).
+ */
+export function countDistinctErrorPaths(errors: ValidationError[]): number {
+  return buildFieldErrorMap(errors).size;
+}
+
+/**
  * Check if any error path starts with the given prefix.
  * Used to show red dots on collapsed groups containing errors.
  */

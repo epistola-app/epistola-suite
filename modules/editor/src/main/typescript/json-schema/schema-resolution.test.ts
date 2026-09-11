@@ -175,6 +175,34 @@ describe('resolveSchemaForValue', () => {
     ]);
   });
 
+  it('tightens minItems and maxItems when allOf members both constrain the same array', () => {
+    const composed = {
+      type: 'array',
+      items: { type: 'string' },
+      minItems: 5,
+      allOf: [{ maxItems: 8 }, { minItems: 2, maxItems: 10 }],
+    };
+
+    expect(resolveSchemaForValue(composed, { type: 'array' })).toMatchObject({
+      minItems: 5,
+      maxItems: 8,
+    });
+  });
+
+  it('selects the oneOf array branch whose minItems/maxItems fits the value length', () => {
+    const union = {
+      oneOf: [
+        { type: 'array', items: { type: 'string' }, minItems: 3, maxItems: 3 },
+        { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 2 },
+      ],
+    };
+
+    expect(resolveSchemaForValue(union, union, ['a', 'b'])).toMatchObject({
+      minItems: 1,
+      maxItems: 2,
+    });
+  });
+
   it('deduplicates variants and caps combinatorial expansion', () => {
     const duplicate = {
       oneOf: [{ type: 'string' }, { type: 'string' }],
