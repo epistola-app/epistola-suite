@@ -533,53 +533,62 @@ function renderNumericConstraints(
   `;
 }
 
+function renderItemCountRow(
+  label: string,
+  value: number | undefined,
+  hasError: boolean,
+  errorId: string | undefined,
+  readOnly: boolean,
+  onChange: (val: number | undefined) => void,
+): unknown {
+  return html`
+    <div class="dc-detail-row">
+      <label class="dc-detail-label">${label}</label>
+      <input
+        type="number"
+        class="ep-input dc-detail-input ${hasError ? 'dc-input-error' : ''}"
+        min="0"
+        step="1"
+        .value=${value !== undefined ? String(value) : ''}
+        placeholder="—"
+        ?disabled=${readOnly}
+        aria-describedby=${hasError ? errorId : nothing}
+        @change=${(e: Event) => {
+          const val = (e.target as HTMLInputElement).value;
+          onChange(val ? Number(val) : undefined);
+        }}
+      />
+    </div>
+  `;
+}
+
 function renderArrayConstraints(
   field: ArrayField,
   uiState: SchemaUiState,
   emitUpdate: (updates: SchemaFieldUpdate) => void,
 ): unknown {
-  const minItems = field.minItems;
-  const maxItems = field.maxItems;
   const fieldError = uiState.fieldErrors.get(field.id);
   const errorId = fieldError ? pathToErrorId(field.id) : undefined;
 
   return html`
     <div class="dc-detail-section-label">Constraints</div>
     <div class="dc-detail-constraints">
-      <div class="dc-detail-row">
-        <label class="dc-detail-label">Min items</label>
-        <input
-          type="number"
-          class="ep-input dc-detail-input ${fieldError ? 'dc-input-error' : ''}"
-          min="0"
-          step="1"
-          .value=${minItems !== undefined ? String(minItems) : ''}
-          placeholder="—"
-          ?disabled=${uiState.readOnly}
-          aria-describedby=${fieldError ? errorId : nothing}
-          @change=${(e: Event) => {
-            const val = (e.target as HTMLInputElement).value;
-            emitUpdate({ minItems: val ? Number(val) : undefined });
-          }}
-        />
-      </div>
-      <div class="dc-detail-row">
-        <label class="dc-detail-label">Max items</label>
-        <input
-          type="number"
-          class="ep-input dc-detail-input ${fieldError ? 'dc-input-error' : ''}"
-          min="0"
-          step="1"
-          .value=${maxItems !== undefined ? String(maxItems) : ''}
-          placeholder="—"
-          ?disabled=${uiState.readOnly}
-          aria-describedby=${fieldError ? errorId : nothing}
-          @change=${(e: Event) => {
-            const val = (e.target as HTMLInputElement).value;
-            emitUpdate({ maxItems: val ? Number(val) : undefined });
-          }}
-        />
-      </div>
+      ${renderItemCountRow(
+        'Min items',
+        field.minItems,
+        !!fieldError,
+        errorId,
+        uiState.readOnly,
+        (val) => emitUpdate({ minItems: val }),
+      )}
+      ${renderItemCountRow(
+        'Max items',
+        field.maxItems,
+        !!fieldError,
+        errorId,
+        uiState.readOnly,
+        (val) => emitUpdate({ maxItems: val }),
+      )}
     </div>
     ${fieldError ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>` : nothing}
   `;

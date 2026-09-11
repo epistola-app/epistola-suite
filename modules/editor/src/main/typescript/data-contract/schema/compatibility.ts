@@ -274,7 +274,6 @@ function describeUnsupportedKey(key: string): string {
     exclusiveMaximum: '"exclusiveMaximum" validation is not supported',
     multipleOf: '"multipleOf" validation is not supported',
     minItems: '"minItems" validation is not supported',
-    maxItems: '"maxItems" validation is not supported',
     uniqueItems: '"uniqueItems" validation is not supported',
     minProperties: '"minProperties" validation is not supported',
     maxProperties: '"maxProperties" validation is not supported',
