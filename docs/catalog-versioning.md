@@ -305,8 +305,9 @@ added later if automation demand appears.
   `vX · ZIP` (ZIP-managed mirror — no source URL, upgrade by re-importing),
   or `vX · check failed` (source unreachable). The "Review catalog upgrade"
   dialog shows the version delta, change buckets, conflicts with a
-  server-rendered disabled Apply, and an opt-in "also install new resources"
-  wired to `UpgradeCatalog.includeNewSlugs`. **Read parity:** REST
+  server-rendered disabled Apply, and the resources new in this release listed
+  for information — an upgrade reconciles the whole manifest, so they arrive
+  with it rather than being opted into. **Read parity:** REST
   `GET /tenants/{tenantId}/catalogs/{catalogId}/upgrade-preview`
   (`CatalogUpgradeDiff`) and MCP `preview_catalog_upgrade`; the upgrade
   _action_ stays UI-only. Still open: ZIP-import dry-run.

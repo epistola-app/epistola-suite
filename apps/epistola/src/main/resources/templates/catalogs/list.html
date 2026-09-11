@@ -498,16 +498,14 @@
                             </ul>
                         </div>
 
+                        <!--/* Additions are listed, not offered: an upgrade reconciles the whole
+                               manifest (#850), so everything the publisher added arrives with it. */-->
                         <div class="form-group" th:if="${!diff.added.isEmpty()}">
-                            <span class="ep-label">Also install new resources</span>
-                            <div class="ep-stack ep-gap-1" style="margin-top: var(--ep-space-1);">
-                                <label th:each="a : ${diff.added}"
-                                       class="ep-row">
-                                    <input type="checkbox" name="newSlugs" th:value="${a.slug}" />
-                                    <span th:text="${a.type} + '/' + ${a.slug}"></span>
-                                </label>
-                            </div>
-                            <span class="form-hint">By default an upgrade only updates resources you already installed.</span>
+                            <span class="ep-label">New in this release</span>
+                            <ul class="ep-stack ep-gap-1" style="margin-top: var(--ep-space-1);">
+                                <li th:each="a : ${diff.added}" th:text="${a.type} + '/' + ${a.slug}"></li>
+                            </ul>
+                            <span class="form-hint">These are installed as part of the upgrade.</span>
                         </div>
                     </th:block>
                 </div>

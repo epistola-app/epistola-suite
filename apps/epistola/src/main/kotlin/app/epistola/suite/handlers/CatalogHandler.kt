@@ -514,13 +514,11 @@ class CatalogHandler {
     fun upgrade(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
-        val includeNewSlugs = request.servletRequest().getParameterValues("newSlugs")?.toList() ?: emptyList()
 
         return try {
             val result = UpgradeCatalog(
                 tenantKey = tenantId.key,
                 catalogKey = catalogKey,
-                includeNewSlugs = includeNewSlugs,
             ).execute()
 
             if (result.aborted) {
@@ -798,14 +796,11 @@ class CatalogHandler {
     fun installPreview(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
-        val slugParam = request.param("slug").orElse(null)
-        val resourceSlugs = slugParam?.let { listOf(it) }
 
         return try {
             val preview = PreviewInstall(
                 tenantKey = tenantId.key,
                 catalogKey = catalogKey,
-                resourceSlugs = resourceSlugs,
             ).query()
 
             ServerResponse.ok().render(
@@ -813,10 +808,7 @@ class CatalogHandler {
                 mapOf(
                     "tenantId" to tenantId.key,
                     "catalog" to mapOf("id" to catalogKey.value),
-                    "selected" to preview.selected,
-                    "dependencies" to preview.dependencies,
-                    "allResources" to preview.all,
-                    "slugParam" to (slugParam ?: ""),
+                    "allResources" to preview.resources,
                 ),
             )
         } catch (e: Exception) {
@@ -832,14 +824,10 @@ class CatalogHandler {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
 
-        val slugParam = request.param("slug").orElse(null)?.ifBlank { null }
-        val resourceSlugs = slugParam?.let { listOf(it) }
-
         return try {
             val results = InstallFromCatalog(
                 tenantKey = tenantId.key,
                 catalogKey = catalogKey,
-                resourceSlugs = resourceSlugs,
             ).execute()
 
             val failed = results.filter { it.status == InstallStatus.FAILED }
