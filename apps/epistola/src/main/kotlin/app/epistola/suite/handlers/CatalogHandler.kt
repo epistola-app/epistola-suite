@@ -559,7 +559,7 @@ class CatalogHandler {
             val usageCounts = usages.mapValues { it.value.size }
             val images = ListAssets(tenantId.key, catalogKey = catalogKey).query()
                 .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
-            val imagesBySlug = images.associateBy { it.id.value.toString() }
+            val imagesBySlug = images.associateBy { it.id.value }
             val publication = if (result.catalog.type == CatalogType.AUTHORED) {
                 GetCatalogPublicationState(tenantId.key, catalogKey).query()
             } else {
@@ -866,7 +866,7 @@ class CatalogHandler {
         val result = BrowseCatalog(tenantKey = tenantId.key, catalogKey = catalogKey).query()
         val imagesBySlug = ListAssets(tenantId.key, catalogKey = catalogKey).query()
             .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
-            .associateBy { it.id.value.toString() }
+            .associateBy { it.id.value }
 
         return request.htmx {
             fragment("catalogs/browse", "resource-rows") {

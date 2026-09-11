@@ -310,7 +310,7 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
                 imageNodeId to Node(
                     id = imageNodeId,
                     type = "image",
-                    props = mapOf("assetId" to assetId.value.toString()),
+                    props = mapOf("assetId" to assetId.value),
                 ),
             ),
             slots = mapOf(

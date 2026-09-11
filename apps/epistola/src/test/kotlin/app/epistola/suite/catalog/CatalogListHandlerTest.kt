@@ -711,7 +711,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                     width = null,
                     height = null,
                     catalogKey = otherCatalogKey,
-                ).execute().id.value.toString()
+                ).execute().id.value
             }
         }
 

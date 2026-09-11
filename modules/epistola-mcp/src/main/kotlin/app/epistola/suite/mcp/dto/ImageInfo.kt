@@ -23,7 +23,7 @@ data class ImageInfo(
 ) {
     companion object {
         fun from(image: Asset): ImageInfo = ImageInfo(
-            id = image.id.value.toString(),
+            id = image.id.value,
             catalogId = image.catalogKey.value,
             catalogType = image.catalogType.name,
             readOnly = image.catalogType == CatalogType.SUBSCRIBED,

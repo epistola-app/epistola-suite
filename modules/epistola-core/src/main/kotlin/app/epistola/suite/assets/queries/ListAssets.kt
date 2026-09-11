@@ -73,7 +73,7 @@ class ListAssetsHandler(
 
         q.map { rs, _ ->
             Asset(
-                id = AssetKey(rs.getObject("id", UUID::class.java)),
+                id = AssetKey(rs.getString("id")),
                 tenantKey = TenantKey(rs.getString("tenant_key")),
                 catalogKey = CatalogKey(rs.getString("catalog_key")),
                 catalogType = CatalogType.valueOf(rs.getString("catalog_type")),

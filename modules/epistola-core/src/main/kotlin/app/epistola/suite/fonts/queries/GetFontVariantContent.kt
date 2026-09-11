@@ -18,7 +18,6 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
-import java.util.UUID
 
 /**
  * Resolves a single font-face's binary bytes by an **exact** (weight, italic)
@@ -74,7 +73,7 @@ class GetFontVariantContentHandler(
                 .map { rs, _ ->
                     VariantPointer(
                         source = FontVariantSource.valueOf(rs.getString("source")),
-                        assetKey = rs.getObject("asset_key", UUID::class.java)?.let(::AssetKey),
+                        assetKey = rs.getString("asset_key")?.let(::AssetKey),
                         classpathLocation = rs.getString("classpath_location"),
                     )
                 }

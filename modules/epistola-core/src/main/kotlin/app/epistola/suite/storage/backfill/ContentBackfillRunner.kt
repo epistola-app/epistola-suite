@@ -154,14 +154,17 @@ class ContentBackfillRunner(
         // unresolvable ones with no legacy bytes), so a batch full of unresolvable rows
         // can never strand resolvable rows behind it. A plain `LIMIT` with break-on-no-
         // progress re-selected the same unresolvable rows and could stop early.
-        var lastId = "00000000-0000-0000-0000-000000000000"
+        // Keyset cursor over the asset key, which is text now rather than a UUID. The empty string
+        // sorts before every valid key, and UUID strings order identically as text (canonical
+        // lowercase hex), so paging over existing data is unchanged.
+        var lastId = ""
         while (true) {
             val batch = jdbi.withHandle<List<AssetRow>, Exception> { handle ->
                 handle.createQuery(
                     """
                     SELECT id, tenant_key, media_type, sensitive
                     FROM assets
-                    WHERE content_hash IS NULL AND id > :lastId::uuid
+                    WHERE content_hash IS NULL AND id > :lastId
                     ORDER BY id
                     LIMIT :limit
                     """,
@@ -201,7 +204,7 @@ class ContentBackfillRunner(
         assetContentStore.putIfAbsent(scope, hash, bytes, row.mediaType, bytes.size.toLong())
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
-                "UPDATE assets SET content_hash = :hash WHERE id = :id::uuid AND tenant_key = :tenantKey AND content_hash IS NULL",
+                "UPDATE assets SET content_hash = :hash WHERE id = :id AND tenant_key = :tenantKey AND content_hash IS NULL",
             )
                 .bind("hash", hash)
                 .bind("id", row.id)

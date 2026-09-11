@@ -74,7 +74,7 @@ class CrossCatalogImageRenderIntegrationTest : IntegrationTestBase() {
             tenant.id,
             tenantId,
             imageProps = mapOf(
-                "assetId" to asset.id.value.toString(),
+                "assetId" to asset.id.value,
                 "catalogKey" to assetCatalogKey.value,
                 "alt" to "Shared badge",
                 "width" to "24pt",
@@ -88,7 +88,7 @@ class CrossCatalogImageRenderIntegrationTest : IntegrationTestBase() {
             tenant.id,
             tenantId,
             imageProps = mapOf(
-                "assetId" to asset.id.value.toString(),
+                "assetId" to asset.id.value,
                 "catalogKey" to "no-such-catalog",
                 "alt" to "Shared badge",
                 "width" to "24pt",
