@@ -1,4 +1,4 @@
-# ADR 0011: SaaS-to-client integration bridge for client-hosted Epistola
+# ADR 0023: SaaS-to-client integration bridge for client-hosted Epistola
 
 - **Status:** Accepted — Option A
 - **Date:** 2026-07-20

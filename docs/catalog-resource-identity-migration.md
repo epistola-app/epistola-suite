@@ -1,5 +1,8 @@
 # Catalog resource identity migration
 
+> **Status:** Proposed. A plan, largely carried out by the relocation work — file paths in it are
+> the proposal's, not a map of the code.
+
 Plan for making every catalog resource relocatable by separating **identity** from **location** and
 **address**. Implements the target model in
 [ADR 0014](adr/0014-safe-catalog-resource-relocation.md).

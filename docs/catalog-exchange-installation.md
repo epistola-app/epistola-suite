@@ -36,7 +36,7 @@ long so that it can rate-limit. Building on the public routes now would mean reb
 authenticated ones later.
 
 Connect a tenant on **Settings → Exchange**; the flow is the same one publishing uses and is
-documented in [catalog-exchange-publication.md](catalog-exchange-publication.md#enrollment).
+documented in [catalog-exchange-publication.md](catalog-exchange-publication.md#tenant-enrollment-exactly).
 
 ## Installing
 

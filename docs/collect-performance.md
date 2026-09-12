@@ -198,9 +198,7 @@ worth it.
 
 ## Out of scope (planned follow-on perf work)
 
-These are tracked in
-[`/Users/sdegroot/.claude/plans/`](../README.md#planning) and the
-matching v0.3 PR thread:
+These are tracked in the matching v0.3 PR thread:
 
 - **Producer throughput** — bulk-call `EmitGenerationResult` from N
   threads, measure rows/sec INTO `generation_results`. Symmetric to

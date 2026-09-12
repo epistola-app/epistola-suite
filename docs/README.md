@@ -65,17 +65,19 @@ under its title. That banner, not this table, is authoritative.
 
 ## Catalogs and resource exchange
 
-| Doc                                                                 | Status  | What it covers                                                               |
-| ------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------- |
-| [Catalogs & resource exchange](exchange/README.md)                  | Current | Architecture, data model and import/export flows. Root of the exchange docs. |
-| [Wire format v5](exchange/v5/README.md)                             | Current | Current catalog wire contract, one page per resource part.                   |
-| [Wire format v4](exchange/v4/README.md)                             | Current | Previous wire contract, retained for compatibility.                          |
-| [Catalog versioning](catalog-versioning.md)                         | Current | How a catalog declares a version and how "is this new?" is decided.          |
-| [Catalog contract compatibility](catalog-contract-compatibility.md) | Current | Suite impact of adopting the portable `epistola-catalog` aggregate.          |
-| [Resource reference graph](resource-reference-graph.md)             | Alpha   | Tenant-wide view of which resources depend on which.                         |
-| [Version axes](version-axes.md)                                     | Current | The independent "version" concepts and which question each answers.          |
-| [Exchange publication](catalog-exchange-publication.md)             | Alpha   | Publishing authored catalog releases to Epistola Exchange.                   |
-| [Exchange installation](catalog-exchange-installation.md)           | Alpha   | Browsing Epistola Exchange, installing from it, and how updates are noticed. |
+| Doc                                                                   | Status   | What it covers                                                               |
+| --------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------- |
+| [Catalogs & resource exchange](exchange/README.md)                    | Current  | Architecture, data model and import/export flows. Root of the exchange docs. |
+| [Wire format v5](exchange/v5/README.md)                               | Current  | Current catalog wire contract, one page per resource part.                   |
+| [Wire format v4](exchange/v4/README.md)                               | Current  | Previous wire contract, retained for compatibility.                          |
+| [Catalog versioning](catalog-versioning.md)                           | Current  | How a catalog declares a version and how "is this new?" is decided.          |
+| [Catalog contract compatibility](catalog-contract-compatibility.md)   | Current  | Suite impact of adopting the portable `epistola-catalog` aggregate.          |
+| [Resource reference graph](resource-reference-graph.md)               | Alpha    | Tenant-wide view of which resources depend on which.                         |
+| [Resource relocation](catalog-resource-relocation.md)                 | Alpha    | Moving or renaming an authored resource without breaking its old address.    |
+| [Resource identity migration](catalog-resource-identity-migration.md) | Proposed | Separating identity from location and address, per ADR 0014.                 |
+| [Version axes](version-axes.md)                                       | Current  | The independent "version" concepts and which question each answers.          |
+| [Exchange publication](catalog-exchange-publication.md)               | Alpha    | Publishing authored catalog releases to Epistola Exchange.                   |
+| [Exchange installation](catalog-exchange-installation.md)             | Alpha    | Browsing Epistola Exchange, installing from it, and how updates are noticed. |
 
 ## Platform runtime
 
