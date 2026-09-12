@@ -75,8 +75,11 @@ jobs:
       # away — so CLAUDE.md claimed an enforcement that did not exist. Both are
       # cheap (ktlint over the whole repo is seconds) and fail fast on style or a
       # half-finished contract bump.
-      - name: Check migrations, style, contract alignment and compile
-        run: gradle checkMigrationVersions ktlintCheck checkContractVersionAlignment testClasses
+      - name: Check migrations, changelog, style, contract alignment and compile
+        env:
+          # Waives the "a change to shipped code needs a changelog fragment" requirement.
+          SKIP_CHANGELOG_REQUIREMENT: ${{ contains(github.event.pull_request.labels.*.name, 'no-changelog') }}
+        run: gradle checkMigrationVersions checkChangelogFragments ktlintCheck checkContractVersionAlignment testClasses
 
       # setup-gradle does NOT share the local build cache across jobs, so we
       # ship it explicitly. It is content-addressed (location-independent), so

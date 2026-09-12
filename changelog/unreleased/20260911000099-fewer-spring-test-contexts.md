@@ -1,0 +1,8 @@
+---
+type: perf
+scopes: [test]
+audience: dev
+title: Fewer Spring test contexts.
+---
+
+Context boots were the largest share of integration-test time (64 per CI run, 5 s each idle and 20 to 40 s under load, each with its own database), and most existed by accident rather than to test a configuration. The Exchange tests each started their own fake server and registered its port through `@DynamicPropertySource`, so twelve classes booted twelve contexts; they now share one `FakeExchangeServer` per JVM behind a base class that owns the single property source, holds a `@ResourceLock` so the classes that script the fake never overlap, and purges the installation-wide outbox before every test (the same in the app for its handler tests). Four cluster tests set lease and retry knobs to the production defaults and the two scheduler tests each imported their own recording-handler configuration; the no-op sources are gone and the handlers share one configuration, although the cluster tests themselves cannot share a context: they dispatch, reclaim and delete installation-wide rows, and sharing a database made their polls see each other's state. `allow-http` for the loopback catalog and code-list fakes and the Prometheus endpoint settings moved into the test profiles. The five cluster tests that genuinely need a database of their own now say so with an explicit `epistola.test.private-context` property instead of a value that happened to differ. Measured locally on the full suites: `epistola-core:integrationTest` 28 → 19 context boots, `apps:epistola:integrationTest` 16 → 14. See `docs/testing.md`, "One Spring context per configuration".

@@ -2,4 +2,6 @@
 *.ttf binary
 *.otf binary
 *.woff2 binary
-CHANGELOG.md merge=union
+# CHANGELOG.md was union-merged while every change prepended to it. Entries now arrive as one file
+# per change under changelog/unreleased/, so concurrent branches no longer touch the same lines and
+# a union merge would only hide a real conflict in the released history.
