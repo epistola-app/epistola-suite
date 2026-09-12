@@ -7,7 +7,6 @@ package app.epistola.suite.architecture
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.Paths
 import kotlin.io.path.name
 import kotlin.test.assertTrue
 
@@ -21,6 +20,10 @@ import kotlin.test.assertTrue
  * dialogs via `openDialogByTrigger`, assert web-first. The helper layer
  * (`PlaywrightHtmxSupport`) and the base class legitimately contain the raw
  * primitives, so they are exempt.
+ *
+ * UI tests are found by what they extend, not by where they live: `@Tag("ui")` sits on the
+ * abstract base and is inherited, so scanning for the annotation finds one file, and scanning a
+ * single package missed eight browser tests that had grown up beside the features they cover.
  */
 class UiTestHygieneTest {
 
@@ -52,32 +55,35 @@ class UiTestHygieneTest {
         ),
     )
 
-    /** Helpers/base legitimately hold the raw primitives the rules wrap. */
-    private val exempt = setOf("PlaywrightHtmxSupport.kt", "BasePlaywrightTest.kt")
+    /** Helpers/base legitimately hold the raw primitives the rules wrap; this guard names them. */
+    private val exempt = setOf("PlaywrightHtmxSupport.kt", "BasePlaywrightTest.kt", "UiTestHygieneTest.kt")
+
+    private val extendsBase = ": BasePlaywrightTest("
 
     @Test
     fun `UI tests must use the deterministic helpers, not the flaky primitives`() {
-        val uiTestDir = Paths.get("src/test/kotlin/app/epistola/suite/ui")
-        assertTrue(Files.exists(uiTestDir), "UI test directory not found: $uiTestDir")
+        val uiTests = RepoSources.testKotlinFiles()
+            .filter { it.name !in exempt }
+            .filter { extendsBase in Files.readString(it) }
+
+        assertTrue(
+            uiTests.size >= 20,
+            "Found only ${uiTests.size} browser tests — the detector is broken, not the suite clean",
+        )
 
         val violations = mutableListOf<String>()
 
-        Files.walk(uiTestDir).use { paths ->
-            paths
-                .filter { it.toString().endsWith(".kt") }
-                .filter { it.name !in exempt }
-                .forEach { path: Path ->
-                    Files.readAllLines(path).forEachIndexed { idx, line ->
-                        // Ignore comment lines so rule rationale in KDoc/// is allowed.
-                        val trimmed = line.trimStart()
-                        if (trimmed.startsWith("//") || trimmed.startsWith("*")) return@forEachIndexed
-                        banned.forEach { (regex, why) ->
-                            if (regex.containsMatchIn(line)) {
-                                violations.add("${path.name}:${idx + 1} — $why\n    > ${line.trim()}")
-                            }
-                        }
+        uiTests.forEach { path: Path ->
+            Files.readAllLines(path).forEachIndexed { idx, line ->
+                // Ignore comment lines so rule rationale in KDoc/// is allowed.
+                val trimmed = line.trimStart()
+                if (trimmed.startsWith("//") || trimmed.startsWith("*")) return@forEachIndexed
+                banned.forEach { (regex, why) ->
+                    if (regex.containsMatchIn(line)) {
+                        violations.add("${RepoSources.relativize(path)}:${idx + 1} — $why\n    > ${line.trim()}")
                     }
                 }
+            }
         }
 
         assertTrue(
