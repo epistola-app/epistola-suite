@@ -411,9 +411,9 @@ over matching windows and note model changes.
 
 ## 10. Decisions needed
 
-1. **AI attribution.** `CLAUDE.md` says "Never include references to Claude or AI in commit
-   messages", yet the tooling adds co-author trailers and 51 of the last 306 commits carry one.
-   Pick one policy and state it once.
+1. ~~**AI attribution.**~~ **Settled 2026-09-12:** attribution may stay. `CLAUDE.md` no longer bans
+   references to AI in commit messages, so the trailers the tooling adds — present on 51 of the last
+   306 commits — are the documented behaviour rather than a standing contradiction.
 2. **Adapters:** symlinks (recommended) or import and stub files. Symlinks need Developer Mode on
    Windows.
 3. **Fragment tooling:** buildSrc Kotlin (recommended, single renderer) or Python (the
@@ -448,18 +448,18 @@ Line numbers refer to `CLAUDE.md` at `aa063b251`.
 
 ### A.2 Contradictions
 
-| Topic               | One place says                                                             | Another says                                                                                                    |
-| ------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Migration fold-back | L122–124: folding `ALTER`s into the `CREATE` is a deliberate consolidation | L16 and `docs/migrations.md`: no more rewrites; `CheckMigrationVersionsTask` rejects modified merged migrations |
-| Quality tier        | L104: commercial                                                           | L109: OSS, deliberately outside the support tier                                                                |
-| REST location       | L52, L72, L528: `epistola-core/api`                                        | L54, L101: `modules/rest-api`                                                                                   |
-| Test SQL            | L436–440: raw SQL allowed when no command can produce the state            | `AGENTS.md`: no direct SQL for test setup unless the test's subject is the database                             |
-| Test cadence        | L405: `unitTest integrationTest` before committing                         | L508: `./gradlew test` before and after changes; L463: `test` before a PR; L525: small commits                  |
-| Formatting order    | L346: format before committing                                             | L347: run `format:check` after committing                                                                       |
-| Commit types        | L375–383: 7 types                                                          | Changelog rules: 9 types; `.husky/commitlint.config.js`: 11                                                     |
-| Version numbers     | L555: never change them manually                                           | Catalog `release.version` bumps and the release process are manual                                              |
-| AI references       | L393: never reference Claude or AI in commits                              | Co-author trailers on 51 of the last 306 commits                                                                |
-| `AGENTS.md` pointer | Points to a "Vulnerability records" item                                   | The item is titled "Handle vulnerabilities privately; publish repository-owned records"                         |
+| Topic               | One place says                                                                           | Another says                                                                                                    |
+| ------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Migration fold-back | L122–124: folding `ALTER`s into the `CREATE` is a deliberate consolidation               | L16 and `docs/migrations.md`: no more rewrites; `CheckMigrationVersionsTask` rejects modified merged migrations |
+| Quality tier        | L104: commercial                                                                         | L109: OSS, deliberately outside the support tier                                                                |
+| REST location       | L52, L72, L528: `epistola-core/api`                                                      | L54, L101: `modules/rest-api`                                                                                   |
+| Test SQL            | L436–440: raw SQL allowed when no command can produce the state                          | `AGENTS.md`: no direct SQL for test setup unless the test's subject is the database                             |
+| Test cadence        | L405: `unitTest integrationTest` before committing                                       | L508: `./gradlew test` before and after changes; L463: `test` before a PR; L525: small commits                  |
+| Formatting order    | L346: format before committing                                                           | L347: run `format:check` after committing                                                                       |
+| Commit types        | L375–383: 7 types                                                                        | Changelog rules: 9 types; `.husky/commitlint.config.js`: 11                                                     |
+| Version numbers     | L555: never change them manually                                                         | Catalog `release.version` bumps and the release process are manual                                              |
+| AI references       | L393: never reference Claude or AI in commits (settled 2026-09-12: attribution may stay) | Co-author trailers on 51 of the last 306 commits                                                                |
+| `AGENTS.md` pointer | Points to a "Vulnerability records" item                                                 | The item is titled "Handle vulnerabilities privately; publish repository-owned records"                         |
 
 ### A.3 Enforcement claims that do not hold
 

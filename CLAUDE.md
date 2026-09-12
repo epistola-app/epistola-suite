@@ -409,7 +409,9 @@ Release versions are chosen by the release process, not derived from commit type
 
 **Commit signing**: SSH commit signing is enabled. Commits will be signed automatically.
 
-**Important**: Never include references to Claude or AI in commit messages.
+**Attribution**: AI assistance may be credited — `Co-Authored-By` and session trailers are welcome
+in commits and pull requests. The subject and body still describe the change itself, not the tooling
+that produced it.
 
 ## JSON Handling
 
