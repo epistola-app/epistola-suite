@@ -7,6 +7,22 @@ This exists because `CHANGELOG.md` is ~700 KB: prepending to it meant opening a 
 one-line addition, and concurrent branches all inserted at the same spot. A fragment per change has
 neither problem.
 
+## What earns an entry
+
+An entry is written for someone upgrading from the last release. That is the whole test.
+
+- **If it never shipped, it is not a change.** Work that only moved an unreleased feature forward —
+  a bug introduced and fixed before the release, a page reworked while it was still being built, an
+  internal refactor of code nobody has run — has nothing to report to that reader. It belongs in the
+  feature's documentation, or nowhere. Delete the fragment rather than writing one.
+- **One change to a reader is one entry**, however many pull requests it took. A feature, its
+  follow-up fixes, its UI and its migration are one entry, not five.
+- **Routine churn collapses.** Test infrastructure, formatting passes and dependency bumps become a
+  single `dev` entry, or none when nothing observable changed.
+
+For calibration: release 1.1.0 shipped 39 entries. An unreleased set that grows into the hundreds is
+recording its own development history rather than its changes.
+
 ## Adding one
 
 Create `changelog/unreleased/<timestamp>-<slug>.md`, with the timestamp from the same generator the

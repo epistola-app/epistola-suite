@@ -1,8 +1,0 @@
----
-type: perf
-scopes: [test]
-audience: dev
-title: Test JVMs are bounded and get the JVM flags they were meant to have.
----
-
-A shared build service caps how many Spring + Testcontainers JVMs run at once (Gradle's worker count on CI, one slot per three cores locally, `-PtestJvmSlots=N` to override) so ten of them no longer boot contexts on top of each other, the Docker VM and the IDE; JUnit's class-level concurrency inside each JVM is pinned to 4, what CI's 4-core runner has always had, because JUnit's one-thread-per-core default overruns the deliberately small per-context Hikari pools on a 10-core machine (`-PtestParallelism=N` overrides). Heap and JIT flags are now set per task rather than layered: `jvmArgs` appends, so the baseline's `-XX:TieredStopAtLevel=1` had silently stayed on `uiTest` despite the #418 hardening that "dropped" it. `unitTest`, `test` and `integrationTest` keep C1-only with their previous heaps (a CI measurement showed full tiered compilation doubling every context boot on the 4-core runner, where four JVMs' C2 threads compete with the boots); `uiTest` and `perfTest` now really run the full tiered compilation with 2g that their hardening intended. Gradle starts ready tasks in project order, so the two longest test JVMs (`epistola-core`, `apps:epistola`) started after a handful of short ones and finished last; every other module's test task now prefers to start after those two (measured on CI: core's 246 s JVM started 50 s after the first test task and the job ended when it did). `check` depends on `uiTest` only in `apps:epistola`, the one module with UI tests, instead of forking an empty UI JVM in eighteen others; `@Tag("stress")` tests stay in `test` but leave the local `integrationTest` loop, as the tag intended.

@@ -43,6 +43,11 @@ git log "$LATEST_TAG"..HEAD --oneline
   order they were written in. Entries accumulate over months and arrive over-detailed and
   overlapping, so edit the fragment files before assembling:
 
+  - **Drop what never shipped.** An entry is written for someone upgrading from the last
+    release. A bug introduced and fixed inside this unreleased window, a page reworked while it
+    was still being built, a refactor of code nobody has run — none of those are changes to that
+    reader, however much work they were. Delete the fragment; the detail lives in the feature's
+    docs and in git. This is usually the largest cut by far.
   - **Merge what is one change to a reader.** Several fragments often describe one feature
     from different angles — the feature, its follow-up fix, its UI, its migration. Combine
     them into a single entry that says what changed and why it matters; delete the others.
