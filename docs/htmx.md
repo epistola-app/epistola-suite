@@ -519,7 +519,7 @@ Eliminate request-mode branches by using `onFullPage { page(...) }` inside the h
 
 ```kotlin
 fun newForm(request: ServerRequest): ServerResponse {
-    val tenantId = TenantId.of(request.pathVariable("tenantId"))
+    val tenantId = request.tenantId()
 
     if (!request.wantsFragmentResponse) {
         val templates = ListDocumentTemplates(tenantId = tenantId).query()
@@ -540,7 +540,7 @@ fun newForm(request: ServerRequest): ServerResponse {
 
 ```kotlin
 fun newForm(request: ServerRequest): ServerResponse {
-    val tenantId = TenantId.of(request.pathVariable("tenantId"))
+    val tenantId = request.tenantId()
 
     return request.htmx {
         onFullPage {
