@@ -299,6 +299,7 @@ function renderDetailPanel(
           <label class="dc-detail-label">Type</label>
           <select
             class="ep-select dc-detail-select"
+            data-testid="dc-field-type-select"
             .value=${field.type}
             ?disabled=${uiState.readOnly}
             @change=${(e: Event) => {
@@ -535,6 +536,7 @@ function renderNumericConstraints(
 
 function renderItemCountRow(
   label: string,
+  testId: string,
   value: number | undefined,
   hasError: boolean,
   errorId: string | undefined,
@@ -547,6 +549,7 @@ function renderItemCountRow(
       <input
         type="number"
         class="ep-input dc-detail-input ${hasError ? 'dc-input-error' : ''}"
+        data-testid=${testId}
         min="0"
         step="1"
         .value=${value !== undefined ? String(value) : ''}
@@ -575,6 +578,7 @@ function renderArrayConstraints(
     <div class="dc-detail-constraints">
       ${renderItemCountRow(
         'Min items',
+        'dc-min-items-input',
         field.minItems,
         !!fieldError,
         errorId,
@@ -583,6 +587,7 @@ function renderArrayConstraints(
       )}
       ${renderItemCountRow(
         'Max items',
+        'dc-max-items-input',
         field.maxItems,
         !!fieldError,
         errorId,
