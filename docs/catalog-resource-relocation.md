@@ -1,4 +1,7 @@
-# Catalog resource relocation (alpha)
+# Catalog resource relocation
+
+> **Status:** Alpha, off by default. Requires both the `resource-graph` and `resource-relocation`
+> toggles for a tenant.
 
 Catalog resource relocation is an experimental, tenant-local operation for moving an authored
 resource to another authored catalog, renaming its key, or both, without invalidating references to

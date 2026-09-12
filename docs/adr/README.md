@@ -31,6 +31,7 @@ Back to the [documentation index](../README.md).
 | [0020](0020-where-a-catalog-resource-address-lives.md) Where a resource address lives | Accepted                       | Keeps the address on the resource row; registry copy stays a denormalisation.                                                                                         |
 | [0021](0021-catalog-upstream-release-discovery.md) Upstream release discovery         | Accepted — implemented         | Poll and persist what a catalog's source offers; render without a call.                                                                                               |
 | [0022](0022-installation-bindings.md) Installation bindings                           | Draft                          | Discussion record on source identity, dependency sources and what a publisher leaves open; roles superseded by overridable resources, see its addendum; not accepted. |
+| [0023](0023-saas-to-client-bridge.md) SaaS-to-client integration bridge               | Accepted — Option A            | How a hosted Epistola reaches a client-hosted one for generation and catalogs.                                                                                        |
 
 ## Adding an ADR
 
