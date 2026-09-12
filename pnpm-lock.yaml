@@ -64,8 +64,8 @@ importers:
         specifier: ^2.0.0
         version: 2.2.0
       '@epistola.app/epistola-catalog':
-        specifier: 1.1.0
-        version: 1.1.0
+        specifier: 1.2.0
+        version: 1.2.0
       '@epistola/design-system':
         specifier: workspace:*
         version: link:../design-system
@@ -402,8 +402,8 @@ packages:
     peerDependencies:
       postcss-selector-parser: ^7.1.1
 
-  '@epistola.app/epistola-catalog@1.1.0':
-    resolution: {integrity: sha512-2/J9ImGeeoTDg35yYenV0pYIsk9ohaHwwrtxF5TuQOKyLk03T4C5/W8Bn+v9Iv+l8c2ap4z24Br1YP+vOWCx6w==}
+  '@epistola.app/epistola-catalog@1.2.0':
+    resolution: {integrity: sha512-rV9WrPiBUf29R1otIw1pPLpNRiG1JxCP+q11aMRz3QMSrK5SU/IilXY4x5Lf3utq0O2Tj9/j5dGorhcw7k38eQ==}
 
   '@faker-js/faker@10.6.0':
     resolution: {integrity: sha512-3RQHgEtvL1Frl/d1cSreo7qhJ3Gk1OdNUai/CtZ8G+wYeRQnJih3s9xJ9/kgYekPQRdwgh0HXRPqMlzWGwivIQ==}
@@ -3830,7 +3830,7 @@ snapshots:
     dependencies:
       postcss-selector-parser: 7.1.6
 
-  '@epistola.app/epistola-catalog@1.1.0': {}
+  '@epistola.app/epistola-catalog@1.2.0': {}
 
   '@faker-js/faker@10.6.0': {}
 
