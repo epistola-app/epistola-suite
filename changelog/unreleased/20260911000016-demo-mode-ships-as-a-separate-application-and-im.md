@@ -1,0 +1,8 @@
+---
+type: feat
+scopes: [build, security]
+audience: dev
+title: Demo mode ships as a separate application and image.
+---
+
+Demo mode is not a data-loading convenience — it gives every person who logs in a tenant of their own and can carry a shared secret that authenticates every `/api` endpoint against every tenant — so a profile flag is a weak boundary for it: anyone who can edit a deployment's environment is one variable away. It is now its own app, `apps/epistola-demo`, which depends on `apps/epistola` and adds the demo classes, the `demo` profile's configuration and the bundled demo catalog. It publishes **`epistola-suite:{version}-demo`**; `epistola-suite:{version}` contains none of it, so no configuration can turn a production install into a demo, and setting `SPRING_PROFILES_ACTIVE=demo` there **fails the boot** rather than quietly doing nothing. Because the artifact is the boundary, `demo` and `prod` stay freely combinable and a public demo keeps its production hardening. `apps/epistola` never names demo mode: the shared-secret filter reaches the `/api` chain through a new `ApiPreAuthenticationFilter` marker and the landing through `PostLoginTargetResolver`. The demo catalog moved out of `epistola-core` with it; the catalog tests that used it as a realistic fixture now read a deliberately frozen copy in `modules/testing`, which also removes a standing hazard — CLAUDE.md requires every feature to be demonstrated in the demo catalog, so a demo edit could previously break unrelated core tests. Also removes `apps/epistola/src/main/resources/demo/README.md`, which documented a `demo/templates/*.json` loading mechanism that no longer exists.

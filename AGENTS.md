@@ -131,9 +131,18 @@ process, not from commit types.
 AI assistance may be credited: `Co-Authored-By` and session trailers are welcome. The subject and
 body still describe the change, not the tooling.
 
-`CHANGELOG.md` is ~700 KB, so never read it whole — read the first dozen lines and insert at the top
-of `[Unreleased]`. Entries are `- [**[user|dev]** ]type(scope)[!]: **Title.** …`, and a test rejects
-any other shape. Helm chart changes go in `charts/epistola/CHANGELOG.md`.
+A notable change adds **one file** under `changelog/unreleased/`, never an edit to `CHANGELOG.md`
+(which holds released history only, and is assembled at release time):
+
+```bash
+changelog/unreleased/$(date -u +%Y%m%d%H%M%S)-<slug>.md
+```
+
+Frontmatter is `type` and `scopes` and `title`, optionally `audience` (`user`/`dev`), `breaking`,
+`maturity` and `issues`, then one paragraph of body. The format is in
+[`changelog/README.md`](changelog/README.md) and `checkChangelogFragments` enforces it — including
+that a change to shipped code carries one, unless the pull request is labelled `no-changelog`. Helm
+chart changes go in `charts/epistola/CHANGELOG.md` instead.
 
 ## Rare workflows
 

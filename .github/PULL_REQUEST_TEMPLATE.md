@@ -33,7 +33,7 @@
 - [ ] I have added tests that prove my fix is effective or my feature works
 - [ ] New and existing tests pass locally (`gradle test`)
 - [ ] I have updated the documentation if needed
-- [ ] I have updated the CHANGELOG.md if this is a notable change
+- [ ] I have added a changelog fragment under `changelog/unreleased/` (see `changelog/README.md`), or labelled this PR `no-changelog`
 - [ ] My commits follow [Conventional Commits](https://www.conventionalcommits.org/)
 
 ## Screenshots (if applicable)

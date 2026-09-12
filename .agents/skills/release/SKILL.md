@@ -37,16 +37,41 @@ git log "$LATEST_TAG"..HEAD --oneline
 ### 2. Release commit — version + CHANGELOG
 
 - Set `gradle.properties` `version=` to `X.Y.Z` (strip `-SNAPSHOT`).
-- Move `[Unreleased]` in `CHANGELOG.md` to `## [X.Y.Z] - YYYY-MM-DD`, and add a
-  fresh empty `[Unreleased]` above it.
 
-  **Write a release summary.** Immediately under the new version heading (blank
-  line, prose, blank line before the first entry), add a **1–3 sentence**
-  plain-prose summary — the headline user-facing changes and any notable breaking
-  change/theme. This is parsed by the in-app Changelog dialog (`ChangelogRenderer`)
-  and shown above the entries, so write it for end users. Derive it from the
-  entries you just moved (lead with `**[user]**`/untagged `feat`/`fix`; skip deep
-  `**[dev]**` internals). Do **not** start the summary with `- ` or `### `.
+- **Curate the fragments first — this is the substantive step.** Read every file in
+  `changelog/unreleased/` as a set, the way a reader meets them: as one release, not as the
+  order they were written in. Entries accumulate over months and arrive over-detailed and
+  overlapping, so edit the fragment files before assembling:
+
+  - **Merge what is one change to a reader.** Several fragments often describe one feature
+    from different angles — the feature, its follow-up fix, its UI, its migration. Combine
+    them into a single entry that says what changed and why it matters; delete the others.
+  - **Cut implementation detail.** A changelog entry is not a commit message. Drop the
+    internals, the rationale a reader cannot act on, and anything that reads as a note to
+    ourselves. Long bodies are the usual symptom: `checkChangelogFragments` warns past 900
+    characters, and most entries want far less.
+  - **Fold routine churn.** Dependency bumps, test infrastructure and formatting passes
+    collapse into one `**[dev]**` entry, or are dropped if nothing observable changed.
+  - **Check the audience badge.** Anything deep-internal is `**[dev]**`, so the dialog's
+    default Users view stays readable.
+
+  Keep the curation in the fragment files so it lands in the release PR diff, reviewable.
+
+- **Assemble** the curated set into the dated section and remove the fragments:
+
+  ```bash
+  ./gradlew releaseChangelog -PreleaseVersion=X.Y.Z
+  ```
+
+  This writes `## [X.Y.Z] - YYYY-MM-DD` above the previous release, with breaking changes
+  first, then by type and scope. One section per release; `CHANGELOG.md` holds released
+  history only.
+
+- **Write the release summary** over the placeholder the task leaves under the version
+  heading: a **1–3 sentence** plain-prose summary of the headline user-facing changes and any
+  notable breaking change or theme. The in-app dialog (`ChangelogRenderer`) shows it above the
+  entries, so write it for end users — lead with `**[user]**`/untagged `feat`/`fix` material
+  and skip deep `**[dev]**` internals. Do **not** start it with `- ` or `### `.
 
   ```
   ## [0.23.0] - 2026-06-15
