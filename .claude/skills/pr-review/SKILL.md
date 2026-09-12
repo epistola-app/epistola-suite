@@ -1,218 +1,91 @@
 ---
 name: pr-review
-description: Review a branch/PR against epistola's architecture conventions and recorded preferences. Use when reviewing code changes; complements /code-review (which finds correctness bugs).
+description: Review a branch or PR against epistola's conventions, architecture and altitude. Use when reviewing changes; complements /code-review, which hunts correctness bugs rather than convention breaches.
 ---
 
-Review a set of changes against the epistola-suite project conventions and our
-recorded preferences. This is the **convention / architecture / altitude** layer
-— it judges whether the change fits the project's rules and is well-shaped.
+This is the **convention, architecture and altitude** layer. It is **not** a correctness-bug hunt —
+run `/code-review` alongside it, and say so when you finish.
 
-**It is NOT a correctness-bug hunt.** Run `/code-review` alongside (or after)
-this for line-level bugs and simplification — the two do not overlap. End your
-review by reminding the reviewer to do so.
-
-**Input**: nothing (defaults to the current branch vs `main`), or a PR number.
+**Input**: nothing (current branch vs `main`), or a PR number.
 
 ## 1. Establish the diff
 
-- Default — current branch: `git diff main...HEAD` plus `git diff` and
-  `git diff --staged` for any uncommitted work. Also `git log main..HEAD
---oneline` for the commit shape.
-- If given a PR number `N`: `gh pr diff N` (and `gh pr view N` for description /
-  base branch).
+- Current branch: `git diff main...HEAD`, plus `git diff` and `git diff --staged` for uncommitted
+  work, and `git log main..HEAD --oneline` for the commit shape.
+- A PR number `N`: `gh pr diff N`, plus `gh pr view N` for the description and base branch.
 
-Then write a 2–4 line summary: what changed, and **which modules / surfaces it
-touches**. This drives which checklist sections below get deep attention — only
-review sections relevant to the touched files. List the rest as N/A at the end
-(see §4); don't pad the review with inapplicable sections.
+Write 2–4 lines: what changed and which modules and surfaces it touches. Review only the sections
+that apply; list the rest as N/A at the end rather than padding.
 
-## 2. Checklist
+## 2. Route by what the diff touches
 
-Each item: what to look for · why · how to verify. Scope to the touched files.
+The **Where to look** table at the top of [`CLAUDE.md`](../../../CLAUDE.md) maps each area to its
+guide and to the tests that enforce it. Open the guide for every area the diff touches and review
+against it — that is the source, and it stays current. Then run those guards (§4) rather than
+asserting from reading.
 
-### Design quality (altitude)
+## 3. What a review adds that the build cannot
 
-Broader than `/code-review`'s line-level simplification — this judges the
-_shape_ of the change.
+The guards catch CSP violations, missing authorization markers, clock misuse, migration edits and
+markup drift. Spend the review on what they cannot see:
 
-- **Low coupling / high cohesion** — does new code live in the right module?
-  Business logic belongs in `epistola-core`, not leaked into `apps/epistola`
-  (which is UI host only). Feature modules talk to each other via SPIs
-  (`NavContributor`, `FooterContributor`) and CQRS queries, **not** by injecting
-  each other's services. Related logic sits together rather than scattered.
-- **Simplicity** — is this the smallest design that works? Flag speculative
-  abstraction, indirection with only one caller, interfaces with one
-  implementation, config knobs nobody asked for.
-- **Future-proofing — only where it's cheap and pre-committed.** Per CLAUDE.md,
-  extension points are introduced one-at-a-time as features need them. Reward
-  seams that match a _known_ upcoming need (the single RFC-7807 error seam; the
-  separate hub metrics leg). Flag YAGNI scaffolding that guesses at unknown
-  futures.
-- **Maintainability** — names and idioms match surrounding code; no dead code or
-  commented-out blocks; KDoc / `docs/*` / `CLAUDE.md` updated when a convention,
-  API, or pattern they describe actually changed.
-- **Test coverage** — new behavior has tests at the right tier (see Tests
-  below); edge cases and failure paths covered, not just the happy path; no
-  silently `@Disabled` / skipped / `xfail`ed tests left behind.
+- **Altitude and shape.** Is this the smallest design that works? Flag speculative abstraction,
+  indirection with one caller, interfaces with one implementation, knobs nobody asked for. Does new
+  code sit in the right module — business logic in `epistola-core`, not leaked into `apps/epistola`;
+  feature modules talking through SPIs and CQRS queries rather than injecting each other's services?
+- **Stability of GA surfaces.** Since 1.0.0, REST APIs, catalog wire formats, configuration and
+  architecture are stable: breaking one needs a **major release and a deprecation path**, not a
+  `feat!` in a minor. Features explicitly labelled alpha or beta are the exception — they may break
+  in a MINOR, and the CHANGELOG entry must say so. Data stability is absolute and separate: a
+  destructive migration, or an edit to an already-released one, is a blocking finding regardless of
+  maturity.
+- **Compatibility layers, judged both ways.** On a GA surface a compatibility shim may be exactly
+  right. Elsewhere, flag version-tolerance layers, "V2 keeps the old behaviour" mechanisms and flags
+  that preserve old behaviour for their own sake as waste — but never at the cost of stored data.
+- **Three-surface parity.** A capability change usually belongs on all three: the web UI
+  (`apps/epistola` handlers and templates), REST (`modules/rest-api`, implementing the external
+  `epistola-contract`), and MCP (`modules/epistola-mcp`). Shipping on one and silently drifting the
+  others is a finding; an explicit decision to scope it is not.
+- **Demo catalog (a PR blocker, and the most-missed one).** Every user-facing capability is
+  exercised in `apps/epistola-demo/src/main/resources/epistola/catalogs/demo/`, with realistic
+  variants. If it genuinely cannot be, the PR must say why.
+- **Bundled-catalog fingerprints.** Any touch under `…/catalogs/{demo,system}/` must bump that
+  catalog's `release.version` **and** regenerate `release.fingerprint` — loaders detect change by
+  fingerprint, so a stale one silently ships unchanged content. Both catalogs have their own test
+  (§4); the demo one lives in `apps/epistola-demo`.
+- **Operator impact.** A new config property, env var, feature toggle or operator-visible migration
+  needs the operator-facing docs (`docs/`, `charts/epistola/`, README) and the changelog to say what
+  an operator must do. A knob with no documented default or effect is a finding.
+- **Changelog entry.** Under `[Unreleased]`, as `- [**[user|dev]** ]type(scope)[!]: **Title.** …`.
+  Helm changes go in `charts/epistola/CHANGELOG.md`. A test rejects a malformed entry, so check the
+  content: does it tell a reader what changed and why?
+- **Test tier and honesty.** New behaviour tested at the right level (see the `tests` skill), failure
+  paths covered, nothing left `@Disabled`. Claims in the PR description backed by a command that was
+  actually run.
+- **Docs that describe changed behaviour** updated — including `CLAUDE.md` when a convention moved.
 
-### Scope & hygiene
+## 4. Verification commands
 
-- **Branched off `main`** — the diff isn't bloated by an unrelated long-lived
-  feature branch. If the base looks wrong, flag it (we want a clean path to
-  `main`).
-- **Backward compatibility — split rule since 1.0.0-RC1.**
-  - **Data: compat is mandatory and non-negotiable.** The database is stable and
-    is no longer reset between versions. Every schema change ships as a
-    **forward, data-preserving** Flyway migration. A destructive migration that
-    drops or resets user data, or a rewrite of an already-released migration, is
-    a **blocking finding**.
-  - **Code / API / arch: do not demand compat.** REST APIs, catalog wire
-    formats, config, and internal architecture may still break before
-    1.0.0-GA — but deliberately, and flagged `feat!:` / `fix!:` /
-    `BREAKING CHANGE:`. Flag a back-compat shim, legacy-format tolerance,
-    version-tolerance layer, "V2 keeps old behavior" mechanism, feature flag for
-    old behavior, or engine-version bump kept purely for old-output determinism
-    as **waste to delete** — but never at the cost of stored data. A transient
-    defensive-parse _within a single PR's_ transition window is fine.
-- **CHANGELOG.md** updated under `[Unreleased]` with a commit-style entry
-  (`- [**[audience]** ]type(scope): **Title.** Description`), correct audience
-  badge (`**[user]**` / `**[dev]**` / none), required `type(scope)`. Helm
-  changes go in `charts/epistola/CHANGELOG.md`, everything else in root.
-- **Installation / upgrade instructions** — if the change adds a config
-  property, env var, an operator-impacting migration, or a new
-  feature-toggle / support setting, the operator-facing docs (`docs/*`, Helm
-  `charts/epistola/`, README / setup scripts) and changelog say what an operator
-  must do to upgrade. A new knob with no documented default/effect is a finding.
-- **Formatting & libs** — `ktlintFormat`/`ktlintCheck` clean, `pnpm format`
-  clean. JSON uses Jackson 3 (`tools.jackson.*`), never `com.fasterxml.jackson`.
-
-### Architecture boundaries
-
-- **UI vs REST separation** — UI code (Thymeleaf / JS / TS) must **never** call
-  `/api/**`; the REST API is for external systems only. UI needs get a UI
-  handler. Verify: `./gradlew test --tests UiRestApiSeparationTest`.
-- **Three-surface parity** — a capability change should be reflected across all
-  three surfaces, or carry an explicit decision to scope to a subset: web UI
-  (`apps/epistola` handlers + templates), REST (`epistola-core/api` +
-  `modules/rest-api` OpenAPI spec), and MCP (`epistola-mcp`). Don't ship on one
-  and silently drift the others.
-- **Module ownership** — respected per CLAUDE.md (logic in `epistola-core`; UI
-  host in `apps/epistola`; feature modules may ship their own UI via the
-  `epistola-web` HTMX DSL + Nav/Footer contributors).
-
-### Demo catalog & bundled-content version (PR blocker — high-miss)
-
-- **Every** new/changed user-facing capability is demonstrated in the demo
-  catalog (`apps/epistola-demo/src/main/resources/epistola/catalogs/demo/`),
-  with realistic variants + edge cases. CLAUDE.md item 13 makes this a hard
-  blocker; if a feature genuinely can't be shown there, the PR must say why.
-- **Any touch to bundled catalog resources** under
-  `…/catalogs/{demo,system}/` MUST: bump `release.version` in that catalog's
-  `catalog.json` (SemVer, strictly increasing) **and** regenerate
-  `release.fingerprint`. The loaders detect changes by **fingerprint, not the
-  version string**, so a stale fingerprint silently ships unchanged content.
-  Verify: `./gradlew :modules:epistola-core:unitTest --tests
-"*BundledCatalogFingerprintTest"`, paste the reported "actual" fingerprint,
-  re-run green. **This is the single most-forgotten step — call it out
-  explicitly whenever the diff touches those paths.**
-- **Editor component** added/changed ⇒ registry
-  (`modules/editor/.../engine/registry.ts`) and demo catalog kept in sync, and
-  the `ComponentDefinition` has at least one `examples[]` entry (PR blocker).
-- **Catalog exchange** impact considered (`epistola-core`'s `app/epistola/suite/
-catalog/` package — import/export, serialization, manifest schema, version
-  handling).
-
-### Data & migrations
-
-- Migrations live under the **owning** module:
-  `<module>/src/main/resources/db/migration/<module>/`, named
-  `VYYYYMMDDHHMMSS__<module>_<desc>.sql` (UTC timestamp version). Versions are
-  globally unique and ordered; a non-core migration that FKs to (or uses a
-  `DOMAIN` from) core must timestamp **after** that core migration. **Merged
-  migrations are never edited** — add a new timestamped file.
-
-### Application time
-
-- No raw `Instant.now()` / `OffsetDateTime.now()` / `LocalDate.now()` /
-  `ZonedDateTime.now()` / `YearMonth.now()` in application code — use
-  `EpistolaClock.*`. No injected Spring `Clock` for app time. Async/threaded
-  work captures and binds `MediatorContext` (`MediatorContext.runnable(...)`).
-  DB `NOW()` is fine for db-owned timestamps / leases / claim comparisons. Tests
-  use `EpistolaClockExtension` / `testClock`, not wall-clock sleeps.
-
-### Errors
-
-- New error conditions add a `ValidationCode` enum value and pass it to
-  `ValidationException`; messages are human-only (**no `SCREAMING_CODE:`
-  prefix**). Any RFC-7807 / ProblemDetail work stays confined to the single
-  `ValidationException.toValidationErrorResponse()` seam, not per-handler.
-
-### Frontend / CSP
-
-- No `hx-on::*` / `hx-on-*` attributes (blocked by CSP `eval` and mangled by
-  Thymeleaf's `::`). Use an inline `<script>` with `addEventListener` instead.
-
-### Feature toggles
-
-- Toggle reads go through CQRS queries — `ResolveFeatureToggles` (internal /
-  UI / schedulers) or `GetFeatureToggles` (permission-gated admin) — never by
-  injecting `FeatureToggleService` directly.
-
-### Tests
-
-- Fixtures seed domain state by dispatching **commands** through the mediator,
-  not raw `INSERT`. Raw SQL only when no command can produce the state (or to
-  plant a specific historical timestamp), with a one-line comment saying why.
-- UI tests use `PlaywrightHtmxSupport` helpers (`gotoAndReady`, `htmxSettle`,
-  `openDialogByTrigger`, web-first assertions). Banned and build-failing:
-  `waitForTimeout`, the `:visible` pseudo, blind `waitForSelector("…[open]")`,
-  bare `page.navigate`, `System.err` dumps (enforced by `UiTestHygieneTest`).
-  Prefer a handler-level `*HandlerHtmxTest` over a browser test for
-  server-contract assertions.
-- The right test tier was run for the change type (unit / integration / ui).
-
-### Cross-surface specials (only when touched)
-
-- **Fonts** — kept in sync across UI / REST / MCP / catalog / generation; asset
-  & font media types are seeded `asset_types` rows, not a widened CHECK or a
-  closed enum (branch on `AssetMediaCategory`). Consult `docs/fonts.md`. Note
-  the still-open OFL attribution obligations if relevant.
-- **Locale** — resolved once via `TenantLocaleResolver` (variant attr → tenant
-  default → app default) and threaded to **both** editor preview and PDF so they
-  agree. Consult `docs/locale.md` before changing resolution or `$formatDate` /
-  `$formatLocaleNumber`.
-- **Metrics** — node-identity tags present regardless of support tier;
-  installation-wide gauges leader-elected (advisory lock), not per-replica; the
-  hub OTLP leg is a separate registry we own, kept distinct from the customer's
-  BYO-agent leg. There is no per-tenant metrics on/off toggle.
-
-## 3. Verification commands
-
-Run the ones relevant to the diff; cite results in findings.
+Run the ones the diff touches and cite results in findings.
 
 ```bash
-./gradlew test --tests UiRestApiSeparationTest          # UI never calls /api
-./gradlew unitTest --tests UiTestHygieneTest            # UI-test hygiene
-./gradlew :modules:epistola-core:unitTest --tests "*BundledCatalogFingerprintTest"
-./gradlew ktlintCheck                                   # Kotlin style
-pnpm format:check                                       # all-file formatting
+./gradlew :apps:epistola:unitTest --tests "app.epistola.suite.architecture.*"   # CSP, UI/REST, clock, markup
+./gradlew :modules:epistola-core:unitTest --tests "*BundledCatalogFingerprintTest"   # system catalog
+./gradlew :apps:epistola-demo:unitTest --tests "*DemoCatalogFingerprintTest"         # demo catalog
+./gradlew ktlintCheck && pnpm format:check
 ```
 
-## 4. Output format
+App-level tasks need `pnpm build` once first.
 
-Group findings by severity:
+## 5. Output
 
-- **Blocker** — must fix before merge (failing convention test, missing demo +
-  fingerprint bump, UI calling REST, raw `now()`, back-compat cruft, missing
-  `examples[]`).
-- **Should-fix** — design/maintainability/coverage issues worth addressing.
-- **Nit** — minor, optional.
+Group by severity:
 
-Each finding: `file:line` · the rule it violates · a concrete fix.
+- **Blocker** — failing guard, destructive or edited migration, GA surface broken without a major,
+  missing demo coverage or fingerprint bump, UI calling `/api/**`.
+- **Should-fix** — design, maintainability or coverage issues.
+- **Nit** — minor.
 
-Then:
-
-- An explicit **N/A** line listing checklist sections that don't apply to this
-  diff (so coverage is transparent).
-- A closing reminder: **"Run `/code-review` for correctness bugs and
-  simplification — this review covered conventions and altitude only."**
+Each finding: `file:line` · the rule it breaks · a concrete fix. Then an explicit **N/A** line for
+the sections that did not apply, and the closing reminder: **"Run `/code-review` for correctness bugs
+and simplification — this review covered conventions and altitude only."**

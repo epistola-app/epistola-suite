@@ -1,257 +1,61 @@
 ---
 name: command-query
-description: Create a new CQRS command or query with handler. Use when adding new business operations (state changes) or data retrieval logic.
+description: Add a CQRS command or query to epistola-core. Use when adding a business operation (state change) or a read, including the authorization marker every message needs.
 ---
 
-Create a new CQRS command or query in the epistola-core module.
+Every domain operation is a `Command<R>` or `Query<R>` dispatched through the mediator. There is one
+shape, used by all ~280 handlers, and three build guards that reject anything else.
 
-**Input**: The operation name, which domain it belongs to, and what it does.
+## Exemplars — copy these, don't copy this file
 
-## Decision Points
+| For                       | Read                                                                                                  |
+| ------------------------- | ----------------------------------------------------------------------------------------------------- |
+| A command                 | `modules/epistola-core/src/main/kotlin/app/epistola/suite/environments/commands/CreateEnvironment.kt` |
+| A query                   | `modules/epistola-core/src/main/kotlin/app/epistola/suite/environments/queries/ListEnvironments.kt`   |
+| Authorization markers     | `modules/epistola-core/src/main/kotlin/app/epistola/suite/security/Authorized.kt`                     |
+| A migration to go with it | [`docs/migrations.md`](../../../docs/migrations.md)                                                   |
 
-Ask the user (if not already specified):
+## The shape
 
-- Is this a **command** (state change) or a **query** (read-only)?
-- Which domain? (tenants, templates, environments, documents, attributes, themes)
-- What are the input parameters and return type?
-- Does it need a transaction (`inTransaction`) or is a single statement enough?
-- Any validation rules?
+- **One file** holds the message and its handler: `data class X(...) : Command<R>, RequiresPermission`
+  followed by `@Component class XHandler(private val jdbi: Jdbi) : CommandHandler<X, R>`. Name the
+  handler `<Message>Handler`. Nothing registers it by hand — `SpringMediator` resolves handlers from
+  the context by generic type.
+- **Authorization is mandatory.** Implement exactly one marker from `Authorized`:
+  - `RequiresPermission` — a `Permission` plus the `tenantKey` it applies to (the common case).
+  - `RequiresPlatformRole` — cross-tenant operations.
+  - `RequiresAuthentication` — any signed-in user.
+  - `SystemInternal` — background work with no user; say in a comment why it bypasses checks.
+- **Validation goes in `init {}`** on the message, via
+  `validate("field", condition, code) { "message" }`. The `code` is a `ValidationCode` and defaults
+  to `GENERIC`; give a real one for a new error condition, because the REST layer maps it into the
+  RFC 9457 problem body. Use `FieldLimits` constants rather than literal lengths. `require(...)`
+  throws the wrong exception type — it is not validation.
+- **Data access lives in the handler**, with raw JDBI. Commands run in one transaction already, so
+  don't add `@Transactional`; implement `SelfManagedTransaction` when you genuinely need to manage it.
+- **Audit columns**: bind `created_by` / `updated_by` from `currentUserIdOrNull()?.value`.
+- **Dispatch** with the extensions `X(...).execute()` and `X(...).query()` — not `mediator.send(...)`.
+- **Time** comes from `EpistolaClock`, never `Instant.now()`. Database-owned timestamps stay `NOW()`.
 
-## Command Patterns
+## Steps
 
-All commands live in `modules/epistola-core/src/main/kotlin/app/epistola/suite/<domain>/commands/`.
-Queries live in `.../queries/`. Sub-packages are used for deeper nesting (e.g., `commands/variants/`, `queries/versions/`).
+1. Put the file under the owning domain's `commands/` or `queries/` package in `epistola-core`.
+2. Write the message: constructor args, the `Authorized` marker, `init {}` validation.
+3. Write the handler: `@Component`, inject `Jdbi`, do the work, return the result type.
+4. If it needs schema, add a migration per [`docs/migrations.md`](../../../docs/migrations.md) —
+   module-owned, timestamped, forward-only.
+5. Add a test that dispatches the real message; seed state through commands, not SQL
+   ([`docs/testing.md`](../../../docs/testing.md)).
+6. Consider the other surfaces: REST (`modules/rest-api`) and MCP (`modules/epistola-mcp`) may need
+   the same capability, or an explicit decision that they don't.
 
-### Basic Command (INSERT)
+## Verify
 
-**Reference**: `DeleteEnvironment.kt` — `modules/epistola-core/.../environments/commands/DeleteEnvironment.kt`
-
-```kotlin
-data class CreateEntity(
-    val id: EntityId,
-    val tenantId: TenantId,
-    val name: String,
-) : Command<Entity> {
-    init {
-        validate("name", name.isNotBlank()) { "Name is required" }
-        validate("name", name.length <= 100) { "Name must be 100 characters or less" }
-    }
-}
-
-@Component
-class CreateEntityHandler(private val jdbi: Jdbi) : CommandHandler<CreateEntity, Entity> {
-    override fun handle(command: CreateEntity): Entity =
-        executeOrThrowDuplicate("entity", command.id.value) {
-            jdbi.withHandle<Entity, Exception> { handle ->
-                handle.createQuery("""
-                    INSERT INTO entities (id, tenant_key, name, created_at)
-                    VALUES (:id, :tenantId, :name, NOW())
-                    RETURNING *
-                """)
-                    .bind("id", command.id)
-                    .bind("tenantId", command.tenantId)
-                    .bind("name", command.name)
-                    .mapTo<Entity>()
-                    .one()
-            }
-        }
-}
+```bash
+./gradlew :modules:epistola-core:integrationTest --tests "*YourTest*"
+./gradlew :apps:epistola:unitTest --tests "app.epistola.suite.architecture.*"
 ```
 
-**`executeOrThrowDuplicate`**: Wraps INSERT statements only. Catches unique constraint violations and throws `DuplicateIdException`. Do NOT use for UPDATE/DELETE.
-
-### Transactional Command (multi-statement)
-
-**Reference**: `CreateDocumentTemplate.kt` — `modules/epistola-core/.../templates/commands/CreateDocumentTemplate.kt`
-
-Use `jdbi.inTransaction` when the command performs multiple database operations that must succeed or fail together:
-
-```kotlin
-override fun handle(command: CreateDocumentTemplate): DocumentTemplate =
-    executeOrThrowDuplicate("template", command.id.value) {
-        jdbi.inTransaction<DocumentTemplate, Exception> { handle ->
-            // 1. Insert the template
-            val template = handle.createQuery("INSERT INTO ... RETURNING *")...
-            // 2. Create default variant
-            handle.createUpdate("INSERT INTO ...").execute()
-            // 3. Create draft version
-            handle.createUpdate("INSERT INTO ...").execute()
-            template
-        }
-    }
-```
-
-### Nullable Return (`Command<R?>`)
-
-**Reference**: `UpdateEnvironment.kt` — `modules/epistola-core/.../environments/commands/UpdateEnvironment.kt`
-
-Return nullable when the entity might not exist:
-
-```kotlin
-data class UpdateEntity(...) : Command<Entity?>
-
-override fun handle(command: UpdateEntity): Entity? =
-    jdbi.withHandle<Entity?, Exception> { handle ->
-        handle.createQuery("UPDATE ... RETURNING *")
-            ...
-            .mapTo<Entity>()
-            .findOne()
-            .orElse(null)
-    }
-```
-
-### Boolean Return (delete)
-
-**Reference**: `DeleteEnvironment.kt` — `modules/epistola-core/.../environments/commands/DeleteEnvironment.kt`
-
-```kotlin
-data class DeleteEntity(...) : Command<Boolean>
-
-override fun handle(command: DeleteEntity): Boolean =
-    jdbi.withHandle<Boolean, Exception> { handle ->
-        val rowsAffected = handle.createUpdate("DELETE FROM ... WHERE ...")
-            .bind(...)
-            .execute()
-        rowsAffected > 0
-    }
-```
-
-### Result Wrapper
-
-**Reference**: `PublishToEnvironment.kt` — `modules/epistola-core/.../templates/commands/versions/PublishToEnvironment.kt`
-
-When a command returns multiple related objects:
-
-```kotlin
-data class PublishResult(
-    val version: TemplateVersion,
-    val activation: EnvironmentActivation,
-    val newDraft: TemplateVersion? = null,
-)
-
-data class PublishToEnvironment(...) : Command<PublishResult?>
-```
-
-## Query Patterns
-
-### List Query (with optional search)
-
-```kotlin
-data class ListEntities(
-    val tenantId: TenantId,
-    val searchTerm: String? = null,
-) : Query<List<Entity>>
-```
-
-### Single-Entity Query (nullable)
-
-```kotlin
-data class GetEntity(
-    val tenantId: TenantId,
-    val id: EntityId,
-) : Query<Entity?>
-```
-
-## Validation
-
-There are 4 validation approaches, used in different places:
-
-1. **`validate()` in `init` block** — Input validation (field format, required fields). Throws `ValidationException`.
-
-   ```kotlin
-   init {
-       validate("name", name.isNotBlank()) { "Name is required" }
-   }
-   ```
-
-2. **`require()` in handler** — Precondition checks (domain invariants).
-
-   ```kotlin
-   override fun handle(command: Cmd): Result {
-       require(command.versionId.value > 0) { "Invalid version" }
-   }
-   ```
-
-3. **Handler body validation** — Business rule checks that need DB lookups.
-
-   ```kotlin
-   val existing = handle.createQuery("SELECT ...").findOne().orElse(null)
-       ?: throw SomeDomainException("Not found")
-   ```
-
-4. **Cross-cutting** — `executeOrThrowDuplicate` for INSERT uniqueness.
-
-## Domain Model
-
-Models live in `modules/epistola-core/src/main/kotlin/app/epistola/suite/<domain>/`. A `model/` subdirectory is used for larger domains (e.g., `templates/model/`).
-
-```kotlin
-data class Entity(
-    val id: EntityId,
-    val tenantId: TenantId,
-    val name: String,
-    val createdAt: Instant,
-)
-```
-
-JDBI maps database columns to Kotlin data class properties automatically via `mapTo<>()`. Column `tenant_key` maps to `tenantId` (snake_case → camelCase).
-
-## Database Migration
-
-Create in `apps/epistola/src/main/resources/db/migration/V<next>__<description>.sql`:
-
-```sql
-CREATE TABLE entity_name (
-    id         entity_slug PRIMARY KEY,
-    tenant_key  tenant_slug NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    name       VARCHAR(255) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-COMMENT ON TABLE entity_name IS 'Description of what this table stores';
-COMMENT ON COLUMN entity_name.id IS 'Unique slug identifier';
-COMMENT ON COLUMN entity_name.tenant_key IS 'Owning tenant';
-```
-
-**Important**: `COMMENT ON` must be separate statements (not inside `CREATE TABLE`). Use domain types from existing migrations (e.g., `tenant_slug`, `template_slug`, `environment_slug`).
-
-## Service Injection
-
-When a command handler needs another service (not just JDBI):
-
-```kotlin
-@Component
-class ComplexCommandHandler(
-    private val jdbi: Jdbi,
-    private val someService: SomeService,
-) : CommandHandler<ComplexCommand, Result> { ... }
-```
-
-## Dispatch Pattern
-
-Commands and queries are dispatched via extension functions:
-
-```kotlin
-CreateSomething(id = ..., tenantId = ...).execute()    // Command
-ListSomething(tenantId = tenantId).query()             // Query
-GetSomething(tenantId = tenantId, id = id).query()     // Query (nullable)
-```
-
-These require `MediatorContext` to be bound (automatic in handlers, explicit in tests via `withMediator { }`).
-
-## Checklist
-
-- [ ] Command/query data class + handler in `modules/epistola-core/.../`
-- [ ] Domain model if new entity
-- [ ] Database migration if new table
-- [ ] Integration test (see `unit-test` skill)
-- [ ] `./gradlew ktlintFormat`
-- [ ] `./gradlew integrationTest`
-
-## Gotchas
-
-- Import `org.jdbi.v3.core.kotlin.mapTo` for the reified `mapTo<>()` extension
-- Use `createQuery` (not `createUpdate`) for statements with `RETURNING`
-- `executeOrThrowDuplicate` is for INSERTs only — don't wrap UPDATE/DELETE
-- `validate()` is from `app.epistola.suite.validation.validate`
-- Jackson 3 (`tools.jackson.*`) is used, not `com.fasterxml.jackson`
+The guards that will fail you: `MediatorWiringTest` (one handler per message, `@Component` present,
+`Authorized` implemented), `AuthorizationCoverageTest` (same, per package),
+`DomainBoundaryTest` (no importing another domain's handler), `ApplicationClockUsageTest`.

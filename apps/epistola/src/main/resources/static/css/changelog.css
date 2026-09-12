@@ -220,6 +220,12 @@
   letter-spacing: 0;
 }
 
+/* Breaking changes lead the chip row, so the marker the `!` carries stays visible. */
+.changelog-badge--breaking {
+  background: var(--ep-red-100);
+  color: var(--ep-red-800);
+}
+
 /* ── What's New compact teaser ────────────────────────────────────────── */
 
 .whats-new-card {

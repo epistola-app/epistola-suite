@@ -1,218 +1,74 @@
 ---
 name: editor-component
-description: Create a new Lit web component for the editor module. Use when building a new UI component, panel, or interactive element for the template editor.
+description: Add or change something in the template editor — a document block authors place in a template, or editor chrome like a panel or dialog. Use for both; they have different rules.
 ---
 
-Create a new Lit web component in the editor module.
+Two different jobs live behind "editor component". Decide which one you are doing first.
 
-**Input**: The component name and its purpose/behavior.
+| You are adding                                                             | Path                                                  | Exemplar                                                   |
+| -------------------------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------- |
+| A **document block** an author places in a template (qrcode, table, image) | registration → registry → PDF renderer → demo catalog | `modules/editor/src/main/typescript/components/qrcode/`    |
+| **Editor chrome** — a panel, inspector, dialog                             | a Lit element under `ui/`                             | `modules/editor/src/main/typescript/ui/EpistolaPreview.ts` |
 
-## Decision Points
+## A document block
 
-Ask the user (if not already specified):
+A block is not finished when it renders on the canvas. It has to survive the round trip into a PDF
+and be demonstrable, so four things move together:
 
-- What is the component name?
-- What does it render/do?
-- Does it need access to `EditorEngine`?
-- Which **component pattern** applies? (subscription-based vs prop-reactive)
+1. **Registration** — `components/<name>/<name>-registration.ts` exports
+   `create<Name>Definition(): ComponentDefinition`: `type`, `label`, `icon`, `category`, `slots`,
+   `allowedChildren`, `applicableStyles`, `defaultStyles`, `inspector`, `defaultProps`,
+   `renderCanvas`, and `examples`.
+2. **Registry** — import that factory in `engine/registry.ts`, which is the barrel every registration
+   is wired through.
+3. **PDF renderer** — a `<Name>NodeRenderer.kt` in
+   `modules/generation/src/main/kotlin/app/epistola/generation/pdf/`, plus any entry in
+   `RenderingDefaults.kt`. A block the renderer does not know about silently disappears from output.
+4. **Demo catalog** — use it in `apps/epistola-demo/src/main/resources/epistola/catalogs/demo/`
+   (qrcode appears in `resources/templates/demo-invoice.json`), then bump that catalog's
+   `release.version` **and** regenerate `release.fingerprint`.
 
-## Component Patterns
+**`examples[]` is a PR blocker.** At least one entry, each a self-contained
+`{ name, description, fragment: { rootNodeId, nodes, slots } }` showing a realistic use — the MCP
+server and the design docs serve these as the canonical usage. `qrcode-registration.ts` has two: one
+data-bound, one literal.
 
-There are two distinct patterns based on how the component interacts with the engine:
+**The contract owns the vocabulary.** `pnpm build` runs `check-component-registry.mjs`, which fails
+when the editor's projection differs from the contract's registry, so changing a block's _shape_
+needs a contract release — see [`docs/component-registry.md`](../../../docs/component-registry.md)
+and the `contract-bump` skill. Adding runtime behaviour behind an existing shape does not.
 
-### 1. Subscription-Based (listens to engine events)
+## Editor chrome
 
-**Reference**: `EpistolaPreview.ts` — `modules/editor/src/main/typescript/ui/EpistolaPreview.ts`
+- Lit elements in `ui/`, light DOM (`override createRenderRoot() { return this }`), tag prefixed
+  `epistola-`, class `Epistola*`.
+- Two patterns, both current: **subscription** — hold `engine`, subscribe in `connectedCallback`,
+  re-subscribe when the `engine` property changes, unsubscribe in `disconnectedCallback`
+  (`ui/EpistolaPreview.ts`); **prop-reactive** — take everything through `@property` and stay
+  stateless (`ui/EpistolaInspector.ts`).
+- Engine commands live in `engine/commands.ts`, events in `engine/events.ts`. Go through them rather
+  than mutating the document directly.
 
-The component subscribes to engine events and updates internal `@state()` when events fire.
+## Where files go
 
-```typescript
-@customElement('epistola-my-component')
-export class EpistolaMyComponent extends LitElement {
-    override createRenderRoot() { return this }
+| What                                                   | Where                                                   |
+| ------------------------------------------------------ | ------------------------------------------------------- |
+| Block registration, its preview element, CSS and tests | `modules/editor/src/main/typescript/components/<name>/` |
+| Editor chrome                                          | `modules/editor/src/main/typescript/ui/`                |
+| Engine (registry, commands, events)                    | `modules/editor/src/main/typescript/engine/`            |
+| Shared styles                                          | `modules/editor/src/main/typescript/styles/`            |
+| Tests                                                  | co-located `*.test.ts` (vitest)                         |
 
-    @property({ attribute: false }) engine?: EditorEngine
-    @state() private _someState: SomeType = initial
+Per-component CSS sits beside the component (`components/qrcode/qrcode.css`). There is no
+`src/main/resources/static/css/` — an older guide claimed there was.
 
-    private _unsub?: () => void
+## Verify
 
-    override connectedCallback(): void {
-        super.connectedCallback()
-        this._setup()
-    }
-
-    override updated(changed: Map<string, unknown>): void {
-        if (changed.has('engine')) {
-            this._teardown()
-            this._setup()
-        }
-    }
-
-    override disconnectedCallback(): void {
-        this._teardown()
-        super.disconnectedCallback()
-    }
-
-    private _setup(): void {
-        if (!this.engine) return
-        this._unsub = this.engine.events.on('doc:change', ({ doc }) => {
-            this._someState = /* derive from doc */
-        })
-    }
-
-    private _teardown(): void {
-        this._unsub?.()
-        this._unsub = undefined
-    }
-
-    override render() {
-        if (!this.engine) return nothing
-        return html`<div class="my-component">...</div>`
-    }
-}
+```bash
+pnpm build                       # tsc, vite, dump-registry, check-component-registry
+pnpm --filter @epistola/editor test
+./gradlew :apps:epistola-demo:unitTest --tests "*DemoCatalogFingerprintTest"   # if you touched the demo catalog
 ```
 
-**When**: The component needs to react to document changes, selection changes, or example changes over time (previews, status indicators, tree views).
-
-### 2. Prop-Reactive (receives data via properties)
-
-**Reference**: `EpistolaInspector.ts` — `modules/editor/src/main/typescript/ui/EpistolaInspector.ts`
-
-The component receives data through `@property()` and renders based on current prop values. It dispatches commands back to the engine.
-
-```typescript
-@customElement("epistola-my-inspector")
-export class EpistolaMyInspector extends LitElement {
-  override createRenderRoot() {
-    return this;
-  }
-
-  @property({ attribute: false }) engine?: EditorEngine;
-  @property({ attribute: false }) doc?: TemplateDocument;
-  @property({ attribute: false }) selectedNodeId?: string | null;
-
-  override render() {
-    if (!this.engine || !this.doc) return nothing;
-    // Render based on current props
-    return html`...`;
-  }
-
-  private _handleChange(value: string) {
-    this.engine?.execute({
-      type: "UpdateNodeProps",
-      nodeId: this.selectedNodeId!,
-      props: { someField: value },
-    });
-  }
-}
-```
-
-**When**: The component displays/edits current state passed from a parent — no need for event subscriptions because the parent re-passes updated props after each change.
-
-## Registration and Exports
-
-The `@customElement('epistola-xxx')` decorator **self-registers** the element. The browser knows about it once the module is imported.
-
-Exports in `lib.ts` are **for TypeScript types only** — so that other modules can import the class for type annotations or `instanceof` checks. They do NOT affect registration:
-
-```typescript
-// lib.ts — exports are for types, not registration
-export { EpistolaMyComponent } from "./ui/EpistolaMyComponent.js";
-```
-
-## Engine Commands
-
-**Reference**: `modules/editor/src/main/typescript/engine/commands.ts`
-
-The `Command` union type defines all operations the engine supports:
-
-```typescript
-type Command =
-  | InsertNode
-  | RemoveNode
-  | MoveNode
-  | UpdateNodeProps
-  | UpdateNodeStyles
-  | SetStylePreset
-  | UpdateDocumentStyles
-  | UpdatePageSettings
-  | AddColumnSlot
-  | RemoveColumnSlot;
-```
-
-Each command includes:
-
-- An `applyCommand()` function that transforms the document
-- Inverse command generation for undo support
-- `CommandResult` = `{ ok: true, doc, inverse, structureChanged }` | `{ ok: false, error }`
-
-To add a new command: add the type to the union, implement `applyCommand()`, and handle it in `EditorEngine.execute()`.
-
-## Engine Events
-
-**Reference**: `modules/editor/src/main/typescript/engine/events.ts`
-
-```typescript
-type EngineEvents = {
-  "doc:change": { doc: TemplateDocument; indexes: DocumentIndexes };
-  "selection:change": { nodeId: NodeId | null };
-  "example:change": { index: number; example: object | undefined };
-};
-```
-
-Subscribe: `engine.events.on('doc:change', handler)` — returns an unsubscribe function.
-
-## Theme Editor Subdirectory
-
-**Reference**: `modules/editor/src/main/typescript/theme-editor/`
-
-The theme editor is a separate entry point with its own component tree:
-
-- **Public API**: `mountThemeEditor(options)` in `theme-editor-lib.ts`
-- **Root component**: `EpistolaThemeEditor.ts` with `init(themeData, onSave)` method
-- **Sections**: `sections/` subdirectory with `BasicInfoSection`, `DocumentStylesSection`, `PageSettingsSection`, `PresetsSection`
-- **State**: `ThemeEditorState.ts` manages form state, dirty tracking, autosave
-
-The `init()` method pattern is unique to the theme editor — it initializes from server-provided data after the element is in the DOM.
-
-## Conventions
-
-- Tag name: `epistola-<kebab-name>` (e.g., `epistola-color-picker`)
-- Class name: `Epistola<PascalName>` (e.g., `EpistolaColorPicker`)
-- **Always use light DOM**: `override createRenderRoot() { return this }`
-- Styling goes in a **separate CSS file**, not in the component
-- Use `@property({ attribute: false })` for complex objects (engine, doc, etc.)
-- Use `@state()` for internal reactive state
-- Guard renders: `if (!this.engine) return nothing`
-- Extract complex logic into testable service classes (like `PreviewService`, `SaveService`)
-
-## File Locations
-
-| What          | Where                                              |
-| ------------- | -------------------------------------------------- |
-| UI components | `modules/editor/src/main/typescript/ui/`           |
-| Engine logic  | `modules/editor/src/main/typescript/engine/`       |
-| Theme editor  | `modules/editor/src/main/typescript/theme-editor/` |
-| DnD           | `modules/editor/src/main/typescript/dnd/`          |
-| ProseMirror   | `modules/editor/src/main/typescript/prosemirror/`  |
-| Types         | `modules/editor/src/main/typescript/types/`        |
-| Tests         | Co-located as `*.test.ts` next to source           |
-| CSS           | `modules/editor/src/main/resources/static/css/`    |
-
-## Checklist
-
-- [ ] Component in `modules/editor/src/main/typescript/ui/`
-- [ ] Export in `lib.ts` (for type access)
-- [ ] CSS file if the component has styling
-- [ ] Service class if logic is complex enough to unit test
-- [ ] Tests (Vitest) for services/logic
-- [ ] `pnpm --filter @epistola/editor test`
-- [ ] `pnpm --filter @epistola/editor build`
-
-## Gotchas
-
-- Import Lit decorators from `lit/decorators.js` (with `.js` extension)
-- Import types from sibling files with `.js` extension (TypeScript module resolution)
-- `nothing` from `lit` is used to render nothing (not `null` or empty string)
-- The engine's `execute()` method returns `CommandResult` — check `result.ok` before assuming success
-- `deepFreeze` is applied to the document model — never mutate doc objects directly
+`registry-examples.test.ts` fails when a definition has no `examples[]`; the MCP component tests and
+`ExampleRenderingIntegrationTest` render each example.
