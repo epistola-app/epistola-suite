@@ -144,6 +144,11 @@ jobs:
       - name: Check license metadata
         run: pnpm license:check
 
+      # The instruction files only ever grew and nothing tested them: paths went stale and guards
+      # were claimed that CI never ran. This fails on that drift instead of misleading the reader.
+      - name: Check agent instructions
+        run: pnpm agents:check
+
       - name: Test frontend
         run: pnpm test
 

@@ -90,3 +90,18 @@ Lead with the root cause. State:
 
 If the MCP surface cannot prove a tenant default, environment activation, or
 legacy frozen value, say so instead of guessing.
+
+## Verify
+
+The investigation is finished when the root cause is stated with the evidence
+that proves it, not when a plausible story exists:
+
+- both sides of the comparison are named by id and version, and the fields
+  quoted come from tool output rather than from memory;
+- the first differing effective value is tied to the cascade rule that makes it
+  visible in the output;
+- a `preview_document` re-render, if one was needed, changed the observed
+  symptom in the direction the explanation predicts.
+
+If any step rests on something the available tools cannot confirm, say which —
+an unverified cause is a guess, however well it fits.
