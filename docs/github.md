@@ -217,8 +217,8 @@ never claims a released version it isn't.
 | App chart | `charts/epistola/Chart.yaml` `version:`         | `0.10.0-SNAPSHOT`    | `epistola-0.10.0`        |
 | Obs chart | `charts/epistola-grafana/Chart.yaml` `version:` | `0.1.0-SNAPSHOT`     | `epistola-grafana-0.1.0` |
 
-**To release an artifact** (use the [`release`](../.claude/skills/release) skill
-for the app, [`release-helm-chart`](../.claude/skills/release-helm-chart) for a
+**To release an artifact** (use the [`release`](../.agents/skills/release) skill
+for the app, [`release-helm-chart`](../.agents/skills/release-helm-chart) for a
 chart — same three-step shape):
 
 1. In a PR: **strip `-SNAPSHOT`** in the version file → the release version;
