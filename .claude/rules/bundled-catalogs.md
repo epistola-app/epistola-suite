@@ -1,0 +1,1 @@
+../../.agents/rules/bundled-catalogs.md

@@ -13,7 +13,7 @@ Repository-level documents live at the root: [`CONTRIBUTING.md`](../CONTRIBUTING
 [`CHANGELOG.md`](../CHANGELOG.md), [`SECURITY.md`](../SECURITY.md),
 [`SUPPORT_POLICY.md`](../SUPPORT_POLICY.md), [`VULNERABILITIES.md`](../VULNERABILITIES.md),
 [`DISCLAIMER.md`](../DISCLAIMER.md), [`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) and
-[`CLAUDE.md`](../CLAUDE.md) (conventions for AI-assisted contributions).
+[`AGENTS.md`](../AGENTS.md) (conventions for AI-assisted contributions; `CLAUDE.md` imports it).
 
 ## How to read the Status column
 
@@ -22,7 +22,7 @@ Not every page describes shipped behavior. Each entry is labelled:
 | Label                | Meaning                                                                                                                     |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | **Current**          | Describes behavior as it ships today. Safe to rely on.                                                                      |
-| **Alpha** / **Beta** | Ships, but experimental. Breaking changes may land in a MINOR release (see [`CLAUDE.md`](../CLAUDE.md#commit-conventions)). |
+| **Alpha** / **Beta** | Ships, but experimental. Breaking changes may land in a MINOR release (see [`AGENTS.md`](../AGENTS.md#stability-contract)). |
 | **Proposed**         | A design or plan. Some of it may be built; file paths in it are proposals, not a map of the code.                           |
 | **Record**           | A point-in-time artefact — a review, a measurement, sample output. True when written, not maintained.                       |
 
