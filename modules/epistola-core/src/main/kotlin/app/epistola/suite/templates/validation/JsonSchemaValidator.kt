@@ -80,6 +80,14 @@ class JsonSchemaValidator(
             )
         }
 
+        val negativeItemsBound = findNegativeItemsBound(schema, "$")
+        if (negativeItemsBound != null) {
+            val (path, keyword) = negativeItemsBound
+            return SchemaValidationResult.Invalid(
+                "Property \"$path\" has a negative \"$keyword\"",
+            )
+        }
+
         val invalidItemsRangePath = findInvalidItemsRange(schema, "$")
         if (invalidItemsRangePath != null) {
             return SchemaValidationResult.Invalid(
@@ -91,10 +99,60 @@ class JsonSchemaValidator(
     }
 
     /**
+     * Finds the first schema location where `minItems` or `maxItems` is
+     * negative. The JSON Schema meta-schema declares both keywords
+     * non-negative, but networknt's compilation step does not itself enforce
+     * that against the meta-schema, so a negative bound would otherwise pass
+     * [validateSchema] silently. Recurses the same way as
+     * [findInvalidItemsRange] (no inheritance needed here — the check is
+     * local to each node's own keywords).
+     */
+    private fun findNegativeItemsBound(schema: ObjectNode, path: String): Pair<String, String>? {
+        for (keyword in listOf("minItems", "maxItems")) {
+            schema.get(keyword)?.takeIf { it.isNumber }?.asDouble()?.let {
+                if (it < 0) return path to keyword
+            }
+        }
+
+        (schema.get("properties") as? ObjectNode)?.let { properties ->
+            for ((name, prop) in properties.properties()) {
+                if (prop is ObjectNode) {
+                    findNegativeItemsBound(prop, "$path.$name")?.let { return it }
+                }
+            }
+        }
+
+        when (val items = schema.get("items")) {
+            is ObjectNode -> findNegativeItemsBound(items, "$path.items")?.let { return it }
+            is ArrayNode -> {
+                for ((index, entry) in items.withIndex()) {
+                    if (entry is ObjectNode) {
+                        findNegativeItemsBound(entry, "$path.items[$index]")?.let { return it }
+                    }
+                }
+            }
+            else -> Unit
+        }
+
+        for (keyword in listOf("allOf", "oneOf", "anyOf")) {
+            val members = schema.get(keyword) as? ArrayNode ?: continue
+            for (member in members) {
+                if (member is ObjectNode) {
+                    val memberPath = if (keyword == "allOf") path else "$path.$keyword"
+                    findNegativeItemsBound(member, memberPath)?.let { return it }
+                }
+            }
+        }
+
+        return null
+    }
+
+    /**
      * Finds the path of the first schema location whose *effective* `minItems`/
      * `maxItems` is unsatisfiable (`maxItems < minItems`) — otherwise-valid JSON
      * Schema (both keywords are independently non-negative integers per the
-     * meta-schema) that describes an array no value can ever match. Recurses
+     * meta-schema, enforced separately by [findNegativeItemsBound]) that
+     * describes an array no value can ever match. Recurses
      * into `properties`, `items` (including draft-07 tuple-form `items`), and
      * composition keywords so the check applies uniformly whether the schema
      * was assembled by the visual editor or submitted directly.

@@ -224,5 +224,42 @@ class DataContractSchemaValidationTest {
         )
     }
 
+    @Test
+    fun `rejects a negative minItems`() {
+        val result = validator.validateDataContractSchema(
+            schema("""{"type":"object","properties":{"tags":{"type":"array","items":{"type":"string"},"minItems":-1}}}"""),
+        )
+
+        assertThat(result).isEqualTo(SchemaValidationResult.Invalid("Property \"\$.tags\" has a negative \"minItems\""))
+    }
+
+    @Test
+    fun `rejects a negative maxItems`() {
+        val result = validator.validateDataContractSchema(
+            schema("""{"type":"object","properties":{"tags":{"type":"array","items":{"type":"string"},"maxItems":-1}}}"""),
+        )
+
+        assertThat(result).isEqualTo(SchemaValidationResult.Invalid("Property \"\$.tags\" has a negative \"maxItems\""))
+    }
+
+    @Test
+    fun `finds a negative minItems nested inside array items`() {
+        val result = validator.validateDataContractSchema(
+            schema(
+                """
+                {"type":"object","properties":{
+                  "orders":{"type":"array","items":{"type":"object","properties":{
+                    "lines":{"type":"array","items":{"type":"string"},"minItems":-2}
+                  }}}
+                }}
+                """.trimIndent(),
+            ),
+        )
+
+        assertThat(result).isEqualTo(
+            SchemaValidationResult.Invalid("Property \"\$.orders.items.lines\" has a negative \"minItems\""),
+        )
+    }
+
     private fun schema(json: String): ObjectNode = objectMapper.readValue(json, ObjectNode::class.java)
 }

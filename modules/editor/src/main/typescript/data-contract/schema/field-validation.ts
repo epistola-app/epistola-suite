@@ -14,9 +14,12 @@ import type { SchemaField, ValidationError } from '../types.js';
 
 /**
  * Walk every field (including nested object/array-of-object fields) and
- * report constraint problems. Currently checks that an array field's
- * `maxItems`, when set alongside `minItems`, is not less than it — the
- * combination is otherwise silently unsatisfiable (no array can ever match).
+ * report constraint problems: a negative `minItems`/`maxItems` (the JSON
+ * Schema meta-schema requires both non-negative — the `min="0"` on the input
+ * is only a soft hint, not enforcement, and a pasted/imported schema can set
+ * either directly), and an array field's `maxItems`, when set alongside
+ * `minItems`, being less than it — the combination is otherwise silently
+ * unsatisfiable (no array can ever match).
  *
  * Errors are keyed by `field.id` (not a name-based path) — this collection
  * never leaves the browser, and the field's id is what the detail-panel
@@ -27,6 +30,18 @@ export function validateSchemaFields(fields: readonly SchemaField[]): Validation
 
   for (const field of fields) {
     if (field.type === 'array') {
+      if (field.minItems !== undefined && field.minItems < 0) {
+        errors.push({
+          path: field.id,
+          message: `"Min items" (${field.minItems}) must not be negative`,
+        });
+      }
+      if (field.maxItems !== undefined && field.maxItems < 0) {
+        errors.push({
+          path: field.id,
+          message: `"Max items" (${field.maxItems}) must not be negative`,
+        });
+      }
       if (
         field.minItems !== undefined &&
         field.maxItems !== undefined &&

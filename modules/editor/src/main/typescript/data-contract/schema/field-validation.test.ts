@@ -88,6 +88,40 @@ describe('validateSchemaFields', () => {
     expect(errors[0].path).toBe('tags');
   });
 
+  it('flags a negative minItems', () => {
+    const fields: SchemaField[] = [
+      {
+        id: 'tags',
+        name: 'tags',
+        type: 'array',
+        arrayItemType: 'string',
+        required: false,
+        minItems: -1,
+      },
+    ];
+    const errors = validateSchemaFields(fields);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].path).toBe('tags');
+    expect(errors[0].message).toContain('Min items');
+  });
+
+  it('flags a negative maxItems', () => {
+    const fields: SchemaField[] = [
+      {
+        id: 'tags',
+        name: 'tags',
+        type: 'array',
+        arrayItemType: 'string',
+        required: false,
+        maxItems: -1,
+      },
+    ];
+    const errors = validateSchemaFields(fields);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].path).toBe('tags');
+    expect(errors[0].message).toContain('Max items');
+  });
+
   it('recurses into nested fields of an array-of-objects', () => {
     const fields: SchemaField[] = [
       {
