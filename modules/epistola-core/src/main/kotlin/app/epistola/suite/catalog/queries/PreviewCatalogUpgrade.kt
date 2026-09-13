@@ -24,11 +24,16 @@ import org.springframework.stereotype.Component
  * do — **without applying it**. Re-fetches the source manifest and classifies
  * every `(type, slug)` against the live installed working copy:
  *
- *  - **ADDED**   — in the new release, not installed (by-design *not* upgraded
- *    automatically; surfaced so the UI can offer an opt-in install).
+ *  - **ADDED**   — in the new release, not installed here yet (would be installed).
  *  - **REMOVED**  — installed, no longer in the manifest (would be deleted).
  *  - **CHANGED**  — installed and in the manifest, content fingerprint differs.
  *  - **UNCHANGED** — installed and in the manifest, fingerprint identical.
+ *
+ * All four are **information**, not a menu. An upgrade reconciles the whole manifest
+ * (see [UpgradeCatalog][app.epistola.suite.catalog.commands.UpgradeCatalog] and issue #850), so
+ * this says what the Apply button is about to do rather than offering a subset of it. ADDED was
+ * once an opt-in list; the choice is gone, the visibility deliberately is not — removing a resource
+ * you rely on and adding one you have never seen are both things to know before applying.
  *
  * `CHANGED` uses the **same** per-resource canonical digest as the whole-catalog
  * fingerprint ([CatalogFingerprintService]), so the preview can never disagree

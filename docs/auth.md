@@ -605,11 +605,11 @@ class MyTest {
 For tests that need an authenticated user:
 
 ```kotlin
-class MyHandlerTest : CoreIntegrationTestBase() {
+class MyHandlerTest : BaseIntegrationTest() {
 
     @Test
     fun `my test`() {
-        withTestUser {
+        withAuthentication {
             // SecurityContext.current() returns test user
             val result = handler.handle(command)
         }
@@ -649,7 +649,7 @@ This error means code is trying to access `SecurityContext.current()` outside of
 
 - In HTTP requests: Ensure `SecurityFilter` is running
 - In background tasks: Use `SecurityContext.runWithPrincipal()` to set context
-- In tests: Use `withTestUser { }` helper
+- In tests: Use the `withAuthentication { }` helper
 
 ### API Key Requests Return 401
 

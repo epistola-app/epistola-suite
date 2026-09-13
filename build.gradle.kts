@@ -70,6 +70,64 @@ tasks.register<CheckMigrationVersionsTask>("checkMigrationVersions") {
     githubBaseRef.set(providers.environmentVariable("GITHUB_BASE_REF"))
 }
 
+tasks.register<CheckChangelogFragmentsTask>("checkChangelogFragments") {
+    description = "Validates changelog fragments, and that a change to shipped code carries one."
+    group = "verification"
+    repositoryDir.set(layout.projectDirectory)
+    explicitBaseRef.set(providers.gradleProperty("migrationVersionBaseRef"))
+    envBaseRef.set(providers.environmentVariable("MIGRATION_VERSION_BASE_REF"))
+    githubBaseRef.set(providers.environmentVariable("GITHUB_BASE_REF"))
+    // The workflow sets this when the pull request carries the `no-changelog` label.
+    skipRequirement.set(providers.environmentVariable("SKIP_CHANGELOG_REQUIREMENT").map { it == "true" })
+}
+
+tasks.register("releaseChangelog") {
+    description = "Assembles changelog/unreleased/ into a dated CHANGELOG.md section and removes the fragments."
+    group = "release"
+
+    // Resolved at configuration time: reaching for `project` inside doLast captures it, which the
+    // configuration cache rejects — and the first person to hit that would be mid-release.
+    val releaseVersion = providers.gradleProperty("releaseVersion")
+    val fragmentsDir = layout.projectDirectory.dir("changelog/unreleased").asFile
+    val changelog = layout.projectDirectory.file("CHANGELOG.md").asFile
+
+    doLast {
+        val version = releaseVersion.orNull
+            ?: throw GradleException("Pass the version: ./gradlew releaseChangelog -PreleaseVersion=X.Y.Z")
+        val parsed = ChangelogFragments.parseAll(fragmentsDir)
+        val fatal = parsed.problems.filter { it.fatal }
+        if (fatal.isNotEmpty()) {
+            throw GradleException(
+                "Fix the fragments before releasing:\n" + fatal.joinToString("\n") { "- ${it.file.name}: ${it.message}" },
+            )
+        }
+        if (parsed.fragments.isEmpty()) throw GradleException("No changelog fragments to release.")
+
+        val text = changelog.readText()
+        if (text.contains("## [$version]")) throw GradleException("CHANGELOG.md already has a [$version] section.")
+
+        val date = java.time.LocalDate.now()
+        val section = buildString {
+            append("## [").append(version).append("] - ").append(date).append("\n\n")
+            append("<!-- Release summary: 1-3 plain sentences for end users. Replace this line. -->\n\n")
+            append(ChangelogFragments.renderSection(parsed.fragments))
+            append("\n\n")
+        }
+
+        val firstRelease = text.indexOf("\n## [")
+        val updated = if (firstRelease < 0) {
+            text.trimEnd() + "\n\n" + section
+        } else {
+            text.substring(0, firstRelease + 1) + section + text.substring(firstRelease + 1)
+        }
+        changelog.writeText(updated)
+        parsed.fragments.forEach { it.file.delete() }
+
+        logger.lifecycle("Wrote [$version] with ${parsed.fragments.size} entries and removed the fragments.")
+        logger.lifecycle("Replace the release-summary placeholder before committing.")
+    }
+}
+
 val checkContractVersionAlignment = tasks.register("checkContractVersionAlignment") {
     description = "Checks that backend, frontend, and lockfile Epistola contract versions match."
     group = "verification"
@@ -156,5 +214,5 @@ val checkContractVersionAlignment = tasks.register("checkContractVersionAlignmen
 }
 
 tasks.named("check") {
-    dependsOn("checkMigrationVersions", checkContractVersionAlignment)
+    dependsOn("checkMigrationVersions", "checkChangelogFragments", checkContractVersionAlignment)
 }

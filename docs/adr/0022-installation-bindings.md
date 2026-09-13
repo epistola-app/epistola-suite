@@ -11,8 +11,83 @@
   the wire format changes), [ADR 0020](0020-where-a-catalog-resource-address-lives.md) (addresses
   and identities), [ADR 0021](0021-catalog-upstream-release-discovery.md) (the inbound direction)
 
-> **Status:** Draft. A design record for three related requests; nothing in it is built. It is
-> written to be accepted or argued with, not to describe current behaviour.
+> **Status:** Draft. A design record for three related requests. It is written to be accepted or
+> argued with, not to describe current behaviour. **Read the addendum below before D4-D6: roles were
+> replaced by overridable resources on 2026-09-10, and several supporting claims in this record are
+> wrong.**
+
+## Addendum, 2026-09-10 — roles are superseded, and errata
+
+### D4-D6 are superseded by overridable resources
+
+D4 marked a **role** at each reference site, declared roles on the manifest, and had the importer
+rewrite stored content on every install and upgrade to apply a binding. The same outcome is reached
+by marking the **resource** overridable and binding a replacement to it: the overridable resource's
+identity already names the hole, so nothing is marked at reference sites.
+
+That removes the `role` marker on four site kinds and with it the contract changes to
+`ThemeRefOverride`, `FontRef`, node props and `TemplateResource.themeRole`; the manifest `roles[]`
+section; the exporter check that every used role is declared with a matching kind; the "all sites of
+a role must share one default" rule; the default-address columns; and the content rewriter. Three
+tables become one, and the contract change becomes one boolean on four resource classes.
+
+The decisive reason is upgrades. `sync_catalog_resource_identity` adopts the identity already
+registered at an address when a resource is re-imported, so a binding keyed on that identity survives
+a content change with no re-application at all. Two things also come out better: the hole stays
+visible in the reference graph and in a re-export, where rewriting would have baked the installer's
+logo in as the publisher's choice; and Exchange needs no new storage, because an overridable resource
+is already a row in `catalog_release_resource`.
+
+**Overridable, not placeholder.** A placeholder is the special case where the shipped content is a
+stand-in. Making the flag `overridable` lets the publisher ship the real thing, which keeps the
+catalog working as installed, lets the publisher preview their own catalog while authoring, and gives
+an installation that never overrides the publisher's improvements in the next release. Shipping a
+neutral stand-in for identity-bearing resources is then guidance, not mechanism.
+
+**Two problems this shape has, both to be solved in the same phase.** A publisher who _renames_ an
+overridable resource silently loses the override: the old address is absent from the new manifest, so
+`removeStale` deletes the row, the delete trigger drops its registry entry, and the binding cascades
+away. The guard is to refuse the prune; the fix is previous addresses on the wire, sourced from the
+publisher's own alias table. And a substitution needs a compatibility contract — fonts get face
+coverage and stencils get parameters, but a **theme** replacement missing a block style preset the
+publisher's templates name renders plausible, wrong letters in silence, because the renderer resolves
+an absent preset to nothing.
+
+Tracked in #918, which carries the current design. D1-D3 and D7 stand as written.
+
+### Errata
+
+Verified against the code while planning; each contradicts something this record assumes.
+
+- **No `schemaVersion` bump.** § Consequences says the additive fields need one. They must not have
+  one: `CatalogImportSchemaAction.decide` blocks a SUBSCRIBED import whose source version is below
+  current, so a bump would make the Suite refuse every release already published on Exchange. The
+  contract's own policy is that additive optional fields need no bump.
+- **The URL-subscribed path does not go through `ImportCatalogZip`.** `RegisterCatalog` binds the key
+  from the manifest slug and `UpgradeCatalog` installs per resource through `InstallFromCatalog`. So
+  "URL subscriptions get all of it for free" is false; each phase needs its own hook on that path.
+- **Any new field on a resource detail moves every per-resource fingerprint, once.** The canonical
+  form serializes the whole resource object with no allowlist and emits nulls and defaults, and the
+  upgrade preview compares a stored baseline against a locally recomputed one. Cosmetic and
+  self-healing; the catalog-level fingerprint is the publisher's own stamp and is unaffected.
+- **Imported published versions carry no theme snapshot**, so a theme override takes effect on them
+  without regenerating anything.
+- **Nested commands are savepoints** in the outer transaction; `ImportCatalogZip` is not
+  self-managed, the Exchange and URL wrappers are.
+- **A duplicate `exchange:` source is reachable today** — a publisher renaming their slug between
+  releases creates a second catalog with the same source, because the installer resolves by key.
+  D1's source-as-identity closes it.
+- **`ThemeRefOverride` already exists** and means a variant overriding its template's default theme.
+  Different concept, same word; pick distinct wording in the model.
+- **"Make it say who you are" is withdrawn.** Sender name, address and registration details are data:
+  the publisher declares `sender` in the data contract and the caller supplies it. The letterhead is
+  an overridable stencil. #921 is closed as not planned.
+
+### Since accepted elsewhere
+
+The re-use walk-through's "Deploy" paragraph described a catalog that installs partially. That is no
+longer possible: a catalog installs and upgrades as one unit (#850, shipped). Deploying a whole
+catalog at once is #920 and is still open.
 
 ## Context
 

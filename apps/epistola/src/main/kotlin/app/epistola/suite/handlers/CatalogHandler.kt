@@ -51,6 +51,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.exchange.CancelCatalogPublication
 import app.epistola.suite.exchange.ExchangeSourceUri
 import app.epistola.suite.exchange.GetCatalogPublicationState
+import app.epistola.suite.exchange.GetExchangeCatalogLink
 import app.epistola.suite.exchange.PublishCurrentCatalogRelease
 import app.epistola.suite.exchange.SetCatalogPublicationNamespace
 import app.epistola.suite.features.KnownFeatures
@@ -514,13 +515,11 @@ class CatalogHandler {
     fun upgrade(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
-        val includeNewSlugs = request.servletRequest().getParameterValues("newSlugs")?.toList() ?: emptyList()
 
         return try {
             val result = UpgradeCatalog(
                 tenantKey = tenantId.key,
                 catalogKey = catalogKey,
-                includeNewSlugs = includeNewSlugs,
             ).execute()
 
             if (result.aborted) {
@@ -566,6 +565,10 @@ class CatalogHandler {
             } else {
                 null
             }
+            // The catalog's page on Exchange, when it came from there. Null for a plain URL
+            // subscription, a ZIP import, or an authored catalog — the view falls back to the text
+            // it rendered before. Resolved once per page: the rows append to it themselves.
+            val exchangeCatalogUrl = GetExchangeCatalogLink(tenantId.key, result.catalog.sourceUrl).query()
             // Per-stencil version-conflict map (slug → "v1, v2 still pinned by N
             // template(s) (latest v3)"). Empty when the catalog is exportable. Used by
             // the browse view to flag stencils that block export — mirrors the precheck
@@ -587,6 +590,7 @@ class CatalogHandler {
                 "tenantId" to tenantId.key
                 "activeNavSection" to "catalogs"
                 "catalog" to result.catalog
+                "exchangeCatalogUrl" to exchangeCatalogUrl
                 "publication" to publication
                 "publicationError" to error
                 "resources" to result.resources
@@ -798,14 +802,11 @@ class CatalogHandler {
     fun installPreview(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
-        val slugParam = request.param("slug").orElse(null)
-        val resourceSlugs = slugParam?.let { listOf(it) }
 
         return try {
             val preview = PreviewInstall(
                 tenantKey = tenantId.key,
                 catalogKey = catalogKey,
-                resourceSlugs = resourceSlugs,
             ).query()
 
             ServerResponse.ok().render(
@@ -813,10 +814,7 @@ class CatalogHandler {
                 mapOf(
                     "tenantId" to tenantId.key,
                     "catalog" to mapOf("id" to catalogKey.value),
-                    "selected" to preview.selected,
-                    "dependencies" to preview.dependencies,
-                    "allResources" to preview.all,
-                    "slugParam" to (slugParam ?: ""),
+                    "allResources" to preview.resources,
                 ),
             )
         } catch (e: Exception) {
@@ -832,14 +830,10 @@ class CatalogHandler {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
 
-        val slugParam = request.param("slug").orElse(null)?.ifBlank { null }
-        val resourceSlugs = slugParam?.let { listOf(it) }
-
         return try {
             val results = InstallFromCatalog(
                 tenantKey = tenantId.key,
                 catalogKey = catalogKey,
-                resourceSlugs = resourceSlugs,
             ).execute()
 
             val failed = results.filter { it.status == InstallStatus.FAILED }

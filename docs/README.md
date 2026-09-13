@@ -13,7 +13,7 @@ Repository-level documents live at the root: [`CONTRIBUTING.md`](../CONTRIBUTING
 [`CHANGELOG.md`](../CHANGELOG.md), [`SECURITY.md`](../SECURITY.md),
 [`SUPPORT_POLICY.md`](../SUPPORT_POLICY.md), [`VULNERABILITIES.md`](../VULNERABILITIES.md),
 [`DISCLAIMER.md`](../DISCLAIMER.md), [`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) and
-[`CLAUDE.md`](../CLAUDE.md) (conventions for AI-assisted contributions).
+[`AGENTS.md`](../AGENTS.md) (conventions for AI-assisted contributions; `CLAUDE.md` imports it).
 
 ## How to read the Status column
 
@@ -22,7 +22,7 @@ Not every page describes shipped behavior. Each entry is labelled:
 | Label                | Meaning                                                                                                                     |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | **Current**          | Describes behavior as it ships today. Safe to rely on.                                                                      |
-| **Alpha** / **Beta** | Ships, but experimental. Breaking changes may land in a MINOR release (see [`CLAUDE.md`](../CLAUDE.md#commit-conventions)). |
+| **Alpha** / **Beta** | Ships, but experimental. Breaking changes may land in a MINOR release (see [`AGENTS.md`](../AGENTS.md#stability-contract)). |
 | **Proposed**         | A design or plan. Some of it may be built; file paths in it are proposals, not a map of the code.                           |
 | **Record**           | A point-in-time artefact — a review, a measurement, sample output. True when written, not maintained.                       |
 
@@ -65,17 +65,19 @@ under its title. That banner, not this table, is authoritative.
 
 ## Catalogs and resource exchange
 
-| Doc                                                                 | Status  | What it covers                                                               |
-| ------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------- |
-| [Catalogs & resource exchange](exchange/README.md)                  | Current | Architecture, data model and import/export flows. Root of the exchange docs. |
-| [Wire format v5](exchange/v5/README.md)                             | Current | Current catalog wire contract, one page per resource part.                   |
-| [Wire format v4](exchange/v4/README.md)                             | Current | Previous wire contract, retained for compatibility.                          |
-| [Catalog versioning](catalog-versioning.md)                         | Current | How a catalog declares a version and how "is this new?" is decided.          |
-| [Catalog contract compatibility](catalog-contract-compatibility.md) | Current | Suite impact of adopting the portable `epistola-catalog` aggregate.          |
-| [Resource reference graph](resource-reference-graph.md)             | Alpha   | Tenant-wide view of which resources depend on which.                         |
-| [Version axes](version-axes.md)                                     | Current | The independent "version" concepts and which question each answers.          |
-| [Exchange publication](catalog-exchange-publication.md)             | Alpha   | Publishing authored catalog releases to Epistola Exchange.                   |
-| [Exchange installation](catalog-exchange-installation.md)           | Alpha   | Browsing Epistola Exchange, installing from it, and how updates are noticed. |
+| Doc                                                                   | Status   | What it covers                                                               |
+| --------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------- |
+| [Catalogs & resource exchange](exchange/README.md)                    | Current  | Architecture, data model and import/export flows. Root of the exchange docs. |
+| [Wire format v5](exchange/v5/README.md)                               | Current  | Current catalog wire contract, one page per resource part.                   |
+| [Wire format v4](exchange/v4/README.md)                               | Current  | Previous wire contract, retained for compatibility.                          |
+| [Catalog versioning](catalog-versioning.md)                           | Current  | How a catalog declares a version and how "is this new?" is decided.          |
+| [Catalog contract compatibility](catalog-contract-compatibility.md)   | Current  | Suite impact of adopting the portable `epistola-catalog` aggregate.          |
+| [Resource reference graph](resource-reference-graph.md)               | Alpha    | Tenant-wide view of which resources depend on which.                         |
+| [Resource relocation](catalog-resource-relocation.md)                 | Alpha    | Moving or renaming an authored resource without breaking its old address.    |
+| [Resource identity migration](catalog-resource-identity-migration.md) | Proposed | Separating identity from location and address, per ADR 0014.                 |
+| [Version axes](version-axes.md)                                       | Current  | The independent "version" concepts and which question each answers.          |
+| [Exchange publication](catalog-exchange-publication.md)               | Alpha    | Publishing authored catalog releases to Epistola Exchange.                   |
+| [Exchange installation](catalog-exchange-installation.md)             | Alpha    | Browsing Epistola Exchange, installing from it, and how updates are noticed. |
 
 ## Platform runtime
 
@@ -155,6 +157,7 @@ that implement it live in [`modules/rest-api`](../modules/rest-api).
 | [Shortcuts: command runtime](shortcuts-command-runtime.md)               | Current  | Key normalization, resolution, chords and event policy.            |
 | [Shortcuts: plugin extension guide](shortcuts-plugin-extension-guide.md) | Current  | Adding plugin-provided keyboard shortcuts safely.                  |
 | [GitHub repository guide](github.md)                                     | Current  | CI/CD, issue management, releases and community features.          |
+| [Agent effectiveness review](agent-effectiveness-review.md)              | Record   | Instruction, skill, changelog and consistency health for AI work.  |
 | [Testability improvements](testability-improvements.md)                  | Proposed | A plan for shifting the integration-first test suite.              |
 
 ## Decision records

@@ -40,7 +40,15 @@
                 </div>
                 <div th:if="${catalog.sourceUrl}" class="catalog-detail-summary-item catalog-detail-source">
                     <span class="catalog-detail-label">Source</span>
-                    <code class="catalog-detail-value" th:text="${catalog.sourceUrl}"></code>
+                    <a th:if="${exchangeCatalogUrl != null}"
+                       th:href="${exchangeCatalogUrl}"
+                       class="catalog-detail-value"
+                       target="_blank" rel="noopener noreferrer"
+                       hx-boost="false"
+                       title="View this catalog on Epistola Exchange">
+                        <code th:text="${catalog.sourceUrl}"></code>
+                    </a>
+                    <code th:if="${exchangeCatalogUrl == null}" class="catalog-detail-value" th:text="${catalog.sourceUrl}"></code>
                 </div>
             </div>
 
@@ -331,13 +339,14 @@
         <div class="card" th:if="${!resources.isEmpty()}">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h2>Resources</h2>
-                <!-- Install All only for subscribed catalogs -->
+                <!--/* A catalog installs whole (#850), so this is the only install action: there is
+                       no per-resource Install, and nothing to choose between. */-->
                 <button th:if="${catalog.type.name() == 'SUBSCRIBED'}"
                         type="button" class="ep-btn ep-btn-primary ep-btn-sm"
                         th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/install-preview(tenantId=${tenantId},catalogId=${catalog.id})}"
                         hx-target="#install-preview-body"
                         hx-swap="innerHTML"
-                        data-open-dialog="install-preview-dialog">Install All</button>
+                        data-open-dialog="install-preview-dialog">Install catalog</button>
             </div>
             <div class="card-content">
                 <div class="ep-table-scroll" role="region" aria-label="Catalog resources table" tabindex="0"
@@ -352,7 +361,6 @@
                         <col style="width: 23%" /><!-- Description -->
                         <col style="width: 8%" /><!-- Used by -->
                         <col th:if="${catalog.type.name() == 'SUBSCRIBED'}" style="width: 11%" /><!-- Status -->
-                        <col th:if="${catalog.type.name() == 'SUBSCRIBED'}" style="width: 10%" /><!-- Actions -->
                     </colgroup>
                     <thead>
                         <tr>
@@ -362,7 +370,6 @@
                             <th>Description</th>
                             <th>Used by</th>
                             <th th:if="${catalog.type.name() == 'SUBSCRIBED'}">Status</th>
-                            <th th:if="${catalog.type.name() == 'SUBSCRIBED'}">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="resource-table" th:fragment="resource-rows">
@@ -411,8 +418,22 @@
                                        th:href="@{/tenants/{tenantId}/images(tenantId=${tenantId},catalog=${catalog.id})}"
                                        th:text="${resource.name}"></a>
                                 </th:block>
-                                <!-- Subscribed: plain text -->
-                                <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" th:text="${resource.name}"></span>
+                                <!--/* Subscribed: the resource has no local page (it is a read-only
+                                       mirror), but a catalog installed from Exchange has one there —
+                                       /catalogs/{namespace}/{key}/resources/{type}/{slug}, built by
+                                       appending to the catalog root the handler resolved once. A
+                                       private catalog's page asks the reader to sign in, which is
+                                       Exchange's call to make, not ours to pre-empt. Everything else
+                                       subscribed stays plain text. */-->
+                                <th:block th:if="${catalog.type.name() == 'SUBSCRIBED'}">
+                                    <a th:if="${exchangeCatalogUrl != null}"
+                                       th:href="${exchangeCatalogUrl + '/resources/' + resource.type + '/' + resource.slug}"
+                                       th:text="${resource.name}"
+                                       target="_blank" rel="noopener noreferrer"
+                                       hx-boost="false"
+                                       th:title="'View ' + ${resource.name} + ' on Epistola Exchange'"></a>
+                                    <span th:if="${exchangeCatalogUrl == null}" th:text="${resource.name}"></span>
+                                </th:block>
                             </td>
                             <td th:title="${resource.slug}"><code th:text="${resource.slug}"></code></td>
                             <td th:title="${resource.description}">
@@ -431,19 +452,13 @@
                                 </button>
                                 <span th:if="${count == 0}" class="text-muted">-</span>
                             </td>
-                            <!-- Status + Actions only for subscribed catalogs -->
+                            <!--/* Status only for subscribed catalogs. After an install every row
+                                   reads Installed; Available means the catalog is registered but has
+                                   not been installed yet, or the resource arrived in a release newer
+                                   than the one installed here. There is no per-resource action. */-->
                             <td th:if="${catalog.type.name() == 'SUBSCRIBED'}">
                                 <span th:if="${resource.status.name() == 'INSTALLED'}" class="badge badge-success">Installed</span>
                                 <span th:if="${resource.status.name() == 'AVAILABLE'}" class="badge">Available</span>
-                            </td>
-                            <td th:if="${catalog.type.name() == 'SUBSCRIBED'}">
-                                <button th:if="${resource.status.name() == 'AVAILABLE'}"
-                                        type="button" class="ep-btn ep-btn-primary ep-btn-sm"
-                                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/install-preview(tenantId=${tenantId},catalogId=${catalog.id},slug=${resource.slug})}"
-                                        hx-target="#install-preview-body"
-                                        hx-swap="innerHTML"
-                                        data-open-dialog="install-preview-dialog">Install</button>
-                                <span th:if="${resource.status.name() == 'INSTALLED'}" class="text-muted">-</span>
                             </td>
                         </tr>
                     </tbody>
@@ -486,7 +501,7 @@
             <h3>Confirm Installation</h3>
         </div>
         <div class="ep-dialog-body">
-            <p>The following resources will be installed:</p>
+            <p>The whole catalog is installed. These resources will be added or updated:</p>
 
             <table class="ep-table" style="margin-top: var(--ep-space-3);">
                 <thead>
@@ -497,7 +512,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr th:each="resource : ${selected}">
+                    <tr th:each="resource : ${allResources}">
                         <td>
                             <span th:if="${resource.type == 'template'}" class="badge badge-info">template</span>
                             <span th:if="${resource.type == 'theme'}" class="badge badge-default">theme</span>
@@ -508,22 +523,11 @@
                         <td th:text="${resource.name}"></td>
                         <td></td>
                     </tr>
-                    <tr th:each="dep : ${dependencies}" style="opacity: 0.7;">
-                        <td>
-                            <span th:if="${dep.type == 'template'}" class="badge badge-info">template</span>
-                            <span th:if="${dep.type == 'theme'}" class="badge badge-default">theme</span>
-                            <span th:if="${dep.type == 'stencil'}" class="badge badge-default">stencil</span>
-                            <span th:if="${dep.type == 'attribute'}" class="badge badge-default">attribute</span>
-                            <span th:if="${dep.type == 'asset'}" class="badge badge-default">asset</span>
-                        </td>
-                        <td th:text="${dep.name}"></td>
-                        <td><span class="text-muted text-sm">dependency</span></td>
-                    </tr>
                 </tbody>
             </table>
         </div>
         <form id="install-confirm-form"
-              th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/install(tenantId=${tenantId},catalogId=${catalog.id},slug=${slugParam})}"
+              th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/install(tenantId=${tenantId},catalogId=${catalog.id})}"
               hx-target="#resource-table"
               hx-swap="outerHTML"
               data-close-dialog-on-success="install-preview-dialog">

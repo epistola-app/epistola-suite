@@ -108,8 +108,8 @@ class UpgradeCatalogTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `upgrade only upgrades previously installed resources`() {
-        val tenant = createTenant("Upgrade Selective Test")
+    fun `upgrade installs manifest resources that are not installed locally`() {
+        val tenant = createTenant("Upgrade Tops Up Test")
         val catalogKey = CatalogKey.of("epistola-demo")
 
         withMediator {
@@ -119,46 +119,17 @@ class UpgradeCatalogTest : IntegrationTestBase() {
                 authType = AuthType.NONE,
             ).execute()
 
-            // Install only a specific resource (corporate theme)
-            InstallFromCatalog(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
-                resourceSlugs = listOf("corporate"),
-            ).execute()
-
+            // Registered but never installed: the same shape as an installation left partial by the
+            // selective install this replaced (#850). An upgrade reconciles the whole manifest, so
+            // it tops up rather than preserving whatever subset happens to be present.
             val result = UpgradeCatalog(
                 tenantKey = tenant.id,
                 catalogKey = catalogKey,
-            ).execute()
-
-            // Only previously installed resources should be upgraded
-            val upgradedSlugs = result.installResults.map { it.slug }.toSet()
-            assertThat(upgradedSlugs).contains("corporate")
-            assertThat(upgradedSlugs).doesNotContain("hello-world", "simple-letter", "demo-invoice")
-        }
-    }
-
-    @Test
-    fun `full upgrade installs every manifest resource`() {
-        val tenant = createTenant("Upgrade Full Test")
-        val catalogKey = CatalogKey.of("epistola-demo")
-
-        withMediator {
-            RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
-            InstallFromCatalog(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
-                resourceSlugs = listOf("corporate"),
-            ).execute()
-
-            val result = UpgradeCatalog(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
-                mode = CatalogUpgradeMode.FULL,
             ).execute()
 
             assertThat(result.installResults.map { it.slug })
                 .contains("corporate", "hello-world", "advanced-data-contract")
+            assertThat(result.installResults).allMatch { it.status != InstallStatus.FAILED }
         }
     }
 

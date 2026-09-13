@@ -20,7 +20,7 @@ data class CatalogUpgradeDiffInfo(
     val upgradeAvailable: Boolean,
     /** Portable catalog metadata sections changed by the publisher. */
     val metadataChanges: List<String>,
-    /** Newly published resources — not installed unless explicitly opted in. */
+    /** Resources this release adds. An upgrade reconciles the whole manifest, so these arrive with it. */
     val added: List<String>,
     /** Resources the new release removed (would be deleted on upgrade). */
     val removed: List<String>,

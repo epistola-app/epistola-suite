@@ -17,6 +17,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.themes.queries.ListThemes
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -93,6 +94,8 @@ class CatalogIntegrationTest : IntegrationTestBase() {
                 catalogKey = CatalogKey.of("epistola-demo"),
             ).execute()
 
+            // Every manifest resource. A catalog is the install unit; there is no way to ask for a
+            // subset, so this count is the whole manifest and nothing else (#850).
             assertThat(results).hasSize(12)
             val successful = results.filter { it.status != InstallStatus.FAILED }
             assertThat(successful).hasSize(12)
@@ -111,30 +114,6 @@ class CatalogIntegrationTest : IntegrationTestBase() {
 
             // Verify resource type distribution
             assertThat(results.map { it.type }).containsAll(listOf("template", "theme", "stencil", "attribute", "asset"))
-        }
-    }
-
-    @Test
-    fun `install selective slug auto-includes dependencies`() {
-        val tenant = createTenant("Selective Test")
-
-        withMediator {
-            RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
-
-            val results = InstallFromCatalog(
-                tenantKey = tenant.id,
-                catalogKey = CatalogKey.of("epistola-demo"),
-                resourceSlugs = listOf("hello-world"),
-            ).execute()
-
-            // hello-world references corporate theme and company-header stencil
-            val types = results.map { "${it.type}:${it.slug}" }.toSet()
-            assertThat(types).contains("template:hello-world", "theme:corporate", "stencil:company-header")
-            assertThat(results).allMatch { it.status != InstallStatus.FAILED }
-
-            val templates = ListDocumentTemplates(TenantId(tenant.id)).query()
-            assertThat(templates).hasSize(1)
-            assertThat(templates[0].id.value).isEqualTo("hello-world")
         }
     }
 
@@ -302,6 +281,100 @@ class CatalogIntegrationTest : IntegrationTestBase() {
      * declaring one `codeList`, whose detail is deliberately stamped at version 3.
      * Returns the `file:` URL of the manifest.
      */
+    /**
+     * A resource that fails mid-install must leave nothing behind.
+     *
+     * The catalog below installs a theme cleanly and then a template the importer refuses (no
+     * variants). Before the install became one transaction, the theme stayed: an install could half
+     * succeed, report a failure count, and leave a catalog in a state nobody chose. The ZIP path has
+     * always abandoned the whole import; this is the URL-subscribed path matching it (#850).
+     */
+    @Test
+    fun `a resource that fails to install rolls back the whole catalog`(@TempDir tmp: Path) {
+        val tenant = createTenant("Install Rollback Test")
+        val sourceUrl = writeCatalogWithBrokenTemplate(tmp)
+
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
+
+            val results = InstallFromCatalog(
+                tenantKey = tenant.id,
+                catalogKey = CatalogKey.of("rollback-test"),
+            ).execute()
+
+            // The caller still learns which resource failed...
+            assertThat(results).anyMatch { it.slug == "broken" && it.status == InstallStatus.FAILED }
+
+            // ...and nothing was written, including the theme that installed before it.
+            assertThat(ListThemes(TenantId(tenant.id)).query().map { it.id.value })
+                .doesNotContain("rollback-theme")
+            assertThat(ListDocumentTemplates(TenantId(tenant.id)).query()).isEmpty()
+        }
+    }
+
+    private fun writeCatalogWithBrokenTemplate(dir: Path): String {
+        val manifest = """
+            {
+              "schemaVersion": 6,
+              "catalog": { "slug": "rollback-test", "name": "Rollback Test Catalog" },
+              "publisher": { "name": "Test" },
+              "release": { "version": "1.0.0", "fingerprint": "${"0".repeat(64)}" },
+              "resources": [
+                {
+                  "type": "theme",
+                  "slug": "rollback-theme",
+                  "name": "Rollback Theme",
+                  "detailUrl": "./resources/themes/rollback-theme.json"
+                },
+                {
+                  "type": "template",
+                  "slug": "broken",
+                  "name": "Broken Template",
+                  "detailUrl": "./resources/templates/broken.json"
+                }
+              ]
+            }
+        """.trimIndent()
+        val theme = """
+            {
+              "schemaVersion": 6,
+              "resource": {
+                "type": "theme",
+                "slug": "rollback-theme",
+                "name": "Rollback Theme",
+                "documentStyles": { "fontSize": "11pt" }
+              }
+            }
+        """.trimIndent()
+        // No variants: ImportTemplates requires at least one, so this fails during install rather
+        // than during the wire-version or manifest gate, which is what exercises the rollback.
+        val template = """
+            {
+              "schemaVersion": 6,
+              "resource": {
+                "type": "template",
+                "slug": "broken",
+                "name": "Broken Template",
+                "templateModel": {
+                  "modelVersion": 1,
+                  "root": "n-root",
+                  "themeRef": { "type": "inherit" },
+                  "nodes": { "n-root": { "id": "n-root", "type": "root", "slots": ["s-root"] } },
+                  "slots": { "s-root": { "id": "s-root", "nodeId": "n-root", "name": "children", "children": [] } }
+                },
+                "variants": []
+              }
+            }
+        """.trimIndent()
+
+        dir.resolve("catalog.json").writeText(manifest)
+        dir.resolve("resources/themes").createDirectories()
+        dir.resolve("resources/themes/rollback-theme.json").writeText(theme)
+        dir.resolve("resources/templates").createDirectories()
+        dir.resolve("resources/templates/broken.json").writeText(template)
+        return dir.resolve("catalog.json").toUri().toString()
+    }
+
     private fun writeDriftedCatalog(dir: Path): String {
         val manifest = """
             {

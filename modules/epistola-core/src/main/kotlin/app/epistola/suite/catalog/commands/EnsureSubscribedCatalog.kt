@@ -123,7 +123,6 @@ class EnsureSubscribedCatalogHandler(
         val upgrade = UpgradeCatalog(
             tenantKey = command.tenantKey,
             catalogKey = existing.id,
-            mode = CatalogUpgradeMode.FULL,
             preserveResourceTypes = command.preserveResourceTypes,
         ).execute()
         if (upgrade.aborted) {

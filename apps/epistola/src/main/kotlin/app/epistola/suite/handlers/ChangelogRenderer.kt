@@ -97,7 +97,7 @@ class ChangelogRenderer {
             sb.append("<h3>").append(escapeHtml(friendlyHeading(itemType))).append("</h3>\n")
             sb.append("<ul>\n")
             typeItems.forEach { item ->
-                sb.append(withChips(renderItemBody(item.markdown), item.audience, item.scopes)).append("\n")
+                sb.append(withChips(renderItemBody(item.markdown), item.audience, item.scopes, item.breaking)).append("\n")
             }
             sb.append("</ul>\n")
         }
@@ -112,9 +112,10 @@ class ChangelogRenderer {
         return body
     }
 
-    /** Injects audience and scope chips immediately after the item's opening `<li>`. */
-    private fun withChips(itemHtml: String, audience: ChangelogAudience, scopes: List<String>): String {
+    /** Injects breaking, audience and scope chips immediately after the item's opening `<li>`. */
+    private fun withChips(itemHtml: String, audience: ChangelogAudience, scopes: List<String>, breaking: Boolean): String {
         val chips = buildString {
+            if (breaking) append(breakingChip())
             audienceChip(audience)?.let { append(it) }
             scopes.forEach { append(scopeChip(it)) }
         }
@@ -132,6 +133,8 @@ class ChangelogRenderer {
     }
 
     private fun scopeChip(scope: String): String = """<span class="changelog-badge changelog-badge--scope">${escapeHtml(scope)}</span>"""
+
+    private fun breakingChip(): String = """<span class="changelog-badge changelog-badge--breaking">Breaking</span>"""
 
     private fun buildSummary(version: ParsedVersion, view: ChangelogAudience, type: String?, scope: String?): String {
         val counts = version.items.filter { it.matches(view, type, scope) }.groupingBy { it.type }.eachCount()
@@ -217,11 +220,14 @@ class ChangelogRenderer {
         var bufferType = "chore"
         var bufferScopes: List<String> = emptyList()
         var bufferAudience = ChangelogAudience.EVERYONE
+        var bufferBreaking = false
 
         fun flush() {
             val lines = buffer ?: return
             val text = lines.joinToString("\n").trimEnd()
-            if (text.isNotBlank()) items.add(ParsedItem(type = bufferType, scopes = bufferScopes, audience = bufferAudience, markdown = text))
+            if (text.isNotBlank()) {
+                items.add(ParsedItem(type = bufferType, scopes = bufferScopes, audience = bufferAudience, breaking = bufferBreaking, markdown = text))
+            }
             buffer = null
         }
 
@@ -240,6 +246,7 @@ class ChangelogRenderer {
                     bufferType = marker.type ?: legacyType
                     bufferScopes = marker.scopes
                     bufferAudience = marker.audience
+                    bufferBreaking = marker.breaking
                     continue
                 }
             }
@@ -262,12 +269,14 @@ class ChangelogRenderer {
         }
         var type: String? = null
         var scopes: List<String> = emptyList()
+        var breaking = false
         commitPattern.find(working)?.let { m ->
             type = m.groupValues[2]
             scopes = m.groupValues[3].split(",").map { it.trim() }.filter { it.isNotEmpty() }
+            breaking = m.groupValues[4] == "!"
             working = m.groupValues[1] + working.substring(m.range.last + 1)
         }
-        return MarkerParse(audience, type, scopes, working)
+        return MarkerParse(audience, type, scopes, breaking, working)
     }
 
     private fun mapCategory(category: String): String = when (category.lowercase()) {
@@ -308,9 +317,9 @@ class ChangelogRenderer {
 
     private data class ParsedVersion(val version: String, val date: String, val released: Boolean, val intro: String, val items: List<ParsedItem>)
 
-    private data class ParsedItem(val type: String, val scopes: List<String>, val audience: ChangelogAudience, val markdown: String)
+    private data class ParsedItem(val type: String, val scopes: List<String>, val audience: ChangelogAudience, val breaking: Boolean, val markdown: String)
 
-    private data class MarkerParse(val audience: ChangelogAudience, val type: String?, val scopes: List<String>, val line: String)
+    private data class MarkerParse(val audience: ChangelogAudience, val type: String?, val scopes: List<String>, val breaking: Boolean, val line: String)
 
     private data class RenderKey(val view: ChangelogAudience, val includeUnreleased: Boolean, val type: String?, val scope: String?)
 
@@ -318,7 +327,9 @@ class ChangelogRenderer {
         val CANON_TYPES = listOf("feat", "fix", "perf", "refactor", "docs", "test", "build", "ci", "chore")
         val audiencePattern = Regex("""^(\s*-\s+)\*\*\[(\w+)]\*\*\s*""")
 
-        // Scope may be a comma-separated list, e.g. feat(editor,pdf):
-        val commitPattern = Regex("""^(\s*-\s+)([a-z]+)\(([a-z0-9][a-z0-9.,/-]*)\):\s+""")
+        // Scope may be a comma-separated list, e.g. feat(editor,pdf):. A trailing `!` marks a
+        // breaking change, e.g. feat(catalog)!:. Without it here, every breaking entry fell through
+        // to the untyped `chore` bucket and kept its raw prefix in the rendered text.
+        val commitPattern = Regex("""^(\s*-\s+)([a-z]+)\(([a-z0-9][a-z0-9.,/-]*)\)(!?):\s+""")
     }
 }

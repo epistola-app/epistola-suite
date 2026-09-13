@@ -4,8 +4,10 @@
 
 package app.epistola.suite.catalog
 
+import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
+import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -227,6 +229,56 @@ class ExchangeCatalogHandlerTest : ExchangeHandlerTestBase() {
         val tenant = createTenant(name).id
         withMediator { SaveFeatureToggle(tenant, KnownFeatures.CATALOG_INSTALLING, true).execute() }
         return tenant
+    }
+
+    /**
+     * A catalog installed from Exchange has a page there; a mirrored resource has none here.
+     *
+     * The browse page renders subscribed resources as plain text, because there is nothing local to
+     * open. When the catalog came from Exchange there is something to open, and the link is
+     * constructible from what is already known: the namespace and key live in `catalogs.source_url`,
+     * and Exchange's own route is /catalogs/{namespace}/{key}/resources/{type}/{slug}. Until
+     * epistola-exchange#8 exposes a release's resource inventory over its API, this is the whole of
+     * what a Suite can say about a resource it has not downloaded.
+     */
+    @Test
+    fun `resources of an Exchange catalog link to their page on Exchange`() {
+        val tenant = connectedTenant("resource-links")
+        exchange.publish("acme", "invoices", releaseArchive("invoices", "1.0.0"), version = "1.0.0")
+        withMediator { InstallExchangeCatalog(tenant, "acme", "invoices").execute() }
+
+        val response = restTemplate.getForEntity("/tenants/$tenant/catalogs/invoices/browse", String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        val body = requireNotNull(response.body)
+        // The catalog's own page, from the Source line.
+        assertThat(body).contains("${exchange.baseUrl}/catalogs/acme/invoices")
+        // And a per-resource page. releaseArchive publishes a catalog carrying one theme.
+        assertThat(body).contains("${exchange.baseUrl}/catalogs/acme/invoices/resources/theme/")
+        // Leaving the application, so never swapped into the page by hx-boost.
+        assertThat(body).contains("hx-boost=\"false\"")
+    }
+
+    /**
+     * A subscribed catalog that did not come from Exchange has no page to link to, so the rows stay
+     * plain text rather than pointing at a guess.
+     */
+    @Test
+    fun `resources of a URL-subscribed catalog are not linked to Exchange`() {
+        val tenant = connectedTenant("no-exchange-links")
+        withMediator {
+            RegisterCatalog(
+                tenantKey = tenant,
+                sourceUrl = "classpath:epistola/catalogs/fixture/catalog.json",
+                authType = AuthType.NONE,
+            ).execute()
+        }
+
+        val response = restTemplate.getForEntity("/tenants/$tenant/catalogs/epistola-demo/browse", String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(requireNotNull(response.body)).doesNotContain("/catalogs/acme/")
+        assertThat(response.body).doesNotContain("${exchange.baseUrl}/catalogs/")
     }
 
     private fun connectedTenant(name: String): TenantKey {

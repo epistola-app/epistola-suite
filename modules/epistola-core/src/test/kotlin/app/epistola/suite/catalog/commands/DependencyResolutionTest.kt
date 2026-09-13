@@ -31,113 +31,32 @@ class DependencyResolutionTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `installing template with no deps installs only that template`() {
-        val tenant = createTenant("Dep Test - No Deps")
+    fun `installing a catalog installs every resource in its manifest`() {
+        val tenant = createTenant("Dep Test - Whole Catalog")
 
         withMediator {
             val catalogKey = registerTestCatalog(tenant.id)
 
-            val results = InstallFromCatalog(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
-                resourceSlugs = listOf("no-deps"),
-            ).execute()
+            val results = InstallFromCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
 
-            assertThat(results).hasSize(1)
-            assertThat(results[0].slug).isEqualTo("no-deps")
-            assertThat(results[0].type).isEqualTo("template")
-            assertThat(results[0].status).isNotEqualTo(InstallStatus.FAILED)
-        }
-    }
-
-    @Test
-    fun `installing template auto-includes referenced theme`() {
-        val tenant = createTenant("Dep Test - Theme")
-
-        withMediator {
-            val catalogKey = registerTestCatalog(tenant.id)
-
-            val results = InstallFromCatalog(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
-                resourceSlugs = listOf("full-deps"),
-            ).execute()
-
-            val types = results.map { "${it.type}:${it.slug}" }.toSet()
-            assertThat(types).contains("theme:test-theme")
+            // Every manifest resource, not only the ones some template happens to reference. The
+            // fixture's `no-deps` template needs none of the asset, attribute, theme or stencil;
+            // they arrive because the catalog is the install unit (#850).
+            assertThat(results.map { "${it.type}:${it.slug}" })
+                .contains(
+                    "template:no-deps",
+                    "template:full-deps",
+                    "theme:test-theme",
+                    "stencil:header-with-logo",
+                    "attribute:language",
+                    "asset:01966a00-0000-7000-8000-000000000099",
+                )
             assertThat(results).allMatch { it.status != InstallStatus.FAILED }
         }
     }
 
     @Test
-    fun `installing template auto-includes referenced stencil`() {
-        val tenant = createTenant("Dep Test - Stencil")
-
-        withMediator {
-            val catalogKey = registerTestCatalog(tenant.id)
-
-            val results = InstallFromCatalog(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
-                resourceSlugs = listOf("full-deps"),
-            ).execute()
-
-            val types = results.map { "${it.type}:${it.slug}" }.toSet()
-            assertThat(types).contains("stencil:header-with-logo")
-        }
-    }
-
-    @Test
-    fun `installing template auto-includes referenced attributes`() {
-        val tenant = createTenant("Dep Test - Attributes")
-
-        withMediator {
-            val catalogKey = registerTestCatalog(tenant.id)
-
-            val results = InstallFromCatalog(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
-                resourceSlugs = listOf("full-deps"),
-            ).execute()
-
-            val types = results.map { "${it.type}:${it.slug}" }.toSet()
-            assertThat(types).contains("attribute:language")
-        }
-    }
-
-    @Test
-    fun `installing template auto-includes transitive asset via stencil`() {
-        val tenant = createTenant("Dep Test - Transitive Asset")
-
-        withMediator {
-            val catalogKey = registerTestCatalog(tenant.id)
-
-            // Install only the template — it references a stencil which references an asset
-            val results = InstallFromCatalog(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
-                resourceSlugs = listOf("full-deps"),
-            ).execute()
-
-            val types = results.map { "${it.type}:${it.slug}" }.toSet()
-
-            // Direct deps
-            assertThat(types).contains("theme:test-theme")
-            assertThat(types).contains("stencil:header-with-logo")
-            assertThat(types).contains("attribute:language")
-
-            // Transitive dep: stencil → asset
-            assertThat(types).contains("asset:01966a00-0000-7000-8000-000000000099")
-
-            // Plus the template itself
-            assertThat(types).contains("template:full-deps")
-
-            assertThat(results).allMatch { it.status != InstallStatus.FAILED }
-        }
-    }
-
-    @Test
-    fun `installing all resources works without duplicates`() {
+    fun `installing a catalog produces one result per resource, no duplicates`() {
         val tenant = createTenant("Dep Test - All")
 
         withMediator {
@@ -154,7 +73,7 @@ class DependencyResolutionTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `dependency order is correct when auto-including`() {
+    fun `resources are installed in dependency order`() {
         val tenant = createTenant("Dep Test - Order")
 
         withMediator {
@@ -163,7 +82,6 @@ class DependencyResolutionTest : IntegrationTestBase() {
             val results = InstallFromCatalog(
                 tenantKey = tenant.id,
                 catalogKey = catalogKey,
-                resourceSlugs = listOf("full-deps"),
             ).execute()
 
             val types = results.map { it.type }

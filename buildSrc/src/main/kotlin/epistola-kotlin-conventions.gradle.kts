@@ -201,6 +201,13 @@ tasks.named<Test>("test") {
     useJUnitPlatform { excludeTags("ui", "perf") }
     jvmArgs(springTestJvmArgs)
     capJUnitParallelism()
+    // `--tests X` from the root runs every module's `test`, and Gradle fails a
+    // module whose sources hold no match. That made the documented
+    // `./gradlew test --tests SomeTest` unusable for the repo-wide guard tests,
+    // which live in one module. The other test tasks already opt out; so does
+    // this one now. A filter that matches nowhere at all still reports nothing
+    // ran, so a typo stays visible in the output.
+    filter { isFailOnNoMatchingTests = false }
 }
 
 // Perf tests — opt-in via `@Tag("perf")`. Excluded from `integrationTest` so the

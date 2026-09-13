@@ -22,7 +22,6 @@ coverage/
 .run/
 .claude/worktrees/
 .codex/
-.agents/
 
 # Local environment, credentials, and runtime state
 .env

@@ -15,6 +15,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.core.io.ByteArrayResource
@@ -25,8 +26,11 @@ import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
 import java.io.ByteArrayOutputStream
 import java.nio.file.Files
+import java.nio.file.Path
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlin.io.path.createDirectories
+import kotlin.io.path.writeText
 
 private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/fixture/catalog.json"
 
@@ -75,6 +79,111 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             assertThat(response.body).contains("Review catalog upgrade")
             assertThat(response.body).containsIgnoringCase("already up to date")
         }
+    }
+
+    /**
+     * The upgrade preview must name what is new, what is updated and what is removed, before Apply.
+     *
+     * All three now arrive together — an upgrade reconciles the whole manifest (#850) — which is
+     * exactly why naming them matters: the dialog is the last point at which someone can see that a
+     * resource they rely on is about to disappear, or that content they have never reviewed is
+     * about to be installed. Additions used to be an opt-in checkbox list; the choice went, the
+     * visibility must not.
+     */
+    @Test
+    fun `upgrade-preview names what is new, updated and removed`(@TempDir tmp: Path) = fixture {
+        lateinit var testTenant: Tenant
+        given {
+            writeDiffCatalog(tmp, version = "1.0.0", templateSlug = "old-letter", themeSize = "11pt")
+            val sourceUrl = tmp.resolve("catalog.json").toUri().toString()
+
+            testTenant = tenant("Upgrade Diff Tenant")
+            withMediator {
+                RegisterCatalog(tenantKey = testTenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
+                InstallFromCatalog(tenantKey = testTenant.id, catalogKey = CatalogKey.of("diff-test")).execute()
+            }
+
+            // Move the source on: the template is published under a new slug (so the installed one
+            // is REMOVED and the new one is ADDED) and the theme's content changes (CHANGED).
+            writeDiffCatalog(tmp, version = "1.1.0", templateSlug = "new-letter", themeSize = "12pt")
+        }
+
+        whenever {
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/catalogs/diff-test/upgrade-preview",
+                org.springframework.http.HttpMethod.GET,
+                HttpEntity<Void>(htmxGet()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body!!
+            assertThat(body).contains("This upgrade will")
+            // Named, not merely counted, for each of the three kinds.
+            assertThat(body).contains("template/new-letter")
+            assertThat(body).contains("template/old-letter")
+            assertThat(body).contains("theme/house")
+            // The opt-in list and its "not installed by default" caveat are gone.
+            assertThat(body).doesNotContain("newSlugs")
+            assertThat(body).doesNotContain("not installed by default")
+        }
+    }
+
+    /** A two-resource catalog whose template slug and theme content are both caller-controlled. */
+    private fun writeDiffCatalog(dir: Path, version: String, templateSlug: String, themeSize: String) {
+        dir.resolve("resources/themes").createDirectories()
+        dir.resolve("resources/templates").createDirectories()
+
+        dir.resolve("catalog.json").writeText(
+            """
+            {
+              "schemaVersion": 6,
+              "catalog": { "slug": "diff-test", "name": "Diff Test Catalog" },
+              "publisher": { "name": "Test" },
+              "release": { "version": "$version", "fingerprint": "${"0".repeat(64)}" },
+              "resources": [
+                { "type": "theme", "slug": "house", "name": "House", "detailUrl": "./resources/themes/house.json" },
+                { "type": "template", "slug": "$templateSlug", "name": "Letter", "detailUrl": "./resources/templates/$templateSlug.json" }
+              ]
+            }
+            """.trimIndent(),
+        )
+        dir.resolve("resources/themes/house.json").writeText(
+            """
+            {
+              "schemaVersion": 6,
+              "resource": {
+                "type": "theme",
+                "slug": "house",
+                "name": "House",
+                "documentStyles": { "fontSize": "$themeSize" }
+              }
+            }
+            """.trimIndent(),
+        )
+        dir.resolve("resources/templates/$templateSlug.json").writeText(
+            """
+            {
+              "schemaVersion": 6,
+              "resource": {
+                "type": "template",
+                "slug": "$templateSlug",
+                "name": "Letter",
+                "templateModel": {
+                  "modelVersion": 1,
+                  "root": "n-root",
+                  "themeRef": { "type": "inherit" },
+                  "nodes": { "n-root": { "id": "n-root", "type": "root", "slots": ["s-root"] } },
+                  "slots": { "s-root": { "id": "s-root", "nodeId": "n-root", "name": "children", "children": [] } }
+                },
+                "variants": [ { "id": "default", "title": "Default", "attributes": {}, "isDefault": true } ]
+              }
+            }
+            """.trimIndent(),
+        )
     }
 
     @Test

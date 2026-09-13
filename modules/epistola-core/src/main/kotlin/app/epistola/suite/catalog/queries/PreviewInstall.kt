@@ -7,7 +7,6 @@ package app.epistola.suite.catalog.queries
 import app.epistola.catalog.protocol.ResourceEntry
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.DependencyResolver
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -17,28 +16,29 @@ import app.epistola.suite.security.RequiresPermission
 import org.springframework.stereotype.Component
 
 /**
- * Previews what would be installed from a catalog, including auto-resolved dependencies.
- * Used to show a confirmation dialog before actual installation.
+ * What installing this catalog would bring in, for the confirmation dialog.
+ *
+ * A catalog installs whole (see [app.epistola.suite.catalog.commands.InstallFromCatalog]), so this
+ * is the manifest's resource list and nothing is resolved or expanded. `DependencyResolver` used to
+ * run here to grow a chosen subset until it was self-consistent; with the whole manifest selected it
+ * can add nothing, and it fetched every resource detail over HTTP to discover that, which made
+ * opening the dialog as expensive as the install.
  */
 data class PreviewInstall(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
-    val resourceSlugs: List<String>? = null,
 ) : Query<PreviewInstallResult>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW
 }
 
 data class PreviewInstallResult(
-    val selected: List<ResourceEntry>,
-    val dependencies: List<ResourceEntry>,
-    val all: List<ResourceEntry>,
+    val resources: List<ResourceEntry>,
 )
 
 @Component
 class PreviewInstallHandler(
     private val catalogClient: CatalogClient,
-    private val dependencyResolver: DependencyResolver,
 ) : QueryHandler<PreviewInstall, PreviewInstallResult> {
 
     override fun handle(query: PreviewInstall): PreviewInstallResult {
@@ -51,20 +51,6 @@ class PreviewInstallHandler(
         val migratedManifest = catalogClient.fetchMigratedManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
         val manifest = migratedManifest.manifest
 
-        val selected = if (query.resourceSlugs != null) {
-            manifest.resources.filter { it.slug in query.resourceSlugs }
-        } else {
-            manifest.resources
-        }
-
-        val all = dependencyResolver.resolve(selected, manifest, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value, migratedManifest.catalog)
-        val selectedKeys = selected.map { "${it.type}:${it.slug}" }.toSet()
-        val dependencies = all.filter { "${it.type}:${it.slug}" !in selectedKeys }
-
-        return PreviewInstallResult(
-            selected = selected,
-            dependencies = dependencies,
-            all = all,
-        )
+        return PreviewInstallResult(resources = manifest.resources)
     }
 }

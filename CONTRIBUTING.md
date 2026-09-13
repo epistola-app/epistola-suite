@@ -117,20 +117,29 @@ git config --get commit.gpgsign  # Should return "true"
 
 ### Changelog Entries
 
-The root `CHANGELOG.md` is read by two audiences: developers in the repo and end users in the product's in-app **Changelog** dialog, which parses and filters entries. New entries under `[Unreleased]` use a **commit-style format** — no `### Added/Changed/Fixed` headers (the type carries that):
+The changelog is read by two audiences: developers in the repo and end users in the product's in-app **Changelog** dialog, which parses and filters entries.
+
+A notable change adds **one file** under `changelog/unreleased/` — never an edit to `CHANGELOG.md`, which holds released history and is assembled at release time. The format lives in [`changelog/README.md`](changelog/README.md):
 
 ```markdown
-- **[dev]** fix(logs): **Recursion guard narrowed.** Scoped to the ApplicationLogIngestor logger.
-- **[user]** feat(editor): **List nesting via Tab.** You can now author sub-lists.
-- chore(build): **Bump the Kotlin daemon heap.**
+---
+type: feat
+scopes: [editor]
+audience: user
+title: List nesting via Tab.
+---
+
+You can now author sub-lists without leaving the keyboard.
 ```
 
-Each entry is `- [**[audience]** ]type(scope): **Title.** …`:
+`./gradlew checkChangelogFragments` validates the fragments and requires one for a change to shipped code; label a pull request `no-changelog` when it genuinely needs none. At release, the `release` skill curates the accumulated fragments — merging overlapping entries and cutting implementation detail — and `./gradlew releaseChangelog -PreleaseVersion=X.Y.Z` assembles them into one dated section per release.
+
+Rendered, each entry becomes `- [**[audience]** ]type(scope)[!]: **Title.** …`:
 
 - **`type(scope)` is required.** `type` is a Conventional-Commit type (`feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `chore`) — the same vocabulary as commit messages. `scope` is a required lowercase kebab-case area (e.g. `editor`, `generation`, `cluster`, `locale`, `logs`). A change spanning areas may list comma-separated scopes — `feat(editor,pdf):` — and matches either in the Scope filter.
 - **The audience badge is optional and comes first:** `**[user]**` for user-facing changes, `**[dev]**` for developer-internal ones (refactors, test infra, scheduler internals). Omit it for changes relevant to everyone.
 
-The markers are stripped before rendering and surface as chips. The dialog filters by **Audience** (Users / Developers / All — defaults to Users, hiding `**[dev]**`), **Type** (the commit types), and **Scope**, and previews the `[Unreleased]` section at the top as an **Upcoming** entry (excluded from the dashboard's "What's New" badge). Older released sections still use legacy Keep-a-Changelog `### ` headers (grandfathered — type mapped from the section, no scope); don't add `### ` headers to new entries. When a version is cut, the `release` skill adds a short prose **release summary** under the `## [x.y.z]` heading (before the entries), which the dialog shows above that version's entries. These conventions apply only to the root `CHANGELOG.md` — the Helm chart changelog (`charts/epistola/CHANGELOG.md`) is not shown in the UI.
+The markers are stripped before rendering and surface as chips. The dialog filters by **Audience** (Users / Developers / All — defaults to Users, hiding `**[dev]**`), **Type** (the commit types), and **Scope**, and previews the unreleased fragments at the top as an **Upcoming** entry (excluded from the dashboard's "What's New" badge) — the app reads a rendered file that carries both the released history and those fragments, so the dialog sees one format throughout. Older released sections still use legacy Keep-a-Changelog `### ` headers (grandfathered — type mapped from the section, no scope); don't add `### ` headers to new entries. When a version is cut, the `release` skill adds a short prose **release summary** under the `## [x.y.z]` heading (before the entries), which the dialog shows above that version's entries. These conventions apply only to the root `CHANGELOG.md` — the Helm chart changelog (`charts/epistola/CHANGELOG.md`) is not shown in the UI.
 
 **Important:** Your SSH key must be added to GitHub as a **signing key** (not just authentication):
 
