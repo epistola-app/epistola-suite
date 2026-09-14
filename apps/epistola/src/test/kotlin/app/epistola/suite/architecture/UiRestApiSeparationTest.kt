@@ -6,61 +6,60 @@ package app.epistola.suite.architecture
 
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
-import java.nio.file.Paths
 import kotlin.test.assertTrue
 
 /**
- * Enforces architectural separation between UI handlers and REST API endpoints.
+ * Enforces the separation between UI handlers and the REST API: UI code — Thymeleaf templates,
+ * static JavaScript, the editor's TypeScript — must never call anything under `/api/`. The REST
+ * API is for external systems and is stable and versioned; a UI need gets a UI route under
+ * `/tenants/`.
  *
- * UI code (Thymeleaf templates, static JavaScript) must NEVER call REST API endpoints.
- * REST API endpoints for external system integration use /api/v1 or /v1 path prefix.
- * UI needs should be handled by dedicated UI handler endpoints without /api or /v1 prefix.
+ * This guard was previously unable to fail. It matched `['"/](api/)?v1/`, but the controllers are
+ * `@RequestMapping("/api")` with no version segment, so no real endpoint could match it — and it
+ * resolved its own relative paths, so it saw only the host app while eight other modules ship
+ * templates and two ship static JavaScript.
  */
 class UiRestApiSeparationTest {
 
+    /** `/api/` in a string literal or an attribute value: a fetch, an `hx-*` target or an import. */
+    private val restCall = Regex("""["'(=]/api/""")
+
+    private val restMediaType = "application/vnd.epistola.v1+json"
+
     @Test
-    fun `UI templates must not call REST API endpoints`() {
-        val templateDir = Paths.get("src/main/resources/templates")
-        val staticDir = Paths.get("src/main/resources/static")
+    fun `UI code must not call the REST API`() {
+        val assets = RepoSources.uiAssetFiles()
+        assertTrue(
+            assets.size > 100,
+            "Found only ${assets.size} UI assets — the scan is broken, not the repository clean",
+        )
+
         val violations = mutableListOf<String>()
 
-        // Check Thymeleaf templates
-        if (Files.exists(templateDir)) {
-            Files.walk(templateDir)
-                .filter { it.toString().endsWith(".html") }
-                .forEach { path ->
-                    val content = Files.readString(path)
-                    val relativePath = templateDir.relativize(path)
+        for (path in assets) {
+            val relative = RepoSources.relativize(path)
+            val raw = Files.readString(path)
+            // A comment mentioning the REST API is discussion, not a call.
+            val code = if (path.toString().endsWith(".html")) {
+                RepoSources.stripHtmlComments(raw)
+            } else {
+                RepoSources.stripComments(raw)
+            }
 
-                    // Check for /api/v1 or /v1/tenants patterns
-                    if (content.contains(Regex("""['"/](api/)?v1/"""))) {
-                        violations.add("Template $relativePath contains REST API call (pattern: /api/v1 or /v1)")
-                    }
-
-                    // Check for REST API content-type
-                    if (content.contains("application/vnd.epistola.v1+json")) {
-                        violations.add("Template $relativePath uses REST API content-type")
-                    }
+            code.lineSequence().forEachIndexed { index, line ->
+                if (restCall.containsMatchIn(line)) {
+                    violations.add("$relative:${index + 1} calls the REST API: ${line.trim()}")
                 }
-        }
-
-        // Check static JavaScript files
-        if (Files.exists(staticDir)) {
-            Files.walk(staticDir)
-                .filter { it.toString().endsWith(".js") }
-                .forEach { path ->
-                    val content = Files.readString(path)
-                    val relativePath = staticDir.relativize(path)
-
-                    if (content.contains(Regex("""['"/](api/)?v1/"""))) {
-                        violations.add("JavaScript $relativePath contains REST API call")
-                    }
+                if (restMediaType in line) {
+                    violations.add("$relative:${index + 1} uses the REST media type: ${line.trim()}")
                 }
+            }
         }
 
         assertTrue(
             violations.isEmpty(),
-            "Found REST API calls in UI code:\n${violations.joinToString("\n")}",
+            "UI code must not call /api/** — add a UI route under /tenants/** instead " +
+                "(see apps/epistola/AGENTS.md):\n${violations.joinToString("\n")}",
         )
     }
 }
