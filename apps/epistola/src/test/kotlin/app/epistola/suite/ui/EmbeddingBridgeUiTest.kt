@@ -101,7 +101,19 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
 
         gotoAndReady("/tenants/${tenant.id}/templates")
         page.locator("[data-testid='search-input']").fill("private search text")
-        page.waitForTimeout(350.0)
+        // The search box is debounced, so htmxSettle() can return during the gap
+        // before the request fires. Wait for the end state — the bridge message —
+        // in the page rather than racing a wall clock (docs/testing.md, #418).
+        page.waitForFunction(
+            """
+            () => (window.__epistolaMessages || []).some((entry) => {
+                const message = entry && entry.message;
+                return message && message.type === 'request' &&
+                    typeof message.requestPath === 'string' &&
+                    message.requestPath.endsWith('/templates/search');
+            })
+            """,
+        )
         page.htmxSettle()
 
         val request =
