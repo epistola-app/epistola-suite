@@ -117,6 +117,25 @@ resource-detail route: the URL shape is already the shared identity scheme
 (identical to the REST API's), so one client-side matcher covers every
 current and future route that follows it.
 
+### Suite → host: `request`
+
+```jsonc
+{
+  "source": "epistola-suite",
+  "type": "request",
+  "verb": "GET",
+  "requestPath": "/tenants/acme/templates/search",
+  "queryKeys": ["q", "sort"],
+  "status": 200,
+}
+```
+
+Fired after every successful HTMX GET request. This covers fragment interactions
+such as searching, filtering, sorting and pagination that may not produce a
+navigation. The bridge deliberately exposes parameter names only: query values,
+form bodies and non-GET requests are never forwarded. The host assigns meaning
+to these raw request facts; Suite declares no training-specific events.
+
 ### Suite → host: `resource-changed`
 
 ```jsonc

@@ -95,6 +95,32 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
     }
 
     @Test
+    fun `template search forwards a value-free GET request fact`() {
+        val tenant = createTestTenant()
+        installMessageCapture()
+
+        gotoAndReady("/tenants/${tenant.id}/templates")
+        page.locator("[data-testid='search-input']").fill("private search text")
+        page.waitForTimeout(350.0)
+        page.htmxSettle()
+
+        val request =
+            capturedMessages().lastOrNull {
+                val message = it["message"] as? Map<*, *>
+                message?.get("type") == "request" &&
+                    (message["requestPath"] as? String)?.endsWith("/templates/search") == true
+            }
+        checkNotNull(request) { "expected a 'request' message, got: ${capturedMessages()}" }
+        val message = request["message"] as Map<*, *>
+        Assertions.assertThat(message["verb"]).isEqualTo("GET")
+        Assertions.assertThat(message["requestPath"] as String).endsWith("/templates/search")
+        Assertions.assertThat(message["queryKeys"] as List<*>).contains("q")
+        Assertions.assertThat(message["params"]).isNull()
+        Assertions.assertThat(message["responseURL"]).isNull()
+        Assertions.assertThat(message.toString()).doesNotContain("private search text")
+    }
+
+    @Test
     fun `creating a template through the UI fires a resource-changed create message, then a navigated message`() {
         val tenant = createTestTenant()
         installMessageCapture()
