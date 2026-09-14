@@ -89,14 +89,14 @@ in the working tree. It arrives from the `epistola-contract` artifacts, so grep 
 
 Scope the command to what you touched; a `--tests` filter matching nothing is no longer an error.
 
-| Change                | Run                                                                             |
-| --------------------- | ------------------------------------------------------------------------------- |
-| Pure logic            | `./gradlew :module:unitTest`                                                    |
-| Commands, queries, DB | `./gradlew :modules:epistola-core:integrationTest --tests "*YourTest*"`         |
-| Handlers, templates   | `./gradlew :apps:epistola:integrationTest --tests "*YourHandlerHtmxTest*"`      |
-| Browser behaviour     | `./gradlew :apps:epistola:uiTest --tests "*YourUiTest*"`                        |
-| Conventions           | `./gradlew :apps:epistola:unitTest --tests "app.epistola.suite.architecture.*"` |
-| Before a PR           | `./gradlew test uiTest` — `test` excludes UI and perf                           |
+| Change                | Run                                                                        |
+| --------------------- | -------------------------------------------------------------------------- |
+| Pure logic            | `./gradlew :module:unitTest`                                               |
+| Commands, queries, DB | `./gradlew :modules:epistola-core:integrationTest --tests "*YourTest*"`    |
+| Handlers, templates   | `./gradlew :apps:epistola:integrationTest --tests "*YourHandlerHtmxTest*"` |
+| Browser behaviour     | `./gradlew :apps:epistola:uiTest --tests "*YourUiTest*"`                   |
+| Conventions           | `./gradlew :modules:guards:test`                                           |
+| Before a PR           | `./gradlew test uiTest` — `test` excludes UI and perf                      |
 
 Integration and UI tests need Docker. App-level Gradle tasks need `pnpm build` once first, because
 the app packages the editor bundle. What CI runs is in [`.github/AGENTS.md`](.github/AGENTS.md).

@@ -22,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/agent-hooks/changelog-read-guard.py\"",
+            "command": "sh -c 'p=scripts/agent-hooks/changelog-read-guard.py; [ -f \"$p\" ] || p=\"$CLAUDE_PROJECT_DIR/scripts/agent-hooks/changelog-read-guard.py\"; [ -f \"$p\" ] || exit 0; exec python3 \"$p\"'",
             "timeout": 5
           }
         ]

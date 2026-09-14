@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-package app.epistola.suite.architecture
+package app.epistola.suite.guards
 
 import java.nio.file.Files
 import java.nio.file.Path

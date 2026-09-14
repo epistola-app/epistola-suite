@@ -61,7 +61,7 @@ pipeline emits. That direction is a compile-time fact, not a convention — keep
 
 ```bash
 ./gradlew :modules:epistola-core:integrationTest --tests "*YourTest*"
-./gradlew :apps:epistola:unitTest --tests "app.epistola.suite.architecture.*"
+./gradlew :modules:guards:test
 ```
 
 `MediatorWiringTest` (one handler per message, `@Component`, `Authorized`), `AuthorizationCoverageTest`,

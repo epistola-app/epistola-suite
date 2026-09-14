@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-package app.epistola.suite.architecture
+package app.epistola.suite.guards
 
-import app.epistola.suite.architecture.RepoSources.relativize
-import app.epistola.suite.architecture.RepoSources.repoRoot
+import app.epistola.suite.guards.RepoSources.relativize
+import app.epistola.suite.guards.RepoSources.repoRoot
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
 import java.nio.file.Path

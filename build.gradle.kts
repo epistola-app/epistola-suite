@@ -81,6 +81,15 @@ tasks.register<CheckChangelogFragmentsTask>("checkChangelogFragments") {
     skipRequirement.set(providers.environmentVariable("SKIP_CHANGELOG_REQUIREMENT").map { it == "true" })
 }
 
+tasks.register<CheckBundledCatalogVersionsTask>("checkBundledCatalogVersions") {
+    description = "Checks that a changed bundled catalog also declares a newer release.version."
+    group = "verification"
+    repositoryDir.set(layout.projectDirectory)
+    explicitBaseRef.set(providers.gradleProperty("migrationVersionBaseRef"))
+    envBaseRef.set(providers.environmentVariable("MIGRATION_VERSION_BASE_REF"))
+    githubBaseRef.set(providers.environmentVariable("GITHUB_BASE_REF"))
+}
+
 tasks.register("releaseChangelog") {
     description = "Assembles changelog/unreleased/ into a dated CHANGELOG.md section and removes the fragments."
     group = "release"
@@ -214,5 +223,10 @@ val checkContractVersionAlignment = tasks.register("checkContractVersionAlignmen
 }
 
 tasks.named("check") {
-    dependsOn("checkMigrationVersions", "checkChangelogFragments", checkContractVersionAlignment)
+    dependsOn(
+        "checkMigrationVersions",
+        "checkChangelogFragments",
+        "checkBundledCatalogVersions",
+        checkContractVersionAlignment,
+    )
 }
