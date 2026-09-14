@@ -50,7 +50,8 @@ flag:
    rendered shell (`fragments/htmx.html`, `layout/shell.html`) and in the
    standalone template-editor page (`templates/editor.html`, which is a full
    page outside the shell) — entirely absent from the page when embedding is
-   off.
+   off. The island itself is defined once, in `fragments/embed-config.html`,
+   and rendered by both hosts.
 
 ## The message protocol
 
