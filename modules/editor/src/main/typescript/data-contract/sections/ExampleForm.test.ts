@@ -8,17 +8,19 @@ import { describe, expect, it } from 'vitest';
 import { render } from 'lit';
 import {
   arrayTargetLabel,
-  validationPathToFormPath,
-  buildFieldErrorMap,
-  hasChildErrors,
   toDateTimeLocal,
   dateTimeOffset,
   combineDateTime,
   renderExampleForm,
   setNestedValue,
 } from './ExampleForm.js';
-import type { SchemaValidationError } from '../schema/validation.js';
-import type { JsonObject, JsonSchema, JsonSchemaProperty } from '../types.js';
+import {
+  validationPathToFormPath,
+  buildFieldErrorMap,
+  hasChildErrors,
+} from '../validation-display.js';
+import { validateDataAgainstSchema } from '../schema/validation.js';
+import type { JsonObject, JsonSchema, JsonSchemaProperty, ValidationError } from '../types.js';
 
 describe('example form placeholders', () => {
   it('renders field-name hints without assigning field values', () => {
@@ -214,6 +216,63 @@ describe('array item actions', () => {
         (button) => button.disabled,
       ),
     ).toBe(true);
+  });
+
+  it('shows an array-length error message below the array block', () => {
+    const constrainedSchema: JsonSchema = {
+      ...schema,
+      properties: { ...schema.properties, tags: { ...schema.properties.tags, maxItems: 2 } },
+    };
+    const data = { tags: ['a', 'b', 'c'] };
+    const { errors } = validateDataAgainstSchema(data, constrainedSchema);
+    const container = document.createElement('div');
+    render(
+      renderExampleForm(constrainedSchema, data, () => {}, buildFieldErrorMap(errors)),
+      container,
+    );
+
+    const group = container.querySelector('details[aria-label="tags array"]')!;
+    const errorEl = group.parentElement!.querySelector('.dc-field-error');
+    expect(errorEl?.textContent).toBe('must have at most 2 items');
+  });
+
+  it('shows an array-length error message below an array-of-objects block', () => {
+    const constrainedSchema: JsonSchema = {
+      ...schema,
+      properties: {
+        ...schema.properties,
+        contacts: { ...schema.properties.contacts, minItems: 1 },
+      },
+    };
+    const data = { contacts: [] };
+    const { errors } = validateDataAgainstSchema(data, constrainedSchema);
+    const container = document.createElement('div');
+    render(
+      renderExampleForm(constrainedSchema, data, () => {}, buildFieldErrorMap(errors)),
+      container,
+    );
+
+    const group = container.querySelector('details[aria-label="contacts array of objects"]')!;
+    const errorEl = group.parentElement!.querySelector('.dc-field-error');
+    expect(errorEl?.textContent).toBe('must have at least 1 items');
+  });
+
+  it('shows an array-length error message below a nested-array block', () => {
+    const constrainedSchema: JsonSchema = {
+      ...schema,
+      properties: { ...schema.properties, matrix: { ...schema.properties.matrix, maxItems: 1 } },
+    };
+    const data = { matrix: [[], []] };
+    const { errors } = validateDataAgainstSchema(data, constrainedSchema);
+    const container = document.createElement('div');
+    render(
+      renderExampleForm(constrainedSchema, data, () => {}, buildFieldErrorMap(errors)),
+      container,
+    );
+
+    const group = container.querySelector('details[aria-label="matrix nested arrays"]')!;
+    const errorEl = group.parentElement!.querySelector('.dc-field-error');
+    expect(errorEl?.textContent).toBe('must have at most 1 items');
   });
 });
 
@@ -522,7 +581,7 @@ describe('buildFieldErrorMap', () => {
   });
 
   it('maps validation paths to form paths', () => {
-    const errors: SchemaValidationError[] = [
+    const errors: ValidationError[] = [
       { path: '$.name', message: 'is required' },
       { path: '$.age', message: 'must be integer' },
     ];
@@ -532,13 +591,13 @@ describe('buildFieldErrorMap', () => {
   });
 
   it('handles array paths', () => {
-    const errors: SchemaValidationError[] = [{ path: '$.items[0]', message: 'must be string' }];
+    const errors: ValidationError[] = [{ path: '$.items[0]', message: 'must be string' }];
     const map = buildFieldErrorMap(errors);
     expect(map.get('items.0')).toBe('must be string');
   });
 
   it('keeps first error per path (deduplicates)', () => {
-    const errors: SchemaValidationError[] = [
+    const errors: ValidationError[] = [
       { path: '$.name', message: 'first error' },
       { path: '$.name', message: 'second error' },
     ];
@@ -547,7 +606,7 @@ describe('buildFieldErrorMap', () => {
   });
 
   it('handles nested object paths', () => {
-    const errors: SchemaValidationError[] = [
+    const errors: ValidationError[] = [
       { path: '$.address.street', message: 'is required' },
       { path: '$.users[0].email', message: 'must be string' },
     ];

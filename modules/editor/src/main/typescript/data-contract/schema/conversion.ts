@@ -112,6 +112,9 @@ function fieldToJsonSchemaProperty(field: SchemaField): JsonSchemaProperty {
     if (field.minItems !== undefined) {
       prop.minItems = field.minItems;
     }
+    if (field.maxItems !== undefined) {
+      prop.maxItems = field.maxItems;
+    }
   }
 
   if (field.type === 'object' && field.nestedFields) {
@@ -224,6 +227,7 @@ function jsonSchemaPropertyToField(
       arrayItemType: itemType,
       nestedFields,
       ...(prop.minItems !== undefined ? { minItems: prop.minItems } : {}),
+      ...(prop.maxItems !== undefined ? { maxItems: prop.maxItems } : {}),
     };
   }
 
@@ -415,12 +419,19 @@ export function applyFieldUpdate(field: SchemaField, updates: SchemaFieldUpdate)
         : field.type === 'array'
           ? field.minItems
           : undefined;
+    const maxItems =
+      'maxItems' in updates
+        ? updates.maxItems
+        : field.type === 'array'
+          ? field.maxItems
+          : undefined;
     return {
       ...baseField,
       type: 'array' as const,
       arrayItemType,
       nestedFields,
       ...(minItems !== undefined ? { minItems } : {}),
+      ...(maxItems !== undefined ? { maxItems } : {}),
     };
   }
 

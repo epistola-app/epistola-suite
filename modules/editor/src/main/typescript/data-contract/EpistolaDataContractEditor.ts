@@ -30,9 +30,11 @@ import type {
   JsonValue,
   SaveCallbacks,
   SchemaField,
+  ValidationError,
   VisualSchema,
 } from './types.js';
 import { jsonSchemaToVisualSchema, visualSchemaToJsonSchema } from './schema/conversion.js';
+import { validateSchemaFields } from './schema/field-validation.js';
 import type { SchemaCommand } from './schema/commands.js';
 import { SchemaCommandHistory } from './schema/command-history.js';
 import {
@@ -47,7 +49,7 @@ import {
   renameExampleKey,
   type MigrationSuggestion,
 } from './schema/migration.js';
-import { validateDataAgainstSchema, type SchemaValidationError } from './schema/validation.js';
+import { validateDataAgainstSchema } from './schema/validation.js';
 import { checkSchemaCompatibility, type CompatibilityIssue } from './schema/compatibility.js';
 import {
   normalizeSchemaForVisualEditor,
@@ -68,8 +70,13 @@ import {
 import { renderMigrationDialog, migrationKey } from './sections/MigrationAssistant.js';
 import { renderJsonSchemaView } from './sections/JsonSchemaView.js';
 import { renderImportSchemaDialog } from './sections/ImportSchemaDialog.js';
-import { setNestedValue, buildFieldErrorMap } from './sections/ExampleForm.js';
+import { setNestedValue } from './sections/ExampleForm.js';
+import { buildFieldErrorMap, countDistinctErrorPaths } from './validation-display.js';
 import { renderContractSaveControls } from './sections/ContractSaveBar.js';
+import {
+  renderClientValidationBanner,
+  renderValidationErrorsAlert,
+} from './sections/ValidationErrorsAlert.js';
 import { completeExampleFromSchema } from './examples/example-generation.js';
 
 @customElement('epistola-data-contract-editor')
@@ -97,7 +104,8 @@ export class EpistolaDataContractEditor extends LitElement {
   // ---------------------------------------------------------------------------
 
   // Schema tab UI state
-  @state() private _schemaWarnings: Array<{ path: string; message: string }> = [];
+  @state() private _schemaWarnings: ValidationError[] = [];
+  @state() private _schemaFieldErrors: ValidationError[] = [];
   @state() private _expandedFields = new Set<string>();
   @state() private _selectedFieldId: string | null = null;
   private _pendingFieldNameFocus: { fieldId: string; selectAll: boolean } | null = null;
@@ -122,8 +130,10 @@ export class EpistolaDataContractEditor extends LitElement {
   @state() private _saving = false;
   @state() private _saveSuccess = false;
   @state() private _saveError: string | null = null;
+  @state() private _saveValidationErrors: ValidationError[] = [];
   @state() private _canForceSave = false;
   private _saveControlsContainer: HTMLElement | null = null;
+  private _validationAlertContainer: HTMLElement | null = null;
 
   // Per-example undo/redo stacks
   private _exampleHistories = new Map<string, SnapshotHistory<JsonObject>>();
@@ -132,7 +142,7 @@ export class EpistolaDataContractEditor extends LitElement {
   @state() private _exampleCanRedo = false;
 
   // Validation errors for all examples (keyed by example ID)
-  @state() private _exampleValidationErrors = new Map<string, SchemaValidationError[]>();
+  @state() private _exampleValidationErrors = new Map<string, ValidationError[]>();
 
   // Migration dialog state
   @state() private _showMigrationDialog = false;
@@ -195,7 +205,7 @@ export class EpistolaDataContractEditor extends LitElement {
     }
 
     // Validate all examples on init
-    this._validateAllExamples();
+    this._revalidate();
   }
 
   // ---------------------------------------------------------------------------
@@ -210,6 +220,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
   override updated(): void {
     this._renderExternalSaveControls();
+    this._renderExternalValidationAlert();
     this._applyPendingFieldNameFocus();
   }
 
@@ -219,6 +230,7 @@ export class EpistolaDataContractEditor extends LitElement {
     window.removeEventListener('keydown', this._boundKeyDown);
     if (this._successTimer) clearTimeout(this._successTimer);
     this._clearExternalSaveControls();
+    this._clearExternalValidationAlert();
   }
 
   setSaveControlsContainer(container: HTMLElement | null): void {
@@ -227,6 +239,16 @@ export class EpistolaDataContractEditor extends LitElement {
     this._clearExternalSaveControls();
     this._saveControlsContainer = container;
     this._renderExternalSaveControls();
+    this.requestUpdate();
+  }
+
+  /** Host element for the save-validation-errors alert, rendered above the save bar. */
+  setValidationAlertContainer(container: HTMLElement | null): void {
+    if (this._validationAlertContainer === container) return;
+
+    this._clearExternalValidationAlert();
+    this._validationAlertContainer = container;
+    this._renderExternalValidationAlert();
     this.requestUpdate();
   }
 
@@ -241,14 +263,45 @@ export class EpistolaDataContractEditor extends LitElement {
     return false;
   }
 
+  private get _totalExampleErrorCount(): number {
+    let total = 0;
+    for (const errors of this._exampleValidationErrors.values()) {
+      total += countDistinctErrorPaths(errors);
+    }
+    return total;
+  }
+
   private get _hasRequiredExample(): boolean {
     return (this.contractState?.dataExamples.length ?? 0) > 0;
   }
 
-  private get _saveBlockedReason(): string | null {
-    if (!this._hasRequiredExample) return 'Add at least one test data example before saving';
-    if (this._hasExampleErrors) return 'Fix example validation errors before saving';
-    return null;
+  private get _hasSchemaFieldErrors(): boolean {
+    return this._schemaFieldErrors.length > 0;
+  }
+
+  private get _saveBlocked(): boolean {
+    return !this._hasRequiredExample || this._hasSchemaFieldErrors || this._hasExampleErrors;
+  }
+
+  /**
+   * Generic, non-repeating summary lines for the top validation banner —
+   * client-side issues are already pinpointed inline next to their field
+   * (schema constraints) or in the Examples tab, so this only says how many,
+   * not what each one is.
+   */
+  private get _clientValidationMessages(): string[] {
+    const messages: string[] = [];
+    if (!this._hasRequiredExample) {
+      messages.push('Add at least one test data example before saving.');
+    }
+    const issueCount =
+      countDistinctErrorPaths(this._schemaFieldErrors) + this._totalExampleErrorCount;
+    if (issueCount > 0) {
+      messages.push(
+        `${issueCount} validation issue${issueCount === 1 ? '' : 's'} — fix the highlighted fields below.`,
+      );
+    }
+    return messages;
   }
 
   private _saveControlsState() {
@@ -259,7 +312,7 @@ export class EpistolaDataContractEditor extends LitElement {
       saveSuccess: this._saveSuccess,
       saveError: this._saveError,
       canForceSave: this._canForceSave,
-      blockedReason: this._saveBlockedReason,
+      blocked: this._saveBlocked,
     };
   }
 
@@ -287,6 +340,21 @@ export class EpistolaDataContractEditor extends LitElement {
     }
   }
 
+  private _renderExternalValidationAlert(): void {
+    if (!this._validationAlertContainer) return;
+
+    renderLit(
+      renderValidationErrorsAlert(this._saveValidationErrors),
+      this._validationAlertContainer,
+    );
+  }
+
+  private _clearExternalValidationAlert(): void {
+    if (this._validationAlertContainer) {
+      renderLit(nothing, this._validationAlertContainer);
+    }
+  }
+
   override render() {
     if (!this.contractState) {
       return html`<div class="dc-empty-state">No data contract loaded.</div>`;
@@ -294,6 +362,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
     return html`
       <div class="dc-editor-layout">
+        ${renderClientValidationBanner(this._clientValidationMessages, this._schemaWarnings)}
         <!-- Breaking changes banner -->
         ${
           this._breakingChanges.length > 0
@@ -448,7 +517,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
     // Visual mode: schema editor + collapsible JSON panel
     const uiState: SchemaUiState = {
-      warnings: this._schemaWarnings,
+      fieldErrors: buildFieldErrorMap(this._schemaFieldErrors),
       canUndo: this._commandHistory.canUndo,
       canRedo: this._commandHistory.canRedo,
       selectedFieldId: this._selectedFieldId,
@@ -508,13 +577,15 @@ export class EpistolaDataContractEditor extends LitElement {
     // Derive error counts per example for chip badges
     const exampleErrorCounts: Record<string, number> = {};
     for (const ex of state.dataExamples) {
-      exampleErrorCounts[ex.id] = (this._exampleValidationErrors.get(ex.id) ?? []).length;
+      exampleErrorCounts[ex.id] = countDistinctErrorPaths(
+        this._exampleValidationErrors.get(ex.id) ?? [],
+      );
     }
 
     const uiState: ExamplesUiState = {
       editingId: this._editingExampleId,
       fieldErrorMap,
-      validationErrorCount: errorsForSelected.length,
+      validationErrorCount: fieldErrorMap.size,
       exampleErrorCounts,
       canUndo: this._exampleCanUndo,
       canRedo: this._exampleCanRedo,
@@ -553,7 +624,7 @@ export class EpistolaDataContractEditor extends LitElement {
     if (command.type === 'addField') {
       const newFieldId = this._findNewFieldId(prevSchema.fields, this._visualSchema.fields);
       if (newFieldId) this._selectedFieldId = newFieldId;
-      this._validateAllExamples();
+      this._revalidate();
       this._updateBreakingChanges();
       return newFieldId;
     }
@@ -578,7 +649,7 @@ export class EpistolaDataContractEditor extends LitElement {
     }
 
     // Re-validate examples and recompute breaking changes
-    this._validateAllExamples();
+    this._revalidate();
     this._updateBreakingChanges();
     return null;
   }
@@ -662,7 +733,7 @@ export class EpistolaDataContractEditor extends LitElement {
       );
       this._syncVisualSchemaToState();
       this._clearSaveStatus();
-      this._validateAllExamples();
+      this._revalidate();
       this._updateBreakingChanges();
     }
   }
@@ -679,7 +750,7 @@ export class EpistolaDataContractEditor extends LitElement {
       );
       this._syncVisualSchemaToState();
       this._clearSaveStatus();
-      this._validateAllExamples();
+      this._revalidate();
       this._updateBreakingChanges();
     }
   }
@@ -735,6 +806,7 @@ export class EpistolaDataContractEditor extends LitElement {
     const state = this.contractState!;
     if (this._saving) return;
     if (!this._hasRequiredExample) return;
+    if (this._hasSchemaFieldErrors) return;
     if (this._hasExampleErrors) return;
 
     // Confirm breaking changes before saving
@@ -776,9 +848,11 @@ export class EpistolaDataContractEditor extends LitElement {
   private async _executeSave(forceUpdate: boolean): Promise<void> {
     const state = this.contractState!;
     if (!this._hasRequiredExample) return;
+    if (this._hasSchemaFieldErrors) return;
     this._saving = true;
     this._saveSuccess = false;
     this._saveError = null;
+    this._saveValidationErrors = [];
     this._canForceSave = false;
 
     try {
@@ -796,11 +870,15 @@ export class EpistolaDataContractEditor extends LitElement {
             // Offer force save when backend rejects with warnings
             this._canForceSave = true;
           }
+          if (schemaResult.errors) {
+            this._saveValidationErrors = Object.values(schemaResult.errors).flat();
+            this._mergeBackendExampleErrors(schemaResult.errors);
+          }
           return;
         }
         this._commandHistory.clear();
         this._committedVisualSchema = structuredClone(this._visualSchema);
-        this._validateAllExamples();
+        this._revalidate();
         if (schemaResult.warnings) {
           this._schemaWarnings = Object.values(schemaResult.warnings).flat();
         } else {
@@ -818,6 +896,10 @@ export class EpistolaDataContractEditor extends LitElement {
         const examplesResult = await state.saveExamples();
         if (!examplesResult.success) {
           this._saveError = examplesResult.error ?? 'Failed to save examples';
+          if (examplesResult.errors) {
+            this._saveValidationErrors = Object.values(examplesResult.errors).flat();
+            this._mergeBackendExampleErrors(examplesResult.errors);
+          }
           return;
         }
         // Clear all example undo/redo histories on successful save
@@ -837,10 +919,33 @@ export class EpistolaDataContractEditor extends LitElement {
     }
   }
 
+  /**
+   * Merge a backend validation-errors map (keyed by example *name*, per the
+   * backend contract) into `_exampleValidationErrors` (keyed by example id)
+   * so a save-rejection also highlights the offending example inline, not
+   * just in the external banner.
+   */
+  private _mergeBackendExampleErrors(errors: Record<string, ValidationError[]>): void {
+    const state = this.contractState!;
+    const idByName = new Map(state.dataExamples.map((ex) => [ex.name, ex.id]));
+    const newErrors = new Map(this._exampleValidationErrors);
+    for (const [exampleName, exampleErrors] of Object.entries(errors)) {
+      const exampleId = idByName.get(exampleName);
+      if (!exampleId) continue;
+      newErrors.set(exampleId, [...(newErrors.get(exampleId) ?? []), ...exampleErrors]);
+    }
+    this._exampleValidationErrors = newErrors;
+  }
+
   private _clearSaveStatus(): void {
     this._saveSuccess = false;
     this._saveError = null;
     this._canForceSave = false;
+    // Backend warnings/errors are only meaningful until the next edit — otherwise
+    // the top banner keeps showing a stale rejection after the author has already
+    // started fixing it.
+    this._schemaWarnings = [];
+    this._saveValidationErrors = [];
   }
 
   // ---------------------------------------------------------------------------
@@ -941,7 +1046,7 @@ export class EpistolaDataContractEditor extends LitElement {
     this._editingExampleId = newExample.id;
     this._clearSaveStatus();
     this._clearExampleHistory();
-    this._validateAllExamples();
+    this._revalidate();
     this._syncExampleUndoRedoState();
   }
 
@@ -960,7 +1065,7 @@ export class EpistolaDataContractEditor extends LitElement {
         this._clearExampleHistory();
       }
 
-      this._validateAllExamples();
+      this._revalidate();
     }
     this._clearSaveStatus();
     this._syncExampleUndoRedoState();
@@ -983,7 +1088,7 @@ export class EpistolaDataContractEditor extends LitElement {
     const updatedData = setNestedValue(example.data, path, value);
     state.updateDraftExample(id, { data: updatedData });
     this._clearSaveStatus();
-    this._validateAllExamples();
+    this._revalidate();
     this._syncExampleUndoRedoState();
   }
 
@@ -1015,7 +1120,7 @@ export class EpistolaDataContractEditor extends LitElement {
       this._getExampleHistory(id).push(example.data);
       state.updateDraftExample(id, { data: completedData });
       this._clearSaveStatus();
-      this._validateAllExamples();
+      this._revalidate();
       this._syncExampleUndoRedoState();
     } finally {
       this._generatingExampleIds.delete(id);
@@ -1032,7 +1137,7 @@ export class EpistolaDataContractEditor extends LitElement {
     const prev = history.undo(example.data);
     if (prev) {
       state.updateDraftExample(this._editingExampleId, { data: prev });
-      this._validateAllExamples();
+      this._revalidate();
       this._syncExampleUndoRedoState();
     }
   }
@@ -1047,7 +1152,7 @@ export class EpistolaDataContractEditor extends LitElement {
     const next = history.redo(example.data);
     if (next) {
       state.updateDraftExample(this._editingExampleId, { data: next });
-      this._validateAllExamples();
+      this._revalidate();
       this._syncExampleUndoRedoState();
     }
   }
@@ -1083,12 +1188,12 @@ export class EpistolaDataContractEditor extends LitElement {
   }
 
   // ---------------------------------------------------------------------------
-  // Validation (all examples)
+  // Validation (examples + schema fields)
   // ---------------------------------------------------------------------------
 
-  private _validateAllExamples(): void {
+  private _revalidate(): void {
     const state = this.contractState!;
-    const newErrors = new Map<string, SchemaValidationError[]>();
+    const newErrors = new Map<string, ValidationError[]>();
 
     if (state.schema) {
       for (const example of state.dataExamples) {
@@ -1098,6 +1203,7 @@ export class EpistolaDataContractEditor extends LitElement {
     }
 
     this._exampleValidationErrors = newErrors;
+    this._schemaFieldErrors = validateSchemaFields(this._visualSchema.fields);
   }
 
   // ---------------------------------------------------------------------------
@@ -1122,6 +1228,7 @@ export class EpistolaDataContractEditor extends LitElement {
         !this._saving &&
         this.contractState?.isDirty &&
         this._hasRequiredExample &&
+        !this._hasSchemaFieldErrors &&
         !this._hasExampleErrors
       ) {
         this._saveAll();
@@ -1222,7 +1329,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
     this._closeImportDialog();
     this._clearSaveStatus();
-    this._validateAllExamples();
+    this._revalidate();
   }
 
   // ---------------------------------------------------------------------------

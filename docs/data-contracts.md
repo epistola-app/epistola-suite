@@ -44,7 +44,7 @@ The visual editor supports object contracts composed from:
 - property descriptions;
 - `date`, `date-time`, `email`, and `uri` string formats;
 - `minimum` and `maximum` for numeric fields;
-- `minItems` for arrays;
+- `minItems` and `maxItems` for arrays;
 - Epistola's registered inline and block rich-text `$ref` types.
 
 Select a field to add another field in context. Container fields offer a primary child action and
@@ -57,8 +57,8 @@ restore it. Delete, undo, and redo keep the closest remaining field selected.
 The visual editor currently cannot represent every valid JSON Schema keyword. Among other things,
 multi-value type unions, multi-branch compositions, tuple arrays, arrays directly containing
 arrays, `additionalProperties: false`, arbitrary references, `enum`, `const`, `default`,
-`maxItems`, string patterns and lengths, conditional schemas, and custom keywords require
-JSON-only schema mode.
+string patterns and lengths, conditional schemas, and custom keywords require JSON-only schema
+mode.
 
 JSON-only does not mean that the contract is invalid. It means the schema is shown read-only
 because a round trip through the visual editor would be lossy. Its examples remain editable.
@@ -160,8 +160,9 @@ On save and publish, Epistola checks that:
 
 1. the schema is valid for its declared dialect and has an object-shaped root;
 2. property names meet Epistola's naming rules;
-3. at least one test data example exists;
-4. every example validates against the schema.
+3. every array's `maxItems`, when set alongside `minItems`, is not less than it;
+4. at least one test data example exists;
+5. every example validates against the schema.
 
 Validation errors identify the example and failing JSON paths. The normal save flow blocks invalid
 examples. If **Save anyway** is offered after a validation failure, it can preserve the inconsistent

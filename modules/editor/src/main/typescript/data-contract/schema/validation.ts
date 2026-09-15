@@ -3,7 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { findRefType } from '../ref-types.js';
-import type { JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../types.js';
+import type {
+  JsonObject,
+  JsonSchema,
+  JsonSchemaProperty,
+  JsonValue,
+  ValidationError,
+} from '../types.js';
 import { resolveSchemaForValue } from '../../json-schema/schema-resolution.js';
 
 /** ISO date pattern: YYYY-MM-DD */
@@ -22,19 +28,11 @@ const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\
 const URI_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/.+$/;
 
 /**
- * Validation error for a specific path.
- */
-export interface SchemaValidationError {
-  path: string;
-  message: string;
-}
-
-/**
  * Result of schema validation.
  */
 export interface SchemaValidationResult {
   valid: boolean;
-  errors: SchemaValidationError[];
+  errors: ValidationError[];
 }
 
 /**
@@ -46,7 +44,7 @@ export function validateDataAgainstSchema(
   data: JsonObject,
   schema: JsonSchema | JsonObject | null,
 ): SchemaValidationResult {
-  const errors: SchemaValidationError[] = [];
+  const errors: ValidationError[] = [];
 
   if (!schema) {
     return { valid: true, errors: [] };
@@ -105,8 +103,8 @@ function validateProperty(
   originalSchema: JsonSchemaProperty,
   path: string,
   rootSchema: JsonSchema,
-): SchemaValidationError[] {
-  const errors: SchemaValidationError[] = [];
+): ValidationError[] {
+  const errors: ValidationError[] = [];
 
   if (value === null || value === undefined) {
     // Null/undefined skip type validation — required check handles these separately
@@ -162,11 +160,19 @@ function validateProperty(
     }
   }
 
-  // Validate array items
-  if (expectedType === 'array' && Array.isArray(value) && schema.items) {
-    for (let i = 0; i < value.length; i++) {
-      const itemErrors = validateProperty(value[i], schema.items, `${path}[${i}]`, rootSchema);
-      errors.push(...itemErrors);
+  // Validate array length and items
+  if (expectedType === 'array' && Array.isArray(value)) {
+    if (schema.minItems !== undefined && value.length < schema.minItems) {
+      errors.push({ path, message: `must have at least ${schema.minItems} items` });
+    }
+    if (schema.maxItems !== undefined && value.length > schema.maxItems) {
+      errors.push({ path, message: `must have at most ${schema.maxItems} items` });
+    }
+    if (schema.items) {
+      for (let i = 0; i < value.length; i++) {
+        const itemErrors = validateProperty(value[i], schema.items, `${path}[${i}]`, rootSchema);
+        errors.push(...itemErrors);
+      }
     }
   }
 
@@ -234,6 +240,6 @@ function typeMatches(actual: string, expected: string): boolean {
 /**
  * Format validation errors for display.
  */
-export function formatValidationErrors(errors: SchemaValidationError[]): string[] {
+export function formatValidationErrors(errors: ValidationError[]): string[] {
   return errors.map((e) => `${e.path}: ${e.message}`);
 }

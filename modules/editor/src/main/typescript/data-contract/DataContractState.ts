@@ -166,6 +166,7 @@ export class DataContractState extends EventTarget {
       return {
         success: result.success,
         warnings: result.warnings,
+        errors: result.errors,
         error: result.error,
       };
     } catch (error) {
@@ -192,6 +193,7 @@ export class DataContractState extends EventTarget {
       return {
         success: result.success,
         warnings: result.warnings,
+        errors: result.errors,
         error: result.error,
       };
     } catch (error) {

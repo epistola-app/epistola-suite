@@ -866,6 +866,52 @@ describe('constraint round-trips', () => {
       expect(result.properties?.items?.minItems).toBeUndefined();
     });
 
+    it('emits maxItems for array fields', () => {
+      const visual: VisualSchema = {
+        fields: [
+          {
+            id: '1',
+            name: 'items',
+            type: 'array',
+            arrayItemType: 'string',
+            required: false,
+            maxItems: 5,
+          },
+        ],
+      };
+      const result = visualSchemaToJsonSchema(visual);
+      expect(result.properties?.items?.maxItems).toBe(5);
+    });
+
+    it('emits both minItems and maxItems together', () => {
+      const visual: VisualSchema = {
+        fields: [
+          {
+            id: '1',
+            name: 'items',
+            type: 'array',
+            arrayItemType: 'string',
+            required: false,
+            minItems: 1,
+            maxItems: 5,
+          },
+        ],
+      };
+      const result = visualSchemaToJsonSchema(visual);
+      expect(result.properties?.items?.minItems).toBe(1);
+      expect(result.properties?.items?.maxItems).toBe(5);
+    });
+
+    it('does not emit maxItems when undefined', () => {
+      const visual: VisualSchema = {
+        fields: [
+          { id: '1', name: 'items', type: 'array', arrayItemType: 'string', required: false },
+        ],
+      };
+      const result = visualSchemaToJsonSchema(visual);
+      expect(result.properties?.items?.maxItems).toBeUndefined();
+    });
+
     it('emits format:email for string fields', () => {
       const visual: VisualSchema = {
         fields: [{ id: '1', name: 'email', type: 'string', required: false, format: 'email' }],
@@ -934,6 +980,21 @@ describe('constraint round-trips', () => {
       expect(field.type).toBe('array');
       if (field.type === 'array') {
         expect(field.minItems).toBe(1);
+      }
+    });
+
+    it('reads maxItems from array property', () => {
+      const schema: JsonSchema = {
+        type: 'object',
+        properties: {
+          items: { type: 'array', items: { type: 'string' }, maxItems: 5 },
+        },
+      };
+      const result = jsonSchemaToVisualSchema(schema);
+      const field = result.fields[0];
+      expect(field.type).toBe('array');
+      if (field.type === 'array') {
+        expect(field.maxItems).toBe(5);
       }
     });
 
@@ -1016,6 +1077,31 @@ describe('constraint round-trips', () => {
       expect(field.type).toBe('array');
       if (field.type === 'array') {
         expect(field.minItems).toBe(1);
+      }
+    });
+
+    it('preserves minItems and maxItems together through round-trip', () => {
+      const original: VisualSchema = {
+        fields: [
+          {
+            id: '1',
+            name: 'tags',
+            type: 'array',
+            arrayItemType: 'string',
+            required: false,
+            minItems: 1,
+            maxItems: 5,
+          },
+        ],
+      };
+      const json = visualSchemaToJsonSchema(original);
+      const restored = jsonSchemaToVisualSchema(json);
+
+      const field = restored.fields[0];
+      expect(field.type).toBe('array');
+      if (field.type === 'array') {
+        expect(field.minItems).toBe(1);
+        expect(field.maxItems).toBe(5);
       }
     });
 
@@ -1125,6 +1211,51 @@ describe('applyFieldUpdate with constraints', () => {
     }
   });
 
+  it('sets maxItems on an array field', () => {
+    const field: SchemaField = {
+      id: '1',
+      name: 'tags',
+      type: 'array',
+      arrayItemType: 'string',
+      required: false,
+    };
+    const result = applyFieldUpdate(field, { maxItems: 5 });
+    if (result.type === 'array') {
+      expect(result.maxItems).toBe(5);
+    }
+  });
+
+  it('clears maxItems by setting undefined', () => {
+    const field: SchemaField = {
+      id: '1',
+      name: 'tags',
+      type: 'array',
+      arrayItemType: 'string',
+      required: false,
+      maxItems: 5,
+    };
+    const result = applyFieldUpdate(field, { maxItems: undefined });
+    if (result.type === 'array') {
+      expect(result.maxItems).toBeUndefined();
+    }
+  });
+
+  it('preserves minItems when only maxItems is updated', () => {
+    const field: SchemaField = {
+      id: '1',
+      name: 'tags',
+      type: 'array',
+      arrayItemType: 'string',
+      required: false,
+      minItems: 1,
+    };
+    const result = applyFieldUpdate(field, { maxItems: 5 });
+    if (result.type === 'array') {
+      expect(result.minItems).toBe(1);
+      expect(result.maxItems).toBe(5);
+    }
+  });
+
   it('drops constraints when changing type from number to string', () => {
     const field: SchemaField = {
       id: '1',
@@ -1166,6 +1297,20 @@ describe('applyFieldUpdate with constraints', () => {
     const result = applyFieldUpdate(field, { type: 'string' });
     expect(result.type).toBe('string');
     expect('minItems' in result).toBe(false);
+  });
+
+  it('drops maxItems when changing type from array to string', () => {
+    const field: SchemaField = {
+      id: '1',
+      name: 'value',
+      type: 'array',
+      arrayItemType: 'string',
+      required: false,
+      maxItems: 5,
+    };
+    const result = applyFieldUpdate(field, { type: 'string' });
+    expect(result.type).toBe('string');
+    expect('maxItems' in result).toBe(false);
   });
 });
 

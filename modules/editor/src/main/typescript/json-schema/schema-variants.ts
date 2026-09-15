@@ -132,13 +132,37 @@ function mergeSchemas(base: JsonSchemaNode, extension: JsonSchemaNode): JsonSche
   const hasProperties =
     Object.keys(baseProperties).length > 0 || Object.keys(extensionProperties).length > 0;
   const required = [...stringArray(base.required), ...stringArray(extension.required)];
+  const minItems = tighterMinItems(base.minItems, extension.minItems);
+  const maxItems = tighterMaxItems(base.maxItems, extension.maxItems);
 
   return {
     ...base,
     ...extension,
     ...(hasProperties ? { properties: { ...baseProperties, ...extensionProperties } } : {}),
     ...(required.length > 0 ? { required: [...new Set(required)] } : {}),
+    ...(minItems !== undefined ? { minItems } : {}),
+    ...(maxItems !== undefined ? { maxItems } : {}),
   };
+}
+
+/** allOf composition narrows the constraint, so the larger minItems wins. */
+function tighterMinItems(
+  base: number | undefined,
+  extension: number | undefined,
+): number | undefined {
+  if (base === undefined) return extension;
+  if (extension === undefined) return base;
+  return Math.max(base, extension);
+}
+
+/** allOf composition narrows the constraint, so the smaller maxItems wins. */
+function tighterMaxItems(
+  base: number | undefined,
+  extension: number | undefined,
+): number | undefined {
+  if (base === undefined) return extension;
+  if (extension === undefined) return base;
+  return Math.min(base, extension);
 }
 
 function withoutCompositions(schema: JsonSchemaNode): JsonSchemaNode {

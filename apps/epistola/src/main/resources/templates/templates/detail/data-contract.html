@@ -2,6 +2,9 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="tab-content">
+        <!-- Validation errors alert (rendered above the status bar so it's visible without scrolling) -->
+        <div th:if="${editMode && editable}" id="contract-validation-alert" hx-preserve></div>
+
         <!-- Status bar (adapts to view/edit mode) -->
         <th:block th:replace="~{templates/detail/contract-status-bar :: content}" />
 
