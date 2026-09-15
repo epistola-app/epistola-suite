@@ -198,8 +198,15 @@
 
     // Generic observation only: hosts decide what a successful GET means.
     // Parameter names are enough to distinguish search, filter, sort and
-    // pagination without disclosing search text or any form values.
+    // pagination without disclosing search text or any form values. Boosted
+    // full-page navigations are excluded — notifyNavigated() already reports
+    // those via htmx:load, so this stays scoped to the fragment interactions
+    // (search/filter/sort/pagination) that don't produce a navigation of
+    // their own; without this check every boosted link/form click would fire
+    // both a `navigated` and a `request` message for the same path, and
+    // `requestPath` would stop being limited to the documented use cases.
     if (verb === 'GET') {
+      if (event.detail.boosted) return;
       let requestPath;
       try {
         requestPath = new URL(rawRequestPath, location.origin).pathname;

@@ -131,11 +131,15 @@ current and future route that follows it.
 }
 ```
 
-Fired after every successful HTMX GET request. This covers fragment interactions
-such as searching, filtering, sorting and pagination that may not produce a
-navigation. The bridge deliberately exposes parameter names only: query values,
-form bodies and non-GET requests are never forwarded. The host assigns meaning
-to these raw request facts; Suite declares no training-specific events.
+Fired after every successful, non-boosted HTMX GET request — the fragment
+interactions such as searching, filtering, sorting and pagination that may not
+produce a navigation. Boosted full-page navigations are excluded, since
+`navigated` already reports those; without the exclusion, every boosted
+link/form click would emit both messages for the same path and `requestPath`
+would stop being limited to those four use cases. The bridge deliberately
+exposes parameter names only: query values, form bodies and non-GET requests
+are never forwarded. The host assigns meaning to these raw request facts;
+Suite declares no training-specific events.
 
 ### Suite → host: `resource-changed`
 

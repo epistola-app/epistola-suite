@@ -133,6 +133,39 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
     }
 
     @Test
+    fun `clicking a boosted row link fires navigated but not a request message`() {
+        val tenant = createTestTenant()
+        installMessageCapture()
+
+        createTemplateViaUi(tenant, "Boosted Row", "boosted-row")
+        gotoAndReady("/tenants/${tenant.id}/templates")
+
+        // The row link is a plain <a href>, boosted only via the shell's
+        // hx-boost="true" — no hx-get of its own, unlike search/sort/
+        // pagination. It must still report `navigated`, but not `request`:
+        // that stays scoped to the fragment interactions that don't already
+        // produce a navigation of their own.
+        page.locator("a[title='View template']").click()
+        assertThat(page.locator("#page-title-text")).containsText("Boosted Row")
+
+        val navigated = latestMessageOfType("navigated")
+        checkNotNull(navigated) { "expected a 'navigated' message, got: ${capturedMessages()}" }
+        Assertions.assertThat((navigated["message"] as Map<*, *>)["path"] as String).endsWith("/boosted-row")
+
+        // Scoped to this navigation's own path, not "no request message at
+        // all": the shell's feedback footer widget (FeedbackFooterContributor)
+        // independently fires its own non-boosted GET on every page and is
+        // expected to keep reporting — this guards only against the boosted
+        // click itself producing a duplicate `request` for the page it navigated to.
+        val request =
+            capturedMessages().firstOrNull {
+                val message = it["message"] as? Map<*, *>
+                message?.get("type") == "request" && (message["requestPath"] as? String)?.endsWith("/boosted-row") == true
+            }
+        Assertions.assertThat(request).describedAs("expected no 'request' message for the boosted navigation path, got: ${capturedMessages()}").isNull()
+    }
+
+    @Test
     fun `creating a template through the UI fires a resource-changed create message, then a navigated message`() {
         val tenant = createTestTenant()
         installMessageCapture()
