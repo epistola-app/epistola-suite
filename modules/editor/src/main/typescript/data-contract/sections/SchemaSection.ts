@@ -650,6 +650,7 @@ function renderNumericConstraints(
         <input
           type="number"
           class="ep-input dc-detail-input"
+          data-testid="dc-minimum-input"
           step=${step}
           .value=${min !== undefined ? String(min) : ''}
           placeholder="—"
@@ -665,6 +666,7 @@ function renderNumericConstraints(
         <input
           type="number"
           class="ep-input dc-detail-input"
+          data-testid="dc-maximum-input"
           step=${step}
           .value=${max !== undefined ? String(max) : ''}
           placeholder="—"
