@@ -4,9 +4,9 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """Deny a whole-file read of CHANGELOG.md.
 
-CHANGELOG.md is ~700 KB and every new entry goes at the top, so an assistant that reads it
-whole burns a large part of its context on released history it does not need — and a read
-that large can fail outright. Reading the first dozen lines is enough to insert an entry.
+CHANGELOG.md is ~600 KB of released history, so an assistant that reads it whole burns a large
+part of its context on releases it does not need — and a read that large can fail outright.
+Nothing is inserted here any more: a notable change adds a file under changelog/unreleased/.
 
 Wired as a PreToolUse hook on Read in .claude/settings.json. Reads the hook payload as JSON on
 stdin and prints a deny decision when the read has no small `limit`; prints nothing otherwise,
@@ -14,6 +14,11 @@ which leaves the read allowed. Any unexpected input allows the read: a guard tha
 its input must not block work.
 
 Agent-neutral by design (JSON in, JSON out), so Codex's .codex/hooks.json can call the same file.
+
+Call this with a trailing `|| true`. python3 exits 2 when it cannot open its script file, and 2 is
+the one exit code that blocks a PreToolUse call — so a checkout without this script would refuse
+every Read rather than simply not guarding. `|| true` cannot mask a real deny: that is emitted as
+JSON on stdout with exit 0.
 """
 
 import json
@@ -21,9 +26,10 @@ import sys
 
 MAX_LIMIT = 200
 REASON = (
-    "CHANGELOG.md is ~700 KB, and a whole-file read spends context on released history. "
-    "Read the first lines instead (limit: 12) and insert the new entry at the top of "
-    "[Unreleased]. Entry format and rationale: AGENTS.md."
+    "CHANGELOG.md is ~600 KB of released history, and a whole-file read spends context on it. "
+    "Read the first lines instead (limit: 12) if you need the most recent release. A notable "
+    "change adds a file under changelog/unreleased/ — never an edit to this file. Format: "
+    "changelog/README.md."
 )
 
 

@@ -13,6 +13,14 @@ the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().a
     }
 }
 
+// These guards read the repository off disk at run time, so Gradle cannot see the files they scan
+// as task inputs. Left to up-to-date checking, the task is skipped whenever this module itself has
+// not changed — which is almost always, now that the guards live apart from the code they police —
+// and reports a stale pass over a tree it never looked at. They take seconds; always run them.
+tasks.withType<Test>().configureEach {
+    outputs.upToDateWhen { false }
+}
+
 dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testImplementation("org.junit.jupiter:junit-jupiter")
