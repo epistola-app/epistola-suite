@@ -79,7 +79,7 @@ jobs:
         env:
           # Waives the "a change to shipped code needs a changelog fragment" requirement.
           SKIP_CHANGELOG_REQUIREMENT: ${{ contains(github.event.pull_request.labels.*.name, 'no-changelog') }}
-        run: gradle checkMigrationVersions checkChangelogFragments ktlintCheck checkContractVersionAlignment testClasses
+        run: gradle checkMigrationVersions checkChangelogFragments checkBundledCatalogVersions ktlintCheck checkContractVersionAlignment testClasses
 
       # setup-gradle does NOT share the local build cache across jobs, so we
       # ship it explicitly. It is content-addressed (location-independent), so

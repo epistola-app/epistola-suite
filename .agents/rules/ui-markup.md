@@ -42,5 +42,5 @@ id="…" th:inline="javascript">` parsed from static JS, with initialization dri
 ## Verify
 
 ```bash
-./gradlew :apps:epistola:unitTest --tests "app.epistola.suite.architecture.*"
+./gradlew :modules:guards:test
 ```

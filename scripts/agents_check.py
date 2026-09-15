@@ -259,7 +259,9 @@ def check_guard_coverage(files: list[Path]) -> list[Problem]:
     problems: list[Problem] = []
     for path in sorted(walk(ROOT)):
         parts = path.relative_to(ROOT).parts
-        if "architecture" not in parts or "test" not in parts:
+        # Guards live in modules/guards (source scanners) and in an `architecture` package where
+        # they need a compiled classpath. Both kinds fail the build, so both must be named.
+        if not ({"architecture", "guards"} & set(parts)) or "test" not in parts:
             continue
         if path.suffix != ".kt" or not path.stem.endswith("Test"):
             continue

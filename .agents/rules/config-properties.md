@@ -28,6 +28,6 @@ Files live at `apps/epistola/src/main/resources/application.yaml` plus `-local`,
 ## Verify
 
 ```bash
-./gradlew :apps:epistola:unitTest --tests "*NoHardcodedSecretsTest"
+./gradlew :modules:guards:test --tests "*NoHardcodedSecretsTest"
 helm lint charts/epistola      # if the knob reaches the chart
 ```

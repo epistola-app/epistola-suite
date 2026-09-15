@@ -27,7 +27,8 @@ faster and deterministic. Reach for Playwright only when the behaviour lives in 
   state (`CreateApiKey` then `RevokeApiKey`), and use the id a command returns rather than forcing
   one in. SQL is justified only when no command can produce the state — an infrastructure table with
   no command, or a specific historical timestamp the read path asserts against, since commands write
-  `NOW()`. Add a one-line comment saying why, so it does not read as the default.
+  `NOW()`. Add a one-line comment saying why, so it does not read as the default. The count of
+  raw `INSERT`s is ratcheted by `DriftRatchetTest`: it may fall, never rise.
 - **UI tests** navigate with `gotoAndReady(path)`, await swaps with `page.htmxSettle()`, open dialogs
   with `page.openDialogByTrigger(...)`, and assert web-first. Banned and build-failing via
   `UiTestHygieneTest`: `waitForTimeout`, the `:visible` pseudo, blind
@@ -42,7 +43,7 @@ faster and deterministic. Reach for Playwright only when the behaviour lives in 
 
 ```bash
 ./gradlew :modules:epistola-core:integrationTest --tests "*YourTest*"
-./gradlew :apps:epistola:unitTest --tests "*UiTestHygieneTest"
+./gradlew :modules:guards:test --tests "*UiTestHygieneTest"
 ```
 
 A `--tests` filter matching nothing in a module is no longer an error, so scoping to the module you

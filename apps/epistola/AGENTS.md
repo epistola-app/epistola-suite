@@ -4,7 +4,7 @@ The deployable app and the UI host: Thymeleaf templates, HTMX handlers and route
 bootstrap, the migration launcher, observability and the page chrome (`layout/shell`, `layout/nav`,
 `fragments/*`). Business logic belongs in `epistola-core`, not here.
 
-It also hosts the repo-wide guard tests, under `src/test/kotlin/app/epistola/suite/architecture/`.
+The repo-wide source guards live in `modules/guards`; the ones needing the Spring context (`MediatorWiringTest`) stay here.
 
 ## Two endpoint layers that never mix
 
@@ -29,7 +29,7 @@ Copy `handlers/EnvironmentHandler.kt` and `handlers/EnvironmentRoutes.kt`: a `@C
 - Reach the domain through `.execute()` / `.query()`. Handlers do not touch JDBI.
 - Full page: `ServerResponse.ok().page("domain/list") { … }`. Swap:
   `request.htmx { fragment("domain/list", "rows") { … } }`. Prefer `onFullPage {}` over the older
-  `onNonHtmx {}` in new code.
+  `onNonHtmx {}` in new code; `DriftRatchetTest` ratchets the remaining count downward only.
 - Dialog forms: `request.form { field("name") { required(); maxLength(100) } }`, then
   `form.executeOrFormError { … }`, `dialogFieldErrors(...)` on failure and `dialogSuccess(...)` on
   success. See [`docs/dialog-forms.md`](../../docs/dialog-forms.md) and
@@ -55,6 +55,6 @@ Feature-module templates currently depend on a few host-only fragments (`fragmen
 ```bash
 pnpm build   # once; the app packages the editor bundle
 ./gradlew :apps:epistola:integrationTest --tests "*YourHandlerHtmxTest*"
-./gradlew :apps:epistola:unitTest --tests "app.epistola.suite.architecture.*"
+./gradlew :modules:guards:test
 ./gradlew :apps:epistola:uiTest --tests "*YourUiTest*"
 ```
