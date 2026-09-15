@@ -11,11 +11,16 @@ import org.springframework.web.servlet.HandlerInterceptor
 import org.springframework.web.servlet.ModelAndView
 
 /**
- * Adds embedding/postMessage-bridge context to shell pages, same idiom as
- * [app.epistola.suite.config.SiteBannerInterceptor]: `embeddingEnabled` /
- * `allowedParentOrigins`, install-wide from [EmbeddingProperties] directly —
- * the shell renders the bridge `<script>` and its config JSON island only
- * when embedding is on (see docs/embedding.md).
+ * Adds embedding/postMessage-bridge context to the pages that host the
+ * bridge, same idiom as [app.epistola.suite.config.SiteBannerInterceptor]:
+ * `embeddingEnabled` / `allowedParentOrigins`, install-wide from
+ * [EmbeddingProperties] directly — the shell and the standalone
+ * template-editor page render the bridge `<script>` and its config JSON
+ * island only when embedding is on (see docs/embedding.md).
+ *
+ * The template editor is a full page outside the shell (no `layout/shell`
+ * involved), so it needs its own entry here; every other bridge host goes
+ * through the shell.
  *
  * Does not derive the current page's resource identity — `embed-bridge.js`
  * parses that itself from `location.pathname` (the same URL convention
@@ -33,9 +38,14 @@ class EmbeddingContextInterceptor(
         handler: Any,
         modelAndView: ModelAndView?,
     ) {
-        if (modelAndView == null || modelAndView.viewName != "layout/shell") return
+        if (modelAndView == null || modelAndView.viewName !in BRIDGE_VIEWS) return
 
         modelAndView.addObject("embeddingEnabled", embeddingProperties.enabled)
         modelAndView.addObject("allowedParentOrigins", embeddingProperties.allowedParentOrigins)
+    }
+
+    companion object {
+        /** Full pages that host `embed-bridge.js` (see docs/embedding.md). */
+        private val BRIDGE_VIEWS = setOf("layout/shell", "templates/editor")
     }
 }

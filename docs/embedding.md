@@ -47,8 +47,11 @@ flag:
    dropped on every request the embedded page's own JS/htmx makes back to its
    own origin. See ADR 0015 for why this is scoped this narrowly.
 3. **The bridge script and its config JSON island** are included in the
-   rendered shell at all (`fragments/htmx.html`, `layout/shell.html`) —
-   entirely absent from the page when embedding is off.
+   rendered shell (`fragments/htmx.html`, `layout/shell.html`) and in the
+   standalone template-editor page (`templates/editor.html`, which is a full
+   page outside the shell) — entirely absent from the page when embedding is
+   off. The island itself is defined once, in `fragments/embed-config.html`,
+   and rendered by both hosts.
 
 ## The message protocol
 
@@ -114,6 +117,29 @@ involvement, no JSON island, and no per-handler edit needed for a new
 resource-detail route: the URL shape is already the shared identity scheme
 (identical to the REST API's), so one client-side matcher covers every
 current and future route that follows it.
+
+### Suite → host: `request`
+
+```jsonc
+{
+  "source": "epistola-suite",
+  "type": "request",
+  "verb": "GET",
+  "requestPath": "/tenants/acme/templates/search",
+  "queryKeys": ["q", "sort"],
+  "status": 200,
+}
+```
+
+Fired after every successful, non-boosted HTMX GET request — the fragment
+interactions such as searching, filtering, sorting and pagination that may not
+produce a navigation. Boosted full-page navigations are excluded, since
+`navigated` already reports those; without the exclusion, every boosted
+link/form click would emit both messages for the same path and `requestPath`
+would stop being limited to those four use cases. The bridge deliberately
+exposes parameter names only: query values, form bodies and non-GET requests
+are never forwarded. The host assigns meaning to these raw request facts;
+Suite declares no training-specific events.
 
 ### Suite → host: `resource-changed`
 
