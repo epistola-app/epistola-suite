@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <!--
+        Embedding bridge config island (docs/embedding.md, ADR 0015) — demo-mode
+        only. Every bridge host renders it: `layout/shell.html` (all shell pages)
+        and `templates/editor.html` (a full page outside the shell). Without it
+        `embed-bridge.js` stays inert and no navigated/resource-changed/request
+        messages leave the page, so a host must render this *before* including
+        `fragments/htmx :: htmx`, which loads the bridge script that reads it.
+        Static per session, so <head>-once is fine even though boosted swaps
+        never re-load <head>.
+    -->
+    <th:block th:fragment="island">
+        <script type="application/json" id="epistola-embed-config" th:if="${embeddingEnabled}" th:inline="javascript">
+            /*[[${allowedParentOrigins}]]*/ []
+        </script>
+    </th:block>
+</head>
+</html>

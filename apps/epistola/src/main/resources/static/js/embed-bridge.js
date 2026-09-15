@@ -9,6 +9,7 @@
 // Protocol (both directions always carry `source` so messages are recognizable):
 //   host  -> suite: { source: 'epistola-host',  type: 'navigate', resource: {resourceType, tenantId, catalogKey, key} }
 //   suite -> host:  { source: 'epistola-suite', type: 'navigated', path, resource: {...} | null }
+//   suite -> host:  { source: 'epistola-suite', type: 'request', verb: 'GET', requestPath, queryKeys, status }
 //   suite -> host:  { source: 'epistola-suite', type: 'resource-changed', resource: {...}, operation: 'create'|'update'|'delete' }
 //
 // Security: the host can only ever hand over a typed resource identity, never a
@@ -191,11 +192,61 @@
       (event.detail.requestConfig && event.detail.requestConfig.verb) ||
       ''
     ).toUpperCase();
+
+    const rawRequestPath = event.detail.pathInfo && event.detail.pathInfo.requestPath;
+    if (!rawRequestPath) return;
+
+    // Generic observation only: hosts decide what a successful GET means.
+    // Parameter names are enough to distinguish search, filter, sort and
+    // pagination without disclosing search text or any form values. Boosted
+    // full-page navigations are excluded — notifyNavigated() already reports
+    // those via htmx:load, so this stays scoped to the fragment interactions
+    // (search/filter/sort/pagination) that don't produce a navigation of
+    // their own; without this check every boosted link/form click would fire
+    // both a `navigated` and a `request` message for the same path, and
+    // `requestPath` would stop being limited to the documented use cases.
+    if (verb === 'GET') {
+      if (event.detail.boosted) return;
+      let requestPath;
+      try {
+        requestPath = new URL(rawRequestPath, location.origin).pathname;
+      } catch (e) {
+        return;
+      }
+      const queryKeys = [];
+      const addQueryKey = function (key) {
+        if (typeof key === 'string' && queryKeys.indexOf(key) === -1) queryKeys.push(key);
+      };
+      try {
+        new URL(xhr.responseURL, location.origin).searchParams.forEach(function (_value, key) {
+          addQueryKey(key);
+        });
+      } catch (e) {}
+      const parameters = event.detail.requestConfig && event.detail.requestConfig.parameters;
+      if (parameters && typeof parameters === 'object') {
+        try {
+          if (typeof FormData !== 'undefined' && parameters instanceof FormData) {
+            parameters.forEach(function (_value, key) {
+              addQueryKey(key);
+            });
+          } else {
+            Object.keys(parameters).forEach(addQueryKey);
+          }
+        } catch (e) {}
+      }
+      postToHost({
+        source: 'epistola-suite',
+        type: 'request',
+        verb: 'GET',
+        requestPath: requestPath,
+        queryKeys: queryKeys,
+        status: xhr.status,
+      });
+      return;
+    }
     if (verb !== 'POST' && verb !== 'PATCH') return;
 
-    const requestPath = event.detail.pathInfo && event.detail.pathInfo.requestPath;
-    if (!requestPath) return;
-    const parsed = parseResourcePath(requestPath);
+    const parsed = parseResourcePath(rawRequestPath);
     if (!parsed) return;
 
     if (verb === 'PATCH' && parsed.rest.length >= 2) {
