@@ -99,13 +99,49 @@ class JsonSchemaValidator(
     }
 
     /**
+     * Recurses into `properties` and `items` (including draft-07 tuple-form
+     * `items`), applying [check] to each nested object schema and
+     * short-circuiting on its first non-null result. Shared by
+     * [findNegativeItemsBound] and [findInvalidItemsRange], which differ only
+     * in how they handle composition keywords (allOf/oneOf/anyOf) — negative-
+     * bound checking treats each member independently, range-checking threads
+     * inherited bounds through them — so that part stays with each caller.
+     */
+    private fun <T> recurseIntoPropertiesAndItems(
+        schema: ObjectNode,
+        path: String,
+        check: (ObjectNode, String) -> T?,
+    ): T? {
+        (schema.get("properties") as? ObjectNode)?.let { properties ->
+            for ((name, prop) in properties.properties()) {
+                if (prop is ObjectNode) {
+                    check(prop, "$path.$name")?.let { return it }
+                }
+            }
+        }
+
+        when (val items = schema.get("items")) {
+            is ObjectNode -> check(items, "$path.items")?.let { return it }
+            is ArrayNode -> {
+                for ((index, entry) in items.withIndex()) {
+                    if (entry is ObjectNode) {
+                        check(entry, "$path.items[$index]")?.let { return it }
+                    }
+                }
+            }
+            else -> Unit
+        }
+
+        return null
+    }
+
+    /**
      * Finds the first schema location where `minItems` or `maxItems` is
      * negative. The JSON Schema meta-schema declares both keywords
      * non-negative, but networknt's compilation step does not itself enforce
      * that against the meta-schema, so a negative bound would otherwise pass
-     * [validateSchema] silently. Recurses the same way as
-     * [findInvalidItemsRange] (no inheritance needed here — the check is
-     * local to each node's own keywords).
+     * [validateSchema] silently. No inheritance needed here — the check is
+     * local to each node's own keywords.
      */
     private fun findNegativeItemsBound(schema: ObjectNode, path: String): Pair<String, String>? {
         for (keyword in listOf("minItems", "maxItems")) {
@@ -114,25 +150,7 @@ class JsonSchemaValidator(
             }
         }
 
-        (schema.get("properties") as? ObjectNode)?.let { properties ->
-            for ((name, prop) in properties.properties()) {
-                if (prop is ObjectNode) {
-                    findNegativeItemsBound(prop, "$path.$name")?.let { return it }
-                }
-            }
-        }
-
-        when (val items = schema.get("items")) {
-            is ObjectNode -> findNegativeItemsBound(items, "$path.items")?.let { return it }
-            is ArrayNode -> {
-                for ((index, entry) in items.withIndex()) {
-                    if (entry is ObjectNode) {
-                        findNegativeItemsBound(entry, "$path.items[$index]")?.let { return it }
-                    }
-                }
-            }
-            else -> Unit
-        }
+        recurseIntoPropertiesAndItems(schema, path, ::findNegativeItemsBound)?.let { return it }
 
         for (keyword in listOf("allOf", "oneOf", "anyOf")) {
             val members = schema.get(keyword) as? ArrayNode ?: continue
@@ -188,25 +206,9 @@ class JsonSchemaValidator(
         val max = effectiveMaxItems
         if (min != null && max != null && max < min) return path
 
-        (schema.get("properties") as? ObjectNode)?.let { properties ->
-            for ((name, prop) in properties.properties()) {
-                if (prop is ObjectNode) {
-                    findInvalidItemsRange(prop, "$path.$name")?.let { return it }
-                }
-            }
-        }
-
-        when (val items = schema.get("items")) {
-            is ObjectNode -> findInvalidItemsRange(items, "$path.items")?.let { return it }
-            is ArrayNode -> {
-                for ((index, entry) in items.withIndex()) {
-                    if (entry is ObjectNode) {
-                        findInvalidItemsRange(entry, "$path.items[$index]")?.let { return it }
-                    }
-                }
-            }
-            else -> Unit
-        }
+        recurseIntoPropertiesAndItems(schema, path) { node, nodePath ->
+            findInvalidItemsRange(node, nodePath)
+        }?.let { return it }
 
         for (member in allOfMembers) {
             findInvalidItemsRange(member, path, effectiveMinItems, effectiveMaxItems)?.let { return it }
