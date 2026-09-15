@@ -45,6 +45,7 @@ The visual editor supports object contracts composed from:
 - `date`, `date-time`, `email`, and `uri` string formats;
 - `minimum` and `maximum` for numeric fields;
 - `minItems` and `maxItems` for arrays;
+- a `default` value for scalar fields, validated against the field's own type, format, and range;
 - Epistola's registered inline and block rich-text `$ref` types.
 
 Select a field to add another field in context. Container fields offer a primary child action and
@@ -56,9 +57,10 @@ restore it. Delete, undo, and redo keep the closest remaining field selected.
 
 The visual editor currently cannot represent every valid JSON Schema keyword. Among other things,
 multi-value type unions, multi-branch compositions, tuple arrays, arrays directly containing
-arrays, `additionalProperties: false`, arbitrary references, `enum`, `const`, `default`,
+arrays, `additionalProperties: false`, arbitrary references, `enum`, `const`,
 string patterns and lengths, conditional schemas, and custom keywords require JSON-only schema
-mode.
+mode. A `default` on an array or object field survives import/export unchanged but is only
+editable through JSON — the visual "Default value" control is scalar-only.
 
 JSON-only does not mean that the contract is invalid. It means the schema is shown read-only
 because a round trip through the visual editor would be lossy. Its examples remain editable.
@@ -93,7 +95,9 @@ capabilities:
 | Compatible `allOf` object compositions                                                    | Yes                                   | Normalized when lossless | Yes                          | Yes                         |
 | Multi-branch `oneOf` and `anyOf`                                                          | Yes                                   | JSON-only                | Value-aware branch selection | Fields from all branches    |
 | Nullable type unions                                                                      | Yes                                   | JSON-only                | Yes                          | Non-null fields are exposed |
-| `enum`, `const`, and `default`                                                            | Yes                                   | JSON-only                | Used by Autofill             | Scalar field is exposed     |
+| `enum` and `const`                                                                        | Yes                                   | JSON-only                | Used by Autofill             | Scalar field is exposed     |
+| `default` on a scalar field                                                               | Yes                                   | Yes                      | Used by Autofill             | Scalar field is exposed     |
+| `default` on an array or object field                                                     | Yes                                   | JSON-only                | Used by Autofill             | Scalar field is exposed     |
 | Recursive local references                                                                | When valid in the declared dialect    | JSON-only                | Recursion is bounded         | Exposed as a safe leaf      |
 | Unresolved local references                                                               | Must resolve for data validation      | JSON-only                | Not expanded                 | Exposed as a safe leaf      |
 | Registered Epistola rich-text references                                                  | Yes                                   | Yes                      | Yes                          | Yes                         |

@@ -14,6 +14,7 @@
 import { html, nothing } from 'lit';
 import type {
   ArrayField,
+  JsonValue,
   PrimitiveField,
   SchemaField,
   SchemaFieldType,
@@ -378,6 +379,9 @@ function renderDetailPanel(
           ></textarea>
         </div>
 
+        <!-- Default value -->
+        ${renderDefaultValueRow(field, uiState, emitUpdate)}
+
         <!-- Type-specific constraints -->
         ${renderTypeConstraints(field, uiState, emitUpdate)}
 
@@ -435,6 +439,147 @@ function renderAddFieldAction(
       <span class="dc-context-target" aria-hidden="true">${target.visible}</span>
     </button>
   `;
+}
+
+// =============================================================================
+// Default value
+// =============================================================================
+
+/** Field types the "Default value" control supports (scalars only). */
+const DEFAULT_VALUE_TYPES = new Set<SchemaFieldType>([
+  'string',
+  'number',
+  'integer',
+  'boolean',
+  'date',
+  'datetime',
+]);
+
+function renderDefaultValueRow(
+  field: SchemaField,
+  uiState: SchemaUiState,
+  emitUpdate: (updates: SchemaFieldUpdate) => void,
+): unknown {
+  if (field.type === 'array' || field.type === 'object' || !DEFAULT_VALUE_TYPES.has(field.type)) {
+    return nothing;
+  }
+
+  const fieldError = uiState.fieldErrors.get(field.id);
+  const errorId = fieldError ? pathToErrorId(field.id) : undefined;
+
+  return html`
+    <div class="dc-detail-row">
+      <label class="dc-detail-label">Default value</label>
+      ${renderDefaultValueInput(field, uiState.readOnly, !!fieldError, errorId, emitUpdate)}
+    </div>
+    ${fieldError ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>` : nothing}
+  `;
+}
+
+function renderDefaultValueInput(
+  field: PrimitiveField,
+  readOnly: boolean,
+  hasError: boolean,
+  errorId: string | undefined,
+  emitUpdate: (updates: SchemaFieldUpdate) => void,
+): unknown {
+  const errorClass = hasError ? 'dc-input-error' : '';
+  const describedBy = hasError ? errorId : nothing;
+
+  switch (field.type) {
+    case 'boolean': {
+      const current = field.default === undefined ? '' : String(field.default);
+      return html`
+        <select
+          class="ep-select dc-detail-select ${errorClass}"
+          data-testid="dc-default-value-input"
+          .value=${current}
+          ?disabled=${readOnly}
+          aria-describedby=${describedBy}
+          @change=${(e: Event) => {
+            const val = (e.target as HTMLSelectElement).value;
+            emitUpdate({ default: val === '' ? undefined : val === 'true' });
+          }}
+        >
+          <option value="" ?selected=${current === ''}>None</option>
+          <option value="true" ?selected=${current === 'true'}>True</option>
+          <option value="false" ?selected=${current === 'false'}>False</option>
+        </select>
+      `;
+    }
+    case 'number':
+    case 'integer': {
+      const value = typeof field.default === 'number' ? field.default : undefined;
+      return html`
+        <input
+          type="number"
+          class="ep-input dc-detail-input ${errorClass}"
+          data-testid="dc-default-value-input"
+          step=${field.type === 'integer' ? '1' : 'any'}
+          .value=${value !== undefined ? String(value) : ''}
+          placeholder="—"
+          ?disabled=${readOnly}
+          aria-describedby=${describedBy}
+          @change=${(e: Event) => {
+            const val = (e.target as HTMLInputElement).value;
+            emitUpdate({ default: val === '' ? undefined : Number(val) });
+          }}
+        />
+      `;
+    }
+    case 'date': {
+      const value = typeof field.default === 'string' ? field.default : '';
+      return html`
+        <input
+          type="date"
+          class="ep-input dc-detail-input ${errorClass}"
+          data-testid="dc-default-value-input"
+          .value=${value}
+          ?disabled=${readOnly}
+          aria-describedby=${describedBy}
+          @change=${(e: Event) => {
+            const val = (e.target as HTMLInputElement).value;
+            emitUpdate({ default: val === '' ? undefined : val });
+          }}
+        />
+      `;
+    }
+    case 'datetime': {
+      const value = typeof field.default === 'string' ? field.default : '';
+      return html`
+        <input
+          type="datetime-local"
+          class="ep-input dc-detail-input ${errorClass}"
+          data-testid="dc-default-value-input"
+          .value=${value}
+          ?disabled=${readOnly}
+          aria-describedby=${describedBy}
+          @change=${(e: Event) => {
+            const val = (e.target as HTMLInputElement).value;
+            emitUpdate({ default: val === '' ? undefined : val });
+          }}
+        />
+      `;
+    }
+    default: {
+      const value = typeof field.default === 'string' ? field.default : '';
+      return html`
+        <input
+          type="text"
+          class="ep-input dc-detail-input ${errorClass}"
+          data-testid="dc-default-value-input"
+          .value=${value}
+          placeholder="—"
+          ?disabled=${readOnly}
+          aria-describedby=${describedBy}
+          @change=${(e: Event) => {
+            const val = (e.target as HTMLInputElement).value;
+            emitUpdate({ default: val === '' ? undefined : (val as JsonValue) });
+          }}
+        />
+      `;
+    }
+  }
 }
 
 // =============================================================================

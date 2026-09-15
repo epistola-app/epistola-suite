@@ -241,3 +241,183 @@ describe('SchemaSection array constraints', () => {
     expect(container.querySelector('.dc-field-error')).toBeNull();
   });
 });
+
+describe('SchemaSection default value', () => {
+  it('renders a text input with the current default for a string field', () => {
+    const container = renderSection('reference', false, {
+      fields: [
+        { id: 'reference', name: 'reference', type: 'string', required: false, default: 'N/A' },
+      ],
+    });
+    const input = container.querySelector<HTMLInputElement>(
+      '[data-testid="dc-default-value-input"]',
+    );
+    expect(input?.getAttribute('type')).toBe('text');
+    expect(input?.value).toBe('N/A');
+  });
+
+  it('emits an updateField command with the default value on change', () => {
+    const container = renderSection('reference', false, {
+      fields: [{ id: 'reference', name: 'reference', type: 'string', required: false }],
+    });
+    const input = container.querySelector<HTMLInputElement>(
+      '[data-testid="dc-default-value-input"]',
+    )!;
+    input.value = 'unknown';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(callbacks.onCommand).toHaveBeenCalledWith({
+      type: 'updateField',
+      fieldId: 'reference',
+      updates: { default: 'unknown' },
+    });
+  });
+
+  it('clears the default when the input is emptied', () => {
+    const container = renderSection('reference', false, {
+      fields: [
+        {
+          id: 'reference',
+          name: 'reference',
+          type: 'string',
+          required: false,
+          default: 'unknown',
+        },
+      ],
+    });
+    const input = container.querySelector<HTMLInputElement>(
+      '[data-testid="dc-default-value-input"]',
+    )!;
+    input.value = '';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(callbacks.onCommand).toHaveBeenCalledWith({
+      type: 'updateField',
+      fieldId: 'reference',
+      updates: { default: undefined },
+    });
+  });
+
+  it('renders a number input for number/integer fields', () => {
+    const container = renderSection('score', false, {
+      fields: [{ id: 'score', name: 'score', type: 'number', required: false, default: 42 }],
+    });
+    const input = container.querySelector<HTMLInputElement>(
+      '[data-testid="dc-default-value-input"]',
+    );
+    expect(input?.getAttribute('type')).toBe('number');
+    expect(input?.value).toBe('42');
+  });
+
+  it('emits a numeric default on change', () => {
+    const container = renderSection('score', false, {
+      fields: [{ id: 'score', name: 'score', type: 'integer', required: false }],
+    });
+    const input = container.querySelector<HTMLInputElement>(
+      '[data-testid="dc-default-value-input"]',
+    )!;
+    input.value = '7';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(callbacks.onCommand).toHaveBeenCalledWith({
+      type: 'updateField',
+      fieldId: 'score',
+      updates: { default: 7 },
+    });
+  });
+
+  it('renders a None/True/False select for boolean fields, including a false default', () => {
+    const container = renderSection('active', false, {
+      fields: [{ id: 'active', name: 'active', type: 'boolean', required: false, default: false }],
+    });
+    const select = container.querySelector<HTMLSelectElement>(
+      '[data-testid="dc-default-value-input"]',
+    );
+    expect(select?.tagName).toBe('SELECT');
+    expect(select?.value).toBe('false');
+  });
+
+  it('emits a boolean default on change', () => {
+    const container = renderSection('active', false, {
+      fields: [{ id: 'active', name: 'active', type: 'boolean', required: false }],
+    });
+    const select = container.querySelector<HTMLSelectElement>(
+      '[data-testid="dc-default-value-input"]',
+    )!;
+    select.value = 'true';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(callbacks.onCommand).toHaveBeenCalledWith({
+      type: 'updateField',
+      fieldId: 'active',
+      updates: { default: true },
+    });
+  });
+
+  it('renders a date input for date fields', () => {
+    const container = renderSection('birthDate', false, {
+      fields: [
+        {
+          id: 'birthDate',
+          name: 'birthDate',
+          type: 'date',
+          required: false,
+          default: '2024-01-01',
+        },
+      ],
+    });
+    const input = container.querySelector<HTMLInputElement>(
+      '[data-testid="dc-default-value-input"]',
+    );
+    expect(input?.getAttribute('type')).toBe('date');
+    expect(input?.value).toBe('2024-01-01');
+  });
+
+  it('renders a datetime-local input for datetime fields', () => {
+    const container = renderSection('at', false, {
+      fields: [
+        { id: 'at', name: 'at', type: 'datetime', required: false, default: '2024-01-01T12:00' },
+      ],
+    });
+    const input = container.querySelector<HTMLInputElement>(
+      '[data-testid="dc-default-value-input"]',
+    );
+    expect(input?.getAttribute('type')).toBe('datetime-local');
+    expect(input?.value).toBe('2024-01-01T12:00');
+  });
+
+  it('does not render a default value control for array fields', () => {
+    const container = renderSection('tags');
+    expect(container.querySelector('[data-testid="dc-default-value-input"]')).toBeNull();
+  });
+
+  it('does not render a default value control for object fields', () => {
+    const container = renderSection('customer');
+    expect(container.querySelector('[data-testid="dc-default-value-input"]')).toBeNull();
+  });
+
+  it('shows the field error inline and marks the input invalid', () => {
+    const container = renderSection(
+      'score',
+      false,
+      {
+        fields: [
+          {
+            id: 'score',
+            name: 'score',
+            type: 'integer',
+            required: false,
+            default: 'nope' as unknown as number,
+          },
+        ],
+      },
+      new Map([['score', '"Default value" must be integer, got string']]),
+    );
+    const error = container.querySelector('.dc-field-error');
+    expect(error?.textContent).toBe('"Default value" must be integer, got string');
+    const input = container.querySelector<HTMLInputElement>(
+      '[data-testid="dc-default-value-input"]',
+    );
+    expect(input?.classList.contains('dc-input-error')).toBe(true);
+  });
+});

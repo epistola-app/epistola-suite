@@ -95,17 +95,56 @@ class JsonSchemaValidator(
             )
         }
 
+        val invalidDefault = findInvalidDefault(schema, "$")
+        if (invalidDefault != null) {
+            val (path, message) = invalidDefault
+            return SchemaValidationResult.Invalid(
+                "Property \"$path\" has an invalid \"default\" value: $message",
+            )
+        }
+
         return SchemaValidationResult.Valid
+    }
+
+    /**
+     * Finds the first schema location whose `default` doesn't conform to its
+     * own subschema — compiles that subschema in isolation and validates the
+     * default against it, the same way [validate] checks real data.
+     */
+    private fun findInvalidDefault(schema: ObjectNode, path: String): Pair<String, String>? {
+        schema.get("default")?.let { default ->
+            val subSchemaJson = objectMapper.writeValueAsString(relaxDateTimeForValidation(schema))
+            val errors = schemaRegistry.getSchema(subSchemaJson)
+                .validate(objectMapper.writeValueAsString(default), InputFormat.JSON)
+            if (errors.isNotEmpty()) {
+                return path to errors.joinToString("; ") { it.message }
+            }
+        }
+
+        recurseIntoPropertiesAndItems(schema, path, ::findInvalidDefault)?.let { return it }
+
+        for (keyword in listOf("allOf", "oneOf", "anyOf")) {
+            val members = schema.get(keyword) as? ArrayNode ?: continue
+            for (member in members) {
+                if (member is ObjectNode) {
+                    val memberPath = if (keyword == "allOf") path else "$path.$keyword"
+                    findInvalidDefault(member, memberPath)?.let { return it }
+                }
+            }
+        }
+
+        return null
     }
 
     /**
      * Recurses into `properties` and `items` (including draft-07 tuple-form
      * `items`), applying [check] to each nested object schema and
      * short-circuiting on its first non-null result. Shared by
-     * [findNegativeItemsBound] and [findInvalidItemsRange], which differ only
-     * in how they handle composition keywords (allOf/oneOf/anyOf) — negative-
-     * bound checking treats each member independently, range-checking threads
-     * inherited bounds through them — so that part stays with each caller.
+     * [findNegativeItemsBound], [findInvalidItemsRange], and
+     * [findInvalidDefault], which differ only in how they handle composition
+     * keywords (allOf/oneOf/anyOf) — negative-bound and default checking treat
+     * each member independently, range-checking threads inherited bounds
+     * through them — so that part stays with each caller.
      */
     private fun <T> recurseIntoPropertiesAndItems(
         schema: ObjectNode,

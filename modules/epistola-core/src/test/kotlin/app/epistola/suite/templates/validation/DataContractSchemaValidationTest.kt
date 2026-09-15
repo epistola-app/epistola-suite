@@ -261,5 +261,146 @@ class DataContractSchemaValidationTest {
         )
     }
 
+    @Test
+    fun `accepts a default value matching its own schema`() {
+        val schema = schema("""{"type":"object","properties":{"age":{"type":"integer","default":30}}}""")
+
+        assertThat(validator.validateDataContractSchema(schema)).isEqualTo(SchemaValidationResult.Valid)
+    }
+
+    @Test
+    fun `accepts a false boolean default`() {
+        val schema = schema("""{"type":"object","properties":{"active":{"type":"boolean","default":false}}}""")
+
+        assertThat(validator.validateDataContractSchema(schema)).isEqualTo(SchemaValidationResult.Valid)
+    }
+
+    @Test
+    fun `rejects a default value of the wrong type`() {
+        val result = validator.validateDataContractSchema(
+            schema("""{"type":"object","properties":{"age":{"type":"integer","default":"not-a-number"}}}"""),
+        )
+
+        assertThat(result).isEqualTo(
+            SchemaValidationResult.Invalid(
+                "Property \"\$.age\" has an invalid \"default\" value: string found, integer expected",
+            ),
+        )
+    }
+
+    @Test
+    fun `rejects a default value outside its minimum`() {
+        val result = validator.validateDataContractSchema(
+            schema(
+                """
+                {"type":"object","properties":{
+                  "age":{"type":"integer","minimum":18,"maximum":65,"default":10}
+                }}
+                """.trimIndent(),
+            ),
+        )
+
+        assertThat(result).isEqualTo(
+            SchemaValidationResult.Invalid(
+                "Property \"\$.age\" has an invalid \"default\" value: must have a minimum value of 18",
+            ),
+        )
+    }
+
+    @Test
+    fun `rejects a default value that does not match the relaxed date-time pattern`() {
+        val result = validator.validateDataContractSchema(
+            schema(
+                """
+                {"type":"object","properties":{
+                  "start":{"type":"string","format":"date-time","default":"not-a-datetime"}
+                }}
+                """.trimIndent(),
+            ),
+        )
+
+        assertThat(result).isInstanceOf(SchemaValidationResult.Invalid::class.java)
+        assertThat((result as SchemaValidationResult.Invalid).message)
+            .startsWith("Property \"\$.start\" has an invalid \"default\" value:")
+    }
+
+    @Test
+    fun `finds an invalid default nested inside an object property`() {
+        val result = validator.validateDataContractSchema(
+            schema(
+                """
+                {"type":"object","properties":{
+                  "customer":{"type":"object","properties":{
+                    "age":{"type":"integer","default":"nope"}
+                  }}
+                }}
+                """.trimIndent(),
+            ),
+        )
+
+        assertThat(result).isEqualTo(
+            SchemaValidationResult.Invalid(
+                "Property \"\$.customer.age\" has an invalid \"default\" value: string found, integer expected",
+            ),
+        )
+    }
+
+    @Test
+    fun `finds an invalid default nested inside array items`() {
+        val result = validator.validateDataContractSchema(
+            schema(
+                """
+                {"type":"object","properties":{
+                  "tags":{"type":"array","items":{"type":"string","default":42}}
+                }}
+                """.trimIndent(),
+            ),
+        )
+
+        assertThat(result).isEqualTo(
+            SchemaValidationResult.Invalid(
+                "Property \"\$.tags.items\" has an invalid \"default\" value: integer found, string expected",
+            ),
+        )
+    }
+
+    @Test
+    fun `finds an invalid default inside a oneOf branch`() {
+        val result = validator.validateDataContractSchema(
+            schema(
+                """
+                {"type":"object","properties":{
+                  "value":{"oneOf":[{"type":"string","default":42},{"type":"integer"}]}
+                }}
+                """.trimIndent(),
+            ),
+        )
+
+        assertThat(result).isEqualTo(
+            SchemaValidationResult.Invalid(
+                "Property \"\$.value.oneOf\" has an invalid \"default\" value: integer found, string expected",
+            ),
+        )
+    }
+
+    @Test
+    fun `finds an invalid default inherited through an allOf member`() {
+        val result = validator.validateDataContractSchema(
+            schema(
+                """
+                {"type":"object","properties":{
+                  "value":{"allOf":[{"type":"integer","minimum":18}],"default":5}
+                }}
+                """.trimIndent(),
+            ),
+        )
+
+        assertThat(result).isEqualTo(
+            SchemaValidationResult.Invalid(
+                "Property \"\$.value\" has an invalid \"default\" value: must have a minimum value of 18",
+            ),
+        )
+    }
+
     private fun schema(json: String): ObjectNode = objectMapper.readValue(json, ObjectNode::class.java)
 }

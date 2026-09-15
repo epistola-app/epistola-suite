@@ -97,8 +97,9 @@ function isEmptyValue(value: JsonValue | undefined): boolean {
 
 /**
  * Validate a single property against its schema.
+ * Exported for reuse by `field-validation.ts` (default-value checks).
  */
-function validateProperty(
+export function validateProperty(
   value: JsonValue,
   originalSchema: JsonSchemaProperty,
   path: string,
@@ -157,6 +158,16 @@ function validateProperty(
     }
     if (schema.format === 'email' && !/^\S+@\S+\.\S+$/.test(value)) {
       errors.push({ path, message: 'must be a valid email address' });
+    }
+  }
+
+  // Validate numeric range
+  if ((expectedType === 'number' || expectedType === 'integer') && typeof value === 'number') {
+    if (schema.minimum !== undefined && value < schema.minimum) {
+      errors.push({ path, message: `must be >= ${schema.minimum}` });
+    }
+    if (schema.maximum !== undefined && value > schema.maximum) {
+      errors.push({ path, message: `must be <= ${schema.maximum}` });
     }
   }
 

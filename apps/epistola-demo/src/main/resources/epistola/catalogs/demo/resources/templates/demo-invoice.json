@@ -39,7 +39,8 @@
               "type": "string"
             },
             "country": {
-              "type": "string"
+              "type": "string",
+              "default": "Netherlands"
             },
             "phone": {
               "type": "string"
@@ -128,7 +129,8 @@
           "type": "number",
           "description": "Tax rate as decimal (0.21 = 21%)",
           "minimum": 0,
-          "maximum": 1
+          "maximum": 1,
+          "default": 0.21
         },
         "taxAmount": {
           "type": "number",

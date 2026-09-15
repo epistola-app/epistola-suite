@@ -347,15 +347,15 @@ describe('checkSchemaCompatibility', () => {
       expect(result.issues.some((i) => i.feature === 'const')).toBe(true);
     });
 
-    it('flags default', () => {
+    it('allows default', () => {
       const result = checkSchemaCompatibility({
         type: 'object',
         properties: {
           name: { type: 'string', default: 'unknown' },
         },
       });
-      expect(result.compatible).toBe(false);
-      expect(result.issues.some((i) => i.feature === 'default')).toBe(true);
+      expect(result.compatible).toBe(true);
+      expect(result.issues).toHaveLength(0);
     });
 
     it('flags $ref', () => {
