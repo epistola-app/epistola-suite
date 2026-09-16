@@ -77,7 +77,7 @@ import {
   renderClientValidationBanner,
   renderValidationErrorsAlert,
 } from './sections/ValidationErrorsAlert.js';
-import { completeExampleFromSchema } from './examples/example-generation.js';
+import { applySchemaDefaults, completeExampleFromSchema } from './examples/example-generation.js';
 
 @customElement('epistola-data-contract-editor')
 export class EpistolaDataContractEditor extends LitElement {
@@ -878,6 +878,10 @@ export class EpistolaDataContractEditor extends LitElement {
         }
         this._commandHistory.clear();
         this._committedVisualSchema = structuredClone(this._visualSchema);
+        // The new committed baseline has no diff against itself — recompute so a
+        // stale breaking-changes list doesn't re-trigger the confirmation dialog
+        // on the next save (e.g. an examples-only save right after this one).
+        this._updateBreakingChanges();
         this._revalidate();
         if (schemaResult.warnings) {
           this._schemaWarnings = Object.values(schemaResult.warnings).flat();
@@ -1040,7 +1044,7 @@ export class EpistolaDataContractEditor extends LitElement {
     const newExample: DataExample = {
       id: nanoid(),
       name: `Example ${state.dataExamples.length + 1}`,
-      data: {},
+      data: state.schema ? applySchemaDefaults(state.schema, {}) : {},
     };
     state.addDraftExample(newExample);
     this._editingExampleId = newExample.id;

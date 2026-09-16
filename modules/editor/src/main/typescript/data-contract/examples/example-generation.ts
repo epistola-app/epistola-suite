@@ -40,6 +40,37 @@ export function completeExampleFromSchema(
   );
 }
 
+/**
+ * Fills in each property's `default` where `data` has no value for it, recursing
+ * into nested `object` properties. Unlike {@link completeExampleFromSchema}, a
+ * property with no `default` is left absent rather than filled with a generated
+ * placeholder — this is for seeding a brand-new example, not for the explicit
+ * "generate example data" action.
+ */
+export function applySchemaDefaults(schema: JsonSchema | JsonObject, data: JsonObject): JsonObject {
+  const result = structuredClone(data);
+  applyDefaultsInPlace(schema as SchemaNode, result);
+  return result;
+}
+
+function applyDefaultsInPlace(schema: SchemaNode, data: JsonObject): void {
+  for (const [name, propertySchema] of Object.entries(schema.properties ?? {})) {
+    const prop = propertySchema as SchemaNode;
+
+    if (
+      !Object.prototype.hasOwnProperty.call(data, name) &&
+      Object.prototype.hasOwnProperty.call(prop, 'default')
+    ) {
+      data[name] = structuredClone(prop.default as JsonValue);
+    }
+
+    const nested = data[name];
+    if (isJsonObject(nested)) {
+      applyDefaultsInPlace(prop, nested);
+    }
+  }
+}
+
 function completeObject(
   schema: SchemaNode,
   rootSchema: JsonObject,

@@ -10,7 +10,7 @@ import {
   type JsonValue,
 } from '../types.js';
 import { validateDataAgainstSchema } from '../schema/validation.js';
-import { completeExampleFromSchema } from './example-generation.js';
+import { applySchemaDefaults, completeExampleFromSchema } from './example-generation.js';
 import { createSemanticExampleValues } from './semantic-example-values.js';
 
 function complete(schema: JsonSchema, existing: JsonObject) {
@@ -449,5 +449,44 @@ describe('completeExampleFromSchema', () => {
       }
     }
     expect(validateDataAgainstSchema(generated, schema).valid).toBe(true);
+  });
+});
+
+describe('applySchemaDefaults', () => {
+  it('fills a property default but leaves an undefaulted property absent', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        greeting: { type: 'string', default: 'Hello' },
+        note: { type: 'string' },
+      },
+    };
+
+    expect(applySchemaDefaults(schema, {})).toEqual({ greeting: 'Hello' });
+  });
+
+  it('leaves an existing value untouched', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: { greeting: { type: 'string', default: 'Hello' } },
+    };
+
+    expect(applySchemaDefaults(schema, { greeting: 'Hi' })).toEqual({ greeting: 'Hi' });
+  });
+
+  it('recurses into a nested object property', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        address: {
+          type: 'object',
+          properties: { country: { type: 'string', default: 'NL' } },
+        },
+      },
+    };
+
+    expect(applySchemaDefaults(schema, { address: { city: 'Utrecht' } })).toEqual({
+      address: { city: 'Utrecht', country: 'NL' },
+    });
   });
 });
