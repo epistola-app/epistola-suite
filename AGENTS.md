@@ -82,6 +82,8 @@ Read the guide for the area you are touching first. The right-hand column is wha
 | Docs                                | [`docs/AGENTS.md`](docs/AGENTS.md)                                                                | review                                                                  |
 | Vulnerability records               | [`vulnerabilities/AGENTS.md`](vulnerabilities/AGENTS.md)                                          | `pnpm vulnerabilities:check`                                            |
 
+Before offering any control, read [`.agents/rules/ui-affordances.md`](.agents/rules/ui-affordances.md).
+
 Contract-generated code — REST server interfaces, the template model, the catalog protocol — is not
 in the working tree. It arrives from the `epistola-contract` artifacts, so grep will not find it.
 
