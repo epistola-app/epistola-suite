@@ -14,6 +14,8 @@ import app.epistola.suite.embedding.EmbeddingProperties
 import app.epistola.suite.security.AuthProperties
 import app.epistola.suite.security.EpistolaJwtAuthenticationConverter
 import app.epistola.suite.security.PopupAwareAuthenticationSuccessHandler
+import app.epistola.suite.security.SilentLoginAuthorizationRequestResolver
+import app.epistola.suite.security.SsoLoginFailureHandler
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest
@@ -217,11 +219,17 @@ class SecurityConfig(
         }
 
         // Configure OAuth2 when registrations are available
-        if (oauth2) {
+        if (oauth2 && clientRegistrationRepository != null) {
             http.oauth2Login { oauth2Config ->
                 oauth2Config
                     .loginPage("/login")
                     .successHandler(popupAwareAuthenticationSuccessHandler)
+                    // Silent sign-in (docs/auth.md): /oauth2/authorization/{id}?silent=true sends
+                    // prompt=none, and a provider that declines it lands on the plain login page.
+                    .failureHandler(SsoLoginFailureHandler())
+                    .authorizationEndpoint { endpoint ->
+                        endpoint.authorizationRequestResolver(SilentLoginAuthorizationRequestResolver(clientRegistrationRepository))
+                    }
                 if (oauth2UserProvisioningService != null) {
                     oauth2Config.userInfoEndpoint { userInfo ->
                         userInfo.userService(oauth2UserProvisioningService)
@@ -248,6 +256,10 @@ class SecurityConfig(
                 if (oauth2 && clientRegistrationRepository != null) {
                     val oidcLogoutHandler = OidcClientInitiatedLogoutSuccessHandler(clientRegistrationRepository)
                     oidcLogoutHandler.setPostLogoutRedirectUri("{baseUrl}/login?logout")
+                    // Used when RP-initiated logout is impossible (a form-login user, or a provider
+                    // without end_session_endpoint). Without ?logout the login page would try a
+                    // silent SSO sign-in and undo the logout.
+                    oidcLogoutHandler.setDefaultTargetUrl("/login?logout")
                     logout.logoutSuccessHandler(oidcLogoutHandler)
                 } else {
                     logout.logoutSuccessUrl("/login?logout")

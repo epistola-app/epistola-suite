@@ -104,6 +104,15 @@ data class OidcProperties(
      * configured identity provider (e.g. "Sign in with authentik") or an organisation name.
      */
     val ssoButtonLabel: String = "Sign in with SSO",
+
+    /**
+     * Whether the login page first tries a silent SSO sign-in (`prompt=none`) before showing itself.
+     *
+     * A user who already has a session at the identity provider is signed in without clicking the
+     * SSO button; one who has not gets the normal login page. Attempted once per session, never
+     * right after logout or a failed login. Turn off for a provider that mishandles `prompt=none`.
+     */
+    val silentLogin: Boolean = true,
 )
 
 data class ApiKeyProperties(
