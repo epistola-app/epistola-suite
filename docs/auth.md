@@ -339,6 +339,12 @@ Logout always lands on `/login?logout`, both after RP-initiated logout at the pr
 `end_session_endpoint` and when the provider has none. Registrations built for
 `backchannel-base-url` carry the discovered `end_session_endpoint` too.
 
+Whether RP-initiated logout ends the provider session is provider configuration:
+
+- **Keycloak** ends the SSO session by default.
+- **authentik** does not with its bundled provider invalidation flow. Configure it as described in
+  [authentik-setup.md](authentik-setup.md#logout).
+
 Set `epistola.auth.oidc.silent-login=false` (Helm `oidc.silentLogin: false`) for a provider that
 mishandles `prompt=none`.
 
