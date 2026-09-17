@@ -430,9 +430,13 @@ also prints the slowest classes and costliest commands at the end of each run.
 
 ## Performance Optimizations
 
-- **One Postgres per test JVM** — `TestRuntimeLifecycle` starts a single `postgres:18` container per
+- **One Postgres per test JVM** — `TestRuntimeLifecycle` starts a single `postgres:17` container per
   Gradle test task JVM and each Spring context gets its own logical database inside it (there is no
-  cross-run container reuse; Ryuk or the launcher-session hook stops it at the end)
+  cross-run container reuse; Ryuk or the launcher-session hook stops it at the end). 17 is the oldest
+  supported version, so a feature only a newer server has fails the suite rather than an
+  installation; `-PtestPostgresVersion=18` runs everything on 18 instead. `DataPreservationMigrationIT`
+  runs the migrations on both versions regardless, starting a second server for the one the suite
+  is not on
 - **Not a template database** — cloning each context's database from one migrated template
   (`CREATE DATABASE … TEMPLATE`) was measured on PR #896 and dropped: the 40-plus migrations cost
   about a second per context, so the clone plus Flyway's validate pass saved 0.4 s per boot locally
