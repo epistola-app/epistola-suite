@@ -41,6 +41,9 @@ class PageHeaderUsageTest {
         "searchPlaceholder",
         "searchUrl",
         "searchTargetId",
+        // How many items this page's search can reach. Opting in hides the box on a list with
+        // nothing to search; leaving it out keeps the box (.agents/rules/ui-affordances.md).
+        "searchableTotal",
         "actions",
         "stage",
     )

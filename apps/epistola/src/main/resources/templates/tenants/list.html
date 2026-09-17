@@ -50,11 +50,16 @@
 
         <section>
             <h2>Existing Tenants</h2>
-            <div th:replace="~{fragments/search :: search-box(
-                placeholder='Search tenants...',
-                searchUrl='/tenants/search',
-                targetId='tenant-rows'
-            )}"></div>
+            <!--/* This page calls search-box directly rather than through page-header, so it
+                   carries its own version of the same gate: no box with nothing to search
+                   (.agents/rules/ui-affordances.md). */-->
+            <th:block th:if="${!#lists.isEmpty(tenants)}">
+                <div th:replace="~{fragments/search :: search-box(
+                    placeholder='Search tenants...',
+                    searchUrl='/tenants/search',
+                    targetId='tenant-rows'
+                )}"></div>
+            </th:block>
             <div class="ep-table-scroll" role="region" aria-label="Tenants table" tabindex="0"
                  data-testid="fixed-table-scroll" style="margin-top: var(--ep-space-4)">
             <table class="ep-table ep-table-fixed">

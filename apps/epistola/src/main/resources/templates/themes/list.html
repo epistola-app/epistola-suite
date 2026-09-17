@@ -7,6 +7,7 @@
             searchPlaceholder='Search themes...',
             searchUrl=@{/tenants/{tenantId}/themes/search(tenantId=${tenantId})},
             searchTargetId='theme-rows',
+            searchableTotal=${#lists.size(themes)},
             actions=~{::theme-list-actions}
         )}"></div>
 

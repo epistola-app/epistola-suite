@@ -7,6 +7,7 @@
             searchPlaceholder='Search images...',
             searchUrl=@{/tenants/{tenantId}/images/search(tenantId=${tenantId},catalog=${selectedCatalog})},
             searchTargetId='asset-grid-items',
+            searchableTotal=${#lists.size(assets)},
             actions=~{::asset-list-actions}
         )}"></div>
 

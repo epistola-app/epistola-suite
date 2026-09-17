@@ -42,15 +42,14 @@ class TemplateDialogUiTest : BasePlaywrightTest() {
         gotoAndReady("/tenants/${tenant.id}/templates")
         page.htmxSettle()
 
-        // The always-present page-header action is the canonical trigger.
-        assertThat(page.locator("[data-testid='template-create-open-action']")).isVisible()
+        // The page-header action is the canonical trigger, and on a fresh tenant it is
+        // now the only one: the empty state describes it instead of repeating it.
+        assertThat(page.locator("[data-testid^='template-create-open']")).hasCount(1)
 
-        // Drive the empty-state trigger (fresh tenant → no templates → empty state
-        // shown): it sits in the page body, clear of the sticky nav that would
-        // otherwise intercept the pointer on the top-of-page header action. Both
-        // triggers issue the same hx-get into #dialog-mount.
+        // Drivable directly, because html carries scroll-padding-top: var(--ep-sticky-offset)
+        // so scrollIntoViewIfNeeded leaves it clear of the sticky .app-nav.
         page.openDialogByTrigger(
-            page.locator("[data-testid='template-create-open']"),
+            page.locator("[data-testid='template-create-open-action']"),
             "#create-template-dialog",
         )
 

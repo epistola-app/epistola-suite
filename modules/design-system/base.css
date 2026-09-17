@@ -36,6 +36,8 @@
     text-rendering: optimizeLegibility;
     /* Tint native form controls (checkbox/radio/range) with the brand accent */
     accent-color: var(--ep-primary);
+    /* Keep anchors and scrollIntoView clear of the sticky nav */
+    scroll-padding-top: var(--ep-sticky-offset);
   }
 
   body {
