@@ -107,10 +107,10 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
     }
 
     /**
-     * Identities are minted by `uuidv7()`, so they are time-ordered rather than random: a new one
-     * lands at the right-hand edge of every index keyed on it instead of anywhere in it. That is
-     * the whole reason for requiring PostgreSQL 18, so it is worth asserting rather than assuming —
-     * a silent fallback to a random UUID would cost index locality on the busiest keys in the
+     * Identities are minted by `epistola_uuidv7()`, so they are time-ordered rather than random: a
+     * new one lands at the right-hand edge of every index keyed on it instead of anywhere in it.
+     * That is the whole reason for minting a UUIDv7, so it is worth asserting rather than assuming
+     * — a silent fallback to a random UUID would cost index locality on the busiest keys in the
      * schema and nothing would fail.
      */
     @Test
@@ -147,7 +147,7 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
 
         // A v4 with the version nibble forced to 7 would pass the checks above; only the embedded
         // timestamp proves the value is actually time-based. Compared against the *database* clock,
-        // which is what minted it -- a test clock does not reach uuidv7().
+        // which is what minted it -- a test clock does not reach epistola_uuidv7().
         val databaseNowMillis = jdbi.withHandle<Long, Exception> { handle ->
             handle.createQuery("SELECT (extract(epoch from now()) * 1000)::bigint").mapTo(Long::class.java).one()
         }
@@ -161,6 +161,37 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
         // v7's sub-millisecond precision, and is positive for any realistic date.
         assertThat(identities.map { it.mostSignificantBits })
             .describedAs("later identity sorts after the earlier one")
+            .isSorted()
+    }
+
+    /**
+     * The generator itself, hammered: a backfill or an import mints thousands of identities inside
+     * one statement, faster than a millisecond apart. Two commands, as above, would pass with
+     * millisecond precision and a random tail; only a burst shows the sub-millisecond bits keep
+     * those in order too. It runs on whichever PostgreSQL version the suite runs on, and is the
+     * same SQL on every one.
+     */
+    @Test
+    fun `epistola_uuidv7 stays unique and ordered within one statement`() {
+        val identities = jdbi.withHandle<List<UUID>, Exception> { handle ->
+            handle.createQuery(
+                "SELECT epistola_uuidv7() AS id FROM generate_series(1, 10000) AS minted(n) ORDER BY n",
+            )
+                .map { rs, _ -> rs.getObject("id", UUID::class.java) }
+                .list()
+        }
+        val databaseNowMillis = jdbi.withHandle<Long, Exception> { handle ->
+            handle.createQuery("SELECT (extract(epoch from clock_timestamp()) * 1000)::bigint").mapTo(Long::class.java).one()
+        }
+
+        assertThat(identities).hasSize(10_000).doesNotHaveDuplicates()
+        assertThat(identities.map { it.version() }.toSet()).describedAs("UUID version nibble").containsOnly(7)
+        assertThat(identities.map { it.variant() }.toSet()).describedAs("RFC 4122 variant").containsOnly(2)
+        assertThat(identities.map { it.mostSignificantBits ushr 16 }).allSatisfy { millis ->
+            assertThat(millis).isBetween(databaseNowMillis - 60_000, databaseNowMillis)
+        }
+        assertThat(identities.map { it.mostSignificantBits })
+            .describedAs("identities minted later in the statement never sort before earlier ones")
             .isSorted()
     }
 

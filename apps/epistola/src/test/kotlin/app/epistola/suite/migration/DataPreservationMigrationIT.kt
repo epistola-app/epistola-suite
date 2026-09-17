@@ -7,7 +7,9 @@ package app.epistola.suite.migration
 import app.epistola.suite.testing.TestRuntimeLifecycle
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Tag
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
+import org.testcontainers.postgresql.PostgreSQLContainer
 import java.sql.Connection
 import java.sql.DriverManager
 
@@ -28,13 +30,29 @@ import java.sql.DriverManager
  * then migrated to latest via the exact production migration context. Every migration that
  * lands after RC1 is thereby exercised against RC1-shaped data and fails this test if it
  * drops or mangles a preserved row — or fails to perform (or over-performs) an expected cleanup.
+ *
+ * It runs once per supported PostgreSQL major version, whichever one the rest of the suite is on:
+ * an installation upgrades on the server it already has, so a migration that only works on a newer
+ * one fails that installation mid-upgrade. The version the shared container runs reuses it; the
+ * other gets a server of its own.
  */
 @Tag("integration")
 class DataPreservationMigrationIT {
 
-    @Test
-    fun `data seeded on the RC1 schema survives migration to the latest schema`() {
-        val postgres = TestRuntimeLifecycle.postgres()
+    @ParameterizedTest(name = "on PostgreSQL {0}")
+    @ValueSource(ints = [17, 18])
+    fun `data seeded on the RC1 schema survives migration to the latest schema`(postgresVersion: Int) {
+        if (postgresVersion == TestRuntimeLifecycle.postgresMajorVersion) {
+            migrateSeedAndVerify(TestRuntimeLifecycle.postgres(), postgresVersion)
+        } else {
+            TestRuntimeLifecycle.newPostgresContainer(postgresVersion).use { postgres ->
+                postgres.start()
+                migrateSeedAndVerify(postgres, postgresVersion)
+            }
+        }
+    }
+
+    private fun migrateSeedAndVerify(postgres: PostgreSQLContainer, postgresVersion: Int) {
         val databaseName = "data_preservation_it"
         adminConnection(postgres.jdbcUrl, postgres.username, postgres.password).use { admin ->
             admin.createStatement().use {
@@ -53,8 +71,13 @@ class DataPreservationMigrationIT {
         // 3. Apply everything newer than RC1 (the production migration path).
         runMigration(targetUrl, postgres.username, postgres.password)
 
-        // 4. The seeded data must be intact.
-        connect(targetUrl, postgres.username, postgres.password).use { verify(it) }
+        // 4. The seeded data must be intact, on the server this run claims to be exercising.
+        connect(targetUrl, postgres.username, postgres.password).use { connection ->
+            assertThat(connection.metaData.databaseMajorVersion)
+                .describedAs("PostgreSQL major version the migrations ran on")
+                .isEqualTo(postgresVersion)
+            verify(connection)
+        }
     }
 
     private fun runMigration(url: String, username: String, password: String, vararg props: String) {
@@ -334,6 +357,9 @@ class DataPreservationMigrationIT {
             assertThat(one("SELECT count(*) FROM catalog_resources WHERE tenant_key = '$TENANT' AND resource_type = 'attribute' AND catalog_key = 'default' AND resource_key = 'language'"))
                 .describedAs("RC1-era attribute must be registered with a stable identity")
                 .isEqualTo("1")
+            assertThat(one("SELECT (count(*) > 0 AND bool_and(substring(resource_id::text, 15, 1) = '7'))::text FROM catalog_resources WHERE tenant_key = '$TENANT'"))
+                .describedAs("every backfilled identity must be a time-ordered UUIDv7, on every supported server")
+                .isEqualTo("true")
             assertThat(one("SELECT filename FROM documents WHERE tenant_key = '$TENANT' AND catalog_key = 'default' AND template_key = 'invoice'"))
                 .describedAs("generation history must survive its template foreign keys being dropped")
                 .isEqualTo("invoice.pdf")

@@ -81,6 +81,8 @@ val testJvmSlots = gradle.sharedServices.registerIfAbsent("testJvmSlots", TestJv
 // run with; `-PtestParallelism=N` overrides. uiTest and perfTest own their own.
 val testParallelism = providers.gradleProperty("testParallelism").orElse("4")
 
+val testPostgresVersion = providers.gradleProperty("testPostgresVersion").orElse("17")
+
 fun Test.capJUnitParallelism() {
     systemProperty("junit.jupiter.execution.parallel.config.strategy", "fixed")
     systemProperty("junit.jupiter.execution.parallel.config.fixed.parallelism", testParallelism.get())
@@ -115,6 +117,11 @@ tasks.withType<Test>().configureEach {
         layout.buildDirectory.dir("test-metrics").get().asFile.absolutePath,
     )
     systemProperty("epistola.test.metrics.label", "${project.name}-$name")
+
+    // The PostgreSQL major version the tests' shared container runs. The oldest supported
+    // version by default, so a migration or query using a feature only a newer server has
+    // fails here rather than on an installation. `-PtestPostgresVersion=18` runs on 18.
+    systemProperty("epistola.test.postgres.version", testPostgresVersion.get())
 
     testLogging {
         events("passed", "skipped", "failed")
