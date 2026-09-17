@@ -1,5 +1,9 @@
 # Publishing catalogs to Epistola Exchange
 
+> **Status:** Alpha, off by default. The outbound half of the Exchange integration — publishing
+> releases _to_ a registry. The inbound half (browsing and installing) is
+> [catalog-exchange-installation.md](catalog-exchange-installation.md).
+
 Epistola Suite can publish immutable releases of locally authored catalogs to
 Epistola Exchange. Publishing is opt-in at both the deployment and tenant
 levels, runs asynchronously, and never makes the local release depend on

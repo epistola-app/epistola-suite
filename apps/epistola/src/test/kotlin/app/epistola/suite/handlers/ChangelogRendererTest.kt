@@ -378,6 +378,70 @@ class ChangelogRendererTest {
     }
 
     @Test
+    fun `a breaking change keeps its type and scope and gains a chip`() {
+        // language=markdown
+        val md =
+            """
+            # Changelog
+
+            ## [Unreleased]
+
+            - **[user]** feat(catalog)!: **One install unit.** A catalog installs as a whole.
+            """.trimIndent()
+
+        val html = renderer.entriesFrom(md, ChangelogAudience.ALL, includeUnreleased = true).first().html
+
+        // Before the `!` was understood, this entry fell into the untyped `chore` bucket and kept its
+        // raw `feat(catalog)!:` prefix in the rendered text.
+        assertThat(html).contains("<h3>Features</h3>")
+        assertThat(html).contains("changelog-badge--breaking")
+        assertThat(html).doesNotContain("feat(catalog)!:")
+        assertThat(renderer.availableScopesFrom(md, ChangelogAudience.ALL, includeUnreleased = true)).containsExactly("catalog")
+    }
+
+    @Test
+    fun `every bundled Unreleased entry matches the documented entry format`() {
+        // The dialog can only file an entry it can parse, so the format is checked at the source:
+        // an optional audience badge, then type(scope) with an optional `!`, then a bold title.
+        // This catches malformed prefixes such as `feat!(exchange):` and unknown badges like `[perf]`,
+        // which previously rendered as untyped chores with their raw prefix showing.
+        val entryFormat = Regex(
+            """^- (\*\*\[(?:user|dev)]\*\* )?""" +
+                """(?:feat|fix|perf|refactor|docs|test|build|ci|chore)""" +
+                """\([a-z0-9][a-z0-9.,/-]*\)!?: \*\*\S.*""",
+        )
+
+        val offenders = unreleasedBullets().filterNot { entryFormat.containsMatchIn(it) }
+
+        assertThat(offenders)
+            .withFailMessage(
+                "These [Unreleased] entries do not match `- [**[user|dev]** ]type(scope)[!]: **Title.** …`:\n%s",
+                offenders.joinToString("\n") { it.take(120) },
+            )
+            .isEmpty()
+    }
+
+    /** The column-0 bullets of the bundled `[Unreleased]` section, ignoring fenced code blocks. */
+    private fun unreleasedBullets(): List<String> {
+        val markdown = ChangelogRenderer::class.java.getResource("/changelog/CHANGELOG.md")!!.readText()
+        val bullets = mutableListOf<String>()
+        var inSection = false
+        var inFence = false
+        for (line in markdown.lines()) {
+            if (line.startsWith("## [")) {
+                if (inSection) break
+                inSection = line.startsWith("## [Unreleased]")
+                continue
+            }
+            if (!inSection) continue
+            if (line.trimStart().startsWith("```")) inFence = !inFence
+            if (!inFence && line.startsWith("- ")) bullets.add(line)
+        }
+        assertThat(bullets).withFailMessage("No [Unreleased] bullets found in the bundled CHANGELOG.md").isNotEmpty()
+        return bullets
+    }
+
+    @Test
     fun `bundled Unreleased uses commit-style entries with scopes`() {
         // Enforces the convention: new entries carry type(scope), so the dialog has scopes to filter on.
         assertThat(renderer.availableScopes(ChangelogAudience.USER, includeUnreleased = true))

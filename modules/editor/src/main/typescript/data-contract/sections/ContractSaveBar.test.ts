@@ -19,7 +19,7 @@ const defaultState: ContractSaveBarState = {
   saveSuccess: false,
   saveError: null,
   canForceSave: false,
-  blockedReason: null,
+  blocked: false,
 };
 
 function renderBar(
@@ -49,14 +49,16 @@ describe('ContractSaveBar', () => {
     expect(onSave).toHaveBeenCalledOnce();
   });
 
-  it('disables saving and explains a blocking validation requirement', () => {
+  it('disables saving when blocked, without repeating the reason (shown in the top banner instead)', () => {
     const container = renderBar({
       examplesDirty: true,
-      blockedReason: 'Add at least one test data example before saving',
+      blocked: true,
     });
 
-    expect(container.textContent).toContain('Add at least one test data example before saving');
     expect(container.querySelector<HTMLButtonElement>('.dc-save-btn')?.disabled).toBe(true);
+    expect(container.querySelector<HTMLButtonElement>('.dc-save-btn')?.title).toBe(
+      'Fix validation errors before saving',
+    );
   });
 
   it('distinguishes a single dirty contract part and disables saving when clean', () => {

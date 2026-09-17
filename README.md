@@ -103,13 +103,45 @@ If you change the locale, run `gradle --stop` so the daemon restarts with it.
 
 ### Build and Run
 
+Tool versions (Java, Gradle, Node, pnpm and more) come from `.mise.toml`. The frontend builds
+first: the editor bundle is a Gradle input, so `gradle build` needs it in place.
+
 ```bash
+# First time, or after .mise.toml changes
+mise install
+
+# Frontend first — also runs the component-registry check
+pnpm install
+pnpm build
+
 # Build the entire project
 gradle build
 
 # Run the application (requires a profile — see Authentication below)
 gradle :apps:epistola:bootRun --args='--spring.profiles.active=local'
+
+# Run it with demo data: a tenant, the demo catalog and a well-known API key
+gradle :apps:epistola-demo:bootRun --args='--spring.profiles.active=demo,local,localauth'
 ```
+
+Tests: `gradle unitTest` (no Docker), `gradle integrationTest` and `gradle uiTest` (both need
+Docker), or `gradle test` for unit plus integration. Style: `gradle ktlintFormat` then
+`gradle ktlintCheck`; `pnpm format` covers everything else.
+
+For live frontend work, run the app with the `local` profile in one terminal and
+`pnpm --filter @epistola/editor watch` in another — the watch rebuilds `dist/` on change and the
+`local` profile serves it from the filesystem.
+
+Software bill of materials:
+
+```bash
+gradle :apps:epistola:generateSbom
+pnpm --filter @epistola/editor run sbom   # `run` matters: pnpm 11 has its own `sbom` command
+```
+
+While generating one, CycloneDX may print `Unknown keyword meta:enum` or `Unknown keyword
+deprecated`. Those are upstream SPDX schema-vocabulary notices from networknt, not Gradle
+deprecations — leave the generated SBOM validation enabled.
 
 ### Authentication
 

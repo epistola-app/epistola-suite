@@ -5,12 +5,19 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.security.AuthProperties
+import app.epistola.suite.security.PopupAwareAuthenticationSuccessHandler.Companion.POPUP_PARAM
+import app.epistola.suite.security.SilentLoginAuthorizationRequestResolver.Companion.SILENT_LOGIN_ATTEMPTED_ATTR
+import app.epistola.suite.security.SilentLoginAuthorizationRequestResolver.Companion.SILENT_PARAM
+import jakarta.servlet.http.HttpServletRequest
+import org.springframework.http.HttpStatus
 import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+import org.springframework.web.util.UriComponentsBuilder
+import java.net.URI
 
 /**
  * Handler for the login page and related endpoints.
@@ -34,9 +41,14 @@ class LoginHandler(
      * - Form login when a UserDetailsService bean is present
      * - OAuth2 button when OAuth2 client registrations are configured
      * - Both when running with e.g. 'local,keycloak' profiles
+     *
+     * With SSO configured it first tries a silent sign-in instead — see [silentLoginTarget].
      */
     fun loginPage(request: ServerRequest): ServerResponse {
         val registrationId = getFirstRegistrationId()
+        silentLoginTarget(request.servletRequest(), authProperties.oidc.silentLogin, registrationId)?.let {
+            return ServerResponse.status(HttpStatus.FOUND).location(URI.create(it)).build()
+        }
         val hasFormLogin = userDetailsService != null
         val hasOAuth2 = registrationId != null
 
@@ -72,4 +84,38 @@ class LoginHandler(
      * This page notifies the opener window via postMessage and closes the popup.
      */
     fun loginPopupSuccess(request: ServerRequest): ServerResponse = ServerResponse.ok().render("login-popup-success")
+
+    companion object {
+        /**
+         * Where to send a login-page request for a silent SSO sign-in, or null to render the page.
+         *
+         * A user who already has a session at the identity provider is signed in without clicking,
+         * and returns to the page they were bounced off. The attempt is skipped when the page has an
+         * outcome to show (`error`, `logout` — a silent sign-in would undo the logout), when it was
+         * already made in this session, when the user is signed in, and inside an iframe, which
+         * identity providers refuse to be framed in. Popup mode is carried through so the
+         * session-expiry popup renews without a click too.
+         */
+        internal fun silentLoginTarget(
+            request: HttpServletRequest,
+            silentLoginEnabled: Boolean,
+            registrationId: String?,
+        ): String? {
+            val skip = !silentLoginEnabled ||
+                registrationId == null ||
+                request.getParameter("error") != null ||
+                request.getParameter("logout") != null ||
+                request.userPrincipal != null ||
+                request.getHeader("Sec-Fetch-Dest") == "iframe" ||
+                request.getSession(false)?.getAttribute(SILENT_LOGIN_ATTEMPTED_ATTR) == true
+            if (skip) return null
+
+            return UriComponentsBuilder.fromPath(request.contextPath + "/oauth2/authorization/{registrationId}")
+                .queryParam(SILENT_PARAM, "true")
+                .apply { if (request.getParameter(POPUP_PARAM) == "true") queryParam(POPUP_PARAM, "true") }
+                .buildAndExpand(registrationId)
+                .encode()
+                .toUriString()
+        }
+    }
 }

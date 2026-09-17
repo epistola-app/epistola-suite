@@ -209,6 +209,16 @@ describe('checkSchemaCompatibility', () => {
       expect(result.compatible).toBe(true);
     });
 
+    it('accepts array constraints (minItems and maxItems together)', () => {
+      const result = checkSchemaCompatibility({
+        type: 'object',
+        properties: {
+          items: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 5 },
+        },
+      });
+      expect(result.compatible).toBe(true);
+    });
+
     it('accepts deeply nested compatible schema', () => {
       const result = checkSchemaCompatibility({
         type: 'object',
@@ -473,7 +483,7 @@ describe('checkSchemaCompatibility', () => {
       expect(result.issues.some((i) => i.feature === 'tuple-items')).toBe(true);
     });
 
-    it('flags maxItems and uniqueItems', () => {
+    it('accepts maxItems but still flags uniqueItems', () => {
       const result = checkSchemaCompatibility({
         type: 'object',
         properties: {
@@ -481,7 +491,7 @@ describe('checkSchemaCompatibility', () => {
         },
       });
       expect(result.compatible).toBe(false);
-      expect(result.issues.some((i) => i.feature === 'maxItems')).toBe(true);
+      expect(result.issues.some((i) => i.feature === 'maxItems')).toBe(false);
       expect(result.issues.some((i) => i.feature === 'uniqueItems')).toBe(true);
     });
 

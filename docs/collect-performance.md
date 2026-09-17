@@ -38,8 +38,8 @@ CI by default; opt in when you want a fresh datapoint.
   reflects pool=64; do not transplant directly into capacity-planning
   for a production deployment with default settings.
 - **Postgres via Testcontainers** — single container per test class,
-  fresh DB. Postgres 18 (whatever the suite's testcontainers config
-  pins). No tuning beyond defaults; full WAL, no UNLOGGED override.
+  fresh DB. Postgres 17 by default (whatever the suite's testcontainers config
+  runs; `-PtestPostgresVersion=18` switches it). No tuning beyond defaults; full WAL, no UNLOGGED override.
 - **JobPoller disabled** —
   `epistola.generation.polling.enabled=false`. We're measuring drain
   only.
@@ -198,9 +198,7 @@ worth it.
 
 ## Out of scope (planned follow-on perf work)
 
-These are tracked in
-[`/Users/sdegroot/.claude/plans/`](../README.md#planning) and the
-matching v0.3 PR thread:
+These are tracked in the matching v0.3 PR thread:
 
 - **Producer throughput** — bulk-call `EmitGenerationResult` from N
   threads, measure rows/sec INTO `generation_results`. Symmetric to

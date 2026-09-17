@@ -265,6 +265,10 @@ oidc:
   # Auto-provision users in the local DB on first OIDC login. Supplied explicitly so the
   # behaviour is identical whether or not the (Keycloak-only) "keycloak" profile is active.
   autoProvision: true
+  # Sign users in without a click when they already have a session at the identity provider:
+  # the login page first tries a silent sign-in (OIDC prompt=none) and falls back to the normal
+  # page when the provider has no session. Set to false for a provider that mishandles prompt=none.
+  silentLogin: true
   # Label shown on the SSO login button. Leave blank for the app default ("Sign in with SSO").
   # Override to match your provider (e.g. "Sign in with authentik") or an organisation name.
   ssoButtonLabel: ""

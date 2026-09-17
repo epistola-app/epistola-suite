@@ -401,6 +401,52 @@ describe('validateDataAgainstSchema', () => {
     expect(result.valid).toBe(true);
   });
 
+  it('flags an array with more items than maxItems', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        children: { type: 'array', items: { type: 'string' }, maxItems: 2 },
+      },
+    };
+    const data: JsonObject = { children: ['a', 'b', 'c'] };
+
+    const result = validateDataAgainstSchema(data, schema);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors[0].path).toBe('$.children');
+    expect(result.errors[0].message).toContain('at most 2 items');
+  });
+
+  it('flags an array with fewer items than minItems', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        children: { type: 'array', items: { type: 'string' }, minItems: 2 },
+      },
+    };
+    const data: JsonObject = { children: ['a'] };
+
+    const result = validateDataAgainstSchema(data, schema);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors[0].path).toBe('$.children');
+    expect(result.errors[0].message).toContain('at least 2 items');
+  });
+
+  it('allows an array within minItems/maxItems bounds', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        children: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 2 },
+      },
+    };
+    const data: JsonObject = { children: ['a', 'b'] };
+
+    const result = validateDataAgainstSchema(data, schema);
+
+    expect(result.valid).toBe(true);
+  });
+
   it('validates complex nested structure', () => {
     const schema: JsonSchema = {
       type: 'object',

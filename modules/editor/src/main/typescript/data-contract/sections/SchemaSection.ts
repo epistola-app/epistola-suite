@@ -35,10 +35,11 @@ import {
   FIELD_TYPE_LABELS,
 } from '../field-types.js';
 import { renderSchemaFieldListItem } from './SchemaFieldRow.js';
-import { renderValidationMessages } from './ValidationMessages.js';
+import { pathToErrorId } from '../validation-display.js';
 
 export interface SchemaUiState {
-  warnings: Array<{ path: string; message: string }>;
+  /** Client-computed schema-field constraint errors, keyed by field id. */
+  fieldErrors: Map<string, string>;
   canUndo: boolean;
   canRedo: boolean;
   selectedFieldId: string | null;
@@ -153,9 +154,6 @@ export function renderSchemaSection(
           Redo
         </button>
       </div>
-
-      <!-- Validation warnings -->
-      ${renderValidationMessages(uiState.warnings)}
 
       <!-- Two-panel layout -->
       ${
@@ -301,6 +299,7 @@ function renderDetailPanel(
           <label class="dc-detail-label">Type</label>
           <select
             class="ep-select dc-detail-select"
+            data-testid="dc-field-type-select"
             .value=${field.type}
             ?disabled=${uiState.readOnly}
             @change=${(e: Event) => {
@@ -535,30 +534,67 @@ function renderNumericConstraints(
   `;
 }
 
+function renderItemCountRow(
+  label: string,
+  testId: string,
+  value: number | undefined,
+  hasError: boolean,
+  errorId: string | undefined,
+  readOnly: boolean,
+  onChange: (val: number | undefined) => void,
+): unknown {
+  return html`
+    <div class="dc-detail-row">
+      <label class="dc-detail-label">${label}</label>
+      <input
+        type="number"
+        class="ep-input dc-detail-input ${hasError ? 'dc-input-error' : ''}"
+        data-testid=${testId}
+        min="0"
+        step="1"
+        .value=${value !== undefined ? String(value) : ''}
+        placeholder="—"
+        ?disabled=${readOnly}
+        aria-describedby=${hasError ? errorId : nothing}
+        @change=${(e: Event) => {
+          const val = (e.target as HTMLInputElement).value;
+          onChange(val ? Number(val) : undefined);
+        }}
+      />
+    </div>
+  `;
+}
+
 function renderArrayConstraints(
   field: ArrayField,
   uiState: SchemaUiState,
   emitUpdate: (updates: SchemaFieldUpdate) => void,
 ): unknown {
-  const minItems = field.minItems;
+  const fieldError = uiState.fieldErrors.get(field.id);
+  const errorId = fieldError ? pathToErrorId(field.id) : undefined;
 
   return html`
     <div class="dc-detail-section-label">Constraints</div>
-    <div class="dc-detail-row">
-      <label class="dc-detail-label">Min items</label>
-      <input
-        type="number"
-        class="ep-input dc-detail-input"
-        min="0"
-        step="1"
-        .value=${minItems !== undefined ? String(minItems) : ''}
-        placeholder="—"
-        ?disabled=${uiState.readOnly}
-        @change=${(e: Event) => {
-          const val = (e.target as HTMLInputElement).value;
-          emitUpdate({ minItems: val ? Number(val) : undefined });
-        }}
-      />
+    <div class="dc-detail-constraints">
+      ${renderItemCountRow(
+        'Min items',
+        'dc-min-items-input',
+        field.minItems,
+        !!fieldError,
+        errorId,
+        uiState.readOnly,
+        (val) => emitUpdate({ minItems: val }),
+      )}
+      ${renderItemCountRow(
+        'Max items',
+        'dc-max-items-input',
+        field.maxItems,
+        !!fieldError,
+        errorId,
+        uiState.readOnly,
+        (val) => emitUpdate({ maxItems: val }),
+      )}
     </div>
+    ${fieldError ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>` : nothing}
   `;
 }

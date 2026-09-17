@@ -96,11 +96,6 @@
     border-radius: var(--ep-radius-full);
   }
 
-  .dc-contract-save-blocked {
-    font-size: var(--ep-text-xs);
-    color: var(--ep-red-600);
-  }
-
   .dc-page-content {
     display: flex;
     flex-direction: column;
@@ -542,70 +537,6 @@
   .dc-empty-state-hint {
     font-size: var(--ep-text-sm);
     color: var(--ep-stone-600);
-  }
-
-  /* --------------------------------------------------------------------------
-   * Validation messages
-   * ---------------------------------------------------------------------- */
-
-  .dc-validation-messages {
-    background: var(--ep-amber-50);
-    border: 1px solid var(--ep-amber-200);
-    border-radius: var(--ep-radius-md);
-    padding: var(--ep-space-3);
-    margin-bottom: var(--ep-space-3);
-  }
-
-  .dc-validation-header {
-    display: flex;
-    align-items: center;
-    gap: var(--ep-space-2);
-    margin-bottom: var(--ep-space-2);
-  }
-
-  .dc-validation-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    border-radius: var(--ep-radius-full);
-    background: var(--ep-amber-500);
-    color: var(--ep-white);
-    font-size: 11px;
-    font-weight: 700;
-    flex-shrink: 0;
-  }
-
-  .dc-validation-title {
-    font-size: var(--ep-text-xs);
-    font-weight: 600;
-    color: var(--ep-amber-800);
-  }
-
-  .dc-validation-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-
-  .dc-validation-item {
-    display: flex;
-    gap: var(--ep-space-2);
-    padding: var(--ep-space-1) 0;
-    font-size: var(--ep-text-xs);
-    color: var(--ep-amber-800);
-  }
-
-  .dc-validation-path {
-    font-family: var(--ep-font-mono);
-    font-size: var(--ep-text-xs);
-    color: var(--ep-amber-600);
-    flex-shrink: 0;
-  }
-
-  .dc-validation-message {
-    color: var(--ep-amber-800);
   }
 
   /* --------------------------------------------------------------------------
@@ -1353,9 +1284,9 @@
     padding: var(--ep-space-0-5) var(--ep-space-2);
     font-size: var(--ep-text-xs);
     font-weight: 600;
-    color: var(--ep-amber-800);
-    background: var(--ep-amber-50);
-    border: 1px solid var(--ep-amber-200);
+    color: var(--ep-red-700);
+    background: var(--ep-red-50);
+    border: 1px solid var(--ep-red-200);
     border-radius: var(--ep-radius-full);
     margin-left: auto;
   }
@@ -1611,6 +1542,64 @@
   /* --------------------------------------------------------------------------
    * Breaking changes banner (live, in schema tab)
    * ---------------------------------------------------------------------- */
+
+  .dc-validation-banner {
+    padding: var(--ep-space-2) var(--ep-space-3);
+    margin-bottom: var(--ep-space-3);
+    background: var(--ep-red-50);
+    border: 1px solid var(--ep-red-200);
+    border-radius: var(--ep-radius-md);
+  }
+
+  .dc-validation-banner-message {
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-red-700);
+  }
+
+  .dc-validation-banner-message + .dc-validation-banner-message {
+    margin-top: var(--ep-space-1);
+  }
+
+  .dc-validation-banner-list {
+    margin: var(--ep-space-1) 0 0;
+    padding-left: var(--ep-space-4);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-red-700);
+  }
+
+  .dc-validation-banner-path {
+    font-family: var(--ep-font-mono);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-red-600);
+  }
+
+  .dc-save-errors-banner {
+    padding: var(--ep-space-2) var(--ep-space-3);
+    margin-bottom: var(--ep-space-3);
+    background: var(--ep-red-50);
+    border: 1px solid var(--ep-red-200);
+    border-radius: var(--ep-radius-md);
+  }
+
+  .dc-save-errors-banner-title {
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-red-700);
+  }
+
+  .dc-save-errors-banner-list {
+    margin: var(--ep-space-1) 0 0;
+    padding-left: var(--ep-space-4);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-red-700);
+  }
+
+  .dc-save-errors-banner-path {
+    font-family: var(--ep-font-mono);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-red-600);
+  }
 
   .dc-breaking-changes-banner {
     display: flex;

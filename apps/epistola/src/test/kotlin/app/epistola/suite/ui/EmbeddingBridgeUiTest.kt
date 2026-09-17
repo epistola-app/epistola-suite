@@ -95,6 +95,77 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
     }
 
     @Test
+    fun `template search forwards a value-free GET request fact`() {
+        val tenant = createTestTenant()
+        installMessageCapture()
+
+        gotoAndReady("/tenants/${tenant.id}/templates")
+        page.locator("[data-testid='search-input']").fill("private search text")
+        // The search box is debounced, so htmxSettle() can return during the gap
+        // before the request fires. Wait for the end state — the bridge message —
+        // in the page rather than racing a wall clock (docs/testing.md, #418).
+        page.waitForFunction(
+            """
+            () => (window.__epistolaMessages || []).some((entry) => {
+                const message = entry && entry.message;
+                return message && message.type === 'request' &&
+                    typeof message.requestPath === 'string' &&
+                    message.requestPath.endsWith('/templates/search');
+            })
+            """,
+        )
+        page.htmxSettle()
+
+        val request =
+            capturedMessages().lastOrNull {
+                val message = it["message"] as? Map<*, *>
+                message?.get("type") == "request" &&
+                    (message["requestPath"] as? String)?.endsWith("/templates/search") == true
+            }
+        checkNotNull(request) { "expected a 'request' message, got: ${capturedMessages()}" }
+        val message = request["message"] as Map<*, *>
+        Assertions.assertThat(message["verb"]).isEqualTo("GET")
+        Assertions.assertThat(message["requestPath"] as String).endsWith("/templates/search")
+        Assertions.assertThat(message["queryKeys"] as List<*>).contains("q")
+        Assertions.assertThat(message["params"]).isNull()
+        Assertions.assertThat(message["responseURL"]).isNull()
+        Assertions.assertThat(message.toString()).doesNotContain("private search text")
+    }
+
+    @Test
+    fun `clicking a boosted row link fires navigated but not a request message`() {
+        val tenant = createTestTenant()
+        installMessageCapture()
+
+        createTemplateViaUi(tenant, "Boosted Row", "boosted-row")
+        gotoAndReady("/tenants/${tenant.id}/templates")
+
+        // The row link is a plain <a href>, boosted only via the shell's
+        // hx-boost="true" — no hx-get of its own, unlike search/sort/
+        // pagination. It must still report `navigated`, but not `request`:
+        // that stays scoped to the fragment interactions that don't already
+        // produce a navigation of their own.
+        page.locator("a[title='View template']").click()
+        assertThat(page.locator("#page-title-text")).containsText("Boosted Row")
+
+        val navigated = latestMessageOfType("navigated")
+        checkNotNull(navigated) { "expected a 'navigated' message, got: ${capturedMessages()}" }
+        Assertions.assertThat((navigated["message"] as Map<*, *>)["path"] as String).endsWith("/boosted-row")
+
+        // Scoped to this navigation's own path, not "no request message at
+        // all": the shell's feedback footer widget (FeedbackFooterContributor)
+        // independently fires its own non-boosted GET on every page and is
+        // expected to keep reporting — this guards only against the boosted
+        // click itself producing a duplicate `request` for the page it navigated to.
+        val request =
+            capturedMessages().firstOrNull {
+                val message = it["message"] as? Map<*, *>
+                message?.get("type") == "request" && (message["requestPath"] as? String)?.endsWith("/boosted-row") == true
+            }
+        Assertions.assertThat(request).describedAs("expected no 'request' message for the boosted navigation path, got: ${capturedMessages()}").isNull()
+    }
+
+    @Test
     fun `creating a template through the UI fires a resource-changed create message, then a navigated message`() {
         val tenant = createTestTenant()
         installMessageCapture()
@@ -169,6 +240,32 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
 
         // The flash param must not survive in the address bar.
         assertThat(page).hasURL(Pattern.compile("^(?!.*resourceDeleted).*$"))
+    }
+
+    @Test
+    fun `opening the template editor fires a navigated message for the editor path`() {
+        val tenant = createTestTenant()
+        installMessageCapture()
+
+        createTemplateViaUi(tenant, "Editor Bridge", "editor-bridge")
+
+        gotoAndReady("/tenants/${tenant.id}/templates/default/editor-bridge")
+        page.locator("[data-testid='template-tab'][data-tab-name='variants']").click()
+        page.htmxSettle()
+        // The editor is a standalone full page outside the shell
+        // (hx-boost="false"), so this is a real reload — the init script
+        // reinstalls the capture and only the editor page's messages remain.
+        page.locator("a[title='Open editor']").click()
+        assertThat(page.locator("#editor-container")).isVisible()
+
+        val navigated = latestMessageOfType("navigated")
+        checkNotNull(navigated) { "expected a 'navigated' message, got: ${capturedMessages()}" }
+        val message = navigated["message"] as Map<*, *>
+        Assertions.assertThat(message["path"] as String).endsWith("/editor")
+        val resource = message["resource"] as Map<*, *>
+        Assertions.assertThat(resource["resourceType"]).isEqualTo("template")
+        Assertions.assertThat(resource["catalogKey"]).isEqualTo("default")
+        Assertions.assertThat(resource["key"]).isEqualTo("editor-bridge")
     }
 
     @Test

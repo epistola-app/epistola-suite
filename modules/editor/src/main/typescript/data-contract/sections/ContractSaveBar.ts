@@ -11,7 +11,8 @@ export interface ContractSaveBarState {
   saveSuccess: boolean;
   saveError: string | null;
   canForceSave: boolean;
-  blockedReason: string | null;
+  /** Save is disabled for a validation reason — the reason itself is shown in the top banner, not here. */
+  blocked: boolean;
 }
 
 export interface ContractSaveBarCallbacks {
@@ -24,10 +25,12 @@ export function renderContractSaveControls(
   callbacks: ContractSaveBarCallbacks,
 ): unknown {
   const isDirty = state.schemaDirty || state.examplesDirty;
-  const canSave = isDirty && !state.saving && state.blockedReason === null;
-  const saveTooltip =
-    state.blockedReason ??
-    (isDirty ? 'Save schema and examples as one draft' : 'No unsaved changes');
+  const canSave = isDirty && !state.saving && !state.blocked;
+  const saveTooltip = state.blocked
+    ? 'Fix validation errors before saving'
+    : isDirty
+      ? 'Save schema and examples as one draft'
+      : 'No unsaved changes';
 
   return html`
     <div class="dc-contract-save-controls">
@@ -56,11 +59,6 @@ export function renderContractSaveControls(
                   : html`<span class="dc-contract-save-state dc-contract-save-state-muted"
                       >All changes saved</span
                     >`
-        }
-        ${
-          isDirty && state.blockedReason
-            ? html`<span class="dc-contract-save-blocked">${state.blockedReason}</span>`
-            : nothing
         }
       </div>
 

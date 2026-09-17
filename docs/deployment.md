@@ -5,11 +5,8 @@ migration model itself see [`migrations.md`](migrations.md).
 
 ## Requirements
 
-**PostgreSQL 18 or later.** Catalog resource identities are minted with `uuidv7()`, which
-PostgreSQL 17 does not have. The first migration checks `server_version_num` and refuses with a
-named error before taking any lock, so an older server fails the migration rather than the
-application. Upgrade the database **before** the suite — see
-[`upgrades.md`](upgrades.md#postgresql-18-is-required).
+**PostgreSQL 17 or later.** The test suite runs on 17, the oldest supported version, so a feature
+only a newer server has fails there first; the migrations are also tested on 18.
 
 ## Epistola Exchange publication
 

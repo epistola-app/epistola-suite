@@ -1,5 +1,8 @@
 # Catalog resource identity migration
 
+> **Status:** Proposed. A plan, largely carried out by the relocation work — file paths in it are
+> the proposal's, not a map of the code.
+
 Plan for making every catalog resource relocatable by separating **identity** from **location** and
 **address**. Implements the target model in
 [ADR 0014](adr/0014-safe-catalog-resource-relocation.md).
@@ -261,6 +264,10 @@ permissions, released catalogs, slug collisions — which remain real.
 - Whether a released or subscribed catalog's resources may move at all, and what the portable
   handoff looks like — deferred in ADR 0014 and unchanged by this plan.
 - Whether external alias redirects expire, and after how long.
+- Whether identities keep being allocated inside the sync trigger, or through an explicit
+  reuse-or-register operation with an application-proposed UUIDv7 — proposed in
+  [ADR 0024](adr/0024-where-a-catalog-resource-identity-is-allocated.md), tracked in
+  [#952](https://github.com/epistola-app/epistola-suite/issues/952).
 
 ## Verification
 

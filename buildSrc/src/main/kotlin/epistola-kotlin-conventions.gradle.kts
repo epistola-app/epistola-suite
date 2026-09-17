@@ -81,6 +81,8 @@ val testJvmSlots = gradle.sharedServices.registerIfAbsent("testJvmSlots", TestJv
 // run with; `-PtestParallelism=N` overrides. uiTest and perfTest own their own.
 val testParallelism = providers.gradleProperty("testParallelism").orElse("4")
 
+val testPostgresVersion = providers.gradleProperty("testPostgresVersion").orElse("17")
+
 fun Test.capJUnitParallelism() {
     systemProperty("junit.jupiter.execution.parallel.config.strategy", "fixed")
     systemProperty("junit.jupiter.execution.parallel.config.fixed.parallelism", testParallelism.get())
@@ -115,6 +117,11 @@ tasks.withType<Test>().configureEach {
         layout.buildDirectory.dir("test-metrics").get().asFile.absolutePath,
     )
     systemProperty("epistola.test.metrics.label", "${project.name}-$name")
+
+    // The PostgreSQL major version the tests' shared container runs. The oldest supported
+    // version by default, so a migration or query using a feature only a newer server has
+    // fails here rather than on an installation. `-PtestPostgresVersion=18` runs on 18.
+    systemProperty("epistola.test.postgres.version", testPostgresVersion.get())
 
     testLogging {
         events("passed", "skipped", "failed")
@@ -201,6 +208,13 @@ tasks.named<Test>("test") {
     useJUnitPlatform { excludeTags("ui", "perf") }
     jvmArgs(springTestJvmArgs)
     capJUnitParallelism()
+    // `--tests X` from the root runs every module's `test`, and Gradle fails a
+    // module whose sources hold no match. That made the documented
+    // `./gradlew test --tests SomeTest` unusable for the repo-wide guard tests,
+    // which live in one module. The other test tasks already opt out; so does
+    // this one now. A filter that matches nowhere at all still reports nothing
+    // ran, so a typo stays visible in the output.
+    filter { isFailOnNoMatchingTests = false }
 }
 
 // Perf tests — opt-in via `@Tag("perf")`. Excluded from `integrationTest` so the

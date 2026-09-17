@@ -12,6 +12,7 @@ import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 import java.io.ByteArrayOutputStream
+import java.security.MessageDigest
 
 @DisableCachingByDefault(because = "The task inspects git history and working-tree state.")
 abstract class CheckMigrationVersionsTask : DefaultTask() {
@@ -38,6 +39,28 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
 
     private val runtimeMigrationPath =
         Regex("""^modules/[^/]+/src/main/resources/db/migration/[^/]+/V(\d{14})__.+\.sql$""")
+
+    /**
+     * A merged migration someone deliberately edited, pinned to the exact content that was reviewed.
+     * Only a file that no release has shipped belongs here: an installation that already applied it
+     * fails Flyway's checksum validation, so the edit is safe only where the sole databases affected
+     * are disposable development ones. Anything but these bytes fails the check again, so the
+     * exemption covers one reviewed edit, not the file.
+     *
+     * Reproduce a digest with `shasum -a 256 <path>`.
+     */
+    private data class ReviewedModification(val sha256: String, val reason: String)
+
+    private val reviewedModifications =
+        mapOf(
+            "modules/epistola-core/src/main/resources/db/migration/core/V20260905090000__core_catalog_resource_identity.sql" to
+                ReviewedModification(
+                    sha256 = "87a38d2b30c169e64d1cf510ae834385f70b0f57229ffd3b876ddb7a649c2065",
+                    reason =
+                        "Unreleased when edited. Replaced PostgreSQL 18's uuidv7() with epistola_uuidv7() " +
+                            "so the release keeps supporting PostgreSQL 17.",
+                ),
+        )
 
     @TaskAction
     fun checkMigrationVersions() {
@@ -116,6 +139,11 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
             val newVersion = newPath?.let { migrationVersion(it) }
 
             when {
+                status == 'M' && oldIsMigration && isReviewedModification(requireNotNull(oldPath)) ->
+                    logger.lifecycle(
+                        "Merged runtime migration was modified as reviewed: $oldPath " +
+                            "(${reviewedModifications.getValue(oldPath).reason})",
+                    )
                 status == 'M' && oldIsMigration ->
                     failures += "Merged runtime migration was modified: $oldPath"
                 status == 'D' && oldIsMigration ->
@@ -150,10 +178,23 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
         }
     }
 
+    private fun isReviewedModification(path: String): Boolean {
+        val reviewed = reviewedModifications[path] ?: return false
+        val content = gitBytes("show", "HEAD:$path") ?: return false
+        val digest = MessageDigest.getInstance("SHA-256").digest(content).joinToString("") { "%02x".format(it) }
+        if (digest != reviewed.sha256) {
+            logger.error("$path is exempt only at sha256 ${reviewed.sha256}; HEAD has $digest.")
+            return false
+        }
+        return true
+    }
+
     private fun migrationVersion(path: String): Long? =
         runtimeMigrationPath.matchEntire(path)?.groupValues?.get(1)?.toLong()
 
-    private fun runGit(vararg args: String): String? {
+    private fun runGit(vararg args: String): String? = gitBytes(*args)?.toString(Charsets.UTF_8)?.trim()
+
+    private fun gitBytes(vararg args: String): ByteArray? {
         val process =
             ProcessBuilder(listOf("git", *args))
                 .directory(repositoryDir.asFile.get())
@@ -161,6 +202,6 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
                 .start()
         val stdout = ByteArrayOutputStream()
         process.inputStream.copyTo(stdout)
-        return if (process.waitFor() == 0) stdout.toString().trim() else null
+        return if (process.waitFor() == 0) stdout.toByteArray() else null
     }
 }

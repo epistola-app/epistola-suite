@@ -303,6 +303,46 @@ val verifyHtmxVendored = tasks.register("verifyHtmxVendored") {
     }
 }
 
+/**
+ * Assembles `CHANGELOG.md` and the unreleased fragments into the single markdown file the app
+ * ships. Fragments render in the same `- [**[audience]** ]type(scope)[!]: **Title.** body` form the
+ * released sections already use, so `ChangelogRenderer` parses both without a second code path.
+ */
+val renderChangelog = tasks.register("renderChangelog") {
+    description = "Renders CHANGELOG.md plus unreleased fragments into one file for the app."
+    val released = rootProject.file("CHANGELOG.md")
+    val fragmentsDir = rootProject.file("changelog/unreleased")
+    val output = layout.buildDirectory.file("generated/changelog/CHANGELOG.md")
+    inputs.file(released)
+    inputs.files(fragmentsDir)
+    outputs.file(output)
+
+    doLast {
+        val parsed = ChangelogFragments.parseAll(fragmentsDir)
+        val fatal = parsed.problems.filter { it.fatal }
+        if (fatal.isNotEmpty()) {
+            throw GradleException(
+                "Cannot render the changelog; run checkChangelogFragments.\n" +
+                    fatal.joinToString("\n") { "- ${it.file.name}: ${it.message}" },
+            )
+        }
+
+        val text = released.readText()
+        val unreleased = if (parsed.fragments.isEmpty()) {
+            ""
+        } else {
+            "## [Unreleased]\n\n${ChangelogFragments.renderSection(parsed.fragments)}\n\n"
+        }
+        val firstRelease = text.indexOf("\n## [")
+        val rendered = if (firstRelease < 0) {
+            text.trimEnd() + "\n\n" + unreleased
+        } else {
+            text.substring(0, firstRelease + 1) + unreleased + text.substring(firstRelease + 1)
+        }
+        output.get().asFile.apply { parentFile.mkdirs() }.writeText(rendered)
+    }
+}
+
 tasks.processResources {
     dependsOn(verifyHtmxVendored)
     // Best-effort embed of the consolidated third-party notices for Docker distribution.
@@ -338,8 +378,10 @@ tasks.processResources {
         include("inter-*-400-normal.*", "inter-*-500-normal.*", "inter-*-600-normal.*", "inter-*-700-normal.*")
         into("static/fonts/inter/files")
     }
-    // Copy changelog markdown into app resources
-    from(rootProject.file("CHANGELOG.md")) {
+    // Copy changelog markdown into app resources. This is the *rendered* changelog — the released
+    // history from CHANGELOG.md with an [Unreleased] section assembled from changelog/unreleased/
+    // fragments — so the dialog keeps one parser and never reads the fragment directory itself.
+    from(renderChangelog) {
         into("changelog")
     }
 }
