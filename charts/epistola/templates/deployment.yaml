@@ -159,6 +159,8 @@ spec:
             {{- end }}
             - name: EPISTOLA_AUTH_AUTOPROVISION
               value: {{ .Values.oidc.autoProvision | quote }}
+            - name: EPISTOLA_AUTH_OIDC_SILENTLOGIN
+              value: {{ .Values.oidc.silentLogin | quote }}
             {{- if .Values.oidc.ssoButtonLabel }}
             - name: EPISTOLA_AUTH_OIDC_SSOBUTTONLABEL
               value: {{ .Values.oidc.ssoButtonLabel | quote }}
