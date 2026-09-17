@@ -311,6 +311,37 @@ The presence of the registration properties enables OIDC login; the `prod` profi
 production hardening (flyway clean disabled, tuned concurrency). See
 [keycloak-setup.md](keycloak-setup.md) / [authentik-setup.md](authentik-setup.md).
 
+### Silent Sign-In
+
+A user who already has a session at the identity provider is signed in without clicking the SSO
+button. The first visit to `/login` in a session (usually a bounce off a protected page) redirects to
+`/oauth2/authorization/<registrationId>?silent=true`, which sends the provider an OIDC `prompt=none`
+request:
+
+- **Provider session alive** — the provider redirects straight back with a code, and the user lands
+  on the page they originally asked for.
+- **No provider session** — the provider answers `login_required` (or `interaction_required`,
+  `consent_required`, `account_selection_required`). `SsoLoginFailureHandler` sends the user to the
+  normal login page, without an error banner. Any other SSO error still goes to `/login?error`.
+
+`LoginHandler` skips the attempt when:
+
+- it was already made in this session (the resolver records it, so a declined attempt cannot loop)
+- the URL carries `?logout` or `?error`
+- the user is already signed in
+- the page is loaded inside an iframe (`Sec-Fetch-Dest: iframe`), because providers refuse framing
+
+The session-expiry popup (`/login?popup=true`) keeps popup mode through the attempt, so it renews
+without a click and closes itself.
+
+Logout must end the provider session, or the next page view would silently sign the user back in.
+Logout always lands on `/login?logout`, both after RP-initiated logout at the provider's
+`end_session_endpoint` and when the provider has none. Registrations built for
+`backchannel-base-url` carry the discovered `end_session_endpoint` too.
+
+Set `epistola.auth.oidc.silent-login=false` (Helm `oidc.silentLogin: false`) for a provider that
+mishandles `prompt=none`.
+
 ### AuthProvider Derivation
 
 The `AuthProvider` stored on `User` records is derived from the OAuth2 registration ID:
@@ -344,6 +375,7 @@ Disable this to require manual user creation before login.
 | ----------------------------------------- | ------------------ | ----------------------------------------------------------------- |
 | `epistola.auth.auto-provision`            | `true`             | Auto-provision OAuth2 users on first login                        |
 | `epistola.auth.oidc.sso-button-label`     | `Sign in with SSO` | Label on the SSO login button (e.g. `Sign in with authentik`)     |
+| `epistola.auth.oidc.silent-login`         | `true`             | Try a silent SSO sign-in before showing the login page            |
 | `epistola.auth.oidc.backchannel-base-url` | _(none)_           | Internal base URL for server-to-server OIDC calls (split-horizon) |
 
 ## Session Management
