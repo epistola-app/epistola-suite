@@ -53,7 +53,9 @@
                         <div class="empty-state-description">This catalog has no templates. Choose another catalog or create one here.</div>
                         <button th:if="${auth.has('TEMPLATE_EDIT')}" type="button"
                                 class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-                                th:hx-get="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
+                                th:hx-get="${selectedCatalog != ''}
+                                    ? @{/tenants/{tenantId}/templates/new(tenantId=${tenantId},catalog=${selectedCatalog})}
+                                    : @{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                                 data-testid="template-create-open-filtered">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
@@ -66,11 +68,17 @@
                             <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
                         </div>
                         <div class="empty-state-title">No templates yet</div>
-                        <!--/* No second button here: the page-header action (template-create-open-action)
-                               is already on screen and does exactly this. The filtered state above keeps
-                               its own button because the header action is not scoped to that catalog,
-                               so it is different guidance rather than a duplicate. */-->
-                        <div class="empty-state-description">Use <strong>New Template</strong> above to create your first document template.</div>
+                        <div class="empty-state-description">Create your first document template to get started.</div>
+                        <button th:if="${auth.has('TEMPLATE_EDIT')}" type="button"
+                                class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
+                                th:hx-get="${selectedCatalog != ''}
+                                    ? @{/tenants/{tenantId}/templates/new(tenantId=${tenantId},catalog=${selectedCatalog})}
+                                    : @{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
+                                hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                                data-testid="template-create-open">
+                            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+                            New Template
+                        </button>
                     </th:block>
                 </div>
 
@@ -192,7 +200,9 @@
 
     <th:block th:fragment="template-list-actions">
         <button th:if="${auth.has('TEMPLATE_EDIT')}" type="button" class="ep-btn ep-btn-primary"
-                th:hx-get="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
+                th:hx-get="${selectedCatalog != ''}
+                    ? @{/tenants/{tenantId}/templates/new(tenantId=${tenantId},catalog=${selectedCatalog})}
+                    : @{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="template-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />

@@ -102,6 +102,56 @@ class ListAffordancesTest : BaseIntegrationTest() {
         assertThat(searchBoxCount(body)).isOne()
     }
 
+    /**
+     * The create dialog opens on the catalog the list is filtered to. Without it the browser
+     * selects whichever authored catalog sorts first, silently discarding the choice already made
+     * on the list — and a template then gets created in the wrong catalog.
+     */
+    @Test
+    fun `the new-template dialog opens on the catalog the list is filtered to`() {
+        val tenant = createTenant("New Template Catalog")
+        // "zzz-last" sorts after the auto-created Default catalog, so preselecting it cannot
+        // pass by accident on the browser's first-option fallback.
+        val filtered = CatalogKey.of("zzz-last")
+        withMediator { CreateCatalog(tenant.id, filtered, "ZZZ Last").execute() }
+
+        val body = restTemplate.exchange(
+            "/tenants/${tenant.id.value}/templates/new?catalog=${filtered.value}",
+            HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
+            String::class.java,
+        ).let {
+            assertThat(it.statusCode).isEqualTo(HttpStatus.OK)
+            requireNotNull(it.body)
+        }
+
+        assertThat(selectedOption(body)).isEqualTo(filtered.value)
+    }
+
+    @Test
+    fun `the new-template dialog falls back to the first catalog when the list is unfiltered`() {
+        val tenant = createTenant("New Template Unfiltered")
+        withMediator { CreateCatalog(tenant.id, CatalogKey.of("zzz-last"), "ZZZ Last").execute() }
+
+        val body = restTemplate.exchange(
+            "/tenants/${tenant.id.value}/templates/new?catalog=",
+            HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
+            String::class.java,
+        ).let { requireNotNull(it.body) }
+
+        // Nothing marked selected: the browser takes the first option, which is correct when the
+        // reader has expressed no preference.
+        assertThat(selectedOption(body)).isNull()
+    }
+
+    /** The value of the catalog `<option>` carrying `selected`, or null if none does. */
+    private fun selectedOption(body: String): String? {
+        val select = body.substringAfter("""name="catalog"""", "").substringBefore("</select>")
+        return Regex("""<option[^>]*value="([^"]*)"[^>]*\bselected\b""").find(select)?.groupValues?.get(1)
+            ?: Regex("""<option[^>]*\bselected\b[^>]*value="([^"]*)"""").find(select)?.groupValues?.get(1)
+    }
+
     @Test
     fun `the presentation dialog explains a catalog with no images instead of offering empty pickers`() {
         val tenant = createTenant("Presentation Empty")

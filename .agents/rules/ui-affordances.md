@@ -30,10 +30,14 @@ on it. Splitting that is how two screens on the same domain state come to disagr
 - **An edit control for absent content shows the empty state and the route that creates it** — never
   a picker with nothing in it. `catalogs/metadata.html` is the shape: one sentence saying what is
   missing, and a link to where it is added.
+- **A control carries the context the screen is already in.** A create action opened from a filtered
+  list opens on that filter; a dialog that drops it silently discards a choice the reader has
+  already made, and the first option it lands on is rarely the right one.
 
-The same reasoning covers a search box on a list with nothing in it, and a second copy of a primary
-action in an empty state that already has one in the page header. Both are controls offered on the
-strength of "this screen exists" rather than "this will do something".
+The same reasoning covers a search box on a list with nothing in it: a control offered on the
+strength of "this screen exists" rather than "this will do something". Note that repeating an action
+is not itself a breach — an empty state may well restate the page-header action as onboarding. What
+the rule asks is that each copy be reachable and carry the same context, not that there be only one.
 
 One caveat, because getting it wrong strands people worse than the original bug: a control that
 filters or searches must **not** disappear once a filter has emptied the list, or the reader cannot

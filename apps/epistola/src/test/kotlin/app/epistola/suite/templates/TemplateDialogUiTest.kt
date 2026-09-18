@@ -42,12 +42,13 @@ class TemplateDialogUiTest : BasePlaywrightTest() {
         gotoAndReady("/tenants/${tenant.id}/templates")
         page.htmxSettle()
 
-        // The page-header action is the canonical trigger, and on a fresh tenant it is
-        // now the only one: the empty state describes it instead of repeating it.
-        assertThat(page.locator("[data-testid^='template-create-open']")).hasCount(1)
+        // The page-header action is the canonical trigger. The empty state repeats it as
+        // onboarding, which is deliberate — both issue the same hx-get into #dialog-mount.
+        assertThat(page.locator("[data-testid='template-create-open']")).isVisible()
 
-        // Drivable directly, because html carries scroll-padding-top: var(--ep-sticky-offset)
-        // so scrollIntoViewIfNeeded leaves it clear of the sticky .app-nav.
+        // Drive the header action directly. It is reachable because html carries
+        // scroll-padding-top: var(--ep-sticky-offset), so scrollIntoViewIfNeeded leaves it
+        // clear of the sticky .app-nav that used to intercept the pointer here.
         page.openDialogByTrigger(
             page.locator("[data-testid='template-create-open-action']"),
             "#create-template-dialog",
