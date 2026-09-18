@@ -84,7 +84,7 @@
                                 <div class="ep-row ep-row-between" style="margin-bottom: var(--ep-space-2);">
                                     <span style="font-weight: 500;">
                                         <span th:text="${comment.authorName}">Author</span>
-                                        <span th:if="${comment.source.name() == 'GITHUB'}" class="ep-badge ep-badge-outline" style="margin-left: var(--ep-space-2);">GitHub</span>
+                                        <span th:if="${comment.source.name() == 'GITHUB'}" class="badge badge-outline" style="margin-left: var(--ep-space-2);">GitHub</span>
                                     </span>
                                     <span style="color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);"
                                           th:text="${#temporals.format(comment.createdAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</span>

@@ -44,8 +44,8 @@
                     <tr th:each="r : ${group.results}">
                         <td th:text="${r.catalogKey}">my-catalog</td>
                         <td>
-                            <span class="ep-badge"
-                                  th:classappend="${r.verdict == 'PASS'} ? 'ep-badge-success' : (${r.verdict == 'WARN'} ? 'ep-badge-warning' : (${r.verdict == 'FAIL'} ? 'ep-badge-error' : 'ep-badge-neutral'))"
+                            <span class="badge"
+                                  th:classappend="${r.verdict == 'PASS'} ? 'badge-success' : (${r.verdict == 'WARN'} ? 'badge-warning' : (${r.verdict == 'FAIL'} ? 'badge-error' : 'badge-default'))"
                                   th:text="${r.verdict}">PASS</span>
                         </td>
                         <td th:text="${r.detail}"></td>

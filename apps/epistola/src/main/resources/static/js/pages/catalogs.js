@@ -41,13 +41,36 @@ document.addEventListener('change', function (event) {
 });
 
 // ── Release dialog: version bump buttons fill the version input ─────────────
-// Usage: <button data-version="1.2.3"> inside #release-dialog
+// Usage: <button data-version="1.2.3" aria-pressed="false"> inside #release-dialog
 // (scoped to the release dialog so the attribute name stays local to it).
+//
+// The buttons only look like a choice; the version input is what is submitted. So the two are
+// kept in step both ways: pressing a button selects it, and typing a version by hand clears all
+// three rather than leaving one claiming a choice that no longer matches the field.
+function markPressedBump(pressed) {
+  const buttons = document.querySelectorAll('#release-dialog [data-version]');
+  buttons.forEach(function (button) {
+    button.setAttribute('aria-pressed', button === pressed ? 'true' : 'false');
+  });
+}
+
 document.addEventListener('click', function (event) {
   const btn = event.target.closest && event.target.closest('#release-dialog [data-version]');
   if (!btn) return;
   const input = document.getElementById('release-version');
   if (input) input.value = btn.getAttribute('data-version');
+  markPressedBump(btn);
+});
+
+document.addEventListener('input', function (event) {
+  if (event.target.id !== 'release-version') return;
+  const match = Array.prototype.find.call(
+    document.querySelectorAll('#release-dialog [data-version]'),
+    function (button) {
+      return button.getAttribute('data-version') === event.target.value;
+    },
+  );
+  markPressedBump(match || null);
 });
 
 // ── Catalog presentation gallery ordering ─────────────────────────────────

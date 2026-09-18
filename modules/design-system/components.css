@@ -140,6 +140,19 @@
     --btn-hover-border-color: var(--ep-amber-600);
   }
 
+  /* A button standing for a persistent choice. Specificity (class + attribute) beats every
+     variant class above, so one rule serves outline, ghost and secondary alike — and the state
+     lives in aria-pressed, so a screen reader announces the choice rather than only the eye
+     catching a colour. See docs/brandguide.md. */
+  .ep-btn[aria-pressed='true'] {
+    --btn-bg: var(--ep-terracotta-100);
+    --btn-color: var(--ep-terracotta-800);
+    --btn-border-color: var(--ep-terracotta-200);
+    --btn-hover-bg: var(--ep-terracotta-100);
+    --btn-hover-color: var(--ep-terracotta-800);
+    --btn-hover-border-color: var(--ep-terracotta-200);
+  }
+
   .ep-btn-sm {
     --btn-height: var(--ep-h-8);
     --btn-padding-x: var(--ep-space-2-5);
@@ -483,13 +496,18 @@
     transition: var(--ep-transition-colors);
   }
 
-  .badge-primary {
+  /* Identical on purpose, and separate on purpose: -primary is set by a screen deciding what to
+     accent, -draft by a resource's lifecycle. Same look today, free to diverge tomorrow. */
+  .badge-primary,
+  .badge-draft {
     background-color: var(--ep-terracotta-100);
     color: var(--ep-terracotta-800);
     border-color: var(--ep-terracotta-200);
   }
 
-  .badge-success {
+  /* As above: -success is an outcome, -published is a lifecycle stage. */
+  .badge-success,
+  .badge-published {
     background-color: var(--ep-green-100);
     color: var(--ep-green-800);
     border-color: var(--ep-green-100);
@@ -526,19 +544,8 @@
     border-color: var(--ep-amber-300);
   }
 
-  /* Status / lifecycle variants */
-  .badge-draft {
-    background-color: var(--ep-terracotta-100);
-    color: var(--ep-terracotta-800);
-    border-color: var(--ep-terracotta-200);
-  }
-
-  .badge-published {
-    background-color: var(--ep-green-100);
-    color: var(--ep-green-800);
-    border-color: var(--ep-green-100);
-  }
-
+  /* Status / lifecycle variants. -draft and -published share their declarations with
+     -primary and -success above. */
   .badge-archived {
     background-color: var(--ep-stone-100);
     color: var(--ep-stone-600);
@@ -555,11 +562,8 @@
     color: var(--ep-red-700);
   }
 
-  .badge-default {
-    background-color: var(--ep-stone-100);
-    color: var(--ep-stone-600);
-  }
-
+  /* -default is a classification with no state; -muted is present but deliberately quiet. */
+  .badge-default,
   .badge-muted {
     background-color: var(--ep-stone-100);
     color: var(--ep-stone-600);

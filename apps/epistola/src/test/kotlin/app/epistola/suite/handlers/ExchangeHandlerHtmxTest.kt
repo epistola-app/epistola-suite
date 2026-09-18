@@ -505,6 +505,35 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         assertThat(body).contains("so there is no namespace to")
     }
 
+    /**
+     * Two unrelated things shared one block: the connection at the top and, below it with no
+     * heading of its own, the default-namespace setting — so the only Save button in the block
+     * read as the block's Save button. They are separate panels now.
+     *
+     * Reauthorize is checked here too: it is the way back from a broken connection, so it must not
+     * be lighter than a "Change" on a metadata field. Ghost has no fill and no border, which beside
+     * the status badge reads as a second label. See docs/brandguide.md.
+     */
+    @Test
+    fun `the namespace setting is its own block, and Reauthorize looks like a control`() {
+        val tenant = createTenant("Exchange Layout")
+        exchange.namespaces = listOf("public-services", "internal")
+        withMediator { enroll(tenant) }
+
+        val response = restTemplate.getForEntity("/tenants/${tenant.id.value}/exchange", String::class.java)
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        val body = requireNotNull(response.body)
+
+        assertThat(body).contains("""<h3>Default namespace</h3>""")
+        assertThat(body).contains("""class="ep-btn ep-btn-outline ep-btn-sm">Reauthorize""")
+        assertThat(body).doesNotContain("""ep-btn-ghost ep-btn-sm">Reauthorize""")
+
+        // The namespace form sits after the connection panel closes, not inside its body.
+        val connectionPanel = body.substringAfter("<h2>Tenant connection</h2>").substringBefore("<h3>Default namespace</h3>")
+        assertThat(connectionPanel).doesNotContain("""name="namespace"""")
+        assertThat(body.substringAfter("<h3>Default namespace</h3>")).contains("""name="namespace"""")
+    }
+
     private fun browsePage(tenant: Tenant, catalogKey: CatalogKey): String {
         val response = restTemplate.getForEntity(
             "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/browse",

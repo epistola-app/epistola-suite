@@ -42,11 +42,10 @@
                     <span class="catalog-detail-label">Source</span>
                     <a th:if="${exchangeCatalogUrl != null}"
                        th:href="${exchangeCatalogUrl}"
-                       class="catalog-detail-value"
                        target="_blank" rel="noopener noreferrer"
                        hx-boost="false"
                        title="View this catalog on Epistola Exchange">
-                        <code th:text="${catalog.sourceUrl}"></code>
+                        <code class="catalog-detail-value" th:text="${catalog.sourceUrl}"></code>
                     </a>
                     <code th:if="${exchangeCatalogUrl == null}" class="catalog-detail-value" th:text="${catalog.sourceUrl}"></code>
                 </div>
@@ -61,8 +60,8 @@
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='attributes')}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                     </div>
-                    <div th:if="${!catalog.catalogMetadata.attributes.isEmpty()}" class="ep-row ep-gap-2 ep-row-wrap">
-                        <span th:each="attribute : ${catalog.catalogMetadata.attributes}" class="badge badge-default"
+                    <div th:if="${!catalog.catalogMetadata.attributes.isEmpty()}" class="badge-list">
+                        <span th:each="attribute : ${catalog.catalogMetadata.attributes}" class="badge badge-outline"
                               th:text="${attribute.catalog + '.' + attribute.key + ': ' + attribute.value}"></span>
                     </div>
                     <p th:if="${catalog.catalogMetadata.attributes.isEmpty()}" class="text-muted text-sm" style="margin: 0;">No discovery attributes.</p>
@@ -75,8 +74,8 @@
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='keywords')}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                     </div>
-                    <div th:if="${!catalog.catalogMetadata.keywords.isEmpty()}" class="ep-row ep-gap-2 ep-row-wrap">
-                        <span th:each="keyword : ${catalog.catalogMetadata.keywords}" class="badge badge-info" th:text="${keyword}"></span>
+                    <div th:if="${!catalog.catalogMetadata.keywords.isEmpty()}" class="badge-list">
+                        <span th:each="keyword : ${catalog.catalogMetadata.keywords}" class="badge badge-outline" th:text="${keyword}"></span>
                     </div>
                     <p th:if="${catalog.catalogMetadata.keywords.isEmpty()}" class="text-muted text-sm" style="margin: 0;">No keywords.</p>
                 </div>

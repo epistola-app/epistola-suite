@@ -74,8 +74,8 @@
 
                 <div style="margin-top: var(--ep-space-3);">
                     <span class="ep-label">Ordered gallery</span>
-                    <div data-catalog-gallery class="ep-stack ep-gap-2" style="margin-top: var(--ep-space-1);">
-                        <div th:each="slug : ${gallerySlugs}" class="ep-row ep-gap-2" data-catalog-gallery-row>
+                    <div data-catalog-gallery class="ep-stack" style="margin-top: var(--ep-space-1);">
+                        <div th:each="slug : ${gallerySlugs}" class="ep-row" data-catalog-gallery-row>
                             <select class="ep-input" name="imageAssetSlugs">
                                 <option value="">Select an image</option>
                                 <option th:each="image : ${images}" th:value="${image.id}" th:text="${image.name}"
@@ -91,7 +91,7 @@
                 </div>
             </div>
 
-            <div th:if="${section == 'license'}" class="ep-stack ep-gap-2">
+            <div th:if="${section == 'license'}" class="ep-stack">
                 <label class="ep-label" for="catalog-license-name">Name</label>
                 <input id="catalog-license-name" class="ep-input" name="licenseName"
                        th:value="${catalog.catalogMetadata.license?.name}" />
@@ -107,7 +107,7 @@
                           th:text="${catalog.catalogMetadata.license?.copyrightText}"></textarea>
             </div>
 
-            <div th:if="${section == 'publication' && publication != null}" class="ep-stack ep-gap-2">
+            <div th:if="${section == 'publication' && publication != null}" class="ep-stack">
                 <label class="ep-label" for="catalog-publication-policy">Release policy</label>
                 <select id="catalog-publication-policy" class="ep-input" name="publicationPolicy">
                     <option th:each="option : ${publication.policyOptions}"
