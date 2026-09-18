@@ -9,7 +9,7 @@ A single long keyword used to push the whole catalog page sideways — measured 
 horizontal scroll, so every column on the page moved, not just the keyword. Keywords and discovery
 attributes now stay inside their card and shorten with an ellipsis, with the full value on hover.
 
-Keywords are also bounded now: at most 20 keywords of 20 characters each, which the edit dialog
+Keywords are also bounded now: at most 20 keywords of 30 characters each, which the edit dialog
 states and the server enforces. Existing catalogs are unaffected.
 
 Their order was previously whatever the stored data happened to return, which looked sorted without

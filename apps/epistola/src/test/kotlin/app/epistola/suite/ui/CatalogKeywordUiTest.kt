@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test
  * the page, which is the difference between cosmetic and not; measured, it moved the document by
  * 218px, so every column on the page shifted.
  *
- * Keywords are capped at 20 characters now, but discovery attributes are not: the value half of
+ * Keywords are capped at 30 characters now, but discovery attributes are not: the value half of
  * `catalog.key: value` is free text with no limit, and subscribed catalogs bring whatever the
  * publisher put there. So the row still has to cope, and this measures the case that can still
  * occur rather than the one validation now prevents.

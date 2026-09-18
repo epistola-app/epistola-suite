@@ -247,7 +247,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
 
         val payload = LinkedMultiValueMap<String, String>()
         payload.add("section", "keywords")
-        payload.add("keywords", "a".repeat(21))
+        payload.add("keywords", "a".repeat(31))
         val response = restTemplate.postForEntity(
             "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/metadata",
             HttpEntity(payload, htmxForm()),
@@ -255,7 +255,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
         )
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
-        assertThat(response.body).contains("20 characters or less")
+        assertThat(response.body).contains("30 characters or less")
     }
 
     @Test
