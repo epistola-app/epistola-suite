@@ -67,6 +67,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
+import app.epistola.suite.validation.FieldLimits
 import app.epistola.suite.validation.ValidationException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -596,6 +597,7 @@ class CatalogHandler {
                 "usageCounts" to usageCounts
                 "stencilVersionConflicts" to stencilVersionConflicts
                 "hasImages" to images.isNotEmpty()
+                "keywords" to result.catalog.catalogMetadata.keywords.inDisplayOrder()
                 "presentationImages" to result.catalog.catalogMetadata.presentation?.imageAssetSlugs.orEmpty().map {
                     CatalogPresentationAssetView(it, imagesBySlug[it])
                 }
@@ -744,6 +746,9 @@ class CatalogHandler {
             "section" to section.value,
             "sectionTitle" to section.title,
             "attributeFields" to descriptors.map { CatalogMetadataAttributeField(it, currentAttributes[it.qualifiedKey]) },
+            "keywords" to catalog.catalogMetadata.keywords.inDisplayOrder(),
+            "maxKeywords" to FieldLimits.MAX_KEYWORDS,
+            "maxKeywordLength" to FieldLimits.MAX_KEYWORD_LENGTH,
             "images" to images,
             // The trailing "" is one empty picker to add the next image with. It is only drawn
             // when there are images to pick, because the section itself is guarded on that.
@@ -893,6 +898,7 @@ class CatalogHandler {
                 "tenantId" to tenantId.key
                 "catalog" to result.catalog
                 "hasImages" to images.isNotEmpty()
+                "keywords" to result.catalog.catalogMetadata.keywords.inDisplayOrder()
                 "presentationImages" to result.catalog.catalogMetadata.presentation?.imageAssetSlugs.orEmpty().map {
                     CatalogPresentationAssetView(it, imagesBySlug[it])
                 }
@@ -909,6 +915,7 @@ class CatalogHandler {
                     "catalog" to result.catalog
                     "resources" to result.resources
                     "hasImages" to images.isNotEmpty()
+                    "keywords" to result.catalog.catalogMetadata.keywords.inDisplayOrder()
                     "presentationImages" to result.catalog.catalogMetadata.presentation?.imageAssetSlugs.orEmpty().map {
                         CatalogPresentationAssetView(it, imagesBySlug[it])
                     }

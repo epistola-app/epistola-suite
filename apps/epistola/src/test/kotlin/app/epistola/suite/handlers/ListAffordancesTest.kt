@@ -9,6 +9,7 @@ import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
@@ -22,6 +23,8 @@ import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
+import org.springframework.util.LinkedMultiValueMap
 
 /**
  * A control appears only when it can be used (`.agents/rules/ui-affordances.md`).
@@ -200,6 +203,85 @@ class ListAffordancesTest : BaseIntegrationTest() {
 
         assertThat(body).contains("This catalog has no images yet")
         assertThat(body).doesNotContain("section='presentation'")
+    }
+
+    @Test
+    fun `the catalog page and the edit dialog agree on keyword order`() {
+        val tenant = createTenant("Keyword Order")
+        val catalogKey = CatalogKey.of("keyword-order")
+        withMediator {
+            CreateCatalog(tenant.id, catalogKey, "Keyword order").execute()
+            UpdateCatalogMetadata(
+                tenantKey = tenant.id,
+                catalogKey = catalogKey,
+                name = "Keyword order",
+                description = null,
+                keywords = setOf("zaken", "1-loket", "Brieven", "aanslag"),
+            ).execute()
+        }
+        val base = "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}"
+
+        val onPage = Regex("""badge badge-outline"[^>]*>([^<]+)<""")
+            .findAll(get("$base/browse"))
+            .map { it.groupValues[1] }
+            .toList()
+        val inDialog = get("$base/metadata?section=keywords")
+            .substringAfter("name=\"keywords\"")
+            .substringAfter(">")
+            .substringBefore("</textarea>")
+            .trim()
+            .lines()
+            .map { it.trim() }
+
+        // Natural order, matching CatalogInfo's TreeSet: digits first, then capitals before
+        // lowercase. See CatalogKeywordOrder.
+        val expected = listOf("1-loket", "Brieven", "aanslag", "zaken")
+        assertThat(onPage).containsExactlyElementsOf(expected)
+        // Same order in the textarea, so opening the dialog never reshuffles what is on screen.
+        assertThat(inDialog).containsExactlyElementsOf(expected)
+    }
+
+    @Test
+    fun `an over-long keyword is refused with a field error rather than stretching the page`() {
+        val tenant = createTenant("Keyword Limits")
+        val catalogKey = CatalogKey.of("keyword-limits")
+        withMediator { CreateCatalog(tenant.id, catalogKey, "Keyword limits").execute() }
+
+        val payload = LinkedMultiValueMap<String, String>()
+        payload.add("section", "keywords")
+        payload.add("keywords", "a".repeat(31))
+        val response = restTemplate.postForEntity(
+            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/metadata",
+            HttpEntity(payload, htmxForm()),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+        assertThat(response.body).contains("30 characters or less")
+    }
+
+    @Test
+    fun `more keywords than the limit are refused`() {
+        val tenant = createTenant("Keyword Count")
+        val catalogKey = CatalogKey.of("keyword-count")
+        withMediator { CreateCatalog(tenant.id, catalogKey, "Keyword count").execute() }
+
+        val payload = LinkedMultiValueMap<String, String>()
+        payload.add("section", "keywords")
+        payload.add("keywords", (1..21).joinToString("\n") { "keyword-$it" })
+        val response = restTemplate.postForEntity(
+            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/metadata",
+            HttpEntity(payload, htmxForm()),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+        assertThat(response.body).contains("at most 20 keywords")
+    }
+
+    private fun htmxForm() = HttpHeaders().apply {
+        contentType = MediaType.APPLICATION_FORM_URLENCODED
+        add("HX-Request", "true")
     }
 
     private fun createEnvironment(tenantKeyValue: String, key: String, name: String) = CreateEnvironment(
