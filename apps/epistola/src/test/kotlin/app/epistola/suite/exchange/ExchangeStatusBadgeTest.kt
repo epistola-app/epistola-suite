@@ -24,9 +24,7 @@ class ExchangeStatusBadgeTest {
     fun `every connection status has a label and a styled badge`() {
         assertThat(ExchangeConnectionStatus.entries).allSatisfy { status ->
             assertThat(status.label).withFailMessage("%s must have a label", status).isNotBlank()
-            assertThat(componentsCss)
-                .withFailMessage("components.css is missing a `.%s` rule for %s", status.badgeClass, status)
-                .contains(".${status.badgeClass} {")
+            assertStyled(status.badgeClass, status)
         }
     }
 
@@ -34,9 +32,17 @@ class ExchangeStatusBadgeTest {
     fun `every publication status has a label and a styled badge`() {
         assertThat(CatalogPublicationStatus.entries).allSatisfy { status ->
             assertThat(status.label).withFailMessage("%s must have a label", status).isNotBlank()
-            assertThat(componentsCss)
-                .withFailMessage("components.css is missing a `.%s` rule for %s", status.badgeClass, status)
-                .contains(".${status.badgeClass} {")
+            assertStyled(status.badgeClass, status)
         }
+    }
+
+    /**
+     * Matches the selector followed by either `{` or `,`: variants that share a declaration block
+     * are written as a selector group, and a badge is no less styled for being in one.
+     */
+    private fun assertStyled(badgeClass: String, status: Any) {
+        assertThat(componentsCss)
+            .withFailMessage("components.css is missing a `.%s` rule for %s", badgeClass, status)
+            .containsPattern("\\.$badgeClass\\s*[,{]")
     }
 }
