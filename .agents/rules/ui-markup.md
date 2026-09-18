@@ -30,6 +30,11 @@ id="…" th:inline="javascript">` parsed from static JS, with initialization dri
   values can ride `data-*` attributes.
 - `style-src` still allows `'unsafe-inline'`, deliberately, so inline `style=` is fine.
 
+## Whether to offer the control at all
+
+Separate question, separate card: [`ui-affordances.md`](ui-affordances.md) — a control appears only
+when the principal may act _and_ there is something to act on. It loads alongside this one.
+
 ## The other markup guards
 
 - Use design-system classes; `DesignSystemClassTest` rejects invented ones

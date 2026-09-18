@@ -421,6 +421,99 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         assertThat(body).doesNotContain("not connected to Epistola Exchange")
     }
 
+    /**
+     * The same rule on the other screen that renders this state. The release dialog gates on
+     * `hasPublishableDestination`; the catalog page used to gate on `canPublishCurrentRelease ||
+     * needsNamespaceChoice`, neither of which asks whether there is anywhere to publish — so it
+     * offered the button and a required namespace select with no options in it.
+     */
+    @Test
+    fun `the catalog page does not offer publishing when the tenant is not connected`() {
+        val tenant = createTenant("Browse No Connection")
+        val catalogKey = CatalogKey.of("browse-no-connection")
+        enablePublishing(tenant)
+        withMediator { CreateCatalog(tenant.id, catalogKey, "Browse no connection").execute() }
+
+        val body = browsePage(tenant, catalogKey)
+
+        assertThat(body).doesNotContain("""name="chosenNamespace"""")
+        assertThat(body).doesNotContain("Publish current release")
+        assertThat(body).contains("This catalog has nowhere to publish yet")
+        assertThat(body).contains("not connected to Epistola Exchange")
+        // The old nudge assumed a namespace could be chosen at publish time. It cannot here.
+        assertThat(body).doesNotContain("Choose one when you publish")
+        assertThat(body).contains("versions are created either way")
+    }
+
+    @Test
+    fun `the catalog page does not offer publishing when the organization grants no namespace`() {
+        val tenant = createTenant("Browse No Namespace")
+        val catalogKey = CatalogKey.of("browse-no-namespace")
+        exchange.namespaces = emptyList()
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Browse no namespace").execute()
+        }
+
+        val body = browsePage(tenant, catalogKey)
+
+        assertThat(body).doesNotContain("""name="chosenNamespace"""")
+        assertThat(body).doesNotContain("Publish current release")
+        assertThat(body).contains("This catalog has nowhere to publish yet")
+        assertThat(body).doesNotContain("not connected to Epistola Exchange")
+        assertThat(body).contains("has not granted it a namespace")
+    }
+
+    @Test
+    fun `the catalog page offers publishing once there is somewhere for it to go`() {
+        val tenant = createTenant("Browse Publishable")
+        val catalogKey = CatalogKey.of("browse-publishable")
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Browse publishable").execute()
+        }
+
+        val body = browsePage(tenant, catalogKey)
+
+        assertThat(body).contains("""name="chosenNamespace"""")
+        assertThat(body).contains("public-services")
+        assertThat(body).doesNotContain("This catalog has nowhere to publish yet")
+    }
+
+    /**
+     * The policy is worth setting before a destination exists, so the dialog stays reachable —
+     * but the namespace picker inside it does not offer an empty list.
+     */
+    @Test
+    fun `the publication dialog explains a missing namespace instead of offering an empty picker`() {
+        val tenant = createTenant("Publication Dialog Empty")
+        val catalogKey = CatalogKey.of("publication-dialog")
+        enablePublishing(tenant)
+        withMediator { CreateCatalog(tenant.id, catalogKey, "Publication dialog").execute() }
+
+        val response = restTemplate.getForEntity(
+            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/metadata?section=publication",
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        val body = requireNotNull(response.body)
+        // The policy is still editable ...
+        assertThat(body).contains("""name="publicationPolicy"""")
+        // ... while the picker that has nothing to offer is replaced by the reason.
+        assertThat(body).doesNotContain("""name="chosenNamespace"""")
+        assertThat(body).contains("so there is no namespace to")
+    }
+
+    private fun browsePage(tenant: Tenant, catalogKey: CatalogKey): String {
+        val response = restTemplate.getForEntity(
+            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/browse",
+            String::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        return requireNotNull(response.body)
+    }
+
     private fun releaseDialog(tenant: Tenant, catalogKey: CatalogKey): String {
         val response = restTemplate.getForEntity(
             "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/release",

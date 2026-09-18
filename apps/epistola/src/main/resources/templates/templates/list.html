@@ -11,6 +11,7 @@
             searchPlaceholder='Search templates...',
             searchUrl=@{/tenants/{tenantId}/templates/search(tenantId=${tenantId},catalog=${selectedCatalog})},
             searchTargetId='template-table',
+            searchableTotal=${total},
             actions=~{::template-list-actions}
         )}"></div>
 
@@ -52,7 +53,9 @@
                         <div class="empty-state-description">This catalog has no templates. Choose another catalog or create one here.</div>
                         <button th:if="${auth.has('TEMPLATE_EDIT')}" type="button"
                                 class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-                                th:hx-get="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
+                                th:hx-get="${selectedCatalog != ''}
+                                    ? @{/tenants/{tenantId}/templates/new(tenantId=${tenantId},catalog=${selectedCatalog})}
+                                    : @{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                                 data-testid="template-create-open-filtered">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
@@ -68,7 +71,9 @@
                         <div class="empty-state-description">Create your first document template to get started.</div>
                         <button th:if="${auth.has('TEMPLATE_EDIT')}" type="button"
                                 class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-                                th:hx-get="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
+                                th:hx-get="${selectedCatalog != ''}
+                                    ? @{/tenants/{tenantId}/templates/new(tenantId=${tenantId},catalog=${selectedCatalog})}
+                                    : @{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                                 data-testid="template-create-open">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
@@ -195,7 +200,9 @@
 
     <th:block th:fragment="template-list-actions">
         <button th:if="${auth.has('TEMPLATE_EDIT')}" type="button" class="ep-btn ep-btn-primary"
-                th:hx-get="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
+                th:hx-get="${selectedCatalog != ''}
+                    ? @{/tenants/{tenantId}/templates/new(tenantId=${tenantId},catalog=${selectedCatalog})}
+                    : @{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="template-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />

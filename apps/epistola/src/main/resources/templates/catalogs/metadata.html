@@ -51,6 +51,20 @@
             </div>
 
             <div th:if="${section == 'presentation'}">
+                <!--
+                  The card withholds the button that opens this section when there are no images,
+                  but the dialog is reachable by URL too, so it states the same thing itself rather
+                  than rendering pickers with only their placeholder option
+                  (.agents/rules/ui-affordances.md).
+                -->
+                <p th:if="${images.isEmpty()}" class="text-muted">
+                    This catalog has no images yet. Add one under
+                    <a th:href="@{/tenants/{tenantId}/images(tenantId=${tenantId})}">Images</a>,
+                    then choose an icon or build a gallery here.
+                </p>
+            </div>
+
+            <div th:if="${section == 'presentation' && !images.isEmpty()}">
                 <label class="ep-label" for="catalog-icon">Icon</label>
                 <select id="catalog-icon" class="ep-input" name="iconAssetSlug">
                     <option value="">No icon</option>
@@ -100,7 +114,24 @@
                             th:value="${option.name()}" th:selected="${option == publication.policy}"
                             th:text="${option.label}">Inherit tenant default</option>
                 </select>
-                <th:block th:if="${publication.canPublish}">
+                <!--
+                  The policy is worth setting ahead of a destination, so this dialog stays open in
+                  every state. The namespace picker is not: with nothing granted it offers only
+                  "Not chosen yet". Say what is missing and where it is fixed instead
+                  (.agents/rules/ui-affordances.md).
+                -->
+                <th:block th:if="${publication.canPublish && publication.availableNamespaces.isEmpty()}">
+                    <label class="ep-label">Exchange namespace</label>
+                    <p class="text-muted" th:if="${!publication.connected}">
+                        This tenant is not connected to Epistola Exchange, so there is no namespace to
+                        choose yet. Connect it under Settings &rarr; Exchange.
+                    </p>
+                    <p class="text-muted" th:if="${publication.connected}">
+                        This tenant's Exchange organization has not granted it a namespace yet. Once it
+                        grants one, it can be chosen here.
+                    </p>
+                </th:block>
+                <th:block th:if="${publication.canPublish && !publication.availableNamespaces.isEmpty()}">
                     <label class="ep-label" for="catalog-exchange-namespace">Exchange namespace</label>
                     <select id="catalog-exchange-namespace" class="ep-select" name="chosenNamespace">
                         <option value="" th:if="${publication.suggestedNamespace == null}">Not chosen yet</option>

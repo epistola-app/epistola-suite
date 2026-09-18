@@ -99,6 +99,9 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         val tenant = createTestTenant()
         installMessageCapture()
 
+        // The search box is only offered for a list with something in it
+        // (.agents/rules/ui-affordances.md), so give the tenant a template to search among.
+        createTemplateViaUi(tenant, "Search Subject", "search-subject")
         gotoAndReady("/tenants/${tenant.id}/templates")
         page.locator("[data-testid='search-input']").fill("private search text")
         // The search box is debounced, so htmxSettle() can return during the gap

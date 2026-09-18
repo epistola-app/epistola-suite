@@ -557,8 +557,7 @@ class CatalogHandler {
             val result = BrowseCatalog(tenantKey = tenantId.key, catalogKey = catalogKey).query()
             val usages = FindResourceUsages(tenantKey = tenantId.key, catalogKey = catalogKey).query()
             val usageCounts = usages.mapValues { it.value.size }
-            val images = ListAssets(tenantId.key, catalogKey = catalogKey).query()
-                .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
+            val images = catalogImages(tenantId.key, catalogKey)
             val imagesBySlug = images.associateBy { it.id.value.toString() }
             val publication = if (result.catalog.type == CatalogType.AUTHORED) {
                 GetCatalogPublicationState(tenantId.key, catalogKey).query()
@@ -596,6 +595,7 @@ class CatalogHandler {
                 "resources" to result.resources
                 "usageCounts" to usageCounts
                 "stencilVersionConflicts" to stencilVersionConflicts
+                "hasImages" to images.isNotEmpty()
                 "presentationImages" to result.catalog.catalogMetadata.presentation?.imageAssetSlugs.orEmpty().map {
                     CatalogPresentationAssetView(it, imagesBySlug[it])
                 }
@@ -735,8 +735,7 @@ class CatalogHandler {
         val currentAttributes = catalog.catalogMetadata.attributes.associate { "${it.catalog}.${it.key}" to it.value }
         val descriptors = buildAttributeDescriptors(ListAttributeDefinitions(app.epistola.suite.common.ids.TenantId(tenantKey)).query())
             .filter { it.qualifiedKey == CATALOG_LOCALE_ATTRIBUTE }
-        val images = ListAssets(tenantKey, catalogKey = catalogKey).query()
-            .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
+        val images = catalogImages(tenantKey, catalogKey)
         val gallery = catalog.catalogMetadata.presentation?.imageAssetSlugs.orEmpty()
 
         return mapOf(
@@ -746,10 +745,23 @@ class CatalogHandler {
             "sectionTitle" to section.title,
             "attributeFields" to descriptors.map { CatalogMetadataAttributeField(it, currentAttributes[it.qualifiedKey]) },
             "images" to images,
+            // The trailing "" is one empty picker to add the next image with. It is only drawn
+            // when there are images to pick, because the section itself is guarded on that.
             "gallerySlugs" to (gallery + ""),
             "publication" to GetCatalogPublicationState(tenantKey, catalogKey).query(),
         )
     }
+
+    /**
+     * The images this catalog can present. The presentation controls are offered only when this is
+     * non-empty (.agents/rules/ui-affordances.md), so every model that renders the metadata card
+     * has to agree on it — hence one definition rather than the three it replaced.
+     */
+    private fun catalogImages(
+        tenantKey: app.epistola.suite.common.ids.TenantKey,
+        catalogKey: CatalogKey,
+    ) = ListAssets(tenantKey, catalogKey = catalogKey).query()
+        .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
 
     private fun catalogForMetadata(
         tenantKey: app.epistola.suite.common.ids.TenantKey,
@@ -864,9 +876,8 @@ class CatalogHandler {
     ): ServerResponse {
         val tenantId = request.tenantId()
         val result = BrowseCatalog(tenantKey = tenantId.key, catalogKey = catalogKey).query()
-        val imagesBySlug = ListAssets(tenantId.key, catalogKey = catalogKey).query()
-            .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
-            .associateBy { it.id.value.toString() }
+        val images = catalogImages(tenantId.key, catalogKey)
+        val imagesBySlug = images.associateBy { it.id.value.toString() }
 
         return request.htmx {
             fragment("catalogs/browse", "resource-rows") {
@@ -881,6 +892,7 @@ class CatalogHandler {
             oob("catalogs/browse", "metadata-card") {
                 "tenantId" to tenantId.key
                 "catalog" to result.catalog
+                "hasImages" to images.isNotEmpty()
                 "presentationImages" to result.catalog.catalogMetadata.presentation?.imageAssetSlugs.orEmpty().map {
                     CatalogPresentationAssetView(it, imagesBySlug[it])
                 }
@@ -896,6 +908,7 @@ class CatalogHandler {
                     "activeNavSection" to "catalogs"
                     "catalog" to result.catalog
                     "resources" to result.resources
+                    "hasImages" to images.isNotEmpty()
                     "presentationImages" to result.catalog.catalogMetadata.presentation?.imageAssetSlugs.orEmpty().map {
                         CatalogPresentationAssetView(it, imagesBySlug[it])
                     }
