@@ -62,6 +62,13 @@
             </thead>
             <tbody id="stencil-rows">
                 <th:block th:fragment="rows">
+                    <!--/* A search swaps only this fragment, so a "nothing found" message has to live
+                           inside it: the empty state outside is never re-rendered, and the reader would
+                           otherwise be left looking at an empty table that says nothing. */-->
+                    <tr th:if="${#lists.isEmpty(stencils) and !#strings.isEmpty(searchTerm)}">
+                        <td colspan="6" class="text-muted" style="text-align: center; padding: var(--ep-space-6);"
+                            th:text="'No stencils match your search.'"></td>
+                    </tr>
                     <tr th:each="stencil : ${stencils}">
                         <td th:title="${stencil.name}">
                             <a th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"

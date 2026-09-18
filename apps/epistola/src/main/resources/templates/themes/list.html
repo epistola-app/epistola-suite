@@ -60,6 +60,13 @@
             </thead>
             <tbody id="theme-rows">
                 <th:block th:fragment="rows">
+                    <!--/* A search swaps only this fragment, so a "nothing found" message has to live
+                           inside it: the empty state outside is never re-rendered, and the reader would
+                           otherwise be left looking at an empty table that says nothing. */-->
+                    <tr th:if="${#lists.isEmpty(themes) and !#strings.isEmpty(searchTerm)}">
+                        <td colspan="5" class="text-muted" style="text-align: center; padding: var(--ep-space-6);"
+                            th:text="'No themes match your search.'"></td>
+                    </tr>
                     <tr th:each="theme : ${themes}"
                         th:with="isDefault=${tenant?.defaultThemeKey == theme.id and tenant?.defaultThemeCatalogKey == theme.catalogKey}">
                         <td th:title="${theme.name}">
