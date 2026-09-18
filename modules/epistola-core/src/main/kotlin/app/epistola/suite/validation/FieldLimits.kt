@@ -56,4 +56,17 @@ object FieldLimits {
      */
     const val MAX_CODE_LIST_ENTRY_CODE_LENGTH = 64
     const val MAX_CODE_LIST_ENTRY_LABEL_LENGTH = 200
+
+    /**
+     * Catalog keywords are author-supplied free text, stored in a `jsonb` column that imposes no
+     * ceiling of its own, and they travel with the catalog to Exchange. Unbounded, a single
+     * keyword long enough to have nothing to wrap on stretched the whole catalog page sideways —
+     * measured at 218px of document overflow before `.badge-list` started truncating.
+     *
+     * The display no longer depends on this being small, so the limit is about what a keyword is
+     * *for*: a short discovery term someone searches on, not a phrase and not a sentence. Twenty of
+     * them is already more than any catalog in practice.
+     */
+    const val MAX_KEYWORD_LENGTH = 20
+    const val MAX_KEYWORDS = 20
 }

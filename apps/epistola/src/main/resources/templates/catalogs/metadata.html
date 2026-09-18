@@ -45,9 +45,16 @@
             </div>
 
             <div th:if="${section == 'keywords'}" class="form-group">
+                <!--/* Same order as the badges on the page behind this dialog, so opening it never
+                       reshuffles them. maxlength is the whole field's worst case - the per-keyword
+                       and count limits are enforced on the server, which reports them per field. */-->
                 <textarea id="catalog-keywords" class="ep-input" name="keywords" rows="4" aria-label="Keywords"
-                          th:text="${#strings.listJoin(catalog.catalogMetadata.keywords, '&#10;')}"></textarea>
-                <span class="form-hint">One keyword per line. Case is preserved.</span>
+                          th:attr="maxlength=${maxKeywords * (maxKeywordLength + 1)}"
+                          th:text="${#strings.listJoin(keywords, '&#10;')}"></textarea>
+                <span class="form-hint"
+                      th:text="'One keyword per line, at most ' + ${maxKeywords} + ' of ' + ${maxKeywordLength} + ' characters. Case is preserved.'">
+                    One keyword per line. Case is preserved.
+                </span>
             </div>
 
             <div th:if="${section == 'presentation'}">

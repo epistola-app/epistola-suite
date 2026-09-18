@@ -62,7 +62,8 @@
                     </div>
                     <div th:if="${!catalog.catalogMetadata.attributes.isEmpty()}" class="badge-list">
                         <span th:each="attribute : ${catalog.catalogMetadata.attributes}" class="badge badge-outline"
-                              th:text="${attribute.catalog + '.' + attribute.key + ': ' + attribute.value}"></span>
+                              th:text="${attribute.catalog + '.' + attribute.key + ': ' + attribute.value}"
+                              th:title="${attribute.catalog + '.' + attribute.key + ': ' + attribute.value}"></span>
                     </div>
                     <p th:if="${catalog.catalogMetadata.attributes.isEmpty()}" class="text-muted text-sm" style="margin: 0;">No discovery attributes.</p>
                 </div>
@@ -74,10 +75,13 @@
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='keywords')}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                     </div>
-                    <div th:if="${!catalog.catalogMetadata.keywords.isEmpty()}" class="badge-list">
-                        <span th:each="keyword : ${catalog.catalogMetadata.keywords}" class="badge badge-outline" th:text="${keyword}"></span>
+                    <!--/* Order comes from the model, not the stored set - see CatalogKeywordOrder.
+                           title carries the full value, because .badge-list truncates a long one. */-->
+                    <div th:if="${!keywords.isEmpty()}" class="badge-list">
+                        <span th:each="keyword : ${keywords}" class="badge badge-outline"
+                              th:text="${keyword}" th:title="${keyword}"></span>
                     </div>
-                    <p th:if="${catalog.catalogMetadata.keywords.isEmpty()}" class="text-muted text-sm" style="margin: 0;">No keywords.</p>
+                    <p th:if="${keywords.isEmpty()}" class="text-muted text-sm" style="margin: 0;">No keywords.</p>
                 </div>
 
                 <div class="catalog-detail-item">

@@ -574,6 +574,24 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--ep-space-1);
+
+    /* The members of a badge list are author-supplied free text — keywords, attributes, tags — so
+       one of them can be arbitrarily long with nothing to break on: .badge is nowrap by design, so
+       that a status never splits across two lines. The row wraps between badges but not inside one,
+       and an unbreakable word sets a min-content floor that a flex item will not shrink below, so
+       without min-width the overflow reaches the document and the whole page scrolls sideways.
+       Cap it and ellipsize inside its own pill; callers put the full value in a title.
+
+       Deliberately NOT applied to a bare .badge — a status or a "Read-only" marker must stay whole.
+       Sibling of the .ep-table-fixed rule below, which does the same for one table cell. */
+    & .badge {
+      display: inline-block;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: bottom;
+    }
   }
 
   /* ── Tables ───────────────────────────────────────────────────────────── */
