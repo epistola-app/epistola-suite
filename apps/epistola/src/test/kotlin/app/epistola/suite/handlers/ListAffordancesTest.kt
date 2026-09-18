@@ -233,7 +233,9 @@ class ListAffordancesTest : BaseIntegrationTest() {
             .lines()
             .map { it.trim() }
 
-        val expected = listOf("1-loket", "aanslag", "Brieven", "zaken")
+        // Natural order, matching CatalogInfo's TreeSet: digits first, then capitals before
+        // lowercase. See CatalogKeywordOrder.
+        val expected = listOf("1-loket", "Brieven", "aanslag", "zaken")
         assertThat(onPage).containsExactlyElementsOf(expected)
         // Same order in the textarea, so opening the dialog never reshuffles what is on screen.
         assertThat(inDialog).containsExactlyElementsOf(expected)

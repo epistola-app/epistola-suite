@@ -13,6 +13,6 @@ Keywords are also bounded now: at most 20 keywords of 30 characters each, which 
 states and the server enforces. Existing catalogs are unaffected.
 
 Their order was previously whatever the stored data happened to return, which looked sorted without
-being sorted — keywords starting with a digit came last. They are now shown in a fixed order,
-digits first and then alphabetically ignoring case, and the edit dialog uses the same order so
-opening it no longer rearranges them.
+being sorted — keywords starting with a digit came last. They are now shown in the same order the
+catalog format itself uses, so a catalog reads the same on screen as in its manifest and on
+Epistola Exchange, and the edit dialog no longer rearranges them when you open it.
