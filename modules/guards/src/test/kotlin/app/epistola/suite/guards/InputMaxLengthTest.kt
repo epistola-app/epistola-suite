@@ -43,6 +43,9 @@ class InputMaxLengthTest {
     /** A name/title input that must cap at 100 characters. */
     private fun name(template: String, id: String) = Target(template, id, listOf("maxlength" to "100"))
 
+    /** A slug input: the usual 3-character floor, with the ceiling its own entity allows. */
+    private fun slug(template: String, id: String, max: Int) = Target(template, id, listOf("minlength" to "3", "maxlength" to max.toString()))
+
     private val base = "apps/epistola/src/main/resources/templates"
 
     private val targets = listOf(
@@ -74,6 +77,19 @@ class InputMaxLengthTest {
             "slug",
             listOf("minlength" to "2", "maxlength" to "64"),
         ),
+        // Every remaining slug a user can type into. These bounds are not decoration: slug-auto.js
+        // truncates a derived slug to the target field's maxLength, so a limit that drifts here
+        // silently changes what gets auto-filled — and before that truncation existed, a derived
+        // slug could land at five times the field's limit (themes: a 100-character name into a
+        // 20-character slug).
+        slug("$base/themes/new.html", "slug", 20),
+        slug("$base/environments/new.html", "slug", 30),
+        slug("$base/templates/new.html", "slug", 50),
+        slug("$base/attributes/new.html", "slug", 50),
+        slug("$base/stencils/new.html", "slug", 50),
+        slug("$base/catalogs/new.html", "catalogSlug", 50),
+        slug("$base/code-lists/new.html", "slug", 64),
+        slug("$base/tenants/list.html", "slug", 63),
     )
 
     @Test

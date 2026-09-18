@@ -31,7 +31,18 @@
              th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
         <div id="asset-grid-items">
             <th:block th:fragment="asset-grid-items">
-                <div th:if="${#lists.isEmpty(assets)}" class="empty-state">
+                <!--/* Unlike the table screens, this fragment carries its own empty state - and a
+                       search swaps it, so an unqualified "No images yet" was what a search with no
+                       matches produced, offering to upload an image as if the catalog were empty. */-->
+                <div th:if="${#lists.isEmpty(assets) and !#strings.isEmpty(searchTerm)}" class="empty-state">
+                    <div class="empty-state-icon">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='search', class='ep-icon ep-icon-xl')}" />
+                    </div>
+                    <div class="empty-state-title">No matching images</div>
+                    <div class="empty-state-description">No images match your search.</div>
+                </div>
+
+                <div th:if="${#lists.isEmpty(assets) and #strings.isEmpty(searchTerm)}" class="empty-state">
                     <div class="empty-state-icon">
                         <th:block th:replace="~{epistola-web/icon :: icon(name='image', class='ep-icon ep-icon-xl')}" />
                     </div>

@@ -279,6 +279,46 @@ class ListAffordancesTest : BaseIntegrationTest() {
         assertThat(response.body).contains("at most 20 keywords")
     }
 
+    /**
+     * A search that matches nothing has to say so. It swaps only the rows fragment, so the empty
+     * state outside it is never re-rendered — themes, stencils and environments were left showing
+     * an empty table with no message at all, while images showed "No images yet" and offered an
+     * upload, as though the catalog were empty rather than the search fruitless.
+     */
+    @Test
+    fun `a search with no matches says so rather than showing nothing or the wrong thing`() {
+        val tenant = createTenant("Search No Matches Message")
+        withMediator { createEnvironment(tenant.id.value, "production", "Production") }
+
+        val body = restTemplate.exchange(
+            "/tenants/${tenant.id.value}/environments/search?q=zzzznomatch",
+            HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
+            String::class.java,
+        ).let { requireNotNull(it.body) }
+
+        assertThat(body).contains("No environments match your search")
+        // Not the onboarding copy: the tenant does have an environment.
+        assertThat(body).doesNotContain("No environments yet")
+    }
+
+    @Test
+    fun `an images search with no matches does not claim the catalog is empty`() {
+        val tenant = createTenant("Images Search Message")
+
+        val body = restTemplate.exchange(
+            "/tenants/${tenant.id.value}/images/search?q=zzzznomatch",
+            HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
+            String::class.java,
+        ).let { requireNotNull(it.body) }
+
+        assertThat(body).contains("No images match your search")
+        assertThat(body).doesNotContain("No images yet")
+        // And it does not offer to upload, which is guidance for an empty catalog, not a search.
+        assertThat(body).doesNotContain("data-testid=\"image-create-open\"")
+    }
+
     private fun htmxForm() = HttpHeaders().apply {
         contentType = MediaType.APPLICATION_FORM_URLENCODED
         add("HX-Request", "true")

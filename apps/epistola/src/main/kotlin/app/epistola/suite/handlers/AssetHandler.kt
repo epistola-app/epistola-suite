@@ -88,6 +88,9 @@ class AssetHandler(
                     "tenant" to tenant
                     "assets" to assets
                     "selectedCatalog" to (catalogFilter?.value ?: "")
+                    // Lets the fragment tell "no matches" apart from "none yet". A search swaps only
+                    // this fragment, so the distinction has to reach it.
+                    "searchTerm" to searchTerm.orEmpty()
                 }
                 onNonHtmx { redirect("/tenants/${tenantId.value}/images") }
             }
