@@ -57,6 +57,7 @@ class EpistolaCatalogApi : CatalogsApi {
                 items = slice.items.map { catalog ->
                     val authored = catalog.type == CatalogType.AUTHORED
                     CatalogDto(
+                        slug = catalog.id.value,
                         id = catalog.id.value,
                         name = catalog.name,
                         description = catalog.description,
