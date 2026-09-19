@@ -12,9 +12,40 @@
   and identities), [ADR 0021](0021-catalog-upstream-release-discovery.md) (the inbound direction)
 
 > **Status:** Draft. A design record for three related requests. It is written to be accepted or
-> argued with, not to describe current behaviour. **Read the addendum below before D4-D6: roles were
-> replaced by overridable resources on 2026-09-10, and several supporting claims in this record are
-> wrong.**
+> argued with, not to describe current behaviour. **Read both addenda below before D4-D6: roles were
+> replaced by overridable resources on 2026-09-10, overridable resources were then dropped on
+> 2026-09-18, and several supporting claims in this record are wrong.**
+
+## Addendum, 2026-09-18 — overridable resources are dropped
+
+D4-D6 leave no mechanism behind. A publisher who wants to leave a hole uses what ADR 0001 and
+ADR 0002 already give them: a stencil with placeholders, whose fills are preserved by name across
+upgrades, and parameters bound where the stencil is inserted. A publisher ships the letterhead as a
+stencil; the installer authors a thin template that inserts it and supplies their own mark. #918 is
+closed as not planned.
+
+The addendum below argued the roles design down to "one boolean on four resource classes". That is
+still one boolean more than nothing, and the shape it enabled carried the two unsolved problems that
+addendum names — a renamed resource silently losing its binding, and a substituted theme rendering
+plausible, wrong letters when it lacks a preset the publisher's templates name. Neither has to be
+solved if the seam is a stencil, because a stencil declares its holes rather than inferring them
+from what happens to be replaceable.
+
+What this deletes from the plan, beyond what the roles pivot already removed:
+
+- `catalog_resource_overrides`, and the binder resolving catalog binding → tenant binding → default
+- the `overridable` boolean on four resource classes in the catalog wire format
+- the exporter and importer validation that would have enforced it
+- the badge and catalog-page summary planned in epistola-exchange#7 § B4
+
+The cost is real and worth stating. A publisher cannot mark a _finished_ letter's logo replaceable —
+a template nobody inserts as a stencil still hard-references whatever the publisher shipped. The
+answer for now is that such a catalog is copied rather than customised in place (#922), or the
+publisher factors the letterhead into a stencil. If that turns out to be too sharp an edge in
+practice, this is the record to reopen; the design in #918's history is sound, it is the cost that
+was not worth paying yet.
+
+D1-D3 and D7 stand as written.
 
 ## Addendum, 2026-09-10 — roles are superseded, and errata
 
