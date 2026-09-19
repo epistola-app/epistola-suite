@@ -25,6 +25,8 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.commands.variants.validateAttributes
+import app.epistola.suite.validation.FieldLimits.MAX_KEYWORDS
+import app.epistola.suite.validation.FieldLimits.MAX_KEYWORD_LENGTH
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -65,6 +67,12 @@ data class UpdateCatalogMetadata(
         }
         validate("keywords", keywords.all { it.isNotBlank() && it == it.trim() }) {
             "Keywords must be non-blank and cannot start or end with whitespace."
+        }
+        validate("keywords", keywords.all { it.length <= MAX_KEYWORD_LENGTH }) {
+            "Keywords must be $MAX_KEYWORD_LENGTH characters or less"
+        }
+        validate("keywords", keywords.size <= MAX_KEYWORDS) {
+            "A catalog can have at most $MAX_KEYWORDS keywords"
         }
         presentation?.let {
             val imageSlugs = listOfNotNull(it.iconAssetSlug) + it.imageAssetSlugs

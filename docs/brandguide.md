@@ -260,21 +260,41 @@ Five levels with refined multi-layer values for realistic depth.
 
 Components are implemented as CSS classes in `modules/design-system/components.css`. Apply via class names rather than composing utility classes.
 
+### Choosing a shape for a value
+
+One shape per kind of value, and never two shapes for sibling values on one screen. The shape carries
+meaning, so picking it per field makes the screen read as accidental.
+
+| Shape      | Use for                                                                                                                                                                                       |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<code>`   | A machine-typed literal the reader could copy into a URL, an API call or config: slugs, keys, IDs, namespaces, SPDX expressions. The monospace and `--ep-muted` fill mean "this is literal".  |
+| `.badge`   | A bounded, enumerable value: a status, type, lifecycle stage, maturity, or a member of a user-authored set (keywords, discovery attributes, scopes, tags). Never a sentence, never free text. |
+| plain text | Everything else: names, versions, dates, counts, descriptions.                                                                                                                                |
+
+A value inside a link keeps its own shape _inside_ the link. Wrap the `<code>` in the `<a>`; do not
+put the value class on the anchor and drop the shape.
+
+Two label lists side by side get the **same** variant. Reach for a different one only when the
+difference is real — `badge-info` versus `badge-default` distinguishes an authored catalog from a
+subscribed one, which is a genuine distinction; keywords versus discovery attributes is not.
+
 ### Buttons
 
 All buttons use the base `.ep-btn` class combined with a variant class. Buttons include built-in focus ring, disabled state, and transition support.
 
-| Class                 | Description                       | Usage                          |
-| --------------------- | --------------------------------- | ------------------------------ |
-| `.ep-btn`             | Base button (required)            | All buttons                    |
-| `.ep-btn-primary`     | Terracotta background, white text | Primary actions (save, create) |
-| `.ep-btn-secondary`   | Muted background                  | Secondary actions              |
-| `.ep-btn-outline`     | White background, neutral border  | Tertiary actions               |
-| `.ep-btn-ghost`       | Transparent, no border            | Toolbar actions, icon buttons  |
-| `.ep-btn-destructive` | Red background, white text        | Delete, remove actions         |
-| `.ep-btn-sm`          | Smaller size variant              | Compact UI areas               |
-| `.ep-btn-lg`          | Larger size variant               | Prominent CTAs                 |
-| `.ep-btn-icon`        | Square (equal width/height)       | Icon-only buttons              |
+| Class                 | Description                       | Usage                                      |
+| --------------------- | --------------------------------- | ------------------------------------------ |
+| `.ep-btn`             | Base button (required)            | All buttons                                |
+| `.ep-btn-primary`     | Terracotta background, white text | Primary actions (save, create)             |
+| `.ep-btn-secondary`   | Muted background                  | Secondary actions                          |
+| `.ep-btn-outline`     | White background, neutral border  | Tertiary actions                           |
+| `.ep-btn-ghost`       | Transparent, no border            | Toolbar actions, icon buttons              |
+| `.ep-btn-destructive` | Red background, white text        | Delete, remove actions                     |
+| `.ep-btn-warning`     | Amber background                  | Actions whose consequence must be accepted |
+| `.ep-btn-sm`          | Smaller size variant              | Compact UI areas                           |
+| `.ep-btn-lg`          | Larger size variant               | Prominent CTAs                             |
+| `.ep-btn-icon`        | Square (equal width/height)       | Icon-only buttons                          |
+| `.ep-btn-full`        | Full width of its container       | Stacked forms, narrow panels               |
 
 ```html
 <button class="ep-btn ep-btn-primary">Save</button>
@@ -283,6 +303,39 @@ All buttons use the base `.ep-btn` class combined with a variant class. Buttons 
   <svg class="ep-icon">...</svg>
 </button>
 ```
+
+#### Matching weight to consequence
+
+Pick the variant from what the action _does_, not from how much room it has.
+
+- **One `.ep-btn-primary` per region**, for the action that region exists for.
+- **`.ep-btn-outline`** for a secondary action that still changes state — the common case for
+  "Change" next to a value.
+- **`.ep-btn-ghost`** only for tertiary or navigational actions, and never as the sole way out of a
+  problem. Ghost is transparent in its resting state — no fill, no border — so beside a badge or a
+  status line it reads as a second label rather than something to press.
+- **`.ep-btn-destructive`** / `.ep-btn-outline.ep-btn-destructive` for removal, `.ep-btn-warning`
+  for an action whose consequence has to be accepted first.
+
+An irreversible or recovery action outweighing a routine one is the test: if "Reauthorize" is
+lighter than "Change", the weights are the wrong way round.
+
+#### Selected state
+
+A button standing for a persistent choice carries `aria-pressed="true|false"`, and the styling
+follows from it:
+
+```html
+<button class="ep-btn ep-btn-outline ep-btn-sm" aria-pressed="true">Patch</button>
+```
+
+`.ep-btn[aria-pressed="true"]` supplies the pressed look for every variant. Do not invent a bespoke
+`is-*` class on a button — `is-active` exists only on `.ep-sort` and stays there — and do not rely
+on colour alone with no `aria-pressed`, which leaves the choice unannounced to a screen reader.
+
+Buttons only look like a choice; they do not behave as one. Keep whatever they set in sync both
+ways, so a value typed by hand clears the selection instead of leaving a button claiming a choice
+that is no longer true.
 
 ### Form Inputs
 
@@ -478,21 +531,45 @@ w-2 h-2 rounded-full bg-yellow-500
 
 ### Badges
 
-Badges use the `.badge` base class combined with a variant. They render as inline-flex with full border-radius.
+Badges use the `.badge` base class combined with a variant. They render as inline-flex with full
+border-radius. Every variant defined in `components.css` appears below; `DesignSystemClassTest`
+fails the build on a badge class that is not defined, and on a defined one that is not listed here.
 
-| Class                | Description                                |
-| -------------------- | ------------------------------------------ |
-| `.badge`             | Base badge (required)                      |
-| `.badge-primary`     | Terracotta background, terracotta-800 text |
-| `.badge-success`     | Green background, green-800 text           |
-| `.badge-warning`     | Amber background, amber-800 text           |
-| `.badge-destructive` | Red background, red-700 text               |
-| `.badge-outline`     | Transparent, bordered                      |
+| Class                | Look                        | Use when                                                              |
+| -------------------- | --------------------------- | --------------------------------------------------------------------- |
+| `.badge`             | Base badge (required)       | Always, combined with one variant                                     |
+| `.badge-primary`     | Terracotta fill, bordered   | The accented member of a set — the one worth the reader's eye first   |
+| `.badge-draft`       | Terracotta fill, bordered   | A version or resource before publication                              |
+| `.badge-info`        | Terracotta fill, no border  | A neutral classification carrying a real distinction from its sibling |
+| `.badge-success`     | Green fill                  | A good terminal outcome: connected, allowed, passed                   |
+| `.badge-published`   | Green fill                  | A version or resource that has been published                         |
+| `.badge-warning`     | Amber fill                  | Needs attention but is not yet failing                                |
+| `.badge-destructive` | Red fill, bordered          | A destructive or blocked state the reader must act on                 |
+| `.badge-error`       | Red fill, no border         | A failed outcome being reported, not an action                        |
+| `.badge-outline`     | Transparent, bordered       | A member of a user-authored set: keywords, attributes, scopes, tags   |
+| `.badge-default`     | Stone fill                  | A neutral classification with no state attached                       |
+| `.badge-muted`       | Stone fill                  | Present but deliberately de-emphasised                                |
+| `.badge-archived`    | Stone fill, bordered        | A version or resource withdrawn from use                              |
+| `.badge-beta`        | Purple fill                 | Feature maturity — set from `KnownFeatures.FeatureStage`, not by hand |
+| `.badge-alpha`       | Amber fill, stronger border | Feature maturity — as above                                           |
+
+Three pairs are deliberately identical in appearance and separate in name, because they are set from
+different places and are free to diverge: `badge-primary`/`badge-draft`, `badge-success`/`badge-published`
+and `badge-default`/`badge-muted`. Pick the one that describes _why_ the badge is there, and it will
+still be right if the palette changes under it.
+
+Use `.badge-list` for a wrapping row of them; it carries the spacing so the row wraps between
+badges instead of being hand-gapped at each call site.
 
 ```html
 <span class="badge badge-primary">Active</span>
 <span class="badge badge-success">Published</span>
 <span class="badge badge-destructive">Error</span>
+
+<div class="badge-list">
+  <span class="badge badge-outline">brieven</span>
+  <span class="badge badge-outline">bezwaar</span>
+</div>
 ```
 
 ### Alerts

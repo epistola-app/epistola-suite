@@ -172,14 +172,17 @@
                     </div>
                     <div class="form-group">
                         <span class="ep-label">Bump</span>
-                        <div class="ep-row" style="margin-top: var(--ep-space-1);">
-                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                        <!--/* Patch is pre-selected because the version field below is pre-filled
+                               with it. aria-pressed is what says so — to the eye via
+                               .ep-btn[aria-pressed="true"], and to a screen reader. */-->
+                        <div class="ep-row" style="margin-top: var(--ep-space-1);" role="group" aria-label="Bump">
+                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" aria-pressed="true"
                                     th:attr="data-version=${status.suggestedNext.patch}"
                                     th:text="'Patch → ' + ${status.suggestedNext.patch}"></button>
-                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" aria-pressed="false"
                                     th:attr="data-version=${status.suggestedNext.minor}"
                                     th:text="'Minor → ' + ${status.suggestedNext.minor}"></button>
-                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" aria-pressed="false"
                                     th:attr="data-version=${status.suggestedNext.major}"
                                     th:text="'Major → ' + ${status.suggestedNext.major}"></button>
                         </div>

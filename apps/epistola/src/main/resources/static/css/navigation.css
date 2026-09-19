@@ -105,6 +105,9 @@
 .contract-status-bar {
   position: sticky;
   top: 48px;
+  /* A second sticky layer under .app-nav, so anything scrolled into view on
+     these pages has to clear both. See --ep-sticky-offset in tokens.css. */
+  --ep-sticky-offset: 96px;
   z-index: var(--ep-z-sticky);
   display: flex;
   align-items: center;

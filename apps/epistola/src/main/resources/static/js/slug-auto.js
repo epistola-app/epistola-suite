@@ -12,6 +12,23 @@
       .replace(/^-|-$/g, '');
   }
 
+  // What the slug field should hold for this name. maxlength only constrains typing and pasting,
+  // never a value a script assigns, so every name field being roomier than its slug field (100 vs
+  // 20 for themes, 255 vs 50 for stencils) put an over-length value in a field that refuses one.
+  // Truncating can strip back to a trailing hyphen, which is not a valid slug, so drop that too.
+  //
+  // Every comparison against the field's expected value goes through here. Comparing against the
+  // untruncated nameToSlug() would make the two disagree the moment truncation kicks in, and
+  // wireup() would conclude the user had edited the slug by hand and stop filling it.
+  function slugFor(nameInput, slugInput) {
+    var slug = nameToSlug(nameInput.value);
+    var limit = slugInput.maxLength;
+    if (limit > 0 && slug.length > limit) {
+      slug = slug.slice(0, limit).replace(/-$/, '');
+    }
+    return slug;
+  }
+
   function isValidSlugKey(key) {
     return key.length === 1 && /^[a-z0-9-]$/.test(key);
   }
@@ -24,11 +41,11 @@
     nameInput.setAttribute('data-slug-wired', '');
 
     var slugManuallyEdited =
-      slugInput.value !== '' && slugInput.value !== nameToSlug(nameInput.value);
+      slugInput.value !== '' && slugInput.value !== slugFor(nameInput, slugInput);
 
     nameInput.addEventListener('input', function () {
       if (!slugManuallyEdited) {
-        slugInput.value = nameToSlug(nameInput.value);
+        slugInput.value = slugFor(nameInput, slugInput);
       }
     });
 
@@ -37,7 +54,7 @@
       if (cleaned !== slugInput.value) {
         slugInput.value = cleaned;
       }
-      slugManuallyEdited = slugInput.value !== nameToSlug(nameInput.value);
+      slugManuallyEdited = slugInput.value !== slugFor(nameInput, slugInput);
     });
 
     slugInput.addEventListener('keydown', function (e) {

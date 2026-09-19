@@ -33,11 +33,11 @@
         <div class="ep-panel detail-section">
             <div class="detail-section-header">
                 <h2>Tenant connection</h2>
-                <div class="ep-row ep-gap-3">
+                <div class="ep-row ep-gap-4">
                     <span th:class="${'badge ' + settings.status.badgeClass}" th:text="${settings.status.label}">Connected</span>
                     <form th:if="${settings.connected && settings.featureEnabled}"
                           th:action="@{/tenants/{tenantId}/exchange/connect(tenantId=${tenantId})}" method="post" hx-boost="false">
-                        <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm">Reauthorize</button>
+                        <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Reauthorize</button>
                     </form>
                 </div>
             </div>
@@ -93,27 +93,6 @@
                         </dd>
                     </dl>
 
-                    <form th:if="${!settings.choosableNamespaces.isEmpty()}"
-                          th:action="@{/tenants/{tenantId}/exchange/namespace(tenantId=${tenantId})}" method="post"
-                          style="margin-top: var(--ep-space-6);">
-                        <div class="form-group">
-                            <label class="ep-label" for="exchange-default-namespace">Default namespace</label>
-                            <select id="exchange-default-namespace" class="ep-select" name="namespace" required>
-                                <option value="" th:selected="${connection.defaultNamespace == null}" disabled>Select a namespace</option>
-                                <option th:each="namespace : ${connection.namespaces}" th:value="${namespace}"
-                                        th:text="${namespace}" th:selected="${namespace == connection.defaultNamespace}"></option>
-                            </select>
-                            <p class="form-hint">
-                                Offered as the starting choice when a catalog is first published. It never decides
-                                for a catalog on its own — each one is set deliberately, and becomes permanent once
-                                a release of it reaches Exchange.
-                            </p>
-                        </div>
-                        <div class="form-actions">
-                            <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm">Save namespace</button>
-                        </div>
-                    </form>
-
                 </th:block>
 
                 <th:block th:unless="${settings.connected}">
@@ -131,6 +110,40 @@
                         </form>
                     </div>
                 </th:block>
+            </div>
+        </div>
+
+        <!--
+          Its own block, not the tail of "Tenant connection". Saving a default namespace changes a
+          publishing preference, not the connection or its credentials, and the only Save button in
+          a block is read as that block's Save button. Same panel/header/body shape as "Disconnect
+          from Exchange" below, so the split reads as deliberate.
+        -->
+        <div class="ep-panel detail-section"
+             th:if="${settings.connected && !settings.choosableNamespaces.isEmpty()}"
+             th:with="connection=${settings.connection}">
+            <div class="detail-section-header">
+                <h3>Default namespace</h3>
+            </div>
+            <div class="detail-section-body">
+                <form th:action="@{/tenants/{tenantId}/exchange/namespace(tenantId=${tenantId})}" method="post">
+                    <div class="form-group">
+                        <label class="ep-label" for="exchange-default-namespace">Default namespace</label>
+                        <select id="exchange-default-namespace" class="ep-select" name="namespace" required>
+                            <option value="" th:selected="${connection.defaultNamespace == null}" disabled>Select a namespace</option>
+                            <option th:each="namespace : ${connection.namespaces}" th:value="${namespace}"
+                                    th:text="${namespace}" th:selected="${namespace == connection.defaultNamespace}"></option>
+                        </select>
+                        <p class="form-hint">
+                            Offered as the starting choice when a catalog is first published. It never decides
+                            for a catalog on its own — each one is set deliberately, and becomes permanent once
+                            a release of it reaches Exchange.
+                        </p>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm">Save namespace</button>
+                    </div>
+                </form>
             </div>
         </div>
 

@@ -49,6 +49,9 @@ class EnvironmentHandler {
             fragment("environments/list", "rows") {
                 "tenantId" to tenantId.key
                 "environments" to environments
+                // Lets the fragment tell "no matches" apart from "none yet". A search swaps only
+                // this fragment, so the distinction has to reach it.
+                "searchTerm" to searchTerm.orEmpty()
             }
             onNonHtmx { redirect("/tenants/${tenantId.key}/environments") }
         }

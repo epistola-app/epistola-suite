@@ -11,7 +11,7 @@
         "value": "nl-NL"
       }
     ],
-    "keywords": ["Letters", "Dutch", "Getting Started"],
+    "keywords": ["brieven", "getting-started", "nederlands"],
     "presentation": {
       "iconAssetSlug": "01966a00-0000-7000-8000-000000000001",
       "imageAssetSlugs": [
@@ -31,7 +31,7 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "5.17.1",
+    "version": "5.17.2",
     "releasedAt": "2026-08-21T00:00:00Z",
     "fingerprint": "b70caaaf5d5804ec78399352c6c0a49e4cdcd81a610520cb4c26c1c77e6df0a0"
   },

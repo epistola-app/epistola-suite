@@ -28,8 +28,8 @@
                     <tr th:each="node : ${nodes}">
                         <td th:text="${node.nodeId}">node-1</td>
                         <td>
-                            <span th:if="${node.reachable}" class="ep-badge ep-badge-success">Connected</span>
-                            <span th:unless="${node.reachable}" class="ep-badge ep-badge-error" th:text="${node.status}">Not connected</span>
+                            <span th:if="${node.reachable}" class="badge badge-success">Connected</span>
+                            <span th:unless="${node.reachable}" class="badge badge-error" th:text="${node.status}">Not connected</span>
                             <div th:if="${!node.reachable and !#strings.isEmpty(node.error)}"
                                  class="text-muted" th:text="${node.error}">connection refused</div>
                         </td>
@@ -79,9 +79,9 @@
                         </td>
                         <td th:text="${entitlement.scope}">All tenants</td>
                         <td>
-                            <span th:if="${entitlement.allowed}" class="ep-badge ep-badge-success"
+                            <span th:if="${entitlement.allowed}" class="badge badge-success"
                                   th:text="${entitlement.effect}">Allowed</span>
-                            <span th:unless="${entitlement.allowed}" class="ep-badge ep-badge-error"
+                            <span th:unless="${entitlement.allowed}" class="badge badge-error"
                                   th:text="${entitlement.effect}">Denied</span>
                         </td>
                         <td th:text="${entitlement.expires}">Never</td>

@@ -4,6 +4,11 @@
 
 package app.epistola.suite.ui
 
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.environments.commands.CreateEnvironment
+import app.epistola.suite.mediator.execute
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -20,6 +25,15 @@ class DialogSearchClearUiTest : BasePlaywrightTest() {
     @Test
     fun `a successful create clears a stale list search term`() {
         val tenant = createTenant("Dialog Search Clear")
+        // One environment to search among: the header search box is only offered for a list
+        // with something in it (.agents/rules/ui-affordances.md), and a stale term is only
+        // reachable once there is a box to type it into.
+        withMediator {
+            CreateEnvironment(
+                id = EnvironmentId(EnvironmentKey.of("staging"), TenantId(tenant.id)),
+                name = "Staging",
+            ).execute()
+        }
         gotoAndReady("/tenants/${tenant.id}/environments")
         page.htmxSettle()
 

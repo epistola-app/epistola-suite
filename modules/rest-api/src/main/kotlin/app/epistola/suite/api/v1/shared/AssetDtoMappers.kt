@@ -11,11 +11,12 @@ import app.epistola.suite.catalog.CatalogType
 import java.util.UUID
 
 internal fun Asset.toDto() = AssetDto(
-    // `AssetDto.id` is a UUID on the wire while an asset's key is now text. Safe today because
-    // nothing can create an asset whose key is not a UUID: uploads generate one, and the catalog
-    // importers still parse an incoming slug as a UUID and refuse anything else. The contract gains
-    // a text `key` alongside a deprecated `id` in epistola-app/epistola-contract#78; the importers
-    // are relaxed once this can serve such an asset without throwing here.
+    // `AssetDto.id` is declared `format: uuid`, so the generated field is a `java.util.UUID` while
+    // an asset's key is now text. Safe today because nothing can create an asset whose key is not a
+    // UUID: uploads generate one, and the catalog importers still parse an incoming slug as a UUID
+    // and refuse anything else. This endpoint is deprecated in favour of `/images`, whose
+    // `ImageDto.slug` is a plain string; the importers are relaxed once the Suite serves that and
+    // this mapper no longer has to represent every asset (epistola-app/epistola-contract#79).
     id = UUID.fromString(id.value),
     tenantId = tenantKey.value,
     catalog = catalogKey.value,
