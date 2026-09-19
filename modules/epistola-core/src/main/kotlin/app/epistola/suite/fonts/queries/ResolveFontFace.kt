@@ -22,7 +22,6 @@ import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
-import java.util.UUID
 import kotlin.math.abs
 
 /**
@@ -147,7 +146,7 @@ private fun Handle.loadFaces(tenantId: TenantKey, catalogKey: CatalogKey, slug: 
             weight = rs.getInt("weight"),
             italic = rs.getBoolean("italic"),
             source = FontVariantSource.valueOf(rs.getString("source")),
-            assetKey = rs.getObject("asset_key", UUID::class.java)?.let(::AssetKey),
+            assetKey = rs.getString("asset_key")?.let(::AssetKey),
             classpathLocation = rs.getString("classpath_location"),
         )
     }

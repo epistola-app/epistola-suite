@@ -95,7 +95,7 @@ class EpistolaAssetsApi(
         catalogId: String,
         assetId: UUID,
     ): ResponseEntity<Resource> {
-        val id = AssetKey(assetId)
+        val id = AssetKey.of(assetId)
         val content = GetAssetContent(
             tenantId = TenantKey.of(tenantId),
             catalogKey = CatalogKey.of(catalogId),
@@ -114,7 +114,7 @@ class EpistolaAssetsApi(
         assetId: UUID,
         force: Boolean,
     ): ResponseEntity<Unit> {
-        val id = AssetKey(assetId)
+        val id = AssetKey.of(assetId)
         val tenantKey = TenantKey.of(tenantId)
         val catalogKey = CatalogKey.of(catalogId)
         val asset = GetAsset(tenantId = tenantKey, assetId = id).query()

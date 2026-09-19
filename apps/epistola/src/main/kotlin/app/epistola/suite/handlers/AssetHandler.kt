@@ -100,7 +100,7 @@ class AssetHandler(
         val assets = listImages(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter)
         val assetInfoList = assets.map { asset ->
             mapOf(
-                "id" to asset.id.value.toString(),
+                "id" to asset.id.value,
                 "name" to asset.name,
                 "mediaType" to asset.mediaType.mimeType,
                 "sizeBytes" to asset.sizeBytes,
@@ -300,7 +300,7 @@ class AssetHandler(
             .contentType(MediaType.APPLICATION_JSON)
             .body(
                 mapOf(
-                    "id" to created.id.value.toString(),
+                    "id" to created.id.value,
                     "name" to created.name,
                     "mediaType" to created.mediaType.mimeType,
                     "sizeBytes" to created.sizeBytes,

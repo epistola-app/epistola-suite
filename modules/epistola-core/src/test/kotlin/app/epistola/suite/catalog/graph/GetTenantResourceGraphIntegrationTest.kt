@@ -43,7 +43,6 @@ import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import java.util.UUID
 
 class GetTenantResourceGraphIntegrationTest : IntegrationTestBase() {
     @Test
@@ -81,8 +80,8 @@ class GetTenantResourceGraphIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val lettersCatalog = CatalogKey.of("letters")
         val brandCatalog = CatalogKey.of("brand")
-        val assetKey = AssetKey(UUID.fromString("01900000-0000-7000-8000-000000000001"))
-        val missingAssetKey = AssetKey(UUID.fromString("01900000-0000-7000-8000-000000000099"))
+        val assetKey = AssetKey.of("01900000-0000-7000-8000-000000000001")
+        val missingAssetKey = AssetKey.of("01900000-0000-7000-8000-000000000099")
 
         withMediator {
             CreateCatalog(tenant.id, lettersCatalog, "Letters").execute()

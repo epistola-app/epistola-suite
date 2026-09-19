@@ -22,7 +22,6 @@ import app.epistola.suite.storage.backfill.LegacyBlobFallback
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
-import java.util.UUID
 
 /**
  * Query to get an asset's binary content.
@@ -66,7 +65,7 @@ class GetAssetContentHandler(
                 ?: query.catalogKey?.let { requested ->
                     handle.resolveCatalogResourceAddress(
                         query.tenantId,
-                        ResourceAddress(CatalogResourceType.ASSET, requested.value, query.assetId.value.toString()),
+                        ResourceAddress(CatalogResourceType.ASSET, requested.value, query.assetId.value),
                     )
                         ?.takeIf { it.resolvedViaAlias }
                         // Both halves of the canonical address, not just the catalog: relocation
@@ -124,7 +123,7 @@ private fun Handle.loadAssetMeta(tenantId: TenantKey, assetId: AssetKey, catalog
     .apply { catalogKey?.let { bind("catalogKey", it.value) } }
     .map { rs, _ ->
         AssetMeta(
-            id = AssetKey(rs.getObject("id", UUID::class.java)),
+            id = AssetKey(rs.getString("id")),
             tenantId = TenantKey(rs.getString("tenant_key")),
             catalogKey = CatalogKey.of(rs.getString("catalog_key")),
             mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
