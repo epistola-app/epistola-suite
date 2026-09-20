@@ -68,16 +68,15 @@ class ExportAssetsHandler(
         }
 
         return rows.map { row ->
-            val ext = mimeTypeToExtension(row.mediaType)
             ImageResource(
                 slug = row.id,
                 name = row.name,
                 mediaType = row.mediaType,
                 width = row.width,
                 height = row.height,
-                contentUrl = "./resources/asset/${row.id}$ext",
-                // Wire v7 identifies a binary by what it is. The digest is already stored: the
-                // content-addressable asset store is keyed by it.
+                // No contentUrl: a catalog written at wire v7 files every binary where its hash
+                // says, so identical bytes are one file and there is no path convention to get
+                // wrong. The digest is already stored -- the asset store is keyed by it.
                 contentHash = requireNotNull(row.contentHash) {
                     "asset ${row.id} has no content hash; the content backfill has not run for it"
                 },

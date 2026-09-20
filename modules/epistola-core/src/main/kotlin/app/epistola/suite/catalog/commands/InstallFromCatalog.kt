@@ -196,8 +196,8 @@ class InstallFromCatalogHandler(
                 // holds its binary directly from wire v7 rather than naming a separate asset, so
                 // fonts now need fetching here too.
                 val contentUrls = when (resource) {
-                    is ImageResource -> listOf(resource.contentUrl)
-                    is FontResource -> resource.variants.map { it.contentUrl }
+                    is ImageResource -> listOf(resource.contentPath())
+                    is FontResource -> resource.variants.map { it.contentPath() }
                     else -> emptyList()
                 }
                 val binaries = contentUrls.distinct().associateWith {
@@ -231,7 +231,7 @@ class InstallFromCatalogHandler(
         is ImageResource -> installAsset(
             command,
             resource,
-            requireNotNull(item.binaries[resource.contentUrl]) { "Image '${resource.slug}' was not staged" },
+            requireNotNull(item.binaries[resource.contentPath()]) { "Image '${resource.slug}' was not staged" },
         )
         is CodeListResource -> installCodeList(command, resource)
         is FontResource -> installFont(command, resource, item.binaries)
@@ -371,7 +371,7 @@ class InstallFromCatalogHandler(
                     command.catalogKey,
                     resource.slug,
                     entry,
-                    requireNotNull(binaries[entry.contentUrl]) { "font face was not staged" },
+                    requireNotNull(binaries[entry.contentPath()]) { "font face was not staged" },
                 )
                 ImportFontVariant(
                     weight = entry.weight,

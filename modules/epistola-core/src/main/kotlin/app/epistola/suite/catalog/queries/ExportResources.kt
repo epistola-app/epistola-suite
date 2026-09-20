@@ -348,10 +348,7 @@ class ExportFontsHandler(
                 (rs.getString("catalog_key") to rs.getString("font_slug")) to FontVariantEntry(
                     weight = rs.getInt("weight"),
                     italic = rs.getBoolean("italic"),
-                    // The face rides at the same archive path its binary always did; wire v7
-                    // just stops giving that binary a name of its own.
-                    contentUrl = "./resources/asset/" + rs.getString("asset_key") +
-                        mimeTypeToExtension(rs.getString("media_type")),
+                    mediaType = rs.getString("media_type"),
                     contentHash = requireNotNull(rs.getString("content_hash")) {
                         "font face has no content hash; the content backfill has not run for it"
                     },

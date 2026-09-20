@@ -46,7 +46,7 @@ internal fun materialiseFontFace(
         catalogKey = catalogKey,
         id = key,
         name = "$fontSlug ${face.weight}${if (face.italic) " italic" else ""}",
-        mediaType = AssetMediaType.fromMimeType(faceMediaType(face.contentUrl)),
+        mediaType = AssetMediaType.fromMimeType(face.mediaType),
         content = bytes,
     ).execute()
     return key

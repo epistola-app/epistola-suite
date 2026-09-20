@@ -124,7 +124,7 @@ class CatalogContentBuilder(
         for (detail in resourceDetails.values) {
             val resource = detail.resource
             if (resource is ImageResource) {
-                val filename = resource.contentUrl.removePrefix("./resources/asset/")
+                val filename = resource.contentPath().substringAfterLast('/')
                 val uuidStr = filename.substringBefore(".")
                 val assetId = try {
                     AssetKey.of(UUID.fromString(uuidStr))

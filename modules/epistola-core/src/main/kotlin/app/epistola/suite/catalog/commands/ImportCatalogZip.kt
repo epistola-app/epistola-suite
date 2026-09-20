@@ -799,8 +799,8 @@ class ImportCatalogZipHandler(
             // installed in this same catalog (asset slug = asset UUID).
             // System (CLASSPATH) fonts are never exported.
             variants = resource.variants.map { entry ->
-                val faceBytes = entries[entry.contentUrl.removePrefix("./")]
-                    ?: throw IllegalArgumentException("Missing font face content: ${entry.contentUrl}")
+                val faceBytes = entries[entry.contentPath()]
+                    ?: throw IllegalArgumentException("Missing font face content: ${entry.contentPath()}")
                 val faceKey = materialiseFontFace(tenantId, catalogKey, resource.slug, entry, faceBytes)
                 app.epistola.suite.fonts.commands.ImportFontVariant(
                     weight = entry.weight,
@@ -813,9 +813,9 @@ class ImportCatalogZipHandler(
 
         is ImageResource -> {
             // Resolve binary content from ZIP entries
-            val contentPath = resource.contentUrl.removePrefix("./")
+            val contentPath = resource.contentPath()
             val contentBytes = entries[contentPath]
-                ?: throw IllegalArgumentException("Missing asset content: ${resource.contentUrl}")
+                ?: throw IllegalArgumentException("Missing image content: ${resource.contentPath()}")
             val mediaType = AssetMediaType.fromMimeType(resource.mediaType)
             // A published catalog may name its images the way a person would -- `municipality-mark`
             // -- and this accepts them. It used to parse the slug as a UUID, because the REST
