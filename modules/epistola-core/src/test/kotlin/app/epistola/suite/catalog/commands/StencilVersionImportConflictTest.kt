@@ -654,7 +654,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
                     templateModel = template,
                     variants = listOf(
                         app.epistola.catalog.protocol.VariantEntry(
-                            id = variantKey,
+                            slug = variantKey,
                             title = null,
                             attributes = null,
                             templateModel = null,

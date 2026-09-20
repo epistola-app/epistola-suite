@@ -559,7 +559,7 @@ class CatalogHandler {
             val usages = FindResourceUsages(tenantKey = tenantId.key, catalogKey = catalogKey).query()
             val usageCounts = usages.mapValues { it.value.size }
             val images = catalogImages(tenantId.key, catalogKey)
-            val imagesBySlug = images.associateBy { it.id.value.toString() }
+            val imagesBySlug = images.associateBy { it.id.value }
             val publication = if (result.catalog.type == CatalogType.AUTHORED) {
                 GetCatalogPublicationState(tenantId.key, catalogKey).query()
             } else {
@@ -882,7 +882,7 @@ class CatalogHandler {
         val tenantId = request.tenantId()
         val result = BrowseCatalog(tenantKey = tenantId.key, catalogKey = catalogKey).query()
         val images = catalogImages(tenantId.key, catalogKey)
-        val imagesBySlug = images.associateBy { it.id.value.toString() }
+        val imagesBySlug = images.associateBy { it.id.value }
 
         return request.htmx {
             fragment("catalogs/browse", "resource-rows") {

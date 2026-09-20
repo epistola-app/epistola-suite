@@ -65,7 +65,7 @@ class FindAssetUsagesHandler(
                 """,
         )
             .bind("tenantId", query.tenantId)
-            .bind("assetId", query.assetId.value.toString())
+            .bind("assetId", query.assetId.value)
             .map { rs, _ ->
                 AssetUsage(
                     templateName = rs.getString("template_name"),

@@ -239,7 +239,7 @@ class InstallFromCatalogHandler(
             templateModel = resource.templateModel,
             variants = resource.variants.map { variant ->
                 ImportVariantInput(
-                    id = variant.id,
+                    id = variant.slug,
                     title = variant.title,
                     attributes = variant.attributes ?: emptyMap(),
                     templateModel = variant.templateModel,

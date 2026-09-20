@@ -256,7 +256,7 @@ class CatalogContentBuilder(
                 templateModel = defaultModel,
                 variants = variants.map { v ->
                     VariantEntry(
-                        id = v.id,
+                        slug = v.id,
                         title = v.title,
                         attributes = v.attributes?.let { objectMapper.readValue(it, objectMapper.typeFactory.constructMapType(Map::class.java, String::class.java, String::class.java)) },
                         templateModel = if (v.id == defaultVariant.id) {
@@ -376,9 +376,15 @@ class CatalogContentBuilder(
                         }
                     }
                     "image" -> {
+                        // Mirrors the stencil case above: only a reference that names its catalog
+                        // can be declared as a dependency, because catalog v7 requires one. An
+                        // unqualified image reference resolves tenant-wide at render time, so it
+                        // never identified a particular catalog's asset and could not be declared
+                        // honestly -- it used to be emitted with no catalog at all.
+                        val refCatalog = node.props?.get("catalogKey") as? String
                         val assetId = node.props?.get("assetId") as? String
-                        if (assetId != null && "asset:$assetId" !in ownResources) {
-                            dependencies.add(DependencyRef.Asset(slug = assetId))
+                        if (refCatalog != null && assetId != null && refCatalog != catalogKey && "asset:$assetId" !in ownResources) {
+                            dependencies.add(DependencyRef.Asset(catalogKey = refCatalog, slug = assetId))
                         }
                     }
                 }
