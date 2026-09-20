@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "resource": {
     "type": "template",
     "slug": "demo-invoice",
@@ -337,7 +337,10 @@
         }
       },
       "documentStylesOverride": {
-        "fontFamily": { "slug": "inter", "catalogKey": "system" },
+        "fontFamily": {
+          "slug": "inter",
+          "catalogKey": "system"
+        },
         "fontSize": "10pt",
         "color": "#333333"
       },

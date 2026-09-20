@@ -327,7 +327,8 @@ class ExportFontsHandler(
         val variantsByFont = handle.createQuery(
             """
             SELECT family.catalog_key, family.slug AS font_slug,
-                   faces.weight, faces.italic, binary_asset.id AS asset_key
+                   faces.weight, faces.italic, binary_asset.id AS asset_key,
+                   binary_asset.media_type, faces.content_hash
             FROM font_variants faces
             JOIN fonts family ON family.tenant_key = faces.tenant_key AND family.resource_id = faces.font_resource_id
             JOIN assets binary_asset
@@ -347,7 +348,13 @@ class ExportFontsHandler(
                 (rs.getString("catalog_key") to rs.getString("font_slug")) to FontVariantEntry(
                     weight = rs.getInt("weight"),
                     italic = rs.getBoolean("italic"),
-                    assetSlug = rs.getString("asset_key"),
+                    // The face rides at the same archive path its binary always did; wire v7
+                    // just stops giving that binary a name of its own.
+                    contentUrl = "./resources/asset/" + rs.getString("asset_key") +
+                        mimeTypeToExtension(rs.getString("media_type")),
+                    contentHash = requireNotNull(rs.getString("content_hash")) {
+                        "font face has no content hash; the content backfill has not run for it"
+                    },
                 )
             }
             .list()

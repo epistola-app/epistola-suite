@@ -4,9 +4,9 @@
 
 package app.epistola.suite.catalog
 
-import app.epistola.catalog.protocol.AssetResource
 import app.epistola.catalog.protocol.CatalogInfo
 import app.epistola.catalog.protocol.DependencyRef
+import app.epistola.catalog.protocol.ImageResource
 import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.catalog.protocol.ThemeResource
 import org.junit.jupiter.api.Test
@@ -28,7 +28,7 @@ class CatalogCanonicalizerTest {
 
     private fun asset(slug: String) = ResourceDetail(
         schemaVersion = CATALOG_SCHEMA_VERSION,
-        resource = AssetResource(slug = slug, name = slug, mediaType = "image/png", contentUrl = "./resources/asset/$slug"),
+        resource = ImageResource(slug = slug, name = slug, mediaType = "image/png", contentUrl = "./resources/asset/$slug", contentHash = "0000000000000000000000000000000000000000000000000000000000000000"),
     )
 
     @Test

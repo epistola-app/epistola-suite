@@ -284,7 +284,7 @@ class CatalogUpgradeAnalyzer(
             "stencil" to ResourceTable("stencils", "id"),
             "attribute" to ResourceTable("variant_attribute_definitions", "id"),
             "theme" to ResourceTable("themes", "id"),
-            "asset" to ResourceTable("assets", "id"),
+            "image" to ResourceTable("assets", "id"),
             "codeList" to ResourceTable("code_lists", "slug"),
             "font" to ResourceTable("fonts", "slug"),
         )

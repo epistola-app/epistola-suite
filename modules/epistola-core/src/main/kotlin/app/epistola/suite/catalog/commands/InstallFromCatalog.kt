@@ -4,11 +4,11 @@
 
 package app.epistola.suite.catalog.commands
 
-import app.epistola.catalog.protocol.AssetResource
 import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.CodeListResource
 import app.epistola.catalog.protocol.FontResource
+import app.epistola.catalog.protocol.ImageResource
 import app.epistola.catalog.protocol.ResourceEntry
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
@@ -108,8 +108,9 @@ class InstallFromCatalogHandler(
     private data class StagedResource(
         val entry: ResourceEntry,
         val resource: CatalogResource? = null,
-        /** Pre-fetched asset bytes; null for every other resource type. */
-        val assetContent: ByteArray? = null,
+        /** Pre-fetched binary bytes, keyed by the contentUrl they came from. Empty for a
+         *  resource that carries none — an image carries one, a font one per face. */
+        val binaries: Map<String, ByteArray> = emptyMap(),
         val fetchError: String? = null,
     )
 
@@ -191,14 +192,22 @@ class InstallFromCatalogHandler(
             try {
                 val detail = catalogClient.fetchResourceDetail(entry.type, entry.detailUrl, sourceUrl, authType, credential, catalogCtx)
                 val resource = detail.resource
-                val assetContent = (resource as? AssetResource)?.let {
-                    catalogClient.fetchBinaryContent(it.contentUrl, sourceUrl, authType, credential)
+                // Every binary the resource carries: an image's own, or one per font face. A face
+                // holds its binary directly from wire v7 rather than naming a separate asset, so
+                // fonts now need fetching here too.
+                val contentUrls = when (resource) {
+                    is ImageResource -> listOf(resource.contentUrl)
+                    is FontResource -> resource.variants.map { it.contentUrl }
+                    else -> emptyList()
                 }
-                fetched += assetContent?.size?.toLong() ?: 0L
+                val binaries = contentUrls.distinct().associateWith {
+                    catalogClient.fetchBinaryContent(it, sourceUrl, authType, credential)
+                }
+                fetched += binaries.values.sumOf { it.size.toLong() }
                 if (fetched > budget) {
                     throw CatalogTooLargeException(command.catalogKey, fetched, budget)
                 }
-                StagedResource(entry, resource, assetContent)
+                StagedResource(entry, resource, binaries)
             } catch (e: CatalogSchemaException) {
                 throw e
             } catch (e: CatalogTooLargeException) {
@@ -219,9 +228,13 @@ class InstallFromCatalogHandler(
         is ThemeResource -> installTheme(command, resource)
         is StencilResource -> installStencil(command, resource)
         is AttributeResource -> installAttribute(command, resource)
-        is AssetResource -> installAsset(command, resource, requireNotNull(item.assetContent) { "Asset '${resource.slug}' was not staged" })
+        is ImageResource -> installAsset(
+            command,
+            resource,
+            requireNotNull(item.binaries[resource.contentUrl]) { "Image '${resource.slug}' was not staged" },
+        )
         is CodeListResource -> installCodeList(command, resource)
-        is FontResource -> installFont(command, resource)
+        is FontResource -> installFont(command, resource, item.binaries)
     }
 
     private fun installTemplate(command: InstallFromCatalog, resource: TemplateResource, releaseVersion: String): InstallStatus {
@@ -337,12 +350,15 @@ class InstallFromCatalogHandler(
         ).execute()
     }
 
-    private fun installFont(command: InstallFromCatalog, resource: FontResource): InstallStatus {
+    private fun installFont(
+        command: InstallFromCatalog,
+        resource: FontResource,
+        binaries: Map<String, ByteArray>,
+    ): InstallStatus {
         val tenantId = TenantId(command.tenantKey)
-        // Each variant's binary rode the catalog as an `AssetResource` already
-        // imported in this same catalog, so every variant is ASSET-backed and
-        // the asset slug is the asset's UUID. System (CLASSPATH) fonts are
-        // never exported and so never arrive over the wire.
+        // A face carries its own binary from wire v7 rather than naming a separate asset, so each
+        // one is materialised here, keyed by its content hash so a re-install reuses the row.
+        // System (CLASSPATH) fonts are never exported and so never arrive over the wire.
         return ImportFont(
             tenantId = tenantId,
             catalogKey = command.catalogKey,
@@ -350,11 +366,18 @@ class InstallFromCatalogHandler(
             name = resource.name,
             kind = resource.kind,
             variants = resource.variants.map { entry ->
+                val faceKey = materialiseFontFace(
+                    tenantId,
+                    command.catalogKey,
+                    resource.slug,
+                    entry,
+                    requireNotNull(binaries[entry.contentUrl]) { "font face was not staged" },
+                )
                 ImportFontVariant(
                     weight = entry.weight,
                     italic = entry.italic,
                     source = app.epistola.suite.fonts.model.FontVariantSource.ASSET,
-                    assetKey = app.epistola.suite.common.ids.AssetKey.of(java.util.UUID.fromString(entry.assetSlug)),
+                    assetKey = faceKey,
                 )
             },
         ).execute()
@@ -362,7 +385,7 @@ class InstallFromCatalogHandler(
 
     private fun installAsset(
         command: InstallFromCatalog,
-        resource: AssetResource,
+        resource: ImageResource,
         content: ByteArray,
     ): InstallStatus {
         val tenantId = TenantId(command.tenantKey)

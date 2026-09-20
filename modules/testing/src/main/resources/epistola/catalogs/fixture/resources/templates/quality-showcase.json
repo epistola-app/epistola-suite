@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "resource": {
     "type": "template",
     "slug": "quality-showcase",
@@ -37,7 +37,9 @@
         "n-root": {
           "id": "n-root",
           "type": "root",
-          "slots": ["s-root-children"]
+          "slots": [
+            "s-root-children"
+          ]
         },
         "n-heading": {
           "id": "n-heading",
@@ -49,8 +51,15 @@
               "content": [
                 {
                   "type": "heading",
-                  "attrs": { "level": 1 },
-                  "content": [{ "type": "text", "text": "Quality checks, demonstrated" }]
+                  "attrs": {
+                    "level": 1
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Quality checks, demonstrated"
+                    }
+                  ]
                 }
               ]
             }
@@ -67,11 +76,19 @@
                 {
                   "type": "paragraph",
                   "content": [
-                    { "type": "text", "text": "Dear " },
-                    { "type": "expression", "attrs": { "expression": "customerName" } },
                     {
                       "type": "text",
-                      "text": ", this template exists to be found wanting. Every block below trips one of the example source's rules on purpose, so the report page and the editor panel have something real to show. Open Authoring → Quality to see what it reported."
+                      "text": "Dear "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "customerName"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": ", this template exists to be found wanting. Every block below trips one of the example source's rules on purpose, so the report page and the editor panel have something real to show. Open Authoring \u2192 Quality to see what it reported."
                     }
                   ]
                 }
@@ -89,7 +106,14 @@
               "content": [
                 {
                   "type": "paragraph",
-                  "content": [{ "type": "expression", "attrs": { "expression": "policyNumber" } }]
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "policyNumber"
+                      }
+                    }
+                  ]
                 }
               ]
             }
@@ -102,7 +126,12 @@
           "props": {
             "content": {
               "type": "doc",
-              "content": [{ "type": "paragraph", "content": [] }]
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": []
+                }
+              ]
             }
           }
         },
@@ -156,7 +185,12 @@
               "content": [
                 {
                   "type": "paragraph",
-                  "content": [{ "type": "text", "text": "Yours sincerely," }]
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Yours sincerely,"
+                    }
+                  ]
                 }
               ]
             }

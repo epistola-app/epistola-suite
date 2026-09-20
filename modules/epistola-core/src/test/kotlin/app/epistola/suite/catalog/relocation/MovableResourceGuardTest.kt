@@ -21,7 +21,7 @@ class MovableResourceGuardTest {
      */
     private val aliasAwareRuntimeLookups = mapOf(
         // `a qualified image reference survives its asset moving`
-        CatalogResourceType.ASSET to "GetAssetContent",
+        CatalogResourceType.IMAGE to "GetAssetContent",
         // `a published document keeps its typeface after the font family moves`
         CatalogResourceType.FONT to "ResolveFontFace",
         // `a template still finds its theme after the theme moves`

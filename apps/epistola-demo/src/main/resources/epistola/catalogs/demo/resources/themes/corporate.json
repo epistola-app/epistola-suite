@@ -1,12 +1,15 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "resource": {
     "type": "theme",
     "slug": "corporate",
     "name": "Corporate Theme",
     "description": "A clean corporate theme with professional styling.",
     "documentStyles": {
-      "fontFamily": { "slug": "inter", "catalogKey": "system" },
+      "fontFamily": {
+        "slug": "inter",
+        "catalogKey": "system"
+      },
       "fontSize": "11pt",
       "lineHeight": 1.5,
       "color": "#333333"

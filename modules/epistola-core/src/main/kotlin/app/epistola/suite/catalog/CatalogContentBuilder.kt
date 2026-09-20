@@ -4,7 +4,6 @@
 
 package app.epistola.suite.catalog
 
-import app.epistola.catalog.protocol.AssetResource
 import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogInfo
 import app.epistola.catalog.protocol.CatalogManifest
@@ -12,6 +11,7 @@ import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.DataExampleEntry
 import app.epistola.catalog.protocol.DependencyRef
 import app.epistola.catalog.protocol.FontRef
+import app.epistola.catalog.protocol.ImageResource
 import app.epistola.catalog.protocol.PublisherInfo
 import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.catalog.protocol.ResourceDetail
@@ -117,13 +117,13 @@ class CatalogContentBuilder(
         for (attr in attributes) addResource("attribute", attr.slug, attr.name, null, attr)
         for (theme in themes) addResource("theme", theme.slug, theme.name, theme.description, theme)
         for (stencil in stencils) addResource("stencil", stencil.slug, stencil.name, stencil.description, stencil)
-        for (asset in assets) addResource("asset", asset.slug, asset.name, null, asset)
+        for (image in assets) addResource("image", image.slug, image.name, null, image)
         for (template in templates) addResource("template", template.slug, template.name, null, template)
 
         val assetContents = LinkedHashMap<String, ByteArray>()
         for (detail in resourceDetails.values) {
             val resource = detail.resource
-            if (resource is AssetResource) {
+            if (resource is ImageResource) {
                 val filename = resource.contentUrl.removePrefix("./resources/asset/")
                 val uuidStr = filename.substringBefore(".")
                 val assetId = try {
@@ -384,7 +384,7 @@ class CatalogContentBuilder(
                         val refCatalog = node.props?.get("catalogKey") as? String
                         val assetId = node.props?.get("assetId") as? String
                         if (refCatalog != null && assetId != null && refCatalog != catalogKey && "asset:$assetId" !in ownResources) {
-                            dependencies.add(DependencyRef.Asset(catalogKey = refCatalog, slug = assetId))
+                            dependencies.add(DependencyRef.Image(catalogKey = refCatalog, slug = assetId))
                         }
                     }
                 }

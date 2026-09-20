@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "resource": {
     "type": "template",
     "slug": "simple-letter",
@@ -11,26 +11,47 @@
         "sender": {
           "type": "object",
           "properties": {
-            "name": { "type": "string" },
-            "address": { "type": "string" },
-            "city": { "type": "string" }
+            "name": {
+              "type": "string"
+            },
+            "address": {
+              "type": "string"
+            },
+            "city": {
+              "type": "string"
+            }
           }
         },
         "recipient": {
           "type": "object",
           "properties": {
-            "name": { "type": "string" },
-            "address": { "type": "string" },
-            "city": { "type": "string" }
+            "name": {
+              "type": "string"
+            },
+            "address": {
+              "type": "string"
+            },
+            "city": {
+              "type": "string"
+            }
           }
         },
-        "subject": { "type": "string" },
-        "body": { "type": "string" },
-        "date": { "type": "string", "format": "date" },
+        "subject": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string",
+          "format": "date"
+        },
         "attachments": {
           "type": "array",
           "description": "Enclosed documents, rendered as a data-driven bullet list",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "notes": {
           "$ref": "https://epistola.app/schemas/richtext-block-v1.json",
@@ -55,36 +76,79 @@
           "subject": "Project Update",
           "body": "I am writing to inform you about the progress of our project. Everything is on track and we expect to deliver by the end of the quarter.",
           "date": "2026-04-03",
-          "attachments": ["Project proposal (PDF)", "Budget overview (XLSX)", "Timeline (PDF)"],
+          "attachments": [
+            "Project proposal (PDF)",
+            "Budget overview (XLSX)",
+            "Timeline (PDF)"
+          ],
           "notes": {
             "type": "doc",
             "content": [
               {
                 "type": "paragraph",
-                "content": [{ "type": "text", "text": "Before our next call, please review:" }]
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Before our next call, please review:"
+                  }
+                ]
               },
               {
                 "type": "ordered_list",
-                "attrs": { "listType": "decimal" },
+                "attrs": {
+                  "listType": "decimal"
+                },
                 "content": [
                   {
                     "type": "list_item",
                     "content": [
                       {
                         "type": "paragraph",
-                        "content": [{ "type": "text", "text": "Deliverables", "marks": [{ "type": "strong" }] }]
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "Deliverables",
+                            "marks": [
+                              {
+                                "type": "strong"
+                              }
+                            ]
+                          }
+                        ]
                       },
                       {
                         "type": "bullet_list",
-                        "attrs": { "listStyle": "circle" },
+                        "attrs": {
+                          "listStyle": "circle"
+                        },
                         "content": [
                           {
                             "type": "list_item",
-                            "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Signed contract" }] }]
+                            "content": [
+                              {
+                                "type": "paragraph",
+                                "content": [
+                                  {
+                                    "type": "text",
+                                    "text": "Signed contract"
+                                  }
+                                ]
+                              }
+                            ]
                           },
                           {
                             "type": "list_item",
-                            "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Kick-off schedule" }] }]
+                            "content": [
+                              {
+                                "type": "paragraph",
+                                "content": [
+                                  {
+                                    "type": "text",
+                                    "text": "Kick-off schedule"
+                                  }
+                                ]
+                              }
+                            ]
                           }
                         ]
                       }
@@ -96,9 +160,23 @@
                       {
                         "type": "paragraph",
                         "content": [
-                          { "type": "text", "text": "Confirm the budget in the " },
-                          { "type": "text", "text": "attached overview", "marks": [{ "type": "em" }] },
-                          { "type": "text", "text": "." }
+                          {
+                            "type": "text",
+                            "text": "Confirm the budget in the "
+                          },
+                          {
+                            "type": "text",
+                            "text": "attached overview",
+                            "marks": [
+                              {
+                                "type": "em"
+                              }
+                            ]
+                          },
+                          {
+                            "type": "text",
+                            "text": "."
+                          }
                         ]
                       }
                     ]
@@ -130,12 +208,17 @@
         "n-root": {
           "id": "n-root",
           "type": "root",
-          "slots": ["s-root-children"]
+          "slots": [
+            "s-root-children"
+          ]
         },
         "n-addressblock": {
           "id": "n-addressblock",
           "type": "addressblock",
-          "slots": ["s-address", "s-aside"],
+          "slots": [
+            "s-address",
+            "s-aside"
+          ],
           "props": {
             "align": "left",
             "top": 45,
@@ -155,11 +238,30 @@
                 {
                   "type": "paragraph",
                   "content": [
-                    { "type": "expression", "attrs": { "expression": "recipient.name" } },
-                    { "type": "hard_break" },
-                    { "type": "expression", "attrs": { "expression": "recipient.address" } },
-                    { "type": "hard_break" },
-                    { "type": "expression", "attrs": { "expression": "recipient.city" } }
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "recipient.name"
+                      }
+                    },
+                    {
+                      "type": "hard_break"
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "recipient.address"
+                      }
+                    },
+                    {
+                      "type": "hard_break"
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "recipient.city"
+                      }
+                    }
                   ]
                 }
               ]
@@ -177,18 +279,45 @@
                 {
                   "type": "paragraph",
                   "content": [
-                    { "type": "expression", "attrs": { "expression": "sender.name" } },
-                    { "type": "hard_break" },
-                    { "type": "expression", "attrs": { "expression": "sender.address" } },
-                    { "type": "hard_break" },
-                    { "type": "expression", "attrs": { "expression": "sender.city" } }
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "sender.name"
+                      }
+                    },
+                    {
+                      "type": "hard_break"
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "sender.address"
+                      }
+                    },
+                    {
+                      "type": "hard_break"
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "sender.city"
+                      }
+                    }
                   ]
                 },
                 {
                   "type": "paragraph",
                   "content": [
-                    { "type": "text", "text": "Date: " },
-                    { "type": "expression", "attrs": { "expression": "date" } }
+                    {
+                      "type": "text",
+                      "text": "Date: "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "date"
+                      }
+                    }
                   ]
                 }
               ]
@@ -199,16 +328,25 @@
           "id": "n-subject",
           "type": "text",
           "slots": [],
-          "styles": { "marginBottom": "4sp" },
+          "styles": {
+            "marginBottom": "4sp"
+          },
           "props": {
             "content": {
               "type": "doc",
               "content": [
                 {
                   "type": "heading",
-                  "attrs": { "level": 2 },
+                  "attrs": {
+                    "level": 2
+                  },
                   "content": [
-                    { "type": "expression", "attrs": { "expression": "subject" } }
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "subject"
+                      }
+                    }
                   ]
                 }
               ]
@@ -219,7 +357,9 @@
           "id": "n-letterhead",
           "type": "image",
           "slots": [],
-          "styles": { "marginBottom": "4sp" },
+          "styles": {
+            "marginBottom": "4sp"
+          },
           "props": {
             "assetId": "01966a00-0000-7000-8000-000000000010",
             "catalogKey": "system",
@@ -251,7 +391,12 @@
                 {
                   "type": "paragraph",
                   "content": [
-                    { "type": "expression", "attrs": { "expression": "body" } }
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "body"
+                      }
+                    }
                   ]
                 }
               ]
@@ -262,36 +407,97 @@
           "id": "n-summary",
           "type": "text",
           "slots": [],
-          "styles": { "marginTop": "4sp", "listItemSpacing": "0sp" },
+          "styles": {
+            "marginTop": "4sp",
+            "listItemSpacing": "0sp"
+          },
           "props": {
             "content": {
               "type": "doc",
               "content": [
                 {
                   "type": "paragraph",
-                  "content": [{ "type": "text", "text": "Key points:", "marks": [{ "type": "bold" }] }]
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Key points:",
+                      "marks": [
+                        {
+                          "type": "bold"
+                        }
+                      ]
+                    }
+                  ]
                 },
                 {
                   "type": "bullet_list",
-                  "attrs": { "listStyle": "disc" },
+                  "attrs": {
+                    "listStyle": "disc"
+                  },
                   "content": [
                     {
                       "type": "list_item",
                       "content": [
-                        { "type": "paragraph", "content": [{ "type": "text", "text": "Project scope" }] },
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Project scope"
+                            }
+                          ]
+                        },
                         {
                           "type": "bullet_list",
-                          "attrs": { "listStyle": "circle" },
+                          "attrs": {
+                            "listStyle": "circle"
+                          },
                           "content": [
-                            { "type": "list_item", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Phase 1 delivered" }] }] },
-                            { "type": "list_item", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Phase 2 in progress" }] }] }
+                            {
+                              "type": "list_item",
+                              "content": [
+                                {
+                                  "type": "paragraph",
+                                  "content": [
+                                    {
+                                      "type": "text",
+                                      "text": "Phase 1 delivered"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "list_item",
+                              "content": [
+                                {
+                                  "type": "paragraph",
+                                  "content": [
+                                    {
+                                      "type": "text",
+                                      "text": "Phase 2 in progress"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
                           ]
                         }
                       ]
                     },
                     {
                       "type": "list_item",
-                      "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Budget on track" }] }]
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Budget on track"
+                            }
+                          ]
+                        }
+                      ]
                     }
                   ]
                 }
@@ -303,7 +509,10 @@
           "id": "n-attachments",
           "type": "text",
           "slots": [],
-          "styles": { "marginTop": "4sp", "keepWithNext": true },
+          "styles": {
+            "marginTop": "4sp",
+            "keepWithNext": true
+          },
           "props": {
             "content": {
               "type": "doc",
@@ -311,7 +520,15 @@
                 {
                   "type": "paragraph",
                   "content": [
-                    { "type": "text", "text": "Attachments:", "marks": [{ "type": "bold" }] }
+                    {
+                      "type": "text",
+                      "text": "Attachments:",
+                      "marks": [
+                        {
+                          "type": "bold"
+                        }
+                      ]
+                    }
                   ]
                 }
               ]
@@ -321,10 +538,17 @@
         "n-attachments-list": {
           "id": "n-attachments-list",
           "type": "datalist",
-          "slots": ["s-attachments-list-template"],
-          "styles": { "listItemSpacing": "1sp" },
+          "slots": [
+            "s-attachments-list-template"
+          ],
+          "styles": {
+            "listItemSpacing": "1sp"
+          },
           "props": {
-            "expression": { "raw": "attachments", "language": "jsonata" },
+            "expression": {
+              "raw": "attachments",
+              "language": "jsonata"
+            },
             "itemAlias": "attachment",
             "listType": "bullet",
             "bulletStyle": "square"
@@ -341,7 +565,12 @@
                 {
                   "type": "paragraph",
                   "content": [
-                    { "type": "expression", "attrs": { "expression": "attachment" } }
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "attachment"
+                      }
+                    }
                   ]
                 }
               ]
@@ -352,14 +581,26 @@
           "id": "n-notes-label",
           "type": "text",
           "slots": [],
-          "styles": { "marginTop": "4sp" },
+          "styles": {
+            "marginTop": "4sp"
+          },
           "props": {
             "content": {
               "type": "doc",
               "content": [
                 {
                   "type": "paragraph",
-                  "content": [{ "type": "text", "text": "Notes:", "marks": [{ "type": "bold" }] }]
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Notes:",
+                      "marks": [
+                        {
+                          "type": "bold"
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             }
@@ -369,13 +610,20 @@
           "id": "n-notes",
           "type": "richTextVariable",
           "slots": [],
-          "styles": { "marginTop": "1sp", "listItemSpacing": "0.5sp" },
-          "props": { "binding": "notes" }
+          "styles": {
+            "marginTop": "1sp",
+            "listItemSpacing": "0.5sp"
+          },
+          "props": {
+            "binding": "notes"
+          }
         },
         "n-footer": {
           "id": "n-footer",
           "type": "pagefooter",
-          "slots": ["s-footer-children"],
+          "slots": [
+            "s-footer-children"
+          ],
           "props": {
             "height": "30pt",
             "hideOnFirstPage": true
@@ -385,7 +633,11 @@
           "id": "n-footer-text",
           "type": "text",
           "slots": [],
-          "styles": { "fontSize": "9pt", "color": "#999999", "textAlign": "center" },
+          "styles": {
+            "fontSize": "9pt",
+            "color": "#999999",
+            "textAlign": "center"
+          },
           "props": {
             "content": {
               "type": "doc",
@@ -393,10 +645,26 @@
                 {
                   "type": "paragraph",
                   "content": [
-                    { "type": "text", "text": "Confidential — Page " },
-                    { "type": "expression", "attrs": { "expression": "sys.pages.current" } },
-                    { "type": "text", "text": " of " },
-                    { "type": "expression", "attrs": { "expression": "sys.pages.total" } }
+                    {
+                      "type": "text",
+                      "text": "Confidential \u2014 Page "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "sys.pages.current"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": " of "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "sys.pages.total"
+                      }
+                    }
                   ]
                 }
               ]
@@ -409,31 +677,51 @@
           "id": "s-root-children",
           "nodeId": "n-root",
           "name": "children",
-          "children": ["n-footer", "n-addressblock", "n-letterhead", "n-separator", "n-subject", "n-body", "n-summary", "n-attachments", "n-attachments-list", "n-notes-label", "n-notes"]
+          "children": [
+            "n-footer",
+            "n-addressblock",
+            "n-letterhead",
+            "n-separator",
+            "n-subject",
+            "n-body",
+            "n-summary",
+            "n-attachments",
+            "n-attachments-list",
+            "n-notes-label",
+            "n-notes"
+          ]
         },
         "s-attachments-list-template": {
           "id": "s-attachments-list-template",
           "nodeId": "n-attachments-list",
           "name": "item-template",
-          "children": ["n-attachments-item"]
+          "children": [
+            "n-attachments-item"
+          ]
         },
         "s-address": {
           "id": "s-address",
           "nodeId": "n-addressblock",
           "name": "address",
-          "children": ["n-address-text"]
+          "children": [
+            "n-address-text"
+          ]
         },
         "s-aside": {
           "id": "s-aside",
           "nodeId": "n-addressblock",
           "name": "aside",
-          "children": ["n-aside-text"]
+          "children": [
+            "n-aside-text"
+          ]
         },
         "s-footer-children": {
           "id": "s-footer-children",
           "nodeId": "n-footer",
           "name": "children",
-          "children": ["n-footer-text"]
+          "children": [
+            "n-footer-text"
+          ]
         }
       }
     },
@@ -448,14 +736,18 @@
       {
         "id": "en-us",
         "title": "US English",
-        "attributes": { "system.locale": "en-US" },
+        "attributes": {
+          "system.locale": "en-US"
+        },
         "templateModel": null,
         "isDefault": false
       },
       {
         "id": "nl-nl",
         "title": "Dutch",
-        "attributes": { "system.locale": "nl-NL" },
+        "attributes": {
+          "system.locale": "nl-NL"
+        },
         "templateModel": null,
         "isDefault": false
       }

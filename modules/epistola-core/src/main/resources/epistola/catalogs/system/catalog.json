@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "catalog": {
     "slug": "system",
     "name": "System",
@@ -10,13 +10,13 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "1.2.1",
+    "version": "1.3.0",
     "releasedAt": "2026-07-29T00:00:00Z",
-    "fingerprint": "bc52a735c612e20e0dc97ecd67f38b455db256efc2071527a960fae5816764df"
+    "fingerprint": "74c0b2d145c4a970830b5ccbeb092b20abe7c8e9559f1d6b368147bac4bc09ba"
   },
   "resources": [
     {
-      "type": "asset",
+      "type": "image",
       "slug": "01966a00-0000-7000-8000-000000000010",
       "name": "System Badge",
       "description": "A small shared badge image that any catalog's templates can embed.",

@@ -114,7 +114,7 @@ enum class MovableResource(
      * move.
      */
     ASSET(
-        CatalogResourceType.ASSET,
+        CatalogResourceType.IMAGE,
         "assets",
         "id",
         emptySet(),

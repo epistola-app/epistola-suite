@@ -170,7 +170,7 @@ class TenantResourceGraphBuilder(
         ).bind("tenantKey", tenantKey).map { rs, _ ->
             Occurrence(
                 source = ResourceAddress(CatalogResourceType.FONT, rs.getString("catalog_key"), rs.getString("font_slug")),
-                selector = ReferenceSelector(CatalogResourceType.ASSET, rs.getString("asset_catalog_key"), rs.getString("asset_key")),
+                selector = ReferenceSelector(CatalogResourceType.IMAGE, rs.getString("asset_catalog_key"), rs.getString("asset_key")),
                 kind = "font-face-asset",
                 semantics = ReferenceSemantics.RUNTIME,
                 qualification = ReferenceQualification.EXPLICIT,

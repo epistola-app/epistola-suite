@@ -5,11 +5,11 @@
 package app.epistola.suite.catalog
 
 import app.epistola.catalog.archive.CatalogArchive
-import app.epistola.catalog.protocol.AssetResource
 import app.epistola.catalog.protocol.CatalogInfo
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.DependencyRef
+import app.epistola.catalog.protocol.ImageResource
 import app.epistola.catalog.protocol.PublisherInfo
 import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.catalog.protocol.ResourceDetail
@@ -168,7 +168,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
      * Only assets carry content next to their detail. This used to serialise every resource,
      * including the code lists, to a JSON tree just to look for the field.
      */
-    private fun CatalogResource.contentUrlOrNull(): String? = (this as? AssetResource)?.contentUrl
+    private fun CatalogResource.contentUrlOrNull(): String? = (this as? ImageResource)?.contentUrl
 
     companion object {
         private val PLACEHOLDER_CATALOG = CatalogInfo("fingerprints", "Fingerprints")
