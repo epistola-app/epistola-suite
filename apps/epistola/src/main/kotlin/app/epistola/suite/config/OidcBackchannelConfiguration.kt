@@ -102,6 +102,10 @@ class OidcBackchannelConfiguration(
                 .userInfoUri(rewriteUrl(metadata.userinfoEndpoint, backchannelBaseUrl))
                 .jwkSetUri(rewriteUrl(metadata.jwksUri, backchannelBaseUrl)!!)
                 .userNameAttributeName(provider.userNameAttribute ?: "sub")
+                // Browser-facing: RP-initiated logout needs end_session_endpoint, which Spring only
+                // reads from here. Without it logout never ends the provider session, and silent
+                // login would sign the user straight back in.
+                .providerConfigurationMetadata(endSessionMetadata(metadata.endSessionEndpoint, externalBaseUrl))
                 .build()
         }
 
@@ -158,6 +162,7 @@ class OidcBackchannelConfiguration(
             tokenEndpoint = required("token_endpoint"),
             userinfoEndpoint = doc["userinfo_endpoint"] as? String,
             jwksUri = required("jwks_uri"),
+            endSessionEndpoint = doc["end_session_endpoint"] as? String,
         )
     }
 
@@ -166,6 +171,7 @@ class OidcBackchannelConfiguration(
         val tokenEndpoint: String,
         val userinfoEndpoint: String?,
         val jwksUri: String,
+        val endSessionEndpoint: String?,
     )
 
     companion object {
@@ -199,5 +205,13 @@ class OidcBackchannelConfiguration(
             val path = extractPath(url)
             return "$backchannelBaseUrl$path"
         }
+
+        /**
+         * Provider metadata carrying the discovered `end_session_endpoint` on the external host,
+         * or empty when the provider advertises none.
+         */
+        fun endSessionMetadata(endSessionEndpoint: String?, externalBaseUrl: String): Map<String, Any> = rewriteUrl(endSessionEndpoint, externalBaseUrl)
+            ?.let { mapOf("end_session_endpoint" to it) }
+            ?: emptyMap()
     }
 }

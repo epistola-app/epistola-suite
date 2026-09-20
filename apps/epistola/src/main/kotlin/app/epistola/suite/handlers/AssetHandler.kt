@@ -88,6 +88,9 @@ class AssetHandler(
                     "tenant" to tenant
                     "assets" to assets
                     "selectedCatalog" to (catalogFilter?.value ?: "")
+                    // Lets the fragment tell "no matches" apart from "none yet". A search swaps only
+                    // this fragment, so the distinction has to reach it.
+                    "searchTerm" to searchTerm.orEmpty()
                 }
                 onNonHtmx { redirect("/tenants/${tenantId.value}/images") }
             }
@@ -97,7 +100,7 @@ class AssetHandler(
         val assets = listImages(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter)
         val assetInfoList = assets.map { asset ->
             mapOf(
-                "id" to asset.id.value.toString(),
+                "id" to asset.id.value,
                 "name" to asset.name,
                 "mediaType" to asset.mediaType.mimeType,
                 "sizeBytes" to asset.sizeBytes,
@@ -297,7 +300,7 @@ class AssetHandler(
             .contentType(MediaType.APPLICATION_JSON)
             .body(
                 mapOf(
-                    "id" to created.id.value.toString(),
+                    "id" to created.id.value,
                     "name" to created.name,
                     "mediaType" to created.mediaType.mimeType,
                     "sizeBytes" to created.sizeBytes,

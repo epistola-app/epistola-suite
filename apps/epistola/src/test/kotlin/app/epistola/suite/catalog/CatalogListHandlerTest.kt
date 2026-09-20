@@ -701,6 +701,20 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                     attributes = listOf(AttributeAssignment("metadata", "audience", "municipalities")),
                 ).execute()
 
+                // The presentation controls are only offered for a catalog that has an image
+                // (.agents/rules/ui-affordances.md). Giving this one its own also sharpens the
+                // isolation assertions below: the picker must show this image and not the other
+                // catalog's.
+                UploadAsset(
+                    tenantId = t.id,
+                    name = "Own catalog image",
+                    mediaType = AssetMediaType.SVG,
+                    content = "<svg xmlns=\"http://www.w3.org/2000/svg\"/>".toByteArray(),
+                    width = null,
+                    height = null,
+                    catalogKey = catalogKey,
+                ).execute()
+
                 val otherCatalogKey = CatalogKey.of("other-images")
                 CreateCatalog(tenantKey = t.id, id = otherCatalogKey, name = "Other images").execute()
                 otherCatalogImageSlug = UploadAsset(
@@ -711,7 +725,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                     width = null,
                     height = null,
                     catalogKey = otherCatalogKey,
-                ).execute().id.value.toString()
+                ).execute().id.value
             }
         }
 
@@ -819,6 +833,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                 String::class.java,
             )
             assertThat(presentationFormResponse.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(presentationFormResponse.body).contains("Own catalog image")
             assertThat(presentationFormResponse.body).doesNotContain("Other catalog image")
 
             val crossCatalogPresentation = LinkedMultiValueMap<String, String>()

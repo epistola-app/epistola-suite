@@ -108,7 +108,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 height = 1,
                 catalogKey = catalogKey,
             ).execute()
-            val imageSlug = image.id.value.toString()
+            val imageSlug = image.id.value
 
             UpdateCatalogMetadata(
                 tenantKey = source.id,
@@ -720,11 +720,11 @@ class CatalogExportImportTest : IntegrationTestBase() {
             val variantId = VariantId(variantKey, templateId)
             app.epistola.suite.templates.commands.versions.UpdateDraft(
                 variantId = variantId,
-                templateModel = templateWithCrossCatalogImage(asset.id.value.toString(), assetCatalogKey.value),
+                templateModel = templateWithCrossCatalogImage(asset.id.value, assetCatalogKey.value),
             ).execute()
             PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
 
-            ExportCatalogZip(tenantKey = tenantKey, catalogKey = sourceKey).execute() to asset.id.value.toString()
+            ExportCatalogZip(tenantKey = tenantKey, catalogKey = sourceKey).execute() to asset.id.value
         }
         zipBytes = exported.first.zipBytes
         assetId = exported.second

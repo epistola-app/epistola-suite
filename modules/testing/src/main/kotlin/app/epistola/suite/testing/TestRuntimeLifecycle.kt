@@ -52,23 +52,43 @@ object TestRuntimeLifecycle {
         }
     }
 
+    /**
+     * The PostgreSQL major version the shared container runs. The oldest supported version by
+     * default, because a feature only a newer server has is what an older installation fails on —
+     * and a suite that only ever runs on the newest server cannot notice. `-PtestPostgresVersion=18`
+     * sets the system property; read here too so a test started from the IDE matches Gradle.
+     */
+    val postgresMajorVersion: Int = System.getProperty("epistola.test.postgres.version", "17").toInt()
+
+    /**
+     * A PostgreSQL container configured the way the suite needs, not yet started. The shared container
+     * comes from [postgres]; call this only for a test that needs a server of another version, and
+     * stop what it returns.
+     */
+    fun newPostgresContainer(majorVersion: Int): PostgreSQLContainer {
+        // RAM-backed, and the mount point depends on the image. PostgreSQL 18's stores its cluster in
+        // a major-version subdirectory (/var/lib/postgresql/18/docker) and refuses to start at all if
+        // it finds a mount on the old .../data path. 17 and earlier keep it at .../data and declare
+        // that path a VOLUME, so a tmpfs on the parent would not fail — it would be shadowed by an
+        // anonymous disk volume, and the suite would quietly run from disk.
+        val dataMount = if (majorVersion >= 18) "/var/lib/postgresql" else "/var/lib/postgresql/data"
+        return PostgreSQLContainer(DockerImageName.parse("postgres:$majorVersion"))
+            .withTmpFs(mapOf(dataMount to "rw"))
+            // Every Spring test context gets its own database inside this one server, so they all
+            // draw on one connection budget. Postgres defaults to 100, which the suite outgrew:
+            // enough cached contexts holding pooled connections and the next context to start
+            // fails to connect at all with "sorry, too many clients already", taking every test
+            // sharing it down as a context-load failure. The pools are also bounded (see each
+            // module's application-test) — this is the headroom, not the fix.
+            .withCommand("postgres", "-c", "max_connections=400")
+    }
+
     fun postgres(): PostgreSQLContainer {
         sharedPostgres?.let { return it }
         synchronized(lock) {
             sharedPostgres?.let { return it }
             check(!shutdownStarted.get()) { "Test runtime is already shutting down" }
-            val container = PostgreSQLContainer(DockerImageName.parse("postgres:18"))
-                // Mounted at the parent, not at .../data: PostgreSQL 18's image stores its
-                // cluster in a major-version subdirectory (/var/lib/postgresql/18/docker) and
-                // refuses to start at all if it finds a mount on the old 17-and-earlier path.
-                .withTmpFs(mapOf("/var/lib/postgresql" to "rw"))
-                // Every Spring test context gets its own database inside this one server, so they all
-                // draw on one connection budget. Postgres defaults to 100, which the suite outgrew:
-                // enough cached contexts holding pooled connections and the next context to start
-                // fails to connect at all with "sorry, too many clients already", taking every test
-                // sharing it down as a context-load failure. The pools are also bounded (see each
-                // module's application-test) — this is the headroom, not the fix.
-                .withCommand("postgres", "-c", "max_connections=400")
+            val container = newPostgresContainer(postgresMajorVersion)
             val startNanos = System.nanoTime()
             container.start()
             TestRunMetrics.recordPostgresStartupNanos(System.nanoTime() - startNanos)

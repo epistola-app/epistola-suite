@@ -10,6 +10,10 @@
             searchPlaceholder=${searchPlaceholder} ?: 'Search...',
             searchUrl=${searchUrl} ?: null,
             searchTargetId=${searchTargetId} ?: null,
+            searchableTotal=${searchableTotal} ?: null,
+            searchTerm=${searchTerm} ?: '',
+            showSearch=${searchUrl != null
+                         and (searchableTotal == null or searchableTotal > 0 or searchTerm != '')},
             actions=${actions} ?: null,
             stage=${stage} ?: null
          "
@@ -33,8 +37,22 @@
             <p th:if="${!#strings.isEmpty(pageDescription)}" th:text="${pageDescription}"></p>
         </div>
 
-        <div th:if="${searchUrl != null or actions != null}" class="page-actions">
-            <th:block th:if="${searchUrl != null}">
+        <!--
+          A search box appears only when there is something to search
+          (.agents/rules/ui-affordances.md). A page opts in by putting searchableTotal in its
+          model: the number of items this page's search can actually reach, which is the count
+          under whatever filter the page already applies — the search URL carries that same
+          filter, so a filtered-empty list has nothing to search either, and the filter control
+          itself stays on screen to get back out of it. Leaving searchableTotal out means null,
+          which shows the box, so every header that has not opted in is unaffected.
+
+          searchTerm is the other half, and it is what stops this stranding anyone: with a term
+          active the box stays even at zero results, or there would be no way to clear it. No
+          search response re-renders this header anyway (they target the table), so the gate is
+          only ever evaluated on a full page load.
+        -->
+        <div th:if="${showSearch or actions != null}" class="page-actions">
+            <th:block th:if="${showSearch}">
                 <th:block th:replace="~{fragments/search :: search-box(
                     placeholder=${searchPlaceholder},
                     searchUrl=${searchUrl},

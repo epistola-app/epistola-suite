@@ -7,6 +7,7 @@
             searchPlaceholder='Search environments...',
             searchUrl=@{/tenants/{tenantId}/environments/search(tenantId=${tenantId})},
             searchTargetId='environment-rows',
+            searchableTotal=${#lists.size(environments)},
             actions=~{::environment-list-actions}
         )}"></div>
 
@@ -63,6 +64,13 @@
                 </thead>
                 <tbody id="environment-rows">
                     <th:block th:fragment="rows">
+                        <!--/* A search swaps only this fragment, so a "nothing found" message has to live
+                               inside it: the empty state outside is never re-rendered, and the reader would
+                               otherwise be left looking at an empty table that says nothing. */-->
+                        <tr th:if="${#lists.isEmpty(environments) and !#strings.isEmpty(searchTerm)}">
+                            <td colspan="4" class="text-muted" style="text-align: center; padding: var(--ep-space-6);"
+                                th:text="'No environments match your search.'"></td>
+                        </tr>
                         <tr th:each="env : ${environments}">
                             <td style="font-weight: 500;" th:text="${env.name}" th:title="${env.name}"></td>
                             <td th:title="${env.id}"><code th:text="${env.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
