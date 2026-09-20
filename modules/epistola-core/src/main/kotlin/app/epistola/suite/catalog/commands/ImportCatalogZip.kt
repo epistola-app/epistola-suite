@@ -817,14 +817,12 @@ class ImportCatalogZipHandler(
             val contentBytes = entries[contentPath]
                 ?: throw IllegalArgumentException("Missing asset content: ${resource.contentUrl}")
             val mediaType = AssetMediaType.fromMimeType(resource.mediaType)
-            // An asset's key is text now, so this parse is the only thing left refusing a catalog
-            // that names its assets readably -- which is the whole point of the blocker. It stays
-            // until the REST surface can represent such an asset. `AssetDto.id` is declared
-            // `format: uuid`, so the generator types it `java.util.UUID` and the mapper has no way
-            // to carry a readable key; relaxing this first would let in data that surface cannot
-            // serialize. The successor is `/images`, whose `ImageDto.slug` is a plain string
-            // (epistola-app/epistola-contract#79), and which the Suite does not implement yet.
-            val assetId = AssetKey.of(java.util.UUID.fromString(resource.slug))
+            // A published catalog may name its images the way a person would -- `municipality-mark`
+            // -- and this accepts them. It used to parse the slug as a UUID, because the REST
+            // surface could not represent anything else: `AssetDto.id` is declared `format: uuid`.
+            // `/images` reports an image by `slug`, a plain string, and the asset operations now
+            // omit an `id` they cannot express rather than failing.
+            val assetId = AssetKey.of(resource.slug)
             ImportAsset(
                 tenantId = tenantId,
                 catalogKey = catalogKey,
