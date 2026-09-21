@@ -819,9 +819,8 @@ class ImportCatalogZipHandler(
             val mediaType = AssetMediaType.fromMimeType(resource.mediaType)
             // A published catalog may name its images the way a person would -- `municipality-mark`
             // -- and this accepts them. It used to parse the slug as a UUID, because the REST
-            // surface could not represent anything else: `AssetDto.id` is declared `format: uuid`.
-            // `/images` reports an image by `slug`, a plain string, and the asset operations now
-            // omit an `id` they cannot express rather than failing.
+            // surface could not represent anything else; `/images` addresses an image by `slug`,
+            // a plain string, and the asset operations that forced the UUID are gone.
             val assetId = AssetKey.of(resource.slug)
             ImportAsset(
                 tenantId = tenantId,
