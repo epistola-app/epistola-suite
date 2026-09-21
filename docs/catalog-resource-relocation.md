@@ -36,10 +36,10 @@ graph. Domain rows retain their current catalog-and-slug address and synchronize
 the registry. `catalog_resource_aliases` maps an old typed address to the stable identity.
 
 Graph extraction resolves aliases centrally, so immutable published evidence still points to the
-moved stencil. A source-catalog export does not serialize tenant-local aliases. Instead, it
-materializes old stencil references as the canonical destination address and emits the resulting
-cross-catalog dependency. The moved stencil itself appears only in an export of the destination
-catalog.
+moved resource. A catalog export does not serialize tenant-local aliases. Instead, it materializes
+every old reference -- stencil, theme, font or image -- as the canonical destination address and
+emits the resulting cross-catalog dependency, so a tenant that never saw the move can install the
+catalogs. The moved resource itself appears only in an export of the destination catalog.
 
 ## Generation history does not move
 

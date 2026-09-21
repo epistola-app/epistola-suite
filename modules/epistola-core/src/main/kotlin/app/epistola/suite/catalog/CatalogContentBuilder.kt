@@ -23,7 +23,8 @@ import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.catalog.protocol.VariantEntry
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.assets.queries.ResolveAssetKeysByContentHash
-import app.epistola.suite.catalog.graph.ReferenceSiteKind
+import app.epistola.suite.catalog.graph.CatalogResourceType
+import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.queries.ExportAssets
 import app.epistola.suite.catalog.queries.ExportAttributes
@@ -84,15 +85,15 @@ class CatalogContentBuilder(
         val catalog = GetCatalog(tenantKey, catalogKey).query()
             ?: throw IllegalArgumentException("Catalog not found: $catalogKey")
 
-        val stencilAliases = loadStencilAliases(tenantKey)
-        val templates = loadTemplates(tenantKey, catalogKey, stencilAliases)
+        val aliases = loadAliases(tenantKey)
+        val templates = loadTemplates(tenantKey, catalogKey, aliases)
         val themes = ExportThemes(tenantKey, catalogKey = catalogKey).query()
         val stencils = ExportStencils(tenantKey, catalogKey = catalogKey).query().map { stencil ->
             stencil.copy(
-                content = canonicalizeStencilAliases(
+                content = canonicalizeAliases(
                     objectMapper.valueToTree(stencil.content),
                     catalogKey.value,
-                    stencilAliases,
+                    aliases,
                 ).let { objectMapper.treeToValue(it, TemplateDocument::class.java) },
             )
         }
@@ -167,7 +168,7 @@ class CatalogContentBuilder(
     private fun loadTemplates(
         tenantKey: TenantKey,
         catalogKey: CatalogKey,
-        stencilAliases: Map<Pair<String, String>, Pair<String, String>>,
+        aliases: Map<ResourceAddress, ResourceAddress>,
     ): List<TemplateResource> {
         data class TemplateRow(
             val id: String,
@@ -248,7 +249,7 @@ class CatalogContentBuilder(
 
             val defaultModel = defaultVariant.templateModel
                 ?.let(objectMapper::readTree)
-                ?.let { canonicalizeStencilAliases(it, catalogKey.value, stencilAliases) }
+                ?.let { canonicalizeAliases(it, catalogKey.value, aliases) }
                 ?.let { objectMapper.treeToValue(it, TemplateDocument::class.java) }
                 ?: return@mapNotNull null
 
@@ -278,7 +279,7 @@ class CatalogContentBuilder(
                         } else {
                             v.templateModel
                                 ?.let(objectMapper::readTree)
-                                ?.let { canonicalizeStencilAliases(it, catalogKey.value, stencilAliases) }
+                                ?.let { canonicalizeAliases(it, catalogKey.value, aliases) }
                                 ?.let { objectMapper.treeToValue(it, TemplateDocument::class.java) }
                         },
                         isDefault = v.isDefault,
@@ -288,14 +289,19 @@ class CatalogContentBuilder(
         }
     }
 
-    private fun loadStencilAliases(tenantKey: TenantKey): Map<Pair<String, String>, Pair<String, String>> = jdbi.withHandle<Map<Pair<String, String>, Pair<String, String>>, Exception> { handle ->
+    /**
+     * Every retained alias in the tenant, old address to canonical address, across all types: a
+     * published version keeps naming a moved theme, font or image by its old address as much as a
+     * moved stencil, and an export must not carry that tenant-local address out.
+     */
+    private fun loadAliases(tenantKey: TenantKey): Map<ResourceAddress, ResourceAddress> = jdbi.withHandle<Map<ResourceAddress, ResourceAddress>, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT a.catalog_key, a.resource_key, r.catalog_key AS target_catalog_key, r.resource_key AS target_resource_key
+                SELECT a.resource_type, a.catalog_key, a.resource_key, r.catalog_key AS target_catalog_key, r.resource_key AS target_resource_key
                 FROM catalog_resource_aliases a
                 JOIN catalog_resources r
                   ON r.tenant_key = a.tenant_key AND r.resource_id = a.target_resource_id
-                WHERE a.tenant_key = :tenantKey AND a.resource_type = 'stencil'
+                WHERE a.tenant_key = :tenantKey
                   -- Authoring reserves an aliased address (requireAddressAvailable), but import
                   -- and backup restore reproduce stored state faithfully and may carry a resource
                   -- that predates the alias. A canonical resource therefore still wins here,
@@ -311,25 +317,29 @@ class CatalogContentBuilder(
         )
             .bind("tenantKey", tenantKey)
             .map { rs, _ ->
-                (rs.getString("catalog_key") to rs.getString("resource_key")) to
-                    (rs.getString("target_catalog_key") to rs.getString("target_resource_key"))
+                val type = CatalogResourceType.entries.single { it.wireName == rs.getString("resource_type") }
+                ResourceAddress(type, rs.getString("catalog_key"), rs.getString("resource_key")) to
+                    ResourceAddress(type, rs.getString("target_catalog_key"), rs.getString("target_resource_key"))
             }
             .list()
             .toMap()
     }
 
-    /** Materialise stable aliases as canonical public addresses in portable catalog exports. */
-    private fun canonicalizeStencilAliases(
+    /**
+     * Materialise aliases as canonical public addresses in a portable export. A relative reference
+     * is looked up against its containing catalog; an unqualified image resolves tenant-wide and
+     * names no catalog to find an alias with, so it is left as it is.
+     */
+    private fun canonicalizeAliases(
         document: JsonNode,
         containingCatalog: String,
-        aliases: Map<Pair<String, String>, Pair<String, String>>,
+        aliases: Map<ResourceAddress, ResourceAddress>,
     ): JsonNode = document.deepCopy().also { root ->
         for (site in ResourceReferenceSites.scan(root)) {
-            if (site.kind != ReferenceSiteKind.STENCIL_INSERTION) continue
-            val requestedCatalog = site.catalogKey ?: containingCatalog
-            aliases[requestedCatalog to site.key]?.let { (targetCatalog, targetKey) ->
-                site.setCatalogKey(targetCatalog)
-                site.setKey(targetKey)
+            val requestedCatalog = site.catalogKey ?: containingCatalog.takeIf { site.kind.relativeWhenUnqualified } ?: continue
+            aliases[ResourceAddress(site.kind.type, requestedCatalog, site.key)]?.let { canonical ->
+                site.setCatalogKey(canonical.catalogKey)
+                site.setKey(canonical.key)
             }
         }
         // Stored references are absolute so relocation cannot change their meaning; exported ones
