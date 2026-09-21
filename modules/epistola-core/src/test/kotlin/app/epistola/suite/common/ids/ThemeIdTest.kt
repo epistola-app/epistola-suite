@@ -33,7 +33,7 @@ class ThemeIdTest {
             ],
         )
         fun `should accept valid slugs`(slug: String) {
-            if (slug.length in 3..20) {
+            if (slug.length in 3..50) {
                 assertDoesNotThrow { ThemeKey.of(slug) }
             }
         }
@@ -46,9 +46,9 @@ class ThemeIdTest {
 
         @Test
         fun `should accept maximum length slug`() {
-            val slug = "a" + "b".repeat(19) // 20 characters
+            val slug = "a" + "b".repeat(49) // 50 characters
             val id = ThemeKey.of(slug)
-            assertEquals(20, id.value.length)
+            assertEquals(50, id.value.length)
         }
 
         @Test
@@ -76,14 +76,14 @@ class ThemeIdTest {
         @Test
         fun `should reject slug shorter than 3 characters`() {
             val exception = assertThrows<IllegalArgumentException> { ThemeKey.of("ab") }
-            assertEquals("Theme ID must be 3-20 characters, got 2", exception.message)
+            assertEquals("Theme ID must be 3-50 characters, got 2", exception.message)
         }
 
         @Test
-        fun `should reject slug longer than 20 characters`() {
-            val slug = "a" + "b".repeat(20) // 21 characters
+        fun `should reject slug longer than 50 characters`() {
+            val slug = "a" + "b".repeat(50) // 51 characters
             val exception = assertThrows<IllegalArgumentException> { ThemeKey.of(slug) }
-            assertEquals("Theme ID must be 3-20 characters, got 21", exception.message)
+            assertEquals("Theme ID must be 3-50 characters, got 51", exception.message)
         }
 
         @Test
@@ -138,7 +138,7 @@ class ThemeIdTest {
             assertNull(ThemeKey.validateOrNull(""))
             assertNull(ThemeKey.validateOrNull("ab"))
             assertNull(ThemeKey.validateOrNull("ABC"))
-            assertNull(ThemeKey.validateOrNull("this-is-way-too-long-slug")) // 27 chars
+            assertNull(ThemeKey.validateOrNull("a" + "b".repeat(50))) // 51 chars
         }
     }
 

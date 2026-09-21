@@ -82,7 +82,7 @@ class ListRelocatableResourcesHandler(
                 FROM code_lists l JOIN authored c ON c.id = l.catalog_key
                 WHERE l.tenant_key = :tenantKey
                 UNION ALL
-                SELECT 'asset', a.catalog_key::text, a.id::text, a.name, c.name, c.released
+                SELECT 'image', a.catalog_key::text, a.id::text, a.name, c.name, c.released
                 FROM assets a JOIN authored c ON c.id = a.catalog_key
                 WHERE a.tenant_key = :tenantKey
                 UNION ALL

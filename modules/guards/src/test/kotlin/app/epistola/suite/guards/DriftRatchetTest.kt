@@ -66,7 +66,7 @@ class DriftRatchetTest {
                 "import app.epistola.suite.catalog.CatalogKey" in Files.readString(path)
             }
         },
-        Counter("Pagination.paginate( in rest-api", 13, "database LIMIT/OFFSET") {
+        Counter("Pagination.paginate( in rest-api", 12, "database LIMIT/OFFSET") {
             mainLines(Regex("""Pagination\.paginate\(""")) { it.startsWith("modules/rest-api/") }
         },
         Counter("handlers/*.kt declaring another package", 25, "directory matches package") {

@@ -49,7 +49,7 @@ class DependencyResolutionTest : IntegrationTestBase() {
                     "theme:test-theme",
                     "stencil:header-with-logo",
                     "attribute:language",
-                    "asset:01966a00-0000-7000-8000-000000000099",
+                    "image:01966a00-0000-7000-8000-000000000099",
                 )
             assertThat(results).allMatch { it.status != InstallStatus.FAILED }
         }
@@ -85,17 +85,17 @@ class DependencyResolutionTest : IntegrationTestBase() {
             ).execute()
 
             val types = results.map { it.type }
-            val assetIdx = types.indexOfFirst { it == "asset" }
+            val imageIdx = types.indexOfFirst { it == "image" }
             val attrIdx = types.indexOfFirst { it == "attribute" }
             val themeIdx = types.indexOfFirst { it == "theme" }
             val stencilIdx = types.indexOfFirst { it == "stencil" }
             val templateIdx = types.indexOfFirst { it == "template" }
 
             // All should be present
-            assertThat(listOf(assetIdx, attrIdx, themeIdx, stencilIdx, templateIdx)).allMatch { it >= 0 }
+            assertThat(listOf(imageIdx, attrIdx, themeIdx, stencilIdx, templateIdx)).allMatch { it >= 0 }
 
-            // Order: asset < attribute < theme < stencil < template
-            assertThat(assetIdx).isLessThan(attrIdx)
+            // Order: image < attribute < theme < stencil < template
+            assertThat(imageIdx).isLessThan(attrIdx)
             assertThat(attrIdx).isLessThan(themeIdx)
             assertThat(themeIdx).isLessThan(stencilIdx)
             assertThat(stencilIdx).isLessThan(templateIdx)
@@ -120,7 +120,7 @@ class DependencyResolutionTest : IntegrationTestBase() {
                 ).execute()
             }
                 .isInstanceOf(InvalidCatalogException::class.java)
-                .hasMessageContaining("asset:00000000-0000-0000-0000-missing00001")
+                .hasMessageContaining("image:00000000-0000-0000-0000-missing00001")
                 .hasMessageContaining("stencil:nonexistent-stencil")
                 .hasMessageContaining("theme:nonexistent-theme")
                 .hasMessageContaining("attribute:nonexistent-attr")

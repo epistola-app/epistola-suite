@@ -5,11 +5,12 @@
 package app.epistola.suite.catalog
 
 import app.epistola.catalog.archive.CatalogArchive
-import app.epistola.catalog.protocol.AssetResource
 import app.epistola.catalog.protocol.CatalogInfo
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.DependencyRef
+import app.epistola.catalog.protocol.FontResource
+import app.epistola.catalog.protocol.ImageResource
 import app.epistola.catalog.protocol.PublisherInfo
 import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.catalog.protocol.ResourceDetail
@@ -42,8 +43,8 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         content.dependencies,
         content.resourceEntries,
         includeSerializedDetails = false,
-    ) { contentUrl ->
-        content.assetContents[contentUrl.removePrefix("./resources/asset/")]
+    ) { contentPath ->
+        content.assetContents[contentPath]
     }.use { PortableCatalogCanonicalizer.currentFingerprint(it).value }
 
     fun fingerprint(
@@ -64,8 +65,8 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         content.dependencies,
         content.resourceEntries,
         includeSerializedDetails = false,
-    ) { contentUrl ->
-        content.assetContents[contentUrl.removePrefix("./resources/asset/")]
+    ) { contentPath ->
+        content.assetContents[contentPath]
     }.use { PortableCatalogCanonicalizer.matchesFingerprint(it, expected) }
 
     fun requirePublishable(content: CatalogContent) {
@@ -74,8 +75,8 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
             content.resourceDetails.mapValues { (_, detail) -> objectMapper.writeValueAsBytes(detail) },
             content.dependencies,
             content.resourceEntries,
-        ) { contentUrl ->
-            content.assetContents[contentUrl.removePrefix("./resources/asset/")]
+        ) { contentPath ->
+            content.assetContents[contentPath]
         }.use { archive ->
             val report = CatalogValidator.validate(archive, CatalogValidationPolicy(verifyFingerprint = false))
             require(report.valid) {
@@ -142,10 +143,9 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
             emptyMap()
         }
         val assets = details.values
-            .mapNotNull { detail -> detail.resource.contentUrlOrNull() }
-            .associate { contentUrl ->
-                contentUrl.removePrefix("./") to assetBytes(contentUrl)
-            }
+            .flatMap { detail -> detail.resource.contentPaths() }
+            .distinct()
+            .associateWith { path -> assetBytes(path) }
             .filterValues { it != null }
             .mapValues { (_, bytes) -> requireNotNull(bytes) }
         val content = detailContent + assets
@@ -165,10 +165,17 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
     }
 
     /**
-     * Only assets carry content next to their detail. This used to serialise every resource,
-     * including the code lists, to a JSON tree just to look for the field.
+     * Every binary a resource carries: an image's own, and each of a font family's faces.
+     *
+     * Resolved through `contentPath()` rather than read from `contentUrl`, which a catalog written
+     * at wire v7 omits entirely -- the binary is filed where its hash says. Reading the field
+     * directly would find nothing and quietly fingerprint the catalog without its content.
      */
-    private fun CatalogResource.contentUrlOrNull(): String? = (this as? AssetResource)?.contentUrl
+    private fun CatalogResource.contentPaths(): List<String> = when (this) {
+        is ImageResource -> listOf(contentPath())
+        is FontResource -> variants.map { it.contentPath() }
+        else -> emptyList()
+    }
 
     companion object {
         private val PLACEHOLDER_CATALOG = CatalogInfo("fingerprints", "Fingerprints")

@@ -112,7 +112,7 @@ class FindResourceUsagesHandler(
             .bind("tenantKey", query.tenantKey)
             .bind("catalogKey", query.catalogKey)
             .map { rs, _ ->
-                "asset:${rs.getString("resource_slug")}" to ResourceUsage(
+                "image:${rs.getString("resource_slug")}" to ResourceUsage(
                     referencedByName = rs.getString("ref_name"),
                     referencedByCatalog = rs.getString("ref_catalog"),
                     referenceType = "template",

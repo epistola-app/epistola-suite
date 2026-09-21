@@ -116,7 +116,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 name = "Metadata Catalog Renamed",
                 description = "Portable discovery metadata",
                 attributes = listOf(AttributeAssignment(catalogKey.value, "audience", "municipalities")),
-                keywords = linkedSetOf("Letters", "Municipal"),
+                keywords = linkedSetOf("letters", "municipal"),
                 presentation = CatalogPresentation(imageSlug, listOf(imageSlug)),
                 license = CatalogLicense(
                     name = "Creative Commons Attribution 4.0",
@@ -141,7 +141,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             assertThat(imported.description).isEqualTo("Portable discovery metadata")
             assertThat(imported.catalogMetadata.attributes)
                 .containsExactly(AttributeAssignment(catalogKey.value, "audience", "municipalities"))
-            assertThat(imported.catalogMetadata.keywords).containsExactlyInAnyOrder("Letters", "Municipal")
+            assertThat(imported.catalogMetadata.keywords).containsExactlyInAnyOrder("letters", "municipal")
             assertThat(imported.catalogMetadata.presentation?.iconAssetSlug).isNotNull()
             assertThat(imported.catalogMetadata.presentation?.imageAssetSlugs)
                 .containsExactly(imported.catalogMetadata.presentation?.iconAssetSlug)
@@ -253,7 +253,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
 
             // Verify resources were imported
             val resourceTypes = importResult.results.map { it.type }.toSet()
-            assertThat(resourceTypes).contains("template", "theme", "attribute", "asset")
+            assertThat(resourceTypes).contains("template", "theme", "attribute", "image")
             assertThat(importResult.results).allSatisfy { result ->
                 assertThat(result.status).isNotEqualTo(InstallStatus.FAILED)
             }
@@ -684,8 +684,9 @@ class CatalogExportImportTest : IntegrationTestBase() {
         // Regression cover for #555: a template that embeds an image whose asset
         // lives in ANOTHER catalog must declare that asset as a cross-catalog
         // dependency in the exported manifest, so an importer knows to resolve it.
-        // (Asset slugs are UUIDs — globally unambiguous — so the dependency is
-        // recorded by slug alone, unlike stencils which also carry a catalogKey.)
+        // An image dependency names its catalog like every other kind. It did not while an
+        // image's slug was a generated UUID, unique across every catalog a tenant holds; a
+        // readable slug is not, so the catalog is what makes the reference mean one thing.
         val tenant = createTenant("CrossCatalogAssetExport")
         val tenantKey = tenant.id
         val tenantId = TenantId(tenantKey)
@@ -731,7 +732,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
 
         val deps = readManifestDependencies(zipBytes)
         assertThat(deps).anySatisfy { dep ->
-            assertThat(dep.get("type").asString()).isEqualTo("asset")
+            assertThat(dep.get("type").asString()).isEqualTo("image")
             assertThat(dep.get("slug").asString()).isEqualTo(assetId)
         }
     }

@@ -4,8 +4,8 @@
 
 package app.epistola.suite.catalog
 
-import app.epistola.catalog.protocol.AssetResource
 import app.epistola.catalog.protocol.CatalogInfo
+import app.epistola.catalog.protocol.ImageResource
 import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.catalog.protocol.ThemeResource
 import org.junit.jupiter.api.Test
@@ -42,7 +42,7 @@ class CatalogFingerprintEquivalenceTest {
             ),
             "asset/logo" to ResourceDetail(
                 schemaVersion = CATALOG_SCHEMA_VERSION,
-                resource = AssetResource(slug = "logo", name = "Logo", mediaType = "image/png", contentUrl = "./resources/asset/logo"),
+                resource = ImageResource(slug = "logo", name = "Logo", mediaType = "image/png", contentUrl = "./resources/asset/logo", contentHash = "0000000000000000000000000000000000000000000000000000000000000000"),
             ),
         )
         val assets = { contentUrl: String -> if (contentUrl.endsWith("logo")) "PNGBYTES".toByteArray() else null }

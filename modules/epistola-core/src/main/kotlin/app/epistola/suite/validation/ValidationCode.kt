@@ -42,6 +42,9 @@ enum class ValidationCode(val wire: String) {
     PARAMETER_NAME_INVALID("PARAMETER_NAME_INVALID"),
     PARAMETER_NAME_RESERVED("PARAMETER_NAME_RESERVED"),
     PARAMETER_TYPE_UNSUPPORTED("PARAMETER_TYPE_UNSUPPORTED"),
+
+    /** Uploading a non-image through the images API, which accepts images only. */
+    IMAGE_MEDIA_TYPE_UNSUPPORTED("IMAGE_MEDIA_TYPE_UNSUPPORTED"),
     PARAMETER_DEFAULT_TYPE_MISMATCH("PARAMETER_DEFAULT_TYPE_MISMATCH"),
 
     // Placeholders / stencil structure.

@@ -29,12 +29,14 @@ import app.epistola.suite.tenants.Tenant
 import tools.jackson.databind.ObjectMapper
 
 internal fun Tenant.toDto() = TenantDto(
+    slug = id.value,
     id = id.value,
     name = name,
     createdAt = createdAt,
 )
 
 internal fun VariantAttributeDefinition.toDto() = AttributeDto(
+    slug = id.value,
     key = id.value,
     tenantId = tenantKey.value,
     catalog = catalogKey.value,
@@ -54,6 +56,7 @@ internal fun VariantAttributeDefinition.toDto() = AttributeDto(
 )
 
 internal fun Environment.toDto() = EnvironmentDto(
+    slug = id.value,
     id = id.value,
     tenantId = tenantKey.value,
     name = name,
@@ -61,6 +64,7 @@ internal fun Environment.toDto() = EnvironmentDto(
 )
 
 internal fun DocumentTemplate.toSummaryDto() = TemplateSummaryDto(
+    slug = id.value,
     id = id.value,
     tenantId = tenantKey.value,
     name = name,
@@ -69,6 +73,7 @@ internal fun DocumentTemplate.toSummaryDto() = TemplateSummaryDto(
 )
 
 internal fun DocumentTemplate.toDto(objectMapper: ObjectMapper, variantSummaries: List<VariantSummary>, contractVersion: ContractVersion? = null) = TemplateDto(
+    slug = id.value,
     id = id.value,
     tenantId = tenantKey.value,
     name = name,
@@ -87,6 +92,7 @@ internal fun DocumentTemplate.toDto(objectMapper: ObjectMapper, variantSummaries
 )
 
 internal fun VariantSummary.toDto() = VariantSummaryDto(
+    slug = id.value,
     id = id.value,
     title = title,
     attributes = attributes,
@@ -96,6 +102,7 @@ internal fun VariantSummary.toDto() = VariantSummaryDto(
 )
 
 internal fun TemplateVariant.toDto(info: VariantVersionInfo) = VariantDto(
+    slug = id.value,
     id = id.value,
     templateId = templateKey.value,
     title = title,

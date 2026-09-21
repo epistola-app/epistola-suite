@@ -65,7 +65,7 @@ class GetAssetContentHandler(
                 ?: query.catalogKey?.let { requested ->
                     handle.resolveCatalogResourceAddress(
                         query.tenantId,
-                        ResourceAddress(CatalogResourceType.ASSET, requested.value, query.assetId.value),
+                        ResourceAddress(CatalogResourceType.IMAGE, requested.value, query.assetId.value),
                     )
                         ?.takeIf { it.resolvedViaAlias }
                         // Both halves of the canonical address, not just the catalog: relocation

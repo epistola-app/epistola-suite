@@ -1,14 +1,18 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "catalog": {
     "slug": "dep-test",
     "name": "Dependency Test Catalog"
   },
-  "publisher": { "name": "Test" },
-  "release": { "version": "1.0" },
+  "publisher": {
+    "name": "Test"
+  },
+  "release": {
+    "version": "1.0"
+  },
   "resources": [
     {
-      "type": "asset",
+      "type": "image",
       "slug": "01966a00-0000-7000-8000-000000000099",
       "name": "Test Logo",
       "detailUrl": "./resources/assets/test-logo.json"

@@ -113,7 +113,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
                 )
 
             // Verify resource type distribution
-            assertThat(results.map { it.type }).containsAll(listOf("template", "theme", "stencil", "attribute", "asset"))
+            assertThat(results.map { it.type }).containsAll(listOf("template", "theme", "stencil", "attribute", "image"))
         }
     }
 

@@ -135,7 +135,7 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
             rewriteJson(tmp.resolve("catalog.json")) { manifest ->
                 (manifest.get("catalog") as ObjectNode)
                     .put("name", "Publisher Renamed Catalog")
-                    .set("keywords", objectMapper.createArrayNode().add("NewKeyword"))
+                    .set("keywords", objectMapper.createArrayNode().add("new-keyword"))
             }
 
             val diff = PreviewCatalogUpgrade(tenant.id, depKey).query()
@@ -150,7 +150,7 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
             UpgradeCatalog(tenant.id, depKey).execute()
             val upgraded = GetCatalog(tenant.id, depKey).query()!!
             assertThat(upgraded.name).isEqualTo("Publisher Renamed Catalog")
-            assertThat(upgraded.catalogMetadata.keywords).containsExactly("NewKeyword")
+            assertThat(upgraded.catalogMetadata.keywords).containsExactly("new-keyword")
         }
     }
 

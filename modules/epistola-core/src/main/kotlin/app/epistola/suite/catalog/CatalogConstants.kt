@@ -35,7 +35,7 @@ const val CATALOG_BASELINE_SCHEMA_VERSION: Int = CatalogWireSchema.BASELINE_VERS
  * of an `assets` row (`font_variants.asset_resource_id`), which must exist by then.
  */
 val RESOURCE_INSTALL_ORDER: Map<String, Int> = mapOf(
-    "asset" to 0,
+    "image" to 0,
     "codeList" to 1,
     "font" to 2,
     "attribute" to 3,
