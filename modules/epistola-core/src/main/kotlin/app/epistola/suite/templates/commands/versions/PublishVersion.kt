@@ -199,8 +199,24 @@ class PublishVersionHandler(
             else -> null
         } ?: template?.themeKey ?: tenant?.defaultThemeKey
 
-        val snapshot = ResolvedThemeSnapshot.from(resolvedStyles, effectiveThemeKey)
-        return snapshot.copy(fontFingerprints = captureFontFingerprints(versionId, snapshot, template, tenant))
+        // Unqualified font refs resolve against the owning catalog: the template's theme catalog,
+        // then the tenant's default theme catalog, then the version's own. The binding behind the
+        // first two follows its theme when that theme moves, so a snapshot left relative would
+        // change meaning after publish. Freezing the catalog here keeps the version self-contained.
+        val owningCatalogKey: CatalogKey = template?.themeCatalogKey ?: tenant?.defaultThemeCatalogKey ?: versionId.catalogKey
+        val snapshot = ResolvedThemeSnapshot.from(resolvedStyles, effectiveThemeKey).withFontsQualified(owningCatalogKey)
+        return snapshot.copy(fontFingerprints = captureFontFingerprints(versionId, snapshot, owningCatalogKey))
+    }
+
+    private fun ResolvedThemeSnapshot.withFontsQualified(catalogKey: CatalogKey): ResolvedThemeSnapshot = copy(
+        documentStyles = documentStyles.withFontQualified(catalogKey),
+        blockStylePresets = blockStylePresets.mapValues { (_, preset) -> preset.withFontQualified(catalogKey) },
+    )
+
+    private fun Map<String, Any>.withFontQualified(catalogKey: CatalogKey): Map<String, Any> {
+        val font = this["fontFamily"] as? Map<*, *> ?: return this
+        if (font["catalogKey"] != null) return this
+        return this + ("fontFamily" to font + ("catalogKey" to catalogKey.value))
     }
 
     /**
@@ -208,17 +224,16 @@ class PublishVersionHandler(
      * snapshot references, so a later delete+re-upload of a face (different
      * bytes, same slug) is detected at render and fails loudly.
      *
-     * Owning catalog for an *unqualified* font ref mirrors the render-path
-     * cascade exactly (`DocumentGenerationExecutor` / `DocumentPreviewRenderer`):
-     * the template's theme catalog → the tenant's default theme catalog → the
-     * version's own catalog. Resilient: a blank slug or null fingerprint
-     * (family has no faces) is skipped — never fails the publish.
+     * The snapshot's font refs arrive qualified with [owningCatalogKey] (see
+     * [resolveThemeSnapshot]), so each pin is keyed by the catalog it was taken
+     * in; [owningCatalogKey] remains the fallback for a ref without one.
+     * Resilient: a blank slug or null fingerprint (family has no faces) is
+     * skipped — never fails the publish.
      */
     private fun captureFontFingerprints(
         versionId: VersionId,
         snapshot: ResolvedThemeSnapshot,
-        template: app.epistola.suite.templates.DocumentTemplate?,
-        tenant: app.epistola.suite.tenants.Tenant?,
+        owningCatalogKey: CatalogKey,
     ): Map<String, String> {
         @Suppress("UNCHECKED_CAST")
         val refs = DependencyScanner.themeFontRefs(
@@ -226,9 +241,6 @@ class PublishVersionHandler(
             blockStylePresets = snapshot.blockStylePresets as Map<String, Any?>,
         )
         if (refs.isEmpty()) return emptyMap()
-
-        val owningCatalogKey: CatalogKey =
-            template?.themeCatalogKey ?: tenant?.defaultThemeCatalogKey ?: versionId.catalogKey
 
         return buildMap {
             for (ref in refs) {

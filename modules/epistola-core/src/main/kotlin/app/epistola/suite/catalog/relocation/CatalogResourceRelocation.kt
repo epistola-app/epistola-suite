@@ -191,6 +191,20 @@ class MoveCatalogResourcesHandler(
                     .bindRewrite(command.tenantKey, rewrite)
                     .execute()
 
+                is JsonRewrite.TemplateVersionSnapshot -> handle.createUpdate(
+                    """
+                    UPDATE template_versions SET resolved_theme = :replacement::jsonb
+                    WHERE tenant_key = :tenantKey
+                      AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = :variantKey AND id = :version
+                      AND resolved_theme = :expected::jsonb
+                    """,
+                )
+                    .bind("templateKey", rewrite.ownerKey)
+                    .bind("variantKey", rewrite.variantKey)
+                    .bind("version", rewrite.version)
+                    .bindRewrite(command.tenantKey, rewrite)
+                    .execute()
+
                 is JsonRewrite.ThemeStyles -> handle.createUpdate(
                     """
                     UPDATE themes
@@ -565,6 +579,7 @@ class CatalogResourceMovePlanner(
         val movingStencils = relocations.filter { it.source.type == CatalogResourceType.STENCIL }.associateBy { it.source }
         val movingThemes = relocations.filter { it.source.type == CatalogResourceType.THEME }.associateBy { it.source }
         rewriteThemeStyles(handle, tenantKey, contentMoves, movingThemes, rewrites)
+        pinThemeSnapshots(handle, tenantKey, movingThemes.values.filter { it.source.catalogKey != it.target.catalogKey }, rewrites)
         if (contentMoves.isEmpty() && movingTemplates.isEmpty() && movingStencils.isEmpty()) return
 
         // Only a batch that moves a referenced type has to look at every holder in the tenant; one
@@ -651,6 +666,85 @@ class CatalogResourceMovePlanner(
             .list()
             .filterNotNull()
             .let(rewrites::addAll)
+    }
+
+    /**
+     * A published version freezes its theme into `resolved_theme`. A font the theme named without a
+     * catalog was frozen that way before publishes qualified it, and is resolved at render against
+     * the catalog of the template's bound theme -- or, unbound, the tenant's default theme -- which
+     * follows that theme when it moves. So when a theme changes catalog, the frozen relative fonts of
+     * the versions resolving through it are pinned to the catalog they resolve against today, and
+     * their integrity pins rekeyed to match: bytes change, meaning does not. The same exception the
+     * moving resource's own versions get, extended to the snapshots that are copies of this theme.
+     */
+    private fun pinThemeSnapshots(
+        handle: Handle,
+        tenantKey: TenantKey,
+        movingThemes: List<ResourceRelocation>,
+        rewrites: MutableList<JsonRewrite>,
+    ) {
+        for (theme in movingThemes) {
+            handle.createQuery(
+                """
+                SELECT template.catalog_key::text, template.id::text owner_key, versions.variant_key::text,
+                       versions.id, versions.resolved_theme::text json
+                FROM template_versions versions
+                ${templateJoin("versions")}
+                JOIN tenants tenant ON tenant.id = template.tenant_key
+                LEFT JOIN themes bound
+                  ON bound.tenant_key = template.tenant_key AND bound.resource_id = template.theme_resource_id
+                LEFT JOIN themes fallback
+                  ON fallback.tenant_key = tenant.id AND fallback.resource_id = tenant.default_theme_resource_id
+                WHERE versions.tenant_key = :tenantKey AND versions.resolved_theme IS NOT NULL
+                  AND COALESCE(bound.catalog_key, fallback.catalog_key) = :themeCatalog
+                  AND COALESCE(bound.id, fallback.id) = :themeKey
+                ORDER BY template.catalog_key, template.id, versions.variant_key, versions.id
+                """,
+            )
+                .bind("tenantKey", tenantKey)
+                .bind("themeCatalog", theme.source.catalogKey)
+                .bind("themeKey", theme.source.key)
+                .map { rs, _ ->
+                    val raw = rs.getString("json")
+                    val pinned = pinSnapshotFonts(objectMapper.readTree(raw) as ObjectNode, theme.source.catalogKey)
+                        ?: return@map null
+                    JsonRewrite.TemplateVersionSnapshot(
+                        rs.getString("catalog_key"),
+                        rs.getString("owner_key"),
+                        rs.getString("variant_key"),
+                        rs.getInt("id"),
+                        raw,
+                        pinned.toString(),
+                        theme.source,
+                    )
+                }
+                .list()
+                .filterNotNull()
+                .let(rewrites::addAll)
+        }
+    }
+
+    /** The snapshot with its relative fonts pinned to [catalogKey], or null when it has none. */
+    private fun pinSnapshotFonts(snapshot: ObjectNode, catalogKey: String): ObjectNode? {
+        val pinned = snapshot.deepCopy()
+        var changed = false
+        fun pin(styles: JsonNode?) {
+            val font = styles?.get("fontFamily") as? ObjectNode ?: return
+            if (font.hasNonNull("catalogKey") || !font.hasNonNull("slug")) return
+            font.put("catalogKey", catalogKey)
+            changed = true
+        }
+        pin(pinned.get("documentStyles"))
+        pinned.get("blockStylePresets")?.properties()?.forEach { (_, preset) -> pin(preset) }
+        (pinned.get("fontFingerprints") as? ObjectNode)?.let { fingerprints ->
+            for ((key, value) in fingerprints.properties().toList()) {
+                if (!key.startsWith("/")) continue
+                fingerprints.remove(key)
+                fingerprints.set("$catalogKey$key", value)
+                changed = true
+            }
+        }
+        return pinned.takeIf { changed }
     }
 
     /** The rewritten payload for one version, or null when it needs no change. */
@@ -923,6 +1017,19 @@ internal sealed interface JsonRewrite {
         override val attributedTo: ResourceAddress?,
     ) : JsonRewrite {
         override val identity get() = "stencil:$catalogKey:$ownerKey:$version"
+    }
+
+    /** A published version's frozen theme snapshot, pinned when the theme it resolves through moves. */
+    data class TemplateVersionSnapshot(
+        override val catalogKey: String,
+        override val ownerKey: String,
+        val variantKey: String,
+        override val version: Int,
+        override val expected: String,
+        override val replacement: String,
+        override val attributedTo: ResourceAddress?,
+    ) : JsonRewrite {
+        override val identity get() = "template-snapshot:$catalogKey:$ownerKey:$variantKey:$version"
     }
 
     /**
