@@ -98,6 +98,8 @@ export class EpistolaDataContractEditor extends LitElement {
   @state() private _visualSchema: VisualSchema = { fields: [] };
   private _committedVisualSchema: VisualSchema = { fields: [] };
   private _commandHistory = new SchemaCommandHistory();
+  /** Whether this template has ever had a published data contract (false while authoring the first one). */
+  private _hasPublishedContract = false;
 
   // ---------------------------------------------------------------------------
   // UI state (reactive via @state())
@@ -193,6 +195,7 @@ export class EpistolaDataContractEditor extends LitElement {
     this._visualSchema = jsonSchemaToVisualSchema(initialSchema);
     this._committedVisualSchema = structuredClone(this._visualSchema);
     this._commandHistory.clear();
+    this._hasPublishedContract = initialSchema !== null;
 
     // Pre-select first field if available
     if (this._visualSchema.fields.length > 0) {
@@ -669,10 +672,10 @@ export class EpistolaDataContractEditor extends LitElement {
 
   /** Recompute live breaking changes by diffing committed vs current visual schema. */
   private _updateBreakingChanges(): void {
-    this._breakingChanges = detectBreakingChanges(
-      this._committedVisualSchema.fields,
-      this._visualSchema.fields,
-    );
+    // A contract that has never been published has no prior contract to break.
+    this._breakingChanges = this._hasPublishedContract
+      ? detectBreakingChanges(this._committedVisualSchema.fields, this._visualSchema.fields)
+      : [];
   }
 
   /**
@@ -885,6 +888,7 @@ export class EpistolaDataContractEditor extends LitElement {
         }
         this._commandHistory.clear();
         this._committedVisualSchema = structuredClone(this._visualSchema);
+        this._hasPublishedContract = true;
         // The new committed baseline has no diff against itself — recompute so a
         // stale breaking-changes list doesn't re-trigger the confirmation dialog
         // on the next save (e.g. an examples-only save right after this one).
