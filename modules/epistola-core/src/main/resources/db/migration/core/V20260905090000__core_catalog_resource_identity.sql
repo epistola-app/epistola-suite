@@ -3,18 +3,35 @@
 -- that retains its historical addresses. A backup taken before this carries neither, and one taken
 -- after cannot be read by a suite that has no registry.
 
--- PostgreSQL 18 is the floor from this migration onward: identities are minted with uuidv7(),
--- which 17 does not have. Checked up front so an operator on an older server is told what is wrong
--- before any DDL runs, rather than meeting `function uuidv7() does not exist` partway through a
--- transaction that has already taken ACCESS EXCLUSIVE on seven tables.
-DO $$
-BEGIN
-    IF current_setting('server_version_num')::int < 180000 THEN
-        RAISE EXCEPTION
-            'Epistola requires PostgreSQL 18 or later from this release; this server is %',
-            current_setting('server_version');
-    END IF;
-END $$;
+-- Mints the time-ordered identities below: an RFC 9562 UUIDv7 in the layout PostgreSQL 18's own
+-- uuidv7() uses -- 48 bits of Unix milliseconds, the version, 12 bits of sub-millisecond fraction,
+-- the variant, and 62 random bits. Time-ordered rather than random, so a new identity lands at the
+-- right-hand edge of every index keyed on it instead of anywhere in it.
+--
+-- Not the builtin, because PostgreSQL 17 has none, and not the builtin where it exists either: one
+-- implementation on every supported server means the tests exercise exactly what every
+-- installation runs. The builtin additionally guarantees strict ordering within one backend;
+-- nothing relies on that, only on identities sorting by when they were minted.
+--
+-- clock_timestamp() rather than now(): now() is fixed for the whole transaction, so every identity
+-- one backfill or import mints would share a millisecond. The sub-millisecond bits are what keep
+-- two identities minted within the same millisecond in order, rather than ordered by chance.
+CREATE FUNCTION epistola_uuidv7() RETURNS uuid
+    LANGUAGE sql
+    VOLATILE
+    PARALLEL SAFE
+    SET search_path = pg_catalog
+AS $$
+    SELECT encode(
+               substring(int8send(us / 1000) FROM 3)                                  -- 48-bit Unix ms
+            || substring(int4send((28672 | ((us % 1000) * 4096 / 1000))::int) FROM 3) -- 0x7 + 12-bit sub-ms
+            || substring(uuid_send(gen_random_uuid()) FROM 9),                          -- variant + random
+           'hex')::uuid
+    FROM (SELECT floor(extract(epoch FROM clock_timestamp()) * 1000000)::bigint AS us) now_us
+$$;
+
+COMMENT ON FUNCTION epistola_uuidv7() IS
+    'Time-ordered RFC 9562 UUIDv7 with sub-millisecond ordering, on every supported PostgreSQL version.';
 
 -- The resource types that can be relocated.
 --
@@ -80,7 +97,7 @@ COMMENT ON COLUMN catalog_resources.resource_id IS
 COMMENT ON COLUMN catalog_resources.resource_type IS
     'Catalog wire resource type; forms the typed public address with catalog_key and resource_key.';
 
--- Added nullable and backfilled rather than declared with a default. uuidv7() is volatile, and
+-- Added nullable and backfilled rather than declared with a default. The identity is volatile, and
 -- adding a column with a volatile default rewrites the whole table under ACCESS EXCLUSIVE -- seven
 -- times over, on the tables an upgrading installation can least afford to have locked. Nor does the
 -- column keep a default afterwards: the sync trigger below assigns it, which is what lets a caller
@@ -94,13 +111,13 @@ ALTER TABLE themes ADD COLUMN resource_id UUID;
 ALTER TABLE stencils ADD COLUMN resource_id UUID;
 ALTER TABLE document_templates ADD COLUMN resource_id UUID;
 
-UPDATE assets SET resource_id = uuidv7();
-UPDATE code_lists SET resource_id = uuidv7();
-UPDATE fonts SET resource_id = uuidv7();
-UPDATE variant_attribute_definitions SET resource_id = uuidv7();
-UPDATE themes SET resource_id = uuidv7();
-UPDATE stencils SET resource_id = uuidv7();
-UPDATE document_templates SET resource_id = uuidv7();
+UPDATE assets SET resource_id = epistola_uuidv7();
+UPDATE code_lists SET resource_id = epistola_uuidv7();
+UPDATE fonts SET resource_id = epistola_uuidv7();
+UPDATE variant_attribute_definitions SET resource_id = epistola_uuidv7();
+UPDATE themes SET resource_id = epistola_uuidv7();
+UPDATE stencils SET resource_id = epistola_uuidv7();
+UPDATE document_templates SET resource_id = epistola_uuidv7();
 
 INSERT INTO catalog_resources (tenant_key, resource_id, resource_type, catalog_key, resource_key)
 SELECT tenant_key, resource_id, 'asset', catalog_key, id::text FROM assets
@@ -195,7 +212,7 @@ BEGIN
             -- Nothing supplied. Domain imports use INSERT .. ON CONFLICT DO UPDATE, and PostgreSQL
             -- runs this BEFORE INSERT trigger for that path too, so adopt the identity already
             -- registered at this address rather than minting a second one for the same resource.
-            NEW.resource_id := COALESCE(existing_resource_id, uuidv7());
+            NEW.resource_id := COALESCE(existing_resource_id, epistola_uuidv7());
         ELSIF existing_resource_id IS NOT NULL AND existing_resource_id <> NEW.resource_id THEN
             -- A caller that names an identity means it -- a restore carrying the identities its
             -- snapshot recorded, so that generation history and aliases still resolve. Silently

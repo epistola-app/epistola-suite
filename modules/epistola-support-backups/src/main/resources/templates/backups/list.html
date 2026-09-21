@@ -50,8 +50,8 @@
                     <td th:text="${backup.rowCount}">148</td>
                     <td th:text="${backup.size}">1.2 MB</td>
                     <td>
-                        <span th:if="${backup.isLatest}" class="ep-badge ep-badge-success">Latest</span>
-                        <span th:if="${backup.versionNote != null}" class="ep-badge ep-badge-warning" th:text="${backup.versionNote}">Older version</span>
+                        <span th:if="${backup.isLatest}" class="badge badge-success">Latest</span>
+                        <span th:if="${backup.versionNote != null}" class="badge badge-warning" th:text="${backup.versionNote}">Older version</span>
                     </td>
                     <td style="text-align: right;">
                         <button th:if="${backup.restorable}"

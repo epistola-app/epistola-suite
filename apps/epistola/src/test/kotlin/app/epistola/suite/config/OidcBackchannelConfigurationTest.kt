@@ -5,6 +5,7 @@
 package app.epistola.suite.config
 
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.entry
 import org.junit.jupiter.api.Test
 
 class OidcBackchannelConfigurationTest {
@@ -119,5 +120,21 @@ class OidcBackchannelConfigurationTest {
     fun `wellKnownUrl tolerates an authentik issuer with a trailing slash`() {
         val url = OidcBackchannelConfiguration.wellKnownUrl("https://sso.example.com/application/o/epistola/")
         assertThat(url).isEqualTo("https://sso.example.com/application/o/epistola/.well-known/openid-configuration")
+    }
+
+    @Test
+    fun `endSessionMetadata points the discovered logout endpoint at the external host`() {
+        val metadata = OidcBackchannelConfiguration.endSessionMetadata(
+            "http://keycloak:8080/realms/prod/protocol/openid-connect/logout",
+            "https://auth.example.com",
+        )
+        assertThat(metadata).containsExactly(
+            entry("end_session_endpoint", "https://auth.example.com/realms/prod/protocol/openid-connect/logout"),
+        )
+    }
+
+    @Test
+    fun `endSessionMetadata is empty when the provider advertises no logout endpoint`() {
+        assertThat(OidcBackchannelConfiguration.endSessionMetadata(null, "https://auth.example.com")).isEmpty()
     }
 }

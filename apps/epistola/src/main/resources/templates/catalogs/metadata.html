@@ -45,12 +45,33 @@
             </div>
 
             <div th:if="${section == 'keywords'}" class="form-group">
+                <!--/* Same order as the badges on the page behind this dialog, so opening it never
+                       reshuffles them. maxlength is the whole field's worst case - the per-keyword
+                       and count limits are enforced on the server, which reports them per field. */-->
                 <textarea id="catalog-keywords" class="ep-input" name="keywords" rows="4" aria-label="Keywords"
-                          th:text="${#strings.listJoin(catalog.catalogMetadata.keywords, '&#10;')}"></textarea>
-                <span class="form-hint">One keyword per line. Case is preserved.</span>
+                          th:attr="maxlength=${maxKeywords * (maxKeywordLength + 1)}"
+                          th:text="${#strings.listJoin(keywords, '&#10;')}"></textarea>
+                <span class="form-hint"
+                      th:text="'One keyword per line, at most ' + ${maxKeywords} + ' of ' + ${maxKeywordLength} + ' characters. Case is preserved.'">
+                    One keyword per line. Case is preserved.
+                </span>
             </div>
 
             <div th:if="${section == 'presentation'}">
+                <!--
+                  The card withholds the button that opens this section when there are no images,
+                  but the dialog is reachable by URL too, so it states the same thing itself rather
+                  than rendering pickers with only their placeholder option
+                  (.agents/rules/ui-affordances.md).
+                -->
+                <p th:if="${images.isEmpty()}" class="text-muted">
+                    This catalog has no images yet. Add one under
+                    <a th:href="@{/tenants/{tenantId}/images(tenantId=${tenantId})}">Images</a>,
+                    then choose an icon or build a gallery here.
+                </p>
+            </div>
+
+            <div th:if="${section == 'presentation' && !images.isEmpty()}">
                 <label class="ep-label" for="catalog-icon">Icon</label>
                 <select id="catalog-icon" class="ep-input" name="iconAssetSlug">
                     <option value="">No icon</option>
@@ -60,8 +81,8 @@
 
                 <div style="margin-top: var(--ep-space-3);">
                     <span class="ep-label">Ordered gallery</span>
-                    <div data-catalog-gallery class="ep-stack ep-gap-2" style="margin-top: var(--ep-space-1);">
-                        <div th:each="slug : ${gallerySlugs}" class="ep-row ep-gap-2" data-catalog-gallery-row>
+                    <div data-catalog-gallery class="ep-stack" style="margin-top: var(--ep-space-1);">
+                        <div th:each="slug : ${gallerySlugs}" class="ep-row" data-catalog-gallery-row>
                             <select class="ep-input" name="imageAssetSlugs">
                                 <option value="">Select an image</option>
                                 <option th:each="image : ${images}" th:value="${image.id}" th:text="${image.name}"
@@ -77,7 +98,7 @@
                 </div>
             </div>
 
-            <div th:if="${section == 'license'}" class="ep-stack ep-gap-2">
+            <div th:if="${section == 'license'}" class="ep-stack">
                 <label class="ep-label" for="catalog-license-name">Name</label>
                 <input id="catalog-license-name" class="ep-input" name="licenseName"
                        th:value="${catalog.catalogMetadata.license?.name}" />
@@ -93,14 +114,31 @@
                           th:text="${catalog.catalogMetadata.license?.copyrightText}"></textarea>
             </div>
 
-            <div th:if="${section == 'publication' && publication != null}" class="ep-stack ep-gap-2">
+            <div th:if="${section == 'publication' && publication != null}" class="ep-stack">
                 <label class="ep-label" for="catalog-publication-policy">Release policy</label>
                 <select id="catalog-publication-policy" class="ep-input" name="publicationPolicy">
                     <option th:each="option : ${publication.policyOptions}"
                             th:value="${option.name()}" th:selected="${option == publication.policy}"
                             th:text="${option.label}">Inherit tenant default</option>
                 </select>
-                <th:block th:if="${publication.canPublish}">
+                <!--
+                  The policy is worth setting ahead of a destination, so this dialog stays open in
+                  every state. The namespace picker is not: with nothing granted it offers only
+                  "Not chosen yet". Say what is missing and where it is fixed instead
+                  (.agents/rules/ui-affordances.md).
+                -->
+                <th:block th:if="${publication.canPublish && publication.availableNamespaces.isEmpty()}">
+                    <label class="ep-label">Exchange namespace</label>
+                    <p class="text-muted" th:if="${!publication.connected}">
+                        This tenant is not connected to Epistola Exchange, so there is no namespace to
+                        choose yet. Connect it under Settings &rarr; Exchange.
+                    </p>
+                    <p class="text-muted" th:if="${publication.connected}">
+                        This tenant's Exchange organization has not granted it a namespace yet. Once it
+                        grants one, it can be chosen here.
+                    </p>
+                </th:block>
+                <th:block th:if="${publication.canPublish && !publication.availableNamespaces.isEmpty()}">
                     <label class="ep-label" for="catalog-exchange-namespace">Exchange namespace</label>
                     <select id="catalog-exchange-namespace" class="ep-select" name="chosenNamespace">
                         <option value="" th:if="${publication.suggestedNamespace == null}">Not chosen yet</option>

@@ -30,7 +30,13 @@
      reusing the design-system .alert severity colours. */
 
   .site-banner {
+    /* A one-line strip (message + dismiss), so it keeps the flex row `.alert` no
+       longer provides; the severity icon goes back in flow and the column
+       reserved for it is cancelled. */
+    display: flex;
     align-items: center;
+    gap: var(--ep-space-3);
+    padding-left: var(--ep-alert-inline-pad);
     border-radius: 0;
     border-left-width: 0;
     border-right-width: 0;
@@ -38,8 +44,15 @@
     flex-shrink: 0;
   }
 
-  /* JS dismissal sets the `hidden` attribute; .alert's display:flex would
-     otherwise defeat it (same gotcha as .form-global-error). */
+  .site-banner::before {
+    position: static;
+    flex: 0 0 auto;
+    margin-top: 0.125rem;
+  }
+
+  /* JS dismissal sets the `hidden` attribute; the banner sets its own `display`,
+     which would otherwise defeat it (same gotcha as .form-global-error; base.css
+     also carries the general guard). */
   .site-banner[hidden] {
     display: none;
   }

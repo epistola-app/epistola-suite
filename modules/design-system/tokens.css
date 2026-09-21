@@ -228,6 +228,13 @@
   --ep-z-modal: 50;
   --ep-z-tooltip: 60;
 
+  /* ── Sticky chrome ──────────────────────────────────────────────────
+     How much of the viewport top is covered by sticky chrome. Used as
+     scroll-padding-top so an anchor or a scrollIntoView lands below it
+     instead of underneath it. .app-nav is 48px; a page that stacks a second
+     sticky bar under it raises this for its own subtree. */
+  --ep-sticky-offset: 48px;
+
   /* ── Sidebar width (editor-specific, kept here for central reference) ── */
   --ep-sidebar-width: 18rem;
 

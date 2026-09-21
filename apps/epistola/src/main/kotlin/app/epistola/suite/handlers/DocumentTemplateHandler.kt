@@ -270,11 +270,16 @@ class DocumentTemplateHandler(
         // dialog's authored-only <select>.
         val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
         val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
+        // The catalog the list is filtered to, carried by every trigger. Without it the dialog
+        // opens on whichever catalog happens to sort first, which is rarely the one being looked
+        // at — so the choice on screen is silently dropped on the way into the form.
+        val selectedCatalog = request.param("catalog").orElse(null).orEmpty()
         return request.htmx {
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("templates/new", "dialog") {
                 "tenantId" to tenantId.key
                 "authoredCatalogs" to authoredCatalogs
+                "selectedCatalog" to selectedCatalog
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.

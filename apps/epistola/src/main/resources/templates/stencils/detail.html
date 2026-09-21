@@ -235,7 +235,7 @@
                     </table>
 
                     <!-- Pagination (page size 100, matching the per-run upgrade cap) -->
-                    <div th:if="${usagePage.totalPages > 1}" class="ep-row ep-gap-2" style="margin-top: var(--ep-space-3); align-items: center;">
+                    <div th:if="${usagePage.totalPages > 1}" class="ep-row" style="margin-top: var(--ep-space-3); align-items: center;">
                         <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                                 th:hx-get="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},filter=${usagePage.filter},page=${usagePage.page - 1})}"
                                 hx-target="#usage-list" hx-swap="innerHTML"

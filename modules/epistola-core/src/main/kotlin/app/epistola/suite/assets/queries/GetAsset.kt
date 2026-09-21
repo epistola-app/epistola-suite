@@ -52,7 +52,7 @@ class GetAssetHandler(
             .bind("tenantId", query.tenantId)
             .map { rs, _ ->
                 Asset(
-                    id = AssetKey(rs.getObject("id", UUID::class.java)),
+                    id = AssetKey(rs.getString("id")),
                     tenantKey = TenantKey(rs.getString("tenant_key")),
                     catalogKey = CatalogKey.of(rs.getString("catalog_key")),
                     name = rs.getString("name"),

@@ -40,6 +40,35 @@ In authentik, **Applications → Providers → Create → OAuth2/OpenID Provider
 
 Then create an **Application** bound to this provider and grant the relevant users/groups access.
 
+### Logout
+
+Epistola signs users in silently when they already have an authentik session (see
+[auth.md](auth.md#silent-sign-in)), so logging out of Epistola must also end the authentik session.
+Otherwise the next page view signs the user straight back in. Two provider settings are needed:
+
+- **Invalidation flow with a User Logout stage.** authentik's bundled
+  `default-provider-invalidation-flow` ("Logged out of application") has no stages, so it leaves
+  the authentik session alive. Either select `default-invalidation-flow` as the provider's
+  invalidation flow, or bind the `default-invalidation-logout` stage into the provider invalidation
+  flow:
+
+  ```yaml
+  - model: authentik_flows.flowstagebinding
+    identifiers:
+      target: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      stage:
+        !Find [authentik_stages_user_logout.userlogoutstage, [name, default-invalidation-logout]]
+    attrs:
+      order: 10
+  ```
+
+- **A Logout redirect URI** for `https://<your-epistola-host>/login?logout`, with type _Logout_. An
+  _Authorization_ redirect URI does not count: without a Logout-typed entry, authentik either
+  rejects the logout request or leaves the user on its own "logged out" page.
+
+In a blueprint, also set `grant_types: [authorization_code, refresh_token]` on the provider. With an
+empty list authentik rejects every login with `invalid_request`.
+
 ## 2. Note the issuer
 
 authentik's issuer looks like `https://<authentik-host>/application/o/<application-slug>/`

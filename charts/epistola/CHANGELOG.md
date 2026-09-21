@@ -4,6 +4,12 @@
 
 ### Added
 
+- **`oidc.silentLogin` — sign in without a click when the SSO session is live.** Renders
+  `EPISTOLA_AUTH_OIDC_SILENTLOGIN` (default `true`): the login page first tries a silent OIDC
+  sign-in (`prompt=none`), so a user already signed in at the identity provider goes straight to
+  the application, and one who is not sees the normal login page. Set it to `false` for a provider
+  that mishandles `prompt=none`.
+
 - **`exchange.*` — opt-in catalog publication configuration.** The chart exposes the hard
   deployment gate (off by default), the stable epistola.app discovery URL, and an optional
   browser-reachable OAuth callback URL to application pods; tenant-level feature and publication

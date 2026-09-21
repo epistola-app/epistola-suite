@@ -99,7 +99,7 @@ class DeleteFontHandler(
                 .bind("tenantKey", tenantKey)
                 .bind("catalogKey", catalogKey)
                 .bind("slug", slug)
-                .map { rs, _ -> AssetKey.of(rs.getObject("asset_key", java.util.UUID::class.java)) }
+                .map { rs, _ -> AssetKey.of(rs.getString("asset_key")) }
                 .list()
         }
 

@@ -175,7 +175,7 @@ data class FontId(
 class AssetId(
     key: AssetKey,
     val catalogId: CatalogId,
-) : EntityId<AssetKey, UUID, CatalogId>(key, catalogId) {
+) : EntityId<AssetKey, String, CatalogId>(key, catalogId) {
     override val type = "asset"
     val tenantId get() = catalogId.tenantId
     val tenantKey get() = catalogId.tenantKey
