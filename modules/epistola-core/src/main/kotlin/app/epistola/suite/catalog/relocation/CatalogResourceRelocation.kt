@@ -322,6 +322,13 @@ class CatalogResourceMovePlanner(
                     source,
                 )
             }
+            // The executor writes the key straight into the resource row, so a key the type could
+            // never have been created with would otherwise fail there, after the plan was approved.
+            if (source.key != target.key) {
+                MovableResource.of(source.type)?.keyProblem?.invoke(target.key)?.let { problem ->
+                    blockers += blocker("invalid-target-key", "'${target.key}' cannot be used: $problem", source)
+                }
+            }
             if (catalogTypes[source.catalogKey] != "AUTHORED") {
                 blockers += blocker("source-read-only", "${source.catalogKey} must be authored and editable", source)
             }

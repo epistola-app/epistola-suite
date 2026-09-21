@@ -1,0 +1,227 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package app.epistola.suite.catalog.relocation
+
+import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.assets.commands.UploadAsset
+import app.epistola.suite.attributes.codelists.commands.CreateCodeList
+import app.epistola.suite.attributes.codelists.model.CodeListEntry
+import app.epistola.suite.attributes.codelists.model.CodeListSource
+import app.epistola.suite.attributes.commands.CreateAttributeDefinition
+import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.graph.CatalogResourceType
+import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.identity.ResolveCatalogResourceAddress
+import app.epistola.suite.catalog.identity.ResolvedCatalogResourceAddress
+import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.AttributeId
+import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CodeListId
+import app.epistola.suite.common.ids.CodeListKey
+import app.epistola.suite.common.ids.StencilId
+import app.epistola.suite.common.ids.StencilKey
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.fonts.commands.ImportFont
+import app.epistola.suite.fonts.commands.ImportFontVariant
+import app.epistola.suite.fonts.model.FontKind
+import app.epistola.suite.fonts.model.FontVariantSource
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
+import app.epistola.suite.stencils.commands.CreateStencil
+import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.model.Node
+import app.epistola.suite.templates.model.Slot
+import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.templates.model.ThemeRef
+import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.template.model.ThemeRefOverride
+import org.assertj.core.api.Assertions.assertThat
+import org.jdbi.v3.core.Jdbi
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.core.io.ResourceLoader
+import tools.jackson.databind.ObjectMapper
+
+/**
+ * What the relocation tests share: a tenant with a few authored catalogs, a way to create a
+ * resource of any movable type at a chosen address, and the preview/move round trip.
+ *
+ * Every piece of state is created through production commands, as the ADR requires of relocation
+ * tests; the SQL here only reads.
+ */
+abstract class RelocationTestSupport : IntegrationTestBase() {
+    @Autowired
+    protected lateinit var jdbi: Jdbi
+
+    @Autowired
+    protected lateinit var objectMapper: ObjectMapper
+
+    @Autowired
+    private lateinit var resourceLoader: ResourceLoader
+
+    protected val letters: CatalogKey = CatalogKey.of("letters")
+    protected val shared: CatalogKey = CatalogKey.of("shared")
+    protected val archive: CatalogKey = CatalogKey.of("archive")
+
+    /** A fresh tenant that has [catalogs] as authored catalogs besides `default`. */
+    protected fun tenantWith(name: String, catalogs: List<CatalogKey> = listOf(letters, shared)): TenantKey {
+        val tenant = createTenant(name).id
+        withMediator { catalogs.forEach { CreateCatalog(tenant, it, it.value.replaceFirstChar(Char::uppercase)).execute() } }
+        return tenant
+    }
+
+    protected fun catalogId(tenant: TenantKey, catalog: CatalogKey) = CatalogId(catalog, TenantId(tenant))
+
+    protected fun preview(tenant: TenantKey, vararg relocations: ResourceRelocation): CatalogResourceMovePreview = preview(tenant, relocations.toList())
+
+    protected fun preview(tenant: TenantKey, relocations: List<ResourceRelocation>): CatalogResourceMovePreview = withMediator { PreviewCatalogResourceMove(tenant, relocations).query() }
+
+    /** Previews [relocations], requires the plan to be executable, and applies it. */
+    protected fun move(tenant: TenantKey, vararg relocations: ResourceRelocation): CatalogResourceMovePreview = move(tenant, relocations.toList())
+
+    protected fun move(tenant: TenantKey, relocations: List<ResourceRelocation>): CatalogResourceMovePreview {
+        val plan = preview(tenant, relocations)
+        assertThat(plan.blockers).describedAs("blockers for %s", relocations.map { it.source.id }).isEmpty()
+        return withMediator { MoveCatalogResources(tenant, relocations, plan.planFingerprint).execute() }
+    }
+
+    protected fun resolve(tenant: TenantKey, address: ResourceAddress): ResolvedCatalogResourceAddress? = withMediator { ResolveCatalogResourceAddress(tenant, address).query() }
+
+    /** Every alias row in the tenant, as `old address id -> address id of the resource it names`. */
+    protected fun aliases(tenant: TenantKey): Map<String, String> = jdbi.withHandle<Map<String, String>, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT aliases.resource_type, aliases.catalog_key::text alias_catalog, aliases.resource_key alias_key,
+                   resources.catalog_key::text target_catalog, resources.resource_key target_key
+            FROM catalog_resource_aliases aliases
+            JOIN catalog_resources resources
+              ON resources.tenant_key = aliases.tenant_key AND resources.resource_id = aliases.target_resource_id
+            WHERE aliases.tenant_key = :tenantKey
+            ORDER BY aliases.resource_type, aliases.catalog_key, aliases.resource_key
+            """,
+        )
+            .bind("tenantKey", tenant)
+            .map { rs, _ ->
+                val type = rs.getString("resource_type")
+                "$type:${rs.getString("alias_catalog")}/${rs.getString("alias_key")}" to
+                    "$type:${rs.getString("target_catalog")}/${rs.getString("target_key")}"
+            }
+            .list()
+            .toMap()
+    }
+
+    /**
+     * Creates a resource of [movable]'s type at [catalog]/[key] and returns its address. An image's
+     * key is the one given, uploaded with an explicit id, so every type can be placed exactly.
+     */
+    protected fun create(tenant: TenantKey, movable: MovableResource, catalog: CatalogKey, key: String): ResourceAddress = withMediator {
+        val catalogId = catalogId(tenant, catalog)
+        when (movable) {
+            MovableResource.STENCIL -> CreateStencil(StencilId(StencilKey.of(key), catalogId), "Stencil $key").execute()
+            MovableResource.ATTRIBUTE -> CreateAttributeDefinition(AttributeId(AttributeKey.of(key), catalogId), "Attribute $key").execute()
+            MovableResource.TEMPLATE -> CreateDocumentTemplate(TemplateId(TemplateKey.of(key), catalogId), "Template $key").execute()
+            MovableResource.CODE_LIST -> CreateCodeList(
+                CodeListId(CodeListKey.of(key), catalogId),
+                displayName = "Code list $key",
+                sourceType = CodeListSource.INLINE,
+                // An inline code list must have at least one entry.
+                entries = listOf(CodeListEntry("nl", "Nederlands"), CodeListEntry("en", "English")),
+            ).execute()
+            MovableResource.ASSET -> uploadPng(tenant, catalog, key)
+            MovableResource.FONT -> importFont(tenant, catalog, key)
+            MovableResource.THEME -> CreateTheme(ThemeId(ThemeKey.of(key), catalogId), "Theme $key").execute()
+        }
+        ResourceAddress(movable.type, catalog.value, key)
+    }
+
+    protected fun uploadPng(tenant: TenantKey, catalog: CatalogKey, key: String? = null): AssetKey = withMediator {
+        UploadAsset(
+            tenantId = tenant,
+            name = "${key ?: "image"}.png",
+            mediaType = AssetMediaType.PNG,
+            content = PNG_1X1,
+            width = 1,
+            height = 1,
+            catalogKey = catalog,
+            id = key?.let(AssetKey::of),
+        ).execute().id
+    }
+
+    /** A one-face font family at [catalog]/[slug], its face backed by an asset in the same catalog. */
+    protected fun importFont(tenant: TenantKey, catalog: CatalogKey, slug: String) = withMediator {
+        val face = UploadAsset(
+            tenantId = tenant,
+            name = "$slug-regular.ttf",
+            mediaType = AssetMediaType.TTF,
+            content = ttfBytes(),
+            width = null,
+            height = null,
+            catalogKey = catalog,
+        ).execute().id
+        ImportFont(
+            tenantId = TenantId(tenant),
+            catalogKey = catalog,
+            slug = slug,
+            name = "Font $slug",
+            kind = FontKind.SANS.wire,
+            variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = face)),
+        ).execute()
+    }
+
+    protected fun ttfBytes(): ByteArray = resourceLoader.getResource("classpath:epistola/fonts/inter/inter-Regular.ttf").contentAsByteArray
+
+    /** A template model inserting stencil [stencilKey], qualified with [catalogKey] when given. */
+    protected fun templateEmbedding(stencilKey: String, catalogKey: String? = null, nodeId: String = "stencil-instance"): TemplateDocument = templateEmbedding(listOf(Triple(nodeId, stencilKey, catalogKey)))
+
+    /** A template model inserting every `(nodeId, stencilKey, catalogKey)` in [stencils]. */
+    protected fun templateEmbedding(stencils: List<Triple<String, String, String?>>): TemplateDocument = TemplateDocument(
+        modelVersion = 1,
+        root = "root",
+        nodes = mapOf("root" to Node(id = "root", type = "root", slots = listOf("children"))) +
+            stencils.associate { (nodeId, stencilKey, catalogKey) ->
+                nodeId to Node(
+                    id = nodeId,
+                    type = "stencil",
+                    props = buildMap {
+                        put("stencilId", stencilKey)
+                        put("version", 1)
+                        catalogKey?.let { put("catalogKey", it) }
+                    },
+                )
+            },
+        slots = mapOf("children" to Slot(id = "children", nodeId = "root", name = "children", children = stencils.map { it.first })),
+        themeRef = ThemeRef.Inherit,
+    )
+
+    protected fun usesTheme(themeKey: String, catalogKey: String): TemplateDocument = TemplateDocument(
+        modelVersion = 1,
+        root = "root",
+        nodes = mapOf("root" to Node(id = "root", type = "root")),
+        slots = emptyMap(),
+        themeRef = ThemeRefOverride(themeId = themeKey, catalogKey = catalogKey),
+    )
+
+    protected fun emptyTemplate(): TemplateDocument = TemplateDocument(
+        modelVersion = 1,
+        root = "root",
+        nodes = mapOf("root" to Node(id = "root", type = "root")),
+        slots = emptyMap(),
+        themeRef = ThemeRef.Inherit,
+    )
+
+    protected companion object {
+        /** The PNG signature: enough for an asset row, never decoded. */
+        val PNG_1X1 = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47)
+
+        fun address(type: CatalogResourceType, catalog: CatalogKey, key: String) = ResourceAddress(type, catalog.value, key)
+    }
+}
