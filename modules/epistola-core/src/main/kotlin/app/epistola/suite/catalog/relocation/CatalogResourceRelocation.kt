@@ -381,11 +381,11 @@ class CatalogResourceMovePlanner(
         val rewrites = mutableListOf<JsonRewrite>()
         val immutableBySource = mutableMapOf<ResourceAddress, Int>()
         rewriteContent(handle, tenantKey, contentMoves, relocations, rewrites, immutableBySource)
-        for (relocation in relocations) {
-            if (MovableResource.of(relocation.source.type) == MovableResource.ATTRIBUTE && relocation.source in identities) {
-                rewrites += attributeKeyRewrites(handle, tenantKey, relocation.source, relocation.target)
-            }
-        }
+        rewrites += attributeKeyRewrites(
+            handle,
+            tenantKey,
+            relocations.filter { MovableResource.of(it.source.type) == MovableResource.ATTRIBUTE && it.source in identities },
+        )
 
         // Catalog ordering is load-bearing for snapshot restore, which throws on a cycle. Checked
         // last and only when the batch would otherwise go ahead: building the graph is the expensive
@@ -616,8 +616,16 @@ class CatalogResourceMovePlanner(
 
     /**
      * Attributes are referenced by the *keys* of `template_variants.attributes`, either qualified as
-     * `catalog.attribute` or left bare. A bare key resolves tenant-globally, so a move does not
-     * affect it; only an explicitly qualified key names the catalog being vacated.
+     * `catalog.attribute` or left bare. A qualified key names the catalog being vacated, so every
+     * relocation re-points it. A bare key resolves tenant-wide by slug, so a move leaves it alone --
+     * but a rename would leave it naming a slug nothing answers to. It is re-pointed at the qualified
+     * destination when this attribute is the only one answering to that slug; when another attribute
+     * shares the slug, the bare key already means that one as much as this, and is left to it.
+     *
+     * One rewrite per variant for the whole batch, mapping every key at once against the original
+     * attributes. Rewriting per relocation would give two relocations touching one variant the same
+     * `expected` bytes, so the second update could never match; and mapping keys one relocation at a
+     * time would let a member taking an address another is vacating overwrite that member's value.
      *
      * `template_variants` is live mutable configuration rather than versioned content, so every such
      * reference is rewritable and none has to survive on an alias.
@@ -625,34 +633,62 @@ class CatalogResourceMovePlanner(
     private fun attributeKeyRewrites(
         handle: Handle,
         tenantKey: TenantKey,
-        source: ResourceAddress,
-        target: ResourceAddress,
+        relocations: List<ResourceRelocation>,
     ): List<JsonRewrite> {
-        val oldKey = source.catalogKey + "." + source.key
-        val newKey = target.catalogKey + "." + target.key
+        if (relocations.isEmpty()) return emptyList()
+        val renamed = mutableMapOf<String, Pair<String, ResourceAddress>>()
+        for ((source, target) in relocations) {
+            renamed["${source.catalogKey}.${source.key}"] = "${target.catalogKey}.${target.key}" to source
+        }
+        val renamedSlugs = relocations.filter { it.source.key != it.target.key }
+        if (renamedSlugs.isNotEmpty()) {
+            val answering = handle.createQuery(
+                """
+                SELECT id::text slug, COUNT(*) definitions FROM variant_attribute_definitions
+                WHERE tenant_key = :tenantKey AND id IN (<slugs>)
+                GROUP BY id
+                """,
+            )
+                .bind("tenantKey", tenantKey)
+                .bindList("slugs", renamedSlugs.map { it.source.key })
+                .map { rs, _ -> rs.getString("slug") to rs.getInt("definitions") }
+                .list()
+                .toMap()
+            for ((source, target) in renamedSlugs) {
+                if (answering[source.key] == 1) renamed[source.key] = "${target.catalogKey}.${target.key}" to source
+            }
+        }
+
         return handle.createQuery(
             """
             SELECT template.catalog_key::text, template.id::text AS template_key,
                    variants.id::text variant_key, variants.attributes::text
             FROM template_variants variants
             ${templateJoin("variants")}
-            WHERE variants.tenant_key = :tenantKey AND variants.attributes ?? :oldKey
+            WHERE variants.tenant_key = :tenantKey
+              AND EXISTS (SELECT 1 FROM jsonb_object_keys(variants.attributes) named WHERE named IN (<keys>))
             ORDER BY template.catalog_key, template.id, variants.id
             """,
         )
             .bind("tenantKey", tenantKey)
-            .bind("oldKey", oldKey)
+            .bindList("keys", renamed.keys.toList())
             .map { rs, _ ->
                 val raw = rs.getString("attributes")
-                val moved = (objectMapper.readTree(raw) as ObjectNode).deepCopy()
-                moved.set(newKey, moved.remove(oldKey))
+                val original = objectMapper.readTree(raw) as ObjectNode
+                val moved = objectMapper.createObjectNode()
+                var attributedTo: ResourceAddress? = null
+                for ((key, value) in original.properties()) {
+                    val rename = renamed[key]
+                    if (rename != null) attributedTo = attributedTo ?: rename.second
+                    moved.set(rename?.first ?: key, value)
+                }
                 JsonRewrite.VariantAttributes(
                     rs.getString("catalog_key"),
                     rs.getString("template_key"),
                     rs.getString("variant_key"),
                     raw,
                     moved.toString(),
-                    source,
+                    attributedTo,
                 )
             }
             .list()
