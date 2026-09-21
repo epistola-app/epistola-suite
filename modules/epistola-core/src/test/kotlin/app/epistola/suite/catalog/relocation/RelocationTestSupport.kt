@@ -30,6 +30,11 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontKind
@@ -38,11 +43,15 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.versions.PublishVersion
+import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
+import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.template.model.ThemeRefOverride
 import org.assertj.core.api.Assertions.assertThat
@@ -143,12 +152,12 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
         ResourceAddress(movable.type, catalog.value, key)
     }
 
-    protected fun uploadPng(tenant: TenantKey, catalog: CatalogKey, key: String? = null): AssetKey = withMediator {
+    protected fun uploadPng(tenant: TenantKey, catalog: CatalogKey, key: String? = null, content: ByteArray = PNG_1X1): AssetKey = withMediator {
         UploadAsset(
             tenantId = tenant,
             name = "${key ?: "image"}.png",
             mediaType = AssetMediaType.PNG,
-            content = PNG_1X1,
+            content = content,
             width = 1,
             height = 1,
             catalogKey = catalog,
@@ -202,6 +211,75 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
         themeRef = ThemeRef.Inherit,
     )
 
+    /** The default variant of template [key] in [catalog]. */
+    protected fun templateVariant(tenant: TenantKey, catalog: CatalogKey, key: String = "invoice") = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of(key), catalogId(tenant, catalog)))
+
+    /**
+     * Creates template [key] in [catalog], runs [setup] with its id, then publishes [model] as its
+     * first version and returns that version.
+     */
+    protected fun publishTemplate(
+        tenant: TenantKey,
+        catalog: CatalogKey,
+        model: TemplateDocument,
+        key: String = "invoice",
+        setup: (TemplateId) -> Unit = {},
+    ): VersionKey {
+        val variant = templateVariant(tenant, catalog, key)
+        return withMediator {
+            CreateDocumentTemplate(variant.templateId, "Template $key").execute().withRequiredDataExample()
+            setup(variant.templateId)
+            UpdateDraft(variant, model).execute()
+            val draft = GetDraft(variant).query()!!.id
+            PublishVersion(VersionId(draft, variant)).execute()
+            draft
+        }
+    }
+
+    /**
+     * Renders published [version] of template [key] at [catalog] through the preview path: the real
+     * renderer, including the font integrity check a published version runs first. Integration
+     * tests wire a fake generation executor, so the generation pipeline would render nothing.
+     */
+    protected fun assertPreviewRenders(tenant: TenantKey, catalog: CatalogKey, version: VersionKey, key: String = "invoice") {
+        val pdf = withMediator {
+            PreviewDocument(
+                tenantId = tenant,
+                catalogKey = catalog,
+                templateId = TemplateKey.of(key),
+                data = objectMapper.createObjectNode(),
+                variantId = VariantKey.INITIAL,
+                versionId = version,
+            ).query()
+        }
+        assertThat(pdf.take(4).toByteArray()).describedAs("a PDF").isEqualTo("%PDF".toByteArray())
+    }
+
+    /** Styles naming font [slug], in [catalog] or relatively when it is null. */
+    protected fun fontStyle(slug: String, catalog: String?): Map<String, Any> = mapOf("fontFamily" to buildMap { put("slug", slug); catalog?.let { put("catalogKey", it) } })
+
+    /** A template holding one text node, rendering with [themeRef]. */
+    protected fun textModel(themeRef: ThemeRef = ThemeRef.Inherit): TemplateDocument = singleNodeModel(Node(id = "title", type = "text"), themeRef)
+
+    /** A template holding just [node]. */
+    protected fun singleNodeModel(node: Node, themeRef: ThemeRef = ThemeRef.Inherit): TemplateDocument = TemplateDocument(
+        modelVersion = 1,
+        root = "root",
+        nodes = mapOf("root" to Node(id = "root", type = "root", slots = listOf("children")), node.id to node),
+        slots = mapOf("children" to Slot(id = "children", nodeId = "root", name = "children", children = listOf(node.id))),
+        themeRef = themeRef,
+    )
+
+    protected fun unzipText(bytes: ByteArray): Map<String, String> = buildMap {
+        java.util.zip.ZipInputStream(bytes.inputStream()).use { zip ->
+            var entry = zip.nextEntry
+            while (entry != null) {
+                if (!entry.isDirectory) put(entry.name, String(zip.readAllBytes(), Charsets.UTF_8))
+                entry = zip.nextEntry
+            }
+        }
+    }
+
     protected fun usesTheme(themeKey: String, catalogKey: String): TemplateDocument = TemplateDocument(
         modelVersion = 1,
         root = "root",
@@ -221,6 +299,11 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
     protected companion object {
         /** The PNG signature: enough for an asset row, never decoded. */
         val PNG_1X1 = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47)
+
+        /** A real, decodable 1x1 PNG, for content a render has to draw. */
+        fun renderablePng(): ByteArray = java.io.ByteArrayOutputStream().also { out ->
+            javax.imageio.ImageIO.write(java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_RGB), "png", out)
+        }.toByteArray()
 
         fun address(type: CatalogResourceType, catalog: CatalogKey, key: String) = ResourceAddress(type, catalog.value, key)
     }

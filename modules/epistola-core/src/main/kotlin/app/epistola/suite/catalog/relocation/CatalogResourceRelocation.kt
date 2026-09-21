@@ -191,6 +191,25 @@ class MoveCatalogResourcesHandler(
                     .bindRewrite(command.tenantKey, rewrite)
                     .execute()
 
+                is JsonRewrite.ThemeStyles -> handle.createUpdate(
+                    """
+                    UPDATE themes
+                    SET document_styles = :replacementDocumentStyles::jsonb,
+                        block_style_presets = :replacementPresets::jsonb
+                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id = :themeKey
+                      AND document_styles = :expectedDocumentStyles::jsonb
+                      AND block_style_presets IS NOT DISTINCT FROM :expectedPresets::jsonb
+                    """,
+                )
+                    .bind("tenantKey", command.tenantKey)
+                    .bind("catalogKey", rewrite.catalogKey)
+                    .bind("themeKey", rewrite.ownerKey)
+                    .bind("replacementDocumentStyles", rewrite.replacementDocumentStyles)
+                    .bind("replacementPresets", rewrite.replacementPresets)
+                    .bind("expectedDocumentStyles", rewrite.expectedDocumentStyles)
+                    .bind("expectedPresets", rewrite.expectedPresets)
+                    .execute()
+
                 is JsonRewrite.VariantAttributes -> handle.createUpdate(
                     """
                     UPDATE template_variants SET attributes = :replacement::jsonb
@@ -544,6 +563,8 @@ class CatalogResourceMovePlanner(
     ) {
         val movingTemplates = relocations.filter { it.source.type == CatalogResourceType.TEMPLATE }.associateBy { it.source }
         val movingStencils = relocations.filter { it.source.type == CatalogResourceType.STENCIL }.associateBy { it.source }
+        val movingThemes = relocations.filter { it.source.type == CatalogResourceType.THEME }.associateBy { it.source }
+        rewriteThemeStyles(handle, tenantKey, contentMoves, movingThemes, rewrites)
         if (contentMoves.isEmpty() && movingTemplates.isEmpty() && movingStencils.isEmpty()) return
 
         // Only a batch that moves a referenced type has to look at every holder in the tenant; one
@@ -576,6 +597,60 @@ class CatalogResourceMovePlanner(
                 )
             }
         }
+    }
+
+    /**
+     * A theme's styles name the fonts it uses. They are live, unversioned configuration, so they are
+     * rewritten like a draft: a reference to a moving font is re-pointed at its destination, and a
+     * moving theme's own relative references are pinned to the catalog they resolve against today,
+     * as a moving stencil's are. Left alone, a moved font leaves every theme naming its old address
+     * -- exported as-is, and unpublishable when the theme shares the font's catalog -- and a moved
+     * theme's relative font resolves in a catalog the font was never in.
+     */
+    private fun rewriteThemeStyles(
+        handle: Handle,
+        tenantKey: TenantKey,
+        contentMoves: Map<ResourceAddress, ResourceAddress>,
+        movingThemes: Map<ResourceAddress, ResourceRelocation>,
+        rewrites: MutableList<JsonRewrite>,
+    ) {
+        if (contentMoves.keys.none { it.type == CatalogResourceType.FONT } && movingThemes.isEmpty()) return
+        handle.createQuery(
+            """
+            SELECT catalog_key::text, id::text theme_key, document_styles::text, block_style_presets::text presets
+            FROM themes WHERE tenant_key = :tenantKey
+            ORDER BY catalog_key, id
+            """,
+        )
+            .bind("tenantKey", tenantKey)
+            .map { rs, _ ->
+                val catalogKey = rs.getString("catalog_key")
+                val themeKey = rs.getString("theme_key")
+                val owner = movingThemes[ResourceAddress(CatalogResourceType.THEME, catalogKey, themeKey)]
+                fun rewrite(raw: String?): Pair<String?, ResourceAddress?> {
+                    if (raw == null) return null to null
+                    var result = applyContentMoves(objectMapper.readTree(raw), catalogKey, contentMoves)
+                    if (owner != null) result = result.pinningRelative(catalogKey, owner.source)
+                    return (if (result.changed) result.json.toString() else null) to result.attributedTo
+                }
+                val documentStyles = rs.getString("document_styles")
+                val presets = rs.getString("presets")
+                val (newDocumentStyles, documentCause) = rewrite(documentStyles)
+                val (newPresets, presetsCause) = rewrite(presets)
+                if (newDocumentStyles == null && newPresets == null) return@map null
+                JsonRewrite.ThemeStyles(
+                    catalogKey = catalogKey,
+                    ownerKey = themeKey,
+                    expectedDocumentStyles = documentStyles,
+                    replacementDocumentStyles = newDocumentStyles ?: documentStyles,
+                    expectedPresets = presets,
+                    replacementPresets = newPresets ?: presets,
+                    attributedTo = documentCause ?: presetsCause,
+                )
+            }
+            .list()
+            .filterNotNull()
+            .let(rewrites::addAll)
     }
 
     /** The rewritten payload for one version, or null when it needs no change. */
@@ -848,6 +923,26 @@ internal sealed interface JsonRewrite {
         override val attributedTo: ResourceAddress?,
     ) : JsonRewrite {
         override val identity get() = "stencil:$catalogKey:$ownerKey:$version"
+    }
+
+    /**
+     * A theme's two style columns, which carry its font references. Unversioned live configuration,
+     * so [version] is unused; either column may be null, and one that did not change is written back
+     * as it was.
+     */
+    data class ThemeStyles(
+        override val catalogKey: String,
+        override val ownerKey: String,
+        val expectedDocumentStyles: String,
+        val replacementDocumentStyles: String,
+        val expectedPresets: String?,
+        val replacementPresets: String?,
+        override val attributedTo: ResourceAddress?,
+    ) : JsonRewrite {
+        override val version = 0
+        override val expected get() = "$expectedDocumentStyles|$expectedPresets"
+        override val replacement get() = "$replacementDocumentStyles|$replacementPresets"
+        override val identity get() = "theme-styles:$catalogKey:$ownerKey"
     }
 
     /** A variant's attribute map is unversioned live configuration, so [version] is unused. */
