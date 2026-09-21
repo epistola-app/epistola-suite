@@ -22,7 +22,7 @@ import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.catalog.protocol.VariantEntry
 import app.epistola.suite.assets.queries.GetAssetContent
-import app.epistola.suite.catalog.commands.FACE_ASSET_KEY_LENGTH
+import app.epistola.suite.assets.queries.ResolveAssetKeysByContentHash
 import app.epistola.suite.catalog.graph.ReferenceSiteKind
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.queries.ExportAssets
@@ -135,9 +135,13 @@ class CatalogContentBuilder(
                 }
                 is FontResource -> {
                     // A face carries its own binary from wire v7, so the family's bytes no longer
-                    // arrive as separate image resources.
+                    // arrive as separate image resources -- and the face has no wire key to look
+                    // its content up by. Resolve by hash: a face uploaded here has the key its
+                    // upload generated, one installed from a catalog has a key derived from the
+                    // hash, and only the hash names the same bytes in both.
+                    val keys = ResolveAssetKeysByContentHash(tenantKey, resource.variants.map { it.contentHash }).query()
                     for (face in resource.variants) {
-                        val key = AssetKey.of(face.contentHash.take(FACE_ASSET_KEY_LENGTH))
+                        val key = keys[face.contentHash] ?: continue
                         val content = GetAssetContent(tenantId = tenantKey, assetId = key).query() ?: continue
                         assetContents[face.contentPath()] = content.content
                     }

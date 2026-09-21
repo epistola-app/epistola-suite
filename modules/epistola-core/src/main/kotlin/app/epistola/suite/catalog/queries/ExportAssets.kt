@@ -48,7 +48,12 @@ class ExportAssetsHandler(
 
         val rows = jdbi.withHandle<List<AssetRow>, Exception> { handle ->
             val sql = buildString {
+                // Images only. From wire v7 an image is a catalog resource and a binary is not, so
+                // the font-face binaries sharing this table are not exported as resources -- a face
+                // carries its own bytes inside its font. Matches `ListImagePage`, which the
+                // `/images` surface uses for the same reason.
                 append("SELECT id::text, name, media_type, width, height, content_hash FROM assets WHERE tenant_key = :tenantKey")
+                append(" AND media_type LIKE 'image/%'")
                 if (query.catalogKey != null) append(" AND catalog_key = :catalogKey")
                 if (query.assetIds != null) append(" AND id::text IN (<assetIds>)")
             }
