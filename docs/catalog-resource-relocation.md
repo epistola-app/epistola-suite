@@ -43,6 +43,10 @@ catalog.
 
 ## Generation history does not move
 
+A generation request records the template address it was made against. One queued before its
+template moved is generated from where the template lives now, and the document records that
+address, since that is where it was produced.
+
 Moving a template carries its variants, versions, contract versions, environment activations,
 quality findings and load-test runs with it — those describe the template's current state. Its
 generation history does not: `documents` and `document_generation_requests` record the catalog the
@@ -77,15 +81,23 @@ written before it existed resolve through their recorded address instead.
   is still the real answer; the warning is what carries the risk until then.
 - Immutable version JSON is never edited, with one exception: when a resource leaves a catalog, the
   relative references inside its own versions — published ones included — are pinned to the catalog
-  they already resolve against. The bytes change; the meaning does not. Note this is no longer
+  they already resolve against. The bytes change; the meaning does not. The same pin covers a
+  published version's frozen theme snapshot (`resolved_theme`) when the theme it resolves fonts
+  through changes catalog: a font the snapshot names without a catalog is pinned, and its integrity
+  pin rekeyed. Publishes now freeze that catalog themselves, so only versions published before
+  that have anything to pin. Note this is no longer
   bounded by the released-catalog rule: since a released catalog only warns, a move out of one can
   rewrite bytes that a release already covered. Only legacy content written before references were
   qualified on write has anything left to pin, so the exposure shrinks to zero over time rather
   than growing.
+- A theme's styles are live configuration, rewritten like a draft: moving a font re-points every
+  theme naming it, and a moving theme's own relative font references are pinned to the catalog they
+  resolve against.
 - A move that would leave two catalogs depending on each other is blocked. Catalog ordering is
   load-bearing for snapshot restore, which orders catalogs topologically and throws on a cycle, so
   an unchecked move could make a tenant's snapshots unrestorable — surfacing later, to whoever is
-  trying to recover, with nothing tying it back to the move.
+  trying to recover, with nothing tying it back to the move. Only dependencies an export declares
+  count: a font's face binaries travel inside the font, so where they are stored is not one.
 - An address a moved resource left behind is reserved: creating a resource there is rejected until
   the alias is explicitly released, which previews what stops resolving first.
 - References are qualified with their catalog when content is written, so a published reference
