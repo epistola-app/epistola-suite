@@ -4,6 +4,11 @@
 
 package app.epistola.suite.catalog.relocation
 
+import app.epistola.suite.attributes.codelists.commands.CreateCodeList
+import app.epistola.suite.attributes.codelists.model.CodeListEntry
+import app.epistola.suite.attributes.codelists.model.CodeListSource
+import app.epistola.suite.attributes.commands.CreateAttributeDefinition
+import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -11,6 +16,10 @@ import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.GetTenantResourceGraph
 import app.epistola.suite.catalog.graph.ReferenceResolution
 import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.common.ids.AttributeId
+import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.CodeListId
+import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.StencilVersionId
@@ -28,10 +37,13 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
@@ -85,6 +97,76 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
             singleNodeModel(Node(id = "title", type = "text", styles = mapOf("fontFamily" to mapOf("slug" to "acme", "catalogKey" to letters.value))))
         },
     )
+
+    /**
+     * A variant names an attribute by key; the move rewrote `letters.brand` to `shared.brand`. The
+     * exported variant has to carry that, and the fresh tenant has to accept the variant.
+     */
+    @Test
+    fun `a moved attribute is exported at its new address and installs elsewhere`() {
+        val tenant = tenantWith("Export after attribute move")
+        val variant = templateVariant(tenant, letters)
+        // Export carries a template only once it has a published version.
+        publishTemplate(tenant, letters, textModel()) {
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("brand"), catalogId(tenant, letters)), "Brand", listOf("acme")).execute()
+        }
+        withMediator { UpdateVariant(variant, "Main", mapOf("letters.brand" to "acme")).execute() }
+        move(tenant, address(CatalogResourceType.ATTRIBUTE, letters, "brand").movedTo(shared))
+
+        val fresh = installBoth(tenant, "attribute")
+
+        val installed = withMediator { ListVariants(templateVariant(fresh, letters).templateId).query() }.single { it.id == variant.key }
+        assertThat(installed.attributes).containsExactlyEntriesOf(mapOf("shared.brand" to "acme"))
+        withMediator { UpdateVariant(templateVariant(fresh, letters), "Main", installed.attributes).execute() }
+    }
+
+    @Test
+    fun `an attribute bound to a moved code list installs elsewhere still bound to it`() {
+        val tenant = tenantWith("Export after code list move")
+        withMediator {
+            CreateCodeList(
+                CodeListId(CodeListKey.of("countries"), catalogId(tenant, letters)),
+                displayName = "Countries",
+                sourceType = CodeListSource.INLINE,
+                entries = listOf(CodeListEntry("nl", "Nederland")),
+            ).execute()
+            CreateAttributeDefinition(
+                AttributeId(AttributeKey.of("country"), catalogId(tenant, letters)),
+                "Country",
+                codeListId = CodeListId(CodeListKey.of("countries"), catalogId(tenant, letters)),
+            ).execute()
+        }
+        move(tenant, address(CatalogResourceType.CODE_LIST, letters, "countries").movedTo(shared))
+
+        val fresh = installBoth(tenant, "code list")
+
+        val attribute = withMediator { GetAttributeDefinition(AttributeId(AttributeKey.of("country"), catalogId(fresh, letters))).query()!! }
+        assertThat(attribute.codeListId).isEqualTo(CodeListId(CodeListKey.of("countries"), catalogId(fresh, shared)))
+    }
+
+    @Test
+    fun `a moved template is exported from its new catalog only, and installs there`() {
+        val tenant = tenantWith("Export after template move")
+        publishTemplate(tenant, letters, textModel())
+        move(tenant, address(CatalogResourceType.TEMPLATE, letters, "invoice").movedTo(shared))
+
+        assertThat(unzipText(withMediator { ExportCatalogZip(tenant, letters).execute() }.zipBytes)).doesNotContainKey("resources/template/invoice.json")
+        val fresh = installBoth(tenant, "template")
+
+        assertThat(withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId(fresh, shared))).query() }).isNotNull()
+    }
+
+    /** Exports `shared` and `letters` from [tenant] and installs them, in that order, in a fresh tenant. */
+    private fun installBoth(tenant: TenantKey, what: String): TenantKey {
+        val sharedZip = withMediator { ExportCatalogZip(tenant, shared).execute() }.zipBytes
+        val lettersZip = withMediator { ExportCatalogZip(tenant, letters).execute() }.zipBytes
+        val fresh = createTenant("Installs $what move").id
+        withMediator {
+            ImportCatalogZip(fresh, sharedZip, CatalogType.AUTHORED).execute()
+            ImportCatalogZip(fresh, lettersZip, CatalogType.AUTHORED).execute()
+        }
+        return fresh
+    }
 
     /**
      * Publishes `letters/invoice` from the model [setup] returns, moves [moved] to `shared`, then
