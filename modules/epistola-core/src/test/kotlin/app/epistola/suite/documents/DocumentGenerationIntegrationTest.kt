@@ -22,6 +22,7 @@ import app.epistola.suite.documents.queries.GetDocument
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.documents.queries.ListDocuments
 import app.epistola.suite.documents.queries.ListGenerationJobs
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.DocumentContentStore
@@ -114,6 +115,60 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             assertThat(contentBytes).isNotEmpty()
             // Verify it's a PDF by checking the magic bytes (%PDF)
             assertThat(contentBytes.take(4).toByteArray()).isEqualTo(byteArrayOf(0x25, 0x50, 0x44, 0x46))
+        }
+    }
+
+    @Test
+    fun `generation fills a field the client omitted from the contract's default`(): Unit = scenario {
+        given {
+            val tenant = tenant("Test Tenant")
+            val tenantId = TenantId(tenant.id)
+            val template = template(tenant.id, "Invoice Template")
+            val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
+            val variant = variant(compositeTemplateId, "Default")
+            val compositeVariantId = VariantId(variant.id, compositeTemplateId)
+            val templateModel = TestTemplateBuilder.buildMinimal(name = "Invoice Template")
+            val version = version(compositeVariantId, templateModel)
+
+            app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+                templateId = compositeTemplateId,
+                dataModel = objectMapper.readValue(
+                    """
+                    {"type": "object", "properties": {"discount": {"type": "integer", "default": 0}}, "required": ["discount"]}
+                    """.trimIndent(),
+                    ObjectNode::class.java,
+                ),
+                dataExamples = listOf(
+                    app.epistola.suite.templates.model.DataExample(
+                        "example-1",
+                        "Example 1",
+                        objectMapper.createObjectNode().put("discount", 5),
+                    ),
+                ),
+            ).execute()
+
+            DocumentSetup(tenant, template, variant, version)
+        }.whenever { setup ->
+            // 'discount' is required but omitted here — its schema default must fill the gap.
+            val data: ObjectNode = objectMapper.createObjectNode()
+            execute(
+                GenerateDocument(
+                    tenantId = setup.tenant.id,
+                    templateId = setup.template.id,
+                    variantId = setup.variant.id,
+                    versionId = setup.version.id,
+                    environmentId = null,
+                    data = data,
+                    filename = "invoice-001.pdf",
+                ),
+            )
+        }.then { setup, request ->
+            drainGenerationJobs(setup.tenant.id)
+
+            val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))!!
+            assertThat(job.request.status).isEqualTo(RequestStatus.COMPLETED)
+            assertThat(job.items).hasSize(1)
+            assertThat(job.items[0].status.name).isEqualTo("COMPLETED")
         }
     }
 

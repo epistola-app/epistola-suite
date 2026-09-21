@@ -37,9 +37,10 @@ export function detectBreakingChanges(
   const newById = indexById(newFields);
   const oldById = indexById(oldFields);
 
-  // Detect new required fields (ID not in old schema)
+  // Detect new required fields (ID not in old schema). A `default` is exempt: existing
+  // data missing the field still renders, since generation falls back to the default.
   for (const newField of newFields) {
-    if (!oldById.has(newField.id) && newField.required) {
+    if (!oldById.has(newField.id) && newField.required && newField.default === undefined) {
       const path = basePath ? `${basePath}.${newField.name}` : newField.name;
       changes.push({
         type: 'required_added',
@@ -63,8 +64,9 @@ export function detectBreakingChanges(
       continue;
     }
 
-    // Optional → required
-    if (newField.required && !oldField.required) {
+    // Optional → required. A `default` is exempt, same as a brand-new required
+    // field above: existing data missing the field still renders.
+    if (newField.required && !oldField.required && newField.default === undefined) {
       const displayName = newField.name !== oldField.name ? newField.name : oldField.name;
       changes.push({
         type: 'made_required',

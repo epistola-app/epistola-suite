@@ -142,6 +142,18 @@ describe('detectBreakingChanges', () => {
     expect(changes[0].description).toBe('"email" added as required');
   });
 
+  it('ignores new required field that has a default', () => {
+    const old: SchemaField[] = [{ id: 'f1', name: 'name', type: 'string', required: true }];
+    const next: SchemaField[] = [
+      { id: 'f1', name: 'name', type: 'string', required: true },
+      { id: 'f2', name: 'email', type: 'string', required: true, default: 'unknown@example.com' },
+    ];
+
+    const changes = detectBreakingChanges(old, next);
+
+    expect(changes).toHaveLength(0);
+  });
+
   it('ignores new optional field', () => {
     const old: SchemaField[] = [{ id: 'f1', name: 'name', type: 'string', required: true }];
     const next: SchemaField[] = [
@@ -161,6 +173,17 @@ describe('detectBreakingChanges', () => {
     expect(changes).toHaveLength(1);
     expect(changes[0].type).toBe('made_required');
     expect(changes[0].description).toBe('"email" is now required');
+  });
+
+  it('ignores optional field with a default made required', () => {
+    const old: SchemaField[] = [
+      { id: 'f1', name: 'email', type: 'string', required: false, default: 'unknown@example.com' },
+    ];
+    const next: SchemaField[] = [
+      { id: 'f1', name: 'email', type: 'string', required: true, default: 'unknown@example.com' },
+    ];
+
+    expect(detectBreakingChanges(old, next)).toEqual([]);
   });
 
   it('does not flag required field staying required', () => {

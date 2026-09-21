@@ -402,5 +402,53 @@ class DataContractSchemaValidationTest {
         )
     }
 
+    @Test
+    fun `applyDefaults fills an omitted property from its schema default`() {
+        val result = validator.applyDefaults(
+            schema("""{"type":"object","properties":{"discount":{"type":"integer","default":0}}}"""),
+            data("""{}"""),
+        )
+
+        assertThat(result).isEqualTo(data("""{"discount":0}"""))
+    }
+
+    @Test
+    fun `applyDefaults leaves a provided property untouched`() {
+        val result = validator.applyDefaults(
+            schema("""{"type":"object","properties":{"discount":{"type":"integer","default":0}}}"""),
+            data("""{"discount":15}"""),
+        )
+
+        assertThat(result).isEqualTo(data("""{"discount":15}"""))
+    }
+
+    @Test
+    fun `applyDefaults leaves an explicit null untouched`() {
+        val result = validator.applyDefaults(
+            schema("""{"type":"object","properties":{"discount":{"type":"integer","default":0}}}"""),
+            data("""{"discount":null}"""),
+        )
+
+        assertThat(result).isEqualTo(data("""{"discount":null}"""))
+    }
+
+    @Test
+    fun `applyDefaults recurses into a nested object property`() {
+        val result = validator.applyDefaults(
+            schema(
+                """
+                {"type":"object","properties":{
+                  "address":{"type":"object","properties":{"country":{"type":"string","default":"NL"}}}
+                }}
+                """.trimIndent(),
+            ),
+            data("""{"address":{}}"""),
+        )
+
+        assertThat(result).isEqualTo(data("""{"address":{"country":"NL"}}"""))
+    }
+
     private fun schema(json: String): ObjectNode = objectMapper.readValue(json, ObjectNode::class.java)
+
+    private fun data(json: String): ObjectNode = objectMapper.readValue(json, ObjectNode::class.java)
 }

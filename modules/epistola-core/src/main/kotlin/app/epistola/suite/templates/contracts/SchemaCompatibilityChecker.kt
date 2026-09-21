@@ -83,8 +83,9 @@ class SchemaCompatibilityChecker {
                     changes.add(BreakingChange(BreakingChangeType.TYPE_CHANGED, path, "\"$fieldName\" type changed from $oldType to $newType"))
                 }
 
-                // Check optional → required
-                if (!oldRequired.contains(fieldName) && newRequired.contains(fieldName)) {
+                // Check optional → required. A `default` is exempt, same as a brand-new
+                // required field below: existing data missing the field still renders.
+                if (!oldRequired.contains(fieldName) && newRequired.contains(fieldName) && !newField.has("default")) {
                     changes.add(BreakingChange(BreakingChangeType.MADE_REQUIRED, path, "\"$fieldName\" is now required"))
                 }
 
@@ -109,11 +110,14 @@ class SchemaCompatibilityChecker {
             }
         }
 
-        // Check for new required fields (not in old schema at all)
+        // Check for new required fields (not in old schema at all). A `default` is exempt:
+        // existing data missing the field still renders, since generation falls back to it.
         if (newProperties != null) {
             val oldFields = if (oldProperties != null) fieldNames(oldProperties) else emptySet()
             for (fieldName in newRequired) {
                 if (!oldFields.contains(fieldName)) {
+                    val newField = newProperties.get(fieldName) as? ObjectNode
+                    if (newField?.has("default") == true) continue
                     val path = if (basePath.isEmpty()) fieldName else "$basePath.$fieldName"
                     changes.add(BreakingChange(BreakingChangeType.REQUIRED_ADDED, path, "\"$fieldName\" added as required"))
                 }

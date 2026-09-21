@@ -315,6 +315,29 @@ class JsonSchemaValidator(
     }
 
     /**
+     * Fills in each property's `default` where the caller's data has no value
+     * for it, recursing into nested `object` properties. An existing value —
+     * including an explicit `null` — is left untouched: a `default` only
+     * stands in for an *absent* key, per JSON Schema's own definition of the
+     * keyword. Composition keywords (`allOf`/`oneOf`/`anyOf`) are not expanded
+     * here, matching the editor's scalar-only support for authoring a default.
+     */
+    fun applyDefaults(schema: ObjectNode, data: ObjectNode): ObjectNode = data.deepCopy().also { applyDefaultsInPlace(schema, it) }
+
+    private fun applyDefaultsInPlace(schema: ObjectNode, data: ObjectNode) {
+        val properties = schema.get("properties") as? ObjectNode ?: return
+        for ((name, propSchema) in properties.properties()) {
+            if (propSchema !is ObjectNode) continue
+
+            if (!data.has(name)) {
+                propSchema.get("default")?.let { default -> data.set(name, default.deepCopy()) }
+            }
+
+            (data.get(name) as? ObjectNode)?.let { nested -> applyDefaultsInPlace(propSchema, nested) }
+        }
+    }
+
+    /**
      * RFC 3339 `date-time` mandates a UTC offset, but Epistola treats a datetime
      * **without** an offset as a local wall-clock value ("time is time") and only
      * converts to the render timezone when an offset *is* present. So an author

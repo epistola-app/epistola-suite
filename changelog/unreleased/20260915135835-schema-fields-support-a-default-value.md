@@ -10,5 +10,7 @@ The Schema Definition form has a "Default value" control for scalar fields (stri
 integer, boolean, date, date-time), type-aware and validated against the field's own format and
 range, both client- and server-side. Imported schemas using `default` are now represented in the
 visual editor instead of falling back to read-only JSON mode; a `default` on an array or object
-field still round-trips but stays JSON-only. A new data example now starts pre-filled with each
-field's default, instead of requiring the separate "Generate example data" action to see it.
+field still round-trips but stays JSON-only. Generating or previewing a document now falls back to
+a field's `default` when the caller omits it, instead of failing validation or rendering a gap. A
+new data example starts pre-filled with each _required_ field's default; an optional field is left
+for the separate "Generate example data" action, which fills it with a representative value.

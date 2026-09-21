@@ -146,15 +146,18 @@ class PreviewDocumentHandler(
             )
         }
 
-        val effectiveData = if (query.data.isEmpty) {
+        val requestedData = if (query.data.isEmpty) {
             // No data provided — use first example from the version's contract
             contractVersion?.dataExamples?.firstOrNull()?.data ?: query.data
         } else {
             query.data
         }
 
-        // Validate data against contract schema
+        // Validate data against contract schema, after filling in any field the
+        // caller omitted from its schema `default` so a preview matches what
+        // actual generation would render.
         val dataModel = contractVersion?.dataModel
+        val effectiveData = if (dataModel != null) schemaValidator.applyDefaults(dataModel, requestedData) else requestedData
         if (dataModel != null) {
             val errors = schemaValidator.validate(dataModel, effectiveData)
             if (errors.isNotEmpty()) {

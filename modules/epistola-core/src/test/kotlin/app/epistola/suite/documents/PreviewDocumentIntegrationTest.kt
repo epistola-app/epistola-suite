@@ -350,6 +350,53 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
         }
 
         @Test
+        fun `preview fills a field the caller omitted from the contract's default`() = scenario {
+            given {
+                val tenant = tenant("Test Tenant")
+                val tenantId = TenantId(tenant.id)
+                val template = template(tenant.id, "Test Template")
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
+                val variant = variant(compositeTemplateId, "Default")
+                val compositeVariantId = VariantId(variant.id, compositeTemplateId)
+                val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
+                val version = version(compositeVariantId, templateModel)
+
+                app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+                    templateId = compositeTemplateId,
+                    dataModel = objectMapper.readValue(
+                        """
+                        {"type": "object", "properties": {"discount": {"type": "integer", "default": 0}}, "required": ["discount"]}
+                        """.trimIndent(),
+                        tools.jackson.databind.node.ObjectNode::class.java,
+                    ),
+                    dataExamples = listOf(
+                        app.epistola.suite.templates.model.DataExample(
+                            "example-1",
+                            "Example 1",
+                            objectMapper.createObjectNode().put("discount", 5),
+                        ),
+                    ),
+                ).execute()
+                DocumentSetup(tenant, template, variant, version)
+            }.whenever { setup ->
+                setup
+            }.then { setup, _ ->
+                // Omitting 'discount' would normally fail validation (it's required),
+                // but its schema default fills the gap before validation runs.
+                val pdf = query(
+                    PreviewVariant(
+                        tenantId = setup.tenant.id,
+                        catalogKey = CatalogKey.DEFAULT,
+                        templateId = setup.template.id,
+                        variantId = setup.variant.id,
+                        data = emptyData(),
+                    ),
+                )
+                assertThat(pdf).isNotEmpty()
+            }
+        }
+
+        @Test
         fun `preview rejects rich-text data that violates the registered ref schema`() = scenario {
             given {
                 val tenant = tenant("RichText Validation Tenant")

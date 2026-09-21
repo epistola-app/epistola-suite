@@ -473,6 +473,40 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `validate-data fills a required field omitted from its schema default`() {
+        // Regression: generation and preview both fall back to a field's `default` when
+        // the caller omits it, so this pre-flight check must agree — not reject data that
+        // generation would actually accept.
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "default-${randomSuffix()}"
+
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Default Value"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            HttpMethod.PATCH,
+            HttpEntity(
+                """{"dataModel":{"type":"object","properties":{"discount":{"type":"integer","default":0}},"required":["discount"]},"dataExamples":[{"id":"ex1","name":"Example 1","data":{"discount":5}}]}""",
+                baseHeaders(key),
+            ),
+            String::class.java,
+        )
+
+        val validate = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/validate",
+            HttpMethod.POST,
+            HttpEntity("""{"data": {}}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(validate.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<Boolean>(validate.body!!, "$.valid")).isTrue
+    }
+
+    @Test
     fun `delete template returns 204 and subsequent get returns 404`() {
         val (tenantKey, key) = seedTenantAndKey()
         val slug = "del-${randomSuffix()}"

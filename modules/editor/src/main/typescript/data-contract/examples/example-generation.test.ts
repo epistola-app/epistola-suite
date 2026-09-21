@@ -453,9 +453,10 @@ describe('completeExampleFromSchema', () => {
 });
 
 describe('applySchemaDefaults', () => {
-  it('fills a property default but leaves an undefaulted property absent', () => {
+  it('fills a required property default but leaves an undefaulted property absent', () => {
     const schema: JsonSchema = {
       type: 'object',
+      required: ['greeting'],
       properties: {
         greeting: { type: 'string', default: 'Hello' },
         note: { type: 'string' },
@@ -465,9 +466,19 @@ describe('applySchemaDefaults', () => {
     expect(applySchemaDefaults(schema, {})).toEqual({ greeting: 'Hello' });
   });
 
+  it('leaves an optional property default unfilled, for the example generation tool to fill instead', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: { greeting: { type: 'string', default: 'Hello' } },
+    };
+
+    expect(applySchemaDefaults(schema, {})).toEqual({});
+  });
+
   it('leaves an existing value untouched', () => {
     const schema: JsonSchema = {
       type: 'object',
+      required: ['greeting'],
       properties: { greeting: { type: 'string', default: 'Hello' } },
     };
 
@@ -480,6 +491,7 @@ describe('applySchemaDefaults', () => {
       properties: {
         address: {
           type: 'object',
+          required: ['country'],
           properties: { country: { type: 'string', default: 'NL' } },
         },
       },
