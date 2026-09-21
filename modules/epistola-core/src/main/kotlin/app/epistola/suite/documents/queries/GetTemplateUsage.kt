@@ -4,6 +4,7 @@
 
 package app.epistola.suite.documents.queries
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
@@ -41,11 +42,11 @@ class GetTemplateUsageHandler(
     override fun handle(query: GetTemplateUsage): List<TemplateUsage> = jdbi.withHandle<List<TemplateUsage>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT template_key, variant_key, COUNT(*) AS count
+            SELECT catalog_key, template_key, variant_key, COUNT(*) AS count
             FROM document_generation_requests
             WHERE tenant_key = :tenantId
               AND created_at >= now() - :window::interval
-            GROUP BY template_key, variant_key
+            GROUP BY catalog_key, template_key, variant_key
             ORDER BY count DESC
             LIMIT :limit
             """,
@@ -55,6 +56,7 @@ class GetTemplateUsageHandler(
             .bind("limit", query.limit)
             .map { rs, _ ->
                 TemplateUsage(
+                    catalogKey = CatalogKey.of(rs.getString("catalog_key")),
                     templateKey = TemplateKey.of(rs.getString("template_key")),
                     variantKey = VariantKey.of(rs.getString("variant_key")),
                     count = rs.getLong("count"),
