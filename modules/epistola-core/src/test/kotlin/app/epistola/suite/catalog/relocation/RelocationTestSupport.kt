@@ -256,7 +256,12 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
     }
 
     /** Styles naming font [slug], in [catalog] or relatively when it is null. */
-    protected fun fontStyle(slug: String, catalog: String?): Map<String, Any> = mapOf("fontFamily" to buildMap { put("slug", slug); catalog?.let { put("catalogKey", it) } })
+    protected fun fontStyle(slug: String, catalog: String?): Map<String, Any> = mapOf(
+        "fontFamily" to buildMap {
+            put("slug", slug)
+            catalog?.let { put("catalogKey", it) }
+        },
+    )
 
     /** A template holding one text node, rendering with [themeRef]. */
     protected fun textModel(themeRef: ThemeRef = ThemeRef.Inherit): TemplateDocument = singleNodeModel(Node(id = "title", type = "text"), themeRef)
