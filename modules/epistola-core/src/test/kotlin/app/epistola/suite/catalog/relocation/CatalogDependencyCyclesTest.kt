@@ -22,20 +22,22 @@ import java.util.UUID
 class CatalogDependencyCyclesTest {
     private fun address(catalog: String, key: String, type: CatalogResourceType = CatalogResourceType.STENCIL) = ResourceAddress(type, catalog, key)
 
-    private fun graphOf(vararg edges: Pair<ResourceAddress, ResourceAddress>): TenantResourceGraph {
+    private fun graphOf(vararg edges: Pair<ResourceAddress, ResourceAddress>): TenantResourceGraph = graphOfKinds(*edges.map { Triple(it.first, it.second, "test") }.toTypedArray())
+
+    private fun graphOfKinds(vararg edges: Triple<ResourceAddress, ResourceAddress, String>): TenantResourceGraph {
         val addresses = edges.flatMap { listOf(it.first, it.second) }.distinct()
         return TenantResourceGraph(
             nodes = addresses.map {
                 ResourceNode(ResourceIdentity.of(UUID.nameUUIDFromBytes(it.id.toByteArray())), it, it.key, it.catalogKey, "AUTHORED")
             },
-            edges = edges.mapIndexed { index, (from, to) ->
+            edges = edges.mapIndexed { index, (from, to, kind) ->
                 ResourceEdge(
                     id = "e$index",
                     source = from,
                     target = to,
                     targetSelector = ReferenceSelector(to.type, to.catalogKey, to.key),
                     targetCandidates = listOf(to),
-                    kind = "test",
+                    kind = kind,
                     semantics = ReferenceSemantics.RUNTIME,
                     qualification = ReferenceQualification.EXPLICIT,
                     resolution = ReferenceResolution.RESOLVED,
@@ -43,6 +45,22 @@ class CatalogDependencyCyclesTest {
                 )
             },
         )
+    }
+
+    /**
+     * A font's face binaries travel inside the font when exported, so the catalog storing a face's
+     * binary is not something a restore has to install first.
+     */
+    @Test
+    fun `where a font face's binary is stored is not a catalog dependency`() {
+        val theme = address("letters", "brand", CatalogResourceType.THEME)
+        val font = address("letters", "acme", CatalogResourceType.FONT)
+        val graph = graphOfKinds(
+            Triple(theme, font, "theme-font"),
+            Triple(font, address("letters", "acme-regular", CatalogResourceType.IMAGE), "font-face-asset"),
+        )
+
+        assertThat(CatalogDependencyCycles.introducedBy(graph, listOf(font.movedTo(CatalogKey.of("shared"))))).isNull()
     }
 
     @Test

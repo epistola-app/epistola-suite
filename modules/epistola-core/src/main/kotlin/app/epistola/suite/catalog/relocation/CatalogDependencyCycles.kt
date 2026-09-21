@@ -37,6 +37,7 @@ object CatalogDependencyCycles {
         val destinations = relocations.associate { it.source to it.target.catalogKey }
         val edges = mutableSetOf<Pair<String, String>>()
         for (edge in graph.edges) {
+            if (edge.kind in NOT_A_CATALOG_DEPENDENCY) continue
             val target = edge.target ?: continue
             val from = destinations[edge.source] ?: edge.source.catalogKey
             val to = destinations[target] ?: target.catalogKey
@@ -44,6 +45,16 @@ object CatalogDependencyCycles {
         }
         return findCycle(edges)
     }
+
+    /**
+     * Graph edge kinds that never become a dependency between catalogs in an export, and so cannot
+     * order a restore. A font's face binaries travel inside the font resource when its catalog is
+     * exported (wire v7, resolved by content hash in `CatalogContentBuilder`), and restore orders
+     * catalogs by export dependencies alone (`BuildTenantSnapshot.crossCatalogDependencies`). Where
+     * a face's binary is stored is therefore not a catalog dependency; counting it refused moving a
+     * font used by a theme in its own catalog, the everyday case.
+     */
+    private val NOT_A_CATALOG_DEPENDENCY = setOf("font-face-asset")
 
     /**
      * Kahn's algorithm, keeping whatever cannot be ordered. Deterministic so a blocker message does
