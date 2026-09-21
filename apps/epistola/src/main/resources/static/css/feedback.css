@@ -13,11 +13,29 @@
 
 /* ── Alert messages ───────────────────────────────────────────────────── */
 
+/* The design system owns alert layout. The app surface widens the inline padding
+   through --ep-alert-inline-pad (the severity-icon offset and the column reserved
+   for it follow), and keeps its bottom rhythm. It must not set `padding` itself:
+   a shorthand here would overwrite the variant's reserved icon column. */
 .alert {
-  padding: var(--ep-space-4) var(--ep-space-6);
+  --ep-alert-inline-pad: var(--ep-space-6);
   border-radius: var(--ep-radius-lg);
   margin-bottom: var(--ep-space-6);
   font-size: var(--ep-text-sm);
+}
+
+/* The JS-injected global error banner (app-shell.js) is a message + dismiss row
+   and sets `display: flex` itself, so it restores the row gap and puts the
+   severity icon back in flow rather than absolutely over the reserved column. */
+.global-error-banner {
+  gap: var(--ep-space-3);
+  padding-left: var(--ep-alert-inline-pad);
+}
+
+.global-error-banner::before {
+  position: static;
+  flex: 0 0 auto;
+  margin-top: 0.125rem;
 }
 
 .alert-error {

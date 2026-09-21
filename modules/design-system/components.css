@@ -866,11 +866,23 @@
   /* A solid 4px left accent bar (the severity signal) + a stronger -100 fill so
      the box detaches from the warm-paper page. Each variant sets the thin border
      (-200), the accent bar (-600) and dark text. Info is cool blue — distinct
-     from the warm brand, the red error and the amber warning. */
+     from the warm brand, the red error and the amber warning.
+
+     Layout is block, NOT flex: a flex container blockifies every inline child,
+     so an alert whose sentence holds a `<code>` (or an `<a>`, `<strong>`,
+     `<em>`, `<span>`, …) was torn into text/element/text flex items and the chip
+     stretched to the row height. The severity icon is positioned absolutely
+     instead (below) so the sentence stays one flowing paragraph.
+     `--ep-alert-inline-pad` is the horizontal padding, exposed so an app surface
+     can widen it (feedback.css uses 1.5rem on the app) while the icon offset and
+     the column reserved for it follow. */
   .alert {
-    display: flex;
-    gap: var(--ep-space-3);
-    padding: var(--ep-space-4);
+    --ep-alert-inline-pad: var(--ep-space-4);
+    --ep-alert-icon-size: 1.25rem;
+
+    position: relative;
+    display: block;
+    padding: var(--ep-space-4) var(--ep-alert-inline-pad);
     border-radius: var(--ep-radius-lg);
     border: 1px solid transparent;
     border-left-width: 4px;
@@ -886,19 +898,40 @@
   /* Severity icon — a colour-blind-safe SHAPE cue (circle vs triangle) so a
      variant is never conveyed by hue alone (WCAG 1.4.1 "Use of Color"). Injected
      per-variant via --ep-alert-icon and masked to the text colour. Only the
-     variant classes carry it, so a bare .alert never paints a stray square. */
+     variant classes carry it, so a bare .alert never paints a stray square.
+     Taken out of flow: as a flex item it would blockify the inline text beside it
+     (the bug above). It is placed at the box's inline padding, nudged to sit
+     against the first text line — the same spot it occupied in the flex row. */
   .alert-info::before,
   .alert-success::before,
   .alert-warning::before,
   .alert-error::before {
     content: '';
-    flex: 0 0 auto;
-    width: 1.25rem;
-    height: 1.25rem;
-    margin-top: 0.125rem;
+    position: absolute;
+    top: calc(var(--ep-space-4) + 0.125rem);
+    left: var(--ep-alert-inline-pad);
+    width: var(--ep-alert-icon-size);
+    height: var(--ep-alert-icon-size);
     background-color: currentColor;
     -webkit-mask: var(--ep-alert-icon) no-repeat center / contain;
     mask: var(--ep-alert-icon) no-repeat center / contain;
+  }
+
+  /* Reserve the icon's column (icon + gap) so the text starts where flex put it. */
+  .alert-info,
+  .alert-success,
+  .alert-warning,
+  .alert-error {
+    padding-left: calc(var(--ep-alert-inline-pad) + var(--ep-alert-icon-size) + var(--ep-space-3));
+  }
+
+  /* Markup that supplies its own leading icon (epistola-web/icon renders a direct
+     <svg> child) wraps its text in a block, so those alerts keep the original
+     two-column flex layout; the icon column is the author's, not ours. */
+  .alert:has(> svg) {
+    display: flex;
+    gap: var(--ep-space-3);
+    padding-left: var(--ep-alert-inline-pad);
   }
 
   /* Don't double up where the markup already supplies its own leading icon. */
@@ -939,8 +972,9 @@
   }
 
   /* Global form-error slot (epistola-web/form-error fragment). Ships hidden in
-     every form; .alert's display:flex would defeat the `hidden` attribute
-     without the explicit guard. */
+     every form; `.alert` sets its own `display`, which would otherwise beat the
+     `hidden` attribute's UA rule, so the slot restates it. (base.css carries the
+     general `[hidden]` guard; this keeps the slot self-contained.) */
   .form-global-error {
     margin-bottom: var(--ep-space-4);
   }
