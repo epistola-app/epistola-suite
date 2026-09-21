@@ -6,10 +6,7 @@
     "name": "Letter Shell",
     "version": 1,
     "description": "A simple letter shell with a body placeholder that templates fill. Demonstrates the placeholder default/fill pattern.",
-    "tags": [
-      "layout",
-      "letter"
-    ],
+    "tags": ["layout", "letter"],
     "content": {
       "modelVersion": 1,
       "root": "n-root",
@@ -20,17 +17,12 @@
         "n-root": {
           "id": "n-root",
           "type": "root",
-          "slots": [
-            "s-root-children"
-          ]
+          "slots": ["s-root-children"]
         },
         "n-ph-body": {
           "id": "n-ph-body",
           "type": "placeholder",
-          "slots": [
-            "s-ph-body-default",
-            "s-ph-body-fill"
-          ],
+          "slots": ["s-ph-body-default", "s-ph-body-fill"],
           "props": {
             "name": "body",
             "description": "Body content",
@@ -64,17 +56,13 @@
           "id": "s-root-children",
           "nodeId": "n-root",
           "name": "children",
-          "children": [
-            "n-ph-body"
-          ]
+          "children": ["n-ph-body"]
         },
         "s-ph-body-default": {
           "id": "s-ph-body-default",
           "nodeId": "n-ph-body",
           "name": "default",
-          "children": [
-            "n-ph-body-default-text"
-          ]
+          "children": ["n-ph-body-default-text"]
         },
         "s-ph-body-fill": {
           "id": "s-ph-body-fill",

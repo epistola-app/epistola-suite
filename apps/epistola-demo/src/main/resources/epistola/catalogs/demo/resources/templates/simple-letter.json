@@ -647,7 +647,7 @@
                   "content": [
                     {
                       "type": "text",
-                      "text": "Confidential \u2014 Page "
+                      "text": "Confidential — Page "
                     },
                     {
                       "type": "expression",
@@ -727,14 +727,14 @@
     },
     "variants": [
       {
-        "id": "default",
+        "slug": "default",
         "title": "Default",
         "attributes": {},
         "templateModel": null,
         "isDefault": true
       },
       {
-        "id": "en-us",
+        "slug": "en-us",
         "title": "US English",
         "attributes": {
           "system.locale": "en-US"
@@ -743,7 +743,7 @@
         "isDefault": false
       },
       {
-        "id": "nl-nl",
+        "slug": "nl-nl",
         "title": "Dutch",
         "attributes": {
           "system.locale": "nl-NL"

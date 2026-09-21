@@ -11,17 +11,10 @@
         "value": "nl-NL"
       }
     ],
-    "keywords": [
-      "brieven",
-      "getting-started",
-      "nederlands"
-    ],
+    "keywords": ["brieven", "getting-started", "nederlands"],
     "presentation": {
-      "iconAssetSlug": "01966a00-0000-7000-8000-000000000001",
-      "imageAssetSlugs": [
-        "01966a00-0000-7000-8000-000000000001",
-        "01966a00-0000-7000-8000-000000000002"
-      ]
+      "iconAssetSlug": "epistola-logo",
+      "imageAssetSlugs": ["epistola-logo", "catalog-preview"]
     },
     "license": {
       "name": "Creative Commons Attribution 4.0 International",
@@ -35,14 +28,14 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "5.17.3",
+    "version": "5.18.0",
     "releasedAt": "2026-09-09T00:00:00Z",
-    "fingerprint": "048977cc42a77ace5caf66d587f8f1c9a87572a81b9eac14ef1d62242196c434"
+    "fingerprint": "5b8393bfaa80df37e389ca49f48dcfb27617138cf6fc84376d2db27fd8b0591a"
   },
   "resources": [
     {
       "type": "image",
-      "slug": "01966a00-0000-7000-8000-000000000001",
+      "slug": "epistola-logo",
       "name": "Epistola Logo",
       "description": "Small brand logo for use in templates.",
       "updatedAt": "2026-04-10T00:00:00Z",
@@ -50,7 +43,7 @@
     },
     {
       "type": "image",
-      "slug": "01966a00-0000-7000-8000-000000000002",
+      "slug": "catalog-preview",
       "name": "Epistola Catalog Preview",
       "description": "Preview illustration for the demo catalog gallery.",
       "updatedAt": "2026-08-20T00:00:00Z",

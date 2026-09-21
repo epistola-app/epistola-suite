@@ -1073,7 +1073,6 @@
     },
     "variants": [
       {
-        "id": "notice-of-speeding-violation",
         "title": "Engels",
         "attributes": {
           "system.locale": "en-GB"
@@ -1944,16 +1943,17 @@
           "pageSettingsOverride": null,
           "documentStylesOverride": null
         },
-        "isDefault": false
+        "isDefault": false,
+        "slug": "notice-of-speeding-violation"
       },
       {
-        "id": "officiele-snelheidsbekeuring-default",
         "title": "Nederlands",
         "attributes": {
           "system.locale": "nl-NL"
         },
         "templateModel": null,
-        "isDefault": true
+        "isDefault": true,
+        "slug": "officiele-snelheidsbekeuring-default"
       }
     ],
     "type": "template"

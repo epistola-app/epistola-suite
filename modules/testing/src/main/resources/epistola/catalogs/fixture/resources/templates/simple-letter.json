@@ -727,29 +727,29 @@
     },
     "variants": [
       {
-        "id": "default",
         "title": "Default",
         "attributes": {},
         "templateModel": null,
-        "isDefault": true
+        "isDefault": true,
+        "slug": "default"
       },
       {
-        "id": "en-us",
         "title": "US English",
         "attributes": {
           "system.locale": "en-US"
         },
         "templateModel": null,
-        "isDefault": false
+        "isDefault": false,
+        "slug": "en-us"
       },
       {
-        "id": "nl-nl",
         "title": "Dutch",
         "attributes": {
           "system.locale": "nl-NL"
         },
         "templateModel": null,
-        "isDefault": false
+        "isDefault": false,
+        "slug": "nl-nl"
       }
     ]
   }

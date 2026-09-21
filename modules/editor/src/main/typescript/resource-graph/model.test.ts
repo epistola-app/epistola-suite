@@ -14,7 +14,7 @@ describe('resource graph model', () => {
       'attribute',
       'codeList',
       'font',
-      'asset',
+      'image',
     ]);
     expect(displayType('codeList')).toBe('Code list');
   });

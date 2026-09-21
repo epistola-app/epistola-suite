@@ -2,7 +2,7 @@
   "schemaVersion": 7,
   "resource": {
     "slug": "officiele-snelheidsbekeuring",
-    "name": "Offici\u00eble Snelheidsbekeuring",
+    "name": "Officiële Snelheidsbekeuring",
     "themeId": null,
     "themeCatalogKey": null,
     "dataModel": {
@@ -268,7 +268,7 @@
                   "type": "paragraph",
                   "content": [
                     {
-                      "text": "3. Financi\u00eble Specificatie",
+                      "text": "3. Financiële Specificatie",
                       "type": "text",
                       "marks": [
                         {
@@ -295,7 +295,7 @@
                               "type": "text"
                             },
                             {
-                              "text": "\u20ac\u00a0",
+                              "text": "€ ",
                               "type": "text",
                               "marks": [
                                 {
@@ -311,7 +311,7 @@
                               }
                             },
                             {
-                              "text": "(bijv. \u20ac 240,00)",
+                              "text": "(bijv. € 240,00)",
                               "type": "text",
                               "marks": [
                                 {
@@ -330,11 +330,11 @@
                           "type": "paragraph",
                           "content": [
                             {
-                              "text": "Administratiekosten:\u00a0",
+                              "text": "Administratiekosten: ",
                               "type": "text"
                             },
                             {
-                              "text": "\u20ac",
+                              "text": "€",
                               "type": "text",
                               "marks": [
                                 {
@@ -343,7 +343,7 @@
                               ]
                             },
                             {
-                              "text": "\u00a0",
+                              "text": " ",
                               "type": "text"
                             },
                             {
@@ -358,7 +358,7 @@
                               "type": "text"
                             },
                             {
-                              "text": "(bijv. \u20ac 9,00)",
+                              "text": "(bijv. € 9,00)",
                               "type": "text",
                               "marks": [
                                 {
@@ -381,7 +381,7 @@
                               "type": "text"
                             },
                             {
-                              "text": "\u20ac\u00a0",
+                              "text": "€ ",
                               "type": "text",
                               "marks": [
                                 {
@@ -500,7 +500,7 @@
                               }
                             },
                             {
-                              "text": "\u00a0",
+                              "text": " ",
                               "type": "text",
                               "marks": [
                                 {
@@ -655,7 +655,7 @@
                       "type": "text"
                     },
                     {
-                      "text": "\u20ac\u00a0",
+                      "text": "€ ",
                       "type": "text",
                       "marks": [
                         {
@@ -998,7 +998,7 @@
                   "type": "paragraph",
                   "content": [
                     {
-                      "text": "Offici\u00eble Snelheidsbekeuring ",
+                      "text": "Officiële Snelheidsbekeuring ",
                       "type": "text"
                     }
                   ]
@@ -1007,7 +1007,7 @@
                   "type": "paragraph",
                   "content": [
                     {
-                      "text": "\u00a0 \u00a0- Centraal Justitieel Incassobureau",
+                      "text": "   - Centraal Justitieel Incassobureau",
                       "type": "text",
                       "marks": [
                         {
@@ -1073,7 +1073,7 @@
     },
     "variants": [
       {
-        "id": "notice-of-speeding-violation",
+        "slug": "notice-of-speeding-violation",
         "title": "Engels",
         "attributes": {
           "system.locale": "en-GB"
@@ -1125,7 +1125,7 @@
                                   "type": "text"
                                 },
                                 {
-                                  "text": "\u00a3",
+                                  "text": "£",
                                   "type": "text",
                                   "marks": [
                                     {
@@ -1145,7 +1145,7 @@
                                   "type": "text"
                                 },
                                 {
-                                  "text": "(e.g., $180.00 or \u00a3150.00)",
+                                  "text": "(e.g., $180.00 or £150.00)",
                                   "type": "text",
                                   "marks": [
                                     {
@@ -1168,7 +1168,7 @@
                                   "type": "text"
                                 },
                                 {
-                                  "text": "\u00a3",
+                                  "text": "£",
                                   "type": "text",
                                   "marks": [
                                     {
@@ -1198,7 +1198,7 @@
                                   "type": "text"
                                 },
                                 {
-                                  "text": "\u00a3",
+                                  "text": "£",
                                   "type": "text",
                                   "marks": [
                                     {
@@ -1321,7 +1321,7 @@
                                   }
                                 },
                                 {
-                                  "text": "\u00a0",
+                                  "text": " ",
                                   "type": "text",
                                   "marks": [
                                     {
@@ -1521,11 +1521,11 @@
                       "type": "paragraph",
                       "content": [
                         {
-                          "text": "You are required to submit the total amount of\u00a0",
+                          "text": "You are required to submit the total amount of ",
                           "type": "text"
                         },
                         {
-                          "text": "\u00a3",
+                          "text": "£",
                           "type": "text",
                           "marks": [
                             {
@@ -1541,7 +1541,7 @@
                           }
                         },
                         {
-                          "text": " \u00a0on or before the designated due date (",
+                          "text": "  on or before the designated due date (",
                           "type": "text"
                         },
                         {
@@ -1859,7 +1859,7 @@
                       "type": "paragraph",
                       "content": [
                         {
-                          "text": "Central Judicial Collection Agency \u2022 Ministry of Justice and Security",
+                          "text": "Central Judicial Collection Agency • Ministry of Justice and Security",
                           "type": "text"
                         }
                       ]
@@ -1947,7 +1947,7 @@
         "isDefault": false
       },
       {
-        "id": "officiele-snelheidsbekeuring-default",
+        "slug": "officiele-snelheidsbekeuring-default",
         "title": "Nederlands",
         "attributes": {
           "system.locale": "nl-NL"

@@ -11,6 +11,7 @@ import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.DataExampleEntry
 import app.epistola.catalog.protocol.DependencyRef
 import app.epistola.catalog.protocol.FontRef
+import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.ImageResource
 import app.epistola.catalog.protocol.PublisherInfo
 import app.epistola.catalog.protocol.ReleaseInfo
@@ -21,6 +22,7 @@ import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.catalog.protocol.VariantEntry
 import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.catalog.commands.FACE_ASSET_KEY_LENGTH
 import app.epistola.suite.catalog.graph.ReferenceSiteKind
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.queries.ExportAssets
@@ -39,7 +41,6 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
-import java.util.UUID
 
 /** The canonical content of a catalog, independent of release metadata. */
 data class CatalogContent(
@@ -120,19 +121,28 @@ class CatalogContentBuilder(
         for (image in assets) addResource("image", image.slug, image.name, null, image)
         for (template in templates) addResource("template", template.slug, template.name, null, template)
 
+        // Keyed by the archive path each binary takes, which is what the canonicaliser and the
+        // writer both ask for. It used to key by a filename parsed out of contentUrl and recover
+        // the asset id by parsing that as a UUID -- neither survives wire v7, where a binary is
+        // filed under its hash and an image's slug may be a readable name.
         val assetContents = LinkedHashMap<String, ByteArray>()
         for (detail in resourceDetails.values) {
-            val resource = detail.resource
-            if (resource is ImageResource) {
-                val filename = resource.contentPath().substringAfterLast('/')
-                val uuidStr = filename.substringBefore(".")
-                val assetId = try {
-                    AssetKey.of(UUID.fromString(uuidStr))
-                } catch (_: Exception) {
-                    continue
+            when (val resource = detail.resource) {
+                is ImageResource -> {
+                    val content = GetAssetContent(tenantId = tenantKey, assetId = AssetKey.of(resource.slug)).query()
+                        ?: continue
+                    assetContents[resource.contentPath()] = content.content
                 }
-                val content = GetAssetContent(tenantId = tenantKey, assetId = assetId).query() ?: continue
-                assetContents[filename] = content.content
+                is FontResource -> {
+                    // A face carries its own binary from wire v7, so the family's bytes no longer
+                    // arrive as separate image resources.
+                    for (face in resource.variants) {
+                        val key = AssetKey.of(face.contentHash.take(FACE_ASSET_KEY_LENGTH))
+                        val content = GetAssetContent(tenantId = tenantKey, assetId = key).query() ?: continue
+                        assetContents[face.contentPath()] = content.content
+                    }
+                }
+                else -> Unit
             }
         }
 
@@ -383,7 +393,7 @@ class CatalogContentBuilder(
                         // honestly -- it used to be emitted with no catalog at all.
                         val refCatalog = node.props?.get("catalogKey") as? String
                         val assetId = node.props?.get("assetId") as? String
-                        if (refCatalog != null && assetId != null && refCatalog != catalogKey && "asset:$assetId" !in ownResources) {
+                        if (refCatalog != null && assetId != null && refCatalog != catalogKey && "image:$assetId" !in ownResources) {
                             dependencies.add(DependencyRef.Image(catalogKey = refCatalog, slug = assetId))
                         }
                     }

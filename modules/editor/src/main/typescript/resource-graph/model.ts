@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 export type ResourceType =
-  | 'asset'
+  | 'image'
   | 'codeList'
   | 'font'
   | 'attribute'
@@ -111,7 +111,7 @@ export const RESOURCE_TYPES: ReadonlyArray<{ value: ResourceType; label: string 
   { value: 'attribute', label: 'Attributes' },
   { value: 'codeList', label: 'Code lists' },
   { value: 'font', label: 'Fonts' },
-  { value: 'asset', label: 'Assets' },
+  { value: 'image', label: 'Images' },
 ];
 
 export function displayType(type: ResourceType): string {

@@ -217,11 +217,11 @@
     },
     "variants": [
       {
-        "id": "default",
         "title": "Default",
         "attributes": {},
         "templateModel": null,
-        "isDefault": true
+        "isDefault": true,
+        "slug": "default"
       }
     ]
   }

@@ -6,10 +6,7 @@
     "name": "Company Header",
     "version": 2,
     "description": "Reusable company header block with company name and separator.",
-    "tags": [
-      "header",
-      "branding"
-    ],
+    "tags": ["header", "branding"],
     "parameterSchema": {
       "type": "object",
       "properties": {
@@ -19,9 +16,7 @@
           "default": "Acme Corporation"
         }
       },
-      "required": [
-        "companyName"
-      ]
+      "required": ["companyName"]
     },
     "content": {
       "modelVersion": 1,
@@ -33,9 +28,7 @@
         "n-root": {
           "id": "n-root",
           "type": "root",
-          "slots": [
-            "s-root-children"
-          ]
+          "slots": ["s-root-children"]
         },
         "n-heading": {
           "id": "n-heading",
@@ -81,10 +74,7 @@
           "id": "s-root-children",
           "nodeId": "n-root",
           "name": "children",
-          "children": [
-            "n-heading",
-            "n-rule"
-          ]
+          "children": ["n-heading", "n-rule"]
         }
       }
     }

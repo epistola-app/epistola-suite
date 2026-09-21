@@ -47,7 +47,7 @@ class CatalogUpgradeAnalyzer(
             UNION ALL SELECT 'theme', id::text FROM themes WHERE tenant_key = :t AND catalog_key = :c
             UNION ALL SELECT 'stencil', id::text FROM stencils WHERE tenant_key = :t AND catalog_key = :c
             UNION ALL SELECT 'attribute', id::text FROM variant_attribute_definitions WHERE tenant_key = :t AND catalog_key = :c
-            UNION ALL SELECT 'asset', id::text FROM assets WHERE tenant_key = :t AND catalog_key = :c
+            UNION ALL SELECT 'image', id::text FROM assets WHERE tenant_key = :t AND catalog_key = :c
             UNION ALL SELECT 'codeList', slug::text FROM code_lists WHERE tenant_key = :t AND catalog_key = :c
             UNION ALL SELECT 'font', slug::text FROM fonts WHERE tenant_key = :t AND catalog_key = :c
             """,

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.exchange
 
+import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.CatalogUpstreamCheckStore
@@ -190,6 +191,27 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     }
 
     /**
+     * Every catalog seeded on Epistola Exchange names its images the way a person would --
+     * `municipality-mark` -- and until the `/images` surface existed the importer parsed that slug
+     * as a UUID and refused the whole install. This is the archive shape that used to be the
+     * blocker, installing.
+     */
+    @Test
+    fun `an image named by a readable slug installs`() {
+        val consumer = connectedTenant("install-image-slug")
+        exchange.publish("acme", "broken", readableImageSlugArchive(), version = "1.0.0")
+
+        withMediator {
+            val result = InstallExchangeCatalog(consumer, "acme", "broken").execute()
+
+            assertThat(result.aborted).isFalse()
+            val image = ListAssets(consumer, catalogKey = CatalogKey.of("broken")).query().single()
+            assertThat(image.id.value).isEqualTo("municipality-mark")
+            assertThat(image.mediaType.mimeType).isEqualTo("image/svg+xml")
+        }
+    }
+
+    /**
      * The import creates the catalog row before it installs anything into it, and its abort path
      * does not undo that. Left alone, a first install that failed would leave an empty catalog
      * occupying the ID — claiming nothing had changed while blocking the retry that would fix it.
@@ -197,9 +219,9 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     @Test
     fun `a first install that aborts leaves no catalog behind`() {
         val consumer = connectedTenant("install-abort-clean")
-        // An archive whose asset the importer cannot accept: asset ids are UUIDs in Suite, so a
-        // slug-named one fails to import and aborts the whole install.
-        exchange.publish("acme", "broken", brokenAssetArchive(), version = "1.0.0")
+        // An archive whose image declares a content hash its bytes do not match, so validation
+        // refuses it and the whole install aborts.
+        exchange.publish("acme", "broken", brokenArchive(), version = "1.0.0")
 
         withMediator {
             val result = InstallExchangeCatalog(consumer, "acme", "broken").execute()
@@ -223,7 +245,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     @Test
     fun `an aborted install can simply be retried once the release is fixed`() {
         val consumer = connectedTenant("install-abort-retry")
-        exchange.publish("acme", "broken", brokenAssetArchive(), version = "1.0.0")
+        exchange.publish("acme", "broken", brokenArchive(), version = "1.0.0")
 
         withMediator {
             assertThat(InstallExchangeCatalog(consumer, "acme", "broken").execute().aborted).isTrue()
@@ -343,29 +365,32 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     }
 
     /**
-     * A minimal, *valid* archive whose one asset cannot be imported.
+     * A minimal, *valid* archive whose one image cannot be imported: its media type is not a
+     * seeded `asset_types` row, so the insert fails a foreign key.
      *
-     * Suite addresses assets by UUID, so a slug-named one fails at import — which is the shape
-     * every catalog currently seeded on Epistola Exchange happens to have. Modelled on a real
-     * Exchange archive, including its null `release.fingerprint`, because the point is to reach the
-     * abort path: an archive the *validator* rejects never gets far enough to leave a catalog
-     * behind, and would not test this at all.
+     * The archive has to pass the validator and fail *inside* the install loop — one the validator
+     * rejects never creates a catalog, and so would not exercise the abort path at all.
      */
-    private fun brokenAssetArchive(): ByteArray {
+    private fun brokenArchive(): ByteArray = readableImageSlugArchive(mediaType = "image/x-unknown")
+
+    /** sha-256 of [svg] below: what the archive actually carries. */
+    private val svgContentHash = "57708796a75e2cd15c4f68b6ee2a40fd412b2237a8482d22ea4163db7c40afcd"
+
+    private fun readableImageSlugArchive(mediaType: String = "image/svg+xml"): ByteArray {
         val manifest = """
-            {"schemaVersion":6,
+            {"schemaVersion":7,
              "catalog":{"slug":"broken","name":"Broken","description":null,"attributes":[],"keywords":[],"presentation":null,"license":null},
              "publisher":{"name":"Test","url":null},
              "release":{"version":"1.0.0","releasedAt":null,"fingerprint":null},
              "compatibility":null,"includes":null,"dependencies":[],
-             "resources":[{"type":"asset","slug":"municipality-mark","name":"Municipality mark",
+             "resources":[{"type":"image","slug":"municipality-mark","name":"Municipality mark",
                            "description":null,"updatedAt":null,
-                           "detailUrl":"./resources/asset/municipality-mark.json","compatibility":null}]}
+                           "detailUrl":"./resources/image/municipality-mark.json","compatibility":null}]}
         """.trimIndent()
         val detail = """
-            {"schemaVersion":6,"resource":{"slug":"municipality-mark","name":"Municipality mark",
-             "mediaType":"image/svg+xml","width":96,"height":96,
-             "contentUrl":"./resources/asset/municipality-mark.svg","type":"asset"}}
+            {"schemaVersion":7,"resource":{"slug":"municipality-mark","name":"Municipality mark",
+             "mediaType":"$mediaType","width":96,"height":96,
+             "contentHash":"$svgContentHash","type":"image"}}
         """.trimIndent()
         val svg = """<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"></svg>"""
 
@@ -373,8 +398,8 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
         ZipOutputStream(out).use { zip ->
             mapOf(
                 "catalog.json" to manifest,
-                "resources/asset/municipality-mark.json" to detail,
-                "resources/asset/municipality-mark.svg" to svg,
+                "resources/image/municipality-mark.json" to detail,
+                "bin/$svgContentHash" to svg,
             ).forEach { (name, body) ->
                 zip.putNextEntry(ZipEntry(name))
                 zip.write(body.toByteArray())

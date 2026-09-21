@@ -465,7 +465,7 @@
     },
     "variants": [
       {
-        "id": "default",
+        "slug": "default",
         "title": "Default",
         "attributes": {},
         "templateModel": null,

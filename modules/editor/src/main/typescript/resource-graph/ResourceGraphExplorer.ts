@@ -23,7 +23,7 @@ const NODE_COLORS: Record<ResourceType, string> = {
   attribute: '#c2410c',
   codeList: '#a16207',
   font: '#4f46e5',
-  asset: '#15803d',
+  image: '#15803d',
 };
 
 const DIRECTIONS = ['incoming', 'outgoing', 'both'] as const;

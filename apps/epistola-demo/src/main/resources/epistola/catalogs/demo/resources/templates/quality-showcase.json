@@ -88,7 +88,7 @@
                     },
                     {
                       "type": "text",
-                      "text": ", this template exists to be found wanting. Every block below trips one of the example source's rules on purpose, so the report page and the editor panel have something real to show. Open Authoring \u2192 Quality to see what it reported."
+                      "text": ", this template exists to be found wanting. Every block below trips one of the example source's rules on purpose, so the report page and the editor panel have something real to show. Open Authoring → Quality to see what it reported."
                     }
                   ]
                 }
@@ -161,7 +161,7 @@
           "type": "image",
           "slots": [],
           "props": {
-            "assetId": "01966a00-0000-7000-8000-000000000001",
+            "assetId": "epistola-logo",
             "width": "90pt"
           }
         },
@@ -170,7 +170,7 @@
           "type": "image",
           "slots": [],
           "props": {
-            "assetId": "01966a00-0000-7000-8000-000000000001",
+            "assetId": "epistola-logo",
             "decorative": true,
             "width": "40pt"
           }
@@ -217,7 +217,7 @@
     },
     "variants": [
       {
-        "id": "default",
+        "slug": "default",
         "title": "Default",
         "attributes": {},
         "templateModel": null,

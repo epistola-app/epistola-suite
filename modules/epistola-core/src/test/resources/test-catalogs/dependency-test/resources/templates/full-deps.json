@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "resource": {
     "type": "template",
     "slug": "full-deps",
@@ -7,18 +7,26 @@
     "templateModel": {
       "modelVersion": 1,
       "root": "n-root",
-      "themeRef": { "type": "override", "themeId": "test-theme" },
+      "themeRef": {
+        "type": "override",
+        "themeId": "test-theme"
+      },
       "nodes": {
         "n-root": {
           "id": "n-root",
           "type": "root",
-          "slots": ["s-root-children"]
+          "slots": [
+            "s-root-children"
+          ]
         },
         "n-stencil": {
           "id": "n-stencil",
           "type": "stencil",
           "slots": [],
-          "props": { "stencilId": "header-with-logo", "version": 1 }
+          "props": {
+            "stencilId": "header-with-logo",
+            "version": 1
+          }
         },
         "n-body": {
           "id": "n-body",
@@ -30,7 +38,12 @@
               "content": [
                 {
                   "type": "paragraph",
-                  "content": [{ "type": "text", "text": "Body text" }]
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Body text"
+                    }
+                  ]
                 }
               ]
             }
@@ -42,22 +55,29 @@
           "id": "s-root-children",
           "nodeId": "n-root",
           "name": "children",
-          "children": ["n-stencil", "n-body"]
+          "children": [
+            "n-stencil",
+            "n-body"
+          ]
         }
       }
     },
     "variants": [
       {
-        "id": "dutch",
         "title": "Nederlands",
-        "attributes": { "language": "nl" },
-        "isDefault": true
+        "attributes": {
+          "language": "nl"
+        },
+        "isDefault": true,
+        "slug": "dutch"
       },
       {
-        "id": "english",
         "title": "English",
-        "attributes": { "language": "en" },
-        "isDefault": false
+        "attributes": {
+          "language": "en"
+        },
+        "isDefault": false,
+        "slug": "english"
       }
     ]
   }

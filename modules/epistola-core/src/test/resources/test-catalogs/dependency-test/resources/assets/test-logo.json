@@ -1,12 +1,13 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "resource": {
-    "type": "asset",
+    "type": "image",
     "slug": "01966a00-0000-7000-8000-000000000099",
     "name": "Test Logo",
     "mediaType": "image/png",
     "width": 16,
     "height": 4,
-    "contentUrl": "./binaries/test-logo.png"
+    "contentUrl": "./binaries/test-logo.png",
+    "contentHash": "1284b3c3991161f10af007e4b890476cf4f356e3021ea927b037c2f01b24952f"
   }
 }

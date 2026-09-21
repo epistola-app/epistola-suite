@@ -22,7 +22,10 @@ class CatalogArchiveBuilder(
 
     /** For callers that already built the manifest — releasing keeps a copy for its snapshot. */
     fun build(content: CatalogContent, manifest: CatalogManifest): ByteArray {
-        val assetContent = content.assetContents.mapKeys { (filename, _) -> "resources/asset/$filename" }
+        // Already keyed by the archive path each binary takes -- `bin/<hash>` for a catalog
+        // written at wire v7, or the path a migrated archive declared. Prefixing here would bury
+        // it under a second directory.
+        val assetContent = content.assetContents
         val portableArchive = CatalogArchive(
             manifest = manifest,
             resourceDetails = content.resourceDetails,
