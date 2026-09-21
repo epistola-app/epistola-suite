@@ -181,14 +181,15 @@ at instead.
 problem, so a resubmit updates the set without reopening. If a changed element set _is_ a
 different problem, that belongs in the fingerprint.
 
-> **Planned change — catalog resource relocation.** `subject_urn` and `ignore_scope_urn` compose a
-> template's _address_, and `ignore_scope_urn` is both a primary-key column and the finding-to-ignore
-> join condition. Once templates can move between catalogs, a move would leave the ignore holding
-> the old URN while new submissions carry the new one, so the join stops matching and every ignored
-> finding silently reappears as open. Finding-to-ignore matching moves onto identity columns before
-> templates become movable; the URN stays as a display and wire value so the disposition feed is
-> unaffected. See
-> [Catalog resource identity migration](catalog-resource-identity-migration.md).
+> **Catalog resource relocation.** `subject_urn` and `ignore_scope_urn` compose a template's
+> _address_, and `ignore_scope_urn` is both a primary-key column and the finding-to-ignore join
+> condition. Moving a template would leave both holding the old address while the next submission
+> carries the new one, so every ignored finding would reappear as open. `OnResourceRelocatedRepointFindings`
+> therefore rewrites both URNs, on findings and ignores, in the move's own transaction. It matches
+> the moved address only where it ends the URN or is followed by `/`, so moving `letters/invoice`
+> leaves `letters/invoice-v2` alone. Findings are read back by the template's identity; the URN is
+> the match key for re-submission and the value on the wire. See
+> [Catalog resource relocation](catalog-resource-relocation.md).
 
 ## Reconciliation: how findings resolve themselves
 

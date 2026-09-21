@@ -57,7 +57,8 @@ class OnResourceRelocatedRepointFindings(
 
         jdbi.useHandle<Exception> { handle ->
             for (relocation in templates) {
-                // Segments are tenant/catalog/template, so this prefix is unambiguous within a URN.
+                // Segments are tenant/catalog/template. The address must end the URN or be followed
+                // by '/': as a bare prefix, `letters/invoice` would also match `letters/invoice-v2`.
                 repoint(
                     handle,
                     event.tenantKey,
@@ -69,30 +70,39 @@ class OnResourceRelocatedRepointFindings(
     }
 
     private fun repoint(handle: Handle, tenantKey: TenantKey, old: String, new: String) {
+        // Every key is a lowercase slug and the separator is '/', so none of `old` needs escaping
+        // in a regular expression; asserted rather than assumed.
+        check(ADDRESS.matches(old)) { "Unexpected template address in a quality URN: $old" }
+        val pattern = "^(urn:epistola:[a-z]+:)$old(/|$)"
+        val replacement = "\\1$new\\2"
         handle.createUpdate(
             """
             UPDATE quality_findings
-            SET subject_urn = REPLACE(subject_urn, :old, :new),
-                ignore_scope_urn = REPLACE(ignore_scope_urn, :old, :new)
+            SET subject_urn = regexp_replace(subject_urn, :pattern, :replacement),
+                ignore_scope_urn = regexp_replace(ignore_scope_urn, :pattern, :replacement)
             WHERE tenant_key = :tenantKey
-              AND (subject_urn LIKE '%' || :old || '%' OR ignore_scope_urn LIKE '%' || :old || '%')
+              AND (subject_urn ~ :pattern OR ignore_scope_urn ~ :pattern)
             """,
         )
             .bind("tenantKey", tenantKey)
-            .bind("old", old)
-            .bind("new", new)
+            .bind("pattern", pattern)
+            .bind("replacement", replacement)
             .execute()
 
         handle.createUpdate(
             """
             UPDATE quality_finding_ignores
-            SET ignore_scope_urn = REPLACE(ignore_scope_urn, :old, :new)
-            WHERE tenant_key = :tenantKey AND ignore_scope_urn LIKE '%' || :old || '%'
+            SET ignore_scope_urn = regexp_replace(ignore_scope_urn, :pattern, :replacement)
+            WHERE tenant_key = :tenantKey AND ignore_scope_urn ~ :pattern
             """,
         )
             .bind("tenantKey", tenantKey)
-            .bind("old", old)
-            .bind("new", new)
+            .bind("pattern", pattern)
+            .bind("replacement", replacement)
             .execute()
+    }
+
+    private companion object {
+        val ADDRESS = Regex("^[a-z0-9-]+/[a-z0-9-]+/[a-z0-9-]+$")
     }
 }
