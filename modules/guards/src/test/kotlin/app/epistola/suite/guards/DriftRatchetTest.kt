@@ -38,7 +38,7 @@ class DriftRatchetTest {
         Counter("onNonHtmx {} call sites outside epistola-web", 107, "onFullPage {}") {
             mainLines(Regex("""\bonNonHtmx\b""")) { !it.startsWith("modules/epistola-web/") }
         },
-        Counter("raw ServerResponse.ok().render(", 41, "page() or htmx { fragment() }") {
+        Counter("raw ServerResponse.ok().render(", 39, "page() or htmx { fragment() }") {
             mainLines(Regex("""ServerResponse\.ok\(\)\.render\("""))
         },
         Counter("val tenantId: TenantKey", 73, "val tenantKey: TenantKey") {

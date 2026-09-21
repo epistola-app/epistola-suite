@@ -7,7 +7,7 @@
 <th:block th:fragment="content">
     <div th:replace="~{epistola-web/page-header :: page-header(pageTitle='Move resource')}"></div>
     <ep-catalog-organise
-            th:attr="data-base-url=@{/tenants/{tenantId}/catalogs/organise(tenantId=${tenantId})},data-single=${resource}">
+            th:attr="data-base-url=@{/tenants/{tenantId}/catalogs/organise(tenantId=${tenantId})},data-single=${resource},data-can-apply=${canApply}">
         <div class="ep-panel" style="padding: var(--ep-space-6);">Loading resource…</div>
     </ep-catalog-organise>
 </th:block>
@@ -19,7 +19,7 @@
         </div>
         <div class="ep-dialog-body">
             <ep-catalog-organise
-                    th:attr="data-base-url=@{/tenants/{tenantId}/catalogs/organise(tenantId=${tenantId})},data-single=${resource}">
+                    th:attr="data-base-url=@{/tenants/{tenantId}/catalogs/organise(tenantId=${tenantId})},data-single=${resource},data-can-apply=${canApply}">
                 <p class="text-muted">Loading resource…</p>
             </ep-catalog-organise>
         </div>

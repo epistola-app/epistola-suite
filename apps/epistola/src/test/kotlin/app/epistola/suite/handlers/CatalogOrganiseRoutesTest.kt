@@ -89,7 +89,8 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
             objectMapper.readTree(response.body).path("resources").forEach { add(it.path("type").stringValue()) }
         }
         assertThat(types).isNotEmpty()
-        assertThat(types.filterNot { it in setOf("stencil", "attribute", "template") }).isEmpty()
+        // Every catalog resource type is movable; the listing offers nothing else.
+        assertThat(types).allSatisfy { assertThat(it).isIn("template", "stencil", "theme", "font", "image", "codeList", "attribute") }
     }
 
     @Test

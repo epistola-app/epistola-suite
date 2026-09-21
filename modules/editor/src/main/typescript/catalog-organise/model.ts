@@ -45,6 +45,8 @@ export interface Blocker {
   code: string;
   message: string;
   source?: { type: string; catalogKey: string; key: string };
+  /** The blocked resource as `<type>:<catalog>/<key>`, the same form as {@link OrganiseResource.id}. */
+  sourceId?: string | null;
 }
 
 /** Surfaced before applying, but does not stop the move. */
@@ -52,6 +54,7 @@ export interface Warning {
   code: string;
   message: string;
   source?: { type: string; catalogKey: string; key: string };
+  sourceId?: string | null;
 }
 
 export interface RelocationPreview {

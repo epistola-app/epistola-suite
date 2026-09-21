@@ -39,9 +39,16 @@ export class CatalogOrganise extends LitElement {
   @property({ attribute: 'data-preselected' }) preselected = '';
   /** Focus on one resource: `<type>:<catalog>/<key>`. Empty renders the browser. */
   @property({ attribute: 'data-single' }) single = '';
+  /**
+   * Whether the reader may apply a move. Previewing needs catalog view, applying catalog
+   * management; a reader without it is told so instead of being offered a Move that would fail.
+   */
+  @property({ attribute: 'data-can-apply' }) canApply = 'true';
 
   @state() private catalogs: OrganiseCatalog[] = [];
   @state() private resources: OrganiseResource[] = [];
+  /** The server returned its first page only; a search reaches the rest. */
+  @state() private truncated = false;
   @state() private search = '';
   @state() private catalogFilter = '';
   /** Destination for every selected row that has not overridden it. */
@@ -63,14 +70,19 @@ export class CatalogOrganise extends LitElement {
     try {
       const params = new URLSearchParams();
       if (this.search.trim()) params.set('q', this.search.trim());
+      // A deep link or the single-move dialog names resources that must be offered wherever they
+      // fall, not only when they happen to be on the first page.
+      for (const id of this.deepLinkedIds()) params.append('resource', id);
       const response = await fetch(`${this.baseUrl}/resources?${params}`);
       if (!response.ok) throw new Error(`Could not load resources (${response.status})`);
       const body = (await response.json()) as {
         catalogs: OrganiseCatalog[];
         resources: OrganiseResource[];
+        truncated?: boolean;
       };
       this.catalogs = body.catalogs;
       this.resources = body.resources;
+      this.truncated = body.truncated === true;
       this.applyDeepLink();
     } catch (error) {
       this.error = error instanceof Error ? error.message : 'Could not load resources';
@@ -81,6 +93,10 @@ export class CatalogOrganise extends LitElement {
 
   private deepLinkApplied = false;
 
+  private deepLinkedIds(): string[] {
+    return (this.single || this.preselected).split(',').filter(Boolean);
+  }
+
   /**
    * Runs once, after the first load: a deep link names resources that must exist to be selected.
    *
@@ -89,10 +105,9 @@ export class CatalogOrganise extends LitElement {
    * had happened.
    */
   private applyDeepLink(): void {
-    const deepLinked = this.single || this.preselected;
-    if (!deepLinked || this.deepLinkApplied) return;
+    const wanted = new Set(this.deepLinkedIds());
+    if (wanted.size === 0 || this.deepLinkApplied) return;
     this.deepLinkApplied = true;
-    const wanted = new Set(deepLinked.split(',').filter(Boolean));
     for (const resource of this.resources) {
       if (wanted.has(resource.id))
         this.selected.set(resource.id, { catalog: '', key: '', overridden: false });
@@ -201,10 +216,20 @@ export class CatalogOrganise extends LitElement {
       body: JSON.stringify({ relocations: this.batch(), planFingerprint }),
     });
     if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { blockers?: Blocker[] } | null;
+      const body = (await response.json().catch(() => null)) as {
+        code?: string;
+        message?: string;
+        blockers?: Blocker[];
+      } | null;
+      // A plan that went stale, or became blocked, is no longer the one on screen: withdraw it, so
+      // Move is not offered again for what the server has just refused.
+      if (body?.code === 'stale-plan' || body?.code === 'move-blocked') this.preview = undefined;
       throw new Error(
         body?.blockers?.map((blocker) => blocker.message).join('; ') ||
-          `Request failed (${response.status})`,
+          body?.message ||
+          (response.status === 403
+            ? 'Applying a move needs the catalog management permission.'
+            : `Request failed (${response.status})`),
       );
     }
     return (await response.json()) as RelocationPreview;
@@ -230,6 +255,12 @@ export class CatalogOrganise extends LitElement {
       const moved = this.preview.relocations;
       const destinations = new Set(moved.map((plan) => plan.target.catalogKey));
       await this.post('execute', this.preview.planFingerprint);
+      // Opened in a dialog from the moved resource's own page, which still shows its old address.
+      // Reloading it lands on the canonical one, since an old address redirects there.
+      if (this.single && this.closest('dialog')) {
+        window.location.reload();
+        return;
+      }
       this.selected = new Map();
       this.preview = undefined;
       this.sharedDestination = '';
@@ -245,11 +276,9 @@ export class CatalogOrganise extends LitElement {
     }
   }
 
+  /** Matched on the full address: two types can share a catalog and key. */
   private blockersFor(resource: OrganiseResource): Blocker[] {
-    return (this.preview?.blockers ?? []).filter(
-      (blocker) =>
-        blocker.source?.catalogKey === resource.catalogKey && blocker.source?.key === resource.key,
-    );
+    return (this.preview?.blockers ?? []).filter((blocker) => blocker.sourceId === resource.id);
   }
 
   private get batchBlockers(): Blocker[] {
@@ -429,63 +458,70 @@ export class CatalogOrganise extends LitElement {
         ${
           this.search || this.catalogFilter
             ? 'No resources match this filter.'
-            : 'No relocatable resources. Only stencils, attributes and templates in authored catalogs can be moved.'
+            : 'No resources to move. Templates, stencils, themes, fonts, images, code lists and attributes in authored catalogs can be moved.'
         }
       </p>`;
     }
 
-    return html`<table class="ep-table">
-      <thead>
-        <tr>
-          <th>
-            <input
-              type="checkbox"
-              aria-label="Select all shown"
-              data-testid="organise-select-all"
-              ?checked=${visible.length > 0 && visible.every((resource) => this.selected.has(resource.id))}
-              @change=${() => this.toggleAll(visible)}
-            />
-          </th>
-          <th>Resource</th>
-          <th>Type</th>
-          <th>Catalog</th>
-          <th>Destination</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${visible.map((resource) => {
-          const destination = this.selected.get(resource.id);
-          const blockers = this.blockersFor(resource);
-
-          return html`<tr>
-            <td>
+    return html`${
+        this.truncated
+          ? html`<p class="text-muted" data-testid="organise-truncated">
+              Showing the first 50 resources. Search by name or key to find the rest.
+            </p>`
+          : nothing
+      }
+      <table class="ep-table">
+        <thead>
+          <tr>
+            <th>
               <input
                 type="checkbox"
-                aria-label=${`Select ${resource.name}`}
-                ?checked=${destination !== undefined}
-                @change=${() => this.toggle(resource)}
+                aria-label="Select all shown"
+                data-testid="organise-select-all"
+                ?checked=${visible.length > 0 && visible.every((resource) => this.selected.has(resource.id))}
+                @change=${() => this.toggleAll(visible)}
               />
-            </td>
-            <td>
-              ${resource.name}
-              <br /><small class="text-muted">${resource.key}</small>
-            </td>
-            <td>${resource.type}</td>
-            <td>
-              ${resource.catalogName}
-              ${resource.note ? html`<br /><small class="text-muted">${resource.note}</small>` : nothing}
-            </td>
-            <td>
-              ${destination ? this.renderDestinationCell(resource, destination, authored) : nothing}
-              ${blockers.map(
-                (blocker) =>
-                  html`<br /><small class="alert alert-error">${blocker.message}</small>`,
-              )}
-            </td>
-          </tr>`;
-        })}
-      </tbody>
-    </table>`;
+            </th>
+            <th>Resource</th>
+            <th>Type</th>
+            <th>Catalog</th>
+            <th>Destination</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${visible.map((resource) => {
+            const destination = this.selected.get(resource.id);
+            const blockers = this.blockersFor(resource);
+
+            return html`<tr>
+              <td>
+                <input
+                  type="checkbox"
+                  aria-label=${`Select ${resource.name}`}
+                  ?checked=${destination !== undefined}
+                  @change=${() => this.toggle(resource)}
+                />
+              </td>
+              <td>
+                ${resource.name}
+                <br /><small class="text-muted">${resource.key}</small>
+              </td>
+              <td>${resource.type}</td>
+              <td>
+                ${resource.catalogName}
+                ${resource.note ? html`<br /><small class="text-muted">${resource.note}</small>` : nothing}
+              </td>
+              <td>
+                ${destination ? this.renderDestinationCell(resource, destination, authored) : nothing}
+                ${blockers.map(
+                  (blocker) =>
+                    html`<br /><small class="alert alert-error">${blocker.message}</small>`,
+                )}
+              </td>
+            </tr>`;
+          })}
+        </tbody>
+      </table>`;
   }
 
   /**
@@ -595,7 +631,15 @@ export class CatalogOrganise extends LitElement {
                 (warning) => html`<p class="alert alert-warning">⚠ ${warning.message}</p>`,
               )}
               ${
-                this.preview.executable
+                this.preview.executable && this.canApply === 'false'
+                  ? html`<p class="text-muted" data-testid="organise-cannot-apply">
+                      Applying a move needs the catalog management permission. You can preview it
+                      here; a tenant administrator can apply it.
+                    </p>`
+                  : nothing
+              }
+              ${
+                this.preview.executable && this.canApply !== 'false'
                   ? html`<button
                       type="button"
                       class="ep-btn ep-btn-primary"
