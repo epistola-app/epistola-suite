@@ -1,13 +1,17 @@
 # Catalog resource relocation
 
-> **Status:** Alpha, off by default. Requires both the `resource-graph` and `resource-relocation`
-> toggles for a tenant.
+> **Status:** Alpha, off by default, behind the `resource-relocation` toggle. The resource graph's
+> hand-off to it also needs `resource-graph`.
 
 Catalog resource relocation is an experimental, tenant-local operation for moving an authored
 resource to another authored catalog, renaming its key, or both, without invalidating references to
 its old public address.
-Enable both `resource-graph` and `resource-relocation` for a tenant to use it. The relocation toggle
-is alpha and defaults off.
+Enable `resource-relocation` for a tenant to use it; it is alpha and defaults off. The organise page
+does not need the resource graph, but the graph's "Organise catalogs" hand-off appears only when
+both toggles are on.
+
+Previewing a move needs catalog view; applying one needs catalog management. A reader who can only
+preview is told so on the page instead of being offered Move.
 
 The alpha supports all seven relocatable resource types: templates, stencils, themes, fonts,
 assets, code lists and variant attributes. Every one of them is keyed by its stable `resource_id`
@@ -115,12 +119,28 @@ written before it existed resolve through their recorded address instead.
   graph links to it rather than hosting the operation — the graph diagnoses, this applies. REST and
   MCP operations are intentionally deferred until the command contract and authorization model have
   settled.
-- An address a resource has moved away from keeps working on every surface.
-  REST and MCP resolve it to the canonical address before dispatching
-  (`ResolveCanonicalResourceAddress`, deliberately authorisation-free: the operation that follows
-  carries the permission, and gating the resolution would fail a generate-only key on every
-  address). A UI `GET` redirects to the canonical URL, and everything beneath the resource —
-  variants, versions, contract — redirects with it.
+- An old address keeps working on these surfaces, and only these, in the alpha:
+
+  | Surface       | Resolves an old address for                                                 |
+  | ------------- | --------------------------------------------------------------------------- |
+  | UI `GET`      | templates and stencils: a 303 to the canonical page, every sub-page too     |
+  | REST          | templates (generation included) and stencils; attributes on read and delete |
+  | MCP           | templates, stencils and attributes, except `preview_document`               |
+  | Rendering     | every type: published content resolves through the alias                    |
+  | Image content | images, by the catalog a reference names                                    |
+
+  Themes, fonts, images and code lists are not yet resolved at an old address by their own pages,
+  REST or MCP; those answer "not found". REST and MCP resolve through
+  `ResolveCanonicalResourceAddress`, deliberately authorisation-free: the operation that follows
+  carries the permission, and gating the resolution would fail a generate-only key on every address.
+
+- A REST write through an old address applies to the moved resource. A UI write to an old address
+  is not redirected and answers "not found".
+- Creating a resource at an address a moved resource left is refused with a readable error — on the
+  form's key field in the UI, and as `409 RESOURCE_ADDRESS_RESERVED` over REST.
+- Two places deliberately differ from ADR 0014 in the alpha: unregistering a catalog drops the
+  aliases its former resources left there, and importing a catalog canonicalises a reference to an
+  aliased address rather than refusing it.
 
 This operation cannot be demonstrated by adding static content to the bundled demo catalog: the
 feature is a state transition between two tenant-owned catalogs. Its representative scenario lives

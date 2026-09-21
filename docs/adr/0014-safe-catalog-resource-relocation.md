@@ -523,7 +523,7 @@ render against the catalog of the template's bound theme (or the tenant's defaul
 follows the theme when it moves -- so every such published version failed its font integrity check
 after the theme moved. The pin now also covers those snapshots: when a theme changes catalog, the
 relative fonts in the snapshots resolving through it are pinned to the catalog they resolve against
-today, and their integrity pins rekeyed. These are bytes of *other* resources' published versions,
+today, and their integrity pins rekeyed. These are bytes of _other_ resources' published versions,
 but only their theme snapshot -- never their template model, and not exported. Publishes now freeze
 the catalog, so the set of snapshots needing this does not grow. Alternatives considered: blocking
 the move (strands the theme until every dependent template is republished) and qualifying new
