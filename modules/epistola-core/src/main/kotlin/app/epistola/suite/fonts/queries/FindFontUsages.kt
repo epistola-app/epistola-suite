@@ -10,6 +10,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -50,7 +51,32 @@ class FindFontUsagesHandler(
         """$.** ? (@.slug == ${'$'}slug && @.catalogKey == ${'$'}catalogKey)"""
 
     override fun handle(query: FindFontUsages): List<FontUsage> = jdbi.withHandle<List<FontUsage>, Exception> { handle ->
-        val vars = """{"slug": "${query.fontId.key.value}", "catalogKey": "${query.fontId.catalogKey.value}"}"""
+        // A published version keeps naming a relocated family by the address it had when it was
+        // published, and resolves it through the alias the move left. Those references are uses
+        // too, or a moved family could be deleted from under a published document.
+        formerAddresses(handle, query)
+            .plus(query.fontId.catalogKey.value to query.fontId.key.value)
+            .flatMap { (catalogKey, slug) -> usagesAt(handle, query, catalogKey, slug) }
+            .distinct()
+    }
+
+    private fun formerAddresses(handle: Handle, query: FindFontUsages): List<Pair<String, String>> = handle.createQuery(
+        """
+        SELECT aliases.catalog_key::text, aliases.resource_key
+        FROM catalog_resource_aliases aliases
+        JOIN fonts ON fonts.tenant_key = aliases.tenant_key AND fonts.resource_id = aliases.target_resource_id
+        WHERE aliases.tenant_key = :tenantKey AND aliases.resource_type = 'font'
+          AND fonts.catalog_key = :catalogKey AND fonts.slug = :slug
+        """,
+    )
+        .bind("tenantKey", query.fontId.tenantKey)
+        .bind("catalogKey", query.fontId.catalogKey)
+        .bind("slug", query.fontId.key)
+        .map { rs, _ -> rs.getString(1) to rs.getString(2) }
+        .list()
+
+    private fun usagesAt(handle: Handle, query: FindFontUsages, catalogKey: String, slug: String): List<FontUsage> {
+        val vars = """{"slug": "$slug", "catalogKey": "$catalogKey"}"""
 
         val themeUsages = handle.createQuery(
             """
@@ -88,6 +114,6 @@ class FindFontUsagesHandler(
             .map { rs, _ -> FontUsage(kind = "template", name = rs.getString("name")) }
             .list()
 
-        themeUsages + templateUsages
+        return themeUsages + templateUsages
     }
 }
