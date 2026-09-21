@@ -529,9 +529,10 @@ class CatalogResourceMovePlanner(
      * draft; a published holder keeps its bytes, resolves through the alias, and is counted as such.
      * Relative references *inside* a moving resource are pinned to the catalog they resolve against
      * today -- published versions included, because the owner leaving is exactly what would change
-     * their meaning, and versions never age out. A catalog with a release cannot be moved out of, so
-     * the pin never touches released content. Content written since references became qualified on
-     * write has nothing left to pin.
+     * their meaning, and versions never age out. A released source catalog only warns, so the pin can
+     * touch content a release already covered; the `released-source` warning is fingerprinted into
+     * the plan, so executing one means having seen it. Content written since references became
+     * qualified on write has nothing left to pin.
      */
     private fun rewriteContent(
         handle: Handle,
