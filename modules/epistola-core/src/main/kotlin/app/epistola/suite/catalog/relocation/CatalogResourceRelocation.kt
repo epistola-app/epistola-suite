@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.graph.TenantResourceGraphBuilder
+import app.epistola.suite.common.AuditDetailed
 import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -119,8 +120,12 @@ data class MoveCatalogResources(
     val relocations: List<ResourceRelocation>,
     val expectedPlanFingerprint: String,
 ) : Command<CatalogResourceMovePreview>,
-    RequiresPermission {
+    RequiresPermission,
+    AuditDetailed {
     override val permission get() = Permission.CATALOG_MANAGE
+
+    /** Each resource's old address and the one it moved to: where a resource went, and when. */
+    override val auditDetails: Map<String, String> get() = relocations.associate { it.source.id to it.target.id }
 }
 
 class CatalogResourceMoveBlockedException(

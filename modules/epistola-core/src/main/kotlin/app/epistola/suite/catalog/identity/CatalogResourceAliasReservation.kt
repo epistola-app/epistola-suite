@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.identity
 import app.epistola.suite.catalog.graph.ReferenceSelector
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.graph.TenantResourceGraphBuilder
+import app.epistola.suite.common.AuditDetailed
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -91,8 +92,11 @@ data class ReleaseCatalogResourceAlias(
     override val tenantKey: TenantKey,
     val address: ResourceAddress,
 ) : Command<Unit>,
-    RequiresPermission {
+    RequiresPermission,
+    AuditDetailed {
     override val permission get() = Permission.CATALOG_MANAGE
+
+    override val auditDetails: Map<String, String> get() = mapOf("released" to address.id)
 }
 
 @Component
