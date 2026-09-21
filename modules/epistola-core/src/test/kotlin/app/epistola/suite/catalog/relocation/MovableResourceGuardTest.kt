@@ -22,8 +22,9 @@ class MovableResourceGuardTest {
     private val aliasAwareRuntimeLookups = mapOf(
         // `a qualified image reference survives its asset moving`
         CatalogResourceType.IMAGE to "GetAssetContent",
-        // `a published document keeps its typeface after the font family moves`
-        CatalogResourceType.FONT to "ResolveFontFace",
+        // `a published document keeps its typeface after the font family moves`, and for the
+        // publish-time integrity pin RenderAfterRelocationTest's font move and rename cases
+        CatalogResourceType.FONT to "ResolveFontFace + GetFontFamilyFingerprint",
         // `a template still finds its theme after the theme moves`
         CatalogResourceType.THEME to "ThemeStyleResolver.getTheme",
     )
