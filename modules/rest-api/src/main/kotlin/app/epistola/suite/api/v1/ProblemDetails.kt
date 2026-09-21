@@ -84,6 +84,7 @@ object ApiProblemTypes {
     val CATALOG_NOT_FOUND = problem("CATALOG_NOT_FOUND", "Catalog Not Found", HttpStatus.NOT_FOUND, "The requested catalog does not exist or is not visible to the caller.", listOf("catalogId"))
     val CATALOG_NOT_UPGRADEABLE = problem("CATALOG_NOT_UPGRADEABLE", "Catalog Not Upgradeable", HttpStatus.CONFLICT, "The requested catalog is not in a state that supports upgrade operations.", listOf("catalogId"))
     val CATALOG_RELEASE_VERSION_INVALID = problem("CATALOG_RELEASE_VERSION_INVALID", "Invalid Catalog Release Version", HttpStatus.BAD_REQUEST, "The requested catalog release version is invalid or does not advance the current version.", emptyList())
+    val RESOURCE_ADDRESS_RESERVED = problem("RESOURCE_ADDRESS_RESERVED", "Resource Address Reserved", HttpStatus.CONFLICT, "A resource moved away from this address and published documents still use it; choose another key.", listOf("address"))
     val CATALOG_UPGRADE_CONFLICT = problem("CATALOG_UPGRADE_CONFLICT", "Catalog Upgrade Conflict", HttpStatus.CONFLICT, "The catalog upgrade would remove resources that are still in use.", listOf("conflicts"))
     val CATALOG_SCHEMA_TOO_NEW = problem("CATALOG_SCHEMA_TOO_NEW", "Catalog Wire Schema Too New", HttpStatus.BAD_REQUEST, "The catalog was exported by a newer Epistola than this instance can read; upgrade this instance.", listOf("version", "supportedVersion"))
     val CATALOG_SCHEMA_TOO_OLD = problem("CATALOG_SCHEMA_TOO_OLD", "Catalog Wire Schema Too Old", HttpStatus.BAD_REQUEST, "The catalog's wire format predates the oldest version this instance can upgrade; re-export from a current source.", listOf("version", "baselineVersion"))
@@ -155,6 +156,7 @@ object ApiProblemTypes {
         CATALOG_NOT_UPGRADEABLE,
         CATALOG_RELEASE_VERSION_INVALID,
         CATALOG_UPGRADE_CONFLICT,
+        RESOURCE_ADDRESS_RESERVED,
         CATALOG_SCHEMA_TOO_NEW,
         CATALOG_SCHEMA_TOO_OLD,
         CATALOG_SCHEMA_UNKNOWN,

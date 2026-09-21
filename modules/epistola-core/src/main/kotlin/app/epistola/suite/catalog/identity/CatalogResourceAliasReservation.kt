@@ -30,8 +30,8 @@ import org.springframework.stereotype.Component
 class CatalogResourceAddressReservedException(
     val address: ResourceAddress,
 ) : IllegalStateException(
-    "The address ${address.catalogKey}/${address.key} is reserved by a relocated ${address.type.wireName}; " +
-        "release the alias first or choose another key",
+    "A ${address.type.wireName} moved away from ${address.catalogKey}/${address.key}, and published documents " +
+        "that name that address still use it. Choose another key.",
 )
 
 /**
