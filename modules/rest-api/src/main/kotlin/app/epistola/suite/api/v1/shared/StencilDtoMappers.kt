@@ -18,6 +18,7 @@ import app.epistola.suite.stencils.model.StencilVersionSummary
 import tools.jackson.databind.node.ObjectNode
 
 internal fun Stencil.toDto(versions: List<StencilVersionSummary>) = StencilDto(
+    slug = id.value,
     id = id.value,
     tenantId = tenantKey.value,
     name = name,
@@ -29,6 +30,7 @@ internal fun Stencil.toDto(versions: List<StencilVersionSummary>) = StencilDto(
 )
 
 internal fun Stencil.toSummaryDto(latestPublishedVersion: Int?) = StencilSummaryDto(
+    slug = id.value,
     id = id.value,
     tenantId = tenantKey.value,
     name = name,
@@ -40,6 +42,7 @@ internal fun Stencil.toSummaryDto(latestPublishedVersion: Int?) = StencilSummary
 )
 
 internal fun StencilSummaryWithVersionInfo.toSummaryDto() = StencilSummaryDto(
+    slug = id.value,
     id = id.value,
     tenantId = tenantKey.value,
     name = name,

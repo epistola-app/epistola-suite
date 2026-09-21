@@ -132,7 +132,7 @@ class BuildTenantSnapshotHandler(
                 is DependencyRef.Stencil -> dep.catalogKey
                 is DependencyRef.CodeList -> dep.catalogKey
                 is DependencyRef.Font -> dep.catalogKey
-                is DependencyRef.Asset -> null
+                is DependencyRef.Image -> dep.catalogKey
             }
         }.filter { it != ownKey && it != SYSTEM_CATALOG_KEY.value }
         .distinct()

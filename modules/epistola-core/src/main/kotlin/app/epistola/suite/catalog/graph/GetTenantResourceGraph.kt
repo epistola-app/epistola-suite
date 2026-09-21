@@ -93,7 +93,7 @@ class TenantResourceGraphBuilder(
         """
             SELECT resource_id, resource_type, catalog_key, resource_key, resource_name, catalog_name, catalog_type
             FROM (
-                SELECT a.resource_id, 'asset' resource_type, a.catalog_key::text, a.id::text resource_key, a.name resource_name, c.name catalog_name, c.type::text catalog_type FROM assets a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.id = a.catalog_key WHERE a.tenant_key = :tenantKey
+                SELECT a.resource_id, 'image' resource_type, a.catalog_key::text, a.id::text resource_key, a.name resource_name, c.name catalog_name, c.type::text catalog_type FROM assets a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.id = a.catalog_key WHERE a.tenant_key = :tenantKey
                 UNION ALL SELECT l.resource_id, 'codeList', l.catalog_key::text, l.slug::text, l.display_name, c.name, c.type::text FROM code_lists l JOIN catalogs c ON c.tenant_key = l.tenant_key AND c.id = l.catalog_key WHERE l.tenant_key = :tenantKey
                 UNION ALL SELECT f.resource_id, 'font', f.catalog_key::text, f.slug::text, f.name, c.name, c.type::text FROM fonts f JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.id = f.catalog_key WHERE f.tenant_key = :tenantKey
                 UNION ALL SELECT a.resource_id, 'attribute', a.catalog_key::text, a.id::text, a.display_name, c.name, c.type::text FROM variant_attribute_definitions a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.id = a.catalog_key WHERE a.tenant_key = :tenantKey
@@ -170,7 +170,7 @@ class TenantResourceGraphBuilder(
         ).bind("tenantKey", tenantKey).map { rs, _ ->
             Occurrence(
                 source = ResourceAddress(CatalogResourceType.FONT, rs.getString("catalog_key"), rs.getString("font_slug")),
-                selector = ReferenceSelector(CatalogResourceType.ASSET, rs.getString("asset_catalog_key"), rs.getString("asset_key")),
+                selector = ReferenceSelector(CatalogResourceType.IMAGE, rs.getString("asset_catalog_key"), rs.getString("asset_key")),
                 kind = "font-face-asset",
                 semantics = ReferenceSemantics.RUNTIME,
                 qualification = ReferenceQualification.EXPLICIT,

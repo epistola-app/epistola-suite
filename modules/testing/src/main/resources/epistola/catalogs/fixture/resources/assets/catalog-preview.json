@@ -1,12 +1,13 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "resource": {
-    "type": "asset",
+    "type": "image",
     "slug": "01966a00-0000-7000-8000-000000000002",
     "name": "Epistola Catalog Preview",
     "mediaType": "image/svg+xml",
     "width": null,
     "height": null,
-    "contentUrl": "./binaries/catalog-preview.svg"
+    "contentUrl": "./binaries/catalog-preview.svg",
+    "contentHash": "4c43da3a9cf56ccec1ce002e8c926118276e3790dd686bcd9bdcabe6f708353f"
   }
 }

@@ -132,7 +132,7 @@ class DependencyResolver(
             merged.themeRefs.forEach { resolve("theme", it) }
             merged.stencilRefs.forEach { resolve("stencil", it) }
             merged.attributeKeys.forEach { resolve("attribute", it) }
-            merged.assetRefs.forEach { resolve("asset", it) }
+            merged.assetRefs.forEach { resolve("image", it) }
             merged.codeListRefs.forEach { resolve("codeList", it) }
             merged.fontRefs.forEach { resolve("font", it) }
 

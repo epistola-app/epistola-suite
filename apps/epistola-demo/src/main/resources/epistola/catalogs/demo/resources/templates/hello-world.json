@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "resource": {
     "type": "template",
     "slug": "hello-world",
@@ -43,7 +43,9 @@
         "n-root": {
           "id": "n-root",
           "type": "root",
-          "slots": ["s-root-children"]
+          "slots": [
+            "s-root-children"
+          ]
         },
         "n-header": {
           "id": "n-header",
@@ -66,7 +68,9 @@
                   "default": "Acme Corporation"
                 }
               },
-              "required": ["companyName"]
+              "required": [
+                "companyName"
+              ]
             }
           }
         },
@@ -80,11 +84,24 @@
               "content": [
                 {
                   "type": "heading",
-                  "attrs": { "level": 1 },
+                  "attrs": {
+                    "level": 1
+                  },
                   "content": [
-                    { "type": "text", "text": "Hello, " },
-                    { "type": "expression", "attrs": { "expression": "name" } },
-                    { "type": "text", "text": "!" }
+                    {
+                      "type": "text",
+                      "text": "Hello, "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "name"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": "!"
+                    }
                   ]
                 }
               ]
@@ -102,7 +119,12 @@
                 {
                   "type": "paragraph",
                   "content": [
-                    { "type": "expression", "attrs": { "expression": "message" } }
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "message"
+                      }
+                    }
                   ]
                 }
               ]
@@ -115,13 +137,17 @@
           "id": "s-root-children",
           "nodeId": "n-root",
           "name": "children",
-          "children": ["n-header", "n-heading", "n-body"]
+          "children": [
+            "n-header",
+            "n-heading",
+            "n-body"
+          ]
         }
       }
     },
     "variants": [
       {
-        "id": "default",
+        "slug": "default",
         "title": "Default",
         "attributes": {},
         "templateModel": null,

@@ -179,7 +179,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
                   "nodes": { "n-root": { "id": "n-root", "type": "root", "slots": ["s-root"] } },
                   "slots": { "s-root": { "id": "s-root", "nodeId": "n-root", "name": "children", "children": [] } }
                 },
-                "variants": [ { "id": "default", "title": "Default", "attributes": {}, "isDefault": true } ]
+                "variants": [ { "slug": "default", "title": "Default", "attributes": {}, "isDefault": true } ]
               }
             }
             """.trimIndent(),

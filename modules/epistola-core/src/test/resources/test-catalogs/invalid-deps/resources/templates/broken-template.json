@@ -38,7 +38,7 @@
     },
     "variants": [
       {
-        "id": "default",
+        "slug": "default",
         "title": "Default",
         "attributes": { "nonexistent-attr": "value" },
         "isDefault": true

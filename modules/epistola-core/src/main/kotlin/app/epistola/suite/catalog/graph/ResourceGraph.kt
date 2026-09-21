@@ -7,7 +7,7 @@ package app.epistola.suite.catalog.graph
 import app.epistola.suite.common.ids.ResourceIdentity
 
 enum class CatalogResourceType(val wireName: String) {
-    ASSET("asset"),
+    IMAGE("image"),
     CODE_LIST("codeList"),
     FONT("font"),
     ATTRIBUTE("attribute"),

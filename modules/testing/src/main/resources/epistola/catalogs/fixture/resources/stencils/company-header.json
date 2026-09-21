@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "resource": {
     "type": "stencil",
     "slug": "company-header",
@@ -43,9 +43,16 @@
               "content": [
                 {
                   "type": "heading",
-                  "attrs": { "level": 1 },
+                  "attrs": {
+                    "level": 1
+                  },
                   "content": [
-                    { "type": "expression", "attrs": { "expression": "params.companyName" } }
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "params.companyName"
+                      }
+                    }
                   ]
                 }
               ]

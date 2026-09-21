@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "catalog": {
     "slug": "epistola-demo",
     "name": "Epistola Demo Catalog",
@@ -13,11 +13,8 @@
     ],
     "keywords": ["brieven", "getting-started", "nederlands"],
     "presentation": {
-      "iconAssetSlug": "01966a00-0000-7000-8000-000000000001",
-      "imageAssetSlugs": [
-        "01966a00-0000-7000-8000-000000000001",
-        "01966a00-0000-7000-8000-000000000002"
-      ]
+      "iconAssetSlug": "epistola-logo",
+      "imageAssetSlugs": ["epistola-logo", "catalog-preview"]
     },
     "license": {
       "name": "Creative Commons Attribution 4.0 International",
@@ -31,22 +28,22 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "5.18.1",
+    "version": "5.18.2",
     "releasedAt": "2026-09-21T00:00:00Z",
-    "fingerprint": "bb0eb7f9fe30b3bae61b452c5f6509d9479f53b459c395977e07e170dfc77a72"
+    "fingerprint": "PLACEHOLDER"
   },
   "resources": [
     {
-      "type": "asset",
-      "slug": "01966a00-0000-7000-8000-000000000001",
+      "type": "image",
+      "slug": "epistola-logo",
       "name": "Epistola Logo",
       "description": "Small brand logo for use in templates.",
       "updatedAt": "2026-04-10T00:00:00Z",
       "detailUrl": "./resources/assets/epistola-logo.json"
     },
     {
-      "type": "asset",
-      "slug": "01966a00-0000-7000-8000-000000000002",
+      "type": "image",
+      "slug": "catalog-preview",
       "name": "Epistola Catalog Preview",
       "description": "Preview illustration for the demo catalog gallery.",
       "updatedAt": "2026-08-20T00:00:00Z",
@@ -128,7 +125,7 @@
       "type": "template",
       "slug": "officiele-snelheidsbekeuring",
       "name": "Verkeersboete",
-      "description": "Dutch traffic-fine notice (CJIB-style). Showcases locale-aware date and number formatting via $formatDate (four distinct patterns — long-form, short, date+time, no-leading-zero) and $formatLocaleNumber (integer speeds and currency amounts). Three variants exercise the locale chain: default (inherits from tenant/app), nl-NL (Dutch month names, '1.234,56' grouping), en-US (English month names, '1,234.56' grouping).",
+      "description": "Dutch traffic-fine notice (CJIB-style). Showcases locale-aware date and number formatting via $formatDate (four distinct patterns \u2014 long-form, short, date+time, no-leading-zero) and $formatLocaleNumber (integer speeds and currency amounts). Three variants exercise the locale chain: default (inherits from tenant/app), nl-NL (Dutch month names, '1.234,56' grouping), en-US (English month names, '1,234.56' grouping).",
       "updatedAt": "2026-05-21T00:00:00Z",
       "detailUrl": "./resources/templates/traffic-fine.json"
     }

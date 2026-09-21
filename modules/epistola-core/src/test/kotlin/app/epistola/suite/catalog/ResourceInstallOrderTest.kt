@@ -19,7 +19,7 @@ class ResourceInstallOrderTest {
 
     @Test
     fun `every resource type has an explicit ordering`() {
-        val types = setOf("asset", "codeList", "font", "attribute", "theme", "stencil", "template")
+        val types = setOf("image", "codeList", "font", "attribute", "theme", "stencil", "template")
         assertThat(RESOURCE_INSTALL_ORDER.keys).containsExactlyInAnyOrderElementsOf(types)
     }
 
@@ -40,8 +40,8 @@ class ResourceInstallOrderTest {
     }
 
     @Test
-    fun `assets install before fonts (FK font_variants asset_resource_id)`() {
-        assertThat(RESOURCE_INSTALL_ORDER.getValue("asset"))
+    fun `images install before fonts (FK font_variants asset_resource_id)`() {
+        assertThat(RESOURCE_INSTALL_ORDER.getValue("image"))
             .isLessThan(RESOURCE_INSTALL_ORDER.getValue("font"))
     }
 }

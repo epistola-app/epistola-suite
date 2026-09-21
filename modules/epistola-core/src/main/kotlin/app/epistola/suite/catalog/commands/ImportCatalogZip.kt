@@ -7,11 +7,11 @@ package app.epistola.suite.catalog.commands
 import app.epistola.catalog.archive.CatalogArchivePolicy
 import app.epistola.catalog.archive.CatalogArchiveReader
 import app.epistola.catalog.migration.CatalogMigrationCodes
-import app.epistola.catalog.protocol.AssetResource
 import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.FontResource
+import app.epistola.catalog.protocol.ImageResource
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
@@ -310,7 +310,7 @@ class ImportCatalogZipHandler(
                     when (dep) {
                         is app.epistola.catalog.protocol.DependencyRef.Theme -> "theme '${dep.slug}' from catalog '${dep.catalogKey}'"
                         is app.epistola.catalog.protocol.DependencyRef.Stencil -> "stencil '${dep.slug}' from catalog '${dep.catalogKey}'"
-                        is app.epistola.catalog.protocol.DependencyRef.Asset -> "asset '${dep.slug}'"
+                        is app.epistola.catalog.protocol.DependencyRef.Image -> "image '${dep.slug}' from catalog '${dep.catalogKey}'"
                         is app.epistola.catalog.protocol.DependencyRef.CodeList -> "code list '${dep.slug}' from catalog '${dep.catalogKey}'"
                         is app.epistola.catalog.protocol.DependencyRef.Font -> "font '${dep.slug}' from catalog '${dep.catalogKey}'"
                     }
@@ -701,7 +701,7 @@ class ImportCatalogZipHandler(
                 templateModel = resource.templateModel,
                 variants = resource.variants.map { variant ->
                     ImportVariantInput(
-                        id = variant.id,
+                        id = variant.slug,
                         title = variant.title,
                         attributes = variant.attributes ?: emptyMap(),
                         templateModel = variant.templateModel,
@@ -799,29 +799,29 @@ class ImportCatalogZipHandler(
             // installed in this same catalog (asset slug = asset UUID).
             // System (CLASSPATH) fonts are never exported.
             variants = resource.variants.map { entry ->
+                val faceBytes = entries[entry.contentPath()]
+                    ?: throw IllegalArgumentException("Missing font face content: ${entry.contentPath()}")
+                val faceKey = materialiseFontFace(tenantId, catalogKey, resource.slug, entry, faceBytes)
                 app.epistola.suite.fonts.commands.ImportFontVariant(
                     weight = entry.weight,
                     italic = entry.italic,
                     source = app.epistola.suite.fonts.model.FontVariantSource.ASSET,
-                    assetKey = AssetKey.of(java.util.UUID.fromString(entry.assetSlug)),
+                    assetKey = faceKey,
                 )
             },
         ).execute()
 
-        is AssetResource -> {
+        is ImageResource -> {
             // Resolve binary content from ZIP entries
-            val contentPath = resource.contentUrl.removePrefix("./")
+            val contentPath = resource.contentPath()
             val contentBytes = entries[contentPath]
-                ?: throw IllegalArgumentException("Missing asset content: ${resource.contentUrl}")
+                ?: throw IllegalArgumentException("Missing image content: ${resource.contentPath()}")
             val mediaType = AssetMediaType.fromMimeType(resource.mediaType)
-            // An asset's key is text now, so this parse is the only thing left refusing a catalog
-            // that names its assets readably -- which is the whole point of the blocker. It stays
-            // until the REST surface can represent such an asset. `AssetDto.id` is declared
-            // `format: uuid`, so the generator types it `java.util.UUID` and the mapper has no way
-            // to carry a readable key; relaxing this first would let in data that surface cannot
-            // serialize. The successor is `/images`, whose `ImageDto.slug` is a plain string
-            // (epistola-app/epistola-contract#79), and which the Suite does not implement yet.
-            val assetId = AssetKey.of(java.util.UUID.fromString(resource.slug))
+            // A published catalog may name its images the way a person would -- `municipality-mark`
+            // -- and this accepts them. It used to parse the slug as a UUID, because the REST
+            // surface could not represent anything else; `/images` addresses an image by `slug`,
+            // a plain string, and the asset operations that forced the UUID are gone.
+            val assetId = AssetKey.of(resource.slug)
             ImportAsset(
                 tenantId = tenantId,
                 catalogKey = catalogKey,
@@ -870,15 +870,20 @@ class ImportCatalogZipHandler(
                     .let { found.addAll(it) }
             }
 
-            // Tenant-global: assets
-            val assetDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Asset>()
-            if (assetDeps.isNotEmpty()) {
-                handle.createQuery("SELECT id::text FROM assets WHERE tenant_key = :tenantKey AND id::text IN (<slugs>)")
+            // Catalog-scoped: images. This probe matched tenant-wide until wire v7, which was
+            // only ever safe because an image's slug was a generated UUID -- two catalogs can both
+            // hold a `logo`, and a match in the wrong one reported a dependency as satisfied that
+            // was not. The dependency names its catalog now, so the probe can too.
+            val imageDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Image>()
+            if (imageDeps.isNotEmpty()) {
+                handle.createQuery(
+                    "SELECT catalog_key, id::text FROM assets WHERE tenant_key = :tenantKey AND id::text IN (<slugs>)",
+                )
                     .bind("tenantKey", tenantKey)
-                    .bindList("slugs", assetDeps.map { it.slug })
-                    .mapTo(String::class.java)
+                    .bindList("slugs", imageDeps.map { it.slug })
+                    .map { rs, _ -> "image:${rs.getString("catalog_key")}:${rs.getString("id")}" }
                     .list()
-                    .forEach { found.add("asset:$it") }
+                    .let { found.addAll(it) }
             }
 
             // Catalog-scoped: code lists. Matches the same `catalog_key + slug`
@@ -910,7 +915,7 @@ class ImportCatalogZipHandler(
             when (dep) {
                 is app.epistola.catalog.protocol.DependencyRef.Theme -> "theme:${dep.catalogKey}:${dep.slug}" !in found
                 is app.epistola.catalog.protocol.DependencyRef.Stencil -> "stencil:${dep.catalogKey}:${dep.slug}" !in found
-                is app.epistola.catalog.protocol.DependencyRef.Asset -> "asset:${dep.slug}" !in found
+                is app.epistola.catalog.protocol.DependencyRef.Image -> "image:${dep.catalogKey}:${dep.slug}" !in found
                 is app.epistola.catalog.protocol.DependencyRef.CodeList -> "codeList:${dep.catalogKey}:${dep.slug}" !in found
                 is app.epistola.catalog.protocol.DependencyRef.Font -> "font:${dep.catalogKey}:${dep.slug}" !in found
             }

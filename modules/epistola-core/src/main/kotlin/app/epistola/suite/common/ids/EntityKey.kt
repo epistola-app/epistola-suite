@@ -258,8 +258,8 @@ value class EnvironmentKey(@JsonValue override val value: String) : SlugKey<Envi
 @JvmInline
 value class ThemeKey(@JsonValue override val value: String) : SlugKey<ThemeKey> {
     init {
-        require(value.length in 3..20) {
-            "Theme ID must be 3-20 characters, got ${value.length}"
+        require(value.length in 3..50) {
+            "Theme ID must be 3-50 characters, got ${value.length}"
         }
         require(SLUG_PATTERN.matches(value)) {
             "Theme ID must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"

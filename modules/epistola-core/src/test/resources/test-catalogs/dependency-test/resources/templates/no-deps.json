@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "resource": {
     "type": "template",
     "slug": "no-deps",
@@ -7,12 +7,16 @@
     "templateModel": {
       "modelVersion": 1,
       "root": "n-root",
-      "themeRef": { "type": "inherit" },
+      "themeRef": {
+        "type": "inherit"
+      },
       "nodes": {
         "n-root": {
           "id": "n-root",
           "type": "root",
-          "slots": ["s-root-children"]
+          "slots": [
+            "s-root-children"
+          ]
         },
         "n-text": {
           "id": "n-text",
@@ -24,7 +28,12 @@
               "content": [
                 {
                   "type": "paragraph",
-                  "content": [{ "type": "text", "text": "Simple text" }]
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Simple text"
+                    }
+                  ]
                 }
               ]
             }
@@ -36,16 +45,18 @@
           "id": "s-root-children",
           "nodeId": "n-root",
           "name": "children",
-          "children": ["n-text"]
+          "children": [
+            "n-text"
+          ]
         }
       }
     },
     "variants": [
       {
-        "id": "default",
         "title": "Default",
         "attributes": {},
-        "isDefault": true
+        "isDefault": true,
+        "slug": "default"
       }
     ]
   }

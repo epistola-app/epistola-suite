@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "resource": {
     "type": "template",
     "slug": "demo-invoice",
@@ -339,7 +339,10 @@
         }
       },
       "documentStylesOverride": {
-        "fontFamily": { "slug": "inter", "catalogKey": "system" },
+        "fontFamily": {
+          "slug": "inter",
+          "catalogKey": "system"
+        },
         "fontSize": "10pt",
         "color": "#333333"
       },
@@ -386,7 +389,7 @@
             "marginBottom": "1.5sp"
           },
           "props": {
-            "assetId": "01966a00-0000-7000-8000-000000000001",
+            "assetId": "epistola-logo",
             "alt": "Vendor Logo",
             "width": "90pt"
           }
@@ -1356,7 +1359,7 @@
                     },
                     {
                       "type": "text",
-                      "text": " \u2022 "
+                      "text": " • "
                     },
                     {
                       "type": "expression",
@@ -1585,7 +1588,7 @@
     },
     "variants": [
       {
-        "id": "default",
+        "slug": "default",
         "title": "Default",
         "attributes": {},
         "templateModel": null,

@@ -36,7 +36,7 @@ enum class ReferenceSiteKind(
     val containerField: String? = null,
 ) {
     STENCIL_INSERTION(CatalogResourceType.STENCIL, "stencil-insertion", ReferenceSemantics.PROVENANCE, "stencilId", true, nodeType = "stencil"),
-    IMAGE_ASSET(CatalogResourceType.ASSET, "image-asset", ReferenceSemantics.RUNTIME, "assetId", false, nodeType = "image"),
+    IMAGE_ASSET(CatalogResourceType.IMAGE, "image-asset", ReferenceSemantics.RUNTIME, "assetId", false, nodeType = "image"),
     THEME_OVERRIDE(CatalogResourceType.THEME, "theme-override", ReferenceSemantics.RUNTIME, "themeId", true, containerField = "themeRef"),
     FONT_FAMILY(CatalogResourceType.FONT, "font-family", ReferenceSemantics.RUNTIME, "slug", true, containerField = "fontFamily"),
     ;

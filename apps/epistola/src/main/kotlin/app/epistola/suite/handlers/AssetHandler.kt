@@ -29,7 +29,6 @@ import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
-import java.util.UUID
 import javax.imageio.ImageIO
 
 @Component
@@ -314,7 +313,9 @@ class AssetHandler(
     fun content(request: ServerRequest): ServerResponse {
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val catalogId = CatalogKey.of(request.pathVariable("catalogId"))
-        val assetId = AssetKey.of(UUID.fromString(request.pathVariable("assetId")))
+        // An image key is text, not a UUID: a catalog may name its images readably, and parsing
+        // the path variable as a UUID made every such image unviewable and undeletable here.
+        val assetId = AssetKey.of(request.pathVariable("assetId"))
 
         val assetContent = GetAssetContent(tenantId = tenantId, assetId = assetId, catalogKey = catalogId).query()
             ?: return ServerResponse.notFound().build()
@@ -327,7 +328,9 @@ class AssetHandler(
 
     fun delete(request: ServerRequest): ServerResponse {
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
-        val assetId = AssetKey.of(UUID.fromString(request.pathVariable("assetId")))
+        // An image key is text, not a UUID: a catalog may name its images readably, and parsing
+        // the path variable as a UUID made every such image unviewable and undeletable here.
+        val assetId = AssetKey.of(request.pathVariable("assetId"))
         // The list dropdown's active catalog filter rides along as a query param so
         // the refreshed grid stays consistent with the dropdown after a delete.
         val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }

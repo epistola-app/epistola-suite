@@ -1,6 +1,6 @@
 # Catalogs & Resource Exchange
 
-Catalogs are first-class entities in Epistola for organizing, sharing, and importing resources. A catalog groups templates, themes, stencils, attributes, and assets under a common identity. Every resource belongs to exactly one catalog.
+Catalogs are first-class entities in Epistola for organizing, sharing, and importing resources. A catalog groups templates, themes, stencils, attributes, images and fonts under a common identity. Every resource belongs to exactly one catalog.
 
 > **This page is the root of the exchange docs.** The architecture, data model, protocol, and import/export flows are below. The **wire contract of each part** is documented separately — see the next section.
 >
@@ -225,23 +225,23 @@ The catalog exchange protocol defines the wire format for sharing catalogs betwe
 }
 ```
 
-| Field                       | Type    | Required    | Description                                                                                                                                                                                               |
-| --------------------------- | ------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schemaVersion`             | integer | yes         | The single catalog-wide wire version — the manifest is authoritative for it and every resource detail echoes the same number (see [Parts & contract versions](#parts--contract-versions)). Currently `4`. |
-| `catalog.slug`              | string  | yes         | Catalog identifier (URL-safe slug).                                                                                                                                                                       |
-| `catalog.name`              | string  | yes         | Display name.                                                                                                                                                                                             |
-| `publisher.name`            | string  | yes         | Publisher name.                                                                                                                                                                                           |
-| `release.version`           | string  | yes         | Release version label. SemVer (`MAJOR.MINOR.PATCH`) for versioned catalogs; `-dev`-suffixed when exported from a drifted/never-released working copy.                                                     |
-| `release.fingerprint`       | string  | no          | Lowercase hex SHA-256 of the catalog's canonical content. Drives content-based change detection. See [`catalog-versioning.md`](../catalog-versioning.md).                                                 |
-| `resources`                 | array   | yes         | List of available resources.                                                                                                                                                                              |
-| `resources[].type`          | string  | yes         | `template`, `theme`, `stencil`, `attribute`, `asset`, `codeList`, or `font`.                                                                                                                              |
-| `resources[].slug`          | string  | yes         | Unique identifier within the catalog.                                                                                                                                                                     |
-| `resources[].name`          | string  | yes         | Display name.                                                                                                                                                                                             |
-| `resources[].detailUrl`     | string  | yes         | URL to the resource detail JSON. Relative to the manifest URL.                                                                                                                                            |
-| `dependencies`              | array   | no          | Cross-catalog dependencies. Import is blocked if these are missing.                                                                                                                                       |
-| `dependencies[].type`       | string  | yes         | `theme`, `stencil`, `asset`, `codeList`, or `font`.                                                                                                                                                       |
-| `dependencies[].catalogKey` | string  | conditional | Source catalog slug. Required for themes, stencils, code lists, and fonts. Absent for assets (tenant-global).                                                                                             |
-| `dependencies[].slug`       | string  | yes         | Resource identifier in the source catalog (or asset UUID).                                                                                                                                                |
+| Field                       | Type    | Required | Description                                                                                                                                                                                               |
+| --------------------------- | ------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schemaVersion`             | integer | yes      | The single catalog-wide wire version — the manifest is authoritative for it and every resource detail echoes the same number (see [Parts & contract versions](#parts--contract-versions)). Currently `4`. |
+| `catalog.slug`              | string  | yes      | Catalog identifier (URL-safe slug).                                                                                                                                                                       |
+| `catalog.name`              | string  | yes      | Display name.                                                                                                                                                                                             |
+| `publisher.name`            | string  | yes      | Publisher name.                                                                                                                                                                                           |
+| `release.version`           | string  | yes      | Release version label. SemVer (`MAJOR.MINOR.PATCH`) for versioned catalogs; `-dev`-suffixed when exported from a drifted/never-released working copy.                                                     |
+| `release.fingerprint`       | string  | no       | Lowercase hex SHA-256 of the catalog's canonical content. Drives content-based change detection. See [`catalog-versioning.md`](../catalog-versioning.md).                                                 |
+| `resources`                 | array   | yes      | List of available resources.                                                                                                                                                                              |
+| `resources[].type`          | string  | yes      | `template`, `theme`, `stencil`, `attribute`, `asset`, `codeList`, or `font`.                                                                                                                              |
+| `resources[].slug`          | string  | yes      | Unique identifier within the catalog.                                                                                                                                                                     |
+| `resources[].name`          | string  | yes      | Display name.                                                                                                                                                                                             |
+| `resources[].detailUrl`     | string  | yes      | URL to the resource detail JSON. Relative to the manifest URL.                                                                                                                                            |
+| `dependencies`              | array   | no       | Cross-catalog dependencies. Import is blocked if these are missing.                                                                                                                                       |
+| `dependencies[].type`       | string  | yes      | `theme`, `stencil`, `image`, `codeList`, or `font`.                                                                                                                                                       |
+| `dependencies[].catalogKey` | string  | yes      | Source catalog slug. Required for every kind from wire v7; an image reference used to be tenant-global and unqualified.                                                                                   |
+| `dependencies[].slug`       | string  | yes      | Resource slug in the source catalog.                                                                                                                                                                      |
 
 ### Cross-Catalog Dependencies
 
@@ -300,15 +300,15 @@ Asset resources reference their binary content via `contentUrl`:
 
 ```json
 {
-  "type": "asset",
-  "slug": "01966a00-0000-7000-8000-000000000001",
+  "type": "image",
+  "slug": "company-logo",
   "name": "Company Logo",
   "mediaType": "image/png",
-  "contentUrl": "./resources/assets/01966a00-0000-7000-8000-000000000001"
+  "contentHash": "9950f04a086b80b18a7a9ee7a0cc69a6f65739c4b564445c0d584e8ae74d9c20"
 }
 ```
 
-The `contentUrl` is resolved relative to the manifest URL. For ZIP exports, the binary file is stored at the path directly (no extension). For HTTP-served catalogs, it's a URL endpoint.
+From wire v7 a binary is placed by its hash, at `bin/<contentHash>`, and `contentUrl` is deprecated and optional. An archive migrated from v6 still carries the `contentUrl` it was written with, because a migration rewrites documents and cannot move files; when the field is present it is resolved relative to the manifest URL.
 
 ### URL Schemes
 
@@ -339,9 +339,9 @@ Remote catalogs support three authentication types:
 2. Fetch remote manifest via `CatalogClient.fetchManifest()`
 3. Take **every** resource in the manifest — a catalog is one install unit, and there is no way to ask for a subset (see [#850](https://github.com/epistola-app/epistola-suite/issues/850))
 4. Run `DependencyResolver` over that set: it can add nothing to a complete manifest, but it validates that every same-catalog reference points at a resource the manifest declares
-5. Sort by install order: assets, attributes, themes, stencils, templates
+5. Sort by install order: images, attributes, themes, stencils, templates
 6. For each resource, fetch the detail JSON and call the type-specific importer
-7. Asset binaries are fetched separately via `CatalogClient.fetchBinaryContent()`
+7. Binaries are fetched separately via `CatalogClient.fetchBinaryContent()`
 
 > **Cross-catalog dependencies are not checked on this path.** `ImportCatalogZip` verifies that a manifest's declared `dependencies[]` exist in the target tenant before it writes anything; the URL-subscribed path above does not, so a catalog that depends on another tenant-local catalog installs and fails later at render. Tracked in [#917](https://github.com/epistola-app/epistola-suite/issues/917).
 

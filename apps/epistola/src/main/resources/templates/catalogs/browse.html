@@ -430,10 +430,10 @@
                                 <span th:if="${resource.type == 'theme'}" class="badge badge-default">theme</span>
                                 <span th:if="${resource.type == 'stencil'}" class="badge badge-default">stencil</span>
                                 <span th:if="${resource.type == 'attribute'}" class="badge badge-default">attribute</span>
-                                <span th:if="${resource.type == 'asset'}" class="badge badge-default">asset</span>
+                                <span th:if="${resource.type == 'image'}" class="badge badge-default">image</span>
                                 <span th:if="${resource.type == 'codeList'}" class="badge badge-default">code list</span>
                                 <span th:if="${resource.type == 'font'}" class="badge badge-default">font</span>
-                                <span th:if="${resource.type == 'asset' and catalog.catalogMetadata.presentation != null and (resource.slug == catalog.catalogMetadata.presentation.iconAssetSlug or catalog.catalogMetadata.presentation.imageAssetSlugs.contains(resource.slug))}"
+                                <span th:if="${resource.type == 'image' and catalog.catalogMetadata.presentation != null and (resource.slug == catalog.catalogMetadata.presentation.iconAssetSlug or catalog.catalogMetadata.presentation.imageAssetSlugs.contains(resource.slug))}"
                                       class="badge badge-info" title="Used in the catalog presentation">presentation</span>
                             </td>
                             <td th:title="${resource.name}">
@@ -465,7 +465,7 @@
                                     <a th:if="${resource.type == 'attribute'}"
                                        th:href="@{/tenants/{tenantId}/attributes(tenantId=${tenantId},catalog=${catalog.id})}"
                                        th:text="${resource.name}"></a>
-                                    <a th:if="${resource.type == 'asset'}"
+                                    <a th:if="${resource.type == 'image'}"
                                        th:href="@{/tenants/{tenantId}/images(tenantId=${tenantId},catalog=${catalog.id})}"
                                        th:text="${resource.name}"></a>
                                 </th:block>
@@ -569,7 +569,7 @@
                             <span th:if="${resource.type == 'theme'}" class="badge badge-default">theme</span>
                             <span th:if="${resource.type == 'stencil'}" class="badge badge-default">stencil</span>
                             <span th:if="${resource.type == 'attribute'}" class="badge badge-default">attribute</span>
-                            <span th:if="${resource.type == 'asset'}" class="badge badge-default">asset</span>
+                            <span th:if="${resource.type == 'image'}" class="badge badge-default">image</span>
                         </td>
                         <td th:text="${resource.name}"></td>
                         <td></td>

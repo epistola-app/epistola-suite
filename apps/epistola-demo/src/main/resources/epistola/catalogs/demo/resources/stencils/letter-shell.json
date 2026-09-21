@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "resource": {
     "type": "stencil",
     "slug": "letter-shell",
@@ -39,7 +39,12 @@
               "content": [
                 {
                   "type": "paragraph",
-                  "content": [{ "type": "text", "text": "Default body text" }]
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Default body text"
+                    }
+                  ]
                 }
               ]
             }

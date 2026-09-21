@@ -1,12 +1,13 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "resource": {
-    "type": "asset",
-    "slug": "01966a00-0000-7000-8000-000000000001",
+    "type": "image",
+    "slug": "epistola-logo",
     "name": "Epistola Logo",
     "mediaType": "image/svg+xml",
     "width": null,
     "height": null,
-    "contentUrl": "./binaries/epistola-logo.svg"
+    "contentUrl": "./binaries/epistola-logo.svg",
+    "contentHash": "9950f04a086b80b18a7a9ee7a0cc69a6f65739c4b564445c0d584e8ae74d9c20"
   }
 }
