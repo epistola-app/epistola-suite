@@ -7,7 +7,7 @@
  * `validateDataAgainstSchema` (schema/validation.ts), which checks example
  * *data* against the schema. This checks the field constraints an author
  * enters in the Schema Definition form for internal consistency, live,
- * before any save round-trip. Also checks a field's `default` value.
+ * before any save round-trip.
  */
 
 import type { JsonSchema, SchemaField, ValidationError } from '../types.js';
