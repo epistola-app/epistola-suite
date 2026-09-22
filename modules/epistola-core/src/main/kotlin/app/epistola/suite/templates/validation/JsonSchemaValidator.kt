@@ -349,6 +349,31 @@ class JsonSchemaValidator(
     }
 
     /**
+     * Validates data against a JSON Schema like [validate], keeping each violation's keyword,
+     * JSON Pointer location and named property instead of flattening them into a message.
+     */
+    fun validateDetailed(schema: ObjectNode, data: ObjectNode): List<SchemaViolation> {
+        val schemaJson = objectMapper.writeValueAsString(relaxDateTimeForValidation(schema))
+        val jsonSchema = schemaRegistry.getSchema(schemaJson)
+        val errors = jsonSchema.validate(objectMapper.writeValueAsString(data), InputFormat.JSON)
+
+        return errors.map { error ->
+            val evaluationPath = error.evaluationPath
+            SchemaViolation(
+                keyword = error.keyword ?: "",
+                pointer = error.instanceLocation.toJsonPointer(),
+                property = error.property,
+                message = error.message,
+                conditional = (0 until evaluationPath.nameCount).any { evaluationPath.getName(it) in CONDITIONAL_KEYWORDS },
+            )
+        }
+    }
+
+    private fun NodePath.toJsonPointer(): String = (0 until nameCount).joinToString("") { index ->
+        "/" + getElement(index).toString().replace("~", "~0").replace("/", "~1")
+    }
+
+    /**
      * Fills in each property's `default` where the caller's data has no value
      * for it, recursing into nested `object` properties. An existing value —
      * including an explicit `null` — is left untouched: a `default` only
@@ -639,6 +664,9 @@ class JsonSchemaValidator(
     }
 
     companion object {
+        /** Keywords whose subschemas apply to one branch only, not unconditionally. */
+        private val CONDITIONAL_KEYWORDS = setOf("anyOf", "oneOf", "not", "if", "then", "else")
+
         /** Valid field name: starts with letter or underscore, contains only letters, digits, underscores. */
         private val VALID_FIELD_NAME_RE = Regex("^[a-zA-Z_][a-zA-Z0-9_]*$")
 

@@ -4,20 +4,14 @@
 
 package app.epistola.suite.documents.queries
 
-import app.epistola.suite.common.ids.CatalogId
-import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
-import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
-import app.epistola.suite.documents.DefaultVariantNotFoundException
-import app.epistola.suite.documents.NoPublishedVersionException
-import app.epistola.suite.documents.VersionNotFoundException
+import app.epistola.suite.documents.preview.PreviewDataAnalyzer
+import app.epistola.suite.documents.preview.PreviewDataInvalidException
+import app.epistola.suite.documents.preview.PreviewTargetResolver
 import app.epistola.suite.generation.DocumentPreviewRenderer
 import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.Mediator
@@ -25,27 +19,21 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.NoActiveVersionException
 import app.epistola.suite.templates.TemplateNotFoundException
+import app.epistola.suite.templates.analysis.TemplatePathExtractor
 import app.epistola.suite.templates.queries.GetDocumentTemplate
-import app.epistola.suite.templates.queries.activations.GetActiveVersion
-import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
-import app.epistola.suite.templates.queries.versions.GetVersion
-import app.epistola.suite.templates.services.VariantResolver
 import app.epistola.suite.templates.services.VariantSelectionCriteria
-import app.epistola.suite.templates.templateAtAddress
-import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.tenants.TenantNotFoundException
 import app.epistola.suite.tenants.queries.GetTenant
-import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.mapTo
-import org.jdbi.v3.json.Json
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import tools.jackson.databind.node.ObjectNode
 
 /**
  * Preview a published version via the REST API.
+ *
+ * Data that breaks the contract fails with [PreviewDataInvalidException], which carries the
+ * [AnalyzePreviewData] result so the caller learns which fields to supply or correct.
  *
  * @property tenantId Tenant that owns the template
  * @property templateId Template to preview
@@ -79,16 +67,12 @@ data class PreviewDocument(
     }
 }
 
-private data class ContractDataModelRow(
-    @Json val dataModel: ObjectNode? = null,
-)
-
 @Component
 class PreviewDocumentHandler(
-    private val jdbi: Jdbi,
     private val mediator: Mediator,
-    private val schemaValidator: JsonSchemaValidator,
-    private val variantResolver: VariantResolver,
+    private val targetResolver: PreviewTargetResolver,
+    private val analyzer: PreviewDataAnalyzer,
+    private val pathExtractor: TemplatePathExtractor,
     private val renderer: DocumentPreviewRenderer,
     private val localeResolver: TenantLocaleResolver,
 ) : QueryHandler<PreviewDocument, ByteArray> {
@@ -96,107 +80,53 @@ class PreviewDocumentHandler(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(query: PreviewDocument): ByteArray {
-        val tenantId = TenantId(query.tenantId)
-        val catalogId = CatalogId(query.catalogKey, tenantId)
-        val templateId = TemplateId(query.templateId, catalogId)
-
-        // 1. Resolve variant
-        val resolvedVariantKey = query.variantId
-            ?: query.variantSelectionCriteria?.let { variantResolver.resolve(query.tenantId, query.templateId, it) }
-            ?: resolveDefaultVariant(query.tenantId, query.catalogKey, query.templateId)
-
-        val variantId = VariantId(resolvedVariantKey, templateId)
+        // 1. Resolve variant, version, contract and data (the first example when none was sent,
+        //    with schema defaults filled in so a preview matches what generation would render)
+        val target = targetResolver.resolve(
+            tenantKey = query.tenantId,
+            catalogKey = query.catalogKey,
+            templateKey = query.templateId,
+            data = query.data,
+            variantKey = query.variantId,
+            variantSelectionCriteria = query.variantSelectionCriteria,
+            versionKey = query.versionId,
+            environmentKey = query.environmentId,
+        )
+        val version = target.version
 
         logger.debug(
             "Preview for tenant={} template={} variant={} version={} env={}",
             query.tenantId,
             query.templateId,
-            resolvedVariantKey,
-            query.versionId,
+            target.variantId.key,
+            version.id,
             query.environmentId,
         )
 
-        // 2. Resolve version
-        val version = if (query.versionId != null) {
-            val vid = VersionId(query.versionId, variantId)
-            mediator.query(GetVersion(vid))
-                ?: throw VersionNotFoundException(query.tenantId, query.templateId, resolvedVariantKey, query.versionId)
-        } else if (query.environmentId != null) {
-            val envId = EnvironmentId(query.environmentId, tenantId)
-            mediator.query(GetActiveVersion(variantId, envId))
-                ?: throw NoActiveVersionException(query.tenantId, resolvedVariantKey, query.environmentId)
-        } else {
-            // Fallback: latest published version
-            mediator.query(GetLatestPublishedVersion(variantId))
-                ?: throw NoPublishedVersionException(query.tenantId, query.templateId, resolvedVariantKey)
+        // 2. Validate data against the contract; the exception says which fields to fix
+        target.contract?.let { contract ->
+            val analysis = analyzer.analyze(contract, target.data, pathExtractor.extractReferencedPaths(version.templateModel))
+            if (!analysis.valid) throw PreviewDataInvalidException(analysis, target.data)
         }
 
         // 3. Fetch template and tenant for theme resolution
-        val template = mediator.query(GetDocumentTemplate(templateId))
+        val template = mediator.query(GetDocumentTemplate(target.variantId.templateId))
             ?: throw TemplateNotFoundException(query.tenantId, query.templateId)
         val tenant = mediator.query(GetTenant(id = query.tenantId))
             ?: throw TenantNotFoundException(query.tenantId)
 
-        // 4. Resolve data: use provided data, or fall back to first example from version's contract
-        val contractVersion = version.contractVersion?.let { cv ->
-            mediator.query(
-                app.epistola.suite.templates.contracts.queries.GetContractVersion(
-                    id = app.epistola.suite.common.ids.ContractVersionId(cv, TemplateId(query.templateId, CatalogId(query.catalogKey, tenantId))),
-                ),
-            )
-        }
+        // 4. Resolve formatting culture via variant attribute → tenant default → app default
+        val culture = localeResolver.resolveCulture(tenant, target.variantId)
 
-        val requestedData = if (query.data.isEmpty) {
-            // No data provided — use first example from the version's contract
-            contractVersion?.dataExamples?.firstOrNull()?.data ?: query.data
-        } else {
-            query.data
-        }
-
-        // Validate data against contract schema, after filling in any field the
-        // caller omitted from its schema `default` so a preview matches what
-        // actual generation would render.
-        val dataModel = contractVersion?.dataModel
-        val effectiveData = if (dataModel != null) schemaValidator.applyDefaults(dataModel, requestedData) else requestedData
-        if (dataModel != null) {
-            val errors = schemaValidator.validate(dataModel, effectiveData)
-            if (errors.isNotEmpty()) {
-                val errorMessages = errors.joinToString("; ") { "${it.path}: ${it.message}" }
-                throw IllegalArgumentException("Data validation failed: $errorMessages")
-            }
-        }
-
-        // 5. Resolve formatting culture via variant attribute → tenant default → app default
-        val culture = localeResolver.resolveCulture(tenant, variantId)
-
-        // 6. Render
+        // 5. Render
         return renderer.render(
             tenantId = query.tenantId,
             templateModel = version.templateModel,
             version = version,
             template = template,
             tenant = tenant,
-            data = effectiveData,
+            data = target.data,
             culture = culture,
         )
-    }
-
-    private fun resolveDefaultVariant(tenantId: TenantKey, catalogKey: app.epistola.suite.common.ids.CatalogKey, templateId: TemplateKey): VariantKey {
-        val variantId = jdbi.withHandle<String?, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT id FROM template_variants
-                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND is_default = TRUE
-                """,
-            )
-                .bind("tenantId", tenantId)
-                .bind("catalogKey", catalogKey)
-                .bind("templateId", templateId)
-                .mapTo<String>()
-                .findOne()
-                .orElse(null)
-        }
-        variantId ?: throw DefaultVariantNotFoundException(tenantId, templateId)
-        return VariantKey.of(variantId)
     }
 }
