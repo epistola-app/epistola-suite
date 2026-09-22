@@ -8,8 +8,12 @@ import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import com.networknt.schema.InputFormat
+import com.networknt.schema.InvalidSchemaRefException
+import com.networknt.schema.Schema
 import com.networknt.schema.SchemaRegistry
 import com.networknt.schema.SpecificationVersion
+import com.networknt.schema.path.NodePath
+import com.networknt.schema.path.PathType
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
@@ -95,7 +99,8 @@ class JsonSchemaValidator(
             )
         }
 
-        val invalidDefault = findInvalidDefault(schema, "$")
+        val compiledSchema = schemaRegistry.getSchema(objectMapper.writeValueAsString(relaxDateTimeForValidation(schema)))
+        val invalidDefault = findInvalidDefault(schema, "$", NodePath(PathType.JSON_POINTER), compiledSchema)
         if (invalidDefault != null) {
             val (path, message) = invalidDefault
             return SchemaValidationResult.Invalid(
@@ -107,28 +112,44 @@ class JsonSchemaValidator(
     }
 
     /**
-     * Finds the first schema location whose `default` doesn't conform to its
-     * own subschema — compiles that subschema in isolation and validates the
-     * default against it, the same way [validate] checks real data.
+     * Finds the first schema location whose `default` doesn't conform to the
+     * schema at that location, the same way [validate] checks real data.
+     *
+     * The default is validated against [compiledSchema] — the whole contract —
+     * at [pointer], not against its subschema compiled on its own: a local
+     * `$ref` only resolves against the contract root, and the root's declared
+     * `$schema` dialect only applies there. A location whose `$ref` does not
+     * resolve is skipped; the contract may still be saved with it, and data
+     * validation reports it.
      */
-    private fun findInvalidDefault(schema: ObjectNode, path: String): Pair<String, String>? {
+    private fun findInvalidDefault(
+        schema: ObjectNode,
+        path: String,
+        pointer: NodePath,
+        compiledSchema: Schema,
+    ): Pair<String, String>? {
         schema.get("default")?.let { default ->
-            val subSchemaJson = objectMapper.writeValueAsString(relaxDateTimeForValidation(schema))
-            val errors = schemaRegistry.getSchema(subSchemaJson)
-                .validate(objectMapper.writeValueAsString(default), InputFormat.JSON)
+            val errors = try {
+                compiledSchema.getSubSchema(pointer).validate(default)
+            } catch (_: InvalidSchemaRefException) {
+                emptyList()
+            }
             if (errors.isNotEmpty()) {
                 return path to errors.joinToString("; ") { it.message }
             }
         }
 
-        recurseIntoPropertiesAndItems(schema, path, ::findInvalidDefault)?.let { return it }
+        recurseIntoPropertiesAndItems(schema, path, pointer) { node, nodePath, nodePointer ->
+            findInvalidDefault(node, nodePath, nodePointer, compiledSchema)
+        }?.let { return it }
 
         for (keyword in listOf("allOf", "oneOf", "anyOf")) {
             val members = schema.get(keyword) as? ArrayNode ?: continue
-            for (member in members) {
+            for ((index, member) in members.withIndex()) {
                 if (member is ObjectNode) {
                     val memberPath = if (keyword == "allOf") path else "$path.$keyword"
-                    findInvalidDefault(member, memberPath)?.let { return it }
+                    findInvalidDefault(member, memberPath, pointer.append(keyword).append(index), compiledSchema)
+                        ?.let { return it }
                 }
             }
         }
@@ -150,21 +171,34 @@ class JsonSchemaValidator(
         schema: ObjectNode,
         path: String,
         check: (ObjectNode, String) -> T?,
+    ): T? = recurseIntoPropertiesAndItems(schema, path, NodePath(PathType.JSON_POINTER)) { node, nodePath, _ ->
+        check(node, nodePath)
+    }
+
+    /**
+     * As above, also handing [check] each nested schema's JSON Pointer from the
+     * contract root, for a caller that must address it inside a compiled schema.
+     */
+    private fun <T> recurseIntoPropertiesAndItems(
+        schema: ObjectNode,
+        path: String,
+        pointer: NodePath,
+        check: (ObjectNode, String, NodePath) -> T?,
     ): T? {
         (schema.get("properties") as? ObjectNode)?.let { properties ->
             for ((name, prop) in properties.properties()) {
                 if (prop is ObjectNode) {
-                    check(prop, "$path.$name")?.let { return it }
+                    check(prop, "$path.$name", pointer.append("properties").append(name))?.let { return it }
                 }
             }
         }
 
         when (val items = schema.get("items")) {
-            is ObjectNode -> check(items, "$path.items")?.let { return it }
+            is ObjectNode -> check(items, "$path.items", pointer.append("items"))?.let { return it }
             is ArrayNode -> {
                 for ((index, entry) in items.withIndex()) {
                     if (entry is ObjectNode) {
-                        check(entry, "$path.items[$index]")?.let { return it }
+                        check(entry, "$path.items[$index]", pointer.append("items").append(index))?.let { return it }
                     }
                 }
             }

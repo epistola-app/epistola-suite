@@ -403,6 +403,66 @@ class DataContractSchemaValidationTest {
     }
 
     @Test
+    fun `accepts a default beside a local reference`() {
+        val schema = schema(
+            """
+            {"type":"object",
+             "${'$'}defs":{"money":{"type":"number","minimum":0}},
+             "properties":{"amount":{"${'$'}ref":"#/${'$'}defs/money","default":5}}}
+            """.trimIndent(),
+        )
+
+        assertThat(validator.validateDataContractSchema(schema)).isEqualTo(SchemaValidationResult.Valid)
+    }
+
+    @Test
+    fun `rejects a default that violates the schema it references`() {
+        val result = validator.validateDataContractSchema(
+            schema(
+                """
+                {"type":"object",
+                 "${'$'}defs":{"money":{"type":"number","minimum":0}},
+                 "properties":{"amount":{"${'$'}ref":"#/${'$'}defs/money","default":-1}}}
+                """.trimIndent(),
+            ),
+        )
+
+        assertThat(result).isEqualTo(
+            SchemaValidationResult.Invalid(
+                "Property \"\$.amount\" has an invalid \"default\" value: must have a minimum value of 0",
+            ),
+        )
+    }
+
+    @Test
+    fun `accepts a default beside an unresolved local reference`() {
+        val schema = schema(
+            """{"type":"object","properties":{"amount":{"${'$'}ref":"#/${'$'}defs/missing","default":5}}}""",
+        )
+
+        assertThat(validator.validateDataContractSchema(schema)).isEqualTo(SchemaValidationResult.Valid)
+    }
+
+    @Test
+    fun `checks a default under the contract's declared draft-07 dialect`() {
+        val result = validator.validateDataContractSchema(
+            schema(
+                """
+                {"${'$'}schema":"http://json-schema.org/draft-07/schema#","type":"object","properties":{
+                  "pair":{"type":"array","items":[{"type":"string"}],"default":[1]}
+                }}
+                """.trimIndent(),
+            ),
+        )
+
+        assertThat(result).isEqualTo(
+            SchemaValidationResult.Invalid(
+                "Property \"\$.pair\" has an invalid \"default\" value: integer found, string expected",
+            ),
+        )
+    }
+
+    @Test
     fun `applyDefaults fills an omitted property from its schema default`() {
         val result = validator.applyDefaults(
             schema("""{"type":"object","properties":{"discount":{"type":"integer","default":0}}}"""),
