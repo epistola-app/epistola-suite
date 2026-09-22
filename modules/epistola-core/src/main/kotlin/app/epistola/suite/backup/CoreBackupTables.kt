@@ -23,7 +23,6 @@ class CoreBackupTables : TenantBackupTableContributor {
         "tenants",
         "catalogs",
         "catalog_resources",
-        "catalog_resource_aliases",
         "catalog_releases",
         "themes",
         "document_templates",
