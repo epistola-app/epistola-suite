@@ -9,9 +9,6 @@ import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.assets.queries.GetAssetContent
-import app.epistola.suite.catalog.graph.CatalogResourceType
-import app.epistola.suite.catalog.graph.ResourceAddress
-import app.epistola.suite.catalog.identity.ResolveCanonicalResourceAddress
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.BatchKey
 import app.epistola.suite.common.ids.CatalogId
@@ -20,7 +17,6 @@ import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
@@ -225,15 +221,10 @@ class DocumentGenerationExecutor(
             request.versionKey?.value ?: request.environmentKey?.value,
         )
 
-        // The request records the address it was made against. A template relocated since leaves
-        // an alias there: generate from where it lives now, and record that address on the
-        // document, which is where it was produced.
-        val (catalogKey, templateKey) = canonicalTemplateAddress(request)
-
         // Build composite IDs
         val tenantId = TenantId(request.tenantKey)
-        val catalogId = CatalogId(catalogKey, tenantId)
-        val templateId = TemplateId(templateKey, catalogId)
+        val catalogId = CatalogId(request.catalogKey, tenantId)
+        val templateId = TemplateId(request.templateKey, catalogId)
         val variantId = VariantId(request.variantKey, templateId)
 
         // 1. Resolve template version
@@ -250,7 +241,7 @@ class DocumentGenerationExecutor(
         } else {
             // Fallback: latest published version (safety net — handler should have resolved this)
             mediator.query(GetLatestPublishedVersion(variantId))
-                ?: throw IllegalStateException("No published version found for template $templateKey variant ${request.variantKey}. Import a catalog or publish a version first.")
+                ?: throw IllegalStateException("No published version found for template ${request.templateKey} variant ${request.variantKey}. Import a catalog or publish a version first.")
         }
 
         // 2. Get template model
@@ -258,7 +249,7 @@ class DocumentGenerationExecutor(
 
         // 3. Fetch template to get default theme
         val template = mediator.query(GetDocumentTemplate(templateId))
-            ?: throw IllegalStateException("Template $templateKey not found")
+            ?: throw IllegalStateException("Template ${request.templateKey} not found")
 
         // 4. Fetch tenant to get default theme (ultimate fallback)
         val tenant = mediator.query(GetTenant(id = request.tenantKey))
@@ -270,7 +261,10 @@ class DocumentGenerationExecutor(
                 app.epistola.suite.templates.contracts.queries.GetContractVersion(
                     id = app.epistola.suite.common.ids.ContractVersionId(
                         cv,
-                        app.epistola.suite.common.ids.TemplateId(templateKey, catalogId),
+                        app.epistola.suite.common.ids.TemplateId(
+                            request.templateKey,
+                            app.epistola.suite.common.ids.CatalogId(request.catalogKey, app.epistola.suite.common.ids.TenantId(request.tenantKey)),
+                        ),
                     ),
                 ),
             )
@@ -370,8 +364,8 @@ class DocumentGenerationExecutor(
         val document = Document(
             id = DocumentKey.generate(),
             tenantKey = request.tenantKey,
-            catalogKey = catalogKey,
-            templateKey = templateKey,
+            catalogKey = request.catalogKey,
+            templateKey = request.templateKey,
             variantKey = request.variantKey,
             versionKey = version.id,
             filename = filename,
@@ -410,17 +404,6 @@ class DocumentGenerationExecutor(
      * @return true when the request transitioned from IN_PROGRESS to COMPLETED;
      *         false when the request had already been CANCELLED and no update was made.
      */
-    /** The template address a request should generate from: its recorded one, or where that now leads. */
-    private fun canonicalTemplateAddress(request: DocumentGenerationRequest): Pair<CatalogKey, TemplateKey> {
-        val canonical = mediator.query(
-            ResolveCanonicalResourceAddress(
-                request.tenantKey,
-                ResourceAddress(CatalogResourceType.TEMPLATE, request.catalogKey.value, request.templateKey.value),
-            ),
-        ) ?: return request.catalogKey to request.templateKey
-        return CatalogKey.of(canonical.catalogKey) to TemplateKey.of(canonical.key)
-    }
-
     private fun saveDocumentAndMarkCompleted(requestId: GenerationRequestKey, document: Document): Boolean {
         return jdbi.inTransaction<Boolean, Exception> { handle ->
             // 1. Claim completion — skip if the request was cancelled during processing

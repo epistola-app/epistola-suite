@@ -6,10 +6,10 @@ package app.epistola.suite.fonts
 
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.UnsupportedAssetTypeException
+import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogType
-import app.epistola.suite.catalog.identity.CatalogResourceAddressReservedException
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
@@ -18,12 +18,13 @@ import app.epistola.suite.common.ids.FontId
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.fonts.commands.CreateFontFamily
 import app.epistola.suite.fonts.commands.DeleteFont
-import app.epistola.suite.fonts.commands.NewFontFace
+import app.epistola.suite.fonts.commands.ImportFont
+import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.Font
 import app.epistola.suite.fonts.model.FontInUseException
 import app.epistola.suite.fonts.model.FontKind
+import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.fonts.queries.GetFontVariantContent
 import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
@@ -128,7 +129,7 @@ class FontHandler(
 
     /**
      * Upload handler: creates an `assets` row per provided face, then upserts
-     * the family + variants via [CreateFontFamily]. The form submits a repeating set
+     * the family + variants via [ImportFont]. The form submits a repeating set
      * of faces — parallel `file` / `weight` / `italic` fields, one entry per
      * row. At least one face file is required. AUTHORED catalogs only.
      */
@@ -256,23 +257,37 @@ class FontHandler(
         }
         if (faceError != null) errors["faces"] = faceError
 
-        // Persist only when everything validated. CreateFontFamily can still reject a read-only
-        // (SUBSCRIBED) catalog, folded onto the catalog field, or a slug a relocated family still
-        // answers to, folded onto the slug field.
+        // Persist only when everything validated. UploadAsset/ImportFont can still
+        // reject a read-only (SUBSCRIBED) catalog — fold that onto the catalog field.
         if (errors.isEmpty()) {
             try {
-                CreateFontFamily(
+                val importVariants = rows.map { row ->
+                    val asset = UploadAsset(
+                        tenantId = tenantKey,
+                        name = row.filename,
+                        mediaType = row.mediaType,
+                        content = row.bytes,
+                        width = null,
+                        height = null,
+                        catalogKey = catalogKey!!,
+                    ).execute()
+                    ImportFontVariant(
+                        weight = row.weight,
+                        italic = row.italic,
+                        source = FontVariantSource.ASSET,
+                        assetKey = asset.id,
+                    )
+                }
+                ImportFont(
                     tenantId = tenantId,
                     catalogKey = catalogKey!!,
-                    slug = slug!!,
+                    slug = slug!!.value,
                     name = name!!,
-                    kind = kind!!,
-                    faces = rows.map { row -> NewFontFace(row.weight, row.italic, row.filename, row.mediaType, row.bytes) },
+                    kind = kind!!.wire,
+                    variants = importVariants,
                 ).execute()
             } catch (e: CatalogReadOnlyException) {
                 errors["catalog"] = e.message ?: "Catalog is read-only"
-            } catch (_: CatalogResourceAddressReservedException) {
-                errors["slug"] = "A font family moved away from this address and published documents still use it. Choose another slug."
             }
         }
 

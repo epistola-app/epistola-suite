@@ -60,7 +60,7 @@ class CatalogResourceMoveBlockersTest : RelocationTestSupport() {
         val tenant = tenantWith("Subscribed source")
         // Every tenant has the bundled system catalog installed, subscribed, with a default theme.
         val systemTheme = ResourceAddress(CatalogResourceType.THEME, "system", "default")
-        assertThat(resolve(tenant, systemTheme)).describedAs("the system catalog's default theme").isNotNull()
+        assertThat(identityAt(tenant, systemTheme)).describedAs("the system catalog's default theme").isNotNull()
 
         assertRefused(tenant, listOf(systemTheme.movedTo(shared)), "source-read-only", on = systemTheme)
     }
@@ -102,15 +102,17 @@ class CatalogResourceMoveBlockersTest : RelocationTestSupport() {
     }
 
     @Test
-    fun `an address another resource left behind blocks the move`() {
-        val tenant = tenantWith("Occupied by alias", listOf(letters, shared, archive))
+    fun `an address another resource left behind is free to take`() {
+        val tenant = tenantWith("Vacated address", listOf(letters, shared, archive))
         val first = create(tenant, MovableResource.STENCIL, letters, "header")
         val second = create(tenant, MovableResource.STENCIL, archive, "header")
-        // letters/header now answers for the first stencil, which lives in shared.
         move(tenant, first.movedTo(shared))
+        val secondIdentity = identityAt(tenant, second)
 
-        // Taking it would silently repoint every published reference to letters/header.
-        assertRefused(tenant, listOf(second.movedTo(letters)), "target-occupied", on = second)
+        // A move leaves nothing behind: whatever still names letters/header now means the second.
+        move(tenant, second.movedTo(letters))
+
+        assertThat(identityAt(tenant, first)).isEqualTo(secondIdentity)
     }
 
     @Test
@@ -153,11 +155,12 @@ class CatalogResourceMoveBlockersTest : RelocationTestSupport() {
 
     /**
      * Previews [relocations], requires a blocker with [code] (attributed to [on] when given), then
-     * executes that very preview and requires it refused with nothing changed: no alias written and
-     * every source still living where it was.
+     * executes that very preview and requires it refused with nothing changed: every source still
+     * living where it was.
      */
     private fun assertRefused(tenant: TenantKey, relocations: List<ResourceRelocation>, code: String, on: ResourceAddress? = null) {
-        val aliasesBefore = aliases(tenant)
+        val sources = relocations.map { it.source }.distinct()
+        val identitiesBefore = sources.associateWith { identityAt(tenant, it) }
         val plan = preview(tenant, relocations)
 
         assertThat(plan.executable).describedAs("%s must not be executable", relocations.map { it.source.id to it.target.id }).isFalse()
@@ -171,10 +174,8 @@ class CatalogResourceMoveBlockersTest : RelocationTestSupport() {
         assertThatThrownBy { withMediator { MoveCatalogResources(tenant, relocations, plan.planFingerprint).execute() } }
             .isInstanceOf(CatalogResourceMoveBlockedException::class.java)
 
-        assertThat(aliases(tenant)).isEqualTo(aliasesBefore)
-        for (source in relocations.map { it.source }.distinct()) {
-            val stillThere = resolve(tenant, source) ?: continue
-            assertThat(stillThere.canonical).describedAs("%s must not have moved", source.id).isEqualTo(source)
+        for (source in sources) {
+            assertThat(identityAt(tenant, source)).describedAs("%s must not have moved", source.id).isEqualTo(identitiesBefore[source])
         }
     }
 }

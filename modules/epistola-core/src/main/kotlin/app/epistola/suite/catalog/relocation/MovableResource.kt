@@ -53,15 +53,14 @@ enum class MovableResource(
      *
      * False where the key is a generated identifier rather than a name. Renaming one is not a
      * rename in any useful sense, and it breaks the references that resolve by that identifier
-     * alone -- an unqualified image reference carries no catalog, so nothing is left to find the
-     * alias with.
+     * alone -- an unqualified image reference carries no catalog, only the key.
      */
     val renameable: Boolean = true,
 ) {
     /**
      * Referenced from template and stencil content. Published references to it keep their old
-     * address and resolve through the alias; the only published bytes a move touches are the
-     * relative references inside the moving stencil's own versions, pinned to the catalog it leaves.
+     * address and stop resolving; the only published bytes a move touches are the relative
+     * references inside the moving stencil's own versions, pinned to the catalog it leaves.
      *
      * Keyed by identity (`V20260905090100`), as are its versions: they name the stencil rather
      * than carrying a copy of its address, so a move updates one row.
@@ -77,7 +76,7 @@ enum class MovableResource(
     /**
      * Referenced only by the keys of `template_variants.attributes`, which is live mutable
      * configuration rather than versioned content. Every reference to an attribute is therefore
-     * rewritable and none has to survive on an alias — which is what makes this the simplest type
+     * rewritable and none is left naming the old address — which is what makes this the simplest type
      * to move, and why it was the first re-keyed.
      */
     ATTRIBUTE(
@@ -122,9 +121,8 @@ enum class MovableResource(
     ),
 
     /**
-     * Resolved at render time, so moving one could have left a published document unable to load
-     * its image. `GetAssetContent` follows the alias when a qualified reference misses, which is
-     * what makes this safe; an unqualified reference resolves by id alone and never noticed.
+     * Resolved at render time: a published document whose reference names the catalog the image
+     * left can no longer load it. An unqualified reference resolves by id alone and is unaffected.
      *
      * References are not rewritten: `IMAGE_ASSET` resolves tenant-globally rather than relative to
      * the containing catalog, so a stored reference means the same thing wherever its owner lives.
@@ -143,9 +141,8 @@ enum class MovableResource(
     ),
 
     /**
-     * Also resolved at render time, through `ResolveFontFace`, which follows the alias when the
-     * family is not at the address the content names — otherwise a moved family would silently
-     * render as the built-in fallback rather than failing.
+     * Also resolved at render time, through `ResolveFontFace`: content that still names the
+     * family's old address renders in the built-in fallback font.
      *
      * Keyed by identity (`V20260905090100`), as are its faces: a face names its family and its
      * backing asset by identity rather than through a shared catalog column, so a font and its
@@ -163,12 +160,12 @@ enum class MovableResource(
      * The only type referenced three different ways at once: from content (`themeRef`), from a
      * template's own binding, and from the tenant-wide default. Keyed by identity
      * (`V20260905090100`), so the two relational ones name the theme itself and need neither a
-     * cascade nor a rewrite; content references are rewritten in drafts and resolved through the
-     * alias in published versions, exactly as stencil references are.
+     * cascade nor a rewrite; content references are rewritten in drafts and left naming the old
+     * address in published versions, exactly as stencil references are.
      *
-     * Live resolution runs through `ThemeStyleResolver`, which follows the alias — without it a
-     * template would quietly fall back to the tenant default theme instead of the one it names.
-     * Published versions carry a frozen `resolved_theme` snapshot and are unaffected either way.
+     * Live resolution runs through `ThemeStyleResolver`, which falls back to the tenant default
+     * theme when content names an address nothing occupies. Published versions carry a frozen
+     * `resolved_theme` snapshot and are unaffected.
      */
     THEME(
         CatalogResourceType.THEME,

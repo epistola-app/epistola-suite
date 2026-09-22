@@ -55,10 +55,19 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
         mapOf(
             "modules/epistola-core/src/main/resources/db/migration/core/V20260905090000__core_catalog_resource_identity.sql" to
                 ReviewedModification(
-                    sha256 = "87a38d2b30c169e64d1cf510ae834385f70b0f57229ffd3b876ddb7a649c2065",
+                    sha256 = "e58967608215928214057bcaea736d8a63eba29c0941b4df344954fcca921482",
                     reason =
                         "Unreleased when edited. Replaced PostgreSQL 18's uuidv7() with epistola_uuidv7() " +
-                            "so the release keeps supporting PostgreSQL 17.",
+                            "so the release keeps supporting PostgreSQL 17, then removed the relocation " +
+                            "alias table and the constraint that existed only as its foreign-key target: " +
+                            "relocation became a move that leaves no aliases before any release shipped them.",
+                ),
+            "modules/epistola-core/src/main/resources/db/migration/core/V20260920160936__core_catalog_resource_type_image.sql" to
+                ReviewedModification(
+                    sha256 = "bea35a45fe9b4a0445bc94b989a321c99bef6e36e495513f8965ee8ed61bf627",
+                    reason =
+                        "Unreleased when edited. Dropped the retyping of catalog_resource_aliases rows, " +
+                            "a table removed from V20260905090000 before any release shipped it.",
                 ),
         )
 

@@ -678,7 +678,7 @@ value class FeatureKey(@JsonValue override val value: String) : SlugKey<FeatureK
  * Deliberately **not** named `ResourceId`: in this package `TemplateId`, `ThemeId` and friends are
  * [EntityId] chains naming *where* a resource lives, which is the one thing an identity is defined
  * not to be. `ResourceKey` would be worse still — `resource_key` is the address key in
- * `catalog_resource_aliases`.
+ * `catalog_resources`.
  *
  * Opaque on purpose. The readable handle for a resource is its address (see [EntityIdBase.toUrn]),
  * which says what the thing is and where it lives; this value only has to be unique and never

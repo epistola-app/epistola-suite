@@ -19,7 +19,6 @@
 INSERT INTO catalog_resource_types (resource_type) VALUES ('image');
 
 UPDATE catalog_resources SET resource_type = 'image' WHERE resource_type = 'asset';
-UPDATE catalog_resource_aliases SET resource_type = 'image' WHERE resource_type = 'asset';
 
 DELETE FROM catalog_resource_types WHERE resource_type = 'asset';
 

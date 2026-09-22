@@ -4,7 +4,6 @@
 
 package app.epistola.suite.htmx
 
-import app.epistola.suite.catalog.identity.CatalogResourceAddressReservedException
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListKey
@@ -459,12 +458,6 @@ fun <T> FormData.executeOrFormError(block: () -> T): FormData = try {
     FormData(
         this.formData,
         this.errors.toMutableMap().apply { put(e.field, e.message) },
-    )
-} catch (e: CatalogResourceAddressReservedException) {
-    // Every create form names its key field `slug`.
-    FormData(
-        this.formData,
-        this.errors.toMutableMap().apply { put("slug", e.message ?: "This address is reserved.") },
     )
 } catch (e: DuplicateIdException) {
     val field = when (e.entityType) {

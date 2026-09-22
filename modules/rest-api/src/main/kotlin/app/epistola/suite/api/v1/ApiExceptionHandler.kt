@@ -22,7 +22,6 @@ import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
-import app.epistola.suite.catalog.identity.CatalogResourceAddressReservedException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
@@ -285,7 +284,6 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         CatalogNotUpgradeableException::class,
         CatalogReleaseVersionException::class,
         CatalogUpgradeConflictException::class,
-        CatalogResourceAddressReservedException::class,
         CatalogSchemaTooNewException::class,
         CatalogSchemaTooOldException::class,
         CatalogSchemaUnknownException::class,

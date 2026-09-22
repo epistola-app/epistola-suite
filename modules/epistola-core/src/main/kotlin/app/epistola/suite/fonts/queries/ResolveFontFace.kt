@@ -5,9 +5,6 @@
 package app.epistola.suite.fonts.queries
 
 import app.epistola.suite.assets.queries.GetAssetContent
-import app.epistola.suite.catalog.graph.CatalogResourceType
-import app.epistola.suite.catalog.graph.ResourceAddress
-import app.epistola.suite.catalog.identity.resolveCatalogResourceAddress
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
@@ -100,22 +97,7 @@ class ResolveFontFaceHandler(
 
     override fun handle(query: ResolveFontFace): ByteArray? {
         val rows = jdbi.withHandle<List<FaceRow>, Exception> { handle ->
-            handle.loadFaces(query.tenantId, query.catalogKey, query.slug).ifEmpty {
-                // The reference names the catalog the family lived in when the content was
-                // written. A relocated family leaves an alias there, and a published document
-                // must keep rendering in its own typeface rather than silently falling back to
-                // the built-in font, which is what an empty list here would cause.
-                handle.resolveCatalogResourceAddress(
-                    query.tenantId,
-                    ResourceAddress(CatalogResourceType.FONT, query.catalogKey.value, query.slug.value),
-                )
-                    ?.takeIf { it.resolvedViaAlias }
-                    // Both halves of the canonical address: a relocation renames as well as moves,
-                    // and a renamed family under the requested slug would silently resolve to
-                    // nothing -- which FontCache turns into the built-in font rather than an error.
-                    ?.let { handle.loadFaces(query.tenantId, CatalogKey.of(it.canonical.catalogKey), FontKey.of(it.canonical.key)) }
-                    ?: emptyList()
-            }
+            handle.loadFaces(query.tenantId, query.catalogKey, query.slug)
         }
 
         val best = pickBestFace(rows, query.weight, query.italic) ?: return null

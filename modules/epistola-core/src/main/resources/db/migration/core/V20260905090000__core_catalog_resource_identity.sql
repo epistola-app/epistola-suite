@@ -1,7 +1,6 @@
 -- backup-restore-compatibility: backward=false forward=false
--- reason: Adds an identity column and a registry row for every catalog resource, and the table
--- that retains its historical addresses. A backup taken before this carries neither, and one taken
--- after cannot be read by a suite that has no registry.
+-- reason: Adds an identity column and a registry row for every catalog resource. A backup taken
+-- before this carries neither, and one taken after cannot be read by a suite that has no registry.
 
 -- Mints the time-ordered identities below: an RFC 9562 UUIDv7 in the layout PostgreSQL 18's own
 -- uuidv7() uses -- 48 bits of Unix milliseconds, the version, 12 bits of sub-millisecond fraction,
@@ -52,13 +51,12 @@ COMMENT ON TABLE catalog_resource_types IS
 INSERT INTO catalog_resource_types (resource_type) VALUES
     ('asset'), ('codeList'), ('font'), ('attribute'), ('theme'), ('stencil'), ('template');
 
--- Stable, tenant-local identity for movable catalog resources, and the addresses they leave behind.
+-- Stable, tenant-local identity for movable catalog resources.
 --
--- Three things that used to be one are separated here. IDENTITY (resource_id) is what every
+-- Two things that used to be one are separated here. IDENTITY (resource_id) is what every
 -- relational reference points at, and never changes. The ADDRESS (type, catalog, key) is the public
 -- name -- URLs, REST, MCP, catalog exchange -- and lives in exactly one place, the resource's own
--- row. An ALIAS is an address a resource used to occupy, retained so references written against it
--- keep resolving.
+-- row.
 --
 -- The re-keying that puts each type's primary key on its identity follows in the next two
 -- migrations; this one only establishes the identity and the registry that maps it to an address.
@@ -77,9 +75,8 @@ CREATE TABLE catalog_resources (
     resource_key TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT catalog_resources_pkey PRIMARY KEY (tenant_key, resource_id),
-    -- Named rather than generated: Postgres truncates a generated name at 63 characters, and both
-    -- of these are longer than that, so the names would be silently clipped and hard to reference.
-    CONSTRAINT uq_catalog_resources_typed_identity UNIQUE (tenant_key, resource_id, resource_type),
+    -- Named rather than generated: Postgres truncates a generated name at 63 characters, and this
+    -- one is longer than that, so the name would be silently clipped and hard to reference.
     CONSTRAINT uq_catalog_resources_address UNIQUE (tenant_key, resource_type, catalog_key, resource_key),
     -- Deferrable so a restore can plant a tenant's identities before the import recreates the
     -- catalogs holding them, inside one transaction. The check still holds at commit.
@@ -215,7 +212,7 @@ BEGIN
             NEW.resource_id := COALESCE(existing_resource_id, epistola_uuidv7());
         ELSIF existing_resource_id IS NOT NULL AND existing_resource_id <> NEW.resource_id THEN
             -- A caller that names an identity means it -- a restore carrying the identities its
-            -- snapshot recorded, so that generation history and aliases still resolve. Silently
+            -- snapshot recorded, so that generation history still resolves. Silently
             -- preferring the incumbent would discard exactly that, and leave the restored rows
             -- pointing at an identity the tenant no longer holds. This is the column having no
             -- default: NULL means "assign me one", anything else means "use this".
@@ -302,33 +299,3 @@ CREATE TRIGGER trg_document_templates_resource_identity
 CREATE TRIGGER trg_document_templates_delete_resource_identity
     AFTER DELETE ON document_templates
     FOR EACH ROW EXECUTE FUNCTION sync_catalog_resource_identity('template', 'id');
-
--- ------------------------------------------------------------------------------------------------
--- Retained historical addresses
--- ------------------------------------------------------------------------------------------------
--- Historical public addresses preserved after a catalog resource moves.
---
--- The source catalog intentionally has no foreign key, so an alias survives its catalog at the
--- database level. It is not left behind on purpose: UnregisterCatalog deletes the aliases pointing
--- out of a catalog it removes, because an alias with no page to release it from would keep the
--- address reserved against a catalog registered later under the same key. The absent FK is what
--- makes that a decision the application takes rather than one the database takes for it -- an
--- alias survives a *resource* being deleted, which the FK on the target already handles.
-CREATE TABLE catalog_resource_aliases (
-    tenant_key TENANT_KEY NOT NULL,
-    resource_type VARCHAR(20) NOT NULL,
-    catalog_key CATALOG_KEY NOT NULL,
-    resource_key TEXT NOT NULL,
-    target_resource_id UUID NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT catalog_resource_aliases_pkey PRIMARY KEY (tenant_key, resource_type, catalog_key, resource_key),
-    -- Named: the generated name for this key would be truncated at 63 characters, which makes it
-    -- unstable to reference from a later migration.
-    CONSTRAINT fk_catalog_resource_aliases_target
-        FOREIGN KEY (tenant_key, target_resource_id, resource_type)
-        REFERENCES catalog_resources(tenant_key, resource_id, resource_type)
-        ON DELETE CASCADE
-);
-
-COMMENT ON TABLE catalog_resource_aliases IS
-    'Tenant-local historical resource addresses. Each alias points directly to the current stable identity.';

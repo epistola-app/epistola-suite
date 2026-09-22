@@ -85,15 +85,14 @@ class CatalogResourceMovePlanner(
                 identities[source] = resourceId
             }
 
-            if (target !in vacated && isAddressTaken(handle, tenantKey, target, resourceId)) {
-                blockers += blocker("target-occupied", "${target.id} is already a resource or retained alias", source)
+            if (target !in vacated && isAddressTaken(handle, tenantKey, target)) {
+                blockers += blocker("target-occupied", "${target.id} is already a resource", source)
             }
-            // A warning, not a blocker. Within this installation the move is well-defined -- the
-            // alias keeps every local reference resolving. What it cannot reach is a *subscriber*:
-            // aliases are tenant-local, so an installation that upgrades to a later release of this
-            // catalog sees the resource gone rather than moved. Whether that matters depends on who
-            // consumes the catalog, which only the operator knows, and blocking on it made a
-            // catalog permanently unmovable after a single local release nobody ever pulled.
+            // A warning, not a blocker. A *subscriber* is out of this move's reach: an installation
+            // that upgrades to a later release of this catalog sees the resource gone rather than
+            // moved. Whether that matters depends on who consumes the catalog, which only the
+            // operator knows, and blocking on it made a catalog permanently unmovable after a single
+            // local release nobody ever pulled.
             if (hasRelease(handle, tenantKey, source.catalogKey)) {
                 warnings += ResourceMoveWarning(
                     "released-source",
@@ -227,24 +226,12 @@ class CatalogResourceMovePlanner(
         .findOne()
         .orElse(null)
 
-    private fun isAddressTaken(
-        handle: Handle,
-        tenantKey: TenantKey,
-        target: ResourceAddress,
-        movingResourceId: ResourceIdentity?,
-    ): Boolean = handle.createQuery(
+    private fun isAddressTaken(handle: Handle, tenantKey: TenantKey, target: ResourceAddress): Boolean = handle.createQuery(
         """
         SELECT EXISTS(
             SELECT 1 FROM catalog_resources
             WHERE tenant_key = :tenantKey AND resource_type = :resourceType
               AND catalog_key = :catalogKey AND resource_key = :resourceKey
-            UNION ALL
-            -- An alias this very resource left behind does not occupy the address: returning to a
-            -- previously held address is a supported undo.
-            SELECT 1 FROM catalog_resource_aliases
-            WHERE tenant_key = :tenantKey AND resource_type = :resourceType
-              AND catalog_key = :catalogKey AND resource_key = :resourceKey
-              AND target_resource_id IS DISTINCT FROM :resourceId
         )
         """,
     )
@@ -252,7 +239,6 @@ class CatalogResourceMovePlanner(
         .bind("resourceType", target.type.wireName)
         .bind("catalogKey", target.catalogKey)
         .bind("resourceKey", target.key)
-        .bind("resourceId", movingResourceId)
         .mapTo(Boolean::class.java)
         .one()
 
@@ -268,7 +254,8 @@ class CatalogResourceMovePlanner(
      * One pass over versioned content for two rewrites.
      *
      * References *to* a moving resource are re-pointed at its destination where the holder is a
-     * draft; a published holder keeps its bytes, resolves through the alias, and is counted as such.
+     * draft; a published holder keeps its bytes and is counted, because its reference stops
+     * resolving once the resource has moved.
      * Relative references *inside* a moving resource are pinned to the catalog they resolve against
      * today -- published versions included, because the owner leaving is exactly what would change
      * their meaning, and versions never age out. A released source catalog only warns, so the pin can
@@ -465,7 +452,7 @@ class CatalogResourceMovePlanner(
     ): RewriteResult? {
         var result = applyContentMoves(row.json, row.catalogKey, contentMoves)
         if (row.status != "draft") {
-            // Published: references to moved resources keep their bytes and resolve through the alias.
+            // Published: references to moved resources keep their bytes, and stop resolving.
             result.attributedTo?.let { immutableBySource.merge(it, 1, Int::plus) }
             result = RewriteResult(row.json.deepCopy(), changed = false)
         }
@@ -507,7 +494,7 @@ class CatalogResourceMovePlanner(
      * time would let a member taking an address another is vacating overwrite that member's value.
      *
      * `template_variants` is live mutable configuration rather than versioned content, so every such
-     * reference is rewritable and none has to survive on an alias.
+     * reference is rewritable and none is left naming the old address.
      */
     private fun attributeKeyRewrites(
         handle: Handle,

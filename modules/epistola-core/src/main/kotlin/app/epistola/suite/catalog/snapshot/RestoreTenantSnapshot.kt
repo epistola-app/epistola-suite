@@ -93,8 +93,7 @@ class RestoreTenantSnapshotHandler(
 
         // Before the import, so the sync trigger adopts each recorded identity instead of minting a
         // fresh one. Restoring with new identities would dangle the template_resource_id on every
-        // generation record (no foreign key protects it, so it just stops joining) and drop every
-        // retained alias with the identity it pointed at.
+        // generation record (no foreign key protects it, so it just stops joining).
         identityStore.plantIdentities(command.tenantKey, identities.resources)
 
         for (entry in ordered) {
@@ -106,9 +105,6 @@ class RestoreTenantSnapshotHandler(
                 validateCrossCatalogDeps = false,
             ).execute()
         }
-
-        // After the import, so the identities they target exist again.
-        identityStore.plantAliases(command.tenantKey, identities.aliases)
 
         reapplyDefaultTheme(command.tenantKey, prior)
 

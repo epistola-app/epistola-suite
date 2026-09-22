@@ -2,7 +2,9 @@
 
 > **Status:** Alpha, off by default. The inbound half of the Exchange integration — browsing a
 > registry and installing what it publishes. The outbound half (publishing releases _to_ Exchange)
-> is [catalog-exchange-publication.md](catalog-exchange-publication.md).
+> is [catalog-exchange-publication.md](catalog-exchange-publication.md). A subscriber does not
+> follow a publisher's resource moves; [ADR 0025](adr/0025-relocation-without-aliases.md) sets out
+> where installation is going.
 
 A catalog installed from Epistola Exchange is an ordinary **subscribed** catalog: a read-only mirror
 of somebody else's content, kept up to date deliberately rather than automatically. What Exchange
@@ -141,8 +143,8 @@ Organise page will not offer them. That is the right answer rather than a gap: t
 mirror, and an address the publisher did not choose would be overwritten by the next upgrade.
 
 Resource identities still exist for installed resources — they are minted by a database trigger on
-insert, like any other resource — so an installed catalog participates in the reference graph and in
-alias resolution. Uninstalling releases them along with the catalog.
+insert, like any other resource — so an installed catalog participates in the reference graph.
+Uninstalling releases them along with the catalog.
 
 Those identities are **this installation's own**. A `resource_id` is internal and is never
 serialized into catalog exchange data, so an installed catalog is addressed on the wire by

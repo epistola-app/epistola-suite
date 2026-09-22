@@ -52,7 +52,6 @@ export interface ResourceEdge {
   semantics: ReferenceSemantics;
   qualification: string;
   resolution: Resolution;
-  resolvedViaAlias: boolean;
   evidenceCount: number;
 }
 

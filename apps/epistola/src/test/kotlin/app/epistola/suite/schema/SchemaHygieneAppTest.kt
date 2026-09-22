@@ -294,6 +294,20 @@ class SchemaHygieneAppTest : BaseIntegrationTest() {
             .isEmpty()
     }
 
+    /**
+     * A move leaves nothing behind, so there is no table of historical addresses and no constraint
+     * that existed only to be one's foreign-key target. The registry keeps its primary key on
+     * `(tenant_key, resource_id)` and its unique address; anything more is dead weight every
+     * resource write would maintain.
+     */
+    @Test
+    fun `the identity registry carries no alias machinery`() {
+        assertThat(columnsByTable().keys).describedAs("tables").doesNotContain("catalog_resource_aliases")
+        assertThat(uniqueConstraintColumns()["catalog_resources"].orEmpty())
+            .describedAs("catalog_resources unique constraints")
+            .containsExactly(listOf("tenant_key", "resource_type", "catalog_key", "resource_key"))
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private fun primaryKeyColumns(): Map<String, List<String>> = constraintColumns("p")

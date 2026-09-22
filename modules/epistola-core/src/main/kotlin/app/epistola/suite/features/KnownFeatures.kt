@@ -152,9 +152,10 @@ object KnownFeatures {
         ),
         RESOURCE_RELOCATION to FeatureMetadata(
             "Resource relocation",
-            "Enables previewing and moving authored catalog resources while preserving old references " +
-                "through stable identities and aliases. Supports all seven resource types; an asset can be " +
-                "moved but not renamed, because its key is a generated identifier.",
+            "Enables previewing and moving authored catalog resources. A crude move: drafts and live " +
+                "configuration are re-pointed, but the old address stops resolving, so published versions, " +
+                "exports and integrations that still name it break. Supports all seven resource types; an " +
+                "image can be moved but not renamed, because its key is a generated identifier.",
             stage = FeatureStage.ALPHA,
         ),
         CATALOG_PUBLISHING to FeatureMetadata(

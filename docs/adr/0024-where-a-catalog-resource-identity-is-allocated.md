@@ -6,6 +6,7 @@
 - **Tags:** catalog, identity, database, relocation
 - **Related:** [ADR 0014](0014-safe-catalog-resource-relocation.md) (identity separated from address),
   [ADR 0020](0020-where-a-catalog-resource-address-lives.md) (the address and the trigger that syncs it),
+  [ADR 0025](0025-relocation-without-aliases.md) (aliases withdrawn; the registry and trigger stay),
   [#952](https://github.com/epistola-app/epistola-suite/issues/952) (the refactor)
 
 ## Context

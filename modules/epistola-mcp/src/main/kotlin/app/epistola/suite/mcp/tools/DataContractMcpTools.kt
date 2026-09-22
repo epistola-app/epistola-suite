@@ -4,7 +4,6 @@
 
 package app.epistola.suite.mcp.tools
 
-import app.epistola.suite.catalog.identity.canonical
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -43,7 +42,7 @@ class DataContractMcpTools(
         )
         status: String?,
     ): DataContractInfo? {
-        val id = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), mcpTenantId())).canonical()
+        val id = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
         val contract = when (status?.lowercase()) {
             "draft" -> mediator.query(GetDraftContractVersion(id))
             "published" -> mediator.query(GetLatestPublishedContractVersion(id))

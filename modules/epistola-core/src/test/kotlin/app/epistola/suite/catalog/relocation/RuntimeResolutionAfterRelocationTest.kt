@@ -40,13 +40,10 @@ import org.springframework.core.io.ResourceLoader
 import java.util.UUID
 
 /**
- * Assets and fonts are resolved while rendering, by the address the content names. Relocating one
- * therefore risks something no other movable type does: a published document that renders
- * *successfully* but wrongly — a missing image, or silently falling back to the built-in typeface —
- * with nothing in the move preview to warn about it.
- *
- * These are the tests `MovableResourceGuardTest.aliasAwareRuntimeLookups` points at. Deleting the
- * alias fallback in either query leaves the rest of the suite green and fails only here.
+ * Images, fonts and themes are resolved while rendering, by the address the content names. A move
+ * is crude: it leaves nothing at the old address, so content that still names it renders
+ * *successfully* but wrongly — a missing image, the built-in typeface, the tenant default theme.
+ * These tests pin that, so the move preview's warning stays honest about it.
  */
 class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
 
@@ -61,7 +58,7 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
         .contentAsByteArray
 
     @Test
-    fun `a qualified image reference survives its asset moving`() {
+    fun `a qualified image reference no longer finds its asset once the asset moves`() {
         val tenant = createTenant("Asset relocation runtime")
         val letters = CatalogKey.of("letters")
         val shared = CatalogKey.of("shared")
@@ -89,22 +86,16 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
         assertThat(preview.blockers).isEmpty()
         withMediator { MoveCatalogResources(tenant.id, listOf(relocation), preview.planFingerprint).execute() }
 
-        // The published reference still names `letters`, which is now an alias. Without the
-        // fallback this returns null and the document renders with a hole where the image was.
+        // The published reference still names `letters`, where nothing is left: the document
+        // renders with a hole where the image was.
         assertThat(withMediator { GetAssetContent(tenant.id, assetKey, letters).query() })
-            .describedAs("a qualified reference to the asset's old catalog must follow the alias")
-            .isNotNull()
+            .describedAs("a qualified reference to the asset's old catalog")
+            .isNull()
+        assertThat(withMediator { GetAssetContent(tenant.id, assetKey, shared).query() }).isNotNull()
     }
 
-    /**
-     * Renaming is the same operation as moving here, and the earlier tests only ever moved. That
-     * gap hid a real bug: each fallback took the canonical *catalog* but kept the *requested* key,
-     * so a rename resolved to nothing. None of these failures is loud — a theme falls back to the
-     * tenant default, a font to the built-in typeface, an image simply disappears — so only an
-     * assertion catches them.
-     */
     @Test
-    fun `a renamed theme is still found by content naming its old key`() {
+    fun `a renamed theme is no longer found by content naming its old key`() {
         val tenant = createTenant("Theme rename runtime")
         val tenantId = TenantId(tenant.id)
         val letters = CatalogKey.of("letters")
@@ -122,7 +113,9 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
         withMediator { MoveCatalogResources(tenant.id, listOf(renamed), preview.planFingerprint).execute() }
 
         assertThat(themeStyleResolver.resolveTheme(tenant.id, themeKey, null, emptyTemplate(), templateCatalogKey = letters))
-            .describedAs("a themeRef naming the theme's old key must follow the alias")
+            .describedAs("a themeRef naming the theme's old key")
+            .isNull()
+        assertThat(themeStyleResolver.resolveTheme(tenant.id, ThemeKey.of("house-style"), null, emptyTemplate(), templateCatalogKey = letters))
             .isNotNull()
     }
 
@@ -143,8 +136,7 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
             ).execute().id
         }
 
-        // An unqualified image reference carries no catalog, so it resolves by this id alone --
-        // there would be nothing left to find the alias with.
+        // An unqualified image reference carries no catalog, so it resolves by this key alone.
         val renamed = ResourceAddress(CatalogResourceType.IMAGE, letters.value, assetKey.value)
             .renamedTo(UUID.randomUUID().toString())
         val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(renamed)).query() }
@@ -154,7 +146,7 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a renamed font family still serves the face content asks for`() {
+    fun `a renamed font family no longer serves content naming its old slug`() {
         val tenant = createTenant("Font rename runtime")
         val tenantId = TenantId(tenant.id)
         val letters = CatalogKey.of("letters")
@@ -189,12 +181,14 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
         withMediator { MoveCatalogResources(tenant.id, listOf(renamed), preview.planFingerprint).execute() }
 
         assertThat(withMediator { ResolveFontFace(tenant.id, letters, slug, 400, italic = false).query() })
-            .describedAs("a face referenced by the family's old slug must follow the alias")
+            .describedAs("a face referenced by the family's old slug")
+            .isNull()
+        assertThat(withMediator { ResolveFontFace(tenant.id, letters, FontKey.of("acme-grotesk"), 400, italic = false).query() })
             .isEqualTo(before)
     }
 
     @Test
-    fun `a template still finds its theme after the theme moves`() {
+    fun `a template's own binding follows a moved theme, content naming the old catalog does not`() {
         val tenant = createTenant("Theme relocation runtime")
         val tenantId = TenantId(tenant.id)
         val letters = CatalogKey.of("letters")
@@ -221,11 +215,11 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
         assertThat(template.themeCatalogKey).isEqualTo(shared)
         assertThat(template.themeKey).isEqualTo(themeKey)
 
-        // Content that still names the old catalog resolves through the alias. Without it the
-        // template silently falls back to the tenant default rather than failing.
+        // Content that still names the old catalog finds nothing there, so the template falls back
+        // to the tenant default rather than failing.
         assertThat(themeStyleResolver.resolveTheme(tenant.id, themeKey, null, emptyTemplate(), templateCatalogKey = letters))
-            .describedAs("a themeRef naming the theme's old catalog must follow the alias")
-            .isNotNull()
+            .describedAs("a themeRef naming the theme's old catalog")
+            .isNull()
     }
 
     private fun emptyTemplate(): TemplateDocument = TemplateDocument(
@@ -236,7 +230,7 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
     )
 
     @Test
-    fun `a published document keeps its typeface after the font family moves`() {
+    fun `content naming a moved font family's old catalog falls back to the built-in typeface`() {
         val tenant = createTenant("Font relocation runtime")
         val tenantId = TenantId(tenant.id)
         val letters = CatalogKey.of("letters")
@@ -277,8 +271,8 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
         // A miss here is not an error the caller sees: FontCache falls back to the built-in font,
         // so the document renders in the wrong typeface rather than failing.
         assertThat(withMediator { ResolveFontFace(tenant.id, letters, slug, 400, italic = false).query() })
-            .describedAs("a face referenced by the family's old catalog must follow the alias")
-            .isEqualTo(before)
+            .describedAs("a face referenced by the family's old catalog")
+            .isNull()
 
         // The faces followed the family, and the backing asset stayed where it was: since
         // V20260905090100 a face names both by identity, so neither move disturbs the other.

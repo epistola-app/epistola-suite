@@ -7,9 +7,6 @@ package app.epistola.suite.assets.queries
 import app.epistola.suite.assets.AssetContent
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.assetContentScope
-import app.epistola.suite.catalog.graph.CatalogResourceType
-import app.epistola.suite.catalog.graph.ResourceAddress
-import app.epistola.suite.catalog.identity.resolveCatalogResourceAddress
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -57,28 +54,6 @@ class GetAssetContentHandler(
         // 1. Get metadata (including the content-addressable pointer) from DB
         val metadata = jdbi.withHandle<AssetMeta?, Exception> { handle ->
             handle.loadAssetMeta(query.tenantId, query.assetId, query.catalogKey)
-                // A qualified reference names the catalog the asset lived in when it was written.
-                // If the asset has since been relocated, that address is now an alias, and the
-                // reference has to follow it or a published document stops rendering its image.
-                // Only the qualified case needs this: an unqualified reference is resolved by id
-                // alone above, which a move does not change.
-                ?: query.catalogKey?.let { requested ->
-                    handle.resolveCatalogResourceAddress(
-                        query.tenantId,
-                        ResourceAddress(CatalogResourceType.IMAGE, requested.value, query.assetId.value),
-                    )
-                        ?.takeIf { it.resolvedViaAlias }
-                        // Both halves of the canonical address, not just the catalog: relocation
-                        // renames as well as moves, and for an asset the key *is* the id content
-                        // refers to, so keeping the requested one would miss every renamed asset.
-                        ?.let {
-                            handle.loadAssetMeta(
-                                query.tenantId,
-                                AssetKey.of(it.canonical.key),
-                                CatalogKey.of(it.canonical.catalogKey),
-                            )
-                        }
-                }
         } ?: return null
 
         // 2. Read content: from the content-addressable store by (scope, hash), or —
