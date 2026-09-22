@@ -46,11 +46,10 @@ data class ResourceMoveWarning(
  * One resource's destination: a full address, so a relocation can change the catalog, the key, or
  * both.
  *
- * Moving and renaming are the same operation — both change the canonical address while identity
- * stays put — so separating them would mean two commands with the same aliasing, rewriting and
- * validation. Carrying the key here also gives a collision somewhere to go: a resource whose key is
- * already taken in the destination can land under a different one, where a catalog-only move could
- * only be blocked.
+ * Moving and renaming are the same operation — both change the address while identity stays put —
+ * so separating them would mean two commands with the same rewriting and validation. Carrying the
+ * key here also gives a collision somewhere to go: a resource whose key is already taken in the
+ * destination can land under a different one, where a catalog-only move could only be blocked.
  */
 data class ResourceRelocation(
     val source: ResourceAddress,
@@ -234,44 +233,6 @@ class MoveCatalogResourcesHandler(
                     .execute()
             }
             if (changed != 1) throw StaleCatalogResourceMovePlanException()
-        }
-
-        // Aliases are inserted for every member before any resource moves, so a batch where one
-        // member takes an address another is vacating cannot depend on the order they are applied.
-        for (plan in plan.preview.relocations) {
-            val resourceId = requireNotNull(plan.resourceId)
-            handle.createUpdate(
-                """
-                INSERT INTO catalog_resource_aliases (
-                    tenant_key, resource_type, catalog_key, resource_key, target_resource_id
-                ) VALUES (:tenantKey, :resourceType, :catalogKey, :resourceKey, :resourceId)
-                ON CONFLICT (tenant_key, resource_type, catalog_key, resource_key) DO UPDATE
-                SET target_resource_id = EXCLUDED.target_resource_id
-                """,
-            )
-                .bind("tenantKey", command.tenantKey)
-                .bind("resourceType", plan.source.type.wireName)
-                .bind("catalogKey", plan.source.catalogKey)
-                .bind("resourceKey", plan.source.key)
-                .bind("resourceId", resourceId)
-                .execute()
-
-            // Reclaiming an address this resource previously held makes the alias it left there
-            // redundant.
-            handle.createUpdate(
-                """
-                DELETE FROM catalog_resource_aliases
-                WHERE tenant_key = :tenantKey AND resource_type = :resourceType
-                  AND catalog_key = :catalogKey AND resource_key = :resourceKey
-                  AND target_resource_id = :resourceId
-                """,
-            )
-                .bind("tenantKey", command.tenantKey)
-                .bind("resourceType", plan.target.type.wireName)
-                .bind("catalogKey", plan.target.catalogKey)
-                .bind("resourceKey", plan.target.key)
-                .bind("resourceId", resourceId)
-                .execute()
         }
 
         for (relocation in planner.applyOrder(plan.preview.relocations)) {

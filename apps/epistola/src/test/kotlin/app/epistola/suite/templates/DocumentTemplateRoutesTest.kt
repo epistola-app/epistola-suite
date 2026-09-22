@@ -6,11 +6,6 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
-import app.epistola.suite.catalog.graph.CatalogResourceType
-import app.epistola.suite.catalog.graph.ResourceAddress
-import app.epistola.suite.catalog.relocation.MoveCatalogResources
-import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
-import app.epistola.suite.catalog.relocation.movedTo
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -643,26 +638,6 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             )
             assertThat(templates).hasSize(1)
         }
-    }
-
-    @Test
-    fun `GET template detail at its pre-move address lands on the moved template`() {
-        val tenant = createTenant("Moved template tenant")
-        val templateKey = TemplateKey.of("moved-invoice")
-        withMediator {
-            CreateCatalog(tenant.id, CatalogKey.of("shared"), "Shared").execute()
-            CreateDocumentTemplate(TemplateId(templateKey, CatalogId.default(TenantId(tenant.id))), "Moved Invoice").execute()
-            val relocation = ResourceAddress(CatalogResourceType.TEMPLATE, CatalogKey.DEFAULT.value, templateKey.value).movedTo(CatalogKey.of("shared"))
-            val preview = PreviewCatalogResourceMove(tenant.id, listOf(relocation)).query()
-            MoveCatalogResources(tenant.id, listOf(relocation), preview.planFingerprint).execute()
-        }
-
-        // TestRestTemplate follows the 303 to the canonical URL; without the redirect the old
-        // address is a 404, so landing on the page is the proof.
-        val response = restTemplate.getForEntity("/tenants/${tenant.id}/templates/default/${templateKey.value}", String::class.java)
-
-        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(response.body).contains("Moved Invoice")
     }
 
     @Test

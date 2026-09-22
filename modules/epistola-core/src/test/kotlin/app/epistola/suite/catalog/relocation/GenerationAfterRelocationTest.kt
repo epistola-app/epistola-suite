@@ -81,17 +81,19 @@ class GenerationAfterRelocationTest : RelocationTestSupport() {
 
     /**
      * A request stores the address it was made against. One accepted before the template moved and
-     * rendered after must still find the template it was made for.
+     * rendered after finds nothing there and fails: a crude move does not follow queued work.
      */
     @Test
-    fun `a request queued before its template moves still generates`() {
+    fun `a request queued before its template moves fails`() {
         val tenant = tenantWith("Generate queued across move")
         val version = publishTemplate(tenant, letters, textModel())
         val queued = withMediator { request(tenant, letters, version, environment = null) }
 
         move(tenant, address(CatalogResourceType.TEMPLATE, letters, "invoice").movedTo(shared))
 
-        assertGenerates(tenant, queued)
+        withMediator { realExecutor.execute(queued) }
+        val job = withMediator { GetGenerationJob(tenant, queued.id).query()!! }
+        assertThat(job.request.status).isEqualTo(RequestStatus.FAILED)
     }
 
     private fun request(tenant: TenantKey, catalog: CatalogKey, version: VersionKey?, environment: EnvironmentKey?) = GenerateDocument(

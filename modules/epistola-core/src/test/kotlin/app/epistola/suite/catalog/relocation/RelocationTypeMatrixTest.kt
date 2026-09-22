@@ -41,8 +41,7 @@ import org.junit.jupiter.params.provider.MethodSource
  * The earlier tests exercised whichever combination a scenario needed, which left most of this
  * grid untried -- and a rename bug once hid in exactly such a gap (see
  * [RuntimeResolutionAfterRelocationTest]). For each cell: the same identity lives at the new
- * address, the old one resolves to it through an alias, and the rows the resource owns came along.
- * Reservation of the vacated address is covered per type by [MovableResourceReservationTest].
+ * address, the old one is left empty, and the rows the resource owns came along.
  */
 class RelocationTypeMatrixTest : RelocationTestSupport() {
 
@@ -50,7 +49,7 @@ class RelocationTypeMatrixTest : RelocationTestSupport() {
 
     @ParameterizedTest(name = "{0} {1}")
     @MethodSource("cells")
-    fun `a relocation keeps identity, leaves an alias, and carries what the resource owns`(movable: MovableResource, shape: Shape) {
+    fun `a relocation keeps identity, vacates the old address, and carries what the resource owns`(movable: MovableResource, shape: Shape) {
         val tenant = tenantWith("Matrix ${movable.name.lowercase()} ${shape.name.lowercase()}")
         val source = create(tenant, movable, letters, "subject")
         val relocation = when (shape) {
@@ -58,7 +57,7 @@ class RelocationTypeMatrixTest : RelocationTestSupport() {
             Shape.RENAME -> source.renamedTo("renamed")
             Shape.MOVE_AND_RENAME -> source.movedTo(shared, "renamed")
         }
-        val identity = resolve(tenant, source)!!.resourceId
+        val identity = identityAt(tenant, source)
 
         if (!movable.renameable && shape != Shape.MOVE) {
             assertThat(preview(tenant, relocation).blockers.map { it.code }).containsExactly("rename-unsupported")
@@ -67,16 +66,8 @@ class RelocationTypeMatrixTest : RelocationTestSupport() {
 
         move(tenant, relocation)
 
-        val atTarget = resolve(tenant, relocation.target)!!
-        assertThat(atTarget.resourceId).isEqualTo(identity)
-        assertThat(atTarget.canonical).isEqualTo(relocation.target)
-        assertThat(atTarget.resolvedViaAlias).isFalse()
-
-        val atSource = resolve(tenant, source)!!
-        assertThat(atSource.resourceId).isEqualTo(identity)
-        assertThat(atSource.canonical).isEqualTo(relocation.target)
-        assertThat(atSource.resolvedViaAlias).isTrue()
-        assertThat(aliases(tenant)).containsExactlyEntriesOf(mapOf(source.id to relocation.target.id))
+        assertThat(identityAt(tenant, relocation.target)).isEqualTo(identity)
+        assertThat(identityAt(tenant, source)).isNull()
 
         assertOwnedRowsFollowed(tenant, movable, relocation.target)
     }

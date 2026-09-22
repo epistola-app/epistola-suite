@@ -8,7 +8,6 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
-import app.epistola.suite.catalog.identity.ReleaseCatalogResourceAlias
 import app.epistola.suite.catalog.relocation.MoveCatalogResources
 import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
 import app.epistola.suite.catalog.relocation.movedTo
@@ -50,15 +49,6 @@ class RelocationAuditIT : IntegrationTestBase() {
 
         assertThat(latestDetails(tenant.id.value, "MoveCatalogResources"))
             .contains("stencil:letters/header", "stencil:shared/masthead")
-    }
-
-    @Test
-    fun `releasing an alias records which address was given up`() {
-        val tenant = createTenant("Alias release audit")
-        val old = ResourceAddress(CatalogResourceType.STENCIL, "letters", "header")
-        withMediator { ReleaseCatalogResourceAlias(tenant.id, old).execute() }
-
-        assertThat(latestDetails(tenant.id.value, "ReleaseCatalogResourceAlias")).contains("stencil:letters/header")
     }
 
     private fun latestDetails(tenantKey: String, action: String): String? = jdbi.withHandle<String?, Exception> { handle ->

@@ -97,7 +97,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `get template at its pre-move address resolves to where it lives now`() {
+    fun `get template at its pre-move address is not found`() {
         val (tenantKey, key) = seedTenantAndKey()
         val slug = "moved-${randomSuffix()}"
         withMediator {
@@ -108,8 +108,8 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             MoveCatalogResources(tenantKey, listOf(relocation), preview.planFingerprint).execute()
         }
 
-        // An integration configured against the old address keeps working; a 404 here is what a
-        // relocation would otherwise have cost every external caller.
+        // A move leaves nothing behind: an integration configured against the old address has to be
+        // updated. That is the crude move's accepted cost, and why the move preview warns about it.
         val response = restTemplate.exchange(
             "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
             HttpMethod.GET,
@@ -117,16 +117,12 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             String::class.java,
         )
 
-        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(response.body!!, "$.id")).isEqualTo(slug)
+        assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
     }
 
-    /**
-     * The address a moved template left still answers for it, so creating a new template there is
-     * refused. Over REST that refusal must be a conflict an integration can act on, not a 500.
-     */
+    /** The address a moved template left is free again, like any other unused address. */
     @Test
-    fun `creating a template at an address a moved template left is a conflict`() {
+    fun `creating a template at an address a moved template left succeeds`() {
         val (tenantKey, key) = seedTenantAndKey()
         val slug = "moved-${randomSuffix()}"
         withMediator {
@@ -144,9 +140,8 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             String::class.java,
         )
 
-        assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
-        assertThat(JsonPath.read<String>(response.body!!, "$.type")).isEqualTo(ApiProblemTypes.RESOURCE_ADDRESS_RESERVED.type.toString())
-        assertThat(JsonPath.read<String>(response.body!!, "$.address")).isEqualTo("template:default/$slug")
+        assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED)
+        assertThat(JsonPath.read<String>(response.body!!, "$.id")).isEqualTo(slug)
     }
 
     @Test

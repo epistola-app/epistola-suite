@@ -13,7 +13,6 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
-import app.epistola.suite.catalog.identity.ResolveCatalogResourceAddress
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.relocation.MoveCatalogResources
@@ -40,8 +39,11 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.util.UUID
+import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
 
 /**
  * Restore round-trip across two non-system catalogs with a cross-catalog code-list binding —
@@ -129,7 +131,7 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `restore keeps the identities and aliases a moved resource left behind`() {
+    fun `restore keeps the identity a moved resource carries`() {
         val tenant = createTenant("Restore Identity")
         val tenantId = TenantId(tenant.id)
         val origin = CatalogKey.of("origin")
@@ -142,8 +144,7 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(origin, tenantId)), name = "Brand").execute()
         }
 
-        // Move it, so the tenant holds both an identity and the alias the move left at the old
-        // address -- the two things a restore used to discard without saying so.
+        // Move it, so its identity no longer matches anything its address could be re-derived from.
         withMediator {
             val preview = PreviewCatalogResourceMove(tenant.id, listOf(themeAddress.movedTo(destination))).query()
             MoveCatalogResources(tenant.id, listOf(themeAddress.movedTo(destination)), preview.planFingerprint).execute()
@@ -157,11 +158,54 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
         assertThat(themeIdentity(tenant.id.value, "destination", "brand"))
             .describedAs("a restored resource keeps its identity, so generation history still joins to it")
             .isEqualTo(identityBefore)
-        assertThat(withMediator { ResolveCatalogResourceAddress(tenant.id, themeAddress).query() })
-            .describedAs("the alias is restored with it, so the old address keeps resolving")
-            .isNotNull()
-            .extracting { it!!.canonical }
-            .isEqualTo(ResourceAddress(CatalogResourceType.THEME, destination.value, "brand"))
+    }
+
+    /**
+     * Snapshots taken by development builds from before relocation stopped leaving aliases carry an
+     * `aliases` list in `identities.json`. Nothing reads it any more; such a snapshot must still
+     * restore, with its identities, rather than be refused over a field it no longer needs.
+     */
+    @Test
+    fun `a snapshot that still records aliases restores, ignoring them`() {
+        val tenant = createTenant("Restore Legacy Aliases")
+        val catalog = CatalogKey.of("brand")
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = catalog, name = "Brand").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalog, TenantId(tenant.id))), name = "Brand").execute()
+        }
+        val identityBefore = themeIdentity(tenant.id.value, catalog.value, "brand")
+        val snapshot = withMediator { BuildTenantSnapshot(tenant.id).execute() }
+
+        val withAliases = rewriteEntry(snapshot.bytes, "identities.json") { json ->
+            val identities = objectMapper.readTree(json) as tools.jackson.databind.node.ObjectNode
+            identities.putArray("aliases").addObject()
+                .put("type", "theme")
+                .put("catalogKey", "retired")
+                .put("key", "brand")
+                .put("targetResourceId", identityBefore.toString())
+            objectMapper.writeValueAsBytes(identities)
+        }
+        withMediator { RestoreTenantSnapshot(tenant.id, withAliases).execute() }
+
+        assertThat(themeIdentity(tenant.id.value, catalog.value, "brand")).isEqualTo(identityBefore)
+    }
+
+    private fun rewriteEntry(archive: ByteArray, name: String, transform: (ByteArray) -> ByteArray): ByteArray {
+        val entries = LinkedHashMap<String, ByteArray>()
+        ZipInputStream(ByteArrayInputStream(archive)).use { zip ->
+            generateSequence { zip.nextEntry }.forEach { entries[it.name] = zip.readBytes() }
+        }
+        check(name in entries) { "$name not found" }
+        entries[name] = transform(entries.getValue(name))
+        return ByteArrayOutputStream().also { out ->
+            ZipOutputStream(out).use { zip ->
+                entries.forEach { (entryName, bytes) ->
+                    zip.putNextEntry(ZipEntry(entryName))
+                    zip.write(bytes)
+                    zip.closeEntry()
+                }
+            }
+        }.toByteArray()
     }
 
     private fun themeIdentity(tenantKey: String, catalogKey: String, key: String): UUID = jdbi.withHandle<UUID, Exception> { handle ->

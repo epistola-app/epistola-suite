@@ -9,6 +9,7 @@ import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
+import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -38,6 +39,7 @@ import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariant
+import app.epistola.suite.templates.commands.versions.CreateVersion
 import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.model.Node
@@ -51,12 +53,14 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 /**
- * A move is local to a tenant, but a catalog leaves it through export. An exported catalog must not
- * carry the tenant's aliases: the dependency a move created has to be written at its new address,
- * so a tenant that never saw the move can install the catalogs and resolve everything.
+ * A move is local to a tenant, but a catalog leaves it through export, which carries each
+ * template's latest published version. A move leaves published versions naming the old address,
+ * so an author adopts it by republishing; from then on the export names the new address and a
+ * tenant that never saw the move can install the catalogs and resolve everything.
  *
  * Each case publishes `letters/invoice` using a resource in `letters`, moves that resource to
- * `shared`, exports both catalogs, and installs them into a fresh tenant.
+ * `shared`, republishes the invoice against `shared`, exports both catalogs, and installs them into
+ * a fresh tenant.
  */
 class RelocationExportRoundTripTest : RelocationTestSupport() {
 
@@ -67,35 +71,29 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
             val header = StencilId(StencilKey.of("header"), catalogId(tenant, letters))
             CreateStencil(header, "Header").execute()
             PublishStencilVersion(StencilVersionId(VersionKey.of(1), header)).execute()
-            templateEmbedding("header", letters.value)
         },
+        model = { catalog -> templateEmbedding("header", catalog.value) },
     )
 
     @Test
     fun `a moved theme is exported at its new address and installs elsewhere`() = roundTrip(
         moved = address(CatalogResourceType.THEME, letters, "brand"),
-        setup = { tenant ->
-            CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, letters)), "Brand").execute()
-            usesTheme("brand", letters.value)
-        },
+        setup = { tenant -> CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, letters)), "Brand").execute() },
+        model = { catalog -> usesTheme("brand", catalog.value) },
     )
 
     @Test
     fun `a moved image is exported at its new address and installs elsewhere`() = roundTrip(
         moved = address(CatalogResourceType.IMAGE, letters, "logo"),
-        setup = { tenant ->
-            uploadPng(tenant, letters, "logo", renderablePng())
-            singleNodeModel(Node(id = "logo", type = "image", props = mapOf("assetId" to "logo", "catalogKey" to letters.value)))
-        },
+        setup = { tenant -> uploadPng(tenant, letters, "logo", renderablePng()) },
+        model = { catalog -> singleNodeModel(Node(id = "logo", type = "image", props = mapOf("assetId" to "logo", "catalogKey" to catalog.value))) },
     )
 
     @Test
     fun `a moved font is exported at its new address and installs elsewhere`() = roundTrip(
         moved = address(CatalogResourceType.FONT, letters, "acme"),
-        setup = { tenant ->
-            importFont(tenant, letters, "acme")
-            singleNodeModel(Node(id = "title", type = "text", styles = mapOf("fontFamily" to mapOf("slug" to "acme", "catalogKey" to letters.value))))
-        },
+        setup = { tenant -> importFont(tenant, letters, "acme") },
+        model = { catalog -> singleNodeModel(Node(id = "title", type = "text", styles = mapOf("fontFamily" to mapOf("slug" to "acme", "catalogKey" to catalog.value)))) },
     )
 
     /**
@@ -169,21 +167,27 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
     }
 
     /**
-     * Publishes `letters/invoice` from the model [setup] returns, moves [moved] to `shared`, then
-     * exports both catalogs and installs them in dependency order into a fresh tenant. The invoice
-     * exported from `letters` must name the moved resource at `shared` and declare that dependency,
-     * and in the fresh tenant its reference must resolve.
+     * Runs [setup], publishes `letters/invoice` from [model] naming `letters`, moves [moved] to
+     * `shared`, republishes the invoice from [model] naming `shared`, then exports both catalogs and
+     * installs them in dependency order into a fresh tenant. The invoice exported from `letters` must
+     * name the moved resource at `shared` and declare that dependency, and in the fresh tenant its
+     * reference must resolve.
      */
-    private fun roundTrip(moved: ResourceAddress, setup: (TenantKey) -> TemplateDocument) {
+    private fun roundTrip(moved: ResourceAddress, setup: (TenantKey) -> Unit, model: (CatalogKey) -> TemplateDocument) {
         val tenant = tenantWith("Export after ${moved.type.wireName} move")
         val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters)))
         withMediator {
-            val model = setup(tenant)
+            setup(tenant)
             CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
-            UpdateDraft(variant, model).execute()
+            UpdateDraft(variant, model(letters)).execute()
             PublishVersion(VersionId(GetDraft(variant).query()!!.id, variant)).execute()
         }
         move(tenant, moved.movedTo(shared))
+        withMediator {
+            CreateVersion(variant).execute()
+            UpdateDraft(variant, model(shared)).execute()
+            PublishVersion(VersionId(GetDraft(variant).query()!!.id, variant)).execute()
+        }
 
         val sharedZip = withMediator { ExportCatalogZip(tenant, shared).execute() }.zipBytes
         val lettersZip = withMediator { ExportCatalogZip(tenant, letters).execute() }.zipBytes

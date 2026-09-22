@@ -126,15 +126,15 @@ class RelocationBatchTest : RelocationTestSupport() {
         val a = create(tenant, MovableResource.STENCIL, letters, "first")
         val b = create(tenant, MovableResource.STENCIL, letters, "second")
         val c = create(tenant, MovableResource.STENCIL, letters, "third")
-        val identities = listOf(a, b, c).associateWith { resolve(tenant, it)!!.resourceId }
+        val identities = listOf(a, b, c).associateWith { identityAt(tenant, it)!! }
 
         // first leaves for shared; second takes its name; third takes second's.
         move(tenant, a.movedTo(shared), b.renamedTo("first"), c.renamedTo("second"))
 
-        assertThat(resolve(tenant, address(CatalogResourceType.STENCIL, shared, "first"))!!.resourceId).isEqualTo(identities[a])
-        assertThat(resolve(tenant, a)!!.resourceId).describedAs("letters/first is now the former second").isEqualTo(identities[b])
-        assertThat(resolve(tenant, b)!!.resourceId).describedAs("letters/second is now the former third").isEqualTo(identities[c])
-        assertThat(resolve(tenant, c)!!.canonical).isEqualTo(b)
+        assertThat(identityAt(tenant, address(CatalogResourceType.STENCIL, shared, "first"))).isEqualTo(identities[a])
+        assertThat(identityAt(tenant, a)).describedAs("letters/first is now the former second").isEqualTo(identities[b])
+        assertThat(identityAt(tenant, b)).describedAs("letters/second is now the former third").isEqualTo(identities[c])
+        assertThat(identityAt(tenant, c)).describedAs("letters/third is left empty").isNull()
     }
 
     @Test
@@ -191,12 +191,14 @@ class RelocationBatchTest : RelocationTestSupport() {
             create(tenant, movable, letters, "all-${movable.name.lowercase().replace('_', '-')}").movedTo(shared)
         }
 
+        val identities = batch.associateWith { identityAt(tenant, it.source) }
+
         move(tenant, batch)
 
         for (relocation in batch) {
-            assertThat(resolve(tenant, relocation.source)!!.canonical).isEqualTo(relocation.target)
+            assertThat(identityAt(tenant, relocation.target)).isEqualTo(identities[relocation])
+            assertThat(identityAt(tenant, relocation.source)).isNull()
         }
-        assertThat(aliases(tenant)).hasSize(batch.size)
     }
 
     /**
@@ -225,7 +227,7 @@ class RelocationBatchTest : RelocationTestSupport() {
 
         move(tenant, stencil.movedTo(shared), theme.movedTo(shared))
 
-        assertThat(resolve(tenant, stencil)!!.canonical.catalogKey).isEqualTo(shared.value)
+        assertThat(identityAt(tenant, stencil.copy(catalogKey = shared.value))).isNotNull()
     }
 
     private fun attributesOf(template: TemplateId, variant: VariantId): Map<String, String> = withMediator { ListVariants(template).query() }

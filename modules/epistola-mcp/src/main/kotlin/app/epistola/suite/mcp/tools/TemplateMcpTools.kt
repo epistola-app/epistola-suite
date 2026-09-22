@@ -4,7 +4,6 @@
 
 package app.epistola.suite.mcp.tools
 
-import app.epistola.suite.catalog.identity.canonical
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -126,7 +125,7 @@ class TemplateMcpTools(
 
     private fun templateId(catalogId: String, templateId: String): TemplateId {
         val catalog = CatalogId(CatalogKey.of(catalogId), mcpTenantId())
-        return TemplateId(TemplateKey.of(templateId), catalog).canonical()
+        return TemplateId(TemplateKey.of(templateId), catalog)
     }
 
     private fun variantId(catalogId: String, templateId: String, variantId: String): VariantId {

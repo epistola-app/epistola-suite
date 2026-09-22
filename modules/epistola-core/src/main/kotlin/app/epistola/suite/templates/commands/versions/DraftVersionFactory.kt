@@ -87,7 +87,7 @@ class DraftVersionFactory(
             .orElse(null)
 
         if (existingDraft != null) {
-            templateDocumentPreparation.prepareDraft(existingDraft.templateModel, variantId.tenantKey, variantId.catalogKey)
+            templateDocumentPreparation.prepareDraft(existingDraft.templateModel, variantId.catalogKey)
             return existingDraft
         }
 
@@ -137,7 +137,7 @@ class DraftVersionFactory(
         val modelToSave = templateModel
             ?: latestPublishedModelJson?.let { objectMapper.readValue(it, TemplateDocument::class.java) }
             ?: createDefaultTemplateModel(variantId.key)
-        val prepared = templateDocumentPreparation.prepareDraft(modelToSave, variantId.tenantKey, variantId.catalogKey)
+        val prepared = templateDocumentPreparation.prepareDraft(modelToSave, variantId.catalogKey)
 
         // Resolve contract version: prefer draft (user is editing), fall back to published.
         val contractVersionId = handle.createQuery(

@@ -52,42 +52,14 @@ class TenantResourceGraphBuilder(
 
     fun buildOn(handle: Handle, tenantKey: TenantKey, includeHistory: Boolean): TenantResourceGraph {
         val nodes = loadNodes(handle, tenantKey)
-        val aliases = loadAliases(handle, tenantKey)
         val occurrences = buildList {
             addAll(loadRelationalReferences(handle, tenantKey))
             addAll(loadThemeReferences(handle, tenantKey))
             addAll(loadTemplateReferences(handle, tenantKey, includeHistory))
             addAll(loadStencilReferences(handle, tenantKey, includeHistory))
         }
-        return TenantResourceGraph(nodes, resolveAndAggregate(nodes, occurrences, aliases))
+        return TenantResourceGraph(nodes, resolveAndAggregate(nodes, occurrences))
     }
-
-    private fun loadAliases(handle: Handle, tenantKey: TenantKey): Map<ResourceAddress, ResourceAddress> = handle.createQuery(
-        """
-        SELECT aliases.resource_type, aliases.catalog_key::text, aliases.resource_key,
-               resources.catalog_key::text canonical_catalog_key, resources.resource_key canonical_resource_key
-        FROM catalog_resource_aliases aliases
-        JOIN catalog_resources resources
-          ON resources.tenant_key = aliases.tenant_key
-         AND resources.resource_id = aliases.target_resource_id
-         AND resources.resource_type = aliases.resource_type
-        WHERE aliases.tenant_key = :tenantKey
-          -- A canonical resource re-created at an aliased address shadows the alias.
-          AND NOT EXISTS (
-              SELECT 1 FROM catalog_resources shadow
-              WHERE shadow.tenant_key = aliases.tenant_key
-                AND shadow.resource_type = aliases.resource_type
-                AND shadow.catalog_key = aliases.catalog_key
-                AND shadow.resource_key = aliases.resource_key
-          )
-        """,
-    )
-        .bind("tenantKey", tenantKey)
-        .map { rs, _ ->
-            val type = resourceType(rs.getString("resource_type"))
-            ResourceAddress(type, rs.getString("catalog_key"), rs.getString("resource_key")) to
-                ResourceAddress(type, rs.getString("canonical_catalog_key"), rs.getString("canonical_resource_key"))
-        }.list().toMap()
 
     private fun loadNodes(handle: Handle, tenantKey: TenantKey): List<ResourceNode> = handle.createQuery(
         """
@@ -327,14 +299,13 @@ class TenantResourceGraphBuilder(
     private fun resolveAndAggregate(
         nodes: List<ResourceNode>,
         occurrences: List<Occurrence>,
-        aliases: Map<ResourceAddress, ResourceAddress>,
     ): List<ResourceEdge> {
         val byAddress = nodes.associateBy { it.address }
         val byTypeAndKey = nodes.groupBy { it.address.type to it.address.key }
         return occurrences.groupBy { occurrence ->
             val candidates = if (occurrence.selector.catalogKey != null) {
                 val requested = ResourceAddress(occurrence.selector.type, occurrence.selector.catalogKey, occurrence.selector.key)
-                listOfNotNull(byAddress[requested] ?: aliases[requested]?.let(byAddress::get))
+                listOfNotNull(byAddress[requested])
             } else {
                 byTypeAndKey[occurrence.selector.type to occurrence.selector.key].orEmpty()
             }.map { it.address }.sortedBy { it.id }
@@ -351,9 +322,6 @@ class TenantResourceGraphBuilder(
                 qualification = occurrence.qualification,
                 candidates = candidates,
                 resolution = resolution,
-                resolvedViaAlias = occurrence.selector.catalogKey?.let {
-                    ResourceAddress(occurrence.selector.type, it, occurrence.selector.key) in aliases
-                } == true,
             )
         }.map { (key, grouped) ->
             val target = key.candidates.singleOrNull()
@@ -369,7 +337,6 @@ class TenantResourceGraphBuilder(
                 key.qualification,
                 key.resolution,
                 grouped.map { it.evidence }.distinct(),
-                key.resolvedViaAlias,
             )
         }.sortedBy { it.id }
     }
@@ -393,6 +360,5 @@ class TenantResourceGraphBuilder(
         val qualification: ReferenceQualification,
         val candidates: List<ResourceAddress>,
         val resolution: ReferenceResolution,
-        val resolvedViaAlias: Boolean,
     )
 }

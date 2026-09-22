@@ -28,7 +28,6 @@ import app.epistola.suite.attributes.commands.DeleteAttributeDefinition
 import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
-import app.epistola.suite.catalog.identity.canonical
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -187,7 +186,7 @@ class EpistolaTenantApi :
         attributeKey: String,
     ): ResponseEntity<AttributeDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
+        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val attribute = GetAttributeDefinition(id = attributeIdComposite).query()
             ?: throw AttributeNotFoundException(attributeIdComposite.tenantKey, attributeIdComposite.catalogKey, attributeIdComposite.key)
         return ResponseEntity.ok(attribute.toDto())
@@ -230,7 +229,7 @@ class EpistolaTenantApi :
         attributeKey: String,
     ): ResponseEntity<Unit> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), CatalogId(CatalogKey.of(catalogId), tenantIdComposite)).canonical()
+        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val deleted = DeleteAttributeDefinition(id = attributeIdComposite).execute()
         return if (deleted) {
             ResponseEntity.noContent().build()

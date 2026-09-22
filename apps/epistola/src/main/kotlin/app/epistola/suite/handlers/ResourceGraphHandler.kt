@@ -148,7 +148,6 @@ class ResourceGraphHandler {
         "semantics" to edge.semantics.name.lowercase(),
         "qualification" to edge.qualification.name.lowercase(),
         "resolution" to edge.resolution.name.lowercase(),
-        "resolvedViaAlias" to edge.resolvedViaAlias,
         "evidenceCount" to edge.evidenceCount,
     )
 

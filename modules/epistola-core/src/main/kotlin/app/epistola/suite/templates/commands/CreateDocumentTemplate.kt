@@ -4,9 +4,6 @@
 
 package app.epistola.suite.templates.commands
 
-import app.epistola.suite.catalog.graph.CatalogResourceType
-import app.epistola.suite.catalog.graph.ResourceAddress
-import app.epistola.suite.catalog.identity.requireAddressAvailable
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
@@ -61,11 +58,6 @@ class CreateDocumentTemplateHandler(
 
         return executeOrThrowDuplicate("template", command.id.key.value) {
             jdbi.inTransaction<DocumentTemplate, Exception> { handle ->
-                requireAddressAvailable(
-                    handle,
-                    command.id.tenantKey,
-                    ResourceAddress(CatalogResourceType.TEMPLATE, command.id.catalogKey.value, command.id.key.value),
-                )
                 // 1. Create the template
                 val template = handle.createQuery(
                     """
@@ -122,7 +114,7 @@ class CreateDocumentTemplateHandler(
                     .execute()
 
                 // 4. Create draft version with default TemplateDocument (version ID = 1)
-                val prepared = templateDocumentPreparation.prepare(createDefaultTemplateModel(variantId), command.id.tenantKey, command.id.catalogKey)
+                val prepared = templateDocumentPreparation.prepare(createDefaultTemplateModel(variantId), command.id.catalogKey)
                 val versionId = VersionKey.of(1) // First version is always 1
 
                 handle.createUpdate(

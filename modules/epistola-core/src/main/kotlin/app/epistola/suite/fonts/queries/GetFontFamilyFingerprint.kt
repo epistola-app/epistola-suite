@@ -4,9 +4,6 @@
 
 package app.epistola.suite.fonts.queries
 
-import app.epistola.suite.catalog.graph.CatalogResourceType
-import app.epistola.suite.catalog.graph.ResourceAddress
-import app.epistola.suite.catalog.identity.resolveCatalogResourceAddress
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
@@ -53,19 +50,7 @@ class GetFontFamilyFingerprintHandler(
 
     override fun handle(query: GetFontFamilyFingerprint): String? {
         val faces = jdbi.withHandle<List<FaceHash>, Exception> { handle ->
-            handle.loadFaceHashes(query.tenantId, query.catalogKey, query.slug).ifEmpty {
-                // A published version pinned the fingerprint under the address the family had at
-                // publish time. A relocated family leaves an alias there; following it keeps the
-                // integrity check comparing the same faces instead of failing every render of that
-                // version with "MISSING", and keeps a later publish pinning the font at all.
-                handle.resolveCatalogResourceAddress(
-                    query.tenantId,
-                    ResourceAddress(CatalogResourceType.FONT, query.catalogKey.value, query.slug.value),
-                )
-                    ?.takeIf { it.resolvedViaAlias }
-                    ?.let { handle.loadFaceHashes(query.tenantId, CatalogKey.of(it.canonical.catalogKey), FontKey.of(it.canonical.key)) }
-                    ?: emptyList()
-            }
+            handle.loadFaceHashes(query.tenantId, query.catalogKey, query.slug)
         }
 
         if (faces.isEmpty()) return null

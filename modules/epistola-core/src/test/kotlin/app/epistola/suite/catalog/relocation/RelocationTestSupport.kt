@@ -14,14 +14,13 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
-import app.epistola.suite.catalog.identity.ResolveCatalogResourceAddress
-import app.epistola.suite.catalog.identity.ResolvedCatalogResourceAddress
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
+import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateId
@@ -103,29 +102,25 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
         return withMediator { MoveCatalogResources(tenant, relocations, plan.planFingerprint).execute() }
     }
 
-    protected fun resolve(tenant: TenantKey, address: ResourceAddress): ResolvedCatalogResourceAddress? = withMediator { ResolveCatalogResourceAddress(tenant, address).query() }
-
-    /** Every alias row in the tenant, as `old address id -> address id of the resource it names`. */
-    protected fun aliases(tenant: TenantKey): Map<String, String> = jdbi.withHandle<Map<String, String>, Exception> { handle ->
+    /**
+     * The identity registered at [address] right now, or null when nothing occupies it. A move leaves
+     * nothing behind, so the old address answers null.
+     */
+    protected fun identityAt(tenant: TenantKey, address: ResourceAddress): ResourceIdentity? = jdbi.withHandle<ResourceIdentity?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT aliases.resource_type, aliases.catalog_key::text alias_catalog, aliases.resource_key alias_key,
-                   resources.catalog_key::text target_catalog, resources.resource_key target_key
-            FROM catalog_resource_aliases aliases
-            JOIN catalog_resources resources
-              ON resources.tenant_key = aliases.tenant_key AND resources.resource_id = aliases.target_resource_id
-            WHERE aliases.tenant_key = :tenantKey
-            ORDER BY aliases.resource_type, aliases.catalog_key, aliases.resource_key
+            SELECT resource_id FROM catalog_resources
+            WHERE tenant_key = :tenantKey AND resource_type = :resourceType
+              AND catalog_key = :catalogKey AND resource_key = :resourceKey
             """,
         )
             .bind("tenantKey", tenant)
-            .map { rs, _ ->
-                val type = rs.getString("resource_type")
-                "$type:${rs.getString("alias_catalog")}/${rs.getString("alias_key")}" to
-                    "$type:${rs.getString("target_catalog")}/${rs.getString("target_key")}"
-            }
-            .list()
-            .toMap()
+            .bind("resourceType", address.type.wireName)
+            .bind("catalogKey", address.catalogKey)
+            .bind("resourceKey", address.key)
+            .map { rs, _ -> ResourceIdentity.of(rs.getString("resource_id")) }
+            .findOne()
+            .orElse(null)
     }
 
     /**

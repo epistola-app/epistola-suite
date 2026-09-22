@@ -33,7 +33,7 @@ class RelocationAccessAndListingTest : RelocationTestSupport() {
 
         assertThatThrownBy { runAs(viewer) { MoveCatalogResources(tenant, listOf(header.movedTo(shared)), plan.planFingerprint).execute() } }
             .isInstanceOf(PermissionDeniedException::class.java)
-        assertThat(resolve(tenant, header)!!.canonical).isEqualTo(header)
+        assertThat(identityAt(tenant, header)).isNotNull()
     }
 
     @Test

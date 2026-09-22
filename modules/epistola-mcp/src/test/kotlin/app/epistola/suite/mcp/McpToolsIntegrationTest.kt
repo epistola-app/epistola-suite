@@ -132,7 +132,7 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `get_template at its pre-move address returns the moved template`() {
+    fun `get_template at its pre-move address finds nothing, a move leaves nothing behind`() {
         val tenant = createTenant("MCP moved template")
         val tenantId = TenantId(tenant.id)
         val templateKey = TestIdHelpers.nextTemplateId()
@@ -144,12 +144,11 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
             MoveCatalogResources(tenant.id, listOf(relocation), preview.planFingerprint).execute()
         }
 
-        val info = runAsApiKey(tenantId) {
-            templateMcpTools.getTemplate(catalogId = "default", templateId = templateKey.value)
-        }
+        val atOld = runAsApiKey(tenantId) { templateMcpTools.getTemplate(catalogId = "default", templateId = templateKey.value) }
+        val atNew = runAsApiKey(tenantId) { templateMcpTools.getTemplate(catalogId = "shared", templateId = templateKey.value) }
 
-        assertThat(info).isNotNull
-        assertThat(info!!.catalogId).isEqualTo("shared")
+        assertThat(atOld).isNull()
+        assertThat(atNew!!.catalogId).isEqualTo("shared")
     }
 
     @Test

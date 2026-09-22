@@ -9,6 +9,7 @@ import type {
   Destination,
   OrganiseCatalog,
   OrganiseResource,
+  RelocationPlan,
   RelocationPreview,
 } from './model.js';
 
@@ -156,7 +157,8 @@ export class CatalogOrganise extends LitElement {
     const where = catalog ? ` to ${catalog.name}` : '';
     const what = applied.count === 1 ? '1 resource' : `${applied.count} resources`;
     return html`<p class="alert alert-success" role="status" data-testid="organise-applied">
-      Moved ${what}${where}. Old addresses keep resolving, so existing references still work.
+      Moved ${what}${where}. The old addresses no longer resolve: anything that still names them —
+      published versions, exports, integrations — has to be updated.
     </p>`;
   }
 
@@ -255,10 +257,10 @@ export class CatalogOrganise extends LitElement {
       const moved = this.preview.relocations;
       const destinations = new Set(moved.map((plan) => plan.target.catalogKey));
       await this.post('execute', this.preview.planFingerprint);
-      // Opened in a dialog from the moved resource's own page, which still shows its old address.
-      // Reloading it lands on the canonical one, since an old address redirects there.
+      // Opened in a dialog from the moved resource's own page, whose address no longer exists.
+      // Go to the same page at the resource's new address instead of reloading the old one.
       if (this.single && this.closest('dialog')) {
-        window.location.reload();
+        window.location.assign(pathAfterMove(window.location.pathname, moved[0]));
         return;
       }
       this.selected = new Map();
@@ -621,7 +623,9 @@ export class CatalogOrganise extends LitElement {
                   ${plan.source.catalogKey}/${plan.source.key} →
                   <strong>${plan.target.catalogKey}/${plan.target.key}</strong> —
                   ${plan.mutableRewriteCount} reference(s) rewritten,
-                  ${plan.immutableReferenceCount} published reference(s) resolve through the alias
+                  ${plan.immutableReferenceCount} published reference(s) keep the old address and
+                  will stop resolving; their catalog cannot be exported or released until those
+                  templates are republished
                 </p>`,
               )}
               ${this.batchBlockers.map(
@@ -664,4 +668,24 @@ declare global {
   interface Window {
     getCsrfToken?: () => string;
   }
+}
+
+/**
+ * [path] with the moved resource's `/{catalog}/{key}` segments replaced by its destination's, or
+ * [path] unchanged when it does not name the resource.
+ */
+export function pathAfterMove(
+  path: string,
+  plan: Pick<RelocationPlan, 'source' | 'target'>,
+): string {
+  const segments = path.split('/');
+  const at = segments.findIndex(
+    (segment, index) =>
+      segment === encodeURIComponent(plan.source.catalogKey) &&
+      segments[index + 1] === encodeURIComponent(plan.source.key),
+  );
+  if (at < 0) return path;
+  segments[at] = encodeURIComponent(plan.target.catalogKey);
+  segments[at + 1] = encodeURIComponent(plan.target.key);
+  return segments.join('/');
 }

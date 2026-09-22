@@ -44,6 +44,7 @@ class RelocationCycleGuardTest : RelocationTestSupport() {
 
         val snapshot = withMediator { BuildTenantSnapshot(tenant).execute() }
         withMediator { RestoreTenantSnapshot(tenant, snapshot.bytes).execute() }
-        assertThat(resolve(tenant, font)!!.canonical).isEqualTo(address(CatalogResourceType.FONT, shared, "acme"))
+        assertThat(identityAt(tenant, address(CatalogResourceType.FONT, shared, "acme"))).isNotNull()
+        assertThat(identityAt(tenant, font)).isNull()
     }
 }

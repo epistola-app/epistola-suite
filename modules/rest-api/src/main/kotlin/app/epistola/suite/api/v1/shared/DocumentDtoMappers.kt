@@ -13,14 +13,10 @@ import app.epistola.api.model.GenerationJobDetail
 import app.epistola.api.model.GenerationJobResponse
 import app.epistola.api.model.PreviewDocumentRequest
 import app.epistola.api.model.VariantSelectionAttribute
-import app.epistola.suite.catalog.identity.canonical
 import app.epistola.suite.common.ids.BatchKey
-import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
-import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
@@ -120,11 +116,10 @@ internal fun GenerateDocumentRequest.toCommand(
     require(variantId == null || attributes == null) {
         "Cannot specify both variantId and attributes"
     }
-    val template = canonicalTemplate(tenantId, catalogId, templateId)
     return app.epistola.suite.documents.commands.GenerateDocument(
         tenantId = TenantKey.of(tenantId),
-        catalogKey = template.catalogKey,
-        templateId = template.key,
+        catalogKey = CatalogKey.of(catalogId),
+        templateId = TemplateKey.of(templateId),
         variantId = variantId?.let { VariantKey.of(it) },
         variantSelectionCriteria = attributes?.toSelectionCriteria(),
         versionId = versionId?.let { VersionKey.of(it) },
@@ -137,15 +132,14 @@ internal fun GenerateDocumentRequest.toCommand(
 }
 
 internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
-    template: TemplateId,
     objectMapper: ObjectMapper,
 ): app.epistola.suite.documents.commands.BatchGenerationItem {
     require(variantId == null || attributes == null) {
         "Cannot specify both variantId and attributes"
     }
     return app.epistola.suite.documents.commands.BatchGenerationItem(
-        catalogKey = template.catalogKey,
-        templateId = template.key,
+        catalogKey = CatalogKey.of(catalogId),
+        templateId = TemplateKey.of(templateId),
         variantId = variantId?.let { VariantKey.of(it) },
         variantSelectionCriteria = attributes?.toSelectionCriteria(),
         versionId = versionId?.let { VersionKey.of(it) },
@@ -198,12 +192,7 @@ internal fun GenerateBatchRequest.toCommand(
     objectMapper: ObjectMapper,
 ) = app.epistola.suite.documents.commands.GenerateDocumentBatch(
     tenantId = TenantKey.of(tenantId),
-    // One lookup per distinct address rather than per item. A batch is uncapped, and resolving
-    // inside the map made an otherwise-batched handler do a query and a pool checkout per row for
-    // something that answers the same way every time.
-    items = resolveCanonicalTemplates(tenantId, items.map { it.catalogId to it.templateId }).let { canonical ->
-        items.map { it.toBatchItem(canonical.getValue(it.catalogId to it.templateId), objectMapper) }
-    },
+    items = items.map { it.toBatchItem(objectMapper) },
     batchRoutingKey = routingKey,
 )
 
@@ -211,27 +200,13 @@ internal fun GenerateBatchRequest.toCommand(
 
 internal fun PreviewDocumentRequest.toQuery(
     tenantId: String,
-): PreviewDocument {
-    val template = canonicalTemplate(tenantId, catalogId, templateId)
-    return PreviewDocument(
-        tenantId = TenantKey.of(tenantId),
-        catalogKey = template.catalogKey,
-        templateId = template.key,
-        variantId = variantId?.let { VariantKey.of(it) },
-        variantSelectionCriteria = attributes?.toSelectionCriteria(),
-        data = data,
-        versionId = versionId?.let { VersionKey.of(it) },
-        environmentId = environmentId?.let { EnvironmentKey.of(it) },
-    )
-}
-
-/** The template's current address, for a request that may name the one it had before a move. */
-private fun canonicalTemplate(tenantId: String, catalogId: String, templateId: String): TemplateId = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), TenantId(TenantKey.of(tenantId)))).canonical()
-
-/** [canonicalTemplate] for a batch, resolving each distinct address once. */
-private fun resolveCanonicalTemplates(
-    tenantId: String,
-    addresses: List<Pair<String, String>>,
-): Map<Pair<String, String>, TemplateId> = addresses
-    .distinct()
-    .associateWith { (catalogId, templateId) -> canonicalTemplate(tenantId, catalogId, templateId) }
+) = PreviewDocument(
+    tenantId = TenantKey.of(tenantId),
+    catalogKey = CatalogKey.of(catalogId),
+    templateId = TemplateKey.of(templateId),
+    variantId = variantId?.let { VariantKey.of(it) },
+    variantSelectionCriteria = attributes?.toSelectionCriteria(),
+    data = data,
+    versionId = versionId?.let { VersionKey.of(it) },
+    environmentId = environmentId?.let { EnvironmentKey.of(it) },
+)

@@ -56,8 +56,8 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
         val second = preview(tenant, header.movedTo(shared))
 
         assertThat(second.planFingerprint).isEqualTo(first.planFingerprint)
-        assertThat(aliases(tenant)).isEmpty()
-        assertThat(resolve(tenant, header)!!.canonical).isEqualTo(header)
+        assertThat(identityAt(tenant, header)).isNotNull()
+        assertThat(identityAt(tenant, header.copy(catalogKey = shared.value))).isNull()
     }
 
     @Test
@@ -66,7 +66,7 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
         val header = stencilReferencedByDraft(tenant)
         val plan = preview(tenant, header.movedTo(shared))
 
-        // The draft the plan would rewrite is now an immutable version that must resolve through the alias.
+        // The draft the plan would rewrite is now an immutable version, which a move leaves as it is.
         val variant = invoiceVariant(tenant)
         withMediator { PublishVersion(VersionId(GetDraft(variant).query()!!.id, variant)).execute() }
 
@@ -108,13 +108,13 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
     }
 
     /**
-     * Rewrites, aliases and the first member's move are all written before the second member's
+     * Rewrites and the first member's move are all written before the second member's
      * update fails. None of it may survive. The failure is injected with a trigger scoped to this
      * test's tenant: no command can make one resource row refuse an update, and the point is a
      * failure after partial writes, which a planner blocker never produces.
      */
     @Test
-    fun `a failure part-way through leaves no alias, no rewrite and no moved member`() {
+    fun `a failure part-way through leaves no rewrite and no moved member`() {
         val tenant = tenantWith("Rollback")
         val template = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
         val variant = VariantId(VariantKey.INITIAL, template)
@@ -137,9 +137,11 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
                 .hasMessageContaining("injected failure")
         }
 
-        assertThat(aliases(tenant)).isEmpty()
         assertThat(withMediator { GetDraft(variant).query()!! }.templateModel).isEqualTo(draftBefore)
-        batch.forEach { assertThat(resolve(tenant, it.source)!!.canonical).isEqualTo(it.source) }
+        batch.forEach {
+            assertThat(identityAt(tenant, it.source)).isNotNull()
+            assertThat(identityAt(tenant, it.target)).isNull()
+        }
     }
 
     /**
@@ -162,21 +164,21 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
         )
 
         assertThat(contender.exceptionOrNull()).isInstanceOf(StaleCatalogResourceMovePlanException::class.java)
-        assertThat(resolve(tenant, header)!!.canonical.catalogKey).isEqualTo(shared.value)
-        assertThat(aliases(tenant)).containsOnlyKeys(header.id)
+        assertThat(identityAt(tenant, header.copy(catalogKey = shared.value))).isNotNull()
+        assertThat(identityAt(tenant, header.copy(catalogKey = archive.value))).isNull()
     }
 
     /**
-     * A create aimed at the address a move is vacating, while that move is still open. It must not
-     * end up shadowing the alias the move leaves: every published reference to the address relies
-     * on it. Today the create is refused by the address still being occupied when it checks -- it
-     * waits on the moving row and then reports a duplicate -- and the alias survives intact.
+     * A create aimed at the address a move is vacating, while that move is still open. The create
+     * sees the address still occupied when it checks -- it waits on the moving row and then reports
+     * a duplicate -- and the move stands with its identity intact. Once the move has committed, the
+     * address is free like any other.
      */
     @Test
-    fun `a create racing a move for the address it vacates is refused, and the alias survives`() {
+    fun `a create racing a move for the address it vacates is refused, and the move stands`() {
         val tenant = tenantWith("Create racing move")
         val header = create(tenant, MovableResource.STENCIL, letters, "header")
-        val identity = resolve(tenant, header)!!.resourceId
+        val identity = identityAt(tenant, header)
         val relocation = listOf(header.movedTo(shared))
         val plan = preview(tenant, relocation)
 
@@ -186,9 +188,8 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
         )
 
         assertThat(contender.isFailure).describedAs("the racing create must be refused").isTrue()
-        val resolved = resolve(tenant, header)!!
-        assertThat(resolved.resolvedViaAlias).isTrue()
-        assertThat(resolved.resourceId).isEqualTo(identity)
+        assertThat(identityAt(tenant, header.copy(catalogKey = shared.value))).isEqualTo(identity)
+        assertThat(identityAt(tenant, header)).isNull()
     }
 
     /**
@@ -283,10 +284,10 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
     }
 
     private fun assertStale(tenant: TenantKey, relocations: List<ResourceRelocation>, fingerprint: String) {
-        val aliasesBefore = aliases(tenant)
+        val identitiesBefore = relocations.associate { it.source to identityAt(tenant, it.source) }
         assertThatThrownBy { withMediator { MoveCatalogResources(tenant, relocations, fingerprint).execute() } }
             .isInstanceOf(StaleCatalogResourceMovePlanException::class.java)
-        assertThat(aliases(tenant)).isEqualTo(aliasesBefore)
+        assertThat(relocations.associate { it.source to identityAt(tenant, it.source) }).isEqualTo(identitiesBefore)
     }
 
     private companion object {

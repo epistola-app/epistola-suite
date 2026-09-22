@@ -6,9 +6,6 @@ package app.epistola.suite.ui
 
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
-import app.epistola.suite.catalog.graph.CatalogResourceType
-import app.epistola.suite.catalog.graph.ResourceAddress
-import app.epistola.suite.catalog.identity.ResolveCatalogResourceAddress
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
@@ -21,6 +18,7 @@ import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
+import app.epistola.suite.stencils.queries.ListStencils
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.testing.TEST_TENANT_ROLES_HEADER
 import com.microsoft.playwright.Locator
@@ -68,8 +66,9 @@ class CatalogOrganiseUiTest : BasePlaywrightTest() {
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Move 1 resource(s)")).click()
 
         assertThat(page.getByTestId("organise-applied")).containsText("Moved 1 resource to Shared")
-        val resolved = withMediator { ResolveCatalogResourceAddress(tenant, ResourceAddress(CatalogResourceType.STENCIL, letters.value, "header")).query()!! }
-        assertThatValue(resolved.canonical.catalogKey).isEqualTo(shared.value)
+        fun stencilKeysIn(catalog: CatalogKey) = withMediator { ListStencils(TenantId(tenant), catalogKey = catalog).query() }.map { it.id.value }
+        assertThatValue(stencilKeysIn(shared)).containsExactly("header")
+        assertThatValue(stencilKeysIn(letters)).isEmpty()
     }
 
     @Test

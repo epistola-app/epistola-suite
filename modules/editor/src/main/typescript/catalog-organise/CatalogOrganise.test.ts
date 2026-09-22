@@ -6,7 +6,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import './CatalogOrganise.js';
-import type { CatalogOrganise } from './CatalogOrganise.js';
+import { pathAfterMove, type CatalogOrganise } from './CatalogOrganise.js';
 
 const BASE = '/tenants/acme/catalogs/organise';
 
@@ -203,15 +203,19 @@ describe('ep-catalog-organise', () => {
     expect(element.textContent).toContain('first 50');
   });
 
-  it('after moving the resource its page is about, reloads that page to follow it', async () => {
+  it('after moving the resource its page is about, goes to that page at the new address', async () => {
     const invoice = resource('template', 'letters', 'invoice');
     serve({
       '/resources': { body: { catalogs, resources: [invoice] } },
       '/preview': { body: executablePlan(invoice) },
       '/execute': { body: executablePlan(invoice) },
     });
-    const reload = vi.fn();
-    vi.stubGlobal('location', { ...window.location, reload });
+    const assign = vi.fn();
+    vi.stubGlobal('location', {
+      ...window.location,
+      pathname: '/tenants/acme/templates/letters/invoice/settings',
+      assign,
+    });
     const dialog = document.createElement('dialog');
     document.body.appendChild(dialog);
     const element = await mount({ 'data-single': invoice.id, 'data-can-apply': 'true' }, dialog);
@@ -226,6 +230,25 @@ describe('ep-catalog-organise', () => {
     await click(element, /^\s*Preview\s*$/);
     await click(element, /^\s*Move 1 resource/);
 
-    expect(reload).toHaveBeenCalled();
+    // No alias is left behind, so reloading the old address would be a 404.
+    expect(assign).toHaveBeenCalledWith('/tenants/acme/templates/shared/invoice/settings');
+  });
+});
+
+describe('pathAfterMove', () => {
+  const plan = {
+    source: { type: 'template', catalogKey: 'letters', key: 'invoice' },
+    target: { type: 'template', catalogKey: 'shared', key: 'bill' },
+  };
+
+  it('replaces the catalog and key segments, keeping the rest of the path', () => {
+    expect(pathAfterMove('/tenants/acme/templates/letters/invoice/settings', plan)).toBe(
+      '/tenants/acme/templates/shared/bill/settings',
+    );
+  });
+
+  it('matches whole segments only', () => {
+    const path = '/tenants/acme/templates/letters/invoice-2/settings';
+    expect(pathAfterMove(path, plan)).toBe(path);
   });
 });

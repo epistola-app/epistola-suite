@@ -6,9 +6,6 @@ package app.epistola.suite.attributes.commands
 
 import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
-import app.epistola.suite.catalog.graph.CatalogResourceType
-import app.epistola.suite.catalog.graph.ResourceAddress
-import app.epistola.suite.catalog.identity.requireAddressAvailable
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.CodeListId
@@ -75,11 +72,6 @@ class CreateAttributeDefinitionHandler(
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         return executeOrThrowDuplicate("attribute", command.id.key.value) {
             jdbi.withHandle<VariantAttributeDefinition, Exception> { handle ->
-                requireAddressAvailable(
-                    handle,
-                    command.id.tenantKey,
-                    ResourceAddress(CatalogResourceType.ATTRIBUTE, command.id.catalogKey.value, command.id.key.value),
-                )
                 val allowedValuesJson = objectMapper.writeValueAsString(command.allowedValues)
 
                 handle.createQuery(
