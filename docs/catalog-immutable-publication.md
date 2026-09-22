@@ -177,6 +177,36 @@ _Decided 2026-09-22._ This replaces per-template, per-variant activation.
   next major together with the contract's other pending removals, rather than kept alongside a
   legacy mode.
 
+### Versioning: the release is the version
+
+_Decided 2026-09-22._ One version concept for the whole product.
+
+- **Every change produces an immutable revision** of a resource. A catalog release is a manifest of
+  revisions, so the version of a resource is the release it is in.
+- **Per-template and per-stencil version numbers go.** A template is "invoice, as of
+  `letters@2.0.0`"; its page becomes the history of releases in which it changed. Inside its own
+  catalog a stencil is named the same way; from another catalog it is named by the pinned release.
+- **Ready versus not-ready stays**, for templates and stencils. Editing produces a draft; Publish
+  marks that revision ready; a release captures each resource's latest published revision. Without
+  it a release would capture a half-finished edit. In the simple case Publish also cuts a patch
+  release, showing everything else that release includes; a team that releases deliberately can
+  publish resources as they finish and release later.
+- **Themes, fonts, images, code lists and attributes stay live** in their catalog, with no draft
+  state, as today. The release preview — everything changed since the last release — is the safety
+  net. Giving them a draft state too is a separate decision.
+- **Stencil insertions** embed a copy and record the revision they came from, so "this stencil
+  changed since you inserted it" still works and upgrading is explicit. Inside a catalog that is
+  the current published revision; across catalogs it is the revision in the pinned release.
+- **Data contracts fold in.** A template's contract is part of its revision, breaking-change
+  detection runs when the catalog is released, and the deployment preview says which templates'
+  callers a release would break.
+- **Consequences.** Everything that names a template version moves to naming a release: generation
+  history (release plus revision), generate-by-version over REST (becomes generate-by-release),
+  quality findings, load-test runs, and the cap of 200 versions per variant, which a revision
+  retention policy replaces.
+- **Terminology.** Where the goals below say "published template version", read "the published
+  revision a release contains".
+
 ### Spun off as their own design topics
 
 - **Style presets.** Presets mix a vocabulary (`heading-1`, `callout`) with its values, and both
@@ -243,8 +273,8 @@ deployment, push, or release.
 | Resource address              | Subject to external compatibility rules | Human/API name; not an internal rendering dependency.                                                                                                    |
 | Working copy                  | Yes                                     | Current authoring content and catalog membership. One per authored catalog.                                                                              |
 | Template draft                | Yes                                     | Editable document content and explicitly selected dependencies.                                                                                          |
-| Published template version    | No                                      | Exact template model, resolved rendering inputs and contract reference, retained for use.                                                                |
-| Published stencil version     | No                                      | Reusable content and retained dependencies; insertion remains an explicit copy/adoption operation.                                                       |
+| Published template revision   | No                                      | Exact template model, resolved rendering inputs and contract reference, retained for use.                                                                |
+| Published stencil revision    | No                                      | Reusable content and retained dependencies; insertion remains an explicit copy/adoption operation.                                                       |
 | Catalog release               | No                                      | Immutable distribution artifact with a version, content digest, provenance and complete content.                                                         |
 | Selected subscription release | Yes, by explicit action                 | Chooses which installed release supplies current authoring resources.                                                                                    |
 | Environment deployment        | Yes, by explicit deployment             | Points one environment at one catalog release, or at that catalog's working copy, with the configuration used to select a variant and validate requests. |
