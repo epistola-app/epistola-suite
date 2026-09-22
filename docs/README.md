@@ -73,7 +73,7 @@ under its title. That banner, not this table, is authoritative.
 | [Catalog versioning](catalog-versioning.md)                           | Current  | How a catalog declares a version and how "is this new?" is decided.          |
 | [Catalog contract compatibility](catalog-contract-compatibility.md)   | Current  | Suite impact of adopting the portable `epistola-catalog` aggregate.          |
 | [Resource reference graph](resource-reference-graph.md)               | Alpha    | Tenant-wide view of which resources depend on which.                         |
-| [Resource relocation](catalog-resource-relocation.md)                 | Alpha    | Moving or renaming an authored resource without breaking its old address.    |
+| [Resource relocation](catalog-resource-relocation.md)                 | Alpha    | Moving or renaming an authored resource; its old address stops working.      |
 | [Resource identity migration](catalog-resource-identity-migration.md) | Proposed | Separating identity from location and address, per ADR 0014.                 |
 | [Version axes](version-axes.md)                                       | Current  | The independent "version" concepts and which question each answers.          |
 | [Exchange publication](catalog-exchange-publication.md)               | Alpha    | Publishing authored catalog releases to Epistola Exchange.                   |

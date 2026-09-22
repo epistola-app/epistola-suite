@@ -4,8 +4,11 @@
 > hand-off to it also needs `resource-graph`.
 
 Catalog resource relocation is an experimental, tenant-local operation for moving an authored
-resource to another authored catalog, renaming its key, or both, without invalidating references to
-its old public address.
+resource to another authored catalog, renaming its key, or both. It is a **crude move**: the
+resource keeps its identity and editable references follow it, but nothing is left at the old
+address. Anything that still names the old address stops resolving — move the wrong thing and
+things break.
+
 Enable `resource-relocation` for a tenant to use it; it is alpha and defaults off. The organise page
 does not need the resource graph, but the graph's "Organise catalogs" hand-off appears only when
 both toggles are on.
@@ -14,42 +17,65 @@ Previewing a move needs catalog view; applying one needs catalog management. A r
 preview is told so on the page instead of being offered Move.
 
 The alpha supports all seven relocatable resource types: templates, stencils, themes, fonts,
-assets, code lists and variant attributes. Every one of them is keyed by its stable `resource_id`
+images, code lists and variant attributes. Every one of them is keyed by its stable `resource_id`
 rather than by its address, so a move is a single-row update and nothing cascades — see
-[`catalog-resource-identity-migration.md`](catalog-resource-identity-migration.md). An asset is the
-one type that cannot be renamed: its key is a generated UUID, and an unqualified image reference
-resolves by that id alone, with no catalog to find an alias with.
+[`catalog-resource-identity-migration.md`](catalog-resource-identity-migration.md). An image is the
+one type that cannot be renamed: its key is a generated identifier, and an unqualified image
+reference resolves by that key alone.
 
 A preview is required before execution and reports:
 
-- draft references that will be rewritten to the destination catalog;
-- immutable published references that will continue to resolve through an alias;
+- draft references that will be rewritten to the destination address;
+- published references that keep naming the old address, and so will stop resolving;
 - relative references inside the moving resource's own versions, published ones included, that
   will be pinned to the catalog they resolve against today; and
 - blockers such as a destination collision, subscribed catalogs, or an unsupported resource type;
   and warnings, which inform without stopping the move — currently a released source catalog.
 
 Execution obtains a tenant-scoped transaction lock, rebuilds the preview, and rejects a stale plan
-fingerprint. It then updates mutable references, creates a typed alias from the old slug address,
-and changes the resource's current catalog address while retaining its stable `resource_id`.
+fingerprint. It then updates mutable references and changes the resource's current catalog address
+while retaining its stable `resource_id`.
+
+## What follows a move, and what breaks
+
+Follows the move:
+
+- the resource's own rows — a template's variants, versions, contract versions, environment
+  activations, quality findings and load-test runs; a stencil's versions; a code list's entries;
+  a font's faces — because they name the resource by identity;
+- drafts that reference it, variant attribute keys, and theme styles naming a moved font, which
+  are rewritten as part of the move.
+
+Does not follow the move, and fails once it has happened:
+
+- **Published versions** naming the old address. Content embedded or snapshotted at publish keeps
+  rendering — an inserted stencil, the frozen `resolved_theme` — but anything resolved by address
+  at render time does not: a moved font fails the font integrity check, and a moved image renders
+  without the image. Live resolution of a theme by an old address — a draft, a preview — falls back
+  to the tenant default theme.
+- **Export, release and snapshot** of a catalog whose latest published versions name a moved
+  resource: export validates the content it carries and refuses. Reopening each such template,
+  pointing its draft at the new address and publishing it makes the catalog exportable again.
+- **External callers**: UI pages, REST and MCP answer for the address a resource occupies now; an
+  old one is "not found". Bookmarks and integrations have to be updated.
+- **Queued generation**: a request records the address it was made against. One queued before its
+  template moved fails when it is processed.
+- **Reuse of the old address**: it is free at once. Creating a resource there succeeds, and
+  anything still naming that address now means the new resource.
 
 ## Resolution and export
 
 `catalog_resources` is the stable identity registry; it is not a separately maintained reference
 graph. Domain rows retain their current catalog-and-slug address and synchronize that address to
-the registry. `catalog_resource_aliases` maps an old typed address to the stable identity.
+the registry, which is also what allocates each resource's `resource_id` and lets a snapshot
+restore keep it.
 
-Graph extraction resolves aliases centrally, so immutable published evidence still points to the
-moved resource. A catalog export does not serialize tenant-local aliases. Instead, it materializes
-every old reference -- stencil, theme, font or image -- as the canonical destination address and
-emits the resulting cross-catalog dependency, so a tenant that never saw the move can install the
-catalogs. The moved resource itself appears only in an export of the destination catalog.
+Graph extraction resolves references against current addresses only, so a published reference to a
+moved resource shows as missing. A catalog export carries each template's latest published
+version as written and relativizes references to its own catalog; it does not rewrite a reference
+to where a resource lives now.
 
 ## Generation history does not move
-
-A generation request records the template address it was made against. One queued before its
-template moved is generated from where the template lives now, and the document records that
-address, since that is where it was produced.
 
 Moving a template carries its variants, versions, contract versions, environment activations,
 quality findings and load-test runs with it — those describe the template's current state. Its
@@ -69,41 +95,30 @@ written before it existed resolve through their recorded address instead.
 
 ## Initial boundaries
 
-- Every catalog resource type: stencils, variant attributes, templates, code lists, assets, fonts
-  and themes. A type added to `CatalogResourceType` without a `MovableResource` entry would produce
-  an `unsupported-resource-type` blocker
-  until their table is re-keyed onto its stable identity — see
-  [Catalog resource identity migration](catalog-resource-identity-migration.md). Supported types are
-  declared in `MovableResource`; adding an entry is the last step of making a type movable, not the
-  first.
+- Every catalog resource type: stencils, variant attributes, templates, code lists, images, fonts
+  and themes. A type added to `CatalogResourceType` without a `MovableResource` entry produces an
+  `unsupported-resource-type` blocker. Supported types are declared in `MovableResource`; adding an
+  entry is the last step of making a type movable, not the first.
 - Source and destination must be different authored catalogs in the same tenant.
-- A source catalog with a release **warns rather than blocks**. Within the installation the move is
-  well-defined — the alias keeps local references resolving — but aliases are tenant-local, so a
-  subscriber that upgrades to a later release sees the resource gone rather than moved. Only the
-  operator knows whether anyone consumes the catalog, and blocking made a catalog permanently
-  unmovable after a single local release nobody ever pulled. The portable handoff (ADR 0014 step 11)
-  is still the real answer; the warning is what carries the risk until then.
+- A source catalog with a release **warns rather than blocks**. A subscriber that upgrades to a
+  later release sees the resource gone rather than moved. Only the operator knows whether anyone
+  consumes the catalog, and blocking made a catalog permanently unmovable after a single local
+  release nobody ever pulled.
 - Immutable version JSON is never edited, with one exception: when a resource leaves a catalog, the
   relative references inside its own versions — published ones included — are pinned to the catalog
   they already resolve against. The bytes change; the meaning does not. The same pin covers a
   published version's frozen theme snapshot (`resolved_theme`) when the theme it resolves fonts
   through changes catalog: a font the snapshot names without a catalog is pinned, and its integrity
   pin rekeyed. Publishes now freeze that catalog themselves, so only versions published before
-  that have anything to pin. Note this is no longer
-  bounded by the released-catalog rule: since a released catalog only warns, a move out of one can
-  rewrite bytes that a release already covered. Only legacy content written before references were
-  qualified on write has anything left to pin, so the exposure shrinks to zero over time rather
-  than growing.
+  that have anything to pin.
 - A theme's styles are live configuration, rewritten like a draft: moving a font re-points every
   theme naming it, and a moving theme's own relative font references are pinned to the catalog they
   resolve against.
 - A move that would leave two catalogs depending on each other is blocked. Catalog ordering is
   load-bearing for snapshot restore, which orders catalogs topologically and throws on a cycle, so
-  an unchecked move could make a tenant's snapshots unrestorable — surfacing later, to whoever is
-  trying to recover, with nothing tying it back to the move. Only dependencies an export declares
-  count: a font's face binaries travel inside the font, so where they are stored is not one.
-- An address a moved resource left behind is reserved: creating a resource there is rejected until
-  the alias is explicitly released, which previews what stops resolving first.
+  an unchecked move could make a tenant's snapshots unrestorable. Only dependencies an export
+  declares count: a font's face binaries travel inside the font, so where they are stored is not
+  one.
 - References are qualified with their catalog when content is written, so a published reference
   keeps its meaning after its owner moves. Content written before that rule is pinned the same way
   when its owner moves, per the exception above.
@@ -115,32 +130,15 @@ written before it existed resolve through their recorded address instead.
   repeatable.
 - `/tenants/{tenantId}/catalogs/organise/move?resource=<type>:<catalog>/<key>` is the focused
   single-resource surface, for linking from the resource's own page. It answers with a dialog to
-  HTMX and a full page otherwise, so the same URL works embedded and pasted. The resource
-  graph links to it rather than hosting the operation — the graph diagnoses, this applies. REST and
-  MCP operations are intentionally deferred until the command contract and authorization model have
+  HTMX and a full page otherwise, so the same URL works embedded and pasted. After a move from the
+  resource's own page, the browser goes to that page at the new address. The resource graph links
+  to it rather than hosting the operation — the graph diagnoses, this applies. REST and MCP
+  operations are intentionally deferred until the command contract and authorization model have
   settled.
-- An old address keeps working on these surfaces, and only these, in the alpha:
 
-  | Surface       | Resolves an old address for                                                 |
-  | ------------- | --------------------------------------------------------------------------- |
-  | UI `GET`      | templates and stencils: a 303 to the canonical page, every sub-page too     |
-  | REST          | templates (generation included) and stencils; attributes on read and delete |
-  | MCP           | templates, stencils and attributes, except `preview_document`               |
-  | Rendering     | every type: published content resolves through the alias                    |
-  | Image content | images, by the catalog a reference names                                    |
-
-  Themes, fonts, images and code lists are not yet resolved at an old address by their own pages,
-  REST or MCP; those answer "not found". REST and MCP resolve through
-  `ResolveCanonicalResourceAddress`, deliberately authorisation-free: the operation that follows
-  carries the permission, and gating the resolution would fail a generate-only key on every address.
-
-- A REST write through an old address applies to the moved resource. A UI write to an old address
-  is not redirected and answers "not found".
-- Creating a resource at an address a moved resource left is refused with a readable error — on the
-  form's key field in the UI, and as `409 RESOURCE_ADDRESS_RESERVED` over REST.
-- Two places deliberately differ from ADR 0014 in the alpha: unregistering a catalog drops the
-  aliases its former resources left there, and importing a catalog canonicalises a reference to an
-  aliased address rather than refusing it.
+The direction beyond this alpha — immutable published artifacts, so that a move can never break
+published work — is being worked out separately; until then, a move is only as safe as the
+operator's knowledge of what uses the resource.
 
 This operation cannot be demonstrated by adding static content to the bundled demo catalog: the
 feature is a state transition between two tenant-owned catalogs. Its representative scenario lives

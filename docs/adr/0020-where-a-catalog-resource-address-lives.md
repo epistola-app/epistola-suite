@@ -186,6 +186,16 @@ it. It comes out the same way, with the reasoning written down.
 - The `resource_key`/`ASSET_KEY` type mismatch that kills option D is worth remembering: it is the
   same reason `assets` needs `keyColumnType` in `MovableResource`, and it will keep surfacing.
 
+## Amendment, 2026-09-22
+
+Relocation stopped leaving aliases before any release shipped them (see the amendment to ADR 0014),
+so `catalog_resource_aliases` and every polymorphic lookup listed under "What the registry's copy
+buys" are gone. The decision stands for a narrower reason: the registry is where
+`sync_catalog_resource_identity` allocates each resource's `resource_id`, holds that identity unique
+across all seven types, and lets a snapshot restore plant recorded identities before the import
+that re-creates their resources. The address copy is still a denormalisation kept in step by the
+trigger, with the same guards.
+
 ## References
 
 - [ADR 0014: Safe relocation of authored catalog resources](0014-safe-catalog-resource-relocation.md)

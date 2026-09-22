@@ -141,8 +141,8 @@ Organise page will not offer them. That is the right answer rather than a gap: t
 mirror, and an address the publisher did not choose would be overwritten by the next upgrade.
 
 Resource identities still exist for installed resources — they are minted by a database trigger on
-insert, like any other resource — so an installed catalog participates in the reference graph and in
-alias resolution. Uninstalling releases them along with the catalog.
+insert, like any other resource — so an installed catalog participates in the reference graph.
+Uninstalling releases them along with the catalog.
 
 Those identities are **this installation's own**. A `resource_id` is internal and is never
 serialized into catalog exchange data, so an installed catalog is addressed on the wire by

@@ -1,9 +1,19 @@
 # ADR 0014: Safe relocation of authored catalog resources
 
-- **Status:** Accepted
+- **Status:** Accepted — aliases withdrawn before release (see the amendment below)
 - **Date:** 2026-08-26
 - **Discussants:** Epistola team
 - **Tags:** catalog, resources, references, relocation, versioning
+
+> **Amendment, 2026-09-22.** The alias half of this decision did not ship. Keeping old addresses
+> resolving — aliases, their reservation, write-time canonicalisation, export materialisation and
+> redirects — proved the wrong foundation: it could not make published work safe across moves,
+> releases and installations, and it kept growing. Before any release carried it, relocation became
+> a crude move: identity and typed foreign keys stay, editable references are rewritten, and
+> nothing is left at the old address. What that breaks is described in
+> [`catalog-resource-relocation.md`](../catalog-resource-relocation.md). Making published work
+> independent of addresses is being designed separately. The rest of this record is kept as it was
+> decided.
 
 ## Context
 
