@@ -821,7 +821,14 @@ export class EpistolaDataContractEditor extends LitElement {
         state.schemaEditMode === 'json-only'
           ? (state.rawJsonSchema as unknown as JsonSchema | null)
           : state.schema;
-      const migrations = detectMigrations(schemaForMigration, state.dataExamples);
+      // As in _revalidate: a required field with a default needs no migration when omitted.
+      const examples = schemaForMigration
+        ? state.dataExamples.map((example) => ({
+            ...example,
+            data: applySchemaDefaults(schemaForMigration, example.data),
+          }))
+        : state.dataExamples;
+      const migrations = detectMigrations(schemaForMigration, examples);
       if (!migrations.compatible) {
         this._pendingMigrations = migrations.migrations;
         this._selectedMigrations = new Set(
