@@ -2,8 +2,8 @@
 
 > **Status:** Proposed. A plan, largely carried out by the relocation work — file paths in it are
 > the proposal's, not a map of the code. Its alias steps were withdrawn before release
-> ([ADR 0025](adr/0025-relocation-without-aliases.md)): relocation leaves no aliases, and what that
-> means is in [Catalog resource relocation](catalog-resource-relocation.md).
+> ([ADR 0025](adr/0025-relocation-without-aliases.md)), and its unfinished steps are superseded by
+> [From resource relocation to immutable publication](catalog-immutable-publication.md).
 
 Plan for making every catalog resource relocatable by separating **identity** from **location** and
 **address**. Implements the target model in

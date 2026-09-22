@@ -140,8 +140,9 @@ written before it existed resolve through their recorded address instead.
   settled.
 
 The direction beyond this alpha — published content that retains its own inputs, so that a move can
-never break published work — is set out in [ADR 0025](adr/0025-relocation-without-aliases.md);
-until it lands, a move is only as safe as the operator's knowledge of what uses the resource.
+never break published work — is set out in [ADR 0025](adr/0025-relocation-without-aliases.md) and
+planned goal by goal in [From resource relocation to immutable publication](catalog-immutable-publication.md).
+Until it lands, a move is only as safe as the operator's knowledge of what uses the resource.
 
 This operation cannot be demonstrated by adding static content to the bundled demo catalog: the
 feature is a state transition between two tenant-owned catalogs. Its representative scenario lives

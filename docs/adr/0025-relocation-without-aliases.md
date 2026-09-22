@@ -66,7 +66,9 @@ The schema for aliases existed only in migrations that no release and no publish
 4. **Leave Exchange publication and installation as they are**: alpha and off by default. Nothing in
    them depended on aliases.
 5. **Make published content self-contained before relocation becomes safe again.** That is the
-   direction, not yet a design: each step gets its own decision when it is started.
+   direction, not yet a design: each step gets its own decision when it is started. The goals,
+   their order and their exit scenarios are in the
+   [immutable publication plan](../catalog-immutable-publication.md).
 
 ### The direction
 
@@ -139,6 +141,7 @@ What the next release contains, as of this decision:
 
 ## References
 
+- [From resource relocation to immutable publication](../catalog-immutable-publication.md) — the plan
 - [Catalog resource relocation](../catalog-resource-relocation.md)
 - [Publishing catalogs to Epistola Exchange](../catalog-exchange-publication.md)
 - [Installing catalogs from Epistola Exchange](../catalog-exchange-installation.md)
