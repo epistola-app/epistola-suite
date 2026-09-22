@@ -13,4 +13,5 @@ when the data leaves it out, and data examples are validated the same way, so a 
 a default is not a breaking change — removing that default is. Two effects on existing contracts: one
 that already declared a `default` now renders it where the field used to be left blank, and a
 `default` that does not match its own schema, accepted until now, is rejected on save, publish and
-catalog import. The editor also checks examples against `minimum` and `maximum` before saving.
+catalog import. The example form shows the default a left-out field falls back to, and the editor
+checks examples against `minimum` and `maximum` before saving.

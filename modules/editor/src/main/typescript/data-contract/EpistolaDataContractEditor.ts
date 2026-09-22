@@ -1088,7 +1088,7 @@ export class EpistolaDataContractEditor extends LitElement {
     this._clearSaveStatus();
   }
 
-  private _updateExampleData(id: string, path: string, value: JsonValue): void {
+  private _updateExampleData(id: string, path: string, value: JsonValue | undefined): void {
     const state = this.contractState!;
     const example = state.dataExamples.find((e) => e.id === id);
     if (!example) return;

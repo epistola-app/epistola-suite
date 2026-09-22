@@ -174,7 +174,10 @@ is deliberately narrow:
   applied.
 
 Test data examples are validated with the same fallback. A new example starts with each required
-field's default filled in; optional fields are left for **Autofill**.
+field's default filled in; optional fields are left for **Autofill**. While an example leaves a
+field out, the form shows the default that will stand in — as the input's placeholder, or as a hint
+under date, date-time and yes/no controls — and clearing a field that has a default leaves it out
+again rather than saving an empty value.
 
 For compatibility, a field callers may omit — optional, or required with a default — is safe to
 depend on. Adding a required field with a default, or making a field with a default required, is
