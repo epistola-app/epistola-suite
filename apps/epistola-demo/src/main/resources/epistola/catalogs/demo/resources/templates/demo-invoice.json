@@ -320,6 +320,50 @@
           "notes": "Enterprise annual contract. Includes 24/7 support and quarterly business reviews. Payment terms: Net 60 days.",
           "paymentLink": "https://pay.epistola.app/inv/INV-2024-003"
         }
+      },
+      {
+        "name": "Domestic Invoice - Schema Defaults",
+        "data": {
+          "invoiceNumber": "INV-2024-004",
+          "invoiceDate": "2024-03-05",
+          "dueDate": "2024-04-04",
+          "vendor": {
+            "name": "Epistola Solutions B.V.",
+            "address": "Innovation Street 42",
+            "city": "Amsterdam",
+            "zipCode": "1012AB",
+            "phone": "+31 20 123 4567",
+            "email": "info@epistola.app",
+            "taxId": "NL123456789B01"
+          },
+          "customer": {
+            "name": "Gemeente Voorbeeld",
+            "address": "Stadhuisplein 1",
+            "city": "Utrecht",
+            "zipCode": "3511 AA",
+            "country": "Netherlands",
+            "email": "inkoop@voorbeeld.nl"
+          },
+          "items": [
+            {
+              "description": "Template Design Workshop (Half Day)",
+              "quantity": 1,
+              "unitPrice": 650.0,
+              "total": 650.0
+            },
+            {
+              "description": "Document Generation API - Business Plan (Monthly)",
+              "quantity": 1,
+              "unitPrice": 199.0,
+              "total": 199.0
+            }
+          ],
+          "subtotal": 849.0,
+          "taxAmount": 178.29,
+          "total": 1027.29,
+          "notes": "This example leaves out the vendor's country and the tax rate: the data contract's defaults (Netherlands, 21%) fill them in.",
+          "paymentLink": "https://pay.epistola.app/inv/INV-2024-004"
+        }
       }
     ],
     "templateModel": {
