@@ -29,6 +29,7 @@ import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.contracts.queries.ListContractVersions
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
@@ -176,6 +177,34 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
                 .isInstanceOf(app.epistola.suite.validation.ValidationException::class.java)
                 .hasValidationCode(ValidationCode.DATA_EXAMPLE_REQUIRED)
                 .hasMessageContaining("At least one data example")
+        }
+
+        @Test
+        fun `accepts an example that omits a required field with a default`() {
+            val result = withMediator {
+                UpdateContractVersion(
+                    templateId = templateId,
+                    dataModel = schema(
+                        """{"type":"object","required":["country"],"properties":{"country":{"type":"string","default":"Netherlands"}}}""",
+                    ),
+                ).execute()
+            }
+
+            assertThat(result!!.warnings).isEmpty()
+        }
+
+        @Test
+        fun `rejects an example that omits a required field without a default`() {
+            assertThatThrownBy {
+                withMediator {
+                    UpdateContractVersion(
+                        templateId = templateId,
+                        dataModel = schema(
+                            """{"type":"object","required":["country"],"properties":{"country":{"type":"string"}}}""",
+                        ),
+                    ).execute()
+                }
+            }.isInstanceOf(DataModelValidationException::class.java)
         }
     }
 

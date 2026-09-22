@@ -403,7 +403,8 @@ class JsonSchemaValidator(
     }
 
     /**
-     * Validates all data examples against a JSON Schema.
+     * Validates all data examples against a JSON Schema, after [applyDefaults] — an
+     * example is preview data, so it passes wherever generation would accept it.
      *
      * @param schema The JSON Schema as an ObjectNode
      * @param examples The list of named data examples to validate
@@ -413,7 +414,7 @@ class JsonSchemaValidator(
         schema: ObjectNode,
         examples: List<DataExample>,
     ): Map<String, List<ValidationError>> = examples
-        .associate { example -> example.name to validate(schema, example.data) }
+        .associate { example -> example.name to validate(schema, applyDefaults(schema, example.data)) }
         .filterValues { errors -> errors.isNotEmpty() }
 
     /**
@@ -436,7 +437,7 @@ class JsonSchemaValidator(
         val errors = mutableListOf<ValidationError>()
 
         for (example in examples) {
-            val validationErrors = validate(schema, example.data)
+            val validationErrors = validate(schema, applyDefaults(schema, example.data))
 
             for (error in validationErrors) {
                 val migration = analyzeMigration(example, error, schema)

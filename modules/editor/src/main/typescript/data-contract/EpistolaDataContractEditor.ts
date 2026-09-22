@@ -1201,7 +1201,10 @@ export class EpistolaDataContractEditor extends LitElement {
 
     if (state.schema) {
       for (const example of state.dataExamples) {
-        const result = validateDataAgainstSchema(example.data, state.schema);
+        // Required defaults stand in for omitted fields, as they do in generation and
+        // preview. A missing optional field is never an error, so filling those is moot.
+        const data = applySchemaDefaults(state.schema, example.data);
+        const result = validateDataAgainstSchema(data, state.schema);
         newErrors.set(example.id, result.errors);
       }
     }
