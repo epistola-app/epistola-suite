@@ -57,6 +57,7 @@ import app.epistola.suite.templates.contracts.ContractPublishConflictException
 import app.epistola.suite.templates.services.AmbiguousVariantResolutionException
 import app.epistola.suite.templates.services.NoMatchingVariantException
 import app.epistola.suite.templates.validation.DataModelValidationException
+import app.epistola.suite.templates.validation.TemplateDataInvalidException
 import app.epistola.suite.tenants.TenantNotFoundException
 import app.epistola.suite.themes.ThemeInUseException
 import app.epistola.suite.themes.ThemeNotFoundException
@@ -326,6 +327,18 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     fun handleDataModelValidationException(ex: DataModelValidationException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         log.warn("Data model validation failed: {} examples with errors", ex.validationErrors.size)
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+            .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+            .body(ex.toProblemDetail(request))
+    }
+
+    @ExceptionHandler(TemplateDataInvalidException::class)
+    fun handleTemplateDataInvalidException(ex: TemplateDataInvalidException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
+        log.warn(
+            "Preview data invalid: {} missing, {} invalid",
+            ex.analysis.missingFields.count { it.required },
+            ex.analysis.invalidFields.size,
+        )
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .contentType(MediaType.APPLICATION_PROBLEM_JSON)
             .body(ex.toProblemDetail(request))
     }

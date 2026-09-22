@@ -17,6 +17,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mcp.tools.CatalogMcpTools
 import app.epistola.suite.mcp.tools.PreviewMcpTools
 import app.epistola.suite.mcp.tools.TemplateMcpTools
@@ -30,6 +31,7 @@ import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
+import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
 import app.epistola.suite.templates.model.DataExample
@@ -149,6 +151,48 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
 
         assertThat(atOld).isNull()
         assertThat(atNew!!.catalogId).isEqualTo("shared")
+    }
+
+    @Test
+    fun `analyze_template_data reports the missing and invalid fields of the published version`() {
+        val tenant = createTenant("MCP Analyze Tenant")
+        val tenantId = TenantId(tenant.id)
+
+        val templateKey = withMediator {
+            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
+            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+            UpdateContractVersion(
+                templateId = templateId,
+                dataModel = objectMapper.readTree(
+                    """{"type":"object","properties":{"name":{"type":"string"},"amount":{"type":"number"}},"required":["name","amount"]}""",
+                ) as ObjectNode,
+                dataExamples = listOf(
+                    DataExample(UUID.randomUUID().toString(), "default", objectMapper.readTree("""{"name":"Ada","amount":1}""") as ObjectNode),
+                ),
+            ).execute()
+            val variantId = VariantId(VariantKey.INITIAL, templateId)
+            val draft = UpdateDraft(variantId = variantId, templateModel = simpleTemplateDocument()).execute()!!
+            PublishVersion(VersionId(draft.id, variantId)).execute()
+            templateId.key
+        }
+
+        val analysis = runAsApiKey(tenantId) {
+            previewMcpTools.analyzeTemplateData(
+                catalogId = "default",
+                templateId = templateKey.value,
+                variantId = null,
+                versionId = null,
+                environmentId = null,
+                data = """{"amount":"ten"}""",
+            )
+        }
+
+        assertThat(analysis.valid).isFalse()
+        assertThat(analysis.missingFields.map { it.path to it.required }).containsExactly("/name" to true)
+        assertThat(analysis.invalidFields.map { it.path to it.keyword }).containsExactly("/amount" to "type")
+        val json = objectMapper.readTree(objectMapper.writeValueAsString(analysis))
+        assertThat(json.at("/missingDataSchema/properties/name/type").asString()).isEqualTo("string")
+        assertThat(json.at("/missingFields/0/schema/type").asString()).isEqualTo("string")
     }
 
     @Test
