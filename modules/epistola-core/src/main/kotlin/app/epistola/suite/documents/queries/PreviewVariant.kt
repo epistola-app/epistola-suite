@@ -112,8 +112,11 @@ class PreviewVariantHandler(
                 .map { it.dataModel }
                 .orElse(null)
         }
+        // A field the caller omitted falls back to its schema `default`, applied
+        // before validation and rendering so a preview matches actual generation.
+        val effectiveData = if (dataModel != null) schemaValidator.applyDefaults(dataModel, query.data) else query.data
         if (dataModel != null) {
-            val errors = schemaValidator.validate(dataModel, query.data)
+            val errors = schemaValidator.validate(dataModel, effectiveData)
             if (errors.isNotEmpty()) {
                 val errorMessages = errors.joinToString("; ") { "${it.path}: ${it.message}" }
                 throw IllegalArgumentException("Data validation failed: $errorMessages")
@@ -130,7 +133,7 @@ class PreviewVariantHandler(
             version = null,
             template = template,
             tenant = tenant,
-            data = query.data,
+            data = effectiveData,
             culture = culture,
             resolvedThemeOverride = query.resolvedTheme,
         )

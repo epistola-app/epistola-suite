@@ -4,7 +4,9 @@
 
 package app.epistola.suite.documents.queries
 
+import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -50,6 +52,7 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
         mediator.send(
             GenerateDocument(
                 tenantId = setup.tenant.id,
+                catalogKey = setup.template.catalogKey,
                 templateId = setup.template.id,
                 variantId = setup.variant.id,
                 versionId = setup.version.id,
@@ -161,5 +164,37 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
         val usage = withAuthentication { GetTemplateUsage(setup1.tenant.id, limit = 1).query() }
 
         assertThat(usage).hasSize(1)
+    }
+
+    @Test
+    fun `usage and jobs keep one template slug in two catalogs apart`() {
+        val inDefault = createTemplateSetup("Catalog Usage Tenant", "Invoice")
+        val billing = CatalogKey.of("billing")
+        val inBilling = withAuthentication {
+            mediator.send(CreateCatalog(tenantKey = inDefault.tenant.id, id = billing, name = "Billing"))
+            // Same template slug as the default-catalog template, in another catalog.
+            val templateId = TemplateId(inDefault.template.id, CatalogId(billing, TenantId(inDefault.tenant.id)))
+            val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Invoice"))
+            val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
+            val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
+            val version = mediator.send(UpdateDraft(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Invoice")))!!
+            TemplateSetup(inDefault.tenant, template, variant, version)
+        }
+
+        repeat(2) { i -> generateRequest(inDefault, "default-$i.pdf") }
+        generateRequest(inBilling, "billing.pdf")
+
+        val usage = withAuthentication { GetTemplateUsage(inDefault.tenant.id).query() }
+        assertThat(usage.map { Triple(it.catalogKey, it.templateKey, it.count) }).containsExactly(
+            Triple(CatalogKey.DEFAULT, inDefault.template.id, 2L),
+            Triple(billing, inDefault.template.id, 1L),
+        )
+
+        val jobs = withAuthentication { ListGenerationJobs(inDefault.tenant.id).query() }
+        assertThat(jobs.map { it.catalogKey to it.filename }).containsExactlyInAnyOrder(
+            CatalogKey.DEFAULT to "default-0.pdf",
+            CatalogKey.DEFAULT to "default-1.pdf",
+            billing to "billing.pdf",
+        )
     }
 }

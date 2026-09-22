@@ -40,6 +40,51 @@ export function completeExampleFromSchema(
   );
 }
 
+/**
+ * Fills in a *required* property's `default` where `data` has no value for it,
+ * recursing into nested `object` properties. Unlike {@link completeExampleFromSchema},
+ * a property with no `default` is left absent rather than filled with a generated
+ * placeholder — this is for seeding a brand-new example, not for the explicit
+ * "generate example data" action. An optional field is left for that action instead:
+ * setting its default here would suggest the field was filled in deliberately.
+ *
+ * With `includeOptional`, optional properties' defaults are filled as well, giving
+ * the data exactly as preview and generation see it (the backend's `applyDefaults`).
+ */
+export function applySchemaDefaults(
+  schema: JsonSchema | JsonObject,
+  data: JsonObject,
+  options: { includeOptional?: boolean } = {},
+): JsonObject {
+  const result = structuredClone(data);
+  applyDefaultsInPlace(schema as SchemaNode, result, options.includeOptional ?? false);
+  return result;
+}
+
+function applyDefaultsInPlace(
+  schema: SchemaNode,
+  data: JsonObject,
+  includeOptional: boolean,
+): void {
+  const required = new Set(schema.required ?? []);
+  for (const [name, propertySchema] of Object.entries(schema.properties ?? {})) {
+    const prop = propertySchema as SchemaNode;
+
+    if (
+      (includeOptional || required.has(name)) &&
+      !Object.prototype.hasOwnProperty.call(data, name) &&
+      Object.prototype.hasOwnProperty.call(prop, 'default')
+    ) {
+      data[name] = structuredClone(prop.default as JsonValue);
+    }
+
+    const nested = data[name];
+    if (isJsonObject(nested)) {
+      applyDefaultsInPlace(prop, nested, includeOptional);
+    }
+  }
+}
+
 function completeObject(
   schema: SchemaNode,
   rootSchema: JsonObject,

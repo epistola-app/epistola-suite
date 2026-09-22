@@ -77,7 +77,7 @@ import {
   renderClientValidationBanner,
   renderValidationErrorsAlert,
 } from './sections/ValidationErrorsAlert.js';
-import { completeExampleFromSchema } from './examples/example-generation.js';
+import { applySchemaDefaults, completeExampleFromSchema } from './examples/example-generation.js';
 
 @customElement('epistola-data-contract-editor')
 export class EpistolaDataContractEditor extends LitElement {
@@ -821,7 +821,14 @@ export class EpistolaDataContractEditor extends LitElement {
         state.schemaEditMode === 'json-only'
           ? (state.rawJsonSchema as unknown as JsonSchema | null)
           : state.schema;
-      const migrations = detectMigrations(schemaForMigration, state.dataExamples);
+      // As in _revalidate: a required field with a default needs no migration when omitted.
+      const examples = schemaForMigration
+        ? state.dataExamples.map((example) => ({
+            ...example,
+            data: applySchemaDefaults(schemaForMigration, example.data),
+          }))
+        : state.dataExamples;
+      const migrations = detectMigrations(schemaForMigration, examples);
       if (!migrations.compatible) {
         this._pendingMigrations = migrations.migrations;
         this._selectedMigrations = new Set(
@@ -878,6 +885,10 @@ export class EpistolaDataContractEditor extends LitElement {
         }
         this._commandHistory.clear();
         this._committedVisualSchema = structuredClone(this._visualSchema);
+        // The new committed baseline has no diff against itself — recompute so a
+        // stale breaking-changes list doesn't re-trigger the confirmation dialog
+        // on the next save (e.g. an examples-only save right after this one).
+        this._updateBreakingChanges();
         this._revalidate();
         if (schemaResult.warnings) {
           this._schemaWarnings = Object.values(schemaResult.warnings).flat();
@@ -1040,7 +1051,7 @@ export class EpistolaDataContractEditor extends LitElement {
     const newExample: DataExample = {
       id: nanoid(),
       name: `Example ${state.dataExamples.length + 1}`,
-      data: {},
+      data: state.schema ? applySchemaDefaults(state.schema, {}) : {},
     };
     state.addDraftExample(newExample);
     this._editingExampleId = newExample.id;
@@ -1077,7 +1088,7 @@ export class EpistolaDataContractEditor extends LitElement {
     this._clearSaveStatus();
   }
 
-  private _updateExampleData(id: string, path: string, value: JsonValue): void {
+  private _updateExampleData(id: string, path: string, value: JsonValue | undefined): void {
     const state = this.contractState!;
     const example = state.dataExamples.find((e) => e.id === id);
     if (!example) return;
@@ -1197,7 +1208,10 @@ export class EpistolaDataContractEditor extends LitElement {
 
     if (state.schema) {
       for (const example of state.dataExamples) {
-        const result = validateDataAgainstSchema(example.data, state.schema);
+        // Required defaults stand in for omitted fields, as they do in generation and
+        // preview. A missing optional field is never an error, so filling those is moot.
+        const data = applySchemaDefaults(state.schema, example.data);
+        const result = validateDataAgainstSchema(data, state.schema);
         newErrors.set(example.id, result.errors);
       }
     }

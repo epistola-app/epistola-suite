@@ -76,6 +76,8 @@ interface BaseField {
   name: string;
   required: boolean;
   description?: string;
+  /** Default value (JSON Schema `default`) — only for scalar field types (see `SchemaSection`). */
+  default?: JsonValue;
 }
 
 /** Supported string formats */
@@ -129,6 +131,7 @@ export interface SchemaFieldUpdate {
   maximum?: number | undefined;
   minItems?: number | undefined;
   maxItems?: number | undefined;
+  default?: JsonValue | undefined;
 }
 
 // =============================================================================

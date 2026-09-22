@@ -83,9 +83,19 @@ class SchemaCompatibilityChecker {
                     changes.add(BreakingChange(BreakingChangeType.TYPE_CHANGED, path, "\"$fieldName\" type changed from $oldType to $newType"))
                 }
 
-                // Check optional → required
-                if (!oldRequired.contains(fieldName) && newRequired.contains(fieldName)) {
-                    changes.add(BreakingChange(BreakingChangeType.MADE_REQUIRED, path, "\"$fieldName\" is now required"))
+                // Check a field callers may omit becoming one they must send. A field
+                // may be omitted while it is optional or has a `default` for generation
+                // to fall back to, so both optional → required and a required field
+                // losing its default break data that leaves it out.
+                val wasOmittable = !oldRequired.contains(fieldName) || oldField.has("default")
+                val isOmittable = !newRequired.contains(fieldName) || newField.has("default")
+                if (wasOmittable && !isOmittable) {
+                    val description = if (oldRequired.contains(fieldName)) {
+                        "\"$fieldName\" no longer has a default, so it is now required"
+                    } else {
+                        "\"$fieldName\" is now required"
+                    }
+                    changes.add(BreakingChange(BreakingChangeType.MADE_REQUIRED, path, description))
                 }
 
                 // Check constraint narrowing
@@ -109,11 +119,14 @@ class SchemaCompatibilityChecker {
             }
         }
 
-        // Check for new required fields (not in old schema at all)
+        // Check for new required fields (not in old schema at all). A `default` is exempt:
+        // existing data missing the field still renders, since generation falls back to it.
         if (newProperties != null) {
             val oldFields = if (oldProperties != null) fieldNames(oldProperties) else emptySet()
             for (fieldName in newRequired) {
                 if (!oldFields.contains(fieldName)) {
+                    val newField = newProperties.get(fieldName) as? ObjectNode
+                    if (newField?.has("default") == true) continue
                     val path = if (basePath.isEmpty()) fieldName else "$basePath.$fieldName"
                     changes.add(BreakingChange(BreakingChangeType.REQUIRED_ADDED, path, "\"$fieldName\" added as required"))
                 }

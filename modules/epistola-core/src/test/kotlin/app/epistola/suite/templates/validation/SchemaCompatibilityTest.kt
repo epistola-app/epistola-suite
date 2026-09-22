@@ -57,6 +57,20 @@ class SchemaCompatibilityTest {
         }
 
         @Test
+        fun `returns compatible when an example omits a required field with a default`() {
+            val schema = createSchema(
+                """{"type": "object", "required": ["country"], "properties": {"country": {"type": "string", "default": "Netherlands"}}}""",
+            )
+            val examples = listOf(createExample("1", "Example 1", """{}"""))
+
+            val result = validator.analyzeCompatibility(schema, examples)
+
+            assertThat(result.compatible).isTrue()
+            assertThat(result.errors).isEmpty()
+            assertThat(result.migrations).isEmpty()
+        }
+
+        @Test
         fun `detects type mismatch when string expected but number provided`() {
             val schema = createSchema("""{"type": "object", "properties": {"age": {"type": "string"}}}""")
             val examples = listOf(

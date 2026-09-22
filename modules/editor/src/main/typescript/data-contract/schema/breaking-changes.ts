@@ -37,9 +37,10 @@ export function detectBreakingChanges(
   const newById = indexById(newFields);
   const oldById = indexById(oldFields);
 
-  // Detect new required fields (ID not in old schema)
+  // Detect new required fields (ID not in old schema). A `default` is exempt: existing
+  // data missing the field still renders, since generation falls back to the default.
   for (const newField of newFields) {
-    if (!oldById.has(newField.id) && newField.required) {
+    if (!oldById.has(newField.id) && newField.required && newField.default === undefined) {
       const path = basePath ? `${basePath}.${newField.name}` : newField.name;
       changes.push({
         type: 'required_added',
@@ -63,13 +64,17 @@ export function detectBreakingChanges(
       continue;
     }
 
-    // Optional → required
-    if (newField.required && !oldField.required) {
+    // A field callers may omit becoming one they must send. A field may be omitted
+    // while it is optional or has a `default` for generation to fall back to, so both
+    // optional → required and a required field losing its default break such data.
+    if (isOmittable(oldField) && !isOmittable(newField)) {
       const displayName = newField.name !== oldField.name ? newField.name : oldField.name;
       changes.push({
         type: 'made_required',
         path: basePath ? `${basePath}.${displayName}` : displayName,
-        description: `"${displayName}" is now required`,
+        description: oldField.required
+          ? `"${displayName}" no longer has a default, so it is now required`
+          : `"${displayName}" is now required`,
       });
     }
 
@@ -121,6 +126,10 @@ function indexById(fields: readonly SchemaField[]): Map<string, SchemaField> {
   const map = new Map<string, SchemaField>();
   for (const f of fields) map.set(f.id, f);
   return map;
+}
+
+function isOmittable(field: SchemaField): boolean {
+  return !field.required || field.default !== undefined;
 }
 
 function effectiveType(field: SchemaField): string {

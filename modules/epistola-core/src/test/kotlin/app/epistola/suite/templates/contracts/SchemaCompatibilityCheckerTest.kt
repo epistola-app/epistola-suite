@@ -100,6 +100,16 @@ class SchemaCompatibilityCheckerTest {
         }
 
         @Test
+        fun `adding new required field with a default is compatible`() {
+            val old = schema("""{"type":"object","properties":{"name":{"type":"string"}}}""")
+            val new = schema(
+                """{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer","default":0}},"required":["age"]}""",
+            )
+            val result = checker.checkCompatibility(old, new)
+            assertThat(result.compatible).isTrue()
+        }
+
+        @Test
         fun `making optional field required is breaking`() {
             val old = schema("""{"type":"object","properties":{"name":{"type":"string"}}}""")
             val new = schema("""{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}""")
@@ -107,6 +117,41 @@ class SchemaCompatibilityCheckerTest {
             assertThat(result.compatible).isFalse()
             assertThat(result.breakingChanges).hasSize(1)
             assertThat(result.breakingChanges[0].type).isEqualTo(BreakingChangeType.MADE_REQUIRED)
+        }
+
+        @Test
+        fun `making optional field with a default required is compatible`() {
+            val old = schema("""{"type":"object","properties":{"name":{"type":"string","default":"unknown"}}}""")
+            val new = schema(
+                """{"type":"object","properties":{"name":{"type":"string","default":"unknown"}},"required":["name"]}""",
+            )
+            val result = checker.checkCompatibility(old, new)
+            assertThat(result.compatible).isTrue()
+        }
+
+        @Test
+        fun `removing the default from a required field is breaking`() {
+            val old = schema(
+                """{"type":"object","properties":{"name":{"type":"string","default":"unknown"}},"required":["name"]}""",
+            )
+            val new = schema("""{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}""")
+            val result = checker.checkCompatibility(old, new)
+            assertThat(result.compatible).isFalse()
+            assertThat(result.breakingChanges).containsExactly(
+                SchemaCompatibilityChecker.BreakingChange(
+                    SchemaCompatibilityChecker.BreakingChangeType.MADE_REQUIRED,
+                    "name",
+                    "\"name\" no longer has a default, so it is now required",
+                ),
+            )
+        }
+
+        @Test
+        fun `removing the default from an optional field is compatible`() {
+            val old = schema("""{"type":"object","properties":{"name":{"type":"string","default":"unknown"}}}""")
+            val new = schema("""{"type":"object","properties":{"name":{"type":"string"}}}""")
+            val result = checker.checkCompatibility(old, new)
+            assertThat(result.compatible).isTrue()
         }
 
         @Test

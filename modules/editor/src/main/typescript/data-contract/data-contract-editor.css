@@ -1337,6 +1337,13 @@
     line-height: 1.3;
   }
 
+  /* Default that generation uses while an example leaves the field out */
+  .dc-field-default-hint {
+    font-size: 10px;
+    color: var(--ep-stone-600);
+    line-height: 1.3;
+  }
+
   /* Red dot on collapsed groups with child errors */
   .dc-tree-group-error-dot {
     display: inline-block;

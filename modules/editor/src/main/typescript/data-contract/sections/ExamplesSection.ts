@@ -32,7 +32,7 @@ export interface ExamplesSectionCallbacks {
   onAddExample: () => void;
   onDeleteExample: (id: string) => void;
   onUpdateExampleName: (id: string, name: string) => void;
-  onUpdateExampleData: (id: string, path: string, value: JsonValue) => void;
+  onUpdateExampleData: (id: string, path: string, value: JsonValue | undefined) => void;
   onGenerateExample: (id: string) => void;
   onUndo: () => void;
   onRedo: () => void;

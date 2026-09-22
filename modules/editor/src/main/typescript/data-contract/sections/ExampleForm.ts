@@ -30,6 +30,7 @@ import {
 import { findRefType, getRefTypeById, type RefTypeId } from '../ref-types.js';
 import { scalarFromJsonSchema } from '../field-types.js';
 import { resolveSchemaForValue } from '../../json-schema/schema-resolution.js';
+import { applySchemaDefaults } from '../examples/example-generation.js';
 import { fieldIdFromPath, hasChildErrors, pathToErrorId } from '../validation-display.js';
 import './EpistolaRichTextInput.js';
 
@@ -157,9 +158,14 @@ export function getNestedValue(obj: JsonObject, path: string): JsonValue | undef
 
 /**
  * Immutably set a nested value in an object using a dot-separated path.
- * Creates intermediate objects/arrays as needed.
+ * Creates intermediate objects/arrays as needed. `undefined` leaves the property
+ * out instead, without creating a missing parent for it.
  */
-export function setNestedValue(obj: JsonObject, path: string, value: JsonValue): JsonObject {
+export function setNestedValue(
+  obj: JsonObject,
+  path: string,
+  value: JsonValue | undefined,
+): JsonObject {
   if (!path) return obj;
 
   const segments = path.split('.');
@@ -172,6 +178,7 @@ export function setNestedValue(obj: JsonObject, path: string, value: JsonValue):
     const isNextIndex = /^\d+$/.test(nextSegment);
 
     if (!(segment in current) || current[segment] === null || current[segment] === undefined) {
+      if (value === undefined) return result;
       current[segment] = isNextIndex ? [] : {};
     }
 
@@ -186,9 +193,66 @@ export function setNestedValue(obj: JsonObject, path: string, value: JsonValue):
   }
 
   const lastSegment = segments[segments.length - 1];
-  current[lastSegment] = value;
+  if (value === undefined) {
+    delete current[lastSegment];
+  } else {
+    current[lastSegment] = value;
+  }
 
   return result;
+}
+
+/**
+ * Example data as preview and generation see it: every omitted property that
+ * has a schema default filled in. Memoized per data/schema pair, because every
+ * field in a render asks; both are replaced, not mutated, when they change.
+ */
+const dataWithDefaults = new WeakMap<JsonObject, WeakMap<JsonSchema, JsonObject>>();
+
+function withSchemaDefaults(schema: JsonSchema, data: JsonObject): JsonObject {
+  let bySchema = dataWithDefaults.get(data);
+  if (!bySchema) {
+    bySchema = new WeakMap();
+    dataWithDefaults.set(data, bySchema);
+  }
+  let filled = bySchema.get(schema);
+  if (!filled) {
+    filled = applySchemaDefaults(schema, data, { includeOptional: true });
+    bySchema.set(schema, filled);
+  }
+  return filled;
+}
+
+/**
+ * The default that stands in for `path` because the example leaves it out, or
+ * `undefined` when there is none — including where generation would not apply
+ * one: inside array items, or under a parent object the example does not have.
+ */
+function defaultStandingIn(
+  schema: JsonSchema,
+  data: JsonObject,
+  path: string,
+): JsonValue | undefined {
+  if (getNestedValue(data, path) !== undefined) return undefined;
+  return getNestedValue(withSchemaDefaults(schema, data), path);
+}
+
+/**
+ * What clearing the input at `path` stores: nothing, when leaving the property
+ * out lets its default stand in, otherwise the control's `empty` value.
+ */
+function clearedValue(
+  schema: JsonSchema,
+  data: JsonObject,
+  path: string,
+  empty: JsonValue,
+): JsonValue | undefined {
+  const omitted = setNestedValue(data, path, undefined);
+  return defaultStandingIn(schema, omitted, path) !== undefined ? undefined : empty;
+}
+
+function formatDefault(value: JsonValue): string {
+  return typeof value === 'string' ? value : JSON.stringify(value);
 }
 
 // ---------------------------------------------------------------------------
@@ -206,7 +270,7 @@ const NO_ERRORS: Map<string, string> = new Map();
 export function renderExampleForm(
   schema: JsonSchema | null,
   data: JsonObject,
-  onChange: (path: string, value: JsonValue) => void,
+  onChange: (path: string, value: JsonValue | undefined) => void,
   errors: Map<string, string> = NO_ERRORS,
   readOnly = false,
 ): unknown {
@@ -252,7 +316,7 @@ function renderFormField(
   rootData: JsonObject,
   rootSchema: JsonSchema,
   isRequired: boolean,
-  onChange: (path: string, value: JsonValue) => void,
+  onChange: (path: string, value: JsonValue | undefined) => void,
   depth: number,
   errors: Map<string, string>,
   readOnly: boolean,
@@ -264,6 +328,16 @@ function renderFormField(
   const fieldId = fieldIdFromPath(path);
 
   const errorId = fieldError ? pathToErrorId(path) : undefined;
+
+  // What preview and generation use while the example leaves this field out.
+  const fallback = defaultStandingIn(rootSchema, rootData, path);
+  const placeholder = fallback !== undefined ? `${formatDefault(fallback)} (default)` : name;
+  // Date, date-time and yes/no controls cannot show a placeholder.
+  const defaultHint =
+    fallback !== undefined
+      ? html`<span class="dc-field-default-hint">Default: ${formatDefault(fallback)}</span>`
+      : nothing;
+  const cleared = (empty: JsonValue) => clearedValue(rootSchema, rootData, path, empty);
 
   const label = html`
     <label class="dc-tree-label" for=${fieldId}>
@@ -284,10 +358,13 @@ function renderFormField(
               class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
               id=${fieldId}
               .value=${String(value ?? '')}
-              placeholder="${name}"
+              placeholder=${placeholder}
               ?disabled=${readOnly}
               aria-describedby=${fieldError ? errorId : nothing}
-              @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
+              @change=${(e: Event) => {
+                const val = (e.target as HTMLInputElement).value;
+                onChange(path, val === '' ? cleared('') : val);
+              }}
             />
             ${
               fieldError
@@ -309,12 +386,12 @@ function renderFormField(
               step="any"
               id=${fieldId}
               .value=${value != null ? String(value) : ''}
-              placeholder="${name}"
+              placeholder=${placeholder}
               ?disabled=${readOnly}
               aria-describedby=${fieldError ? errorId : nothing}
               @change=${(e: Event) => {
                 const raw = (e.target as HTMLInputElement).value;
-                onChange(path, raw === '' ? null : parseFloat(raw));
+                onChange(path, raw === '' ? cleared(null) : parseFloat(raw));
               }}
             />
             ${
@@ -337,12 +414,12 @@ function renderFormField(
               step="1"
               id=${fieldId}
               .value=${value != null ? String(value) : ''}
-              placeholder="${name}"
+              placeholder=${placeholder}
               ?disabled=${readOnly}
               aria-describedby=${fieldError ? errorId : nothing}
               @change=${(e: Event) => {
                 const raw = (e.target as HTMLInputElement).value;
-                onChange(path, raw === '' ? null : parseInt(raw, 10));
+                onChange(path, raw === '' ? cleared(null) : parseInt(raw, 10));
               }}
             />
             ${
@@ -371,6 +448,7 @@ function renderFormField(
                 @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).checked)}
               />
             </label>
+            ${defaultHint}
             ${
               fieldError
                 ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
@@ -392,8 +470,12 @@ function renderFormField(
               .value=${String(value ?? '')}
               ?disabled=${readOnly}
               aria-describedby=${fieldError ? errorId : nothing}
-              @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
+              @change=${(e: Event) => {
+                const val = (e.target as HTMLInputElement).value;
+                onChange(path, val === '' ? cleared('') : val);
+              }}
             />
+            ${defaultHint}
             ${
               fieldError
                 ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
@@ -417,11 +499,13 @@ function renderFormField(
                 .value=${toDateTimeLocal(value)}
                 ?disabled=${readOnly}
                 aria-describedby=${fieldError ? errorId : nothing}
-                @change=${(e: Event) =>
-                  onChange(
-                    path,
-                    combineDateTime((e.target as HTMLInputElement).value, dateTimeOffset(value)),
-                  )}
+                @change=${(e: Event) => {
+                  const next = combineDateTime(
+                    (e.target as HTMLInputElement).value,
+                    dateTimeOffset(value),
+                  );
+                  onChange(path, next === '' ? cleared('') : next);
+                }}
               />
               <select
                 class="ep-input dc-datetime-offset"
@@ -442,6 +526,7 @@ function renderFormField(
                 )}
               </select>
             </div>
+            ${defaultHint}
             ${
               fieldError
                 ? html`<span class="dc-field-error" id=${errorId}>${fieldError}</span>`
@@ -524,10 +609,13 @@ function renderFormField(
               class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
               id=${fieldId}
               .value=${String(value ?? '')}
-              placeholder="${name}"
+              placeholder=${placeholder}
               ?disabled=${readOnly}
               aria-describedby=${fieldError ? errorId : nothing}
-              @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
+              @change=${(e: Event) => {
+                const val = (e.target as HTMLInputElement).value;
+                onChange(path, val === '' ? cleared('') : val);
+              }}
             />
             ${
               fieldError
@@ -548,7 +636,7 @@ function renderObjectField(
   rootData: JsonObject,
   rootSchema: JsonSchema,
   isRequired: boolean,
-  onChange: (path: string, value: JsonValue) => void,
+  onChange: (path: string, value: JsonValue | undefined) => void,
   depth: number,
   errors: Map<string, string>,
   readOnly: boolean,
@@ -617,7 +705,7 @@ function renderArrayField(
   rootData: JsonObject,
   rootSchema: JsonSchema,
   isRequired: boolean,
-  onChange: (path: string, value: JsonValue) => void,
+  onChange: (path: string, value: JsonValue | undefined) => void,
   depth: number,
   errors: Map<string, string>,
   readOnly: boolean,
@@ -765,7 +853,7 @@ function renderArrayOfObjects(
   rootData: JsonObject,
   rootSchema: JsonSchema,
   isRequired: boolean,
-  onChange: (path: string, value: JsonValue) => void,
+  onChange: (path: string, value: JsonValue | undefined) => void,
   addItem: () => void,
   removeItem: (index: number) => void,
   depth: number,
@@ -880,7 +968,7 @@ function renderArrayOfArrays(
   rootData: JsonObject,
   rootSchema: JsonSchema,
   isRequired: boolean,
-  onChange: (path: string, value: JsonValue) => void,
+  onChange: (path: string, value: JsonValue | undefined) => void,
   addItem: () => void,
   removeItem: (index: number) => void,
   depth: number,

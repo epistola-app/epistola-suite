@@ -270,8 +270,12 @@ class DocumentGenerationExecutor(
             )
             contractVersion?.dataModel
         }
+        // A field the client omitted falls back to its schema `default`, applied
+        // before validation so a required-but-defaulted field doesn't fail as
+        // missing, and before rendering so the fallback actually reaches the PDF.
+        val effectiveData = if (dataModel != null) schemaValidator.applyDefaults(dataModel, request.data) else request.data
         if (dataModel != null) {
-            val errors = schemaValidator.validate(dataModel, request.data)
+            val errors = schemaValidator.validate(dataModel, effectiveData)
             if (errors.isNotEmpty()) {
                 val errorMessages = errors.joinToString("; ") { "${it.path}: ${it.message}" }
                 throw IllegalArgumentException("Data validation failed: $errorMessages")
@@ -282,7 +286,7 @@ class DocumentGenerationExecutor(
         val outputStream = ByteArrayOutputStream()
 
         @Suppress("UNCHECKED_CAST")
-        val dataMap = objectMapper.convertValue(request.data, Map::class.java) as Map<String, Any?>
+        val dataMap = objectMapper.convertValue(effectiveData, Map::class.java) as Map<String, Any?>
         val metadata = PdfMetadata(
             title = template.name,
             author = tenant.name,

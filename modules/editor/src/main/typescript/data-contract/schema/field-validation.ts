@@ -10,7 +10,9 @@
  * before any save round-trip.
  */
 
-import type { SchemaField, ValidationError } from '../types.js';
+import type { JsonSchema, SchemaField, ValidationError } from '../types.js';
+import { fieldToJsonSchemaProperty } from './conversion.js';
+import { validateProperty } from './validation.js';
 
 /**
  * Walk every field (including nested object/array-of-object fields) and
@@ -58,7 +60,21 @@ export function validateSchemaFields(fields: readonly SchemaField[]): Validation
     } else if (field.type === 'object' && field.nestedFields) {
       errors.push(...validateSchemaFields(field.nestedFields));
     }
+
+    if (field.default !== undefined) {
+      errors.push(...validateFieldDefault(field));
+    }
   }
 
   return errors;
+}
+
+/** Check a field's default value against its own type/format/range constraints. */
+function validateFieldDefault(field: SchemaField): ValidationError[] {
+  const property = fieldToJsonSchemaProperty(field);
+  const rootSchema: JsonSchema = { type: 'object', properties: { [field.name]: property } };
+  return validateProperty(field.default!, property, field.id, rootSchema).map((error) => ({
+    path: field.id,
+    message: `"Default value" ${error.message}`,
+  }));
 }

@@ -47,7 +47,7 @@
                 <tbody>
                     <tr th:each="usage : ${templateUsage}">
                         <td>
-                            <a th:href="@{/tenants/{tenantId}/templates/{templateKey}(tenantId=${tenantId},templateKey=${usage.templateKey})}"
+                            <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{templateKey}(tenantId=${tenantId},catalogId=${usage.catalogKey},templateKey=${usage.templateKey})}"
                                style="font-weight: 500;"
                                th:text="${usage.templateKey}">template</a>
                         </td>
@@ -93,7 +93,7 @@
                     <th:block th:fragment="job-rows">
                         <tr th:each="job : ${recentJobs}">
                             <td>
-                                <a th:href="@{/tenants/{tenantId}/templates/{templateKey}(tenantId=${tenantId},templateKey=${job.templateKey})}"
+                                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{templateKey}(tenantId=${tenantId},catalogId=${job.catalogKey},templateKey=${job.templateKey})}"
                                    style="font-weight: 500;"
                                    th:text="${job.templateKey}">template</a>
                             </td>

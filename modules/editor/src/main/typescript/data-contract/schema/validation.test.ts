@@ -360,6 +360,36 @@ describe('validateDataAgainstSchema', () => {
     });
   });
 
+  describe('numeric range (minimum/maximum)', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        score: { type: 'number', minimum: 0, maximum: 100 },
+      },
+    };
+
+    it('accepts a value within range', () => {
+      expect(validateDataAgainstSchema({ score: 50 }, schema).valid).toBe(true);
+    });
+
+    it('accepts a value at the boundary', () => {
+      expect(validateDataAgainstSchema({ score: 0 }, schema).valid).toBe(true);
+      expect(validateDataAgainstSchema({ score: 100 }, schema).valid).toBe(true);
+    });
+
+    it('rejects a value below minimum', () => {
+      const result = validateDataAgainstSchema({ score: -1 }, schema);
+      expect(result.valid).toBe(false);
+      expect(result.errors[0].message).toContain('>= 0');
+    });
+
+    it('rejects a value above maximum', () => {
+      const result = validateDataAgainstSchema({ score: 101 }, schema);
+      expect(result.valid).toBe(false);
+      expect(result.errors[0].message).toContain('<= 100');
+    });
+  });
+
   it('allows empty string on a non-required field', () => {
     const schema: JsonSchema = {
       type: 'object',

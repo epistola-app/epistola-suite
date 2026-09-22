@@ -81,6 +81,150 @@ describe('example form placeholders', () => {
   });
 });
 
+describe('example form defaults', () => {
+  function renderForm(
+    schema: JsonSchema,
+    data: JsonObject,
+    onChange: (path: string, value: unknown) => void = () => {},
+  ): HTMLElement {
+    const container = document.createElement('div');
+    render(renderExampleForm(schema, data, onChange), container);
+    return container;
+  }
+
+  function clear(input: HTMLInputElement): void {
+    input.value = '';
+    input.dispatchEvent(new Event('change'));
+  }
+
+  it("shows a left-out field's default as its placeholder", () => {
+    const container = renderForm(
+      {
+        type: 'object',
+        properties: {
+          country: { type: 'string', default: 'Netherlands' },
+          taxRate: { type: 'number', default: 0.21 },
+          name: { type: 'string' },
+        },
+      },
+      {},
+    );
+
+    expect(container.querySelector<HTMLInputElement>('#dc-field-country')!.placeholder).toBe(
+      'Netherlands (default)',
+    );
+    expect(container.querySelector<HTMLInputElement>('#dc-field-taxRate')!.placeholder).toBe(
+      '0.21 (default)',
+    );
+    expect(container.querySelector<HTMLInputElement>('#dc-field-name')!.placeholder).toBe('name');
+  });
+
+  it('shows a hint for date, date-time and yes/no defaults, which have no placeholder', () => {
+    const container = renderForm(
+      {
+        type: 'object',
+        properties: {
+          start: { type: 'string', format: 'date', default: '2026-01-01' },
+          at: { type: 'string', format: 'date-time', default: '2026-01-01T09:00:00' },
+          active: { type: 'boolean', default: true },
+        },
+      },
+      {},
+    );
+
+    const hints = [...container.querySelectorAll('.dc-field-default-hint')].map((h) =>
+      h.textContent?.trim(),
+    );
+    expect(hints).toEqual(['Default: 2026-01-01', 'Default: 2026-01-01T09:00:00', 'Default: true']);
+  });
+
+  it('shows no default once the field has a value', () => {
+    const container = renderForm(
+      {
+        type: 'object',
+        properties: { start: { type: 'string', format: 'date', default: '2026-01-01' } },
+      },
+      { start: '2026-05-01' },
+    );
+
+    expect(container.querySelector('.dc-field-default-hint')).toBeNull();
+  });
+
+  it('shows no default where generation would not apply it', () => {
+    const container = renderForm(
+      {
+        type: 'object',
+        properties: {
+          // A missing parent object is not created to hold a nested default.
+          vendor: {
+            type: 'object',
+            properties: { country: { type: 'string', default: 'Netherlands' } },
+          },
+          // Defaults inside array items are not applied.
+          items: {
+            type: 'array',
+            items: { type: 'object', properties: { qty: { type: 'integer', default: 1 } } },
+          },
+        },
+      },
+      { items: [{}] },
+    );
+
+    expect(container.querySelector<HTMLInputElement>('#dc-field-vendor-country')!.placeholder).toBe(
+      'country',
+    );
+    expect(container.querySelector<HTMLInputElement>('#dc-field-items-0-qty')!.placeholder).toBe(
+      'qty',
+    );
+  });
+
+  it('leaves a cleared field out when its default would then fill it', () => {
+    const changes: [string, unknown][] = [];
+    const container = renderForm(
+      {
+        type: 'object',
+        properties: {
+          country: { type: 'string', default: 'Netherlands' },
+          taxRate: { type: 'number', default: 0.21 },
+        },
+      },
+      { country: 'Belgium', taxRate: 0.06 },
+      (path, value) => changes.push([path, value]),
+    );
+
+    clear(container.querySelector<HTMLInputElement>('#dc-field-country')!);
+    clear(container.querySelector<HTMLInputElement>('#dc-field-taxRate')!);
+
+    expect(changes).toEqual([
+      ['country', undefined],
+      ['taxRate', undefined],
+    ]);
+  });
+
+  it('stores an empty value when clearing a field without a default', () => {
+    const changes: [string, unknown][] = [];
+    const container = renderForm(
+      { type: 'object', properties: { name: { type: 'string' }, count: { type: 'integer' } } },
+      { name: 'Ada', count: 3 },
+      (path, value) => changes.push([path, value]),
+    );
+
+    clear(container.querySelector<HTMLInputElement>('#dc-field-name')!);
+    clear(container.querySelector<HTMLInputElement>('#dc-field-count')!);
+
+    expect(changes).toEqual([
+      ['name', ''],
+      ['count', null],
+    ]);
+  });
+
+  it('setNestedValue leaves a property out when given undefined', () => {
+    expect(setNestedValue({ a: { b: 1, c: 2 } }, 'a.b', undefined)).toEqual({ a: { c: 2 } });
+    // Nothing to remove under a missing parent, and no parent is created for it.
+    expect(setNestedValue({ a: 1 }, 'x.y', undefined)).toEqual({ a: 1 });
+  });
+});
+
 describe('example property disclosure', () => {
   const schema: JsonSchema = {
     type: 'object',

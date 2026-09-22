@@ -4,6 +4,7 @@
 
 package app.epistola.suite.documents.queries
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.VariantKey
 
@@ -22,6 +23,7 @@ data class GenerationStats(
  * Template usage frequency entry.
  */
 data class TemplateUsage(
+    val catalogKey: CatalogKey,
     val templateKey: TemplateKey,
     val variantKey: VariantKey,
     val count: Long,

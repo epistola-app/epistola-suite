@@ -258,7 +258,11 @@ class EpistolaTemplateApi(
             ?: return ResponseEntity.ok(TemplateDataValidationResult(valid = true, errors = emptyList()))
 
         val dataNode = objectMapper.valueToTree<ObjectNode>(validateTemplateDataRequest.data)
-        val errors = jsonSchemaValidator.validate(dataModel, dataNode)
+        // Fill in any field the caller omitted from its schema `default`, matching what
+        // generation and preview actually do, so this pre-flight check doesn't reject
+        // data that generation would accept.
+        val effectiveData = jsonSchemaValidator.applyDefaults(dataModel, dataNode)
+        val errors = jsonSchemaValidator.validate(dataModel, effectiveData)
 
         return ResponseEntity.ok(
             TemplateDataValidationResult(

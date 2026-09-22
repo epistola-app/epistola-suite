@@ -10,6 +10,8 @@
  * - type: string, number, integer, boolean, object, array (single type only)
  * - format: "date" (on strings only)
  * - properties, required, items, description, additionalProperties, $schema
+ * - default: any type (the detail-panel control only edits it for scalar
+ *   types, but a default on an array/object property still round-trips)
  * - $ref: only when it resolves to one of the registered ref types (see
  *   `data-contract/ref-types.ts`). Other $ref values stay incompatible.
  *
@@ -63,6 +65,7 @@ const SUPPORTED_PROPERTY_KEYS = new Set([
   'maximum',
   'minItems',
   'maxItems',
+  'default',
 ]);
 
 /** Supported single-value types */
@@ -254,7 +257,6 @@ function describeUnsupportedKey(key: string): string {
   const descriptions: Record<string, string> = {
     enum: '"enum" constraints are not supported',
     const: '"const" constraints are not supported',
-    default: '"default" values are not supported',
     $ref: 'Schema references ($ref) are not supported',
     $defs: 'Schema definitions ($defs) are not supported',
     definitions: 'Schema definitions are not supported',

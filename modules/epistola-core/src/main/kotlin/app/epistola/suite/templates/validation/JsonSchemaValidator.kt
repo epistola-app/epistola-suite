@@ -8,8 +8,12 @@ import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import com.networknt.schema.InputFormat
+import com.networknt.schema.InvalidSchemaRefException
+import com.networknt.schema.Schema
 import com.networknt.schema.SchemaRegistry
 import com.networknt.schema.SpecificationVersion
+import com.networknt.schema.path.NodePath
+import com.networknt.schema.path.PathType
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
@@ -95,37 +99,106 @@ class JsonSchemaValidator(
             )
         }
 
+        val compiledSchema = schemaRegistry.getSchema(objectMapper.writeValueAsString(relaxDateTimeForValidation(schema)))
+        val invalidDefault = findInvalidDefault(schema, "$", NodePath(PathType.JSON_POINTER), compiledSchema)
+        if (invalidDefault != null) {
+            val (path, message) = invalidDefault
+            return SchemaValidationResult.Invalid(
+                "Property \"$path\" has an invalid \"default\" value: $message",
+            )
+        }
+
         return SchemaValidationResult.Valid
+    }
+
+    /**
+     * Finds the first schema location whose `default` doesn't conform to the
+     * schema at that location, the same way [validate] checks real data.
+     *
+     * The default is validated against [compiledSchema] — the whole contract —
+     * at [pointer], not against its subschema compiled on its own: a local
+     * `$ref` only resolves against the contract root, and the root's declared
+     * `$schema` dialect only applies there. A location whose `$ref` does not
+     * resolve is skipped; the contract may still be saved with it, and data
+     * validation reports it.
+     */
+    private fun findInvalidDefault(
+        schema: ObjectNode,
+        path: String,
+        pointer: NodePath,
+        compiledSchema: Schema,
+    ): Pair<String, String>? {
+        schema.get("default")?.let { default ->
+            val errors = try {
+                compiledSchema.getSubSchema(pointer).validate(default)
+            } catch (_: InvalidSchemaRefException) {
+                emptyList()
+            }
+            if (errors.isNotEmpty()) {
+                return path to errors.joinToString("; ") { it.message }
+            }
+        }
+
+        recurseIntoPropertiesAndItems(schema, path, pointer) { node, nodePath, nodePointer ->
+            findInvalidDefault(node, nodePath, nodePointer, compiledSchema)
+        }?.let { return it }
+
+        for (keyword in listOf("allOf", "oneOf", "anyOf")) {
+            val members = schema.get(keyword) as? ArrayNode ?: continue
+            for ((index, member) in members.withIndex()) {
+                if (member is ObjectNode) {
+                    val memberPath = if (keyword == "allOf") path else "$path.$keyword"
+                    findInvalidDefault(member, memberPath, pointer.append(keyword).append(index), compiledSchema)
+                        ?.let { return it }
+                }
+            }
+        }
+
+        return null
     }
 
     /**
      * Recurses into `properties` and `items` (including draft-07 tuple-form
      * `items`), applying [check] to each nested object schema and
      * short-circuiting on its first non-null result. Shared by
-     * [findNegativeItemsBound] and [findInvalidItemsRange], which differ only
-     * in how they handle composition keywords (allOf/oneOf/anyOf) — negative-
-     * bound checking treats each member independently, range-checking threads
-     * inherited bounds through them — so that part stays with each caller.
+     * [findNegativeItemsBound], [findInvalidItemsRange], and
+     * [findInvalidDefault], which differ only in how they handle composition
+     * keywords (allOf/oneOf/anyOf) — negative-bound and default checking treat
+     * each member independently, range-checking threads inherited bounds
+     * through them — so that part stays with each caller.
      */
     private fun <T> recurseIntoPropertiesAndItems(
         schema: ObjectNode,
         path: String,
         check: (ObjectNode, String) -> T?,
+    ): T? = recurseIntoPropertiesAndItems(schema, path, NodePath(PathType.JSON_POINTER)) { node, nodePath, _ ->
+        check(node, nodePath)
+    }
+
+    /**
+     * As above, also handing [check] each nested schema's JSON Pointer from the
+     * contract root, for a caller that must address it inside a compiled schema.
+     */
+    private fun <T> recurseIntoPropertiesAndItems(
+        schema: ObjectNode,
+        path: String,
+        pointer: NodePath,
+        check: (ObjectNode, String, NodePath) -> T?,
     ): T? {
         (schema.get("properties") as? ObjectNode)?.let { properties ->
             for ((name, prop) in properties.properties()) {
                 if (prop is ObjectNode) {
-                    check(prop, "$path.$name")?.let { return it }
+                    check(prop, "$path.$name", pointer.append("properties").append(name))?.let { return it }
                 }
             }
         }
 
         when (val items = schema.get("items")) {
-            is ObjectNode -> check(items, "$path.items")?.let { return it }
+            is ObjectNode -> check(items, "$path.items", pointer.append("items"))?.let { return it }
             is ArrayNode -> {
                 for ((index, entry) in items.withIndex()) {
                     if (entry is ObjectNode) {
-                        check(entry, "$path.items[$index]")?.let { return it }
+                        check(entry, "$path.items[$index]", pointer.append("items").append(index))?.let { return it }
                     }
                 }
             }
@@ -276,6 +349,29 @@ class JsonSchemaValidator(
     }
 
     /**
+     * Fills in each property's `default` where the caller's data has no value
+     * for it, recursing into nested `object` properties. An existing value —
+     * including an explicit `null` — is left untouched: a `default` only
+     * stands in for an *absent* key, per JSON Schema's own definition of the
+     * keyword. Composition keywords (`allOf`/`oneOf`/`anyOf`) are not expanded
+     * here, matching the editor's scalar-only support for authoring a default.
+     */
+    fun applyDefaults(schema: ObjectNode, data: ObjectNode): ObjectNode = data.deepCopy().also { applyDefaultsInPlace(schema, it) }
+
+    private fun applyDefaultsInPlace(schema: ObjectNode, data: ObjectNode) {
+        val properties = schema.get("properties") as? ObjectNode ?: return
+        for ((name, propSchema) in properties.properties()) {
+            if (propSchema !is ObjectNode) continue
+
+            if (!data.has(name)) {
+                propSchema.get("default")?.let { default -> data.set(name, default.deepCopy()) }
+            }
+
+            (data.get(name) as? ObjectNode)?.let { nested -> applyDefaultsInPlace(propSchema, nested) }
+        }
+    }
+
+    /**
      * RFC 3339 `date-time` mandates a UTC offset, but Epistola treats a datetime
      * **without** an offset as a local wall-clock value ("time is time") and only
      * converts to the render timezone when an offset *is* present. So an author
@@ -307,7 +403,8 @@ class JsonSchemaValidator(
     }
 
     /**
-     * Validates all data examples against a JSON Schema.
+     * Validates all data examples against a JSON Schema, after [applyDefaults] — an
+     * example is preview data, so it passes wherever generation would accept it.
      *
      * @param schema The JSON Schema as an ObjectNode
      * @param examples The list of named data examples to validate
@@ -317,7 +414,7 @@ class JsonSchemaValidator(
         schema: ObjectNode,
         examples: List<DataExample>,
     ): Map<String, List<ValidationError>> = examples
-        .associate { example -> example.name to validate(schema, example.data) }
+        .associate { example -> example.name to validate(schema, applyDefaults(schema, example.data)) }
         .filterValues { errors -> errors.isNotEmpty() }
 
     /**
@@ -340,7 +437,7 @@ class JsonSchemaValidator(
         val errors = mutableListOf<ValidationError>()
 
         for (example in examples) {
-            val validationErrors = validate(schema, example.data)
+            val validationErrors = validate(schema, applyDefaults(schema, example.data))
 
             for (error in validationErrors) {
                 val migration = analyzeMigration(example, error, schema)

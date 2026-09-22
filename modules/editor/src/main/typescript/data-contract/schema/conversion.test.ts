@@ -939,6 +939,38 @@ describe('constraint round-trips', () => {
       expect(result.properties?.flag).toEqual({ type: 'boolean' });
       expect(result.properties?.obj).toEqual({ type: 'object' });
     });
+
+    it('emits default for a string field', () => {
+      const visual: VisualSchema = {
+        fields: [{ id: '1', name: 'country', type: 'string', required: false, default: 'NL' }],
+      };
+      const result = visualSchemaToJsonSchema(visual);
+      expect(result.properties?.country).toEqual({ type: 'string', default: 'NL' });
+    });
+
+    it('emits default for a boolean field, including false', () => {
+      const visual: VisualSchema = {
+        fields: [{ id: '1', name: 'active', type: 'boolean', required: false, default: false }],
+      };
+      const result = visualSchemaToJsonSchema(visual);
+      expect(result.properties?.active).toEqual({ type: 'boolean', default: false });
+    });
+
+    it('emits default for a number field, including zero', () => {
+      const visual: VisualSchema = {
+        fields: [{ id: '1', name: 'score', type: 'number', required: false, default: 0 }],
+      };
+      const result = visualSchemaToJsonSchema(visual);
+      expect(result.properties?.score).toEqual({ type: 'number', default: 0 });
+    });
+
+    it('does not emit default when undefined', () => {
+      const visual: VisualSchema = {
+        fields: [{ id: '1', name: 'name', type: 'string', required: false }],
+      };
+      const result = visualSchemaToJsonSchema(visual);
+      expect(result.properties?.name).not.toHaveProperty('default');
+    });
   });
 
   describe('jsonSchemaToVisualSchema with constraints', () => {
@@ -1037,6 +1069,39 @@ describe('constraint round-trips', () => {
       expect(nameField.maximum).toBeUndefined();
       expect(boolField.minimum).toBeUndefined();
     });
+
+    it('reads default from a string property', () => {
+      const schema: JsonSchema = {
+        type: 'object',
+        properties: {
+          country: { type: 'string', default: 'NL' },
+        },
+      };
+      const result = jsonSchemaToVisualSchema(schema);
+      expect(result.fields[0].default).toBe('NL');
+    });
+
+    it('reads default:false from a boolean property (falsy but present)', () => {
+      const schema: JsonSchema = {
+        type: 'object',
+        properties: {
+          active: { type: 'boolean', default: false },
+        },
+      };
+      const result = jsonSchemaToVisualSchema(schema);
+      expect(result.fields[0].default).toBe(false);
+    });
+
+    it('leaves default undefined when absent', () => {
+      const schema: JsonSchema = {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+        },
+      };
+      const result = jsonSchemaToVisualSchema(schema);
+      expect(result.fields[0].default).toBeUndefined();
+    });
   });
 
   describe('full round-trip: visual → JSON → visual', () => {
@@ -1115,6 +1180,17 @@ describe('constraint round-trips', () => {
       const field = restored.fields[0] as PrimitiveField;
       expect(field.type).toBe('string');
       expect(field.format).toBe('email');
+    });
+
+    it('preserves a default value through round-trip', () => {
+      const original: VisualSchema = {
+        fields: [{ id: '1', name: 'country', type: 'string', required: false, default: 'NL' }],
+      };
+      const json = visualSchemaToJsonSchema(original);
+      const restored = jsonSchemaToVisualSchema(json);
+
+      const field = restored.fields[0] as PrimitiveField;
+      expect(field.default).toBe('NL');
     });
   });
 });
@@ -1283,6 +1359,49 @@ describe('applyFieldUpdate with constraints', () => {
     const result = applyFieldUpdate(field, { type: 'number' });
     expect(result.type).toBe('number');
     expect((result as PrimitiveField).format).toBeUndefined();
+  });
+
+  it('sets a default value', () => {
+    const field: SchemaField = { id: '1', name: 'country', type: 'string', required: false };
+    const result = applyFieldUpdate(field, { default: 'NL' });
+    expect(result.default).toBe('NL');
+  });
+
+  it('clears a default value by setting undefined', () => {
+    const field: SchemaField = {
+      id: '1',
+      name: 'country',
+      type: 'string',
+      required: false,
+      default: 'NL',
+    };
+    const result = applyFieldUpdate(field, { default: undefined });
+    expect(result.default).toBeUndefined();
+  });
+
+  it('preserves an existing default when updating an unrelated property', () => {
+    const field: SchemaField = {
+      id: '1',
+      name: 'country',
+      type: 'string',
+      required: false,
+      default: 'NL',
+    };
+    const result = applyFieldUpdate(field, { description: 'ISO country code' });
+    expect(result.default).toBe('NL');
+  });
+
+  it('drops the default value when changing type', () => {
+    const field: SchemaField = {
+      id: '1',
+      name: 'value',
+      type: 'string',
+      required: false,
+      default: 'hello',
+    };
+    const result = applyFieldUpdate(field, { type: 'number' });
+    expect(result.type).toBe('number');
+    expect(result.default).toBeUndefined();
   });
 
   it('drops minItems when changing type from array to string', () => {

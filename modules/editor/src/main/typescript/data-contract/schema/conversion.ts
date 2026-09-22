@@ -53,7 +53,7 @@ export function visualSchemaToJsonSchema(visual: VisualSchema): JsonSchema {
 /**
  * Convert a single field to a JSON Schema property.
  */
-function fieldToJsonSchemaProperty(field: SchemaField): JsonSchemaProperty {
+export function fieldToJsonSchemaProperty(field: SchemaField): JsonSchemaProperty {
   // Ref-based field types are stored as a `$ref` to their canonical schema URL
   // (no `type` key). The registry resolves the field type to its URL.
   if (isRefFieldType(field.type)) {
@@ -77,6 +77,10 @@ function fieldToJsonSchemaProperty(field: SchemaField): JsonSchemaProperty {
 
   if (field.description) {
     prop.description = field.description;
+  }
+
+  if (field.default !== undefined) {
+    prop.default = field.default;
   }
 
   // Numeric constraints
@@ -197,6 +201,7 @@ function jsonSchemaPropertyToField(
     name,
     required,
     description: prop.description,
+    default: prop.default,
   };
 
   if (type === 'array') {
@@ -397,11 +402,16 @@ export function createEmptyField(name = 'newField'): SchemaField {
  */
 export function applyFieldUpdate(field: SchemaField, updates: SchemaFieldUpdate): SchemaField {
   const type = updates.type ?? field.type;
+  // Drop the default on type change, like format/minimum/maximum below.
+  const sameType = type === field.type;
+  const existingDefault = sameType ? field.default : undefined;
+  const defaultValue = 'default' in updates ? updates.default : existingDefault;
   const baseField = {
     id: field.id,
     name: updates.name ?? field.name,
     required: updates.required ?? field.required,
     description: updates.description ?? field.description,
+    default: defaultValue,
   };
 
   if (type === 'array') {
@@ -451,7 +461,6 @@ export function applyFieldUpdate(field: SchemaField, updates: SchemaFieldUpdate)
 
   // Primitive types — only carry over constraints that are relevant to the new type.
   // When the type changes, constraints from the old type are dropped.
-  const sameType = type === field.type;
   const oldIsPrimitive = field.type !== 'array' && field.type !== 'object';
   const isNumeric = type === 'number' || type === 'integer';
   const isString = type === 'string' || type === 'date';
