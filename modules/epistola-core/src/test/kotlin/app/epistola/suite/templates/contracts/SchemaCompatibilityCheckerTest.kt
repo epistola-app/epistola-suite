@@ -130,6 +130,31 @@ class SchemaCompatibilityCheckerTest {
         }
 
         @Test
+        fun `removing the default from a required field is breaking`() {
+            val old = schema(
+                """{"type":"object","properties":{"name":{"type":"string","default":"unknown"}},"required":["name"]}""",
+            )
+            val new = schema("""{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}""")
+            val result = checker.checkCompatibility(old, new)
+            assertThat(result.compatible).isFalse()
+            assertThat(result.breakingChanges).containsExactly(
+                SchemaCompatibilityChecker.BreakingChange(
+                    SchemaCompatibilityChecker.BreakingChangeType.MADE_REQUIRED,
+                    "name",
+                    "\"name\" no longer has a default, so it is now required",
+                ),
+            )
+        }
+
+        @Test
+        fun `removing the default from an optional field is compatible`() {
+            val old = schema("""{"type":"object","properties":{"name":{"type":"string","default":"unknown"}}}""")
+            val new = schema("""{"type":"object","properties":{"name":{"type":"string"}}}""")
+            val result = checker.checkCompatibility(old, new)
+            assertThat(result.compatible).isTrue()
+        }
+
+        @Test
         fun `keeping required field required is compatible`() {
             val old = schema("""{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}""")
             val new = schema("""{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}""")

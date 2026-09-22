@@ -83,10 +83,19 @@ class SchemaCompatibilityChecker {
                     changes.add(BreakingChange(BreakingChangeType.TYPE_CHANGED, path, "\"$fieldName\" type changed from $oldType to $newType"))
                 }
 
-                // Check optional → required. A `default` is exempt, same as a brand-new
-                // required field below: existing data missing the field still renders.
-                if (!oldRequired.contains(fieldName) && newRequired.contains(fieldName) && !newField.has("default")) {
-                    changes.add(BreakingChange(BreakingChangeType.MADE_REQUIRED, path, "\"$fieldName\" is now required"))
+                // Check a field callers may omit becoming one they must send. A field
+                // may be omitted while it is optional or has a `default` for generation
+                // to fall back to, so both optional → required and a required field
+                // losing its default break data that leaves it out.
+                val wasOmittable = !oldRequired.contains(fieldName) || oldField.has("default")
+                val isOmittable = !newRequired.contains(fieldName) || newField.has("default")
+                if (wasOmittable && !isOmittable) {
+                    val description = if (oldRequired.contains(fieldName)) {
+                        "\"$fieldName\" no longer has a default, so it is now required"
+                    } else {
+                        "\"$fieldName\" is now required"
+                    }
+                    changes.add(BreakingChange(BreakingChangeType.MADE_REQUIRED, path, description))
                 }
 
                 // Check constraint narrowing

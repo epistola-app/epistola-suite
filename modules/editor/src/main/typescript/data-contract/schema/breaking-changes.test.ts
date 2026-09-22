@@ -186,6 +186,30 @@ describe('detectBreakingChanges', () => {
     expect(detectBreakingChanges(old, next)).toEqual([]);
   });
 
+  it('detects a required field losing its default', () => {
+    const old: SchemaField[] = [
+      { id: 'f1', name: 'email', type: 'string', required: true, default: 'unknown@example.com' },
+    ];
+    const next: SchemaField[] = [{ id: 'f1', name: 'email', type: 'string', required: true }];
+
+    expect(detectBreakingChanges(old, next)).toEqual([
+      {
+        type: 'made_required',
+        path: 'email',
+        description: '"email" no longer has a default, so it is now required',
+      },
+    ]);
+  });
+
+  it('ignores an optional field losing its default', () => {
+    const old: SchemaField[] = [
+      { id: 'f1', name: 'email', type: 'string', required: false, default: 'unknown@example.com' },
+    ];
+    const next: SchemaField[] = [{ id: 'f1', name: 'email', type: 'string', required: false }];
+
+    expect(detectBreakingChanges(old, next)).toEqual([]);
+  });
+
   it('does not flag required field staying required', () => {
     const old: SchemaField[] = [{ id: 'f1', name: 'name', type: 'string', required: true }];
     const next: SchemaField[] = [{ id: 'f1', name: 'name', type: 'string', required: true }];
