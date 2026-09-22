@@ -10,12 +10,12 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
-import app.epistola.suite.documents.preview.PreviewDataInvalidException
-import app.epistola.suite.documents.queries.AnalyzePreviewData
+import app.epistola.suite.documents.queries.AnalyzeTemplateData
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
 import app.epistola.suite.templates.model.DataExample
+import app.epistola.suite.templates.validation.TemplateDataInvalidException
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.ThenScope
@@ -31,7 +31,7 @@ import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
 @Timeout(30)
-class AnalyzePreviewDataIntegrationTest : IntegrationTestBase() {
+class AnalyzeTemplateDataIntegrationTest : IntegrationTestBase() {
 
     private val objectMapper = ObjectMapper()
 
@@ -104,8 +104,8 @@ class AnalyzePreviewDataIntegrationTest : IntegrationTestBase() {
         }.whenever { it }.then { setup, _ -> block(setup) }
     }
 
-    private fun DocumentSetup.analyze(data: ObjectNode) = AnalyzePreviewData(
-        tenantId = tenant.id,
+    private fun DocumentSetup.analyze(data: ObjectNode) = AnalyzeTemplateData(
+        tenantKey = tenant.id,
         catalogKey = CatalogKey.DEFAULT,
         templateId = template.id,
         variantId = variant.id,
@@ -140,7 +140,7 @@ class AnalyzePreviewDataIntegrationTest : IntegrationTestBase() {
     fun `preview rejects the same data with the same analysis`() = withPublishedTemplate { setup ->
         val data = json("""{"customer": {"phone": 555}}""")
 
-        val error = assertThrows<PreviewDataInvalidException> { query(setup.preview(data)) }
+        val error = assertThrows<TemplateDataInvalidException> { query(setup.preview(data)) }
 
         assertThat(error.analysis).isEqualTo(query(setup.analyze(data)))
         assertThat(error.analysis.invalidFields.map { it.path to it.keyword }).containsExactly("/customer/phone" to "type")

@@ -9,8 +9,6 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
-import app.epistola.suite.documents.preview.PreviewDataAnalyzer
-import app.epistola.suite.documents.preview.PreviewDataInvalidException
 import app.epistola.suite.documents.preview.PreviewTargetResolver
 import app.epistola.suite.generation.DocumentPreviewRenderer
 import app.epistola.suite.i18n.TenantLocaleResolver
@@ -23,6 +21,8 @@ import app.epistola.suite.templates.TemplateNotFoundException
 import app.epistola.suite.templates.analysis.TemplatePathExtractor
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.services.VariantSelectionCriteria
+import app.epistola.suite.templates.validation.TemplateDataAnalyzer
+import app.epistola.suite.templates.validation.TemplateDataInvalidException
 import app.epistola.suite.tenants.TenantNotFoundException
 import app.epistola.suite.tenants.queries.GetTenant
 import org.slf4j.LoggerFactory
@@ -32,8 +32,8 @@ import tools.jackson.databind.node.ObjectNode
 /**
  * Preview a published version via the REST API.
  *
- * Data that breaks the contract fails with [PreviewDataInvalidException], which carries the
- * [AnalyzePreviewData] result so the caller learns which fields to supply or correct.
+ * Data that breaks the contract fails with [TemplateDataInvalidException], which carries the
+ * [AnalyzeTemplateData] result so the caller learns which fields to supply or correct.
  *
  * @property tenantId Tenant that owns the template
  * @property templateId Template to preview
@@ -71,7 +71,7 @@ data class PreviewDocument(
 class PreviewDocumentHandler(
     private val mediator: Mediator,
     private val targetResolver: PreviewTargetResolver,
-    private val analyzer: PreviewDataAnalyzer,
+    private val analyzer: TemplateDataAnalyzer,
     private val pathExtractor: TemplatePathExtractor,
     private val renderer: DocumentPreviewRenderer,
     private val localeResolver: TenantLocaleResolver,
@@ -106,7 +106,7 @@ class PreviewDocumentHandler(
         // 2. Validate data against the contract; the exception says which fields to fix
         target.contract?.let { contract ->
             val analysis = analyzer.analyze(contract, target.data, pathExtractor.extractReferencedPaths(version.templateModel))
-            if (!analysis.valid) throw PreviewDataInvalidException(analysis, target.data)
+            if (!analysis.valid) throw TemplateDataInvalidException(analysis, target.data)
         }
 
         // 3. Fetch template and tenant for theme resolution

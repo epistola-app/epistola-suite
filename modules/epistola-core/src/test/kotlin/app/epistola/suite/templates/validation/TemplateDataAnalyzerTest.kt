@@ -2,10 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-package app.epistola.suite.documents.preview
+package app.epistola.suite.templates.validation
 
-import app.epistola.suite.templates.validation.JsonSchemaValidator
-import app.epistola.suite.templates.validation.SchemaValidationResult
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -15,11 +13,11 @@ import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
-class PreviewDataAnalyzerTest {
+class TemplateDataAnalyzerTest {
 
     private val objectMapper = ObjectMapper()
     private val validator = JsonSchemaValidator(objectMapper)
-    private val analyzer = PreviewDataAnalyzer(validator, objectMapper)
+    private val analyzer = TemplateDataAnalyzer(validator, objectMapper)
 
     private fun json(text: String): ObjectNode = objectMapper.readValue(text, ObjectNode::class.java)
 
@@ -381,9 +379,9 @@ class PreviewDataAnalyzerTest {
 
     @Test
     fun `pointer tokens are escaped`() {
-        assertThat(PreviewDataAnalyzer.escapePointerToken("a/b~c")).isEqualTo("a~1b~0c")
-        assertThat(PreviewDataAnalyzer.parsePointer("/a~1b~0c/0")).containsExactly("a/b~c", "0")
-        assertThat(PreviewDataAnalyzer.parseReferencedPath("orders[*].items[0].price"))
+        assertThat(TemplateDataAnalyzer.escapePointerToken("a/b~c")).isEqualTo("a~1b~0c")
+        assertThat(TemplateDataAnalyzer.parsePointer("/a~1b~0c/0")).containsExactly("a/b~c", "0")
+        assertThat(TemplateDataAnalyzer.parseReferencedPath("orders[*].items[0].price"))
             .containsExactly("orders", "[*]", "items", "[*]", "price")
     }
 }

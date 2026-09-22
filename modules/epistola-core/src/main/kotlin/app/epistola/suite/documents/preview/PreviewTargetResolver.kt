@@ -54,7 +54,7 @@ data class PreviewTarget(
  * Resolves what a preview of a *published* version renders: the variant (explicit, by attribute
  * criteria, or the default), the version (explicit, active in an environment, or latest published)
  * and its contract. Shared by [PreviewDocument][app.epistola.suite.documents.queries.PreviewDocument]
- * and [AnalyzePreviewData][app.epistola.suite.documents.queries.AnalyzePreviewData], so that the
+ * and [AnalyzeTemplateData][app.epistola.suite.documents.queries.AnalyzeTemplateData], so that the
  * analysis always describes the same version the preview would render.
  */
 @Component

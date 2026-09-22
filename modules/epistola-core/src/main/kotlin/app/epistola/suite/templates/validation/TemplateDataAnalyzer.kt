@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-package app.epistola.suite.documents.preview
+package app.epistola.suite.templates.validation
 
-import app.epistola.suite.templates.validation.JsonSchemaValidator
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
@@ -17,7 +16,7 @@ import tools.jackson.databind.node.ObjectNode
  * @property path JSON Pointer into the data (`/customer/address`). This is the outermost absent node:
  *   a missing `customer` object is one entry, not one per leaf.
  * @property required Whether the contract requires it. An optional field is only reported when the
- *   template reads it (see [PreviewDataAnalyzer]).
+ *   template reads it (see [TemplateDataAnalyzer]).
  * @property schema The contract's schema for the field, with local `$ref`s inlined
  */
 data class MissingDataField(
@@ -43,7 +42,7 @@ data class InvalidDataField(
 )
 
 /**
- * How preview data measures up against the template's data contract.
+ * How template data measures up against the template's data contract.
  *
  * @property valid Whether the data passes the contract. Absent *optional* fields do not make it invalid.
  * @property missingFields Absent fields, in schema declaration order
@@ -52,7 +51,7 @@ data class InvalidDataField(
  *   generator can take as-is. Fields inside array items are left out of it, because a schema cannot
  *   address one array element; they are still listed in [missingFields]. Null when nothing is missing.
  */
-data class PreviewDataAnalysis(
+data class TemplateDataAnalysis(
     val valid: Boolean,
     val missingFields: List<MissingDataField>,
     val invalidFields: List<InvalidDataField>,
@@ -60,12 +59,14 @@ data class PreviewDataAnalysis(
 ) {
     companion object {
         /** A template without a contract accepts any data. */
-        val NO_CONTRACT = PreviewDataAnalysis(valid = true, missingFields = emptyList(), invalidFields = emptyList(), missingDataSchema = null)
+        val NO_CONTRACT = TemplateDataAnalysis(valid = true, missingFields = emptyList(), invalidFields = emptyList(), missingDataSchema = null)
     }
 }
 
 /**
- * Works out which fields preview data is missing or has wrong, so a caller can ask for exactly those.
+ * Works out which fields template data is missing or has wrong, so a caller can ask for exactly those.
+ *
+ * Not tied to one use: preview is the only caller today, generation could use the same analysis.
  *
  * - **Required** fields that are absent are always reported.
  * - **Optional** fields that are absent are reported only when the template reads them — a path in
@@ -77,7 +78,7 @@ data class PreviewDataAnalysis(
  * a `required` failure the walk cannot see (one declared under `if`/`then`) is appended after it.
  */
 @Component
-class PreviewDataAnalyzer(
+class TemplateDataAnalyzer(
     private val schemaValidator: JsonSchemaValidator,
     private val objectMapper: ObjectMapper,
 ) {
@@ -88,7 +89,7 @@ class PreviewDataAnalyzer(
      * @param referencedPaths Data paths the template reads, as `TemplatePathExtractor` reports them
      *   (`customer.name`, `orders[*].price`)
      */
-    fun analyze(contract: ObjectNode, data: ObjectNode, referencedPaths: Set<String>): PreviewDataAnalysis {
+    fun analyze(contract: ObjectNode, data: ObjectNode, referencedPaths: Set<String>): TemplateDataAnalysis {
         val violations = schemaValidator.validateDetailed(contract, data)
         val schemas = ContractSchemas(contract)
         val referenced = referencedPaths.map(::parseReferencedPath)
@@ -110,7 +111,7 @@ class PreviewDataAnalyzer(
             .map { InvalidDataField(it.pointer, it.keyword, it.message, schemas.schemaAt(it.pointer)) }
 
         val missingFields = missing.values.toList()
-        return PreviewDataAnalysis(
+        return TemplateDataAnalysis(
             valid = violations.isEmpty(),
             missingFields = missingFields,
             invalidFields = invalid,
@@ -268,7 +269,7 @@ internal class ContractSchemas(private val root: ObjectNode) {
     /** The schema at a data JSON Pointer, with local `$ref`s inlined, or null when no schema describes it. */
     fun schemaAt(pointer: String): ObjectNode? {
         var current: ObjectNode = root
-        for (token in PreviewDataAnalyzer.parsePointer(pointer)) {
+        for (token in TemplateDataAnalyzer.parsePointer(pointer)) {
             current = propertiesOf(current)[token]
                 ?: token.toIntOrNull()?.let { index -> itemAt(current, index) }
                 ?: return null
