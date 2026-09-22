@@ -400,7 +400,7 @@ class ChangelogRendererTest {
     }
 
     @Test
-    fun `every bundled Unreleased entry matches the documented entry format`() {
+    fun `every entry in the newest bundled section matches the documented entry format`() {
         // The dialog can only file an entry it can parse, so the format is checked at the source:
         // an optional audience badge, then type(scope) with an optional `!`, then a bold title.
         // This catches malformed prefixes such as `feat!(exchange):` and unknown badges like `[perf]`,
@@ -411,18 +411,21 @@ class ChangelogRendererTest {
                 """\([a-z0-9][a-z0-9.,/-]*\)!?: \*\*\S.*""",
         )
 
-        val offenders = unreleasedBullets().filterNot { entryFormat.containsMatchIn(it) }
+        val offenders = newestSectionBullets().filterNot { entryFormat.containsMatchIn(it) }
 
         assertThat(offenders)
             .withFailMessage(
-                "These [Unreleased] entries do not match `- [**[user|dev]** ]type(scope)[!]: **Title.** …`:\n%s",
+                "These entries in the newest section do not match `- [**[user|dev]** ]type(scope)[!]: **Title.** …`:\n%s",
                 offenders.joinToString("\n") { it.take(120) },
             )
             .isEmpty()
     }
 
-    /** The column-0 bullets of the bundled `[Unreleased]` section, ignoring fenced code blocks. */
-    private fun unreleasedBullets(): List<String> {
+    /**
+     * The column-0 bullets of the newest bundled section, ignoring fenced code blocks. That is
+     * `[Unreleased]` while fragments are pending, and the release just assembled once they are not.
+     */
+    private fun newestSectionBullets(): List<String> {
         val markdown = ChangelogRenderer::class.java.getResource("/changelog/CHANGELOG.md")!!.readText()
         val bullets = mutableListOf<String>()
         var inSection = false
@@ -430,14 +433,14 @@ class ChangelogRendererTest {
         for (line in markdown.lines()) {
             if (line.startsWith("## [")) {
                 if (inSection) break
-                inSection = line.startsWith("## [Unreleased]")
+                inSection = true
                 continue
             }
             if (!inSection) continue
             if (line.trimStart().startsWith("```")) inFence = !inFence
             if (!inFence && line.startsWith("- ")) bullets.add(line)
         }
-        assertThat(bullets).withFailMessage("No [Unreleased] bullets found in the bundled CHANGELOG.md").isNotEmpty()
+        assertThat(bullets).withFailMessage("No bullets found in the newest section of the bundled CHANGELOG.md").isNotEmpty()
         return bullets
     }
 
