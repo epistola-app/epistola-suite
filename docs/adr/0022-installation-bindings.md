@@ -2,6 +2,10 @@
 
 - **Status:** Draft
 - **Date:** 2026-09-09
+- **Note, 2026-09-22:** relocation no longer leaves aliases
+  ([ADR 0025](0025-relocation-without-aliases.md)). Where this draft relies on "the alias
+  mechanism" for a moved bound resource, a binding keyed by `resource_id` simply follows the
+  resource; nothing resolves its old address.
 - **Deciders:** Epistola team
 - **Tags:** catalog exchange, installation, dependencies, relocation, assets, themes, fonts, stencils
 - **Context:** Installing catalogs from Epistola Exchange

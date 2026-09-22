@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # ADR 0020: Where a catalog resource's address lives
 
-- **Status:** Accepted
+- **Status:** Accepted — amended by [ADR 0025](0025-relocation-without-aliases.md)
 - **Date:** 2026-09-09
 - **Discussants:** Epistola team
 - **Tags:** catalog, resources, schema, identity, relocation
@@ -188,9 +188,9 @@ it. It comes out the same way, with the reasoning written down.
 
 ## Amendment, 2026-09-22
 
-Relocation stopped leaving aliases before any release shipped them (see the amendment to ADR 0014),
-so `catalog_resource_aliases` and every polymorphic lookup listed under "What the registry's copy
-buys" are gone. The decision stands for a narrower reason: the registry is where
+Relocation stopped leaving aliases before any release shipped them
+([ADR 0025](0025-relocation-without-aliases.md)), so `catalog_resource_aliases` and every
+polymorphic lookup listed under "What the registry's copy buys" are gone. The decision stands for a narrower reason: the registry is where
 `sync_catalog_resource_identity` allocates each resource's `resource_id`, holds that identity unique
 across all seven types, and lets a snapshot restore plant recorded identities before the import
 that re-creates their resources. The address copy is still a denormalisation kept in step by the

@@ -2,7 +2,8 @@
 type: feat
 scopes: [exchange, catalog, ui]
 audience: user
+maturity: alpha
 title: Browse Epistola Exchange and install catalogs from it.
 ---
 
-A page beside Subscribe and Import ZIP, because installing from Exchange is another way to get a catalog rather than a separate part of the product: search, pick a version, install. The dialog says what a reader needs before deciding — that the catalog arrives as a read-only mirror, that a failed resource abandons the whole install rather than leaving it half done, and that the catalog ID is already taken, if it is. Only releases this tenant can actually install are offered. An installed catalog records where it came from and links back to its Exchange listing, and a newer release upstream is noticed without anyone opening the catalogs page — the update is visible from any page.
+A page beside Subscribe and Import ZIP: search, pick a version, install. The dialog says what matters before deciding — the catalog arrives as a read-only mirror, a failed resource abandons the whole install, and whether the catalog ID is already taken. Only releases this tenant can install are offered. An installed catalog links back to its Exchange listing, and a newer release is noticed in the background and shown from any page. An upgrade installs the new release as a whole, so a resource the publisher moved or removed disappears, under the usual in-use checks, rather than following it to its new catalog. Alpha, off by default: it needs `epistola.exchange.enabled`, the `catalog-installing` toggle and a connection to Exchange.

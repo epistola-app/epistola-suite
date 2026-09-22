@@ -2,7 +2,9 @@
 
 > **Status:** Alpha, off by default. The inbound half of the Exchange integration — browsing a
 > registry and installing what it publishes. The outbound half (publishing releases _to_ Exchange)
-> is [catalog-exchange-publication.md](catalog-exchange-publication.md).
+> is [catalog-exchange-publication.md](catalog-exchange-publication.md). A subscriber does not
+> follow a publisher's resource moves; [ADR 0025](adr/0025-relocation-without-aliases.md) sets out
+> where installation is going.
 
 A catalog installed from Epistola Exchange is an ordinary **subscribed** catalog: a read-only mirror
 of somebody else's content, kept up to date deliberately rather than automatically. What Exchange

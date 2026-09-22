@@ -1,7 +1,8 @@
 # Catalog resource relocation
 
 > **Status:** Alpha, off by default, behind the `resource-relocation` toggle. The resource graph's
-> hand-off to it also needs `resource-graph`.
+> hand-off to it also needs `resource-graph`. A crude move by decision:
+> [ADR 0025](adr/0025-relocation-without-aliases.md) records why, and where relocation goes next.
 
 Catalog resource relocation is an experimental, tenant-local operation for moving an authored
 resource to another authored catalog, renaming its key, or both. It is a **crude move**: the
@@ -57,7 +58,9 @@ Does not follow the move, and fails once it has happened:
   resource: export validates the content it carries and refuses. Reopening each such template,
   pointing its draft at the new address and publishing it makes the catalog exportable again.
 - **External callers**: UI pages, REST and MCP answer for the address a resource occupies now; an
-  old one is "not found". Bookmarks and integrations have to be updated.
+  old one is "not found". Bookmarks and integrations have to be updated. One known exception: a
+  stencil's page looks the stencil up by key alone, ignoring the catalog in its URL (as in 1.1.0),
+  so a moved stencil still answers at its old page address.
 - **Queued generation**: a request records the address it was made against. One queued before its
   template moved fails when it is processed.
 - **Reuse of the old address**: it is free at once. Creating a resource there succeeds, and
@@ -136,9 +139,9 @@ written before it existed resolve through their recorded address instead.
   operations are intentionally deferred until the command contract and authorization model have
   settled.
 
-The direction beyond this alpha — immutable published artifacts, so that a move can never break
-published work — is being worked out separately; until then, a move is only as safe as the
-operator's knowledge of what uses the resource.
+The direction beyond this alpha — published content that retains its own inputs, so that a move can
+never break published work — is set out in [ADR 0025](adr/0025-relocation-without-aliases.md);
+until it lands, a move is only as safe as the operator's knowledge of what uses the resource.
 
 This operation cannot be demonstrated by adding static content to the bundled demo catalog: the
 feature is a state transition between two tenant-owned catalogs. Its representative scenario lives

@@ -1,19 +1,28 @@
 # ADR 0014: Safe relocation of authored catalog resources
 
-- **Status:** Accepted — aliases withdrawn before release (see the amendment below)
+- **Status:** Accepted — superseded in part by [ADR 0025](0025-relocation-without-aliases.md)
 - **Date:** 2026-08-26
 - **Discussants:** Epistola team
 - **Tags:** catalog, resources, references, relocation, versioning
 
-> **Amendment, 2026-09-22.** The alias half of this decision did not ship. Keeping old addresses
-> resolving — aliases, their reservation, write-time canonicalisation, export materialisation and
-> redirects — proved the wrong foundation: it could not make published work safe across moves,
-> releases and installations, and it kept growing. Before any release carried it, relocation became
-> a crude move: identity and typed foreign keys stay, editable references are rewritten, and
-> nothing is left at the old address. What that breaks is described in
-> [`catalog-resource-relocation.md`](../catalog-resource-relocation.md). Making published work
-> independent of addresses is being designed separately. The rest of this record is kept as it was
-> decided.
+> **Amendment, 2026-09-22 — the alias half is withdrawn.** [ADR 0025](0025-relocation-without-aliases.md)
+> records why: aliases are tenant-local, spread to every surface that takes an address, and do not
+> protect published work from the changes other than a move. They were removed before any release
+> carried them, and relocation ships as a crude alpha move that leaves nothing at the old address.
+>
+> **No longer holds:** Option E's aliases; _Alias semantics_; the alias branch of _Central address
+> resolution_ (there is no `ResourceAddressResolver` and no `resolvedViaAlias`); reservation of a
+> vacated address and its explicit release; canonicalising drafts and exports through aliases in
+> _Published catalogs and portability_; the invariants that every reference keeps resolving to the
+> same resource and that old immutable versions work through aliases; delivery steps 5, 7, 8 and
+> the alias parts of 11 and 14; and the consequences that an old address stays reserved and that
+> aliases are the ordinary way a published reference survives a move.
+>
+> **Still holds:** stable identity through the shared registry (_Resource identity_, option E2) and
+> identity foreign keys; qualifying references on write and pinning relative references inside a
+> moving resource's own versions; typed rewrites of mutable content; the dependency-cycle guard;
+> previewed, fingerprinted, all-or-nothing execution; and the permission boundary. The rest of this
+> record is kept as it was decided.
 
 ## Context
 
