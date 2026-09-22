@@ -187,8 +187,8 @@ class FeedbackScreenshotUiTest : BasePlaywrightTest() {
             assertThat(title).isVisible()
             assertThat(closeButton).isVisible()
 
-            val titleBox = title.boundingBox()
-            val buttonBox = closeButton.boundingBox()
+            val titleBox = requireNotNull(title.boundingBox())
+            val buttonBox = requireNotNull(closeButton.boundingBox())
             assert(buttonBox.x > titleBox.x + titleBox.width) {
                 "Close button should be positioned to the right of the title"
             }
