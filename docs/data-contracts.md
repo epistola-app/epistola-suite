@@ -164,7 +164,8 @@ A field's JSON Schema `default` stands in for the field when data leaves it out.
 edits it for scalar fields through **Default value**; any other field can carry one in JSON mode.
 
 Generating a document, previewing one, and the REST data-validation endpoint fill in defaults
-before validating, so a required field with a default may be omitted by the caller. The fallback
+before validating, so a required field with a default may be omitted by the caller. The template
+editor shows the same values in its expressions while an example leaves the field out. The fallback
 is deliberately narrow:
 
 - only an absent key is filled — an explicit `null` is kept, and validated as sent;

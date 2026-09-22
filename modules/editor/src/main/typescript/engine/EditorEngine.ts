@@ -18,6 +18,8 @@ import type {
   Node,
 } from '../types/index.js';
 import { type FieldPath, extractFieldPaths } from './schema-paths.js';
+import { applySchemaDefaults } from '../data-contract/examples/example-generation.js';
+import type { JsonObject, JsonSchema } from '../data-contract/types.js';
 import { SYSTEM_PARAMETER_PATHS, SYSTEM_PARAM_MOCK_DATA } from './system-params.js';
 import type { StyleRegistry } from '@epistola.app/epistola-catalog';
 import { type DocumentIndexes, buildIndexes } from './indexes.js';
@@ -44,6 +46,9 @@ import {
   resolvePresetStyles,
 } from './styles.js';
 
+/** Shared, so the contract-defaults cache also holds while no example is set. */
+const NO_EXAMPLE_DATA: Record<string, unknown> = Object.freeze({});
+
 // ---------------------------------------------------------------------------
 // Engine
 // ---------------------------------------------------------------------------
@@ -65,6 +70,7 @@ export class EditorEngine {
   private _dataExamples: object[] | undefined;
   private _currentExampleIndex: number = 0;
   private _fieldPathsCache: FieldPath[] | undefined;
+  private _contractDefaultsCache: { source: object; filled: Record<string, unknown> } | undefined;
   private _dataSchemaRoot: SchemaCursor | undefined;
 
   /**
@@ -226,9 +232,11 @@ export class EditorEngine {
    * Get the current example's data, unwrapping the backend DataExample wrapper
    * format `{ id, name, data: {...} }` if present.
    *
-   * Always includes system parameter mock data (e.g., `sys.pages.current`)
-   * for expression preview in the editor. When no example data is set,
-   * returns just the system mock data.
+   * A property the example leaves out is filled from the data contract's
+   * `default`, as preview and generation fill it, so the canvas shows what the
+   * document will. Always includes system parameter mock data (e.g.,
+   * `sys.pages.current`) for expression preview in the editor. When no example
+   * data is set, returns just the defaults and the system mock data.
    */
   getExampleData(): Record<string, unknown> {
     const example = this.currentExample as Record<string, unknown> | undefined;
@@ -236,8 +244,25 @@ export class EditorEngine {
       ? typeof example.id === 'string' && typeof example.data === 'object' && example.data !== null
         ? (example.data as Record<string, unknown>)
         : example
-      : {};
-    return { ...data, ...SYSTEM_PARAM_MOCK_DATA };
+      : NO_EXAMPLE_DATA;
+    return { ...this._withContractDefaults(data), ...SYSTEM_PARAM_MOCK_DATA };
+  }
+
+  /**
+   * Cached per example object: the examples and the contract are fixed for the
+   * engine's lifetime, and every expression chip asks on each refresh.
+   */
+  private _withContractDefaults(data: Record<string, unknown>): Record<string, unknown> {
+    if (!this._dataModel) return data;
+    if (this._contractDefaultsCache?.source !== data) {
+      this._contractDefaultsCache = {
+        source: data,
+        filled: applySchemaDefaults(this._dataModel as JsonSchema, data as JsonObject, {
+          includeOptional: true,
+        }),
+      };
+    }
+    return this._contractDefaultsCache.filled;
   }
 
   /**

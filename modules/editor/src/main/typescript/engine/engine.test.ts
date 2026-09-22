@@ -2506,6 +2506,37 @@ describe('getExampleData', () => {
     expect(result.amount).toBe(42);
     expect(result.sys).toEqual(SYSTEM_PARAM_MOCK_DATA.sys);
   });
+
+  const defaultsModel = {
+    type: 'object',
+    required: ['test'],
+    properties: {
+      test: { type: 'string', default: 'tests abc' },
+      field1: { type: 'string', format: 'date-time' },
+      field2: { type: 'string', default: 'testss' },
+    },
+  };
+
+  it("fills a field the example leaves out from the contract's default, as preview does", () => {
+    const engine = new EditorEngine(createTestDocument(), testRegistry(), {
+      dataModel: defaultsModel,
+      dataExamples: [{ id: 'ex1', name: 'Example 1', data: {} }],
+    });
+
+    const result = engine.getExampleData();
+    expect(result.test).toBe('tests abc');
+    expect(result.field2).toBe('testss');
+    expect(result).not.toHaveProperty('field1');
+  });
+
+  it('keeps a value the example provides over its default', () => {
+    const engine = new EditorEngine(createTestDocument(), testRegistry(), {
+      dataModel: defaultsModel,
+      dataExamples: [{ id: 'ex1', name: 'Example 1', data: { field2: 'provided' } }],
+    });
+
+    expect(engine.getExampleData().field2).toBe('provided');
+  });
 });
 
 // ---------------------------------------------------------------------------

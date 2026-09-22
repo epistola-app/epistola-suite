@@ -141,3 +141,36 @@ describe('EpistolaTextEditor expression scope callbacks', () => {
     dialog.close(null);
   });
 });
+
+describe('EpistolaTextEditor expression chips and contract defaults', () => {
+  it("shows a field's contract default when the example leaves it out", async () => {
+    const content = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'expression', attrs: { expression: 'field2' } }] },
+      ],
+    };
+    const doc = initialDocument();
+    doc.nodes['initial-text' as NodeId] = {
+      ...doc.nodes['initial-text' as NodeId],
+      props: { content },
+    };
+    const engine = new EditorEngine(doc, createDefaultRegistry(), {
+      dataModel: {
+        type: 'object',
+        properties: { field2: { type: 'string', default: 'testss' } },
+      },
+      dataExamples: [{ id: 'ex1', name: 'Example 1', data: {} }],
+    });
+    const editor = new EpistolaTextEditor();
+    editor.engine = engine;
+    editor.nodeId = 'initial-text' as NodeId;
+    editor.content = content;
+    document.body.appendChild(editor);
+    await editor.updateComplete;
+
+    const chip = editor.querySelector<HTMLElement>('.expression-chip')!;
+    await vi.waitFor(() => expect(chip.classList.contains('is-raw')).toBe(false));
+    expect(chip.textContent).toContain('testss');
+  });
+});
