@@ -103,6 +103,65 @@ proposed below is adopted, which reorders the goals.
    Letting drafts use B's working copy and pinning only at publication was rejected: the preview
    would show content the pinned release does not have.
 
+### Decided in review (2026-09-22)
+
+These settle points that the first draft of the proposal left open.
+
+- **Code lists keep their values in the release.** A URL-sourced list refreshed after a release
+  changes only the working copy; consumers see new values after the next release and an explicit
+  bump. Inside its own catalog a refresh stays live. The catalog page should say when a source has
+  changed since the last release.
+- **Stencil versions stay, for internal use.** Within a catalog an insertion pins a stencil version
+  as today. Across catalogs the release is the pin: `B@1.0.1` contains exactly one version of each
+  stencil — its latest published one at release time — and the stencil's own number remains as
+  provenance. A consumer that wants an earlier stencil pins an earlier release.
+- **Every render-time input is classified.** Each input is either captured in the artifact
+  (template settings such as PDF/A, and everything the version references) or is explicit context
+  recorded with the generated document (request data, culture). Today PDF/A comes from the live
+  template row, culture from the tenant default, and the catalog fonts resolve in from the
+  template's current theme binding; those are the gaps to close. Rendering the same artifact with
+  the same context must give the same document.
+- **Dependencies are declared with a mode, resolved exactly.** `B@1.0.1` pins a release;
+  `B@latest` follows the release currently installed or selected, for subscribed catalogs;
+  `B@working` follows a live working copy, for authored catalogs in the same tenant. Drafts follow
+  the mode, so local authoring stays direct. Publishing a template version captures the inputs it
+  actually used, whatever the mode. Releasing a catalog requires every dependency to resolve to an
+  exact release and records it, so `@working` blocks a release until the dependency is released.
+- **Retention follows reachability, with a policy for letting go.** Content stays while any
+  published artifact or pinned release needs it, even after the resource is deleted from the
+  working copy, so the content sweep has to reach through artifacts and releases rather than live
+  rows alone. A discard policy decides when an archived version that no environment runs stops
+  keeping its inputs alive, and the UI explains why something cannot be purged.
+- **A release may only depend on releases its installer can obtain.** Publishing A to Exchange
+  requires B's pinned release to be available there, which Exchange can check on submission.
+  Dependencies are named by origin (registry, namespace, catalog), never by a tenant-local key.
+  Installing A installs or requires its dependencies first. Purely local use needs none of this.
+- **A withdrawn release has a severity.**
+
+  | Status       | Existing installs and published work                                                                                                       | New pins, bumps and publications |
+  | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
+  | `deprecated` | keep working; a newer release is offered                                                                                                   | allowed, with a notice           |
+  | `recalled`   | keep rendering, with a prominent warning naming affected templates and environments                                                        | blocked                          |
+  | `revoked`    | rendering of artifacts containing it is blocked by default; an incident page lists what is affected and an admin can override deliberately | blocked                          |
+
+  The status travels on the existing upstream check, and the dependency graph produces the affected
+  list. A retained copy is kept even when revoked, so the decision stays reversible.
+
+### Spun off as their own design topics
+
+- **Style presets.** Presets mix a vocabulary (`heading-1`, `callout`) with its values, and both
+  live in a theme today, so a stencil from another catalog names roles the host theme may not have.
+  The direction to explore: presets become a catalog resource — a vocabulary with default values,
+  referenced and pinned like any other cross-catalog dependency — and a theme only overrides those
+  values, with the vocabulary's default as the fallback. The `system` catalog would ship a standard
+  vocabulary so shared stencils work in any theme.
+- **Backup and restore.** Once nearly everything is an immutable, content-addressed object
+  (resource revisions, release manifests, artifacts, binaries) with a small mutable remainder
+  (working copies, pins, deployments, settings), a backup is "copy new objects, then the refs":
+  append-only, incremental and deduplicated by construction. That may replace both today's
+  table-dump tenant backup and the catalog-export snapshot, and should be designed as a whole
+  rather than retrofitted.
+
 ### Enforcement
 
 - The editor's theme, font, image, stencil and code-list pickers offer the catalog's own resources
