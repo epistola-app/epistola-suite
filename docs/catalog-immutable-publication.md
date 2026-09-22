@@ -28,7 +28,90 @@ alias retirement in Goal 8 — has nothing left to act on and is trimmed below. 
 leave behind in the meantime is new: published versions naming an address nothing occupies, which
 Goal 3 must report as missing rather than guess.
 
-Next: stage 1C, the first artifact schema slice, together with Goal 2.
+Next: stage 1C, the first artifact schema slice, together with Goal 2 — unless the dependency model
+proposed below is adopted, which reorders the goals.
+
+## Proposed: cross-catalog references pin a released catalog
+
+> **Under discussion (2026-09-22).** Not accepted yet; recorded so it can be reviewed with the rest
+> of the plan. If adopted, it changes the order of the goals below and needs its own ADR.
+
+### The rule
+
+- **Within a catalog, references are live.** A catalog's resources are edited together and
+  released together, so a template may use the working copy of a theme, font, image, stencil, code
+  list or attribute in its own catalog.
+- **Across catalogs, references only reach a released catalog.** Catalog A declares B as a
+  dependency at an exact release — A depends on `B@1.0.1` — and every reference from A into B
+  resolves in that release: `stencil header@B#1.0.1`, never B's working copy. The rule is the same
+  for every resource type.
+- **One pin per consuming catalog**, not one per reference: A uses one version of B. A published
+  artifact still records the exact release each of its inputs came from.
+- **The catalog release version is the version of every resource type.** Themes, fonts, images,
+  code lists and attributes have no versions of their own; the release they are in is their version.
+- A local release of an authored catalog, an installed release of a subscribed catalog and the
+  bundled `system` catalog are all "a release of B".
+
+### What it buys
+
+- **Changes to B cannot reach A.** Editing, moving or deleting something in B's working copy only
+  shapes B's next release. A keeps `B@1.0.1` until its author bumps the pin, which is an explicit,
+  previewable change.
+- **Moving between catalogs needs no aliases.** A resource that leaves B is absent from B's next
+  release, and everything pinned to an earlier release is untouched. Within one catalog, a move or
+  rename rewrites live references by identity.
+- **No dependency cycles.** A release can only pin releases that already exist.
+- **Exact installation.** "A@2.0.0 needs B@1.0.1" is checkable at publication and installation;
+  today a wire dependency is only `(catalogKey, slug)`.
+- **It complements self-contained artifacts.** The pin says what A depends on; retained releases say
+  where the bytes are. Because `B@1.0.1` is immutable and retained, an artifact can reference its
+  content rather than copying it, and rendering still never reads a working copy.
+
+### Consequences for the plan
+
+- **Retained releases become the foundation.** Today `catalog_releases` stores a version, a
+  fingerprint and a manifest snapshot, not the release's resources or binaries, so a pin would have
+  nothing to point at. Goal 4's retention moves first.
+- Proposed order: (1) retained releases; (2) release-pinned cross-catalog dependencies, with picker
+  and validation changes and a migration for existing references; (3) sealed template versions,
+  whose same-catalog inputs are captured at publication and whose cross-catalog inputs point into
+  pinned releases; (4) environments that select artifacts, and identity-based moves within a
+  catalog.
+- **Wire format.** A dependency becomes `{catalog, origin, version}`, which is `epistola-contract`
+  work.
+
+### Where today's model conflicts
+
+1. **Relational links across catalogs.** A template's theme binding
+   (`document_templates.theme_resource_id`), an attribute's code-list binding
+   (`variant_attribute_definitions.code_list_resource_id`) and the tenant default theme
+   (`tenants.default_theme_resource_id`) are foreign keys to live rows in any catalog of the tenant.
+   Across catalogs they would become references to a resource as it is in a pinned release.
+2. **Unqualified image references** resolve by key across the whole tenant — an implicit
+   cross-catalog reference that would have to become explicit.
+3. **The tenant default theme** is tenant configuration, not catalog content. Proposed: relying on
+   it is not a catalog dependency; a published version freezes the default that applied, and an
+   exported catalog falls back to the installer's default, as today.
+4. **The `system` catalog** becomes an ordinary pinned dependency. A Suite upgrade that ships a new
+   system release does not move existing pins; old system releases must be retained, and adopting
+   the new one is an explicit bump.
+5. **Existing data.** Cross-catalog references today point at live resources, often in catalogs
+   that were never released. The upgrade needs a per-catalog path — release B, pin A to it — and a
+   report of what could not be pinned.
+6. **Authoring friction.** Using a new shared resource means releasing B first, so a local release
+   must be cheap (one action, an automatic patch version) and separate from publishing to Exchange.
+   Letting drafts use B's working copy and pinning only at publication was rejected: the preview
+   would show content the pinned release does not have.
+
+### Enforcement
+
+- The editor's theme, font, image, stencil and code-list pickers offer the catalog's own resources
+  plus the released resources of its declared dependencies.
+- Adding a dependency is an explicit choice of catalog and release. Bumping one previews what
+  changes for the consuming catalog: resources removed, renamed or changed.
+- Saving, publishing and releasing reject a cross-catalog reference to a catalog that is not a
+  pinned dependency. `ResourceReferenceSites` already enumerates every reference site, so the check
+  has a natural home.
 
 ## 1. Decision and intended outcome
 
@@ -608,6 +691,8 @@ their dependent goal, not used to stall initial cleanup:
    verified historical capture from capture of the only currently available state.
 8. **Deployment scope:** preserve per-template/per-variant activation initially; decide separately
    whether users need an atomic deployment of several templates as a bundle.
+9. **Cross-catalog dependency model:** whether cross-catalog references pin a released catalog, as
+   proposed above, and how its six conflicts are resolved.
 
 ## 16. What this plan deliberately avoids
 
