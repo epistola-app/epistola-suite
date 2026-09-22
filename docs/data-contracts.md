@@ -97,7 +97,7 @@ capabilities:
 | Nullable type unions                                                                      | Yes                                   | JSON-only                | Yes                          | Non-null fields are exposed |
 | `enum` and `const`                                                                        | Yes                                   | JSON-only                | Used by Autofill             | Scalar field is exposed     |
 | `default` on a scalar field                                                               | Yes                                   | Yes                      | Used by Autofill             | Scalar field is exposed     |
-| `default` on an array or object field                                                     | Yes                                   | JSON-only                | Used by Autofill             | Scalar field is exposed     |
+| `default` on an array or object field                                                     | Yes                                   | JSON-only                | Used by Autofill             | Yes                         |
 | Recursive local references                                                                | When valid in the declared dialect    | JSON-only                | Recursion is bounded         | Exposed as a safe leaf      |
 | Unresolved local references                                                               | Must resolve for data validation      | JSON-only                | Not expanded                 | Exposed as a safe leaf      |
 | Registered Epistola rich-text references                                                  | Yes                                   | Yes                      | Yes                          | Yes                         |
@@ -158,6 +158,28 @@ nested property levels, and recursive or unresolved references stop at a safe le
 Field suggestions are an authoring aid. Expressions can still perform JSONata or JavaScript logic
 that is more complex than the Builder can represent.
 
+## Default values
+
+A field's JSON Schema `default` stands in for the field when data leaves it out. The visual editor
+edits it for scalar fields through **Default value**; any other field can carry one in JSON mode.
+
+Generating a document, previewing one, and the REST data-validation endpoint fill in defaults
+before validating, so a required field with a default may be omitted by the caller. The fallback
+is deliberately narrow:
+
+- only an absent key is filled — an explicit `null` is kept, and validated as sent;
+- optional fields with a default are filled too, not only required ones;
+- nested objects are filled when the data contains them, or when the object itself has a default;
+- defaults inside array items, behind a `$ref`, or inside `allOf`, `oneOf`, or `anyOf` are not
+  applied.
+
+Test data examples are validated with the same fallback. A new example starts with each required
+field's default filled in; optional fields are left for **Autofill**.
+
+For compatibility, a field callers may omit — optional, or required with a default — is safe to
+depend on. Adding a required field with a default, or making a field with a default required, is
+not a breaking change. Removing the default from a required field is.
+
 ## Validation and publishing
 
 On save and publish, Epistola checks that:
@@ -165,8 +187,10 @@ On save and publish, Epistola checks that:
 1. the schema is valid for its declared dialect and has an object-shaped root;
 2. property names meet Epistola's naming rules;
 3. every array's `maxItems`, when set alongside `minItems`, is not less than it;
-4. at least one test data example exists;
-5. every example validates against the schema.
+4. every `default` is valid for the schema at its location, resolving local references against the
+   whole contract (a default beside a reference that does not resolve is not checked);
+5. at least one test data example exists;
+6. every example validates against the schema, after defaults are filled in.
 
 Validation errors identify the example and failing JSON paths. The normal save flow blocks invalid
 examples. If **Save anyway** is offered after a validation failure, it can preserve the inconsistent

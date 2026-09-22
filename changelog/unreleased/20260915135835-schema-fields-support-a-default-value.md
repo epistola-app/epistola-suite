@@ -6,11 +6,11 @@ issues: [836]
 title: Schema fields support a `default` value.
 ---
 
-The Schema Definition form has a "Default value" control for scalar fields (string, number,
-integer, boolean, date, date-time), type-aware and validated against the field's own format and
-range, both client- and server-side. Imported schemas using `default` are now represented in the
-visual editor instead of falling back to read-only JSON mode; a `default` on an array or object
-field still round-trips but stays JSON-only. Generating or previewing a document now falls back to
-a field's `default` when the caller omits it, instead of failing validation or rendering a gap. A
-new data example starts pre-filled with each _required_ field's default; an optional field is left
-for the separate "Generate example data" action, which fills it with a representative value.
+The Schema Definition form has a **Default value** control for scalar fields, checked against the
+field's type, format and range; schemas that already use `default` now open in the visual editor
+instead of read-only JSON mode. Generation, preview and data validation fill in a field's default
+when the data leaves it out, and data examples are validated the same way, so a required field with
+a default is not a breaking change — removing that default is. Two effects on existing contracts: one
+that already declared a `default` now renders it where the field used to be left blank, and a
+`default` that does not match its own schema, accepted until now, is rejected on save, publish and
+catalog import. The editor also checks examples against `minimum` and `maximum` before saving.
