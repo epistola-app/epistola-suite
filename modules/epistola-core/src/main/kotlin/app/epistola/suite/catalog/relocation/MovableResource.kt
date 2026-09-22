@@ -6,6 +6,13 @@ package app.epistola.suite.catalog.relocation
 
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ReferenceSiteKind
+import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.CodeListKey
+import app.epistola.suite.common.ids.FontKey
+import app.epistola.suite.common.ids.StencilKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.ThemeKey
 
 /**
  * The resource types relocation supports, and what moving one touches.
@@ -26,6 +33,13 @@ enum class MovableResource(
     val keyColumn: String,
     /** Content reference kinds that target this type and must be re-pointed at the destination. */
     val contentReferenceKinds: Set<ReferenceSiteKind>,
+    /**
+     * Why a key cannot be held by this type, or null when it can -- the same rule its create command
+     * enforces through the key's value class, with that class's own message. A relocation that
+     * changes the key is checked against it in the preview, so an unusable key is a blocker rather
+     * than a database error after approval.
+     */
+    val keyProblem: (String) -> String?,
     /**
      * SQL type to cast the target key to, when [keyColumn] is not string-backed.
      *
@@ -57,6 +71,7 @@ enum class MovableResource(
         "stencils",
         "id",
         setOf(ReferenceSiteKind.STENCIL_INSERTION),
+        { runCatching { StencilKey.of(it) }.exceptionOrNull()?.message },
     ),
 
     /**
@@ -70,6 +85,7 @@ enum class MovableResource(
         "variant_attribute_definitions",
         "id",
         emptySet(),
+        { runCatching { AttributeKey.of(it) }.exceptionOrNull()?.message },
     ),
 
     /**
@@ -87,6 +103,7 @@ enum class MovableResource(
         "document_templates",
         "id",
         emptySet(),
+        { runCatching { TemplateKey.of(it) }.exceptionOrNull()?.message },
     ),
 
     /**
@@ -101,6 +118,7 @@ enum class MovableResource(
         "code_lists",
         "slug",
         emptySet(),
+        { runCatching { CodeListKey.of(it) }.exceptionOrNull()?.message },
     ),
 
     /**
@@ -118,7 +136,8 @@ enum class MovableResource(
         "assets",
         "id",
         emptySet(),
-        // assets.id is the UUID-backed ASSET_KEY domain, unlike every other key here.
+        { runCatching { AssetKey.of(it) }.exceptionOrNull()?.message },
+        // Harmless since V20260911103003 made ASSET_KEY varchar-backed; it was a UUID domain before.
         keyColumnType = "ASSET_KEY",
         renameable = false,
     ),
@@ -137,6 +156,7 @@ enum class MovableResource(
         "fonts",
         "slug",
         setOf(ReferenceSiteKind.FONT_FAMILY),
+        { runCatching { FontKey.of(it) }.exceptionOrNull()?.message },
     ),
 
     /**
@@ -155,6 +175,7 @@ enum class MovableResource(
         "themes",
         "id",
         setOf(ReferenceSiteKind.THEME_OVERRIDE),
+        { runCatching { ThemeKey.of(it) }.exceptionOrNull()?.message },
     ),
     ;
 

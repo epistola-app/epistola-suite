@@ -758,13 +758,13 @@ export class ResourceGraphExplorer extends LitElement {
    */
   private renderMoveResource() {
     const focus = this.graph?.focus;
+    // Every resource type is movable, so there is no type to leave out.
     if (this.relocationEnabled !== 'true' || !focus) return nothing;
-    const movableTypes = ['stencil', 'attribute', 'template'];
-    if (!movableTypes.includes(focus.type)) return nothing;
 
+    // Organise reads the deep link in the address form `<type>:<catalog>/<key>`.
     const organiseUrl = this.baseUrl.replace(
       /\/resource-graph$/,
-      `/catalogs/organise?resource=${encodeURIComponent(`${focus.type}:${focus.catalogKey}:${focus.key}`)}`,
+      `/catalogs/organise?resource=${encodeURIComponent(`${focus.type}:${focus.catalogKey}/${focus.key}`)}`,
     );
     return html`<h3>Move resource <span class="badge">Alpha</span></h3>
       <p>

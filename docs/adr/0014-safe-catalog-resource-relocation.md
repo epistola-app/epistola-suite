@@ -517,6 +517,18 @@ release fingerprints for every subscriber) and leaving the blocker (measurably s
 content). Option F's `target` does not remove the need — it is populated on write, so old payloads
 would need the same pass.
 
+**Extended 2026-09-21: theme snapshots.** A published template version freezes its theme into
+`resolved_theme`. A font that theme named without a catalog was frozen relatively and resolved at
+render against the catalog of the template's bound theme (or the tenant's default theme), which
+follows the theme when it moves -- so every such published version failed its font integrity check
+after the theme moved. The pin now also covers those snapshots: when a theme changes catalog, the
+relative fonts in the snapshots resolving through it are pinned to the catalog they resolve against
+today, and their integrity pins rekeyed. These are bytes of _other_ resources' published versions,
+but only their theme snapshot -- never their template model, and not exported. Publishes now freeze
+the catalog, so the set of snapshots needing this does not grow. Alternatives considered: blocking
+the move (strands the theme until every dependent template is republished) and qualifying new
+publishes only (leaves every existing version broken by a move).
+
 ### Published templates and dependency semantics
 
 A move does not edit a published or archived template version. For a historical template that

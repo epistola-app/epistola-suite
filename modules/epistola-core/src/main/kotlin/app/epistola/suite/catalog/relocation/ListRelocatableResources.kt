@@ -41,6 +41,8 @@ data class ListRelocatableResources(
     override val tenantKey: TenantKey,
     val search: String? = null,
     val limit: Int = 50,
+    /** Restricts the listing to these resources, e.g. the ones a deep link names; empty lists all. */
+    val addresses: Set<ResourceAddress> = emptySet(),
 ) : Query<List<RelocatableResource>>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW
@@ -96,6 +98,7 @@ class ListRelocatableResourcesHandler(
             ) resources
             WHERE resource_type IN (<types>)
               AND (:search IS NULL OR resource_name ILIKE :search OR resource_key ILIKE :search)
+              AND (:anyAddress OR resource_type || ':' || catalog_key || '/' || resource_key IN (<addresses>))
             ORDER BY catalog_name, resource_type, resource_name
             LIMIT :limit
             """,
@@ -104,6 +107,9 @@ class ListRelocatableResourcesHandler(
             .bindList("types", types)
             .bind("search", query.search?.takeIf { it.isNotBlank() }?.let { "%$it%" })
             .bind("limit", query.limit.coerceIn(1, 200))
+            .bind("anyAddress", query.addresses.isEmpty())
+            // A list binding cannot be empty; the placeholder never matches and is ignored anyway.
+            .bindList("addresses", query.addresses.map { it.id }.ifEmpty { listOf("") })
             .map { rs, _ ->
                 RelocatableResource(
                     address = ResourceAddress(

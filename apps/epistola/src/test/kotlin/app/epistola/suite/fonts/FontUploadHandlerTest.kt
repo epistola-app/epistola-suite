@@ -6,10 +6,17 @@ package app.epistola.suite.fonts
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.assets.queries.ListAssets
+import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.graph.CatalogResourceType
+import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.relocation.MoveCatalogResources
+import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
+import app.epistola.suite.catalog.relocation.movedTo
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.fonts.queries.ListFonts
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import org.assertj.core.api.Assertions.assertThat
@@ -212,6 +219,60 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
                 ListFonts(tenantId = tenantId, catalogKey = CatalogKey.of("system")).query()
             }
             assertThat(fonts.map { it.slug.value }).doesNotContain("rogue-sans")
+        }
+    }
+
+    /**
+     * A family that moved away still answers to its old address: published documents naming that
+     * address render with it. Uploading a new family there would silently hand those documents a
+     * different typeface, so the form refuses it on the slug -- and before any face is stored.
+     */
+    @Test
+    fun `upload at an address a moved family still answers to is refused`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Font Reserved Slug Tenant")
+            withMediator { CreateCatalog(testTenant.id, CatalogKey.of("shared"), "Shared").execute() }
+        }
+
+        whenever {
+            fun upload(name: String) = restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/fonts",
+                HttpEntity(
+                    LinkedMultiValueMap<String, Any>().apply {
+                        add("slug", "acme-sans")
+                        add("name", name)
+                        add("kind", "sans")
+                        add("catalog", "default")
+                        add("file", facePart("acme-sans-regular.ttf"))
+                        add("weight", "400")
+                        add("italic", "false")
+                    },
+                    multipartHeaders(),
+                ),
+                String::class.java,
+            )
+            assertThat(upload("Acme Sans").statusCode).isEqualTo(HttpStatus.OK)
+            withMediator {
+                val relocation = ResourceAddress(CatalogResourceType.FONT, "default", "acme-sans").movedTo(CatalogKey.of("shared"))
+                val plan = PreviewCatalogResourceMove(testTenant.id, listOf(relocation)).query()
+                MoveCatalogResources(testTenant.id, listOf(relocation), plan.planFingerprint).execute()
+            }
+            val assetsBefore = withMediator { ListAssets(tenantId = testTenant.id).query().size }
+            upload("Impostor Sans") to assetsBefore
+        }
+
+        then {
+            val (response, assetsBefore) = result<Pair<ResponseEntity<String>, Int>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            assertThat(response.body).contains("moved away from this address")
+            val tenantId = TenantId(testTenant.id)
+            assertThat(withMediator { ListFonts(tenantId = tenantId, catalogKey = CatalogKey.DEFAULT).query() }.map { it.slug.value })
+                .doesNotContain("acme-sans")
+            assertThat(withMediator { ListAssets(tenantId = testTenant.id).query().size })
+                .describedAs("a refused family stores no face binaries")
+                .isEqualTo(assetsBefore)
         }
     }
 

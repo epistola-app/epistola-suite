@@ -121,6 +121,34 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(response.body!!, "$.id")).isEqualTo(slug)
     }
 
+    /**
+     * The address a moved template left still answers for it, so creating a new template there is
+     * refused. Over REST that refusal must be a conflict an integration can act on, not a 500.
+     */
+    @Test
+    fun `creating a template at an address a moved template left is a conflict`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "moved-${randomSuffix()}"
+        withMediator {
+            CreateCatalog(tenantKey, CatalogKey.of("shared"), "Shared").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenantKey))), "Moved").execute()
+            val relocation = ResourceAddress(CatalogResourceType.TEMPLATE, CatalogKey.DEFAULT.value, slug).movedTo(CatalogKey.of("shared"))
+            val preview = PreviewCatalogResourceMove(tenantKey, listOf(relocation)).query()
+            MoveCatalogResources(tenantKey, listOf(relocation), preview.planFingerprint).execute()
+        }
+
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "Replacement"}""", baseHeaders(key)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(JsonPath.read<String>(response.body!!, "$.type")).isEqualTo(ApiProblemTypes.RESOURCE_ADDRESS_RESERVED.type.toString())
+        assertThat(JsonPath.read<String>(response.body!!, "$.address")).isEqualTo("template:default/$slug")
+    }
+
     @Test
     fun `create template with an under-privileged key returns 403 naming the missing permission`() {
         val (tenantKey, viewerKey) = seedTenantAndViewerKey()

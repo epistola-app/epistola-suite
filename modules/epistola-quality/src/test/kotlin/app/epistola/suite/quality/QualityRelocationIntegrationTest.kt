@@ -107,6 +107,63 @@ class QualityRelocationIntegrationTest : IntegrationTestBase() {
         assertThat(after.effectiveStatus).isEqualTo(EffectiveQualityStatus.IGNORED)
     }
 
+    /**
+     * The repoint matched the moved template's URN as a substring, so a template whose key merely
+     * starts with the moved one's -- `invoice` and `invoice-v2` -- could have its URNs carried off
+     * to the destination too. Reading findings back cannot show it (they are found by identity);
+     * the next sweep does, because it recomputes the unmoved template's URN and must still match
+     * its own finding and the author's ignore.
+     */
+    @Test
+    fun `moving a template leaves the findings of a template whose key starts the same alone`() {
+        val tenant = createTenant("Quality relocation prefix")
+        val tenantId = TenantId(tenant.id)
+        val sourceCatalog = CatalogKey.of("letters")
+        val targetCatalog = CatalogKey.of("shared")
+        val invoice = TemplateId(TemplateKey.of("invoice"), CatalogId(sourceCatalog, tenantId))
+        val invoiceV2 = TemplateId(TemplateKey.of("invoice-v2"), CatalogId(sourceCatalog, tenantId))
+
+        val (subject, neighbour) = withMediator {
+            CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
+            CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
+            listOf(invoice, invoiceV2).map { templateId ->
+                CreateDocumentTemplate(id = templateId, name = templateId.key.value).execute()
+                val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
+                CreateVariant(id = variantId, title = "Default", description = null).execute()
+                QualitySubject.of(variantId)
+            }
+        }
+        withMediator {
+            for (it in listOf(subject, neighbour)) {
+                SubmitQualityFindings(
+                    source,
+                    it,
+                    listOf(SubmittedFinding(ruleId = "example.rule", severity = QualitySeverity.WARNING, fingerprint = "fp-1", message = "something is off")),
+                ).execute()
+            }
+        }
+
+        val neighbourFinding = withMediator { findingsFor(neighbour) }.findings.single()
+        withMediator { IgnoreFinding(neighbour.tenantKey, neighbourFinding.key, "Intentional").execute() }
+
+        val address = ResourceAddress(CatalogResourceType.TEMPLATE, sourceCatalog.value, invoice.key.value)
+        val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog))).query() }
+        withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(targetCatalog)), preview.planFingerprint).execute() }
+
+        // The next sweep of the template that did not move.
+        withMediator {
+            SubmitQualityFindings(
+                source,
+                neighbour,
+                listOf(SubmittedFinding(ruleId = "example.rule", severity = QualitySeverity.WARNING, fingerprint = "fp-1", message = "something is off")),
+            ).execute()
+        }
+
+        val after = withMediator { findingsFor(neighbour) }.findings
+        assertThat(after).describedAs("still one finding for letters/invoice-v2").hasSize(1)
+        assertThat(after.single().effectiveStatus).isEqualTo(EffectiveQualityStatus.IGNORED)
+    }
+
     private fun findingsFor(subject: QualitySubject) = GetFindingsForSubject(
         tenantKey = subject.tenantKey,
         catalogKey = subject.catalogKey,

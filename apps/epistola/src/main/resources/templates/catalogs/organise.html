@@ -8,7 +8,7 @@
         whole selection moves together or not at all.
     </p>
     <ep-catalog-organise
-            th:attr="data-base-url=@{/tenants/{tenantId}/catalogs/organise(tenantId=${tenantId})},data-preselected=${preselected}">
+            th:attr="data-base-url=@{/tenants/{tenantId}/catalogs/organise(tenantId=${tenantId})},data-preselected=${preselected},data-can-apply=${canApply}">
         <div class="ep-panel" style="padding: var(--ep-space-6);">Loading resources…</div>
     </ep-catalog-organise>
 </th:block>

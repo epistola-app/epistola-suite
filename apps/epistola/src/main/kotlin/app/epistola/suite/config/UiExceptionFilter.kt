@@ -114,6 +114,9 @@ class UiExceptionFilter(
                 log.warn("Validation failed on UI request: {}", cause.message)
                 UiError(400, ApiProblemTypes.BAD_REQUEST, cause.message ?: "The request is invalid.")
             }
+            "CatalogResourceAddressReservedException" ->
+                // A create outside a dialog form, which folds this onto the slug field itself.
+                UiError(409, ApiProblemTypes.RESOURCE_ADDRESS_RESERVED, cause.message ?: "This address is reserved by a moved resource.")
             "CatalogReadOnlyException" -> {
                 log.warn("Catalog read-only: {}", cause.message)
                 UiError(403, ApiProblemTypes.CATALOG_READ_ONLY, cause.message ?: "This catalog is read-only.")

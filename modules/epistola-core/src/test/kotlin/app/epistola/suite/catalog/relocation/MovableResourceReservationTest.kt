@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.relocation
 
+import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
@@ -17,6 +18,7 @@ import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
+import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateId
@@ -24,17 +26,19 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.fonts.commands.CreateFontFamily
+import app.epistola.suite.fonts.commands.NewFontFace
+import app.epistola.suite.fonts.model.FontKind
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
-class MovableResourceReservationTest : IntegrationTestBase() {
+class MovableResourceReservationTest : RelocationTestSupport() {
     /**
      * `requireAddressAvailable` is shared, but each type's create command has to call it, and
      * nothing fails when the call is missed: no alias can exist for a type before it is movable.
@@ -54,14 +58,23 @@ class MovableResourceReservationTest : IntegrationTestBase() {
                 CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
             }
             // Address reservation only means something where a caller can choose the address a new
-            // resource lands on. Two types cannot, for different reasons, so they have nothing to
-            // reserve rather than a guard someone forgot:
-            //   ASSET — addresses carry a generated UUID, so a vacated one is never reissued.
-            //   FONT  — the only creation path is ImportFont, shared with catalog import, which has
-            //           to reproduce stored state faithfully rather than refuse a held address.
-            //           Reserving belongs on an authoring-only path, which does not exist yet.
+            // resource lands on. An image's key is minted by every authoring path; only catalog
+            // import passes one, and import reproduces stored state rather than refusing a held
+            // address. So images have nothing to reserve, rather than a guard someone forgot.
             val create: (() -> Unit)? = when (movable) {
-                MovableResource.ASSET, MovableResource.FONT -> null
+                MovableResource.ASSET -> null
+                MovableResource.FONT -> (
+                    {
+                        CreateFontFamily(
+                            TenantId(tenant.id),
+                            sourceCatalog,
+                            FontKey.of("moved"),
+                            "Moved",
+                            FontKind.SANS,
+                            listOf(NewFontFace(400, false, "moved-regular.ttf", AssetMediaType.TTF, ttfBytes())),
+                        ).execute()
+                    }
+                    )
                 MovableResource.STENCIL -> ({ CreateStencil(StencilId(StencilKey.of("moved"), sourceCatalogId), "Moved").execute() })
                 MovableResource.ATTRIBUTE -> ({ CreateAttributeDefinition(AttributeId(AttributeKey.of("moved"), sourceCatalogId), "Moved").execute() })
                 MovableResource.TEMPLATE -> ({ CreateDocumentTemplate(TemplateId(TemplateKey.of("moved"), sourceCatalogId), "Moved").execute() })

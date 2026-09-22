@@ -4,8 +4,10 @@
 
 package app.epistola.suite.catalog.identity
 
-import app.epistola.suite.catalog.graph.CatalogResourceType
+import app.epistola.suite.catalog.graph.ReferenceSelector
 import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.graph.TenantResourceGraphBuilder
+import app.epistola.suite.common.AuditDetailed
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -28,8 +30,8 @@ import org.springframework.stereotype.Component
 class CatalogResourceAddressReservedException(
     val address: ResourceAddress,
 ) : IllegalStateException(
-    "The address ${address.catalogKey}/${address.key} is reserved by a relocated ${address.type.wireName}; " +
-        "release the alias first or choose another key",
+    "A ${address.type.wireName} moved away from ${address.catalogKey}/${address.key}, and published documents " +
+        "that name that address still use it. Choose another key.",
 )
 
 /**
@@ -39,10 +41,11 @@ class CatalogResourceAddressReservedException(
  * backup restore must reproduce stored state faithfully, including a resource that legitimately
  * predates an alias.
  *
- * Only [app.epistola.suite.stencils.commands.CreateStencil] calls this today, because stencils are
- * the only relocatable type and no alias can exist for a type that cannot move. Making another type
- * movable must wire this into that type's create command in the same change — omitting it fails
- * nothing, it just lets a published reference be silently repointed at a different resource.
+ * Every authoring create path calls this: `CreateStencil`, `CreateDocumentTemplate`, `CreateTheme`,
+ * `CreateAttributeDefinition`, `CreateCodeList` and `CreateFontFamily`. Images need none, because
+ * no authoring path lets a caller choose an image's key -- only import passes one. Making a new
+ * type movable must wire this into that type's create command in the same change: omitting it
+ * fails nothing, it just lets a published reference be silently repointed at a different resource.
  */
 fun requireAddressAvailable(handle: Handle, tenantKey: TenantKey, address: ResourceAddress) {
     val reserved = handle.createQuery(
@@ -89,13 +92,17 @@ data class ReleaseCatalogResourceAlias(
     override val tenantKey: TenantKey,
     val address: ResourceAddress,
 ) : Command<Unit>,
-    RequiresPermission {
+    RequiresPermission,
+    AuditDetailed {
     override val permission get() = Permission.CATALOG_MANAGE
+
+    override val auditDetails: Map<String, String> get() = mapOf("released" to address.id)
 }
 
 @Component
 class PreviewCatalogResourceAliasReleaseHandler(
     private val jdbi: Jdbi,
+    private val graphs: TenantResourceGraphBuilder,
 ) : QueryHandler<PreviewCatalogResourceAliasRelease, CatalogResourceAliasImpact?> {
     override fun handle(query: PreviewCatalogResourceAliasRelease): CatalogResourceAliasImpact? = jdbi.withHandle<CatalogResourceAliasImpact?, Exception> { handle ->
         val canonical = handle.createQuery(
@@ -127,26 +134,17 @@ class PreviewCatalogResourceAliasReleaseHandler(
         )
     }
 
+    /**
+     * Every stored reference that names [address] and resolves only through its alias, of any kind
+     * the reference graph knows -- published versions included, since those are what an alias
+     * exists for. Reading it off the graph rather than scanning content here keeps one authority
+     * on what counts as a reference, so a new reference shape is counted without touching this.
+     */
     private fun countDependentReferences(handle: Handle, tenantKey: TenantKey, address: ResourceAddress): Int {
-        if (address.type != CatalogResourceType.STENCIL) return 0
-        return handle.createQuery(
-            """
-            SELECT COUNT(*) FROM (
-                SELECT jsonb_path_query(template_model, '$.** ? (@.type == "stencil")') node
-                FROM template_versions WHERE tenant_key = :tenantKey
-                UNION ALL
-                SELECT jsonb_path_query(content, '$.** ? (@.type == "stencil")') node
-                FROM stencil_versions WHERE tenant_key = :tenantKey
-            ) nodes
-            WHERE node -> 'props' ->> 'stencilId' = :resourceKey
-              AND node -> 'props' ->> 'catalogKey' = :catalogKey
-            """,
-        )
-            .bind("tenantKey", tenantKey)
-            .bind("resourceKey", address.key)
-            .bind("catalogKey", address.catalogKey)
-            .mapTo(Int::class.java)
-            .one()
+        val selector = ReferenceSelector(address.type, address.catalogKey, address.key)
+        return graphs.buildOn(handle, tenantKey, includeHistory = true).edges
+            .filter { it.resolvedViaAlias && it.targetSelector == selector }
+            .sumOf { it.evidenceCount }
     }
 }
 

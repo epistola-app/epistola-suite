@@ -21,6 +21,7 @@ import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
+import app.epistola.suite.catalog.identity.CatalogResourceAddressReservedException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
@@ -550,6 +551,13 @@ object ApiExceptionMappings {
             defaultDetail = "Catalog release version is invalid",
             extensions = { emptyMap() },
             logMessage = { "Catalog release version rejected: ${it.message}" },
+        )
+
+        builder.register<CatalogResourceAddressReservedException>(
+            problemType = ApiProblemTypes.RESOURCE_ADDRESS_RESERVED,
+            defaultDetail = "This address is reserved by a moved resource",
+            extensions = { mapOf("address" to it.address.id) },
+            logMessage = { "Create refused at reserved address ${it.address.id}" },
         )
 
         builder.register<CatalogUpgradeConflictException>(

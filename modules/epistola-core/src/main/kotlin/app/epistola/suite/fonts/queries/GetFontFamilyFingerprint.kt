@@ -4,6 +4,9 @@
 
 package app.epistola.suite.fonts.queries
 
+import app.epistola.suite.catalog.graph.CatalogResourceType
+import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.identity.resolveCatalogResourceAddress
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
@@ -13,6 +16,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -49,23 +53,19 @@ class GetFontFamilyFingerprintHandler(
 
     override fun handle(query: GetFontFamilyFingerprint): String? {
         val faces = jdbi.withHandle<List<FaceHash>, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT faces.weight, faces.italic, faces.content_hash
-                $FACES_OF_FAMILY_AT_ADDRESS
-                """,
-            )
-                .bind("tenantKey", query.tenantId)
-                .bind("catalogKey", query.catalogKey)
-                .bind("slug", query.slug)
-                .map { rs, _ ->
-                    FaceHash(
-                        weight = rs.getInt("weight"),
-                        italic = rs.getBoolean("italic"),
-                        contentHash = rs.getString("content_hash"),
-                    )
-                }
-                .list()
+            handle.loadFaceHashes(query.tenantId, query.catalogKey, query.slug).ifEmpty {
+                // A published version pinned the fingerprint under the address the family had at
+                // publish time. A relocated family leaves an alias there; following it keeps the
+                // integrity check comparing the same faces instead of failing every render of that
+                // version with "MISSING", and keeps a later publish pinning the font at all.
+                handle.resolveCatalogResourceAddress(
+                    query.tenantId,
+                    ResourceAddress(CatalogResourceType.FONT, query.catalogKey.value, query.slug.value),
+                )
+                    ?.takeIf { it.resolvedViaAlias }
+                    ?.let { handle.loadFaceHashes(query.tenantId, CatalogKey.of(it.canonical.catalogKey), FontKey.of(it.canonical.key)) }
+                    ?: emptyList()
+            }
         }
 
         if (faces.isEmpty()) return null
@@ -76,4 +76,22 @@ class GetFontFamilyFingerprintHandler(
 
         return sha256Hex(canonical.toByteArray(Charsets.UTF_8))
     }
+
+    private fun Handle.loadFaceHashes(tenantKey: TenantKey, catalogKey: CatalogKey, slug: FontKey): List<FaceHash> = createQuery(
+        """
+        SELECT faces.weight, faces.italic, faces.content_hash
+        $FACES_OF_FAMILY_AT_ADDRESS
+        """,
+    )
+        .bind("tenantKey", tenantKey)
+        .bind("catalogKey", catalogKey)
+        .bind("slug", slug)
+        .map { rs, _ ->
+            FaceHash(
+                weight = rs.getInt("weight"),
+                italic = rs.getBoolean("italic"),
+                contentHash = rs.getString("content_hash"),
+            )
+        }
+        .list()
 }

@@ -88,7 +88,6 @@ class CatalogHandler {
         return ServerResponse.ok().page("catalogs/list") {
             "pageTitle" to "Catalogs - Epistola"
             "activeNavSection" to "catalogs"
-            "resourceRelocationEnabled" to request.relocationEnabled()
             catalogListModel(request)
             if (saved) "saved" to true
         }
@@ -1213,7 +1212,15 @@ class CatalogHandler {
      *    computed in one SQL join. No parallel id set, no template-side
      *    cross-reference, no content build.
      */
-    private fun ModelBuilder.catalogListModel(request: ServerRequest) = catalogListModel(request.tenantId().key)
+    /**
+     * The catalog list as every full-page render of it needs it: the list, plus whether the
+     * Organise action in its header is available. The create, register and import dialogs render
+     * the list page behind them, and used to lose that action there.
+     */
+    private fun ModelBuilder.catalogListModel(request: ServerRequest) {
+        catalogListModel(request.tenantId().key)
+        "resourceRelocationEnabled" to request.relocationEnabled()
+    }
 
     /**
      * The full-page list model used by the newForm / createCatalog non-HTMX
