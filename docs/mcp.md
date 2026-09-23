@@ -26,7 +26,7 @@ Authorization: ApiKey epk_<your-key>
 The API key must:
 
 1. Belong to the tenant whose templates you want to manage. All tools resolve the tenant from the key — they take no `tenantId` argument.
-2. Have the **`TEMPLATE_VIEW`** permission (read tools) and the **`DOCUMENT_GENERATE`** permission (for `preview_document` and `analyze_template_data`).
+2. Have the **`TEMPLATE_VIEW`** permission (read tools) and the **`DOCUMENT_GENERATE`** permission (for `preview_document`). `analyze_template_data` needs only `TEMPLATE_VIEW`: it renders nothing.
 
 Provision an MCP-purpose key from the Epistola UI under **Operations → API Keys**.
 

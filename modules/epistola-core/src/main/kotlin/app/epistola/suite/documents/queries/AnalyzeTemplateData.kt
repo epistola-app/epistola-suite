@@ -41,7 +41,9 @@ data class AnalyzeTemplateData(
     val environmentId: EnvironmentKey? = null,
 ) : Query<TemplateDataAnalysis>,
     RequiresPermission {
-    override val permission get() = Permission.DOCUMENT_GENERATE
+    // Template view, not document generate: nothing is rendered, and the answer reveals no more than
+    // the contract itself, which a template viewer can already read.
+    override val permission get() = Permission.TEMPLATE_VIEW
 
     init {
         validate("variantSelectionCriteria", variantId == null || variantSelectionCriteria == null) {

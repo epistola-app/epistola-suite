@@ -8,10 +8,15 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.queries.AnalyzeTemplateData
 import app.epistola.suite.documents.queries.PreviewDocument
+import app.epistola.suite.mediator.query
+import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.PermissionDeniedException
+import app.epistola.suite.security.TenantRole
 import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
 import app.epistola.suite.templates.model.DataExample
@@ -29,6 +34,7 @@ import org.junit.jupiter.api.Timeout
 import org.junit.jupiter.api.assertThrows
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
+import java.util.UUID
 
 @Timeout(30)
 class AnalyzeTemplateDataIntegrationTest : IntegrationTestBase() {
@@ -157,6 +163,24 @@ class AnalyzeTemplateDataIntegrationTest : IntegrationTestBase() {
         assertThat(analysis.valid).isTrue()
         assertThat(analysis.missingFields.map { it.path to it.required }).containsExactly("/customer/phone" to false)
         assertThat(query(setup.preview(data))).isNotEmpty()
+    }
+
+    @Test
+    fun `a template viewer may analyze data but not render a preview`() = withPublishedTemplate { setup ->
+        val viewer = EpistolaPrincipal(
+            userId = UserKey.of(UUID.randomUUID()),
+            externalId = "viewer-${UUID.randomUUID()}",
+            email = "viewer@analyze.example",
+            displayName = "Viewer",
+            tenantMemberships = mapOf(setup.tenant.id to setOf(TenantRole.CONTENT_VIEWER)),
+            currentTenantId = setup.tenant.id,
+        )
+        val data = json("""{"customer": {}}""")
+
+        val analysis = runAs(viewer) { setup.analyze(data).query() }
+
+        assertThat(analysis.missingFields).isNotEmpty()
+        assertThrows<PermissionDeniedException> { runAs(viewer) { setup.preview(data).query() } }
     }
 
     @Test

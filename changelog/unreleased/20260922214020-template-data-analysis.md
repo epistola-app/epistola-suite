@@ -11,4 +11,4 @@ each field as a JSON Pointer into the request body, and `missingFields`, `invali
 `missingDataSchema` describe what to supply or correct. `missingDataSchema` is the contract cut down
 to the missing part, so a downstream app can render a form for it. Required fields are always
 reported; optional ones only when the template reads them. The new MCP tool
-`analyze_template_data` returns the same analysis without rendering.
+`analyze_template_data` returns the same analysis without rendering, and needs only the template view permission.
