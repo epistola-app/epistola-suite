@@ -24,7 +24,8 @@ there is never a parallel install of two versions.
 
 - **AUTHORED (publisher side)** — one live, editable working copy. Cutting a
   release records an **immutable boundary** in `catalog_releases`
-  (author-set SemVer + content fingerprint + notes + a manifest snapshot) and
+  (author-set SemVer + content fingerprint + notes + a manifest snapshot +
+  `resource_fingerprints`, the per-resource digests of what it contained) and
   advances the `catalogs.released_version` / `released_fingerprint` /
   `released_at` pointer. `catalog_releases` is AUTHORED release **history**
   (changelog), not parallel installs and **not** the consumer upgrade-diff
@@ -129,17 +130,38 @@ everyone than one large catalog nobody wants all of.
 
 The web UI catalog list shows a **Release new version** action (AUTHORED only)
 opening a dialog: Patch / Minor / Major quick-picks, an editable SemVer field,
-release notes, and a drift line ("This working copy has unreleased changes" vs
-"No changes since the last release"). It dispatches
+release notes, a drift line ("This working copy has unreleased changes" vs
+"No changes since the last release") and — named, not counted — what this
+release will add, update and drop. It dispatches
 [`ReleaseCatalogVersion`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/ReleaseCatalogVersion.kt):
 AUTHORED-only, parses + monotonic-checks the SemVer, computes the fingerprint,
-inserts the `catalog_releases` row (with the manifest snapshot) and advances
-the catalog pointer — one transaction. Releasing content byte-identical to a
-prior release is allowed (notes-only re-release) but logged.
+inserts the `catalog_releases` row (with the manifest snapshot and the
+per-resource digests) and advances the catalog pointer — one transaction.
+Releasing content byte-identical to a prior release is allowed (notes-only
+re-release) but logged.
 
 [`GetCatalogReleaseStatus`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/GetCatalogReleaseStatus.kt)
 is the shared primitive (latest version/fingerprint, working fingerprint,
-`hasUnreleasedChanges`, suggested next bumps, history).
+`hasUnreleasedChanges`, suggested next bumps).
+
+### What changed, resource by resource
+
+[`GetCatalogResourceChanges`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/GetCatalogResourceChanges.kt)
+diffs the working copy's per-resource digests against
+`catalog_releases.resource_fingerprints`, giving each resource one of NEW,
+MODIFIED, RELEASED or REMOVED. Both sides come from the same canonicaliser that
+computes the catalog fingerprint, so a per-resource difference is exactly a
+fingerprint difference localised to one resource and the drift check and the
+detail cannot disagree. It is the authored mirror of the SUBSCRIBED upgrade
+diff, which reads `installed_resource_fingerprints` the same way.
+
+A release cut before the column existed (migration `V20260923154857`) recorded
+no baseline, and none can be reconstructed — the manifest snapshot holds the
+manifest entries, not the payloads they were built from. While such a catalog
+still matches its released fingerprint the working digests _are_ that release's
+digests, so the answer stays exact; once it has drifted the query reports
+UNKNOWN and says it has no baseline rather than calling everything new. The
+next release records one.
 
 ## Export drift policy
 
