@@ -61,9 +61,11 @@ class BackupRevisionBinaryIntegrationTest : IntegrationTestBase() {
 
         val backup = withMediator { BuildTenantBackup(tenant.id).execute()!! }
 
-        // Diverge: drop the retained content and its bytes. Revisions go first — the foreign key
-        // is what stops the blob being removed while something still names it.
+        // Diverge: drop the retained content and its bytes, innermost reference first. Each step
+        // is refused while something still names what it would remove, which is the retention rule
+        // working — so the order here is the schema's, not a preference.
         jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate("DELETE FROM release_entries WHERE tenant_key = :t").bind("t", tenant.id).execute()
             handle.createUpdate("DELETE FROM resource_revisions WHERE tenant_key = :t").bind("t", tenant.id).execute()
             handle.createUpdate("DELETE FROM asset_content WHERE scope = :s AND content_hash = :h")
                 .bind("s", scope).bind("h", contentHash).execute()

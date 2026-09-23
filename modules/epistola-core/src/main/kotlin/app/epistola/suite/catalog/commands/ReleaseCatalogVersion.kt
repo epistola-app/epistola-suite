@@ -17,6 +17,7 @@ import app.epistola.suite.catalog.CatalogReleasePublicationRequest
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.config.bindJsonb
@@ -83,6 +84,7 @@ class ReleaseCatalogVersionHandler(
     private val archiveBuilder: CatalogArchiveBuilder,
     private val fingerprintService: CatalogFingerprintService,
     private val revisionStore: ResourceRevisionStore,
+    private val releaseEntryStore: ReleaseEntryStore,
     private val objectMapper: ObjectMapper,
     private val publicationPort: ObjectProvider<CatalogReleasePublicationPort>,
 ) : CommandHandler<ReleaseCatalogVersion, ReleaseCatalogVersionResult> {
@@ -148,8 +150,8 @@ class ReleaseCatalogVersionHandler(
         jdbi.useTransaction<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalog_releases (tenant_key, catalog_key, version, fingerprint, notes, manifest_snapshot, resource_fingerprints, released_at)
-                VALUES (:t, :c, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), CAST(:resourceFingerprints AS JSONB), :releasedAt)
+                INSERT INTO catalog_releases (tenant_key, catalog_key, version, fingerprint, notes, manifest_snapshot, released_at)
+                VALUES (:t, :c, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt)
                 """,
             )
                 .bind("t", command.tenantKey)
@@ -158,7 +160,6 @@ class ReleaseCatalogVersionHandler(
                 .bind("fingerprint", fingerprint)
                 .bind("notes", command.notes)
                 .bindJsonb("snapshot", manifest, objectMapper)
-                .bindJsonb("resourceFingerprints", resourceFingerprints, objectMapper)
                 .bind("releasedAt", releasedAt)
                 .execute()
 
@@ -177,9 +178,19 @@ class ReleaseCatalogVersionHandler(
                 .bind("releasedAt", releasedAt)
                 .execute()
 
-            // Inside the release transaction: a release and the content it retains commit
-            // together, so there is no state where a release exists whose content does not.
-            revisionStore.retain(handle, command.tenantKey, content)
+            // Inside the release transaction: a release, the content it retains and the record of
+            // what it contained commit together, so there is no state where one exists without the
+            // others.
+            val revisionDigests = revisionStore.retain(handle, command.tenantKey, content)
+            releaseEntryStore.record(
+                handle,
+                command.tenantKey,
+                command.catalogKey,
+                newVersion.toString(),
+                content,
+                revisionDigests,
+                resourceFingerprints,
+            )
 
             if (port != null && archive != null) {
                 publicationId = port.recordReleasePublication(

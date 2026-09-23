@@ -24,8 +24,9 @@ class CoreBackupTables : TenantBackupTableContributor {
         "catalogs",
         "catalog_resources",
         "catalog_releases",
-        // The content a release retained, and the blobs it holds. Restoring a tenant without them
-        // would restore releases that can no longer be reproduced.
+        // What a release contained, the content it retained, and the blobs that content holds.
+        // Restoring a tenant without them would restore releases that can no longer be reproduced.
+        "release_entries",
         "resource_revisions",
         "revision_binaries",
         "themes",
