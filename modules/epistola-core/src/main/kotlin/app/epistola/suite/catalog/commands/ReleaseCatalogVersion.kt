@@ -17,6 +17,7 @@ import app.epistola.suite.catalog.CatalogReleasePublicationRequest
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.revisions.ResourceRevisionStore
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.config.bindJsonb
 import app.epistola.suite.mediator.Command
@@ -81,6 +82,7 @@ class ReleaseCatalogVersionHandler(
     private val contentBuilder: CatalogContentBuilder,
     private val archiveBuilder: CatalogArchiveBuilder,
     private val fingerprintService: CatalogFingerprintService,
+    private val revisionStore: ResourceRevisionStore,
     private val objectMapper: ObjectMapper,
     private val publicationPort: ObjectProvider<CatalogReleasePublicationPort>,
 ) : CommandHandler<ReleaseCatalogVersion, ReleaseCatalogVersionResult> {
@@ -169,6 +171,10 @@ class ReleaseCatalogVersionHandler(
                 .bind("fingerprint", fingerprint)
                 .bind("releasedAt", releasedAt)
                 .execute()
+
+            // Inside the release transaction: a release and the content it retains commit
+            // together, so there is no state where a release exists whose content does not.
+            revisionStore.retain(handle, command.tenantKey, content)
 
             if (port != null && archive != null) {
                 publicationId = port.recordReleasePublication(
