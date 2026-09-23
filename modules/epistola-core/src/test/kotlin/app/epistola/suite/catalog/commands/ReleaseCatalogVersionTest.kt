@@ -51,7 +51,6 @@ class ReleaseCatalogVersionTest : IntegrationTestBase() {
             val status = GetCatalogReleaseStatus(tenantKey, catalogKey).query()
             assertThat(status.latestVersion).isEqualTo("1.0.0")
             assertThat(status.hasUnreleasedChanges).isFalse()
-            assertThat(status.history).hasSize(1)
             assertThat(status.suggestedNext.patch).isEqualTo("1.0.1")
             assertThat(status.suggestedNext.minor).isEqualTo("1.1.0")
             assertThat(status.suggestedNext.major).isEqualTo("2.0.0")

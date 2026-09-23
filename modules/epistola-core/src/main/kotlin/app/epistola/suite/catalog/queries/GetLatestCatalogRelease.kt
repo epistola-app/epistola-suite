@@ -13,10 +13,9 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
-import java.time.OffsetDateTime
 
 /**
- * Cheap read of an AUTHORED catalog's release pointer + history straight from
+ * Cheap read of an AUTHORED catalog's release pointer straight from
  * `catalog_releases` — **no catalog content build / fingerprint recompute**.
  *
  * Split out of [GetCatalogReleaseStatus] so callers that only need the latest
@@ -38,17 +37,10 @@ data class SuggestedBumps(
     val major: String,
 )
 
-data class ReleaseSummary(
-    val version: String,
-    val releasedAt: OffsetDateTime,
-    val notes: String?,
-)
-
 data class LatestCatalogRelease(
     val latestVersion: String?,
     val latestFingerprint: String?,
     val suggestedNext: SuggestedBumps,
-    val history: List<ReleaseSummary>,
 )
 
 @Component
@@ -56,33 +48,31 @@ class GetLatestCatalogReleaseHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<GetLatestCatalogRelease, LatestCatalogRelease> {
 
-    private data class Row(val version: String, val fingerprint: String, val releasedAt: OffsetDateTime, val notes: String?)
+    private data class Row(val version: String, val fingerprint: String)
 
     override fun handle(query: GetLatestCatalogRelease): LatestCatalogRelease {
-        val rows = jdbi.withHandle<List<Row>, Exception> { handle ->
+        // Ordered in SQL, on the generated version components (V20260923150918): a version sorts by
+        // its parts, not as text, and reading every release to pick the maximum in memory grew with
+        // each release for an answer that is one row. Labels that are not MAJOR.MINOR.PATCH have
+        // null components -- `SemVer.parseOrNull` tolerates them -- so they sort last and fall back
+        // to when they were released.
+        val latest = jdbi.withHandle<Row?, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT version, fingerprint, released_at, notes
+                SELECT version, fingerprint
                 FROM catalog_releases
                 WHERE tenant_key = :t AND catalog_key = :c
-                ORDER BY released_at DESC
+                ORDER BY version_major DESC NULLS LAST, version_minor DESC NULLS LAST,
+                         version_patch DESC NULLS LAST, released_at DESC
+                LIMIT 1
                 """,
             )
                 .bind("t", query.tenantKey)
                 .bind("c", query.catalogKey)
-                .map { rs, _ ->
-                    Row(
-                        version = rs.getString("version"),
-                        fingerprint = rs.getString("fingerprint"),
-                        releasedAt = rs.getObject("released_at", OffsetDateTime::class.java),
-                        notes = rs.getString("notes"),
-                    )
-                }
-                .list()
+                .map { rs, _ -> Row(version = rs.getString("version"), fingerprint = rs.getString("fingerprint")) }
+                .findOne()
+                .orElse(null)
         }
-
-        // "Latest" = highest SemVer (versions are enforced strictly increasing).
-        val latest = rows.maxByOrNull { SemVer.parseOrNull(it.version) ?: SemVer(0, 0, 0) }
 
         // Bump from the current published version, or from 0.0.0 when never
         // released — so the three suggestions are always distinct and each is a
@@ -98,7 +88,6 @@ class GetLatestCatalogReleaseHandler(
             latestVersion = latest?.version,
             latestFingerprint = latest?.fingerprint,
             suggestedNext = suggested,
-            history = rows.map { ReleaseSummary(it.version, it.releasedAt, it.notes) },
         )
     }
 }
