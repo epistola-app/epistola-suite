@@ -2,13 +2,17 @@ name: Build and Publish
 
 on:
   push:
-    branches: [main, "release/**"]
+    # `epic/**` are long-lived integration branches: a set of related pull requests
+    # lands there and the whole thing merges to main in one go. They build on push
+    # so the integration branch is known-good before that merge, and on pull request
+    # below so each contributing change is checked as it lands.
+    branches: [main, "release/**", "epic/**"]
     # App image releases are v* tags. Chart releases (epistola-*) are a separate
     # stream (helm.yml) and deliberately don't match here, so they never trigger
     # the app pipeline.
     tags: ["v*"]
   pull_request:
-    branches: [main, "release/**"]
+    branches: [main, "release/**", "epic/**"]
     types: [opened, synchronize, labeled]
   workflow_dispatch:
 
