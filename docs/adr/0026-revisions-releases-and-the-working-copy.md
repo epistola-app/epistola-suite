@@ -83,17 +83,141 @@ and `CATALOG_PUBLISH` keeps its meaning: sending a release to Exchange.
 ### 3. Storage
 
 ```sql
-resource_revisions (tenant_key, digest, kind, payload jsonb, created_at)      -- PK (tenant_key, digest)
-revision_binaries  (tenant_key, digest, content_hash, media_type)             -- retention roots
-release_entries    (tenant_key, catalog_key, version, resource_id, resource_type, resource_key, revision_digest)
+-- Immutable content, deduplicated by digest. A payload is the protocol form of one resource.
+CREATE TABLE resource_revisions (
+    tenant_key    TENANT_KEY  NOT NULL,
+    digest        CHAR(64)    NOT NULL,          -- sha256 of the canonical payload
+    resource_type VARCHAR(20) NOT NULL REFERENCES catalog_resource_types (resource_type),
+    payload       JSONB       NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (tenant_key, digest)
+);
+
+-- The binaries a revision needs. Bytes stay in the content store; these are retention roots.
+CREATE TABLE revision_binaries (
+    tenant_key   TENANT_KEY  NOT NULL,
+    digest       CHAR(64)    NOT NULL,
+    content_hash TEXT        NOT NULL,
+    media_type   VARCHAR(50) NOT NULL,
+    PRIMARY KEY (tenant_key, digest, content_hash),
+    FOREIGN KEY (tenant_key, digest) REFERENCES resource_revisions (tenant_key, digest) ON DELETE CASCADE
+);
+
+-- What a release contains: the manifest as rows, with enough metadata to list without payloads.
+CREATE TABLE release_entries (
+    tenant_key      TENANT_KEY   NOT NULL,
+    catalog_key     CATALOG_KEY  NOT NULL,
+    version         VARCHAR(50)  NOT NULL,
+    resource_type   VARCHAR(20)  NOT NULL,
+    resource_key    TEXT         NOT NULL,       -- the address inside this release
+    resource_id     UUID         NOT NULL,       -- identity, for provenance
+    revision_digest CHAR(64)     NOT NULL,
+    name            VARCHAR(255) NOT NULL,
+    description     TEXT,
+    PRIMARY KEY (tenant_key, catalog_key, version, resource_type, resource_key),
+    FOREIGN KEY (tenant_key, catalog_key, version)
+        REFERENCES catalog_releases (tenant_key, catalog_key, version) ON DELETE CASCADE,
+    FOREIGN KEY (tenant_key, revision_digest)
+        REFERENCES resource_revisions (tenant_key, digest)
+);
+
+CREATE INDEX idx_release_entries_resource ON release_entries (tenant_key, resource_id);
 ```
 
-- `catalog_releases` keeps its version, fingerprint, notes and audit columns.
-- Domain tables keep the address, name, settings and the indexes that listing and search need, and
-  gain `working_digest` and `ready_digest`.
-- Payloads stay in a JSONB column for now. They are small in practice; moving them to the content
-  store, as `document_content` did in #738, is a later decision to be taken on measurements.
-- Binaries are never copied: revisions reference content hashes that the content store already owns.
+Working copies keep their tables and gain the status columns:
+
+```sql
+ALTER TABLE themes ADD COLUMN working_digest CHAR(64), ADD COLUMN ready_digest CHAR(64);
+-- likewise document_templates, stencils, fonts, assets, code_lists, variant_attribute_definitions
+ALTER TABLE template_variants ADD COLUMN working_digest CHAR(64);   -- per-variant dirty state
+```
+
+`catalog_releases` keeps its version, fingerprint, notes and audit columns, and gains parsed
+version components so "latest" is an indexed lookup rather than an application-side maximum:
+
+```sql
+ALTER TABLE catalog_releases
+    ADD COLUMN version_major INT, ADD COLUMN version_minor INT, ADD COLUMN version_patch INT;
+
+CREATE INDEX idx_catalog_releases_order
+    ON catalog_releases (tenant_key, catalog_key, version_major DESC, version_minor DESC, version_patch DESC);
+```
+
+The text `version` stays canonical — it is in the primary key, the wire format and URLs — and the
+components are a derived sort key, computed by the application because `SemVer.parseOrNull`
+deliberately tolerates legacy labels such as `5.5` or `1`. Those keep null components, sort last and
+fall back to `released_at`. Pre-release identifiers are out of scope in `SemVer`; adding them later
+needs its own ordering column, because `rc.10` sorts before `rc.2` as text.
+
+The dependency and deployment tables that the plan introduces —`catalog_dependencies` and
+`environment_catalog_deployments` — are described there, and reference releases by
+`(catalog_key, version)`.
+
+### 3a. A revision is a small tree
+
+A bundled demo template is 20 to 70 KB of JSON. Putting every variant of a template in one payload
+would rewrite all of them whenever one variant changes, defeat deduplication, and load a megabyte to
+render one variant — while today a single `template_versions` row is read.
+
+So a revision may reference child revisions by digest:
+
+| Resource                         | The revision holds                                                  | Children                                            |
+| -------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------- |
+| Template                         | settings, contract digest, variant list with selection attributes   | one model revision per variant, a contract revision |
+| Code list                        | header and source configuration, without credentials                | its entries                                         |
+| Font                             | family header and face list                                         | face binaries, already content-addressed            |
+| Theme, stencil, image, attribute | the whole resource; these are small (the system theme is 600 bytes) | —                                                   |
+
+The parent digest covers its children, so a template's digest still identifies the template as a
+whole, which is what a release entry needs. Publishing and ready stay at template level: storage
+granularity and publishing granularity are different things. Per-variant digests are also exactly
+what the review screen needs to say which variants changed.
+
+The wire form is unchanged: an export still serialises a whole template resource with its variants
+inline, assembled from the parts, so the archive and its fingerprint stay as the contract defines
+them.
+
+### 3b. How content is loaded
+
+Three paths, and the model forces the caller to say which one it means:
+
+| Question                          | Source                                   |
+| --------------------------------- | ---------------------------------------- |
+| what am I editing?                | the working copy, in the domain tables   |
+| what is in release X?             | `release_entries` → `resource_revisions` |
+| what does this environment serve? | the deployment pointer, then release X   |
+
+Loading one variant to render it is two primary-key lookups: the template header revision, whose
+selection attributes decide the variant without touching a model, and then that variant's model —
+or, from stage 4, its sealed artifact, which already contains the resolved theme, font faces and
+images. Revisions are immutable, so both cache by digest with no invalidation, including on a cold
+render worker.
+
+Diffing two releases — for the release review screen and for a dependency bump preview — is a
+self-join on `release_entries` comparing digests per `(resource_type, resource_key)`, with no
+payload reads.
+
+### 3c. Why the working copy is not stored as revisions
+
+Keeping the working copy in the domain tables is deliberate:
+
+- **Database-enforced integrity applies to live content**: an attribute's code-list binding is
+  `ON DELETE RESTRICT`, a face points at its asset, a template's theme binding is `SET NULL`, and
+  catalogs cascade. That is what the identity re-key bought, and it describes the working copy;
+  frozen content must not be dragged along by it.
+- **A release payload is a different shape**: portable, addressed, without tenant-local identities,
+  and it is what the fingerprint is computed over. Export and import already are that
+  transformation.
+- **Some columns must never ship**: a code list's credentials, refresh errors, `sensitive`,
+  `size_bytes`, audit columns.
+- **Listing, filtering, sorting, paginating and joining** are ordinary SQL against the domain
+  tables; the frozen side needs only "list a release" and "open one resource", which
+  `release_entries` serves from its own columns.
+- **Editing** updates a column under constraints, with per-row concurrency; a revision is written
+  once and never changed.
+
+The cost is one extra copy of a resource's content while it is released and unchanged: normalised
+in the domain tables, canonical in one revision. It is per distinct content, not per release.
 
 ### 4. The digest rule
 
@@ -148,6 +272,25 @@ the existing mirror of subscribed content into the domain tables stays as a rebu
   are backfilled; they are dropped only after verification, in a forward migration.
 - The Exchange archive can shrink to in-flight submissions once rebuilt archives are proven
   byte-identical.
+
+## What retires
+
+Once revisions are backfilled and verified, the version tables have nothing left to hold:
+
+| Today                                                            | Becomes                                                               |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `template_versions.template_model` (published rows)              | variant model revisions                                               |
+| `template_versions.template_model` (the draft row)               | the working copy: a model column on `template_variants`               |
+| `template_versions.resolved_theme`, `rendering_defaults_version` | the sealed artifact revision                                          |
+| `template_versions.contract_version`                             | a contract revision digest in the template header                     |
+| `template_versions.referenced_paths`                             | derived; on the working copy for validation, in the payload otherwise |
+| `template_versions.status`, the 1–200 cap                        | working and ready digests, release membership, revision retention     |
+| `stencil_versions`, `contract_versions`                          | revisions, with their drafts on the working copy                      |
+| `environment_activations`                                        | `environment_catalog_deployments`                                     |
+
+Archiving moves with them: today a _version_ is archived so it cannot be activated; it becomes a
+property of a _release_ that may no longer be deployed, which is also where a withdrawn release's
+severity lives.
 
 ## Transition
 
