@@ -191,7 +191,6 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
         assertThat(analysis.missingFields.map { it.path to it.required }).containsExactly("/name" to true)
         assertThat(analysis.invalidFields.map { it.path to it.keyword }).containsExactly("/amount" to "type")
         val json = objectMapper.readTree(objectMapper.writeValueAsString(analysis))
-        assertThat(json.at("/missingDataSchema/properties/name/type").asString()).isEqualTo("string")
         assertThat(json.at("/missingFields/0/schema/type").asString()).isEqualTo("string")
     }
 

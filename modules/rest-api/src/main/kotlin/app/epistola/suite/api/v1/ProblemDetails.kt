@@ -44,7 +44,7 @@ data class ApiProblemType(
 object ApiProblemTypes {
     val BATCH_VALIDATION_ERROR = problem("BATCH_VALIDATION_ERROR", "Batch Validation Error", HttpStatus.BAD_REQUEST, "The batch request contains duplicate or inconsistent item-level values.", listOf("errors"))
     val DATA_MODEL_VALIDATION_ERROR = problem("DATA_MODEL_VALIDATION_ERROR", "Data Model Validation Error", HttpStatus.UNPROCESSABLE_ENTITY, "One or more data examples failed validation against the template data schema.", listOf("validationErrors"))
-    val TEMPLATE_DATA_INVALID = problem("TEMPLATE_DATA_INVALID", "Template Data Invalid", HttpStatus.BAD_REQUEST, "The preview data does not satisfy the template's data contract. `errors` lists each field; `missingFields`, `invalidFields` and `missingDataSchema` describe what to supply or correct.", listOf("errors", "missingFields", "invalidFields", "missingDataSchema"))
+    val TEMPLATE_DATA_INVALID = problem("TEMPLATE_DATA_INVALID", "Template Data Invalid", HttpStatus.BAD_REQUEST, "The preview data does not satisfy the template's data contract. `errors` lists each field; `missingFields` and `invalidFields` describe what to supply or correct.", listOf("errors", "missingFields", "invalidFields"))
     val BAD_REQUEST = problem("BAD_REQUEST", "Bad Request", HttpStatus.BAD_REQUEST, "The request is invalid and cannot be processed.", emptyList())
     val UNAUTHORIZED = problem("UNAUTHORIZED", "Unauthorized", HttpStatus.UNAUTHORIZED, "Authentication is missing, invalid, or expired.", emptyList())
     val API_KEY_AUTH_DISABLED = problem("API_KEY_AUTH_DISABLED", "API Key Authentication Disabled", HttpStatus.UNAUTHORIZED, "API-key authentication is disabled for this deployment; use Authorization: Bearer <jwt> instead.", emptyList())
@@ -334,13 +334,11 @@ fun TemplateDataInvalidException.toProblemDetail(request: HttpServletRequest): P
         request = request,
         type = ApiProblemTypes.TEMPLATE_DATA_INVALID,
         detail = message ?: "Data validation failed",
-        // `missingDataSchema` is left out rather than sent as null when nothing is missing.
-        extensions = listOfNotNull(
+        extensions = mapOf(
             "errors" to errors,
             "missingFields" to analysis.missingFields,
             "invalidFields" to analysis.invalidFields,
-            analysis.missingDataSchema?.let { "missingDataSchema" to it },
-        ).toMap(),
+        ),
     )
 }
 

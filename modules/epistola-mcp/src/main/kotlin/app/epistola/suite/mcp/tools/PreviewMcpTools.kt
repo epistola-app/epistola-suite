@@ -88,11 +88,11 @@ class PreviewMcpTools(
 
     @McpTool(
         name = "analyze_template_data",
-        description = "Check preview data against the data contract of the version `preview_document` would " +
+        description = "Check template data against the data contract of the version `preview_document` would " +
             "render, without rendering. Returns which fields are missing (required ones always, optional ones " +
-            "only when the template uses them), which supplied values are wrong, and `missingDataSchema`: a JSON " +
-            "Schema of just the missing part. Use it to ask the user for exactly the data the template still " +
-            "needs. Takes the same arguments as `preview_document`; paths are JSON Pointers into `data`.",
+            "only when the template uses them) and which supplied values are wrong, each with a JSON Pointer " +
+            "into `data` and the field's JSON Schema. Use it to ask the user for exactly the data the template " +
+            "still needs. Takes the same arguments as `preview_document`.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun analyzeTemplateData(

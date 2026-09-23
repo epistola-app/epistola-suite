@@ -138,8 +138,6 @@ class AnalyzeTemplateDataIntegrationTest : IntegrationTestBase() {
             "/invoiceDate" to true,
         )
         assertThat(analysis.missingFields.last().schema.get("format").asString()).isEqualTo("date")
-        assertThat(analysis.missingDataSchema!!.get("required").values().map { it.asString() })
-            .containsExactly("customer", "invoiceDate")
     }
 
     @Test

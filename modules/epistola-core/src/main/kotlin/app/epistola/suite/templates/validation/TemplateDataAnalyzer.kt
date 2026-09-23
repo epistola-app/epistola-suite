@@ -47,19 +47,19 @@ data class InvalidDataField(
  * @property valid Whether the data passes the contract. Absent *optional* fields do not make it invalid.
  * @property missingFields Absent fields, in schema declaration order
  * @property invalidFields Supplied values that break the contract
- * @property missingDataSchema The contract cut down to the missing fields, as one schema a form
- *   generator can take as-is. Fields inside array items are left out of it, because a schema cannot
- *   address one array element; they are still listed in [missingFields]. Null when nothing is missing.
+ *
+ * There is deliberately no single "schema of what is missing": a JSON Schema cannot say that a field
+ * is missing in one array element only, so it would silently leave those out. Each [MissingDataField]
+ * carries its own pointer and schema instead, which is complete.
  */
 data class TemplateDataAnalysis(
     val valid: Boolean,
     val missingFields: List<MissingDataField>,
     val invalidFields: List<InvalidDataField>,
-    val missingDataSchema: ObjectNode?,
 ) {
     companion object {
         /** A template without a contract accepts any data. */
-        val NO_CONTRACT = TemplateDataAnalysis(valid = true, missingFields = emptyList(), invalidFields = emptyList(), missingDataSchema = null)
+        val NO_CONTRACT = TemplateDataAnalysis(valid = true, missingFields = emptyList(), invalidFields = emptyList())
     }
 }
 
@@ -110,12 +110,10 @@ class TemplateDataAnalyzer(
             .distinctBy { Triple(it.pointer, it.keyword, it.message) }
             .map { InvalidDataField(it.pointer, it.keyword, it.message, schemas.schemaAt(it.pointer)) }
 
-        val missingFields = missing.values.toList()
         return TemplateDataAnalysis(
             valid = violations.isEmpty(),
-            missingFields = missingFields,
+            missingFields = missing.values.toList(),
             invalidFields = invalid,
-            missingDataSchema = if (missingFields.isEmpty()) null else buildMissingDataSchema(schemas, contract, missingFields),
         )
     }
 
@@ -150,62 +148,6 @@ class TemplateDataAnalyzer(
                 else -> Unit
             }
         }
-    }
-
-    private fun buildMissingDataSchema(schemas: ContractSchemas, contract: ObjectNode, missingFields: List<MissingDataField>): ObjectNode {
-        val out = objectMapper.createObjectNode()
-        contract.get("\$schema")?.let { out.set("\$schema", it.deepCopy()) }
-        out.put("type", "object")
-
-        for (field in missingFields) {
-            val tokens = parsePointer(field.path)
-            var schema: ObjectNode = contract
-            var target = out
-            // Walk object properties only: a field inside an array item cannot be addressed by a schema.
-            val steps = tokens.map { token ->
-                val property = schemas.propertiesOf(schema)[token] ?: return@map null
-                schema = property
-                token to property
-            }
-            if (steps.any { it == null }) continue
-
-            steps.filterNotNull().forEachIndexed { index, (token, property) ->
-                val properties = target.get("properties") as? ObjectNode ?: target.putObject("properties")
-                if (field.required) addRequired(target, token)
-                if (index == steps.lastIndex) {
-                    properties.set(token, field.schema.deepCopy())
-                } else {
-                    val next = properties.get(token) as? ObjectNode ?: properties.putObject(token).also { node ->
-                        val resolved = schemas.deref(property)
-                        resolved.get("title")?.let { node.set("title", it.deepCopy()) }
-                        resolved.get("description")?.let { node.set("description", it.deepCopy()) }
-                        node.put("type", "object")
-                    }
-                    target = next
-                }
-            }
-        }
-
-        // A recursive local `$ref` is left in place by inlining; keep what it points at resolvable.
-        if (containsLocalRef(out)) {
-            for (keyword in listOf("\$defs", "definitions")) {
-                contract.get(keyword)?.let { out.set(keyword, it.deepCopy()) }
-            }
-        }
-        return out
-    }
-
-    private fun addRequired(schema: ObjectNode, name: String) {
-        val required = schema.get("required") as? ArrayNode ?: schema.putArray("required")
-        if (required.none { it.isString && it.asString() == name }) required.add(name)
-    }
-
-    private fun containsLocalRef(node: JsonNode): Boolean = when (node) {
-        is ObjectNode -> node.properties().any { (key, value) ->
-            (key == "\$ref" && value.isString && value.asString().startsWith("#")) || containsLocalRef(value)
-        }
-        is ArrayNode -> node.any(::containsLocalRef)
-        else -> false
     }
 
     private fun List<String>.startsWith(prefix: List<String>): Boolean = size >= prefix.size && subList(0, prefix.size) == prefix

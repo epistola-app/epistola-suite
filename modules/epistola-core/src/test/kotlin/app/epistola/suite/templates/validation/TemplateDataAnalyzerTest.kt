@@ -21,8 +21,6 @@ class TemplateDataAnalyzerTest {
 
     private fun json(text: String): ObjectNode = objectMapper.readValue(text, ObjectNode::class.java)
 
-    private fun JsonNode.names(): List<String> = properties().map { it.key }
-
     private fun JsonNode.strings(): List<String> = values().map { it.asString() }
 
     private val customerContract = json(
@@ -71,7 +69,6 @@ class TemplateDataAnalyzerTest {
         assertThat(analysis.valid).isTrue()
         assertThat(analysis.missingFields).isEmpty()
         assertThat(analysis.invalidFields).isEmpty()
-        assertThat(analysis.missingDataSchema).isNull()
     }
 
     @Nested
@@ -275,7 +272,7 @@ class TemplateDataAnalyzerTest {
         }
 
         @Test
-        fun `a recursive ref does not loop and stays resolvable in the missing-data schema`() {
+        fun `a recursive ref is inlined once and then left as a ref`() {
             val contract = json(
                 """
                 {"type": "object",
@@ -285,61 +282,30 @@ class TemplateDataAnalyzerTest {
                 """,
             )
 
-            val analysis = analyzer.analyze(contract, json("{}"), emptySet())
+            val schema = analyzer.analyze(contract, json("{}"), emptySet()).missingFields.single().schema
 
-            val schema = analysis.missingDataSchema!!
-            assertThat(schema.get("\$defs").has("node")).isTrue()
-            assertThat(validator.validateSchema(objectMapper.writeValueAsString(schema))).isEqualTo(SchemaValidationResult.Valid)
+            assertThat(schema.get("properties").get("label").get("type").asString()).isEqualTo("string")
+            assertThat(schema.get("properties").get("child").get("\$ref").asString()).isEqualTo("#/\$defs/node")
         }
     }
 
-    @Nested
-    inner class MissingDataSchema {
+    @Test
+    fun `writing a value at every reported pointer makes the data valid, array items included`() {
+        val data = json("""{"customer": {"age": 30}, "orders": [{"price": 1}, {}]}""")
+        val analysis = analyzer.analyze(customerContract, data, emptySet())
 
-        @Test
-        fun `holds only the missing fields, with their required flags`() {
-            val analysis = analyzer.analyze(
-                customerContract,
-                json("""{"customer": {}}"""),
-                setOf("customer.name", "customer.phone"),
-            )
-
-            val schema = analysis.missingDataSchema!!
-            assertThat(schema.get("\$schema").asString()).isEqualTo("http://json-schema.org/draft-07/schema#")
-            assertThat(schema.get("properties").names()).containsExactly("customer", "invoiceDate")
-            assertThat(schema.get("required").strings()).containsExactly("customer", "invoiceDate")
-            val customer = schema.get("properties").get("customer")
-            assertThat(customer.get("title").asString()).isEqualTo("Customer")
-            assertThat(customer.get("properties").names()).containsExactly("name", "phone")
-            assertThat(customer.get("required").strings()).containsExactly("name")
+        assertThat(analysis.missingFields.map { it.path }).containsExactly("/customer/name", "/orders/1/price", "/invoiceDate")
+        // What a client does with the answer: one input per entry, written back at its pointer.
+        val filled = mapOf("string" to "x", "number" to 1)
+        for (field in analysis.missingFields) {
+            val tokens = TemplateDataAnalyzer.parsePointer(field.path)
+            var parent: JsonNode = data
+            tokens.dropLast(1).forEach { token -> parent = parent.get(token) ?: parent.get(token.toInt()) }
+            val value = filled[field.schema.get("type").asString()]
+            (parent as ObjectNode).putPOJO(tokens.last(), if (field.schema.get("format")?.asString() == "date") "2026-09-22" else value)
         }
 
-        @Test
-        fun `leaves out fields inside array items, which a schema cannot address`() {
-            val analysis = analyzer.analyze(
-                customerContract,
-                json("""{"customer": {"name": "Ada"}, "orders": [{}]}"""),
-                emptySet(),
-            )
-
-            assertThat(analysis.missingFields.map { it.path }).containsExactly("/orders/0/price", "/invoiceDate")
-            assertThat(analysis.missingDataSchema!!.get("properties").names()).containsExactly("invoiceDate")
-        }
-
-        @Test
-        fun `data built from it, merged into the original, passes the contract`() {
-            val original = json("""{"customer": {"age": 30}}""")
-            val analysis = analyzer.analyze(customerContract, original, emptySet())
-
-            // What a form built from the schema would collect.
-            val collected = json("""{"customer": {"name": "Ada"}, "invoiceDate": "2026-09-22"}""")
-            assertThat(validator.validate(analysis.missingDataSchema!!, collected)).isEmpty()
-
-            val merged = original.deepCopy()
-            (merged.get("customer") as ObjectNode).put("name", "Ada")
-            merged.put("invoiceDate", "2026-09-22")
-            assertThat(analyzer.analyze(customerContract, merged, emptySet()).valid).isTrue()
-        }
+        assertThat(analyzer.analyze(customerContract, data, emptySet()).valid).isTrue()
     }
 
     @ParameterizedTest

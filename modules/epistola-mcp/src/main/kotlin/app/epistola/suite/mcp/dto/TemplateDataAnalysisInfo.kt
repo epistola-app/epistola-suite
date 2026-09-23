@@ -7,9 +7,8 @@ package app.epistola.suite.mcp.dto
 import app.epistola.suite.templates.validation.TemplateDataAnalysis
 
 /**
- * How preview data measures up against a template's data contract: what is missing, what is wrong,
- * and a JSON Schema describing only the missing part. All paths are JSON Pointers into the data
- * (`/customer/address/city`).
+ * How template data measures up against a template's data contract: what is missing and what is
+ * wrong. All paths are JSON Pointers into the data (`/customer/address/city`, `/orders/2/price`).
  */
 data class TemplateDataAnalysisInfo(
     /** True when the data satisfies the contract. Absent optional fields do not make it invalid. */
@@ -21,11 +20,6 @@ data class TemplateDataAnalysisInfo(
     val missingFields: List<MissingFieldInfo>,
     /** Supplied values that break the contract. */
     val invalidFields: List<InvalidFieldInfo>,
-    /**
-     * The contract cut down to the missing fields; null when nothing is missing. Fields inside
-     * array items are not in it, because a schema cannot address one array element.
-     */
-    val missingDataSchema: Any?,
 ) {
     data class MissingFieldInfo(
         val path: String,
@@ -47,7 +41,6 @@ data class TemplateDataAnalysisInfo(
             valid = analysis.valid,
             missingFields = analysis.missingFields.map { MissingFieldInfo(it.path, it.required, it.schema) },
             invalidFields = analysis.invalidFields.map { InvalidFieldInfo(it.path, it.keyword, it.message, it.schema) },
-            missingDataSchema = analysis.missingDataSchema,
         )
     }
 }

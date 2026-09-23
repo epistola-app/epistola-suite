@@ -222,10 +222,10 @@ one use; today preview is the caller, and generation still fails as before.
 - **Invalid fields** are supplied values that break the contract, with the failing JSON Schema
   `keyword`, a `message`, and the `schema` at that location. An explicit `null` for a required field
   is invalid, not missing.
-- **`missingDataSchema`** is the contract cut down to the missing fields, keeping the `required`
-  lists, so a form library can render it as-is and the result can be merged into the data. Fields
-  inside array items are listed in `missingFields` but left out of this schema, because a schema
-  cannot address one array element.
+- There is deliberately no single schema of "what is missing": a JSON Schema cannot say a field is
+  missing in one array element only (`/orders/2/price`), so it would silently leave those out. A
+  client builds its form from `missingFields` instead, one input per entry, and writes each value
+  back at its pointer.
 
 The fields are listed in schema declaration order, so the same data gives the same answer. Only
 optional fields that are absent leave the data valid. The template-read rule only sees paths named
@@ -234,7 +234,7 @@ directly in expressions, so an optional field reached through computed access is
 On the REST API, `POST /api/tenants/{tenantId}/documents/preview` answers invalid data with a
 `template-data-invalid` problem (status 400). Its `errors[]` follows the contract's validation
 problem shape — one entry per field, `field` a JSON Pointer into the request body such as
-`/data/customer/name` — and `missingFields`, `invalidFields` and `missingDataSchema` carry the full
+`/data/customer/name` — and `missingFields` and `invalidFields` carry the full
 analysis, with paths into `data`. Over MCP, `analyze_template_data` returns the same analysis
 without rendering (see [MCP](mcp.md)).
 

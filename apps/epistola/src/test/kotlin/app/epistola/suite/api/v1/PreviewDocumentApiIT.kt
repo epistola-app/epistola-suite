@@ -88,12 +88,10 @@ class PreviewDocumentApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<List<String>>(body, "$.missingFields[*].path")).containsExactly("/customer/name", "/invoiceDate")
         assertThat(JsonPath.read<String>(body, "$.missingFields[1].schema.format")).isEqualTo("date")
         assertThat(JsonPath.read<List<String>>(body, "$.invalidFields[*].keyword")).containsExactly("type")
-        assertThat(JsonPath.read<List<String>>(body, "$.missingDataSchema.required")).containsExactly("customer", "invoiceDate")
-        assertThat(JsonPath.read<List<String>>(body, "$.missingDataSchema.properties.customer.required")).containsExactly("name")
     }
 
     @Test
-    fun `a rejection with only invalid fields leaves missingDataSchema out`() {
+    fun `a rejection with only invalid fields has an empty missingFields`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         seedPublishedTemplate(tenantKey)
 
@@ -101,7 +99,6 @@ class PreviewDocumentApiIT : IntegrationTestBase() {
 
         assertThat(response.statusCode).describedAs(response.body).isEqualTo(HttpStatus.BAD_REQUEST)
         val body = objectMapper.readTree(response.body!!)
-        assertThat(body.has("missingDataSchema")).isFalse()
         assertThat(body.get("missingFields").isEmpty).isTrue()
         assertThat(body.get("invalidFields").values().map { it.get("path").asString() }).containsExactly("/customer/name")
     }
