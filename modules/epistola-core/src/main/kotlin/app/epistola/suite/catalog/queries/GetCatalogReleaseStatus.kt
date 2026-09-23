@@ -36,7 +36,6 @@ data class CatalogReleaseStatus(
     val workingFingerprint: String,
     val hasUnreleasedChanges: Boolean,
     val suggestedNext: SuggestedBumps,
-    val history: List<ReleaseSummary>,
 )
 
 @Component
@@ -54,7 +53,6 @@ class GetCatalogReleaseStatusHandler(
             workingFingerprint = fingerprint.current,
             hasUnreleasedChanges = !fingerprint.matchesExpected,
             suggestedNext = release.suggestedNext,
-            history = release.history,
         )
     }
 }
