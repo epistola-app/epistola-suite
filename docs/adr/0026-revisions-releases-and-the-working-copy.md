@@ -85,22 +85,23 @@ and `CATALOG_PUBLISH` keeps its meaning: sending a release to Exchange.
 ```sql
 -- Immutable content, deduplicated by digest. A payload is the protocol form of one resource.
 CREATE TABLE resource_revisions (
-    tenant_key    TENANT_KEY  NOT NULL,
-    digest        CHAR(64)    NOT NULL,          -- sha256 of the canonical payload
-    resource_type VARCHAR(20) NOT NULL REFERENCES catalog_resource_types (resource_type),
-    payload       JSONB       NOT NULL,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    tenant_key TENANT_KEY  NOT NULL,
+    digest     CHAR(64)    NOT NULL,          -- sha256 of the canonical payload
+    kind       VARCHAR(20) NOT NULL REFERENCES resource_revision_kinds (kind),
+    payload    JSONB       NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (tenant_key, digest)
 );
 
 -- The binaries a revision needs. Bytes stay in the content store; these are retention roots.
 CREATE TABLE revision_binaries (
-    tenant_key   TENANT_KEY  NOT NULL,
-    digest       CHAR(64)    NOT NULL,
-    content_hash TEXT        NOT NULL,
-    media_type   VARCHAR(50) NOT NULL,
-    PRIMARY KEY (tenant_key, digest, content_hash),
-    FOREIGN KEY (tenant_key, digest) REFERENCES resource_revisions (tenant_key, digest) ON DELETE CASCADE
+    tenant_key   TENANT_KEY NOT NULL,
+    digest       CHAR(64)   NOT NULL,
+    scope        TEXT       NOT NULL,
+    content_hash TEXT       NOT NULL,
+    PRIMARY KEY (tenant_key, digest, scope, content_hash),
+    FOREIGN KEY (tenant_key, digest) REFERENCES resource_revisions (tenant_key, digest) ON DELETE CASCADE,
+    FOREIGN KEY (scope, content_hash) REFERENCES asset_content (scope, content_hash)
 );
 
 -- What a release contains: the manifest as rows, with enough metadata to list without payloads.
@@ -123,6 +124,16 @@ CREATE TABLE release_entries (
 
 CREATE INDEX idx_release_entries_resource ON release_entries (tenant_key, resource_id);
 ```
+
+Three details the shipped tables settled (`V20260923162028`). The kind is its own lookup rather than
+`catalog_resource_types`, which holds the catalog wire's own tokens so that a registry address is the
+triple an export uses — a revision kind is storage, and includes `templateModel`, which the wire
+never names on its own. `revision_binaries` carries the dedup `scope` as well as the hash, because
+`asset_content` is keyed by both and a sensitive asset's bytes live under its tenant: without it a
+hash does not resolve to bytes, and there is no key to point a foreign key at. And that foreign key
+is the point — it makes the retention root a fact of the schema rather than a rule the content sweep
+has to remember. The media type is dropped: `asset_content.content_type` already holds it, and a
+second copy is a second thing to keep in step.
 
 Working copies keep their tables and gain the status columns:
 
