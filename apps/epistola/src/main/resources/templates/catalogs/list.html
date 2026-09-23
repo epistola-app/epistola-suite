@@ -166,9 +166,42 @@
                         <p style="margin: var(--ep-space-1) 0 0;">
                             <strong th:if="${status.latestVersion != null}" th:text="'v' + ${status.latestVersion}"></strong>
                             <strong th:if="${status.latestVersion == null}" class="text-muted">none — not published yet</strong>
-                            <span class="form-hint" th:if="${status.latestVersion != null and status.hasUnreleasedChanges}">· this working copy has unreleased changes</span>
-                            <span class="form-hint" th:if="${status.latestVersion != null and !status.hasUnreleasedChanges}">· no changes since the last release</span>
+                            <span class="form-hint" th:if="${status.latestVersion != null and changes.hasUnreleasedChanges}">· this working copy has unreleased changes</span>
+                            <span class="form-hint" th:if="${status.latestVersion != null and !changes.hasUnreleasedChanges}">· no changes since the last release</span>
                         </p>
+                    </div>
+
+                    <!--/* What this release will contain that the last one did not, named rather
+                           than counted — the same shape the upgrade dialog uses below, because it
+                           answers the same question from the other side. Releasing is the moment
+                           the content becomes immutable, so it is the moment to look. */-->
+                    <p th:if="${!changes.baselineAvailable}" class="form-hint">
+                        The last release was cut before Epistola recorded which resources a release
+                        contained, and that cannot be reconstructed — so this catalog cannot say what
+                        changed since. Releasing this version records it, and the next release will say.
+                    </p>
+                    <div class="form-group" th:if="${changes.baselineAvailable and changes.hasUnreleasedChanges}">
+                        <span class="ep-label">This release will</span>
+                        <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
+                            <li th:if="${!changes.added.isEmpty()}">
+                                add <strong th:text="${changes.added.size()}"></strong> new
+                                <span class="form-hint"
+                                      th:text="${'(' + #strings.listJoin(changes.added.![type + '/' + slug], ', ') + ')'}"></span>
+                            </li>
+                            <li th:if="${!changes.modified.isEmpty()}">
+                                update <strong th:text="${changes.modified.size()}"></strong> changed
+                                <span class="form-hint"
+                                      th:text="${'(' + #strings.listJoin(changes.modified.![type + '/' + slug], ', ') + ')'}"></span>
+                            </li>
+                            <li th:if="${!changes.removed.isEmpty()}">
+                                drop <strong th:text="${changes.removed.size()}"></strong>
+                                <span class="form-hint"
+                                      th:text="${'(' + #strings.listJoin(changes.removed.![type + '/' + slug], ', ') + ')'}"></span>
+                            </li>
+                            <li th:if="${!changes.released.isEmpty()}" class="text-muted">
+                                carry <span th:text="${changes.released.size()}"></span> over unchanged
+                            </li>
+                        </ul>
                     </div>
                     <div class="form-group">
                         <span class="ep-label">Bump</span>

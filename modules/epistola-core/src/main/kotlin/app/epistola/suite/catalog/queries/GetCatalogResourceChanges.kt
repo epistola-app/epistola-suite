@@ -77,7 +77,14 @@ data class CatalogResourceChanges(
     /** Ordered by type then slug, the order the manifest lists them in. */
     val resources: List<CatalogResourceChange>,
 ) {
+    val added: List<CatalogResourceChange> get() = inState(CatalogResourceState.NEW)
+    val modified: List<CatalogResourceChange> get() = inState(CatalogResourceState.MODIFIED)
+    val removed: List<CatalogResourceChange> get() = inState(CatalogResourceState.REMOVED)
+    val released: List<CatalogResourceChange> get() = inState(CatalogResourceState.RELEASED)
+
     val hasUnreleasedChanges: Boolean get() = resources.any { it.state != CatalogResourceState.RELEASED }
+
+    private fun inState(state: CatalogResourceState) = resources.filter { it.state == state }
 }
 
 @Component
