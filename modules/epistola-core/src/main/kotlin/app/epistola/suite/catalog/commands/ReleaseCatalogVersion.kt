@@ -113,6 +113,10 @@ class ReleaseCatalogVersionHandler(
         val content = contentBuilder.build(command.tenantKey, command.catalogKey)
         fingerprintService.requirePublishable(content)
         val fingerprint = fingerprintService.fingerprint(content)
+        // What this release contains, resource by resource. Recorded here because it cannot be
+        // recovered afterwards: `manifest_snapshot` holds the manifest entries, not the payloads
+        // they were built from. It is what lets the next release say which resources changed.
+        val resourceFingerprints = fingerprintService.perResourceFingerprints(content)
         val unchanged = existing.any { fingerprintService.matchesFingerprint(content, it.fingerprint) }
         if (unchanged) {
             logger.warn(
@@ -144,8 +148,8 @@ class ReleaseCatalogVersionHandler(
         jdbi.useTransaction<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalog_releases (tenant_key, catalog_key, version, fingerprint, notes, manifest_snapshot, released_at)
-                VALUES (:t, :c, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt)
+                INSERT INTO catalog_releases (tenant_key, catalog_key, version, fingerprint, notes, manifest_snapshot, resource_fingerprints, released_at)
+                VALUES (:t, :c, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), CAST(:resourceFingerprints AS JSONB), :releasedAt)
                 """,
             )
                 .bind("t", command.tenantKey)
@@ -154,6 +158,7 @@ class ReleaseCatalogVersionHandler(
                 .bind("fingerprint", fingerprint)
                 .bind("notes", command.notes)
                 .bindJsonb("snapshot", manifest, objectMapper)
+                .bindJsonb("resourceFingerprints", resourceFingerprints, objectMapper)
                 .bind("releasedAt", releasedAt)
                 .execute()
 

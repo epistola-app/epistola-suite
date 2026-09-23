@@ -66,6 +66,14 @@ class CatalogFingerprintService(
     fun fingerprintFromSource(manifestUrl: String, authType: AuthType, credential: String?): String = canonicalizer.fingerprintFromSource(catalogClient, manifestUrl, authType, credential)
 
     /**
+     * Per-resource digests of a live working copy, keyed `"type/slug"` — the
+     * authored counterpart of [perResourceFingerprintsFromSource], over the same
+     * content [fingerprint] hashes as a whole. A difference here is exactly a
+     * whole-catalog fingerprint difference localized to one resource.
+     */
+    fun perResourceFingerprints(content: CatalogContent): Map<String, String> = canonicalizer.perResourceFingerprints(content.resourceDetails) { contentPath -> content.assetContents[contentPath] }
+
+    /**
      * Per-resource digests of a catalog fetched from a source URL — same fetch
      * loop as [fingerprintFromSource], so a CHANGED verdict is exactly a
      * whole-catalog fingerprint mismatch localized to one resource. Captured at

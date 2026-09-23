@@ -43,6 +43,18 @@ data class LatestCatalogRelease(
     val suggestedNext: SuggestedBumps,
 )
 
+/**
+ * Newest release of a catalog first.
+ *
+ * On the generated version components (V20260923150918): a version sorts by its parts, not as text.
+ * Labels that are not MAJOR.MINOR.PATCH have null components — `SemVer.parseOrNull` tolerates them
+ * — so they sort last and fall back to when they were released.
+ */
+internal const val LATEST_RELEASE_ORDER = """
+    ORDER BY version_major DESC NULLS LAST, version_minor DESC NULLS LAST,
+             version_patch DESC NULLS LAST, released_at DESC
+"""
+
 @Component
 class GetLatestCatalogReleaseHandler(
     private val jdbi: Jdbi,
@@ -51,19 +63,15 @@ class GetLatestCatalogReleaseHandler(
     private data class Row(val version: String, val fingerprint: String)
 
     override fun handle(query: GetLatestCatalogRelease): LatestCatalogRelease {
-        // Ordered in SQL, on the generated version components (V20260923150918): a version sorts by
-        // its parts, not as text, and reading every release to pick the maximum in memory grew with
-        // each release for an answer that is one row. Labels that are not MAJOR.MINOR.PATCH have
-        // null components -- `SemVer.parseOrNull` tolerates them -- so they sort last and fall back
-        // to when they were released.
+        // Ordered in SQL ([LATEST_RELEASE_ORDER]): reading every release to pick the maximum in
+        // memory grew with each release for an answer that is one row.
         val latest = jdbi.withHandle<Row?, Exception> { handle ->
             handle.createQuery(
                 """
                 SELECT version, fingerprint
                 FROM catalog_releases
                 WHERE tenant_key = :t AND catalog_key = :c
-                ORDER BY version_major DESC NULLS LAST, version_minor DESC NULLS LAST,
-                         version_patch DESC NULLS LAST, released_at DESC
+                $LATEST_RELEASE_ORDER
                 LIMIT 1
                 """,
             )
