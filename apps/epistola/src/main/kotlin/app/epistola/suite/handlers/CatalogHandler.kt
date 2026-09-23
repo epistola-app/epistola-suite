@@ -46,6 +46,7 @@ import app.epistola.suite.catalog.queries.FindStencilVersionExportConflicts
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
+import app.epistola.suite.catalog.queries.ListRetainedReleases
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.common.ids.TenantId
@@ -1147,6 +1148,9 @@ class CatalogHandler {
                 mapOf(
                     "tenantId" to tenantId.key,
                     "catalogId" to catalogKey.value,
+                    // Only releases that retained their content can be handed over as released;
+                    // the dialog offers exactly these, so the choice cannot fail at download.
+                    "retainedReleases" to ListRetainedReleases(tenantId.key, catalogKey).query(),
                 ),
             )
         }
@@ -1179,6 +1183,7 @@ class CatalogHandler {
             val result = ExportCatalogZip(
                 tenantKey = tenantId.key,
                 catalogKey = catalogKey,
+                version = request.param("version").orElse(null)?.ifBlank { null },
             ).execute()
 
             ServerResponse.ok()

@@ -163,10 +163,28 @@ digests, so the answer stays exact; once it has drifted the query reports
 UNKNOWN and says it has no baseline rather than calling everything new. The
 next release records one.
 
+## Exporting a release
+
+`ExportCatalogZip` takes an optional `version`. With one, it hands over **that release as it was
+released**: rebuilt by `ReleaseContentAssembler` from the content the release retained, carrying the
+version, timestamp and fingerprint it was cut with, whatever the working copy has done since. The
+export dialog offers the versions `ListRetainedReleases` reports, which is the same set the command
+will accept, so the offer cannot fail at download.
+
+Neither the stencil-version precheck nor `requirePublishable` runs for a release. Both describe the
+working copy; the release passed them when it was cut, it is immutable, and a rule that has tightened
+since must not retroactively make a published release unexportable. The fingerprint _is_ recomputed
+and a mismatch refuses the export — it should be impossible, and if it happens the retained content
+has been altered.
+
+Releases cut before `V20260923201010` retained no content and refuse with
+`CatalogReleaseNotRetainedException` rather than quietly substituting the working copy.
+
 ## Export drift policy
 
-`ExportCatalogZip` always emits a fingerprint describing the **actual exported
-bytes**. The version label encodes release state and export is never blocked:
+Without a version, `ExportCatalogZip` exports the working copy and always emits a fingerprint
+describing the **actual exported bytes**. The version label encodes release state and export is never
+blocked:
 
 - never released → `0.0.0-dev` (logged WARN)
 - working copy differs from the latest release → `<version>-dev` (logged WARN)

@@ -73,7 +73,7 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
 
         val rebuilt = assembler.assemble(catalog.tenantKey, catalog.key, "1.0.0")
         assertThat(rebuilt).`as`("the release retained its content").isNotNull()
-        assertThat(fingerprintService.fingerprint(rebuilt!!)).isEqualTo(released.fingerprint)
+        assertThat(fingerprintService.fingerprint(rebuilt!!.content)).isEqualTo(released.fingerprint)
     }
 
     @Test
@@ -99,10 +99,10 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
         assertThat(second.fingerprint).`as`("the working copy really did change").isNotEqualTo(first.fingerprint)
 
         val rebuiltFirst = assembler.assemble(catalog.tenantKey, catalog.key, "1.0.0")
-        assertThat(fingerprintService.fingerprint(rebuiltFirst!!)).isEqualTo(first.fingerprint)
+        assertThat(fingerprintService.fingerprint(rebuiltFirst!!.content)).isEqualTo(first.fingerprint)
 
         val rebuiltSecond = assembler.assemble(catalog.tenantKey, catalog.key, "2.0.0")
-        assertThat(fingerprintService.fingerprint(rebuiltSecond!!)).isEqualTo(second.fingerprint)
+        assertThat(fingerprintService.fingerprint(rebuiltSecond!!.content)).isEqualTo(second.fingerprint)
     }
 
     @Test
