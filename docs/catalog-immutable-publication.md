@@ -28,7 +28,209 @@ alias retirement in Goal 8 — has nothing left to act on and is trimmed below. 
 leave behind in the meantime is new: published versions naming an address nothing occupies, which
 Goal 3 must report as missing rather than guess.
 
-Next: stage 1C, the first artifact schema slice, together with Goal 2.
+Next: stage 1C, the first artifact schema slice, together with Goal 2 — unless the dependency model
+proposed below is adopted, which reorders the goals.
+
+## Proposed: cross-catalog references pin a released catalog
+
+> **Under discussion (2026-09-22).** Not accepted yet; recorded so it can be reviewed with the rest
+> of the plan. If adopted, it changes the order of the goals below and needs its own ADR.
+
+### The rule
+
+- **Within a catalog, references are live.** A catalog's resources are edited together and
+  released together, so a template may use the working copy of a theme, font, image, stencil, code
+  list or attribute in its own catalog.
+- **Across catalogs, references only reach a released catalog.** Catalog A declares B as a
+  dependency at an exact release — A depends on `B@1.0.1` — and every reference from A into B
+  resolves in that release: `stencil header@B#1.0.1`, never B's working copy. The rule is the same
+  for every resource type.
+- **One pin per consuming catalog**, not one per reference: A uses one version of B. A published
+  artifact still records the exact release each of its inputs came from.
+- **The catalog release version is the version of every resource type.** Themes, fonts, images,
+  code lists and attributes have no versions of their own; the release they are in is their version.
+- A local release of an authored catalog, an installed release of a subscribed catalog and the
+  bundled `system` catalog are all "a release of B".
+
+### What it buys
+
+- **Changes to B cannot reach A.** Editing, moving or deleting something in B's working copy only
+  shapes B's next release. A keeps `B@1.0.1` until its author bumps the pin, which is an explicit,
+  previewable change.
+- **Moving between catalogs needs no aliases.** A resource that leaves B is absent from B's next
+  release, and everything pinned to an earlier release is untouched. Within one catalog, a move or
+  rename rewrites live references by identity.
+- **No dependency cycles.** A release can only pin releases that already exist.
+- **Exact installation.** "A@2.0.0 needs B@1.0.1" is checkable at publication and installation;
+  today a wire dependency is only `(catalogKey, slug)`.
+- **It complements self-contained artifacts.** The pin says what A depends on; retained releases say
+  where the bytes are. Because `B@1.0.1` is immutable and retained, an artifact can reference its
+  content rather than copying it, and rendering still never reads a working copy.
+
+### Consequences for the plan
+
+- **Retained releases become the foundation.** Today `catalog_releases` stores a version, a
+  fingerprint and a manifest snapshot, not the release's resources or binaries, so a pin would have
+  nothing to point at. Goal 4's retention moves first.
+- Proposed order: (1) retained releases; (2) release-pinned cross-catalog dependencies, with picker
+  and validation changes and a migration for existing references; (3) sealed template versions,
+  whose same-catalog inputs are captured at publication and whose cross-catalog inputs point into
+  pinned releases; (4) environments that select artifacts, and identity-based moves within a
+  catalog.
+- **Wire format.** A dependency becomes `{catalog, origin, version}`, which is `epistola-contract`
+  work.
+
+### Where today's model conflicts
+
+1. **Relational links across catalogs.** A template's theme binding
+   (`document_templates.theme_resource_id`), an attribute's code-list binding
+   (`variant_attribute_definitions.code_list_resource_id`) and the tenant default theme
+   (`tenants.default_theme_resource_id`) are foreign keys to live rows in any catalog of the tenant.
+   Across catalogs they would become references to a resource as it is in a pinned release.
+2. **Unqualified image references** resolve by key across the whole tenant — an implicit
+   cross-catalog reference that would have to become explicit.
+3. **The tenant default theme** is tenant configuration, not catalog content. Proposed: relying on
+   it is not a catalog dependency; a published version freezes the default that applied, and an
+   exported catalog falls back to the installer's default, as today.
+4. **The `system` catalog** becomes an ordinary pinned dependency. A Suite upgrade that ships a new
+   system release does not move existing pins; old system releases must be retained, and adopting
+   the new one is an explicit bump.
+5. **Existing data.** Cross-catalog references today point at live resources, often in catalogs
+   that were never released. The upgrade needs a per-catalog path — release B, pin A to it — and a
+   report of what could not be pinned.
+6. **Authoring friction.** Using a new shared resource means releasing B first, so a local release
+   must be cheap (one action, an automatic patch version) and separate from publishing to Exchange.
+   Letting drafts use B's working copy and pinning only at publication was rejected: the preview
+   would show content the pinned release does not have.
+
+### Decided in review (2026-09-22)
+
+These settle points that the first draft of the proposal left open.
+
+- **Code lists keep their values in the release.** A URL-sourced list refreshed after a release
+  changes only the working copy; consumers see new values after the next release and an explicit
+  bump. Inside its own catalog a refresh stays live. The catalog page should say when a source has
+  changed since the last release.
+- **Stencil versions stay, for internal use.** Within a catalog an insertion pins a stencil version
+  as today. Across catalogs the release is the pin: `B@1.0.1` contains exactly one version of each
+  stencil — its latest published one at release time — and the stencil's own number remains as
+  provenance. A consumer that wants an earlier stencil pins an earlier release.
+- **Every render-time input is classified.** Each input is either captured in the artifact
+  (template settings such as PDF/A, and everything the version references) or is explicit context
+  recorded with the generated document (request data, culture). Today PDF/A comes from the live
+  template row, culture from the tenant default, and the catalog fonts resolve in from the
+  template's current theme binding; those are the gaps to close. Rendering the same artifact with
+  the same context must give the same document.
+- **Dependencies are declared with a mode, resolved exactly.** `B@1.0.1` pins a release;
+  `B@latest` follows the release currently installed or selected, for subscribed catalogs;
+  `B@working` follows a live working copy, for authored catalogs in the same tenant. Drafts follow
+  the mode, so local authoring stays direct. Publishing a template version captures the inputs it
+  actually used, whatever the mode. Releasing a catalog requires every dependency to resolve to an
+  exact release and records it, so `@working` blocks a release until the dependency is released.
+- **Retention follows reachability, with a policy for letting go.** Content stays while any
+  published artifact or pinned release needs it, even after the resource is deleted from the
+  working copy, so the content sweep has to reach through artifacts and releases rather than live
+  rows alone. A discard policy decides when an archived version that no environment runs stops
+  keeping its inputs alive, and the UI explains why something cannot be purged.
+- **A release may only depend on releases its installer can obtain.** Publishing A to Exchange
+  requires B's pinned release to be available there, which Exchange can check on submission.
+  Dependencies are named by origin (registry, namespace, catalog), never by a tenant-local key.
+  Installing A installs or requires its dependencies first. Purely local use needs none of this.
+- **A withdrawn release has a severity.**
+
+  | Status       | Existing installs and published work                                                                                                       | New pins, bumps and publications |
+  | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
+  | `deprecated` | keep working; a newer release is offered                                                                                                   | allowed, with a notice           |
+  | `recalled`   | keep rendering, with a prominent warning naming affected templates and environments                                                        | blocked                          |
+  | `revoked`    | rendering of artifacts containing it is blocked by default; an incident page lists what is affected and an admin can override deliberately | blocked                          |
+
+  The status travels on the existing upstream check, and the dependency graph produces the affected
+  list. A retained copy is kept even when revoked, so the decision stays reversible.
+
+### Deployment: an environment runs a catalog release
+
+_Decided 2026-09-22._ This replaces per-template, per-variant activation.
+
+- **An environment points at one release per catalog** — Production runs `letters@1.9.3` while Test
+  runs `letters@2.0.0`. Promotion copies the selection; rollback selects the earlier release. Both
+  are pointer changes over retained content.
+- **No per-template overrides.** Running different versions of templates from one catalog in one
+  environment is not supported; a hotfix is a patch release. The catalog is therefore the blast
+  radius of a deployment, which is worth saying in the product documentation.
+- **An environment may run a catalog's working copy instead**, which is how unreleased work is
+  tested end to end without cutting a prerelease. It resolves each template's latest published
+  version by default; rendering drafts is a separate, explicit per-environment choice. Such an
+  environment renders live resources rather than a sealed artifact, its documents are marked as
+  generated from unreleased content, and its data contracts carry no stability promise. Generation
+  history still records the exact revision used, so a document remains explainable.
+- **Publishing stays one action.** Every resource editor — template, stencil, theme, font, image,
+  code list, attribute — shows which catalog it is in and offers Publish, which cuts a patch
+  release of that catalog. Whether an environment then picks it up is the environment's own
+  setting; a "follow the latest release" mode for simple installations is worth considering and is
+  not yet decided.
+- **A deployment preview** names what changes per template, which data contracts change, and which
+  templates the release removes that the environment currently serves.
+- **Dependencies come with the release.** Deploying `letters@2.0.0` brings the content of the
+  releases it pins; a dependency is never deployed separately.
+- **REST:** per-template activation (`PublishToEnvironment` on the template API) is replaced by
+  releasing a catalog and deploying a release. It is a breaking change, taken deliberately in the
+  next major together with the contract's other pending removals, rather than kept alongside a
+  legacy mode.
+
+### Versioning: the release is the version
+
+_Decided 2026-09-22._ One version concept for the whole product.
+
+- **Every change produces an immutable revision** of a resource. A catalog release is a manifest of
+  revisions, so the version of a resource is the release it is in.
+- **Per-template and per-stencil version numbers go.** A template is "invoice, as of
+  `letters@2.0.0`"; its page becomes the history of releases in which it changed. Inside its own
+  catalog a stencil is named the same way; from another catalog it is named by the pinned release.
+- **Ready versus not-ready stays**, for templates and stencils. Editing produces a draft; Publish
+  marks that revision ready; a release captures each resource's latest published revision. Without
+  it a release would capture a half-finished edit. In the simple case Publish also cuts a patch
+  release, showing everything else that release includes; a team that releases deliberately can
+  publish resources as they finish and release later.
+- **Themes, fonts, images, code lists and attributes stay live** in their catalog, with no draft
+  state, as today. The release preview — everything changed since the last release — is the safety
+  net. Giving them a draft state too is a separate decision.
+- **Stencil insertions** embed a copy and record the revision they came from, so "this stencil
+  changed since you inserted it" still works and upgrading is explicit. Inside a catalog that is
+  the current published revision; across catalogs it is the revision in the pinned release.
+- **Data contracts fold in.** A template's contract is part of its revision, breaking-change
+  detection runs when the catalog is released, and the deployment preview says which templates'
+  callers a release would break.
+- **Consequences.** Everything that names a template version moves to naming a release: generation
+  history (release plus revision), generate-by-version over REST (becomes generate-by-release),
+  quality findings, load-test runs, and the cap of 200 versions per variant, which a revision
+  retention policy replaces.
+- **Terminology.** Where the goals below say "published template version", read "the published
+  revision a release contains".
+
+### Spun off as their own design topics
+
+- **Style presets.** Presets mix a vocabulary (`heading-1`, `callout`) with its values, and both
+  live in a theme today, so a stencil from another catalog names roles the host theme may not have.
+  The direction to explore: presets become a catalog resource — a vocabulary with default values,
+  referenced and pinned like any other cross-catalog dependency — and a theme only overrides those
+  values, with the vocabulary's default as the fallback. The `system` catalog would ship a standard
+  vocabulary so shared stencils work in any theme.
+- **Backup and restore.** Once nearly everything is an immutable, content-addressed object
+  (resource revisions, release manifests, artifacts, binaries) with a small mutable remainder
+  (working copies, pins, deployments, settings), a backup is "copy new objects, then the refs":
+  append-only, incremental and deduplicated by construction. That may replace both today's
+  table-dump tenant backup and the catalog-export snapshot, and should be designed as a whole
+  rather than retrofitted.
+
+### Enforcement
+
+- The editor's theme, font, image, stencil and code-list pickers offer the catalog's own resources
+  plus the released resources of its declared dependencies.
+- Adding a dependency is an explicit choice of catalog and release. Bumping one previews what
+  changes for the consuming catalog: resources removed, renamed or changed.
+- Saving, publishing and releasing reject a cross-catalog reference to a catalog that is not a
+  pinned dependency. `ResourceReferenceSites` already enumerates every reference site, so the check
+  has a natural home.
 
 ## 1. Decision and intended outcome
 
@@ -42,9 +244,10 @@ The desired product behaviour is:
 - A catalog release retains an immutable collection of resources and their required content.
 - Multiple published releases can coexist, with one selected release per subscription for current
   authoring. Historical releases do not become additional editable working copies.
-- Installing or selecting a catalog release does not silently change environment activations.
-- An environment selects a published template version and its deployment configuration. Promoting
-  or rolling back selects retained content; it does not resolve dependencies again.
+- Installing or selecting a catalog release does not silently change what an environment runs.
+- An environment runs a catalog release, or a catalog's working copy where that is chosen
+  deliberately. Promoting or rolling back selects retained content; it does not resolve
+  dependencies again.
 - Subscribers keep existing work usable when a publisher moves or removes resources from a later
   release, without requiring the publisher to know who uses them.
 - Local internal references eventually use identity or immutable content, not historical addresses.
@@ -64,18 +267,18 @@ deployment, push, or release.
 
 ## 2. The concepts and their boundaries
 
-| Concept                       | Mutable?                                | Purpose                                                                                                                    |
-| ----------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Resource identity             | Identity never changes                  | Identifies an authored template, stencil, theme, font, image, code list or attribute independently of its current address. |
-| Resource address              | Subject to external compatibility rules | Human/API name; not an internal rendering dependency.                                                                      |
-| Working copy                  | Yes                                     | Current authoring content and catalog membership. One per authored catalog.                                                |
-| Template draft                | Yes                                     | Editable document content and explicitly selected dependencies.                                                            |
-| Published template version    | No                                      | Exact template model, resolved rendering inputs and contract reference, retained for use.                                  |
-| Published stencil version     | No                                      | Reusable content and retained dependencies; insertion remains an explicit copy/adoption operation.                         |
-| Catalog release               | No                                      | Immutable distribution artifact with a version, content digest, provenance and complete content.                           |
-| Selected subscription release | Yes, by explicit action                 | Chooses which installed release supplies current authoring resources.                                                      |
-| Environment deployment        | Yes, by explicit activation             | Selects published versions and the configuration used to select a variant and validate requests.                           |
-| Generated document            | No                                      | Output from particular inputs; its existing retention policy remains separate.                                             |
+| Concept                       | Mutable?                                | Purpose                                                                                                                                                  |
+| ----------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Resource identity             | Identity never changes                  | Identifies an authored template, stencil, theme, font, image, code list or attribute independently of its current address.                               |
+| Resource address              | Subject to external compatibility rules | Human/API name; not an internal rendering dependency.                                                                                                    |
+| Working copy                  | Yes                                     | Current authoring content and catalog membership. One per authored catalog.                                                                              |
+| Template draft                | Yes                                     | Editable document content and explicitly selected dependencies.                                                                                          |
+| Published template revision   | No                                      | Exact template model, resolved rendering inputs and contract reference, retained for use.                                                                |
+| Published stencil revision    | No                                      | Reusable content and retained dependencies; insertion remains an explicit copy/adoption operation.                                                       |
+| Catalog release               | No                                      | Immutable distribution artifact with a version, content digest, provenance and complete content.                                                         |
+| Selected subscription release | Yes, by explicit action                 | Chooses which installed release supplies current authoring resources.                                                                                    |
+| Environment deployment        | Yes, by explicit deployment             | Points one environment at one catalog release, or at that catalog's working copy, with the configuration used to select a variant and validate requests. |
+| Generated document            | No                                      | Output from particular inputs; its existing retention policy remains separate.                                                                           |
 
 ### Template publication, catalog publication and environments
 
@@ -83,20 +286,15 @@ Template publication is the first durability boundary. It must work without any 
 Catalog publication packages exact published template versions; it must not re-freeze them using
 newer themes, fonts or contracts.
 
-For example, `letters@2.0.0` can contain invoice version 8. Test can run invoice v8 while Production
-runs v7. Promoting v8 selects the artifact tested in Test. Rolling Production back to v7 does not
-roll back the catalog working copy or another template. A later catalog release may still contain
-invoice v8 while changing other resources.
+For example, `letters@2.0.0` contains invoice version 8. Test can run `letters@2.0.0` while
+Production runs `letters@1.9.3`. Promoting selects the release tested in Test. Rolling Production
+back selects the earlier release; it does not roll back the catalog working copy. A later release
+may still contain invoice v8 while changing other resources.
 
-The current combined “publish to environment” action can remain: atomically seal a draft, then
-activate that artifact. Activating an already published version must not rebuild its dependencies.
-
-An environment currently selects a version per template variant. Preserve that granularity first.
-Do not introduce mandatory whole-catalog deployment as part of this work. Retain variant selection,
-default-variant configuration and exact contract references alongside the deployed template
-configuration so an external request cannot silently select a different variant after an unrelated
-authoring edit. Existing activations need a captured initial configuration, not an implicit new
-selection policy.
+An environment runs one release per catalog, not one version per template — see "Deployment"
+below. Variant selection, default-variant configuration and exact contract references travel with
+the deployed release, so an external request cannot silently select a different variant after an
+unrelated authoring edit.
 
 ### What a resource move means
 
@@ -137,14 +335,14 @@ compatibility; they are not merely internal authoring keys.
    cannot produce a mixture of revisions.
 6. Imported and published artifacts never acquire dependencies by matching a bare catalog key in
    the receiving tenant. Provenance and artifact-local identifiers determine their content.
-7. Publication, installation, selection and activation are separate acts with separate permissions.
+7. Publication, installation, selection and deployment are separate acts with separate permissions.
    A publisher cannot implicitly deploy into a subscriber's environment.
 8. Rollback selects an older retained artifact. It does not delete newer artifacts that other work
    still uses, downgrade the database, or rewrite history.
 9. Historical source addresses and version labels remain provenance. Local UUIDs are not portable
    identity, and equal content hashes do not prove two resources are the same logical resource.
 10. Tenant isolation applies to artifacts, references, origin bindings, caches and blob access.
-11. An archived version is retired from normal authoring/activation according to policy, not an
+11. An archived version is retired from normal authoring/deployment according to policy, not an
     instruction to discard dependencies still required by retained history.
 12. Missing legacy content is reported honestly. Never substitute today's font or theme and claim
     that an old published version has been faithfully migrated.
@@ -284,7 +482,7 @@ Implement a vertical slice before changing catalog installation.
   artifact cannot be made complete.
 - Make real preview and generation, including `apps/pdfrender`, read the sealed artifact. Preserve
   a clearly isolated legacy path for old versions while migration is incomplete.
-- Publishing a new version creates a new artifact. Activating an existing version never seals it
+- Publishing a new version creates a new artifact. Deploying a release never seals its versions
   again. A template can be published without releasing its catalog.
 
 ### Exit scenario
@@ -385,15 +583,15 @@ installed release just to imitate the existing mirror.
   Exchange, origin includes registry plus namespace and catalog; for other sources use an explicit
   source identity policy. Namespace changes are not silently inferred as continuity.
 - Retain the archive and verified contents atomically before making a release selectable. A failed
-  install leaves selection, environment activations and existing content unchanged; retries reuse
+  install leaves selection, environment deployments and existing content unchanged; retries reuse
   verified content safely.
 - Project current authoring resources from the selected release. During transition, any existing
   subscribed-table projection is rebuildable and must not own published artifact lifetime.
-- Keep stable local template identity/version bindings for existing activations and API handles.
+- Keep stable local template identity/version bindings for existing deployments and API handles.
   Distinguish portable source revision from locally allocated version numbers. Re-import is
   idempotent; different content at an existing immutable origin/version is rejected, not overwritten.
 - Removing a member in a newer release removes it from that release's current collection. Retained
-  versions used by activations, published templates or drafts remain available with clear status.
+  versions used by deployments, published templates or drafts remain available with clear status.
 - Drafts using a withdrawn member default to retaining their selected revision. Show “source no
   longer present in selected release” and offer explicit adoption/replacement or detachment where
   supported. Do not silently follow a similarly named resource elsewhere.
@@ -401,7 +599,7 @@ installed release just to imitate the existing mirror.
   require no global catalog-name binding. Installing multiple publishers under remapped display
   keys is optional later work, not a prerequisite for correct rendering.
 - Handle previously installed mirrors before pruning: capture required published inputs and origin
-  bindings, then switch selection semantics. Do not delete old identities carrying activation or
+  bindings, then switch selection semantics. Do not delete old identities carrying deployment or
   history links during migration.
 
 ### Upgrade and rollback rules
@@ -425,16 +623,17 @@ unrelated version at the destination.
   Y offline. X's future update choice remains independent of Z's running work.
 - A removal is presented accurately; no “re-import follows the move” promise without a handoff.
 
-## 9. Goal 6 — deployment configuration, generation and rollback
+## 9. Goal 6 — catalog deployment, generation and rollback
 
 Complete the deployment boundary introduced in Goal 2 before advertising full environment rollback.
 
-- Capture the published variant/artifact mapping, default variant, external attribute-selection
-  keys/values and relevant contract definitions in an immutable deployment configuration.
-- Keep activation as an atomic pointer change at the existing template/environment granularity;
-  preserve per-variant controls where they are part of the established product contract.
-- Promotion reuses the tested artifacts and configuration. Do not independently resolve each
-  environment against its current catalog selections.
+- Deploy a catalog release to an environment: one pointer per (environment, catalog), changed
+  atomically. No per-template override; a hotfix is a patch release.
+- An environment may instead run a catalog's working copy, as "Deployment" above describes.
+- The release carries the variant/artifact mapping, default variant, external attribute-selection
+  keys/values and relevant contract definitions, so a deployment needs no configuration of its own.
+- Promotion reuses the tested release. Do not independently resolve each environment against its
+  current catalog selections.
 - Resolve an environment-based generation request to exact artifacts when accepting the request.
   Persist that binding for queues, retries and batches. Define batch acceptance semantics explicitly
   so a deployment part-way through a batch cannot accidentally mix versions.
@@ -442,13 +641,18 @@ Complete the deployment boundary introduced in Goal 2 before advertising full en
   in generation history. Listing history must use the intended tenant/catalog/identity scope;
   unrelated templates with the same key must not merge unintentionally.
 - Decide archive/reactivation policy explicitly. Archived artifact retention is independent of
-  whether the UI allows activating it; do not silently widen that permission during migration.
-- Keep API/MCP reads and generation semantics compatible. New rollback/selection operations get
-  deliberate permission and contract design; exposing raw internal artifact IDs is not required.
+  whether the UI allows deploying it; do not silently widen that permission during migration.
+- Convert existing per-template activations by synthesising, per catalog and environment, a release
+  that captures exactly what is deployed, then deploying it — so the conversion changes no
+  behaviour.
+- Keep API/MCP reads and generation semantics deliberate: per-template activation over REST is
+  replaced rather than preserved (see below), and exposing raw internal artifact IDs is not
+  required.
 
-Exit: Production runs v7, Test runs v8; editing themes or selecting a different catalog release
-changes neither. Promote v8, enqueue generation, roll back to v7: the accepted request still uses
-v8, and new requests use v7. A worker with an empty cache produces the expected content.
+Exit: Production runs `letters@1.9.3`, Test runs `letters@2.0.0`; editing a theme or selecting a
+different release of a dependency changes neither. Promote `2.0.0`, enqueue generation, roll back
+to `1.9.3`: the accepted request still uses `2.0.0`, and new requests use `1.9.3`. A worker with an
+empty cache produces the expected content.
 
 ## 10. Goal 7 — replace the crude move with identity-based references
 
@@ -504,7 +708,7 @@ here is the path that renders a published version by resolving its dependencies 
 - Faithful tenant backups include artifacts, selection/deployment records, identities and blobs.
   Preserve original version numbers and isolate installation-specific Exchange authority/outbox.
 - Distinguish the current catalog-export-based tenant snapshot from a full authoring backup. It
-  must not be described as restoring every draft/history/activation unless its format actually
+  must not be described as restoring every draft/history/deployment unless its format actually
   carries those records. Upgrade its format or retain a clearly scoped guarantee.
 - Restore retained published content without replaying remote publication or depending on current
   remote catalogs. Validate all required bytes before making restored state visible.
@@ -567,7 +771,7 @@ tests. Passing a large test count is not a substitute for these guarantees.
 | Subscriber owns same catalog/resource key from another origin | No accidental dependency binding or overwrite.                                                                    |
 | Transitive publisher X uses Y, subscriber Z uses X            | Z can use X's complete artifact without Y being online or installed globally.                                     |
 | Upgrade followed by environment rollback                      | Exact older tested artifact selected; other deployments and accepted jobs unchanged.                              |
-| Published variant configuration later edited                  | Deployed external selection and contract semantics remain fixed until activation.                                 |
+| Published variant configuration later edited                  | Deployed external selection and contract semantics remain fixed until the next deployment.                        |
 | Cold render worker and warm app node                          | Same retained dependency content; no reliance on address-cache warmth.                                            |
 | Delete current resource/catalog and run content reaper        | Retained artifact bytes survive; only genuinely unreferenced content is reclaimable.                              |
 | Restore a backup or snapshot taken before artifacts existed   | Versions converted or kept on the legacy path safely, with no new remote publication.                             |
@@ -598,7 +802,7 @@ their dependent goal, not used to stall initial cleanup:
    current working copy, and make that mode visible.
 3. **Retention:** define the minimum rollback/history window and who may explicitly discard an
    unreferenced release. Retained versions always keep required content.
-4. **Reactivation:** decide whether archive is reversible and which permissions restore activation
+4. **Reactivation:** decide whether archive is reversible and which permissions restore deployment
    eligibility; do not equate archive with blob deletion.
 5. **Distribution:** confirm that permitted dependency content may be included in releases and how
    provenance/licensing is presented. Missing distribution authority blocks packaging.
@@ -606,8 +810,10 @@ their dependent goal, not used to stall initial cleanup:
    changing import/export or environment selection contracts.
 7. **Incomplete history:** define operator recovery for missing legacy inputs and distinguish
    verified historical capture from capture of the only currently available state.
-8. **Deployment scope:** preserve per-template/per-variant activation initially; decide separately
-   whether users need an atomic deployment of several templates as a bundle.
+8. **Deployment scope:** _decided 2026-09-22_ — an environment runs a catalog release, or a
+   catalog's working copy; there is no per-template deployment. See "Deployment" above.
+9. **Cross-catalog dependency model:** whether cross-catalog references pin a released catalog, as
+   proposed above, and how its six conflicts are resolved.
 
 ## 16. What this plan deliberately avoids
 
