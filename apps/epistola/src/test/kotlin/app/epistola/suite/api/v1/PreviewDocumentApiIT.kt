@@ -93,6 +93,20 @@ class PreviewDocumentApiIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `a rejection with only invalid fields leaves missingDataSchema out`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        seedPublishedTemplate(tenantKey)
+
+        val response = preview(tenantKey, apiKey, """{"customer": {"name": 1}, "invoiceDate": "2026-09-22"}""")
+
+        assertThat(response.statusCode).describedAs(response.body).isEqualTo(HttpStatus.BAD_REQUEST)
+        val body = objectMapper.readTree(response.body!!)
+        assertThat(body.has("missingDataSchema")).isFalse()
+        assertThat(body.get("missingFields").isEmpty).isTrue()
+        assertThat(body.get("invalidFields").values().map { it.get("path").asString() }).containsExactly("/customer/name")
+    }
+
+    @Test
     fun `preview with complete data still returns the pdf`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         seedPublishedTemplate(tenantKey)

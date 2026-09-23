@@ -334,12 +334,13 @@ fun TemplateDataInvalidException.toProblemDetail(request: HttpServletRequest): P
         request = request,
         type = ApiProblemTypes.TEMPLATE_DATA_INVALID,
         detail = message ?: "Data validation failed",
-        extensions = mapOf(
+        // `missingDataSchema` is left out rather than sent as null when nothing is missing.
+        extensions = listOfNotNull(
             "errors" to errors,
             "missingFields" to analysis.missingFields,
             "invalidFields" to analysis.invalidFields,
-            "missingDataSchema" to analysis.missingDataSchema,
-        ),
+            analysis.missingDataSchema?.let { "missingDataSchema" to it },
+        ).toMap(),
     )
 }
 
