@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.revisions
 
 import app.epistola.catalog.protocol.ResourceEntry
 import app.epistola.suite.catalog.CatalogContent
+import app.epistola.suite.catalog.queries.LATEST_RELEASE_ORDER
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
@@ -113,6 +114,31 @@ class ReleaseEntryStore {
                 description = rs.getString("description"),
             )
         }
+        .list()
+
+    /**
+     * The versions of a catalog that retained their content, newest first.
+     *
+     * One definition, used by the `ListRetainedReleases` query for the UI and by
+     * [ReleaseContentAssembler] for the export itself — so what a screen offers and what the export
+     * will accept cannot drift apart.
+     */
+    fun retainedVersions(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): List<String> = handle
+        .createQuery(
+            """
+            SELECT r.version
+            FROM catalog_releases r
+            WHERE r.tenant_key = :t AND r.catalog_key = :c
+              AND EXISTS (
+                  SELECT 1 FROM release_entries e
+                  WHERE e.tenant_key = r.tenant_key AND e.catalog_key = r.catalog_key AND e.version = r.version
+              )
+            $LATEST_RELEASE_ORDER
+            """,
+        )
+        .bind("t", tenantKey)
+        .bind("c", catalogKey)
+        .mapTo(String::class.java)
         .list()
 
     private fun loadIdentities(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): Map<String, UUID> = handle

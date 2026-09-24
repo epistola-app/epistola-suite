@@ -7,10 +7,10 @@ package app.epistola.suite.catalog.revisions
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.ImageResource
+import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogContent
-import app.epistola.suite.catalog.queries.LATEST_RELEASE_ORDER
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
@@ -34,6 +34,18 @@ import tools.jackson.databind.node.ObjectNode
  * and it is the only check that the stored shape is faithful — including that lifting a template's
  * variant models into revisions of their own loses nothing.
  */
+/**
+ * A release, read back: its content and the release metadata it was cut with.
+ *
+ * [release] comes from the manifest snapshot rather than being composed now, so an archive built
+ * from this carries the version, timestamp and fingerprint the original did — which is what makes
+ * the rebuilt bytes the released bytes rather than a new export of old content.
+ */
+data class RetainedRelease(
+    val content: CatalogContent,
+    val release: ReleaseInfo,
+)
+
 @Component
 class ReleaseContentAssembler(
     private val jdbi: Jdbi,
@@ -46,7 +58,7 @@ class ReleaseContentAssembler(
      * release cut before `V20260923201010`, which cannot be reconstructed from the working copy
      * and must not be guessed at from it.
      */
-    fun assemble(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): CatalogContent? = jdbi.withHandle<CatalogContent?, Exception> { handle ->
+    fun assemble(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): RetainedRelease? = jdbi.withHandle<RetainedRelease?, Exception> { handle ->
         val entries = releaseEntryStore.entriesOf(handle, tenantKey, catalogKey, version)
         if (entries.isEmpty()) return@withHandle null
 
@@ -60,40 +72,26 @@ class ReleaseContentAssembler(
             entry.contentKey to detailOf(handle, tenantKey, payload)
         }
 
-        CatalogContent(
-            // The catalog's own metadata and its dependencies are release metadata rather than
-            // resource content, and the manifest snapshot already froze them at release time.
-            catalog = snapshot.catalog,
-            resourceEntries = entries.map { it.toResourceEntry() },
-            resourceDetails = details,
-            dependencies = snapshot.dependencies,
-            assetContents = loadAssetContents(handle, tenantKey, details.values),
+        RetainedRelease(
+            content = CatalogContent(
+                // The catalog's own metadata and its dependencies are release metadata rather than
+                // resource content, and the manifest snapshot already froze them at release time.
+                catalog = snapshot.catalog,
+                resourceEntries = entries.map { it.toResourceEntry() },
+                resourceDetails = details,
+                dependencies = snapshot.dependencies,
+                assetContents = loadAssetContents(handle, tenantKey, details.values),
+            ),
+            release = snapshot.release,
         )
     }
 
     /** The latest release of a catalog that retained its content, or null when none has. */
-    fun assembleLatest(tenantKey: TenantKey, catalogKey: CatalogKey): CatalogContent? {
-        val version = jdbi.withHandle<String?, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT r.version
-                FROM catalog_releases r
-                WHERE r.tenant_key = :t AND r.catalog_key = :c
-                  AND EXISTS (
-                      SELECT 1 FROM release_entries e
-                      WHERE e.tenant_key = r.tenant_key AND e.catalog_key = r.catalog_key AND e.version = r.version
-                  )
-                $LATEST_RELEASE_ORDER
-                LIMIT 1
-                """,
-            )
-                .bind("t", tenantKey)
-                .bind("c", catalogKey)
-                .mapTo(String::class.java)
-                .findOne()
-                .orElse(null)
+    fun assembleLatest(tenantKey: TenantKey, catalogKey: CatalogKey): RetainedRelease? {
+        val latest = jdbi.withHandle<String?, Exception> { handle ->
+            releaseEntryStore.retainedVersions(handle, tenantKey, catalogKey).firstOrNull()
         }
-        return version?.let { assemble(tenantKey, catalogKey, it) }
+        return latest?.let { assemble(tenantKey, catalogKey, it) }
     }
 
     /**
