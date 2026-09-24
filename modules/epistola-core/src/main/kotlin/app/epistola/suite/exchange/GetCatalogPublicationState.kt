@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogPublicationPolicy
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
+import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -150,6 +151,7 @@ class GetCatalogPublicationStateHandler(
     private val availability: ExchangeAvailability,
     private val namespaceBinder: ExchangeNamespaceBinder,
     private val store: CatalogPublicationStore,
+    private val releaseEntryStore: ReleaseEntryStore,
     private val credentials: ExchangeCredentialService,
 ) : QueryHandler<GetCatalogPublicationState, CatalogPublicationState?> {
 
@@ -177,6 +179,17 @@ class GetCatalogPublicationStateHandler(
             )
         }
 
+        // Unreleased changes only block publishing a release that has no content of its own to
+        // send. A release that retained its content is published from it, so the working copy may
+        // have moved on as far as it likes -- which is the normal case for anyone who kept
+        // authoring after releasing. The command decides the same way, from the same fact.
+        val blockedByDrift = releaseStatus.hasUnreleasedChanges &&
+            releaseStatus.latestVersion?.let { version ->
+                jdbi.withHandle<Boolean, Exception> { handle ->
+                    releaseEntryStore.retainedVersions(handle, query.tenantKey, query.catalogKey).contains(version)
+                }
+            } != true
+
         return CatalogPublicationState(
             available = available,
             policy = policy,
@@ -203,14 +216,14 @@ class GetCatalogPublicationStateHandler(
                 binding.namespace in binding.granted &&
                 policy != CatalogPublicationPolicy.NEVER &&
                 releaseStatus.latestVersion != null &&
-                (isRetry || (current == null && !releaseStatus.hasUnreleasedChanges)),
+                (isRetry || (current == null && !blockedByDrift)),
             isRetry = isRetry,
             unpublishableRelease = releaseStatus.latestVersion?.takeIf {
                 available &&
                     canPublish &&
                     policy != CatalogPublicationPolicy.NEVER &&
                     current == null &&
-                    releaseStatus.hasUnreleasedChanges
+                    blockedByDrift
             },
         )
     }

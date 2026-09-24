@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogPublicationPolicy
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -48,6 +49,7 @@ class PublishCurrentCatalogReleaseHandler(
     private val contentBuilder: CatalogContentBuilder,
     private val archiveBuilder: CatalogArchiveBuilder,
     private val fingerprintService: CatalogFingerprintService,
+    private val assembler: ReleaseContentAssembler,
     private val availability: ExchangeAvailability,
     private val namespaceBinder: ExchangeNamespaceBinder,
     private val store: CatalogPublicationStore,
@@ -134,14 +136,36 @@ class PublishCurrentCatalogReleaseHandler(
         }
     }
 
+    /**
+     * The bytes of [release], preferring the content the release retained.
+     *
+     * A release that kept its content needs no working copy at all, which is the point: publishing
+     * v1.0.0 is publishing what v1.0.0 was, whatever has been edited since. The fingerprint is
+     * recomputed and a mismatch refuses, the same guard the release export applies — it should be
+     * impossible, and submitting an archive whose contents contradict the fingerprint it advertises
+     * would spread that rather than stop it.
+     *
+     * A release cut before content was retained has only the working copy to rebuild from, so it
+     * keeps the old refusal: those bytes are only that release's bytes while nothing has changed.
+     */
     private fun buildReleaseArchive(command: PublishCurrentCatalogRelease, release: Release): ByteArray {
+        val retained = assembler.assemble(command.tenantKey, command.catalogKey, release.version)
+        if (retained != null) {
+            val rebuilt = fingerprintService.fingerprint(retained.content)
+            check(rebuilt == release.fingerprint) {
+                "Release ${release.version} of catalog '${command.catalogKey.value}' rebuilds to fingerprint " +
+                    "$rebuilt but was released as ${release.fingerprint}; its retained content has been altered."
+            }
+            return archiveBuilder.build(retained.content, retained.release)
+        }
+
         val content = contentBuilder.build(command.tenantKey, command.catalogKey)
         fingerprintService.requirePublishable(content)
         validate(
             "publication",
             fingerprintService.matchesFingerprint(content, release.fingerprint),
             ValidationCode.PUBLICATION_WORKING_COPY_DRIFTED,
-        ) { "The working copy differs from v${release.version}; release those changes before publishing to Exchange." }
+        ) { "The working copy differs from v${release.version}, and that release did not retain its content; release those changes before publishing to Exchange." }
         return archiveBuilder.build(
             content,
             ReleaseInfo(release.version, release.releasedAt.toString(), release.fingerprint),

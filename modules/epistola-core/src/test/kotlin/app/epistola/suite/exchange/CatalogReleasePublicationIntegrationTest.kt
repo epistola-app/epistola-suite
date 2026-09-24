@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.commands.SetCatalogPublicationSettings
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
+import app.epistola.suite.catalog.revisions.forgetRetainedContent
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
@@ -24,6 +25,7 @@ import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
 
 /**
  * The release-time half of publication: which releases get queued, and that queueing never
@@ -31,6 +33,9 @@ import org.junit.jupiter.api.Test
  * [CatalogPublicationWorkerIntegrationTest].
  */
 class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
+
+    @Autowired
+    private lateinit var jdbi: org.jdbi.v3.core.Jdbi
 
     @Test
     fun `a release with nowhere to publish still succeeds and queues nothing`() {
@@ -76,7 +81,7 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
     }
 
     @Test
-    fun `a release left unpublished while the catalog moves on says so instead of going quiet`() {
+    fun `a release that kept its content is still publishable after the catalog moves on`() {
         val tenant = createTenant("Drifted Release")
         val catalogKey = CatalogKey.of("drifted-release")
 
@@ -90,12 +95,48 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
             assertThat(state(tenant.id, catalogKey).canPublishCurrentRelease).isTrue()
             assertThat(state(tenant.id, catalogKey).unpublishableRelease).isNull()
 
-            // Any edit moves the working copy away from the released bytes, which are not retained
-            // for a release that was never queued.
+            // An edit moves the working copy away from the released bytes. It used to make the
+            // release unpublishable -- the archive was rebuilt from the working copy, so the only
+            // way to send v1.0.0 was to release the edits first. The release keeps its own content
+            // now, so publishing it is publishing what it was.
             UpdateCatalogMetadata(
                 tenantKey = tenant.id,
                 catalogKey = catalogKey,
                 name = "Drifted release",
+                description = "Changed after releasing",
+                attributes = emptyList(),
+            ).execute()
+
+            val drifted = state(tenant.id, catalogKey)
+            assertThat(drifted.canPublishCurrentRelease)
+                .`as`("the release has its own content to send")
+                .isTrue()
+            assertThat(drifted.unpublishableRelease).isNull()
+
+            PublishCurrentCatalogRelease(tenant.id, catalogKey).execute()
+            assertThat(publications(tenant.id, catalogKey)).hasSize(1)
+        }
+    }
+
+    @Test
+    fun `a release that kept no content still refuses once the working copy moves on`() {
+        val tenant = createTenant("Legacy Drifted Release")
+        val catalogKey = CatalogKey.of("legacy-drift")
+
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Legacy drift").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.SKIP).execute()
+        }
+        // A release cut before content was retained has only the working copy to rebuild from.
+        jdbi.forgetRetainedContent(tenant.id, catalogKey)
+
+        withMediator {
+            UpdateCatalogMetadata(
+                tenantKey = tenant.id,
+                catalogKey = catalogKey,
+                name = "Legacy drift",
                 description = "Changed after releasing",
                 attributes = emptyList(),
             ).execute()

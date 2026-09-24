@@ -122,17 +122,17 @@ class ReleaseEntryStore {
      * One definition, used by the `ListRetainedReleases` query for the UI and by
      * [ReleaseContentAssembler] for the export itself — so what a screen offers and what the export
      * will accept cannot drift apart.
+     *
+     * Reads the flag rather than counting entries: a catalog with no resources retains a release
+     * that legitimately contains nothing, and counting cannot tell that from a release cut before
+     * content was retained at all.
      */
     fun retainedVersions(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): List<String> = handle
         .createQuery(
             """
             SELECT r.version
             FROM catalog_releases r
-            WHERE r.tenant_key = :t AND r.catalog_key = :c
-              AND EXISTS (
-                  SELECT 1 FROM release_entries e
-                  WHERE e.tenant_key = r.tenant_key AND e.catalog_key = r.catalog_key AND e.version = r.version
-              )
+            WHERE r.tenant_key = :t AND r.catalog_key = :c AND r.content_retained
             $LATEST_RELEASE_ORDER
             """,
         )

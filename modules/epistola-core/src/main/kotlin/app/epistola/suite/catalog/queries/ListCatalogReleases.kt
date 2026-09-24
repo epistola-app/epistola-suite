@@ -56,7 +56,7 @@ class ListCatalogReleasesHandler(
     override fun handle(query: ListCatalogReleases): List<CatalogReleaseSummary> = jdbi.withHandle<List<CatalogReleaseSummary>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT r.version, r.released_at, r.notes, r.fingerprint,
+            SELECT r.version, r.released_at, r.notes, r.fingerprint, r.content_retained,
                    (SELECT count(*) FROM release_entries e
                      WHERE e.tenant_key = r.tenant_key AND e.catalog_key = r.catalog_key AND e.version = r.version
                    ) AS resource_count
@@ -68,17 +68,17 @@ class ListCatalogReleasesHandler(
             .bind("t", query.tenantKey)
             .bind("c", query.catalogKey)
             .map { rs, _ ->
+                val retained = rs.getBoolean("content_retained")
                 val count = rs.getInt("resource_count")
                 CatalogReleaseSummary(
                     version = rs.getString("version"),
                     releasedAt = rs.getObject("released_at", OffsetDateTime::class.java),
                     notes = rs.getString("notes"),
                     fingerprint = rs.getString("fingerprint"),
-                    // No entries means the release predates content retention, not that it was
-                    // empty: a release of nothing cannot be cut, since the catalog would have no
-                    // content to fingerprint.
-                    retained = count > 0,
-                    resourceCount = count.takeIf { it > 0 },
+                    // The release says whether it kept its content. Counting entries cannot:
+                    // a catalog with no resources retains a release that contains nothing.
+                    retained = retained,
+                    resourceCount = count.takeIf { retained },
                 )
             }
             .list()

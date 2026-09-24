@@ -6,7 +6,7 @@ package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.revisions.forgetReleaseEntries
+import app.epistola.suite.catalog.revisions.forgetRetainedContent
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -126,7 +126,7 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
             CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1").execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
-        assertThat(jdbi.forgetReleaseEntries(catalog.tenantKey, catalog.key)).isPositive()
+        assertThat(jdbi.forgetRetainedContent(catalog.tenantKey, catalog.key)).isPositive()
 
         withMediator {
             val changes = GetCatalogResourceChanges(catalog.tenantKey, catalog.key).query()
@@ -145,7 +145,7 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
             CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1").execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
-        assertThat(jdbi.forgetReleaseEntries(catalog.tenantKey, catalog.key)).isPositive()
+        assertThat(jdbi.forgetRetainedContent(catalog.tenantKey, catalog.key)).isPositive()
 
         withMediator {
             UpdateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1 edited").execute()
