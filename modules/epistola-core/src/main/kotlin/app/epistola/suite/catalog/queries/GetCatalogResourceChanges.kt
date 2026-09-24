@@ -9,6 +9,8 @@ import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.revisions.ReleaseEntry
+import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -18,7 +20,6 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
 
 /**
  * What the next release of an AUTHORED catalog would contain that the last one did not — resource
@@ -60,7 +61,7 @@ enum class CatalogResourceState {
 data class CatalogResourceChange(
     val type: String,
     val slug: String,
-    /** The working copy's name; null for a [CatalogResourceState.REMOVED] resource, which has none. */
+    /** As the working copy names it, or as the last release did for a resource dropped since. */
     val name: String?,
     val state: CatalogResourceState,
 )
@@ -69,8 +70,8 @@ data class CatalogResourceChanges(
     val catalogKey: CatalogKey,
     val latestVersion: String?,
     /**
-     * False when the catalog has drifted from a release cut before per-resource digests were
-     * recorded (V20260923154857), which cannot be reconstructed. Every resource is then
+     * False when the catalog has drifted from a release cut before releases recorded their
+     * resources (V20260923201010), which cannot be reconstructed. Every resource is then
      * [CatalogResourceState.UNKNOWN]; the next release restores the detail.
      */
     val baselineAvailable: Boolean,
@@ -90,9 +91,9 @@ data class CatalogResourceChanges(
 @Component
 class GetCatalogResourceChangesHandler(
     private val jdbi: Jdbi,
-    private val objectMapper: ObjectMapper,
     private val contentBuilder: CatalogContentBuilder,
     private val fingerprintService: CatalogFingerprintService,
+    private val releaseEntryStore: ReleaseEntryStore,
 ) : QueryHandler<GetCatalogResourceChanges, CatalogResourceChanges> {
 
     override fun handle(query: GetCatalogResourceChanges): CatalogResourceChanges {
@@ -104,8 +105,12 @@ class GetCatalogResourceChangesHandler(
 
         val content = contentBuilder.build(query.tenantKey, query.catalogKey)
         val working = fingerprintService.perResourceFingerprints(content)
-        val names = content.resourceEntries.associate { "${it.type}/${it.slug}" to it.name }
         val release = loadLatestRelease(query.tenantKey, query.catalogKey)
+        val released = release?.let { entriesOf(query.tenantKey, query.catalogKey, it.version) }.orEmpty()
+
+        // The working copy names a resource it still has; the release names one dropped since.
+        val names = content.resourceEntries.associate { "${it.type}/${it.slug}" to it.name } +
+            released.filterKeys { it !in working }.mapValues { (_, entry) -> entry.name }
 
         fun change(key: String, state: CatalogResourceState) = CatalogResourceChange(
             type = key.substringBefore('/'),
@@ -124,10 +129,10 @@ class GetCatalogResourceChangesHandler(
             )
         }
 
-        val baseline = release.resourceFingerprints
-            // A release cut before V20260923154857 recorded no baseline. When the working copy
+        val baseline = released.mapValues { (_, entry) -> entry.fingerprint }.takeIf { it.isNotEmpty() }
+            // A release cut before V20260923201010 recorded no resources. When the working copy
             // still matches its fingerprint the content is identical by definition, so the working
-            // digests *are* that release's digests and the answer is exact without one.
+            // digests *are* that release's digests and the answer is exact without them.
             ?: if (fingerprintService.matchesFingerprint(content, release.fingerprint)) {
                 working
             } else {
@@ -157,16 +162,12 @@ class GetCatalogResourceChangesHandler(
         )
     }
 
-    private data class ReleaseRow(
-        val version: String,
-        val fingerprint: String,
-        val resourceFingerprints: Map<String, String>?,
-    )
+    private data class ReleaseRow(val version: String, val fingerprint: String)
 
     private fun loadLatestRelease(tenantKey: TenantKey, catalogKey: CatalogKey): ReleaseRow? = jdbi.withHandle<ReleaseRow?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT version, fingerprint, resource_fingerprints
+            SELECT version, fingerprint
             FROM catalog_releases
             WHERE tenant_key = :t AND catalog_key = :c
             $LATEST_RELEASE_ORDER
@@ -175,17 +176,13 @@ class GetCatalogResourceChangesHandler(
         )
             .bind("t", tenantKey)
             .bind("c", catalogKey)
-            .map { rs, _ ->
-                ReleaseRow(
-                    version = rs.getString("version"),
-                    fingerprint = rs.getString("fingerprint"),
-                    resourceFingerprints = rs.getString("resource_fingerprints")?.let { json ->
-                        @Suppress("UNCHECKED_CAST")
-                        objectMapper.readValue(json, Map::class.java) as Map<String, String>
-                    },
-                )
-            }
+            .map { rs, _ -> ReleaseRow(version = rs.getString("version"), fingerprint = rs.getString("fingerprint")) }
             .findOne()
             .orElse(null)
     }
+
+    private fun entriesOf(tenantKey: TenantKey, catalogKey: CatalogKey, version: String) = jdbi
+        .withHandle<Map<String, ReleaseEntry>, Exception> { handle ->
+            releaseEntryStore.entriesOf(handle, tenantKey, catalogKey, version).associateBy { it.contentKey }
+        }
 }

@@ -125,13 +125,14 @@ CREATE TABLE release_entries (
     resource_key    TEXT         NOT NULL,       -- the address inside this release
     resource_id     UUID         NOT NULL,       -- identity, for provenance
     revision_digest CHAR(64)     NOT NULL,
+    fingerprint     CHAR(64)     NOT NULL,       -- the wire digest, for comparing the working copy
     name            VARCHAR(255) NOT NULL,
     description     TEXT,
     PRIMARY KEY (tenant_key, catalog_key, version, resource_type, resource_key),
     FOREIGN KEY (tenant_key, catalog_key, version)
         REFERENCES catalog_releases (tenant_key, catalog_key, version) ON DELETE CASCADE,
     FOREIGN KEY (tenant_key, revision_digest)
-        REFERENCES resource_revisions (tenant_key, digest)
+        REFERENCES resource_revisions (tenant_key, digest) DEFERRABLE INITIALLY DEFERRED
 );
 
 CREATE INDEX idx_release_entries_resource ON release_entries (tenant_key, resource_id);
@@ -170,7 +171,17 @@ CREATE INDEX idx_catalog_releases_order
 Shipped as `V20260923150918`. `catalog_releases.resource_fingerprints` (`V20260923154857`) is the
 interim form of `release_entries`: the per-resource digests of a release, recorded because they
 cannot be recovered afterwards, and enough to derive every status in §2 before revisions exist.
-`release_entries` replaces it at stage 3, when a release also retains its content.
+`release_entries` (`V20260923201010`) replaced it as soon as there were revisions to point at, and
+the column was dropped with it: it held derived data that had never been part of a released version,
+and two records of one fact is how they come to disagree.
+
+An entry carries **both** digests. `revision_digest` says where the content is stored;
+`fingerprint` is the contract's canonical digest over the wire form, which is what the working copy
+is compared against to say a resource changed. Neither is derivable from the other (§5), and the
+status in §2 reads the second. The revision reference is deferred rather than cascading: a revision
+must never be deleted while a release still names it, but deleting a tenant removes both, and
+Postgres cascades in an order that reaches the revisions first — checking at commit keeps the
+refusal without breaking the cascade.
 
 The text `version` stays canonical — it is in the primary key, the wire format and URLs — and the
 components are a derived sort key. They are `GENERATED ALWAYS … STORED` rather than written by the

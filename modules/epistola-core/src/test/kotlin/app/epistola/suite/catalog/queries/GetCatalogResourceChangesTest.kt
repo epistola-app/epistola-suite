@@ -25,8 +25,8 @@ import org.springframework.beans.factory.annotation.Autowired
 
 /**
  * [GetCatalogResourceChanges] localizes the catalog-level drift that
- * [GetCatalogReleaseStatus] reports to the resources that caused it, against the per-resource
- * baseline [ReleaseCatalogVersion] records (V20260923154857).
+ * [GetCatalogReleaseStatus] reports to the resources that caused it, against the resources
+ * [ReleaseCatalogVersion] records for each release (V20260923201010).
  */
 class GetCatalogResourceChangesTest : IntegrationTestBase() {
 
@@ -107,9 +107,11 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
 
             val changes = GetCatalogResourceChanges(catalog.tenantKey, catalog.key).query()
 
+            // The dropped theme is named although the working copy no longer has it: the release
+            // recorded what it contained, so a removed resource is still identifiable.
             assertThat(changes.resources).extracting({ it.slug }, { it.state }, { it.name }).containsExactly(
                 tuple("added", CatalogResourceState.NEW, "Added"),
-                tuple("dropped", CatalogResourceState.REMOVED, null),
+                tuple("dropped", CatalogResourceState.REMOVED, "Dropped"),
                 tuple("kept", CatalogResourceState.RELEASED, "Kept"),
             )
         }
@@ -169,18 +171,19 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
     }
 
     /**
-     * Makes a release look like one cut before V20260923154857 added the column. No command can
-     * produce that row any more, and the fallback it exercises exists only for those rows.
+     * Makes a release look like one cut before V20260923201010, when a release began recording its
+     * resources. No command can produce that row any more, and the fallback it exercises exists
+     * only for those releases.
      */
     private fun forgetBaseline(catalog: CatalogId) {
         jdbi.useHandle<Exception> { handle ->
-            val updated = handle.createUpdate(
-                "UPDATE catalog_releases SET resource_fingerprints = NULL WHERE tenant_key = :t AND catalog_key = :c",
+            val removed = handle.createUpdate(
+                "DELETE FROM release_entries WHERE tenant_key = :t AND catalog_key = :c",
             )
                 .bind("t", catalog.tenantKey)
                 .bind("c", catalog.key)
                 .execute()
-            assertThat(updated).isPositive()
+            assertThat(removed).isPositive()
         }
     }
 }
