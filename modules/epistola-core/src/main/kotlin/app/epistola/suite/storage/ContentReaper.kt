@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
+import java.time.OffsetDateTime
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -57,7 +58,10 @@ private const val BLOB_IS_HELD = """
  *     sweep (PostgreSQL reclaims via partition drops, S3 via its lifecycle rule, so both
  *     contribute a no-op maintainer).
  *  3. **Publishes a gauge** — `epistola.storage.orphaned_blobs{namespace=asset}` so a
- *     leak (or a regression in the reclaim path) can't grow silently.
+ *     leak (or a regression in the reclaim path) can't grow silently. It counts blobs
+ *     that outlived the grace window and that nothing holds — which the sweep that just
+ *     ran should have taken — so a healthy installation reads zero rather than however
+ *     many uploads happen to be in flight.
  *
  * All work is idempotent (set-based `DELETE … WHERE NOT EXISTS`, put-if-absent uploads),
  * so a re-run of a wedged single-owner occurrence is safe — no advisory lock needed.
@@ -107,7 +111,10 @@ class ContentReaper(
 
     fun reap() {
         meterRegistry.recordScheduledTask("content-reaper") {
-            val swept = sweepUnreferencedAssetBlobs()
+            // One cutoff for the sweep and the count that follows it: the gauge is asking whether
+            // the sweep did its job, which is only a meaningful question about the same rows.
+            val cutoff = EpistolaClock.offsetDateTime().minusMinutes(assetGraceMinutes)
+            val swept = sweepUnreferencedAssetBlobs(cutoff)
             if (swept > 0) logger.info("Reaped {} unreferenced asset blob(s)", swept)
 
             maintainers.forEach { maintainer ->
@@ -118,29 +125,33 @@ class ContentReaper(
                 }
             }
 
-            orphanedAssetBlobs.set(countUnreferencedAssetBlobs())
+            orphanedAssetBlobs.set(countUnreferencedAssetBlobs(cutoff))
         }
     }
 
     /** Delete blobs older than the grace window that nothing holds — see [BLOB_IS_HELD]. */
-    private fun sweepUnreferencedAssetBlobs(): Int {
-        val cutoff = EpistolaClock.offsetDateTime().minusMinutes(assetGraceMinutes)
-        return jdbi.withHandle<Int, Exception> { handle ->
-            handle.createUpdate(
-                """
+    private fun sweepUnreferencedAssetBlobs(cutoff: OffsetDateTime): Int = jdbi.withHandle<Int, Exception> { handle ->
+        handle.createUpdate(
+            """
                 DELETE FROM asset_content ac
                 WHERE ac.created_at < :cutoff
                   AND NOT ($BLOB_IS_HELD)
                 """,
-            )
-                .bind("cutoff", cutoff)
-                .execute()
-        }
+        )
+            .bind("cutoff", cutoff)
+            .execute()
     }
 
-    /** Count of unreferenced asset blobs still present (bounded small table). */
-    private fun countUnreferencedAssetBlobs(): Long = jdbi.withHandle<Long, Exception> { handle ->
-        handle.createQuery("SELECT count(*) FROM asset_content ac WHERE NOT ($BLOB_IS_HELD)")
+    /**
+     * How many blobs the sweep should have taken and did not.
+     *
+     * Same cutoff, so a blob still inside the grace window — an upload whose `assets` row is not
+     * written yet — is not counted as orphaned. Those are the normal case, not a leak, and counting
+     * them made the gauge noisy enough that its own test could only assert a non-negative number.
+     */
+    private fun countUnreferencedAssetBlobs(cutoff: OffsetDateTime): Long = jdbi.withHandle<Long, Exception> { handle ->
+        handle.createQuery("SELECT count(*) FROM asset_content ac WHERE ac.created_at < :cutoff AND NOT ($BLOB_IS_HELD)")
+            .bind("cutoff", cutoff)
             .mapTo(Long::class.java)
             .one()
     }
