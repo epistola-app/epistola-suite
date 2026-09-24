@@ -207,6 +207,37 @@ the normal publish flow, while breaking changes require explicit confirmation an
 template versions linked to an older contract. See [Contract Schema Versioning](schema-versioning.md)
 for the lifecycle, compatibility rules, and internal architecture.
 
+## Missing and invalid data
+
+When data does not satisfy the contract, Epistola reports each field to supply or correct, not
+one flattened message. The analysis (`AnalyzeTemplateData`, `TemplateDataAnalyzer`) is not tied to
+one use; today preview is the caller, and generation still fails as before.
+
+- **Missing fields** are the outermost absent node, so a missing `customer` object is one entry
+  with its object schema, not one per leaf. Required fields are always reported. Optional fields are
+  reported only when the template reads them — a path the template's expressions use starts with
+  the field's path (`customer.phone`, `orders[*].note`) — because those change what the document
+  shows. Each entry has a JSON Pointer `path`, `required`, and the field's `schema` with local
+  `$ref`s inlined. Rich-text `$ref`s keep their canonical URL.
+- **Invalid fields** are supplied values that break the contract, with the failing JSON Schema
+  `keyword`, a `message`, and the `schema` at that location. An explicit `null` for a required field
+  is invalid, not missing.
+- There is deliberately no single schema of "what is missing": a JSON Schema cannot say a field is
+  missing in one array element only (`/orders/2/price`), so it would silently leave those out. A
+  client builds its form from `missingFields` instead, one input per entry, and writes each value
+  back at its pointer.
+
+The fields are listed in schema declaration order, so the same data gives the same answer. Only
+optional fields that are absent leave the data valid. The template-read rule only sees paths named
+directly in expressions, so an optional field reached through computed access is not reported.
+
+On the REST API, `POST /api/tenants/{tenantId}/documents/preview` answers invalid data with a
+`template-data-invalid` problem (status 400). Its `errors[]` follows the contract's validation
+problem shape — one entry per field, `field` a JSON Pointer into the request body such as
+`/data/customer/name` — and `missingFields` and `invalidFields` carry the full
+analysis, with paths into `data`. Over MCP, `analyze_template_data` returns the same analysis
+without rendering (see [MCP](mcp.md)).
+
 ## Related documentation
 
 - [Epistola project overview](epistola.md)
