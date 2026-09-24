@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Release v' + ${release.version},
+            pageDescription=${release.catalog.name},
+            backLinkHref=@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalogId})},
+            backLinkLabel='Back to catalog',
+            actions=~{::release-actions}
+        )}"></div>
+
+        <th:block th:fragment="release-actions">
+            <a th:if="${release.retained}" class="ep-btn ep-btn-primary"
+               th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId},version=${release.version})}"
+               hx-boost="false" download>Export as ZIP</a>
+        </th:block>
+
+        <!--/* Everything below is what the release froze, never the live catalog. A catalog's
+               details are version-dependent, so reading them from the working copy here would be
+               the same mistake this page exists to correct. */-->
+        <div class="card">
+            <div class="card-header"><h2>As released</h2></div>
+            <div class="card-body">
+                <dl class="detail-grid">
+                    <dt>Version</dt>
+                    <dd th:text="'v' + ${release.version}"></dd>
+                    <dt>Released</dt>
+                    <dd th:text="${#temporals.format(release.releasedAt, 'yyyy-MM-dd HH:mm')}"></dd>
+                    <dt>Fingerprint</dt>
+                    <dd><code th:text="${release.shortFingerprint}" th:title="${release.fingerprint}"></code></dd>
+                    <dt th:if="${release.notes != null}">Notes</dt>
+                    <dd th:if="${release.notes != null}" th:text="${release.notes}"></dd>
+                    <dt>Name</dt>
+                    <dd th:text="${release.catalog.name}"></dd>
+                    <dt th:if="${release.catalog.description != null}">Description</dt>
+                    <dd th:if="${release.catalog.description != null}" th:text="${release.catalog.description}"></dd>
+                    <dt th:if="${!keywords.isEmpty()}">Keywords</dt>
+                    <dd th:if="${!keywords.isEmpty()}">
+                        <span th:each="keyword : ${keywords}" class="badge badge-default"
+                              style="margin-right: var(--ep-space-1);" th:text="${keyword}"></span>
+                    </dd>
+                    <dt th:if="${release.catalog.license != null}">Licence</dt>
+                    <dd th:if="${release.catalog.license != null}" th:text="${release.catalog.license.name}"></dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><h2>Resources</h2></div>
+            <div class="card-body">
+                <!--/* A release that kept no content can still show its details -- the manifest
+                       snapshot was always stored -- but it cannot list what it contained, and an
+                       empty table would read as "this release was empty". */-->
+                <p th:if="${!release.retained}" class="text-muted">
+                    This release was cut before Epistola kept the content of a release, so what it
+                    contained cannot be listed. Its details above are what it was released with.
+                </p>
+                <div th:if="${release.retained}" class="ep-table-scroll" role="region" aria-label="Released resources" tabindex="0">
+                <table class="ep-table">
+                    <thead>
+                        <tr><th>Type</th><th>Name</th><th>Address</th><th>Description</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="resource : ${release.resources}">
+                            <td><span class="badge badge-default" th:text="${resource.resourceType}"></span></td>
+                            <td style="font-weight: 500;" th:text="${resource.name}"></td>
+                            <td><code style="font-size: var(--ep-text-xs);" th:text="${resource.resourceKey}"></code></td>
+                            <td th:text="${resource.description}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>

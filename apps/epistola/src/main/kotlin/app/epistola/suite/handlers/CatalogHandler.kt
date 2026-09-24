@@ -44,6 +44,7 @@ import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.FindResourceUsages
 import app.epistola.suite.catalog.queries.FindStencilVersionExportConflicts
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.GetCatalogRelease
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.catalog.queries.ListCatalogReleases
@@ -308,6 +309,32 @@ class CatalogHandler {
             } else {
                 listWithError(request, e.message ?: "Failed to remove catalog.")
             }
+        }
+    }
+
+    /**
+     * One release as it was released.
+     *
+     * Every detail here is read from what that release froze, never from the live catalog: its
+     * resources from the release's own entries, its name, keywords, presentation and license from
+     * the manifest snapshot. A catalog's details are version-dependent, and the browse page has
+     * been showing the working copy's as though they applied to every release.
+     */
+    fun releaseDetail(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        val version = request.pathVariable("version")
+
+        val release = GetCatalogRelease(tenantId.key, catalogKey, version).query()
+            ?: return listWithError(request, "Catalog '${catalogKey.value}' has no release $version.")
+
+        return ServerResponse.ok().page("catalogs/release") {
+            "pageTitle" to "${release.catalog.name} v$version - Release - Epistola"
+            "tenantId" to tenantId.key
+            "activeNavSection" to "catalogs"
+            "catalogId" to catalogKey.value
+            "release" to release
+            "keywords" to release.catalog.keywords.sorted()
         }
     }
 

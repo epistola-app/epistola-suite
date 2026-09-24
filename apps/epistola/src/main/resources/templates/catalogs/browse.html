@@ -412,7 +412,8 @@
                     <tbody>
                         <tr th:each="release : ${releases}">
                             <td style="font-weight: 500;">
-                                <span th:text="'v' + ${release.version}">v1.0.0</span>
+                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/releases/{version}(tenantId=${tenantId},catalogId=${catalog.id},version=${release.version})}"
+                                   th:text="'v' + ${release.version}">v1.0.0</a>
                                 <code style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"
                                       th:text="${release.shortFingerprint}"
                                       th:title="${release.fingerprint}">abc123</code>
