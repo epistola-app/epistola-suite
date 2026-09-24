@@ -31,8 +31,11 @@ COMMENT ON TABLE resource_revision_kinds IS
 
 INSERT INTO resource_revision_kinds (kind) VALUES
     ('codeList'), ('font'), ('attribute'), ('theme'), ('stencil'), ('image'), ('template'),
-    -- One variant's model. A bundled template is 20-70 KB of JSON, and putting every variant in one
-    -- payload would rewrite all of them whenever one changes (ADR 0026 section 3a).
+    -- One variant's document model, stored on its own so that editing one variant does not rewrite
+    -- every other variant of the same template (ADR 0026 section 3a): a bundled template is 20-70 KB
+    -- of JSON. Named after the field and column that hold these same bytes today --
+    -- `TemplateResource.templateModel` on the wire, `template_versions.template_model` in the
+    -- database -- because this is what eventually replaces them.
     ('templateModel');
 
 CREATE TABLE resource_revisions (
@@ -55,15 +58,28 @@ COMMENT ON COLUMN resource_revisions.digest IS
 COMMENT ON COLUMN resource_revisions.payload IS
     'The resource in its protocol form. A template payload carries a digest reference in place of each variant''s model, so the parent digest still covers the whole.';
 
--- The bytes a revision needs, and the reason they are not collected.
+-- Which binary files each revision needs.
 --
--- Releasing a catalog and then deleting an image from the working copy must not collect the bytes
--- the release still names. `ContentReaper` sweeps `asset_content` rows that no live `assets` row
--- points at; these rows are the second root, and the foreign key makes that a fact of the schema
--- rather than a rule someone has to remember.
+-- A revision's payload describes an image or a font face but never carries its bytes: those live
+-- once in `asset_content`, shared by everything that refers to them. This table is the link between
+-- the two -- one row per binary a revision needs.
+--
+-- Two different SHA-256 hashes meet here, both 64 hex characters, which is exactly why they are
+-- worth naming apart:
+--
+--   digest        identifies the REVISION -- the hash of its canonical JSON payload.
+--   content_hash  identifies the FILE     -- the hash of the bytes, as `asset_content` keys them.
+--
+-- So a row reads: revision <digest> needs the file <content_hash>. They are never equal and neither
+-- is derived from the other.
+--
+-- That link is also what stops the file being collected. `ContentReaper` deletes `asset_content`
+-- rows that no live `assets` row points at, so releasing a catalog and then deleting the image from
+-- the working copy would take bytes a release still needs. These rows are the second holder, and
+-- the foreign key below makes that a fact of the schema rather than a rule someone has to remember.
 --
 -- `scope` is part of the key because it is part of `asset_content`'s: a sensitive asset's bytes are
--- stored per tenant and a shared one's under 'global', so a hash alone does not resolve to bytes.
+-- stored per tenant and a shared one's under 'global', so a hash alone does not resolve to a file.
 -- No media type: `asset_content.content_type` already holds it, and a second copy is a second thing
 -- to keep in step.
 CREATE TABLE revision_binaries (
@@ -79,7 +95,7 @@ CREATE TABLE revision_binaries (
 );
 
 COMMENT ON TABLE revision_binaries IS
-    'Content-store bytes a revision needs. Retention roots: bytes reachable from a revision are never collected, and the foreign key enforces it.';
+    'Links a revision to the binary files it needs: digest identifies the revision, content_hash the file in asset_content. Also the retention root -- bytes reachable from a revision are never collected, and the foreign key enforces it.';
 
 -- Serves the sweep, which asks whether anything still holds a given blob.
 CREATE INDEX idx_revision_binaries_content ON revision_binaries (scope, content_hash);
