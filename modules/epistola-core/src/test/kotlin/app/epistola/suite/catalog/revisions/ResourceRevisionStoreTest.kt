@@ -26,6 +26,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.storage.AssetContentStore
 import app.epistola.suite.storage.ContentReaper
+import app.epistola.suite.storage.backdateAssetBlob
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
@@ -162,7 +163,7 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
             .contains(hash)
 
         withMediator { DeleteAsset(catalog.tenantKey, assetId).execute() }
-        backdateBlob(GLOBAL_ASSET_SCOPE, hash)
+        jdbi.backdateAssetBlob(GLOBAL_ASSET_SCOPE, hash)
         reaper.reap()
 
         assertThat(assetContentStore.exists(GLOBAL_ASSET_SCOPE, hash))
@@ -240,14 +241,5 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
     private fun binaryHashes(tenant: TenantKey): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
         handle.createQuery("SELECT content_hash FROM revision_binaries WHERE tenant_key = :t")
             .bind("t", tenant).mapTo(String::class.java).list()
-    }
-
-    /**
-     * Raw SQL: no command sets `asset_content.created_at`, and the reaper skips blobs inside its
-     * grace window, so aging one is the only way to make it a sweep candidate at all.
-     */
-    private fun backdateBlob(scope: String, hash: String) = jdbi.useHandle<Exception> { handle ->
-        handle.createUpdate("UPDATE asset_content SET created_at = now() - interval '5 years' WHERE scope = :s AND content_hash = :h")
-            .bind("s", scope).bind("h", hash).execute()
     }
 }

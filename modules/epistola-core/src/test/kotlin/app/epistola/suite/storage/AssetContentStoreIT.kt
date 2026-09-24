@@ -128,7 +128,7 @@ class AssetContentStoreIT : IntegrationTestBase() {
         // which computes its cutoff from EpistolaClock, not DB now() — treats it as aged.
         // Raw SQL: planting a historical timestamp the reaper asserts against; no command
         // sets asset_content.created_at.
-        backdateBlob(GLOBAL_ASSET_SCOPE, hash)
+        jdbi.backdateAssetBlob(GLOBAL_ASSET_SCOPE, hash)
         reaper.reap()
 
         assertThat(assetContentStore.exists(GLOBAL_ASSET_SCOPE, hash))
@@ -190,13 +190,6 @@ class AssetContentStoreIT : IntegrationTestBase() {
         catalogKey = cat,
         sensitive = sensitive,
     ).execute().id
-
-    private fun backdateBlob(scope: String, hash: String) = jdbi.useHandle<Exception> { handle ->
-        handle.createUpdate("UPDATE asset_content SET created_at = now() - interval '5 years' WHERE scope = :s AND content_hash = :h")
-            .bind("s", scope)
-            .bind("h", hash)
-            .execute()
-    }
 
     private fun orphanGauge(): Double = meterRegistry.get("epistola.storage.orphaned_blobs").tag("namespace", "asset").gauge().value()
 }

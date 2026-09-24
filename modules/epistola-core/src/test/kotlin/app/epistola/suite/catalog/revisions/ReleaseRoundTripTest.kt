@@ -114,7 +114,7 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
         // A release cut before V20260923201010 has no entries and its content was never retained.
-        forgetEntries(catalog)
+        jdbi.forgetReleaseEntries(catalog.tenantKey, catalog.key)
 
         assertThat(assembler.assemble(catalog.tenantKey, catalog.key, "1.0.0")).isNull()
         assertThat(assembler.assembleLatest(catalog.tenantKey, catalog.key)).isNull()
@@ -156,17 +156,5 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
         val catalogKey = CatalogKey.of(slug)
         withMediator { CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = slug).execute() }
         return CatalogId(catalogKey, TenantId(tenant.id))
-    }
-
-    /**
-     * Raw SQL: makes a release look like one cut before releases recorded their resources. No
-     * command can produce that row any more, and the null the assembler must return exists only for
-     * those releases.
-     */
-    private fun forgetEntries(catalog: CatalogId) = jdbi.useHandle<Exception> { handle ->
-        handle.createUpdate("DELETE FROM release_entries WHERE tenant_key = :t AND catalog_key = :c")
-            .bind("t", catalog.tenantKey)
-            .bind("c", catalog.key)
-            .execute()
     }
 }
