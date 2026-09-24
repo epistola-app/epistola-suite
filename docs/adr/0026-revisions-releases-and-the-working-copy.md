@@ -306,13 +306,26 @@ which is simpler but makes some combinations uninstallable through no fault of t
 a consumer when its dependency upgrades, and cannot express a rollout that reaches one environment
 before another.
 
-Resolution has a default, so that nothing has to name a version to work:
+Three different things reach a catalog resource, and they resolve differently. Only the third has a
+default, because only the third is free to choose.
 
-| A reference that                       | Resolves to                                         |
-| -------------------------------------- | --------------------------------------------------- |
-| names a release                        | that release, for as long as anything references it |
-| names none, and runs in an environment | the release that environment is on                  |
-| names none, outside an environment     | the latest release                                  |
+| What reaches it                                                                | Resolves to                                      |
+| ------------------------------------------------------------------------------ | ------------------------------------------------ |
+| **A reference inside one catalog** — a template's own theme, a stencil it uses | whatever release is already being resolved       |
+| **A pin** — a reference from one catalog into another                          | the release it names, while it names it          |
+| **A request** — generating, previewing, a REST call, opening the editor        | the release the environment is on, or the latest |
+
+The first row is what makes a release self-contained, and it is the one that would be easy to get
+wrong. A same-catalog reference must **not** resolve to the latest release of its own catalog:
+rendering `letters@1.0.0` has to reach the theme as `1.0.0` held it, not as a later release or the
+working copy has it. It carries no version precisely because it never needs one — the release being
+resolved already decides.
+
+The second is the pin from the plan (`A` depends on `B@1.2.0`), and the reason several releases have
+to resolve at once: two catalogs can pin different releases of a third, and both must work.
+
+Only the third is unversioned by nature — nobody asks to render "the 1.2.0 invoice", they ask to
+render the invoice — so it is the only one that needs a default.
 
 **Latest release, not the working copy.** That is the behaviour change: today anything rendering
 from an authored catalog reads the working copy implicitly, because the domain tables _are_ the
@@ -326,11 +339,18 @@ depends on what the caller asked for rather than on the catalog's type. Until ev
 through it, the existing mirror of subscribed content into the domain tables stays as a rebuildable
 cache.
 
-Two things follow that are not free. Retention has to know which releases are still referenced —
-by a pin, by an environment, or by being the latest — before it can collect anything. And upgrading
-a subscribed catalog becomes selecting a different release rather than replacing resources in place,
-which is what gives a subscribed catalog a history at all: today `UpgradeCatalog` overwrites
-`installed_release_version` and nothing records what was there before.
+**A subscribed catalog is not upgraded; another release of it is installed.** There is no in-place
+replacement and nothing to overwrite: installing `1.3.0` leaves `1.2.0` installed, and what resolves
+follows from the rules above rather than from the act of installing. Three things fall out of that.
+A pin to `1.2.0` keeps working when `1.3.0` arrives, which is the whole point. Moving an environment
+back is pointing it at a release that is still there, not a reinstall. And a subscribed catalog gets
+a history for the first time — today `UpgradeCatalog` sets `installed_release_version` and nothing
+records what was there before, which is why a subscribed catalog has no releases to show.
+
+What does not fall out for free: retention has to know which releases are still referenced — by a
+pin, by an environment, or by being the latest — before it can collect anything. Installing without
+ever removing is only affordable because revisions are deduplicated, and a release nothing
+references still has to become collectable.
 
 ## Considered options
 

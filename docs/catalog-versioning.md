@@ -24,9 +24,9 @@ there is never a parallel install of two versions.
 
 > This describes what ships today. [ADR 0026 §6](adr/0026-revisions-releases-and-the-working-copy.md)
 > decides otherwise for the next major: an installation will hold and resolve several releases of one
-> catalog, a reference that names no version will resolve to the release its environment is on (or the
-> latest outside one), and upgrading a subscribed catalog will select a different release rather than
-> replace resources in place.
+> catalog; a request that names no version will resolve to the release its environment is on, or the
+> latest outside one; and a subscribed catalog will not be upgraded at all — another release of it is
+> installed alongside, leaving the one already there in place.
 
 - **AUTHORED (publisher side)** — one live, editable working copy. Cutting a
   release records an **immutable boundary** in `catalog_releases`
