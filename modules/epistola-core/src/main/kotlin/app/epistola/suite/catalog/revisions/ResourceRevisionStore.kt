@@ -25,8 +25,15 @@ import tools.jackson.databind.node.ObjectNode
  */
 const val REVISION_REF_FIELD = "revisionDigest"
 
-/** Revision kinds, matching the `resource_revision_kinds` rows. A resource's kind is its wire type. */
-const val TEMPLATE_MODEL_KIND = "templateModel"
+/**
+ * Revision kinds, matching the `resource_revision_kinds` rows. A resource's kind is its wire type.
+ *
+ * A document model is named after the content rather than an owner, because a content-addressed row
+ * has none: a model belongs to a template *version*, which belongs to a variant, which belongs to a
+ * template — and two variants with the same model share one row. The wire's `templateModel` field
+ * and the `template_versions.template_model` column each name it after a level it does not live at.
+ */
+const val DOCUMENT_MODEL_KIND = "documentModel"
 
 /**
  * Retains the content of a released catalog as immutable, content-addressed revisions.
@@ -93,7 +100,7 @@ class ResourceRevisionStore(
     /** Replaces one `templateModel` in place with a reference to the revision holding it. */
     private fun liftModel(handle: Handle, tenantKey: TenantKey, owner: ObjectNode) {
         val model = owner.get("templateModel")?.takeUnless { it.isNull } ?: return
-        val digest = write(handle, tenantKey, TEMPLATE_MODEL_KIND, model)
+        val digest = write(handle, tenantKey, DOCUMENT_MODEL_KIND, model)
         owner.set("templateModel", objectMapper.createObjectNode().put(REVISION_REF_FIELD, digest))
     }
 

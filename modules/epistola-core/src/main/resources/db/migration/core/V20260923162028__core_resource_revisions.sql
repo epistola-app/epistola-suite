@@ -31,12 +31,16 @@ COMMENT ON TABLE resource_revision_kinds IS
 
 INSERT INTO resource_revision_kinds (kind) VALUES
     ('codeList'), ('font'), ('attribute'), ('theme'), ('stencil'), ('image'), ('template'),
-    -- One variant's document model, stored on its own so that editing one variant does not rewrite
-    -- every other variant of the same template (ADR 0026 section 3a): a bundled template is 20-70 KB
-    -- of JSON. Named after the field and column that hold these same bytes today --
-    -- `TemplateResource.templateModel` on the wire, `template_versions.template_model` in the
-    -- database -- because this is what eventually replaces them.
-    ('templateModel');
+    -- A document model: the node and slot graph that says what a document looks like. Stored on
+    -- its own so that editing one variant does not rewrite every other variant of the same template
+    -- (ADR 0026 section 3a) -- a bundled template is 20-70 KB of JSON.
+    --
+    -- Named after the content, not an owner, because a content-addressed row has no owner: today a
+    -- model belongs to a template VERSION, which belongs to a variant, which belongs to a template,
+    -- and two variants with the same model share one row here. `templateModel` on the wire and
+    -- `template_versions.template_model` in the database both name it after a level it does not
+    -- live at; this does not repeat that.
+    ('documentModel');
 
 CREATE TABLE resource_revisions (
     tenant_key TENANT_KEY  NOT NULL,
