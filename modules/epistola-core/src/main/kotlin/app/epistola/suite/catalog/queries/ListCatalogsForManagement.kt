@@ -32,6 +32,55 @@ data class CatalogListRow(
 )
 
 /**
+ * Whether an AUTHORED catalog has been touched since it was last released, in three shareable
+ * pieces: the activity roll-up, the flag computed from it, and the join between them.
+ *
+ * Shared rather than copied, because the catalog list asks this of every catalog and
+ * [GetCatalogContext] asks it of one. Two copies of a drift rule is how a template page comes to
+ * say "unreleased changes" while the catalog page says there are none.
+ *
+ * Conservative by design — see the note on [ListCatalogsForManagement]: it over-warns on an
+ * edit-then-revert and under-warns only on a deletion-only change, and the export's `-dev` label
+ * and fingerprint remain the authoritative answer.
+ */
+internal val CATALOG_ACTIVITY_CTE = """
+            WITH activity(catalog_key, ts) AS (
+                SELECT id, content_updated_at         FROM catalogs                      WHERE tenant_key = :t
+                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM document_templates            WHERE tenant_key = :t GROUP BY catalog_key
+                UNION ALL SELECT template.catalog_key, MAX(variants.updated_at)
+                                 FROM template_variants variants ${templateJoin("variants")}
+                                 WHERE variants.tenant_key = :t GROUP BY template.catalog_key
+                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM themes               WHERE tenant_key = :t GROUP BY catalog_key
+                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM stencils             WHERE tenant_key = :t GROUP BY catalog_key
+                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM variant_attribute_definitions WHERE tenant_key = :t GROUP BY catalog_key
+                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM code_lists           WHERE tenant_key = :t GROUP BY catalog_key
+                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM fonts                WHERE tenant_key = :t GROUP BY catalog_key
+                UNION ALL SELECT template.catalog_key, MAX(versions.published_at)
+                                 FROM template_versions versions ${templateJoin("versions")}
+                                 WHERE versions.tenant_key = :t GROUP BY template.catalog_key
+                UNION ALL SELECT template.catalog_key, MAX(contracts.published_at)
+                                 FROM contract_versions contracts ${templateJoin("contracts")}
+                                 WHERE contracts.tenant_key = :t GROUP BY template.catalog_key
+                UNION ALL SELECT stencil.catalog_key, MAX(versions.published_at)
+                                 FROM stencil_versions versions
+                                 JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
+                                                      AND stencil.resource_id = versions.stencil_resource_id
+                                 WHERE versions.tenant_key = :t GROUP BY stencil.catalog_key
+                UNION ALL SELECT catalog_key, MAX(created_at)   FROM assets               WHERE tenant_key = :t GROUP BY catalog_key
+            )
+"""
+
+internal const val CATALOG_PENDING_CHANGES = """COALESCE(
+                       c.type = 'AUTHORED'
+                       AND c.released_at IS NOT NULL
+                       AND a.last_activity > GREATEST(c.released_at, c.imported_at),
+                       FALSE
+                   ) AS pending_changes"""
+
+internal const val CATALOG_ACTIVITY_JOIN = """LEFT JOIN (SELECT catalog_key, MAX(ts) AS last_activity FROM activity GROUP BY catalog_key) a
+              ON a.catalog_key = c.id"""
+
+/**
  * The catalog-management list. [ListCatalogs] (the shared read model, used by
  * browse / REST / MCP) plus the cheap AUTHORED working-copy drift signal —
  * computed here in **one** `LEFT JOIN` against a timestamp aggregate, so the
@@ -79,40 +128,10 @@ class ListCatalogsForManagementHandler(
     override fun handle(query: ListCatalogsForManagement): List<CatalogListRow> = jdbi.withHandle<List<CatalogListRow>, Exception> { handle ->
         handle.createQuery(
             """
-            WITH activity(catalog_key, ts) AS (
-                SELECT id, content_updated_at         FROM catalogs                      WHERE tenant_key = :t
-                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM document_templates            WHERE tenant_key = :t GROUP BY catalog_key
-                UNION ALL SELECT template.catalog_key, MAX(variants.updated_at)
-                                 FROM template_variants variants ${templateJoin("variants")}
-                                 WHERE variants.tenant_key = :t GROUP BY template.catalog_key
-                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM themes               WHERE tenant_key = :t GROUP BY catalog_key
-                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM stencils             WHERE tenant_key = :t GROUP BY catalog_key
-                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM variant_attribute_definitions WHERE tenant_key = :t GROUP BY catalog_key
-                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM code_lists           WHERE tenant_key = :t GROUP BY catalog_key
-                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM fonts                WHERE tenant_key = :t GROUP BY catalog_key
-                UNION ALL SELECT template.catalog_key, MAX(versions.published_at)
-                                 FROM template_versions versions ${templateJoin("versions")}
-                                 WHERE versions.tenant_key = :t GROUP BY template.catalog_key
-                UNION ALL SELECT template.catalog_key, MAX(contracts.published_at)
-                                 FROM contract_versions contracts ${templateJoin("contracts")}
-                                 WHERE contracts.tenant_key = :t GROUP BY template.catalog_key
-                UNION ALL SELECT stencil.catalog_key, MAX(versions.published_at)
-                                 FROM stencil_versions versions
-                                 JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
-                                                      AND stencil.resource_id = versions.stencil_resource_id
-                                 WHERE versions.tenant_key = :t GROUP BY stencil.catalog_key
-                UNION ALL SELECT catalog_key, MAX(created_at)   FROM assets               WHERE tenant_key = :t GROUP BY catalog_key
-            )
-            SELECT c.*,
-                   COALESCE(
-                       c.type = 'AUTHORED'
-                       AND c.released_at IS NOT NULL
-                       AND a.last_activity > GREATEST(c.released_at, c.imported_at),
-                       FALSE
-                   ) AS pending_changes
+            $CATALOG_ACTIVITY_CTE
+            SELECT c.*, $CATALOG_PENDING_CHANGES
             FROM catalogs c
-            LEFT JOIN (SELECT catalog_key, MAX(ts) AS last_activity FROM activity GROUP BY catalog_key) a
-              ON a.catalog_key = c.id
+            $CATALOG_ACTIVITY_JOIN
             WHERE c.tenant_key = :t
             ORDER BY c.name
             """,

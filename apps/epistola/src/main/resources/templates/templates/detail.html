@@ -10,6 +10,8 @@
             backLinkLabel='Templates'
         )}"></div>
 
+        <div th:if="${catalogContext != null}" th:replace="~{catalogs/context :: catalog-context(context=${catalogContext})}"></div>
+
         <p th:if="${!editable}" class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
             <span class="badge badge-muted">Read-only</span> This template belongs to a subscribed catalog.
         </p>
@@ -98,6 +100,7 @@
                 <button type="submit" class="ep-btn ep-btn-primary">Save</button>
             </div>
         </form>
+        <div th:replace="~{catalogs/context :: catalog-context-dialog}"></div>
     </th:block>
 </body>
 </html>
