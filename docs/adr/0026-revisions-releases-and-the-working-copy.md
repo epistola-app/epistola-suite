@@ -185,8 +185,9 @@ _version_, which belongs to a variant, which belongs to a template, and a conten
 no owner at all — two variants with the same model share one.
 
 **Only the variant models are split so far.** A template revision carries its data contract
-(`dataModel`, `dataExamples`) and a code list carries its entries inline, rather than as children of
-their own. Deferring costs little and can be undone later without a migration: a child is a
+(`dataModel` and `dataExamples`, which are one thing and become one child — `contract_versions`
+already stores them in a single row, and only the wire form flattens them into sibling fields) and a
+code list carries its entries inline, rather than as children of their own. Deferring costs little and can be undone later without a migration: a child is a
 `{"revisionDigest": …}` object substituted wherever it appears, so revisions written with content
 inline keep assembling unchanged once a new child kind is introduced. What it costs is not that the template
 revision changes — it must, since a change to any variant is a change to the template, which is what
