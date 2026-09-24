@@ -5,7 +5,7 @@
   "prHourlyLimit": 5,
   "prConcurrentLimit": 10,
   "ignorePaths": ["**/test/resources/**"],
-  "constraints": { "pnpm": "12.4.0", "node": "24.21.0" },
+  "constraints": { "pnpm": "12.4.2", "node": "24.21.0" },
   "minimumReleaseAge": "7 days",
   "lockFileMaintenance": {
     "enabled": true,
