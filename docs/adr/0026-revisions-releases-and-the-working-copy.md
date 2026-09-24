@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # ADR 0026: Revisions, releases and the working copy
 
-- **Status:** Accepted — stage 1 implemented
+- **Status:** Accepted — steps 1 to 3 of the transition implemented
 - **Date:** 2026-09-23
 - **Deciders:** Epistola team
 - **Tags:** catalog, versioning, publication, storage
@@ -337,15 +337,25 @@ severity lives.
 
 ## Transition
 
-1. Record what a release contained and derive each resource's status from it, so the review before a
-   release names what it will change — `catalog_releases.resource_fingerprints` and
-   `GetCatalogResourceChanges` ([#988](https://github.com/epistola-app/epistola-suite/issues/988)).
-2. Add the revision tables; write a revision when a template or stencil is published, which is where
-   `working_digest` becomes a stored column; backfill revisions from existing published versions,
-   resumably.
-3. Releases store entries and binary references, so a release retains its content.
-4. Read paths resolve through the seam; the subscribed mirror becomes a cache.
+1. **Done** — record what a release contained and derive each resource's status from it, so the
+   review before a release names what it will change
+   ([#988](https://github.com/epistola-app/epistola-suite/issues/988)).
+2. **Done** — the revision tables, and a revision written for every resource at release
+   ([#990](https://github.com/epistola-app/epistola-suite/issues/990)). Written at release, not at
+   publish as first planned: in v1 the release is the only moment content becomes immutable, and
+   publishing becomes that moment only when the release is the version. `working_digest` stays
+   derived until then, per §2, because that is when a revision gives it one place to be written.
+   There is no backfill: releases cut earlier retained nothing and cannot be reconstructed.
+3. **Done** — releases store entries and binary references, so a release retains its content, can be
+   rebuilt to the fingerprint it was cut with, and can be exported as released.
+4. Read paths resolve through the seam; the subscribed mirror becomes a cache. Exchange submits the
+   retained archive rather than rebuilding one, which is what lets its archive table shrink to
+   in-flight submissions.
 5. Drop the redundant payload columns and the version cap once the new path is verified.
+
+Nothing yet collects a revision. Deduplication means storage grows with genuine change rather than
+with releases, but it is unbounded until retention by reachability arrives, and the content sweep
+already has to reach through `revision_binaries` not to undo it.
 
 ## Open
 
