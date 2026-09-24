@@ -220,9 +220,11 @@ no owner at all — two variants with the same model share one.
 (`dataModel`, `dataExamples`) and a code list carries its entries inline, rather than as children of
 their own. Deferring costs little and can be undone later without a migration: a child is a
 `{"revisionDigest": …}` object substituted wherever it appears, so revisions written with content
-inline keep assembling unchanged once a new child kind is introduced. What it costs meanwhile is the
-thing this section is about — a template whose settings change rewrites its contract examples with
-it.
+inline keep assembling unchanged once a new child kind is introduced. What it costs is not that the template
+revision changes — it must, since a change to any variant is a change to the template, which is what
+lets one digest identify the whole — but that the contract's example payloads are copied through
+every one of those rewrites. A contract digest in the header does not avoid the rewrite; it makes it
+cheap.
 
 The parent digest covers its children, so a template's digest still identifies the template as a
 whole, which is what a release entry needs. Publishing and ready stay at template level: storage
