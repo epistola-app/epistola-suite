@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.revisions.forgetReleaseEntries
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -125,7 +126,7 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
             CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1").execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
-        forgetBaseline(catalog)
+        assertThat(jdbi.forgetReleaseEntries(catalog.tenantKey, catalog.key)).isPositive()
 
         withMediator {
             val changes = GetCatalogResourceChanges(catalog.tenantKey, catalog.key).query()
@@ -144,7 +145,7 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
             CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1").execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
-        forgetBaseline(catalog)
+        assertThat(jdbi.forgetReleaseEntries(catalog.tenantKey, catalog.key)).isPositive()
 
         withMediator {
             UpdateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1 edited").execute()
@@ -168,22 +169,5 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = slug).execute()
         }
         return CatalogId(catalogKey, TenantId(tenant.id))
-    }
-
-    /**
-     * Makes a release look like one cut before V20260923201010, when a release began recording its
-     * resources. No command can produce that row any more, and the fallback it exercises exists
-     * only for those releases.
-     */
-    private fun forgetBaseline(catalog: CatalogId) {
-        jdbi.useHandle<Exception> { handle ->
-            val removed = handle.createUpdate(
-                "DELETE FROM release_entries WHERE tenant_key = :t AND catalog_key = :c",
-            )
-                .bind("t", catalog.tenantKey)
-                .bind("c", catalog.key)
-                .execute()
-            assertThat(removed).isPositive()
-        }
     }
 }

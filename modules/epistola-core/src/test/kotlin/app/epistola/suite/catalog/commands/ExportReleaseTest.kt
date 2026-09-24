@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.revisions.forgetReleaseEntries
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -75,7 +76,7 @@ class ExportReleaseTest : IntegrationTestBase() {
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
-        forgetEntries(catalog)
+        jdbi.forgetReleaseEntries(catalog.tenantKey, catalog.key)
 
         assertThatThrownBy {
             withMediator { ExportCatalogZip(catalog.tenantKey, catalog.key, version = "1.0.0").execute() }
@@ -133,16 +134,5 @@ class ExportReleaseTest : IntegrationTestBase() {
             }
         }
         error("No $path in the archive")
-    }
-
-    /**
-     * Raw SQL: makes a release look like one cut before releases retained their content. No command
-     * can produce that row any more, and the refusal it exercises exists only for those releases.
-     */
-    private fun forgetEntries(catalog: CatalogId) = jdbi.useHandle<Exception> { handle ->
-        handle.createUpdate("DELETE FROM release_entries WHERE tenant_key = :t AND catalog_key = :c")
-            .bind("t", catalog.tenantKey)
-            .bind("c", catalog.key)
-            .execute()
     }
 }
