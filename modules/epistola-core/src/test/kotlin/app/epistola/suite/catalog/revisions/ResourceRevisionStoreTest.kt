@@ -38,6 +38,7 @@ import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -167,6 +168,38 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
         assertThat(assetContentStore.exists(GLOBAL_ASSET_SCOPE, hash))
             .`as`("no live asset points at these bytes, but a release still names them")
             .isTrue()
+    }
+
+    @Test
+    fun `the schema refuses to delete bytes a revision needs, whatever the sweep does`() {
+        val catalog = authoredCatalog("rev-fk")
+        val content = UUID.randomUUID().toString().toByteArray()
+        val hash = sha256Hex(content)
+
+        withMediator {
+            UploadAsset(
+                tenantId = catalog.tenantKey,
+                name = "held.png",
+                mediaType = AssetMediaType.PNG,
+                content = content,
+                width = 1,
+                height = 1,
+                catalogKey = catalog.key,
+            ).execute()
+            ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
+        }
+
+        // The reaper's reachability rule is one thing that keeps these bytes; the foreign key is
+        // another, and it holds even if that rule is ever wrong. Deleting directly is the only way
+        // to ask the schema the question, since no command will.
+        assertThatThrownBy {
+            jdbi.useHandle<Exception> { handle ->
+                handle.createUpdate("DELETE FROM asset_content WHERE scope = :s AND content_hash = :h")
+                    .bind("s", GLOBAL_ASSET_SCOPE)
+                    .bind("h", hash)
+                    .execute()
+            }
+        }.hasMessageContaining("fk_revision_binaries_content")
     }
 
     private fun emptyTemplate(): TemplateDocument = TemplateDocument(
