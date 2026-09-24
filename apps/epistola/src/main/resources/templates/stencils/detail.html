@@ -2,15 +2,16 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
+        <!--/* The header is about the stencil; the bar below is about the catalog it lives in.
+               Kept apart deliberately — see catalogs/bar.html. It also says read-only for a
+               subscribed catalog, which is why no separate notice does. */-->
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${stencil.name},
             backLinkHref=@{/tenants/{tenantId}/stencils(tenantId=${tenantId})},
             backLinkLabel='Stencils'
         )}"></div>
 
-        <p th:if="${stencil.catalogType.name() == 'SUBSCRIBED'}" class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
-            <span class="badge badge-muted">Read-only</span> This stencil belongs to a subscribed catalog.
-        </p>
+        <div th:replace="~{catalogs/bar :: catalog-bar(context=${catalogContext})}"></div>
 
         <!-- Details -->
         <div class="ep-panel detail-section" style="margin-bottom: var(--ep-space-6);">
@@ -18,8 +19,8 @@
                 <dl class="description-list">
                     <dt>ID</dt>
                     <dd><code th:text="${stencil.id}"></code></dd>
-                    <dt>Catalog</dt>
-                    <dd><span class="badge badge-default" th:text="${stencil.catalogKey}"></span></dd>
+                    <!--/* No Catalog row: the bar above names it, links to it and says where it
+                           stands. Saying it twice invites the two to disagree. */-->
                     <dt>Description</dt>
                     <dd>
                         <span th:if="${stencil.description != null}" th:text="${stencil.description}"></span>
@@ -251,6 +252,10 @@
             </div>
         </div>
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+
+        <!--/* Mounted inside the content block, beside the bar whose button targets it: a mount
+               in another fragment is not on the page, and the trigger then silently does nothing. */-->
+        <div th:replace="~{catalogs/bar :: catalog-bar-dialog}"></div>
     </th:block>
 </body>
 </html>

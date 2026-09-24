@@ -1,0 +1,70 @@
+/*
+ * SPDX-FileCopyrightText: Epistola Nederland B.V.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+/*
+ * Catalog bar — which catalog a resource belongs to, and where that catalog stands.
+ *
+ * Shown on every page that edits a catalog resource, between the page header and the content. It is
+ * deliberately a separate element from the header: the header is about the resource you are
+ * editing, this is about the catalog it lives in and the release it is waiting for. Folding the two
+ * together reads as though a template had a version of its own, which is the confusion the whole
+ * release model exists to remove.
+ *
+ * Styled as a strip rather than a panel so it sits below the page title without competing with it:
+ * one line, muted, with a left accent marking it as context about something else.
+ */
+.catalog-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--ep-space-3);
+  margin-bottom: var(--ep-space-4);
+  padding: var(--ep-space-2) var(--ep-space-3);
+  border: 1px solid var(--ep-border-color);
+  border-left: 3px solid var(--ep-primary);
+  border-radius: var(--ep-radius-md);
+  background: var(--ep-muted);
+}
+
+.catalog-bar .catalog-bar-context {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--ep-space-2);
+  min-width: 0;
+}
+
+/* Says what the name that follows is, so the bar reads without a heading. */
+.catalog-bar .catalog-bar-label {
+  font-size: var(--ep-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ep-muted-foreground);
+}
+
+.catalog-bar .catalog-bar-name {
+  font-weight: 600;
+  color: var(--ep-foreground);
+  text-decoration: none;
+}
+
+.catalog-bar .catalog-bar-name:hover {
+  text-decoration: underline;
+}
+
+/* Release state is secondary to the name: present, but not competing with it. */
+.catalog-bar .catalog-bar-state {
+  font-size: var(--ep-text-sm);
+  color: var(--ep-muted-foreground);
+}
+
+@media (max-width: 40rem) {
+  .catalog-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

@@ -46,6 +46,21 @@ data class CatalogContext(
 
     /** There is a release to cut: an authored catalog with either changes or no release at all. */
     val releasable: Boolean get() = authored && (pendingChanges || releasedVersion == null)
+
+    /**
+     * What kind of catalog this is and where it stands, as one line.
+     *
+     * Composed here rather than in markup so every screen showing a resource's catalog says it the
+     * same way — three fields assembled in a template is three chances to word it differently.
+     *
+     * Deliberately silent about unreleased changes: the bar carries those as a badge, and saying it
+     * in both places said it twice. Read-only is stated for a subscribed catalog because it
+     * explains why the page offers nothing to change.
+     */
+    val summary: String get() = buildList {
+        add(if (authored) "Authored catalog" else "Subscribed catalog, read-only")
+        add(releasedVersion?.let { "last released v$it" } ?: if (authored) "never released" else "installed")
+    }.joinToString(" · ")
 }
 
 @Component
