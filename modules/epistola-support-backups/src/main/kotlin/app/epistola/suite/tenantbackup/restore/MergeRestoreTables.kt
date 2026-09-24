@@ -59,6 +59,11 @@ class MergeRestoreTables(
             .bind("tk", tenantKey)
             .execute()
 
+        // Blobs first, because a table may point at one: `revision_binaries` takes a foreign key
+        // into `asset_content`, and that key is not deferrable, so the bytes have to be there
+        // before the row naming them is. Insert-if-absent, so doing it first costs nothing.
+        val blobsRestored = mergeBlobs(handle, manifest, blobBytes)
+
         // Upsert phase — parent → child.
         var rowsRestored = 0
         manifest.tables.forEach { entry ->
@@ -80,8 +85,6 @@ class MergeRestoreTables(
                 deleteAbsent(handle, entry.toSpec(), rowsByTable[entry.table].orEmpty(), tenantKey)
             }
         }
-
-        val blobsRestored = mergeBlobs(handle, manifest, blobBytes)
 
         reapplyDefaultTheme(handle, tenantKey, targetThemeResourceId)
 
