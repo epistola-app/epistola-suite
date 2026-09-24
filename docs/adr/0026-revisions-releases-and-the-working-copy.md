@@ -127,7 +127,7 @@ CREATE INDEX idx_release_entries_resource ON release_entries (tenant_key, resour
 
 Three details the shipped tables settled (`V20260923162028`). The kind is its own lookup rather than
 `catalog_resource_types`, which holds the catalog wire's own tokens so that a registry address is the
-triple an export uses — a revision kind is storage, and includes `templateModel`, which the wire
+triple an export uses — a revision kind is storage, and includes `documentModel`, which the wire
 never names on its own. `revision_binaries` carries the dedup `scope` as well as the hash, because
 `asset_content` is keyed by both and a sensitive asset's bytes live under its tenant: without it a
 hash does not resolve to bytes, and there is no key to point a foreign key at. And that foreign key
@@ -178,6 +178,10 @@ So a revision may reference child revisions by digest:
 | Code list                        | header and source configuration, without credentials                | its entries                                         |
 | Font                             | family header and face list                                         | face binaries, already content-addressed            |
 | Theme, stencil, image, attribute | the whole resource; these are small (the system theme is 600 bytes) | —                                                   |
+
+The child kind is `documentModel`, named after the content rather than an owner: a model belongs to
+a template _version_, which belongs to a variant, which belongs to a template, and a
+content-addressed row has none of them — two variants with the same model share one.
 
 **Only the variant models are split so far.** A template revision carries its data contract
 (`dataModel`, `dataExamples`) and a code list carries its entries inline, rather than as children of
