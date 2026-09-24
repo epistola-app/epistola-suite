@@ -294,14 +294,43 @@ The release **fingerprint** stays what it is today: computed by the portable can
 never appear on the wire. Deriving the fingerprint from digests was rejected: the algorithm belongs
 to the contract, and other implementations have no revisions.
 
-### 6. A subscribed catalog is releases that cannot be modified
+### 6. A catalog is several releases, and more than one of them resolves
 
-A subscribed catalog has no working copy and no status: it is the releases it has installed, one of
-which is selected. Upgrading selects another. The bundled `system` catalog has the same shape.
+A subscribed catalog has no working copy and no status: it is the releases it has installed. The
+bundled `system` catalog has the same shape.
 
-Read paths therefore resolve a resource in a catalog through one seam: the working copy for an
-authored catalog, the selected release for a subscribed one. Until every read path goes through it,
-the existing mirror of subscribed content into the domain tables stays as a rebuildable cache.
+**An installation may hold and resolve several releases of one catalog at once.** This replaces
+"one live resource set, never a parallel install of two versions", and it is a decision rather than
+a consequence — the alternative was one release per catalog with a rule that every pin must agree,
+which is simpler but makes some combinations uninstallable through no fault of their author, breaks
+a consumer when its dependency upgrades, and cannot express a rollout that reaches one environment
+before another.
+
+Resolution has a default, so that nothing has to name a version to work:
+
+| A reference that                       | Resolves to                                         |
+| -------------------------------------- | --------------------------------------------------- |
+| names a release                        | that release, for as long as anything references it |
+| names none, and runs in an environment | the release that environment is on                  |
+| names none, outside an environment     | the latest release                                  |
+
+**Latest release, not the working copy.** That is the behaviour change: today anything rendering
+from an authored catalog reads the working copy implicitly, because the domain tables _are_ the
+live set. Once the default is the latest release, unreleased edits stop reaching a render that did
+not ask for them — which is the point, and is why it belongs in the major release together with the
+rest of §6. An environment may still be pointed at a catalog's working copy deliberately, for
+testing.
+
+Read paths therefore resolve a resource in a catalog through one seam, and what the seam returns
+depends on what the caller asked for rather than on the catalog's type. Until every read path goes
+through it, the existing mirror of subscribed content into the domain tables stays as a rebuildable
+cache.
+
+Two things follow that are not free. Retention has to know which releases are still referenced —
+by a pin, by an environment, or by being the latest — before it can collect anything. And upgrading
+a subscribed catalog becomes selecting a different release rather than replacing resources in place,
+which is what gives a subscribed catalog a history at all: today `UpgradeCatalog` overwrites
+`installed_release_version` and nothing records what was there before.
 
 ## Considered options
 
