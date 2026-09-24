@@ -294,14 +294,63 @@ The release **fingerprint** stays what it is today: computed by the portable can
 never appear on the wire. Deriving the fingerprint from digests was rejected: the algorithm belongs
 to the contract, and other implementations have no revisions.
 
-### 6. A subscribed catalog is releases that cannot be modified
+### 6. A catalog is several releases, and more than one of them resolves
 
-A subscribed catalog has no working copy and no status: it is the releases it has installed, one of
-which is selected. Upgrading selects another. The bundled `system` catalog has the same shape.
+A subscribed catalog has no working copy and no status: it is the releases it has installed. The
+bundled `system` catalog has the same shape.
 
-Read paths therefore resolve a resource in a catalog through one seam: the working copy for an
-authored catalog, the selected release for a subscribed one. Until every read path goes through it,
-the existing mirror of subscribed content into the domain tables stays as a rebuildable cache.
+**An installation may hold and resolve several releases of one catalog at once.** This replaces
+"one live resource set, never a parallel install of two versions", and it is a decision rather than
+a consequence — the alternative was one release per catalog with a rule that every pin must agree,
+which is simpler but makes some combinations uninstallable through no fault of their author, breaks
+a consumer when its dependency upgrades, and cannot express a rollout that reaches one environment
+before another.
+
+Three different things reach a catalog resource, and they resolve differently. Only the third has a
+default, because only the third is free to choose.
+
+| What reaches it                                                                | Resolves to                                      |
+| ------------------------------------------------------------------------------ | ------------------------------------------------ |
+| **A reference inside one catalog** — a template's own theme, a stencil it uses | whatever release is already being resolved       |
+| **A pin** — a reference from one catalog into another                          | the release it names, while it names it          |
+| **A request** — generating, previewing, a REST call, opening the editor        | the release the environment is on, or the latest |
+
+The first row is what makes a release self-contained, and it is the one that would be easy to get
+wrong. A same-catalog reference must **not** resolve to the latest release of its own catalog:
+rendering `letters@1.0.0` has to reach the theme as `1.0.0` held it, not as a later release or the
+working copy has it. It carries no version precisely because it never needs one — the release being
+resolved already decides.
+
+The second is the pin from the plan (`A` depends on `B@1.2.0`), and the reason several releases have
+to resolve at once: two catalogs can pin different releases of a third, and both must work.
+
+Only the third is unversioned by nature — nobody asks to render "the 1.2.0 invoice", they ask to
+render the invoice — so it is the only one that needs a default.
+
+**Latest release, not the working copy.** That is the behaviour change: today anything rendering
+from an authored catalog reads the working copy implicitly, because the domain tables _are_ the
+live set. Once the default is the latest release, unreleased edits stop reaching a render that did
+not ask for them — which is the point, and is why it belongs in the major release together with the
+rest of §6. An environment may still be pointed at a catalog's working copy deliberately, for
+testing.
+
+Read paths therefore resolve a resource in a catalog through one seam, and what the seam returns
+depends on what the caller asked for rather than on the catalog's type. Until every read path goes
+through it, the existing mirror of subscribed content into the domain tables stays as a rebuildable
+cache.
+
+**A subscribed catalog is not upgraded; another release of it is installed.** There is no in-place
+replacement and nothing to overwrite: installing `1.3.0` leaves `1.2.0` installed, and what resolves
+follows from the rules above rather than from the act of installing. Three things fall out of that.
+A pin to `1.2.0` keeps working when `1.3.0` arrives, which is the whole point. Moving an environment
+back is pointing it at a release that is still there, not a reinstall. And a subscribed catalog gets
+a history for the first time — today `UpgradeCatalog` sets `installed_release_version` and nothing
+records what was there before, which is why a subscribed catalog has no releases to show.
+
+What does not fall out for free: retention has to know which releases are still referenced — by a
+pin, by an environment, or by being the latest — before it can collect anything. Installing without
+ever removing is only affordable because revisions are deduplicated, and a release nothing
+references still has to become collectable.
 
 ## Considered options
 
