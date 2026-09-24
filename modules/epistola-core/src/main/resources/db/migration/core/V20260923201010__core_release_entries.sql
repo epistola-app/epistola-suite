@@ -1,6 +1,12 @@
--- backup-restore-compatibility: backward=false forward=false
--- reason: Moves a release's per-resource record from a JSONB column on catalog_releases into rows.
--- A backup taken either side records it in a place the other does not read.
+-- backup-restore-compatibility: backward=true forward=false
+-- reason: Backward is safe, and is the case that matters -- restoring a backup taken before an
+-- upgrade. Neither the column this replaces nor the table replacing it has been part of a released
+-- version, so no backup in anyone's hands carries either. An older backup restores with no release
+-- entries, which is the same state as a release cut before this migration: the content was never
+-- retained, the release says so, and an export of it refuses rather than substituting the working
+-- copy. `validateColumns` still runs as the backstop -- the flag relaxes the stamp, never a
+-- structural check. Forward is not safe: a newer backup carries tables a schema without this
+-- migration cannot classify.
 -- SPDX-FileCopyrightText: Epistola Nederland B.V.
 --
 -- SPDX-License-Identifier: AGPL-3.0-only

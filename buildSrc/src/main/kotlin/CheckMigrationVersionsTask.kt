@@ -69,6 +69,17 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
                         "Unreleased when edited. Dropped the retyping of catalog_resource_aliases rows, " +
                             "a table removed from V20260905090000 before any release shipped it.",
                 ),
+            "modules/epistola-core/src/main/resources/db/migration/core/V20260923201010__core_release_entries.sql" to
+                ReviewedModification(
+                    sha256 = "f8aaea6dfde28ac15feab9961dc113a26e6897d0f7508af1641597b0732db929",
+                    reason =
+                        "Unreleased when edited -- the migration is in no tag. The header, not the DDL: " +
+                            "it declared the migration a backup-restore boundary in both directions, which " +
+                            "blocks restoring a backup taken before an upgrade. Backward is safe, because " +
+                            "neither the column it replaces nor the table replacing it has been part of a " +
+                            "released version, and a compatibility declaration can only live in the " +
+                            "migration's own file.",
+                ),
         )
 
     @TaskAction
