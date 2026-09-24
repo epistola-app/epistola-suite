@@ -44,11 +44,14 @@ import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.FindResourceUsages
 import app.epistola.suite.catalog.queries.FindStencilVersionExportConflicts
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
+import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
+import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.exchange.CancelCatalogPublication
+import app.epistola.suite.exchange.CatalogPublicationState
 import app.epistola.suite.exchange.ExchangeSourceUri
 import app.epistola.suite.exchange.GetCatalogPublicationState
 import app.epistola.suite.exchange.GetExchangeCatalogLink
@@ -309,17 +312,36 @@ class CatalogHandler {
     fun releaseDialog(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
-        val status = GetCatalogReleaseStatus(tenantId.key, catalogKey).query()
         return ServerResponse.ok().render(
             "catalogs/list :: release-dialog",
-            mapOf(
-                "tenantId" to tenantId.key,
-                "catalogId" to catalogKey.value,
-                "status" to status,
-                "publication" to GetCatalogPublicationState(tenantId.key, catalogKey).query(),
+            releaseDialogModel(
+                tenantId,
+                catalogKey,
+                GetCatalogPublicationState(tenantId.key, catalogKey).query(),
             ),
         )
     }
+
+    /**
+     * What the release dialog renders from.
+     *
+     * The release pointer and the working-copy changes are read separately because only the second
+     * builds the catalog: [GetCatalogResourceChanges] already answers whether anything is
+     * unreleased, so asking [GetCatalogReleaseStatus] as well would build it twice for one dialog.
+     */
+    private fun releaseDialogModel(
+        tenantId: TenantId,
+        catalogKey: CatalogKey,
+        publication: CatalogPublicationState?,
+        error: String? = null,
+    ): Map<String, Any?> = mapOf(
+        "tenantId" to tenantId.key,
+        "catalogId" to catalogKey.value,
+        "status" to GetLatestCatalogRelease(tenantId.key, catalogKey).query(),
+        "changes" to GetCatalogResourceChanges(tenantId.key, catalogKey).query(),
+        "publication" to publication,
+        "error" to error,
+    )
 
     fun release(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -337,19 +359,10 @@ class CatalogHandler {
         // would be pure waste.
         val publication = GetCatalogPublicationState(tenantId.key, catalogKey).query()
 
-        fun reRenderWithError(message: String): ServerResponse {
-            val status = GetCatalogReleaseStatus(tenantId.key, catalogKey).query()
-            return ServerResponse.ok().render(
-                "catalogs/list :: release-dialog",
-                mapOf(
-                    "tenantId" to tenantId.key,
-                    "catalogId" to catalogKey.value,
-                    "status" to status,
-                    "error" to message,
-                    "publication" to publication,
-                ),
-            )
-        }
+        fun reRenderWithError(message: String): ServerResponse = ServerResponse.ok().render(
+            "catalogs/list :: release-dialog",
+            releaseDialogModel(tenantId, catalogKey, publication, error = message),
+        )
 
         if (form.hasErrors()) {
             return reRenderWithError("Version must be SemVer — MAJOR.MINOR.PATCH (e.g. 1.4.0).")
