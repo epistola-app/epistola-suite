@@ -463,8 +463,11 @@
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h2>Resources</h2>
                 <!--/* A catalog installs whole (#850), so this is the only install action: there is
-                       no per-resource Install, and nothing to choose between. */-->
-                <button th:if="${catalog.type.name() == 'SUBSCRIBED'}"
+                       no per-resource Install, and nothing to choose between. Offered only while
+                       something is left to install -- a fully installed catalog was still showing a
+                       button whose dialog listed nothing to do. Upgrading to a newer release is the
+                       separate action above. */-->
+                <button th:if="${catalog.type.name() == 'SUBSCRIBED' and hasUninstalledResources}"
                         type="button" class="ep-btn ep-btn-primary ep-btn-sm"
                         th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/install-preview(tenantId=${tenantId},catalogId=${catalog.id})}"
                         hx-target="#install-preview-body"

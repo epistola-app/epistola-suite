@@ -52,6 +52,7 @@ import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.queries.ListRetainedReleases
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
+import app.epistola.suite.catalog.queries.ResourceStatus
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.exchange.CancelCatalogPublication
@@ -656,6 +657,12 @@ class CatalogHandler {
                     "$staleVersions still pinned by ${c.pins.size} template(s) (latest v${c.latestPublishedVersion})"
             }
 
+            // Installing a subscribed catalog installs the whole manifest (#850), so the action
+            // means something only while the manifest holds something this installation does not.
+            // Gated on that rather than on the catalog being subscribed, which was always true and
+            // left the button offering to install what was already installed.
+            val hasUninstalledResources = result.resources.any { it.status == ResourceStatus.AVAILABLE }
+
             ServerResponse.ok().page("catalogs/browse") {
                 "pageTitle" to "${result.catalog.name} - Catalog - Epistola"
                 "tenantId" to tenantId.key
@@ -666,6 +673,7 @@ class CatalogHandler {
                 "releases" to releaseViews
                 "publicationError" to error
                 "resources" to result.resources
+                "hasUninstalledResources" to hasUninstalledResources
                 "usageCounts" to usageCounts
                 "stencilVersionConflicts" to stencilVersionConflicts
                 "hasImages" to images.isNotEmpty()
