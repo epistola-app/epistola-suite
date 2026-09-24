@@ -316,7 +316,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
     }
 
     @Test
-    fun `the catalog page names a release that can no longer be published`() {
+    fun `the catalog page still offers a release that kept its content after the catalog moves on`() {
         val tenant = createTenant("Exchange Drifted")
         val catalogKey = CatalogKey.of("drifted")
         withMediator {
@@ -339,9 +339,13 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         )
 
         // Asserted on the rendered page, not the query: a state field nothing renders explains nothing.
+        //
+        // The page used to say v1.0.0 could no longer be published, because the archive was rebuilt
+        // from the working copy and that had moved on. The release keeps its own content now, so
+        // there is nothing to warn about and nothing to ask the author to do.
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(response.body).contains("v1.0.0 can no longer be published")
-        assertThat(response.body).contains("Release the current state as a new version")
+        assertThat(response.body).doesNotContain("v1.0.0 can no longer be published")
+        assertThat(response.body).doesNotContain("Release the current state as a new version")
     }
 
     /** Connecting requires the tenant feature as well as the deployment gate. */
