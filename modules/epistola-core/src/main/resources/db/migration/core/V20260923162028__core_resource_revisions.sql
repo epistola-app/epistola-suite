@@ -35,12 +35,15 @@ INSERT INTO resource_revision_kinds (kind) VALUES
     -- its own so that editing one variant does not rewrite every other variant of the same template
     -- (ADR 0026 section 3a) -- a bundled template is 20-70 KB of JSON.
     --
-    -- Named after the content, not an owner, because a content-addressed row has no owner: today a
-    -- model belongs to a template VERSION, which belongs to a variant, which belongs to a template,
-    -- and two variants with the same model share one row here. `templateModel` on the wire and
-    -- `template_versions.template_model` in the database both name it after a level it does not
-    -- live at; this does not repeat that.
-    ('documentModel');
+    -- Named after the field it is lifted out of, `TemplateResource.templateModel`, so the reference
+    -- left behind in the payload and the row it points at carry the same name.
+    --
+    -- Worth knowing what that name does not say. A model belongs to a template VERSION, which
+    -- belongs to a variant, which belongs to a template: `template_versions.template_model` is a
+    -- column in a variant-keyed table, and the wire hoists the default variant's model up to the
+    -- template. And a row here has no owner at all -- two variants with the same model share one,
+    -- as does one variant across releases.
+    ('templateModel');
 
 CREATE TABLE resource_revisions (
     tenant_key TENANT_KEY  NOT NULL,
