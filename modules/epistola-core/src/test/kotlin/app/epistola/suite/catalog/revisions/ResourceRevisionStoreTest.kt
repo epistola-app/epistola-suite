@@ -130,7 +130,7 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
 
-        assertThat(revisionKinds(catalog.tenantKey)).contains(DOCUMENT_MODEL_KIND, "template")
+        assertThat(revisionKinds(catalog.tenantKey)).contains(TEMPLATE_MODEL_KIND, "template")
         // The model lives in its own row, and the template payload points at it rather than
         // carrying it — which is what stops one variant's edit rewriting all of them.
         assertThat(templatePayload(catalog.tenantKey)).contains(REVISION_REF_FIELD)
