@@ -6,7 +6,7 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.revisions.forgetReleaseEntries
+import app.epistola.suite.catalog.revisions.forgetRetainedContent
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -76,7 +76,7 @@ class ExportReleaseTest : IntegrationTestBase() {
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
-        jdbi.forgetReleaseEntries(catalog.tenantKey, catalog.key)
+        jdbi.forgetRetainedContent(catalog.tenantKey, catalog.key)
 
         assertThatThrownBy {
             withMediator { ExportCatalogZip(catalog.tenantKey, catalog.key, version = "1.0.0").execute() }

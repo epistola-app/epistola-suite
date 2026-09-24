@@ -41,6 +41,7 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.queries.BrowseCatalog
+import app.epistola.suite.catalog.queries.CatalogReleaseSummary
 import app.epistola.suite.catalog.queries.FindResourceUsages
 import app.epistola.suite.catalog.queries.FindStencilVersionExportConflicts
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -450,7 +451,13 @@ class CatalogHandler {
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
         return try {
             chooseNamespaceIfOffered(request, tenantId.key, catalogKey)
-            PublishCurrentCatalogRelease(tenantId.key, catalogKey).execute()
+            // A version from the release list publishes that release; without one, the release the
+            // catalog is currently on, which is what the catalog-level action sends.
+            PublishCurrentCatalogRelease(
+                tenantId.key,
+                catalogKey,
+                version = request.param("version").orElse(null)?.ifBlank { null },
+            ).execute()
             ServerResponse.status(303)
                 .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
                 .build()
@@ -586,6 +593,22 @@ class CatalogHandler {
             } else {
                 emptyList()
             }
+            // Each release with its two affordances already decided. The template gates on one
+            // name apiece rather than assembling the conjunction itself -- the catalog being able
+            // to publish at all, this release having content to send, and it not having been sent
+            // are three facts from three places, and a screen that ANDs them is a rule with no home.
+            val publishedVersions = publication?.publications.orEmpty().mapTo(HashSet()) { it.version }
+            val releaseViews = releases.map { release ->
+                CatalogReleaseView(
+                    release = release,
+                    published = release.version in publishedVersions,
+                    publishable = release.retained &&
+                        publication != null &&
+                        publication.canPublish &&
+                        publication.hasPublishableDestination &&
+                        release.version !in publishedVersions,
+                )
+            }
             // The catalog's page on Exchange, when it came from there. Null for a plain URL
             // subscription, a ZIP import, or an authored catalog — the view falls back to the text
             // it rendered before. Resolved once per page: the rows append to it themselves.
@@ -613,7 +636,7 @@ class CatalogHandler {
                 "catalog" to result.catalog
                 "exchangeCatalogUrl" to exchangeCatalogUrl
                 "publication" to publication
-                "releases" to releases
+                "releases" to releaseViews
                 "publicationError" to error
                 "resources" to result.resources
                 "usageCounts" to usageCounts
@@ -1214,6 +1237,15 @@ class CatalogHandler {
                 .body(mapOf("error" to (e.message ?: "Failed to export catalog")))
         }
     }
+
+    /** One release as the catalog page shows it: the release, and what may be done with it. */
+    data class CatalogReleaseView(
+        val release: CatalogReleaseSummary,
+        /** Already sent to Exchange, so the row says so instead of offering to send it again. */
+        val published: Boolean,
+        /** Publishing this release would be accepted — the command decides the same way. */
+        val publishable: Boolean,
+    )
 
     data class StencilConflictView(
         val name: String,

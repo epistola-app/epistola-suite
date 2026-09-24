@@ -150,8 +150,8 @@ class ReleaseCatalogVersionHandler(
         jdbi.useTransaction<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalog_releases (tenant_key, catalog_key, version, fingerprint, notes, manifest_snapshot, released_at)
-                VALUES (:t, :c, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt)
+                INSERT INTO catalog_releases (tenant_key, catalog_key, version, fingerprint, notes, manifest_snapshot, released_at, content_retained)
+                VALUES (:t, :c, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, TRUE)
                 """,
             )
                 .bind("t", command.tenantKey)
