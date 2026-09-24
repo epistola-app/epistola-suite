@@ -211,6 +211,14 @@ So a revision may reference child revisions by digest:
 | Font                             | family header and face list                                         | face binaries, already content-addressed            |
 | Theme, stencil, image, attribute | the whole resource; these are small (the system theme is 600 bytes) | —                                                   |
 
+**Only the variant models are split so far.** A template revision carries its data contract
+(`dataModel`, `dataExamples`) and a code list carries its entries inline, rather than as children of
+their own. Deferring costs little and can be undone later without a migration: a child is a
+`{"revisionDigest": …}` object substituted wherever it appears, so revisions written with content
+inline keep assembling unchanged once a new child kind is introduced. What it costs meanwhile is the
+thing this section is about — a template whose settings change rewrites its contract examples with
+it.
+
 The parent digest covers its children, so a template's digest still identifies the template as a
 whole, which is what a release entry needs. Publishing and ready stay at template level: storage
 granularity and publishing granularity are different things. Per-variant digests are also exactly
