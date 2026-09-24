@@ -46,6 +46,7 @@ import app.epistola.suite.catalog.queries.FindStencilVersionExportConflicts
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
+import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.queries.ListRetainedReleases
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
@@ -578,6 +579,13 @@ class CatalogHandler {
             } else {
                 null
             }
+            // Only an authored catalog has releases of its own. A subscribed one records which
+            // release it installed, on the catalog row, and the version column already shows it.
+            val releases = if (result.catalog.type == CatalogType.AUTHORED) {
+                ListCatalogReleases(tenantId.key, catalogKey).query()
+            } else {
+                emptyList()
+            }
             // The catalog's page on Exchange, when it came from there. Null for a plain URL
             // subscription, a ZIP import, or an authored catalog — the view falls back to the text
             // it rendered before. Resolved once per page: the rows append to it themselves.
@@ -605,6 +613,7 @@ class CatalogHandler {
                 "catalog" to result.catalog
                 "exchangeCatalogUrl" to exchangeCatalogUrl
                 "publication" to publication
+                "releases" to releases
                 "publicationError" to error
                 "resources" to result.resources
                 "usageCounts" to usageCounts

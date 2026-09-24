@@ -387,6 +387,62 @@
             </div>
         </div>
 
+        <!--/* Releases of an authored catalog. A subscribed one has none of its own -- it records
+               which release it installed, and the Version column already shows that. */-->
+        <div class="card" th:if="${catalog.type.name() == 'AUTHORED'}">
+            <div class="card-header">
+                <h2>Releases</h2>
+            </div>
+            <div class="card-body">
+                <p th:if="${releases.isEmpty()}" class="text-muted">
+                    Not released yet. Releasing records what the catalog contained, so you can come
+                    back to this version and export it exactly as it was.
+                </p>
+                <div th:if="${!releases.isEmpty()}" class="ep-table-scroll" role="region" aria-label="Releases table" tabindex="0">
+                <table class="ep-table">
+                    <thead>
+                        <tr>
+                            <th>Version</th>
+                            <th>Released</th>
+                            <th>Contents</th>
+                            <th>Notes</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="release : ${releases}">
+                            <td style="font-weight: 500;">
+                                <span th:text="'v' + ${release.version}">v1.0.0</span>
+                                <code style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"
+                                      th:text="${release.shortFingerprint}"
+                                      th:title="${release.fingerprint}">abc123</code>
+                            </td>
+                            <td th:text="${#temporals.format(release.releasedAt, 'yyyy-MM-dd HH:mm')}"></td>
+                            <!--/* Retained or not decides both what this says and whether Export is
+                                   offered, so the two can never disagree. */-->
+                            <td th:if="${release.retained}"
+                                th:text="${release.resourceCount} + ' resources, kept'"></td>
+                            <td th:unless="${release.retained}" class="text-muted"
+                                title="Released before Epistola kept the content of a release, so it cannot be rebuilt">
+                                not kept
+                            </td>
+                            <td th:text="${release.notes}" th:title="${release.notes}"></td>
+                            <td class="actions">
+                                <a th:if="${release.retained}"
+                                   class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
+                                   th:title="'Export v' + ${release.version} + ' exactly as it was released'"
+                                   th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalog.id},version=${release.version})}"
+                                   hx-boost="false" download>
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
+                                </a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+
         <div class="card" th:if="${!resources.isEmpty()}">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h2>Resources</h2>
