@@ -45,12 +45,14 @@ import app.epistola.suite.catalog.queries.CatalogReleaseSummary
 import app.epistola.suite.catalog.queries.FindResourceUsages
 import app.epistola.suite.catalog.queries.FindStencilVersionExportConflicts
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.GetCatalogRelease
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.queries.ListRetainedReleases
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
+import app.epistola.suite.catalog.queries.ResourceStatus
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.exchange.CancelCatalogPublication
@@ -309,6 +311,32 @@ class CatalogHandler {
             } else {
                 listWithError(request, e.message ?: "Failed to remove catalog.")
             }
+        }
+    }
+
+    /**
+     * One release as it was released.
+     *
+     * Every detail here is read from what that release froze, never from the live catalog: its
+     * resources from the release's own entries, its name, keywords, presentation and license from
+     * the manifest snapshot. A catalog's details are version-dependent, and the browse page has
+     * been showing the working copy's as though they applied to every release.
+     */
+    fun releaseDetail(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        val version = request.pathVariable("version")
+
+        val release = GetCatalogRelease(tenantId.key, catalogKey, version).query()
+            ?: return listWithError(request, "Catalog '${catalogKey.value}' has no release $version.")
+
+        return ServerResponse.ok().page("catalogs/release") {
+            "pageTitle" to "${release.catalog.name} v$version - Release - Epistola"
+            "tenantId" to tenantId.key
+            "activeNavSection" to "catalogs"
+            "catalogId" to catalogKey.value
+            "release" to release
+            "keywords" to release.catalog.keywords.sorted()
         }
     }
 
@@ -629,6 +657,12 @@ class CatalogHandler {
                     "$staleVersions still pinned by ${c.pins.size} template(s) (latest v${c.latestPublishedVersion})"
             }
 
+            // Installing a subscribed catalog installs the whole manifest (#850), so the action
+            // means something only while the manifest holds something this installation does not.
+            // Gated on that rather than on the catalog being subscribed, which was always true and
+            // left the button offering to install what was already installed.
+            val hasUninstalledResources = result.resources.any { it.status == ResourceStatus.AVAILABLE }
+
             ServerResponse.ok().page("catalogs/browse") {
                 "pageTitle" to "${result.catalog.name} - Catalog - Epistola"
                 "tenantId" to tenantId.key
@@ -639,6 +673,7 @@ class CatalogHandler {
                 "releases" to releaseViews
                 "publicationError" to error
                 "resources" to result.resources
+                "hasUninstalledResources" to hasUninstalledResources
                 "usageCounts" to usageCounts
                 "stencilVersionConflicts" to stencilVersionConflicts
                 "hasImages" to images.isNotEmpty()
