@@ -12,6 +12,13 @@
 -- cutoff` narrows the candidates first, and a small candidate set is exactly when the planner picks
 -- a nested loop -- turning each probe into a sequential scan of every asset in the installation.
 --
+-- Deliberately NOT prefixed with `tenant_key`, unlike every other index on this table. The sweep
+-- has no tenant to filter by and cannot have one: a blob in the 'global' scope is held by ANY
+-- tenant's asset, so the question is installation-wide. Put `tenant_key` in front and the leading
+-- column is unconstrained, the index stops being usable, and the scan comes back. The two
+-- tenant-scoped readers -- `ResolveAssetKeysByContentHash` and the backup's blob dump -- are served
+-- by this one too, since a content hash is far more selective than a tenant.
+--
 -- Partial, because the join can only match a row that has a hash. `content_hash` is still nullable
 -- pending the backfill in #742, and those rows can never satisfy the predicate.
 CREATE INDEX idx_assets_content_hash ON assets (content_hash) WHERE content_hash IS NOT NULL;
