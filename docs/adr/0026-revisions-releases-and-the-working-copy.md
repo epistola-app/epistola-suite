@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # ADR 0026: Revisions, releases and the working copy
 
-- **Status:** Proposed
+- **Status:** Accepted — stage 1 implemented
 - **Date:** 2026-09-23
 - **Deciders:** Epistola team
 - **Tags:** catalog, versioning, publication, storage
@@ -54,8 +54,8 @@ release, as ADR 0025's plan requires.
 
 ### 2. Every resource has a status
 
-Each resource row carries `working_digest`, maintained when it is saved, and a nullable
-`ready_digest`. State is then derived rather than tracked:
+Each resource has a **working digest** — the SHA-256 of its canonical payload, by the rule in §4 —
+and a nullable `ready_digest`. State is then derived rather than tracked:
 
 | State        | Condition                                           |
 | ------------ | --------------------------------------------------- |
@@ -68,10 +68,22 @@ Marking ready stores the current digest, so a later edit makes the resource modi
 any flag to clear. This applies to every resource type, including themes, fonts, images, code lists
 and attributes, which have no draft state today.
 
+**The working digest is derived, not stored, until there are revisions.** A column on every resource
+table means every save path recomputing a canonical payload, and a path that forgets leaves a digest
+that is silently wrong — the one failure this design cannot absorb, because the release is built
+from it. It is computed instead from `CatalogContentBuilder`, already the single source of the bytes
+a release and its fingerprint are made of, so the status and the release cannot disagree. The cost
+is a catalog build per read, which is what the drift check already paid. From stage 2 a revision is
+written at one choke point, and `working_digest` becomes a column that is cheap to keep right.
+
 **A release refuses while anything in the catalog is modified.** Running a release presents the
 review screen — everything modified, ready, added or removed, with contract breaking changes per
 template — and can mark everything ready in one action. Ready is therefore a review checkpoint, not
 a filter: a release always contains the catalog's whole working copy.
+
+That refusal and `ready_digest` arrive together, with the major release that makes the catalog
+release the only version. Until then a release captures the working copy whatever its state, so
+readiness would be a flag nothing reads; the review screen ships first and reports.
 
 **A template is the unit**: its settings, all its variants and its contract form one revision.
 Dirty state is tracked per variant so the review screen can say which variants changed.
@@ -135,7 +147,8 @@ is the point — it makes the retention root a fact of the schema rather than a 
 has to remember. The media type is dropped: `asset_content.content_type` already holds it, and a
 second copy is a second thing to keep in step.
 
-Working copies keep their tables and gain the status columns:
+Working copies keep their tables. From stage 2, when revisions give the digest one place to be
+written, they gain the status columns:
 
 ```sql
 ALTER TABLE themes ADD COLUMN working_digest CHAR(64), ADD COLUMN ready_digest CHAR(64);
@@ -154,10 +167,18 @@ CREATE INDEX idx_catalog_releases_order
     ON catalog_releases (tenant_key, catalog_key, version_major DESC, version_minor DESC, version_patch DESC);
 ```
 
+Shipped as `V20260923150918`. `catalog_releases.resource_fingerprints` (`V20260923154857`) is the
+interim form of `release_entries`: the per-resource digests of a release, recorded because they
+cannot be recovered afterwards, and enough to derive every status in §2 before revisions exist.
+`release_entries` replaces it at stage 3, when a release also retains its content.
+
 The text `version` stays canonical — it is in the primary key, the wire format and URLs — and the
-components are a derived sort key, computed by the application because `SemVer.parseOrNull`
-deliberately tolerates legacy labels such as `5.5` or `1`. Those keep null components, sort last and
-fall back to `released_at`. Pre-release identifiers are out of scope in `SemVer`; adding them later
+components are a derived sort key. They are `GENERATED ALWAYS … STORED` rather than written by the
+release command: the value is a pure function of `version`, so it cannot drift, and a row arriving
+by any other route — a tenant restore, a future importer — is filled without that writer having to
+remember. The pattern yields NULL for a label that is not `MAJOR.MINOR.PATCH`, which is deliberate:
+`SemVer.parseOrNull` tolerates legacy labels such as `5.5` or `1`, and those keep null components,
+sort last and fall back to `released_at`. Pre-release identifiers are out of scope in `SemVer`; adding them later
 needs its own ordering column, because `rc.10` sorts before `rc.2` as text.
 
 The dependency and deployment tables that the plan introduces —`catalog_dependencies` and
@@ -321,9 +342,12 @@ severity lives.
 
 ## Transition
 
-1. Add the tables; compute `working_digest` on save; backfill digests for existing content.
-2. Write revisions when a template or stencil is published; backfill revisions from existing
-   published versions, resumably.
+1. Record what a release contained and derive each resource's status from it, so the review before a
+   release names what it will change — `catalog_releases.resource_fingerprints` and
+   `GetCatalogResourceChanges` ([#988](https://github.com/epistola-app/epistola-suite/issues/988)).
+2. Add the revision tables; write a revision when a template or stencil is published, which is where
+   `working_digest` becomes a stored column; backfill revisions from existing published versions,
+   resumably.
 3. Releases store entries and binary references, so a release retains its content.
 4. Read paths resolve through the seam; the subscribed mirror becomes a cache.
 5. Drop the redundant payload columns and the version cap once the new path is verified.
