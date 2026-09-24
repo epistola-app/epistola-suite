@@ -134,9 +134,10 @@ class AssetContentStoreIT : IntegrationTestBase() {
         assertThat(assetContentStore.exists(GLOBAL_ASSET_SCOPE, hash))
             .`as`("reaper should mark-and-sweep the now-unreferenced blob")
             .isFalse()
-        // Gauge is published by the reaper (global count; other parallel tests may add
-        // within-grace orphans, so only assert it's a finite non-negative value).
-        assertThat(orphanGauge()).isGreaterThanOrEqualTo(0.0)
+        // The gauge counts what the sweep should have taken and did not, so a run that swept
+        // everything reads zero. Blobs other tests leave inside the grace window are not orphans
+        // and no longer inflate it.
+        assertThat(orphanGauge()).isZero()
     }
 
     @Test

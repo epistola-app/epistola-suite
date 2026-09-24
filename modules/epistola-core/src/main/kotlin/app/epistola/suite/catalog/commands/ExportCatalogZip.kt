@@ -9,8 +9,11 @@ import app.epistola.suite.catalog.CatalogArchiveBuilder
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.CatalogNotFoundException
+import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.MultipleStencilVersionsInUseException
 import app.epistola.suite.catalog.queries.FindStencilVersionExportConflicts
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.ids.TenantKey
@@ -126,6 +129,34 @@ class ExportCatalogZipHandler(
         // label when it drifted (unreleased edits) or was never released.
         // Export is never hard-blocked — `-dev` makes drift unmistakable.
         val fingerprint = fingerprintService.fingerprint(content)
+        val catalog = GetCatalog(command.tenantKey, command.catalogKey).query()
+            ?: throw CatalogNotFoundException(command.catalogKey)
+
+        // A subscribed catalog has no release of its own to be at: releases belong to whoever
+        // authored it, and this installation records which one it installed on the catalog row.
+        // Labelling it from `catalog_releases` — which is empty for a subscribed catalog — called a
+        // catalog installed at 1.2.0 `0.0.0-dev`.
+        //
+        // No drift suffix, and deliberately no comparison against `installed_fingerprint`: that is
+        // the source's fingerprint over the source's bytes, and installing round-trips content, so
+        // comparing a locally built archive against it would report drift that is an artefact of
+        // the round trip rather than an edit. Subscribed content cannot be edited anyway —
+        // `requireCatalogEditable` refuses.
+        if (catalog.type != CatalogType.AUTHORED) {
+            val installed = catalog.installedReleaseVersion
+            if (installed == null) {
+                logger.warn("Exporting subscribed catalog '{}' with no installed version as 0.0.0-dev", command.catalogKey.value)
+            }
+            val label = installed ?: "0.0.0-dev"
+            return ExportCatalogZipResult(
+                zipBytes = archiveBuilder.build(
+                    content,
+                    ReleaseInfo(version = label, releasedAt = catalog.installedAt?.toString(), fingerprint = fingerprint),
+                ),
+                filename = "${command.catalogKey.value}-$label.zip",
+            )
+        }
+
         // Cheap release-pointer read — no second O(catalog-size) content build
         // (the working-copy fingerprint we need is already `fingerprint`).
         val release = GetLatestCatalogRelease(command.tenantKey, command.catalogKey).query()

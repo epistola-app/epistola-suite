@@ -4,12 +4,16 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -92,6 +96,25 @@ class ExportReleaseTest : IntegrationTestBase() {
         assertThatThrownBy {
             withMediator { ExportCatalogZip(catalog.tenantKey, catalog.key, version = "9.9.9").execute() }
         }.isInstanceOf(CatalogReleaseNotRetainedException::class.java)
+    }
+
+    @Test
+    fun `a subscribed catalog exports at the version it has installed, not as never released`() {
+        val tenant = createTenant("exp-subscribed")
+
+        // Every tenant is provisioned with the bundled `system` catalog as a SUBSCRIBED install, so
+        // it is a real subscribed catalog with a real installed version and no releases of its own.
+        val catalog = withMediator { GetCatalog(tenant.id, SYSTEM_CATALOG_KEY).query() }!!
+        assertThat(catalog.type).isEqualTo(CatalogType.SUBSCRIBED)
+        val installed = catalog.installedReleaseVersion
+        assertThat(installed).`as`("the system catalog records what it installed").isNotNull()
+
+        val export = withMediator { ExportCatalogZip(tenant.id, SYSTEM_CATALOG_KEY).execute() }
+
+        // Releases live in `catalog_releases`, which a subscribed catalog has no rows in — reading
+        // the label from there called a catalog installed at 1.2.0 `0.0.0-dev`.
+        assertThat(export.filename).isEqualTo("system-$installed.zip")
+        assertThat(entryOf(export.zipBytes, "catalog.json")).contains("\"version\":\"$installed\"")
     }
 
     private fun authoredCatalog(slug: String): CatalogId {
