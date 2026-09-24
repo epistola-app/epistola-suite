@@ -59,8 +59,10 @@ class ReleaseContentAssembler(
      * and must not be guessed at from it.
      */
     fun assemble(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): RetainedRelease? = jdbi.withHandle<RetainedRelease?, Exception> { handle ->
+        // The flag, not the entry count: a catalog with no resources retains a release that
+        // contains nothing, which is not the same as a release that kept nothing.
+        if (!releaseEntryStore.retainedVersions(handle, tenantKey, catalogKey).contains(version)) return@withHandle null
         val entries = releaseEntryStore.entriesOf(handle, tenantKey, catalogKey, version)
-        if (entries.isEmpty()) return@withHandle null
 
         val snapshot = loadManifestSnapshot(handle, tenantKey, catalogKey, version)
         val payloads = loadPayloads(handle, tenantKey, entries.map { it.revisionDigest })

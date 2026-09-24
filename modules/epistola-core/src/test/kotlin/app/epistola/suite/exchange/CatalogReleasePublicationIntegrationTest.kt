@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.commands.SetCatalogPublicationSettings
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
+import app.epistola.suite.catalog.revisions.forgetRetainedContent
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
@@ -24,6 +25,7 @@ import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
 
 /**
  * The release-time half of publication: which releases get queued, and that queueing never
@@ -31,6 +33,9 @@ import org.junit.jupiter.api.Test
  * [CatalogPublicationWorkerIntegrationTest].
  */
 class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
+
+    @Autowired
+    private lateinit var jdbi: org.jdbi.v3.core.Jdbi
 
     @Test
     fun `a release with nowhere to publish still succeeds and queues nothing`() {
@@ -76,7 +81,7 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
     }
 
     @Test
-    fun `a release left unpublished while the catalog moves on says so instead of going quiet`() {
+    fun `a release that kept its content is still publishable after the catalog moves on`() {
         val tenant = createTenant("Drifted Release")
         val catalogKey = CatalogKey.of("drifted-release")
 
@@ -90,12 +95,102 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
             assertThat(state(tenant.id, catalogKey).canPublishCurrentRelease).isTrue()
             assertThat(state(tenant.id, catalogKey).unpublishableRelease).isNull()
 
-            // Any edit moves the working copy away from the released bytes, which are not retained
-            // for a release that was never queued.
+            // An edit moves the working copy away from the released bytes. It used to make the
+            // release unpublishable -- the archive was rebuilt from the working copy, so the only
+            // way to send v1.0.0 was to release the edits first. The release keeps its own content
+            // now, so publishing it is publishing what it was.
             UpdateCatalogMetadata(
                 tenantKey = tenant.id,
                 catalogKey = catalogKey,
                 name = "Drifted release",
+                description = "Changed after releasing",
+                attributes = emptyList(),
+            ).execute()
+
+            val drifted = state(tenant.id, catalogKey)
+            assertThat(drifted.canPublishCurrentRelease)
+                .`as`("the release has its own content to send")
+                .isTrue()
+            assertThat(drifted.unpublishableRelease).isNull()
+
+            PublishCurrentCatalogRelease(tenant.id, catalogKey).execute()
+            assertThat(publications(tenant.id, catalogKey)).hasSize(1)
+        }
+    }
+
+    @Test
+    fun `an older release can still be published once the catalog has moved on`() {
+        val tenant = createTenant("Older Release")
+        val catalogKey = CatalogKey.of("older-release")
+
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Older release").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.SKIP).execute()
+            UpdateCatalogMetadata(
+                tenantKey = tenant.id,
+                catalogKey = catalogKey,
+                name = "Older release",
+                description = "Changed before the second release",
+                attributes = emptyList(),
+            ).execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.1.0", publication = ReleasePublication.SKIP).execute()
+
+            // 1.0.0 is no longer the catalog's current release, and until releases kept their own
+            // content it could never have been sent: the archive came from the working copy, which
+            // by now is two edits away from it.
+            PublishCurrentCatalogRelease(tenant.id, catalogKey, version = "1.0.0").execute()
+
+            assertThat(publications(tenant.id, catalogKey))
+                .extracting<String> { it.version }
+                .containsExactly("1.0.0")
+        }
+    }
+
+    @Test
+    fun `a named release that kept no content is refused rather than rebuilt from the working copy`() {
+        val tenant = createTenant("Older Release Unretained")
+        val catalogKey = CatalogKey.of("older-unretained")
+
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Older unretained").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.1.0", publication = ReleasePublication.SKIP).execute()
+        }
+        jdbi.forgetRetainedContent(tenant.id, catalogKey)
+
+        withMediator {
+            // Rebuilding it from the working copy would send today's content under yesterday's
+            // version, which is the one outcome worse than refusing.
+            assertThatThrownBy { PublishCurrentCatalogRelease(tenant.id, catalogKey, version = "1.0.0").execute() }
+                .isInstanceOfSatisfying(ValidationException::class.java) {
+                    assertThat(it.code).isEqualTo(ValidationCode.PUBLICATION_WORKING_COPY_DRIFTED)
+                }
+        }
+    }
+
+    @Test
+    fun `a release that kept no content still refuses once the working copy moves on`() {
+        val tenant = createTenant("Legacy Drifted Release")
+        val catalogKey = CatalogKey.of("legacy-drift")
+
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Legacy drift").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.SKIP).execute()
+        }
+        // A release cut before content was retained has only the working copy to rebuild from.
+        jdbi.forgetRetainedContent(tenant.id, catalogKey)
+
+        withMediator {
+            UpdateCatalogMetadata(
+                tenantKey = tenant.id,
+                catalogKey = catalogKey,
+                name = "Legacy drift",
                 description = "Changed after releasing",
                 attributes = emptyList(),
             ).execute()

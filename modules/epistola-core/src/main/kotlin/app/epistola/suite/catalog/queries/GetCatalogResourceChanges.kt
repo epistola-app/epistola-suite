@@ -107,6 +107,11 @@ class GetCatalogResourceChangesHandler(
         val working = fingerprintService.perResourceFingerprints(content)
         val release = loadLatestRelease(query.tenantKey, query.catalogKey)
         val released = release?.let { entriesOf(query.tenantKey, query.catalogKey, it.version) }.orEmpty()
+        val retainedVersions = release?.let {
+            jdbi.withHandle<List<String>, Exception> { handle ->
+                releaseEntryStore.retainedVersions(handle, query.tenantKey, query.catalogKey)
+            }
+        }.orEmpty()
 
         // The working copy names a resource it still has; the release names one dropped since.
         val names = content.resourceEntries.associate { "${it.type}/${it.slug}" to it.name } +
@@ -129,7 +134,7 @@ class GetCatalogResourceChangesHandler(
             )
         }
 
-        val baseline = released.mapValues { (_, entry) -> entry.fingerprint }.takeIf { it.isNotEmpty() }
+        val baseline = released.mapValues { (_, entry) -> entry.fingerprint }.takeIf { retainedVersions.contains(release.version) }
             // A release cut before V20260923201010 recorded no resources. When the working copy
             // still matches its fingerprint the content is identical by definition, so the working
             // digests *are* that release's digests and the answer is exact without them.

@@ -69,7 +69,7 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalog.key, version = "1.0.0").execute()
         }
-        forgetReleaseEntries(tenant.id.value, "hist-legacy")
+        forgetRetainedContent(tenant.id.value, "hist-legacy")
 
         val body = browse(tenant.id.value, "hist-legacy")
 
@@ -90,6 +90,24 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
             .doesNotContain("<h2>Releases</h2>")
     }
 
+    @Test
+    fun `a release already sent to Exchange is marked, not offered again`() {
+        val tenant = tenantWithCatalog("hist-publish")
+
+        withMediator {
+            val catalog = CatalogId(CatalogKey.of("hist-publish"), TenantId(tenant.id))
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
+            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalog.key, version = "1.0.0").execute()
+        }
+
+        val body = browse(tenant.id.value, "hist-publish")
+
+        // Nothing is offered without somewhere to send it — this tenant is not connected to
+        // Exchange, so the row carries the export action and no publish action.
+        assertThat(body).contains("catalogs/hist-publish/export?version=1.0.0")
+        assertThat(body).doesNotContain("Publish v1.0.0 to Epistola Exchange")
+    }
+
     private fun tenantWithCatalog(slug: String): Tenant {
         lateinit var created: Tenant
         fixture {
@@ -102,15 +120,18 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
     }
 
     /**
-     * Raw SQL: makes a release look like one cut before `V20260923201010`, a shape no command can
-     * produce. The core module has the same helper, but test sources do not cross module
-     * boundaries, so this is a deliberate second copy rather than an oversight.
+     * Raw SQL: makes a release look like one cut before releases kept their content, a shape no
+     * command can produce. Clears the flag as well as the rows, because the flag is the fact — a
+     * release that kept nothing is not the same as one that contained nothing.
+     *
+     * The core module has the same helper, but test sources do not cross module boundaries, so this
+     * is a deliberate second copy rather than an oversight.
      */
-    private fun forgetReleaseEntries(tenantKey: String, catalogKey: String) = jdbi.useHandle<Exception> { handle ->
+    private fun forgetRetainedContent(tenantKey: String, catalogKey: String) = jdbi.useHandle<Exception> { handle ->
         handle.createUpdate("DELETE FROM release_entries WHERE tenant_key = :t AND catalog_key = :c")
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
-            .execute()
+            .bind("t", tenantKey).bind("c", catalogKey).execute()
+        handle.createUpdate("UPDATE catalog_releases SET content_retained = FALSE WHERE tenant_key = :t AND catalog_key = :c")
+            .bind("t", tenantKey).bind("c", catalogKey).execute()
     }
 
     private fun browse(tenantKey: String, catalogKey: String): String = restTemplate
