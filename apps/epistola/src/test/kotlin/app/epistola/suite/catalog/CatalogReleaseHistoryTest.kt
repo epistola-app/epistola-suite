@@ -90,6 +90,24 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
             .doesNotContain("<h2>Releases</h2>")
     }
 
+    @Test
+    fun `a release already sent to Exchange is marked, not offered again`() {
+        val tenant = tenantWithCatalog("hist-publish")
+
+        withMediator {
+            val catalog = CatalogId(CatalogKey.of("hist-publish"), TenantId(tenant.id))
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
+            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalog.key, version = "1.0.0").execute()
+        }
+
+        val body = browse(tenant.id.value, "hist-publish")
+
+        // Nothing is offered without somewhere to send it — this tenant is not connected to
+        // Exchange, so the row carries the export action and no publish action.
+        assertThat(body).contains("catalogs/hist-publish/export?version=1.0.0")
+        assertThat(body).doesNotContain("Publish v1.0.0 to Epistola Exchange")
+    }
+
     private fun tenantWithCatalog(slug: String): Tenant {
         lateinit var created: Tenant
         fixture {

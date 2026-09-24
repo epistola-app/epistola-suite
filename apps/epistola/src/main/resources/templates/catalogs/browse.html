@@ -410,7 +410,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr th:each="release : ${releases}">
+                        <tr th:each="row : ${releases}" th:with="release=${row.release}">
                             <td style="font-weight: 500;">
                                 <span th:text="'v' + ${release.version}">v1.0.0</span>
                                 <code style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"
@@ -435,6 +435,21 @@
                                    hx-boost="false" download>
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
                                 </a>
+                                <!--/* Offered where it can be carried out: the catalog can publish
+                                       at all, this release kept content to send, and it has not
+                                       been sent already. Any release can go, not only the latest. */-->
+                                <form th:if="${row.publishable}"
+                                      method="post" style="display: inline;"
+                                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalog.id})}">
+                                    <input type="hidden" name="version" th:value="${release.version}">
+                                    <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
+                                            th:title="'Publish v' + ${release.version} + ' to Epistola Exchange'">
+                                        <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
+                                    </button>
+                                </form>
+                                <span th:if="${row.published}"
+                                      class="text-muted" style="font-size: var(--ep-text-xs);"
+                                      title="Already sent to Epistola Exchange">published</span>
                             </td>
                         </tr>
                     </tbody>

@@ -12,6 +12,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogPublicationPolicy
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
+import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -31,6 +32,16 @@ import java.util.UUID
 data class PublishCurrentCatalogRelease(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
+    /**
+     * Which release to send, or null for the one the catalog is currently on.
+     *
+     * Any release may be published, not only the latest. That was never a decision — while the
+     * archive had to be rebuilt from the working copy, only the current release could possibly
+     * match it. A release carries its own content now, so an older one is as publishable as a new
+     * one, and a catalog whose author has moved on can still send the version people are asking
+     * for.
+     */
+    val version: String? = null,
 ) : Command<UUID>,
     RequiresPermission {
     override val permission = Permission.CATALOG_PUBLISH
@@ -50,6 +61,7 @@ class PublishCurrentCatalogReleaseHandler(
     private val archiveBuilder: CatalogArchiveBuilder,
     private val fingerprintService: CatalogFingerprintService,
     private val assembler: ReleaseContentAssembler,
+    private val releaseEntryStore: ReleaseEntryStore,
     private val availability: ExchangeAvailability,
     private val namespaceBinder: ExchangeNamespaceBinder,
     private val store: CatalogPublicationStore,
@@ -76,7 +88,7 @@ class PublishCurrentCatalogReleaseHandler(
             ValidationCode.EXCHANGE_NAMESPACE_UNAVAILABLE,
         ) { "Choose the Exchange namespace for this catalog before publishing it." }
 
-        val release = latestRelease(command)
+        val release = releaseToPublish(command)
         // Read the status without the archive: a 10 MB blob must not be fetched just to branch.
         val previousStatus = jdbi.withHandle<CatalogPublicationStatus?, Exception> { handle ->
             handle.createQuery(
@@ -172,27 +184,54 @@ class PublishCurrentCatalogReleaseHandler(
         )
     }
 
-    private fun latestRelease(command: PublishCurrentCatalogRelease): Release = jdbi.withHandle<Release?, Exception> { handle ->
+    /**
+     * The release to send: the one named, or the one the catalog is currently on.
+     *
+     * A named release that kept no content is refused rather than rebuilt. Only the current release
+     * can be rebuilt from the working copy, and only while nothing has changed — reaching for an
+     * older one would quietly send today's content under yesterday's version.
+     */
+    private fun releaseToPublish(command: PublishCurrentCatalogRelease): Release {
+        val release = findRelease(command) ?: throw ValidationException(
+            "catalogKey",
+            command.version?.let { "This catalog has no release $it to publish." } ?: "This catalog has no release to publish.",
+            ValidationCode.PUBLICATION_NO_RELEASE,
+        )
+        if (command.version != null) {
+            validate(
+                "publication",
+                jdbi.withHandle<Boolean, Exception> { handle ->
+                    releaseEntryStore.retainedVersions(handle, command.tenantKey, command.catalogKey).contains(release.version)
+                },
+                ValidationCode.PUBLICATION_WORKING_COPY_DRIFTED,
+            ) { "Release ${release.version} did not retain its content and can no longer be rebuilt, so only the catalog's current release can be published." }
+        }
+        return release
+    }
+
+    private fun findRelease(command: PublishCurrentCatalogRelease): Release? = jdbi.withHandle<Release?, Exception> { handle ->
+        val selection = if (command.version != null) {
+            "AND r.version = :version"
+        } else {
+            "AND r.version = c.released_version"
+        }
         handle.createQuery(
             """
             SELECT r.version, r.fingerprint, r.released_at
             FROM catalog_releases r
             JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.id = r.catalog_key
             WHERE r.tenant_key = :tenantKey AND r.catalog_key = :catalogKey
-              AND r.version = c.released_version
+              $selection
             """,
-        ).bind("tenantKey", command.tenantKey).bind("catalogKey", command.catalogKey).map { rs, _ ->
-            Release(
-                rs.getString("version"),
-                rs.getString("fingerprint"),
-                rs.getObject("released_at", OffsetDateTime::class.java),
-            )
-        }.findOne().orElse(null)
-    } ?: throw ValidationException(
-        "catalogKey",
-        "This catalog has no release to publish.",
-        ValidationCode.PUBLICATION_NO_RELEASE,
-    )
+        ).apply { if (command.version != null) bind("version", command.version) }
+            .bind("tenantKey", command.tenantKey).bind("catalogKey", command.catalogKey).map { rs, _ ->
+                Release(
+                    rs.getString("version"),
+                    rs.getString("fingerprint"),
+                    rs.getObject("released_at", OffsetDateTime::class.java),
+                )
+            }.findOne().orElse(null)
+    }
 
     private data class Release(val version: String, val fingerprint: String, val releasedAt: OffsetDateTime)
 }

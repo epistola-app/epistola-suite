@@ -119,6 +119,60 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
     }
 
     @Test
+    fun `an older release can still be published once the catalog has moved on`() {
+        val tenant = createTenant("Older Release")
+        val catalogKey = CatalogKey.of("older-release")
+
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Older release").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.SKIP).execute()
+            UpdateCatalogMetadata(
+                tenantKey = tenant.id,
+                catalogKey = catalogKey,
+                name = "Older release",
+                description = "Changed before the second release",
+                attributes = emptyList(),
+            ).execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.1.0", publication = ReleasePublication.SKIP).execute()
+
+            // 1.0.0 is no longer the catalog's current release, and until releases kept their own
+            // content it could never have been sent: the archive came from the working copy, which
+            // by now is two edits away from it.
+            PublishCurrentCatalogRelease(tenant.id, catalogKey, version = "1.0.0").execute()
+
+            assertThat(publications(tenant.id, catalogKey))
+                .extracting<String> { it.version }
+                .containsExactly("1.0.0")
+        }
+    }
+
+    @Test
+    fun `a named release that kept no content is refused rather than rebuilt from the working copy`() {
+        val tenant = createTenant("Older Release Unretained")
+        val catalogKey = CatalogKey.of("older-unretained")
+
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Older unretained").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.1.0", publication = ReleasePublication.SKIP).execute()
+        }
+        jdbi.forgetRetainedContent(tenant.id, catalogKey)
+
+        withMediator {
+            // Rebuilding it from the working copy would send today's content under yesterday's
+            // version, which is the one outcome worse than refusing.
+            assertThatThrownBy { PublishCurrentCatalogRelease(tenant.id, catalogKey, version = "1.0.0").execute() }
+                .isInstanceOfSatisfying(ValidationException::class.java) {
+                    assertThat(it.code).isEqualTo(ValidationCode.PUBLICATION_WORKING_COPY_DRIFTED)
+                }
+        }
+    }
+
+    @Test
     fun `a release that kept no content still refuses once the working copy moves on`() {
         val tenant = createTenant("Legacy Drifted Release")
         val catalogKey = CatalogKey.of("legacy-drift")
