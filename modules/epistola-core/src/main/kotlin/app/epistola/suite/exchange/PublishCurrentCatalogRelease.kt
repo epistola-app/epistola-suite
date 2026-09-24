@@ -40,6 +40,10 @@ data class PublishCurrentCatalogRelease(
      * match it. A release carries its own content now, so an older one is as publishable as a new
      * one, and a catalog whose author has moved on can still send the version people are asking
      * for.
+     *
+     * Deliberately no ordering rule here: sending 1.0.0 after 1.1.0 is allowed. What a namespace
+     * accepts is Exchange's to decide and Exchange's to enforce — a second opinion in the Suite
+     * would only be wrong in a different way the first time the two disagreed.
      */
     val version: String? = null,
 ) : Command<UUID>,
