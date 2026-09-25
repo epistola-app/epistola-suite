@@ -17,7 +17,12 @@ class LoginHandlerSilentLoginTest {
         params.forEach { (name, value) -> setParameter(name, value) }
     }
 
-    private fun target(request: MockHttpServletRequest, enabled: Boolean = true, registrationId: String? = "keycloak") = silentLoginTarget(request, enabled, registrationId)
+    private fun target(
+        request: MockHttpServletRequest,
+        enabled: Boolean = true,
+        registrationId: String? = "keycloak",
+        embeddingEnabled: Boolean = false,
+    ) = silentLoginTarget(request, enabled, registrationId, embeddingEnabled)
 
     @Test
     fun `first visit tries a silent sign-in`() {
@@ -76,6 +81,20 @@ class LoginHandlerSilentLoginTest {
         val request = loginRequest().apply { addHeader("Sec-Fetch-Dest", "iframe") }
 
         assertThat(target(request)).isNull()
+    }
+
+    @Test
+    fun `inside an iframe when embedding is enabled, whose provider allows the embedding host`() {
+        val request = loginRequest().apply { addHeader("Sec-Fetch-Dest", "iframe") }
+
+        assertThat(target(request, embeddingEnabled = true)).isEqualTo("/oauth2/authorization/keycloak?silent=true")
+    }
+
+    @Test
+    fun `an embedded frame still honours the other skips`() {
+        val request = loginRequest("logout" to "").apply { addHeader("Sec-Fetch-Dest", "iframe") }
+
+        assertThat(target(request, embeddingEnabled = true)).isNull()
     }
 
     @Test
