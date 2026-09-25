@@ -5,6 +5,8 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.queries.CatalogContext
+import app.epistola.suite.catalog.queries.GetCatalogContext
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.templateId
@@ -24,6 +26,8 @@ data class TemplateDetailContext(
     val templateId: TemplateId,
     val template: DocumentTemplate,
     val editable: Boolean,
+    /** Which catalog this template is in, and where that catalog stands. Null only if it vanished. */
+    val catalogContext: CatalogContext?,
 )
 
 /**
@@ -51,6 +55,9 @@ class TemplateDetailHelper {
             templateId = templateId,
             template = template,
             editable = editable,
+            // Loaded once for every tab, because a template is always being edited inside a
+            // catalog and the page should not depend on which tab you happened to open.
+            catalogContext = GetCatalogContext(tenantId.key, catalogId).query(),
         )
     }
 
@@ -68,6 +75,7 @@ class TemplateDetailHelper {
             "catalogId" to ctx.catalogId,
             "template" to ctx.template,
             "editable" to ctx.editable,
+            "catalogContext" to ctx.catalogContext,
             "activeTab" to activeTab,
             "contentView" to "templates/detail",
         )

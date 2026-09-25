@@ -4,6 +4,12 @@
     <th:block th:fragment="content">
         <th:block th:fragment="page-content">
 
+            <!--/* Catalog first, then the resource: the bar says which catalog you are in, the
+                   header below says what you are editing in it. Kept apart deliberately — see
+                   catalogs/bar.html. The bar also says read-only for a subscribed catalog, which is
+                   why no separate badge does. */-->
+            <div th:replace="~{catalogs/bar :: catalog-bar(context=${catalogContext})}"></div>
+
             <div th:replace="~{epistola-web/page-header :: page-header(
                 pageTitle=${codeList.displayName},
                 backLinkHref=@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})},
@@ -12,10 +18,11 @@
                 actions=~{::code-list-detail-actions}
             )}"></div>
 
+            <!--/* The address stays: it is how a template names this code list, and unlike the
+                   bar's catalog name it identifies the resource rather than its catalog. */-->
             <div class="ep-row ep-row-wrap ep-gap-3" style="margin-bottom: var(--ep-space-4);">
                 <code th:text="${codeList.catalogKey + '/' + codeList.slug}"></code>
                 <span class="badge badge-outline" th:text="${codeList.sourceType}"></span>
-                <span th:if="${!editable}" class="badge badge-muted">Read-only</span>
             </div>
 
             <div th:if="${error != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
@@ -84,6 +91,7 @@
         </th:block>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+
     </th:block>
     <th:block th:fragment="code-list-detail-actions">
         <form th:if="${editable and codeList.sourceUrl != null}"
