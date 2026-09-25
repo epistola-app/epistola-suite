@@ -32,7 +32,7 @@ epistola:
 ```
 
 `EmbeddingProperties` (`apps/epistola/.../embedding/EmbeddingProperties.kt`).
-Turning `enabled` on changes three things at once, all conditioned on the same
+Turning `enabled` on changes four things at once, all conditioned on the same
 flag:
 
 1. **CSP `frame-ancestors`** becomes the space-joined `allowed-parent-origins`
@@ -52,6 +52,13 @@ flag:
    page outside the shell) — entirely absent from the page when embedding is
    off. The island itself is defined once, in `fragments/embed-config.html`,
    and rendered by both hosts.
+4. **Silent SSO sign-in also runs inside the frame.** The login page normally
+   skips its `prompt=none` attempt in an iframe (`Sec-Fetch-Dest: iframe`),
+   because identity providers usually refuse to be framed. With embedding on,
+   the regular sign-in already has to run in the frame, so the provider must
+   allow the embedding host in its own `frame-ancestors` anyway; the silent
+   attempt then signs a learner with a live provider session in without a
+   click. A failed attempt shows the normal login page.
 
 ## The message protocol
 
