@@ -5,11 +5,14 @@
 package app.epistola.suite.documents
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.GenerationJobNotCancellableException
+import app.epistola.suite.documents.batch.DocumentGenerationExecutor
 import app.epistola.suite.documents.commands.BatchGenerationItem
 import app.epistola.suite.documents.commands.BatchValidationException
 import app.epistola.suite.documents.commands.CancelGenerationJob
@@ -22,13 +25,20 @@ import app.epistola.suite.documents.queries.GetDocument
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.documents.queries.ListDocuments
 import app.epistola.suite.documents.queries.ListGenerationJobs
+import app.epistola.suite.environments.commands.CreateEnvironment
+import app.epistola.suite.fonts.FontByteCache
+import app.epistola.suite.fonts.FontSnapshotVerifier
+import app.epistola.suite.generation.GenerationService
+import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.DocumentContentStore
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
+import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
@@ -56,7 +66,30 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
     @Autowired
     private lateinit var meterRegistry: MeterRegistry
 
+    @Autowired
+    private lateinit var generationService: GenerationService
+
+    @Autowired
+    private lateinit var schemaValidator: JsonSchemaValidator
+
+    @Autowired
+    private lateinit var fontSnapshotVerifier: FontSnapshotVerifier
+
+    @Autowired
+    private lateinit var fontByteCache: FontByteCache
+
+    @Autowired
+    private lateinit var localeResolver: TenantLocaleResolver
+
     private val objectMapper = ObjectMapper()
+
+    private val realExecutor by lazy {
+        DocumentGenerationExecutor(
+            jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore,
+            meterRegistry, fontSnapshotVerifier, fontByteCache, localeResolver,
+            retentionDays = 7, maxDocumentSizeMb = 50,
+        )
+    }
 
     @Test
     fun `generate single document successfully`(): Unit = scenario {
@@ -169,6 +202,56 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             assertThat(job.request.status).isEqualTo(RequestStatus.COMPLETED)
             assertThat(job.items).hasSize(1)
             assertThat(job.items[0].status.name).isEqualTo("COMPLETED")
+        }
+    }
+
+    @Test
+    fun `generation for an environment validates data against the activated version's contract`(): Unit = scenario {
+        given {
+            val tenant = tenant("Test Tenant")
+            val tenantId = TenantId(tenant.id)
+            val template = template(tenant.id, "Invoice Template")
+            val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
+            app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+                templateId = compositeTemplateId,
+                dataModel = objectMapper.readValue(
+                    """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
+                    ObjectNode::class.java,
+                ),
+                dataExamples = listOf(
+                    app.epistola.suite.templates.model.DataExample(
+                        "example-1",
+                        "Example 1",
+                        objectMapper.createObjectNode().put("name", "Ada"),
+                    ),
+                ),
+            ).execute()
+            val variant = variant(compositeTemplateId, "Default")
+            val compositeVariantId = VariantId(variant.id, compositeTemplateId)
+            val version = version(compositeVariantId, TestTemplateBuilder.buildMinimal(name = "Invoice Template"))
+            val environmentId = EnvironmentId(TestIdHelpers.nextEnvironmentId(), tenantId)
+            CreateEnvironment(id = environmentId, name = "Production").execute()
+            PublishToEnvironment(VersionId(version.id, compositeVariantId), environmentId).execute()
+            DocumentSetup(tenant, template, variant, version) to environmentId.key
+        }.whenever { (setup, environmentKey) ->
+            // 'name' is required and has no default, so the job must fail rather than render without it.
+            execute(
+                GenerateDocument(
+                    tenantId = setup.tenant.id,
+                    templateId = setup.template.id,
+                    variantId = setup.variant.id,
+                    environmentId = environmentKey,
+                    data = objectMapper.createObjectNode().put("other", "value"),
+                    filename = "invoice-001.pdf",
+                ),
+            )
+        }.then { (setup, _), request ->
+            // Integration tests wire a fake executor that never validates, so run the production one.
+            realExecutor.execute(request)
+
+            val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))!!
+            assertThat(job.request.status).isEqualTo(RequestStatus.FAILED)
+            assertThat(job.request.errorMessage).contains("Data validation failed").contains("name")
         }
     }
 
