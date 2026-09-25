@@ -168,12 +168,11 @@ CREATE INDEX idx_catalog_releases_order
     ON catalog_releases (tenant_key, catalog_key, version_major DESC, version_minor DESC, version_patch DESC);
 ```
 
-Shipped as `V20260923150918`. `catalog_releases.resource_fingerprints` (`V20260923154857`) is the
-interim form of `release_entries`: the per-resource digests of a release, recorded because they
-cannot be recovered afterwards, and enough to derive every status in §2 before revisions exist.
-`release_entries` (`V20260923201010`) replaced it as soon as there were revisions to point at, and
-the column was dropped with it: it held derived data that had never been part of a released version,
-and two records of one fact is how they come to disagree.
+Shipped as `V20260923150918`. The per-resource digests a release needs, recorded because they
+cannot be recovered afterwards, live on `release_entries` (`V20260923201010`) rather than on a
+column of their own. An interim `catalog_releases.resource_fingerprints` column carried them while
+the revisions they point at were still being built, and was folded into that table before any of
+this work was released — one record of one fact, rather than two that come to disagree.
 
 An entry carries **both** digests. `revision_digest` says where the content is stored;
 `fingerprint` is the contract's canonical digest over the wire form, which is what the working copy

@@ -8,7 +8,7 @@
 
 -- Retain the content behind a release, not only its digest.
 --
--- A release records which resources it contained and at which digest (V20260923154857), but not the
+-- A release records that it happened and what it fingerprinted to, but not the
 -- content behind them, so an earlier release cannot be reproduced, exported or rendered from -- it
 -- is a fingerprint and a promise. Content that does not move when the working copy does is what
 -- retained releases, self-contained artifacts and deploying a release to an environment all rest on.

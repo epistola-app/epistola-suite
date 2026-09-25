@@ -30,8 +30,9 @@ there is never a parallel install of two versions.
 
 - **AUTHORED (publisher side)** — one live, editable working copy. Cutting a
   release records an **immutable boundary** in `catalog_releases`
-  (author-set SemVer + content fingerprint + notes + a manifest snapshot +
-  `resource_fingerprints`, the per-resource digests of what it contained) and
+  (author-set SemVer + content fingerprint + notes + a manifest snapshot), one
+  `release_entries` row per resource naming the revision that holds its content
+  and the digest it fingerprinted to, and
   advances the `catalogs.released_version` / `released_fingerprint` /
   `released_at` pointer. `catalog_releases` is AUTHORED release **history**
   (changelog), not parallel installs and **not** the consumer upgrade-diff
@@ -153,15 +154,15 @@ is the shared primitive (latest version/fingerprint, working fingerprint,
 ### What changed, resource by resource
 
 [`GetCatalogResourceChanges`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/GetCatalogResourceChanges.kt)
-diffs the working copy's per-resource digests against
-`catalog_releases.resource_fingerprints`, giving each resource one of NEW,
+diffs the working copy's per-resource digests against the `fingerprint` of each
+`release_entries` row of the latest release, giving each resource one of NEW,
 MODIFIED, RELEASED or REMOVED. Both sides come from the same canonicaliser that
 computes the catalog fingerprint, so a per-resource difference is exactly a
 fingerprint difference localised to one resource and the drift check and the
 detail cannot disagree. It is the authored mirror of the SUBSCRIBED upgrade
 diff, which reads `installed_resource_fingerprints` the same way.
 
-A release cut before the column existed (migration `V20260923154857`) recorded
+A release cut before those entries existed (migration `V20260923201010`) recorded
 no baseline, and none can be reconstructed — the manifest snapshot holds the
 manifest entries, not the payloads they were built from. While such a catalog
 still matches its released fingerprint the working digests _are_ that release's

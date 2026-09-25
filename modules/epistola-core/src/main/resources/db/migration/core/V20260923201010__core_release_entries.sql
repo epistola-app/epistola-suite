@@ -1,27 +1,27 @@
 -- backup-restore-compatibility: backward=true forward=false
 -- reason: Backward is safe, and is the case that matters -- restoring a backup taken before an
--- upgrade. Neither the column this replaces nor the table replacing it has been part of a released
--- version, so no backup in anyone's hands carries either. An older backup restores with no release
--- entries, which is the same state as a release cut before this migration: the content was never
--- retained, the release says so, and an export of it refuses rather than substituting the working
--- copy. `validateColumns` still runs as the backstop -- the flag relaxes the stamp, never a
--- structural check. Forward is not safe: a newer backup carries tables a schema without this
--- migration cannot classify.
+-- upgrade. Nothing this migration adds has been part of a released version, so no backup in
+-- anyone's hands carries any of it. An older backup restores with no release entries and
+-- `content_retained` false on every row, which is the same state as a release cut before this
+-- migration: the content was never retained, the release says so, and an export of it refuses
+-- rather than substituting the working copy. `validateColumns` still runs as the backstop -- the
+-- flag relaxes the stamp, never a structural check. Forward is not safe: a newer backup carries
+-- tables a schema without this migration cannot classify.
 -- SPDX-FileCopyrightText: Epistola Nederland B.V.
 --
 -- SPDX-License-Identifier: AGPL-3.0-only
 
 -- A release is its resources, each at the revision that holds its content.
 --
--- `catalog_releases.resource_fingerprints` (V20260923154857) recorded which resources a release
--- contained and at which content digest, and said in its own comment that it was the interim form
--- of this table. It could say what a release contained but not point at it: the content behind
--- those digests arrived with `resource_revisions` (V20260923162028), and this is what connects the
--- two, so a release can be read back rather than only compared against.
+-- `catalog_releases` records that a release happened and what it fingerprinted to, and
+-- `resource_revisions` (V20260923162028) holds the content. This is what connects the two, so a
+-- release can be read back rather than only compared against -- which is what makes an export of
+-- an earlier release, and a publication of one, something other than a rebuild from today's
+-- working copy.
 --
--- The column is dropped rather than left beside its replacement. It holds derived data, it has
--- never been part of a released version -- both migrations are unreleased work on the same
--- integration branch -- and two records of one fact is how they come to disagree.
+-- Each entry carries both digests, for the reason ADR 0026 section 5 gives: `revision_digest` says
+-- where the content is stored, `fingerprint` is the contract's canonical digest over the wire
+-- form, and neither is derivable from the other.
 CREATE TABLE release_entries (
     tenant_key      TENANT_KEY   NOT NULL,
     catalog_key     CATALOG_KEY  NOT NULL,
@@ -62,4 +62,17 @@ COMMENT ON COLUMN release_entries.name IS
 -- "Which releases carried this resource", and the lookup a relocation's provenance needs.
 CREATE INDEX idx_release_entries_resource ON release_entries (tenant_key, resource_id);
 
-ALTER TABLE catalog_releases DROP COLUMN resource_fingerprints;
+-- Say whether a release kept its content, instead of inferring it from having no entries.
+--
+-- Those are two different things wearing one answer: a catalog with no resources can be released,
+-- and its release legitimately contains nothing. Asked whether such a release kept its content, the
+-- inference says no -- so it cannot be exported as released, and publishing it to Exchange is
+-- refused with a message telling the author to release changes they have not made.
+--
+-- FALSE for every existing row, which is correct: a release cut before this migration retained
+-- nothing and cannot be rebuilt.
+ALTER TABLE catalog_releases
+    ADD COLUMN content_retained BOOLEAN NOT NULL DEFAULT FALSE;
+
+COMMENT ON COLUMN catalog_releases.content_retained IS
+    'Whether this release stored the content it contained, and so can be rebuilt and exported as released. FALSE for releases cut before this migration, which retained nothing. Not the same as having no release_entries: a catalog with no resources retains an empty release.';
