@@ -2,15 +2,17 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
+        <!--/* Catalog first, then the resource: the bar says which catalog you are in, the header
+               below says what you are editing in it. Kept apart deliberately — see
+               catalogs/bar.html. The bar also says read-only for a subscribed catalog, which is why
+               no separate notice does. */-->
+        <div th:replace="~{catalogs/bar :: catalog-bar(context=${catalogContext})}"></div>
+
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${stencil.name},
             backLinkHref=@{/tenants/{tenantId}/stencils(tenantId=${tenantId})},
             backLinkLabel='Stencils'
         )}"></div>
-
-        <p th:if="${stencil.catalogType.name() == 'SUBSCRIBED'}" class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
-            <span class="badge badge-muted">Read-only</span> This stencil belongs to a subscribed catalog.
-        </p>
 
         <!-- Details -->
         <div class="ep-panel detail-section" style="margin-bottom: var(--ep-space-6);">
@@ -18,8 +20,8 @@
                 <dl class="description-list">
                     <dt>ID</dt>
                     <dd><code th:text="${stencil.id}"></code></dd>
-                    <dt>Catalog</dt>
-                    <dd><span class="badge badge-default" th:text="${stencil.catalogKey}"></span></dd>
+                    <!--/* No Catalog row: the bar above names it, links to it and says where it
+                           stands. Saying it twice invites the two to disagree. */-->
                     <dt>Description</dt>
                     <dd>
                         <span th:if="${stencil.description != null}" th:text="${stencil.description}"></span>
@@ -251,6 +253,7 @@
             </div>
         </div>
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+
     </th:block>
 </body>
 </html>

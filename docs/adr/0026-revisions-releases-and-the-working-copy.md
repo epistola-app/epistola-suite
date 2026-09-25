@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # ADR 0026: Revisions, releases and the working copy
 
-- **Status:** Proposed
+- **Status:** Accepted — steps 1 to 3 of the transition implemented
 - **Date:** 2026-09-23
 - **Deciders:** Epistola team
 - **Tags:** catalog, versioning, publication, storage
@@ -54,8 +54,8 @@ release, as ADR 0025's plan requires.
 
 ### 2. Every resource has a status
 
-Each resource row carries `working_digest`, maintained when it is saved, and a nullable
-`ready_digest`. State is then derived rather than tracked:
+Each resource has a **working digest** — the SHA-256 of its canonical payload, by the rule in §4 —
+and a nullable `ready_digest`. State is then derived rather than tracked:
 
 | State        | Condition                                           |
 | ------------ | --------------------------------------------------- |
@@ -68,10 +68,22 @@ Marking ready stores the current digest, so a later edit makes the resource modi
 any flag to clear. This applies to every resource type, including themes, fonts, images, code lists
 and attributes, which have no draft state today.
 
+**The working digest is derived, not stored, until there are revisions.** A column on every resource
+table means every save path recomputing a canonical payload, and a path that forgets leaves a digest
+that is silently wrong — the one failure this design cannot absorb, because the release is built
+from it. It is computed instead from `CatalogContentBuilder`, already the single source of the bytes
+a release and its fingerprint are made of, so the status and the release cannot disagree. The cost
+is a catalog build per read, which is what the drift check already paid. From stage 2 a revision is
+written at one choke point, and `working_digest` becomes a column that is cheap to keep right.
+
 **A release refuses while anything in the catalog is modified.** Running a release presents the
 review screen — everything modified, ready, added or removed, with contract breaking changes per
 template — and can mark everything ready in one action. Ready is therefore a review checkpoint, not
 a filter: a release always contains the catalog's whole working copy.
+
+That refusal and `ready_digest` arrive together, with the major release that makes the catalog
+release the only version. Until then a release captures the working copy whatever its state, so
+readiness would be a flag nothing reads; the review screen ships first and reports.
 
 **A template is the unit**: its settings, all its variants and its contract form one revision.
 Dirty state is tracked per variant so the review screen can say which variants changed.
@@ -85,22 +97,23 @@ and `CATALOG_PUBLISH` keeps its meaning: sending a release to Exchange.
 ```sql
 -- Immutable content, deduplicated by digest. A payload is the protocol form of one resource.
 CREATE TABLE resource_revisions (
-    tenant_key    TENANT_KEY  NOT NULL,
-    digest        CHAR(64)    NOT NULL,          -- sha256 of the canonical payload
-    resource_type VARCHAR(20) NOT NULL REFERENCES catalog_resource_types (resource_type),
-    payload       JSONB       NOT NULL,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    tenant_key TENANT_KEY  NOT NULL,
+    digest     CHAR(64)    NOT NULL,          -- sha256 of the canonical payload
+    kind       VARCHAR(20) NOT NULL REFERENCES resource_revision_kinds (kind),
+    payload    JSONB       NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (tenant_key, digest)
 );
 
 -- The binaries a revision needs. Bytes stay in the content store; these are retention roots.
 CREATE TABLE revision_binaries (
-    tenant_key   TENANT_KEY  NOT NULL,
-    digest       CHAR(64)    NOT NULL,
-    content_hash TEXT        NOT NULL,
-    media_type   VARCHAR(50) NOT NULL,
-    PRIMARY KEY (tenant_key, digest, content_hash),
-    FOREIGN KEY (tenant_key, digest) REFERENCES resource_revisions (tenant_key, digest) ON DELETE CASCADE
+    tenant_key   TENANT_KEY NOT NULL,
+    digest       CHAR(64)   NOT NULL,
+    scope        TEXT       NOT NULL,
+    content_hash TEXT       NOT NULL,
+    PRIMARY KEY (tenant_key, digest, scope, content_hash),
+    FOREIGN KEY (tenant_key, digest) REFERENCES resource_revisions (tenant_key, digest) ON DELETE CASCADE,
+    FOREIGN KEY (scope, content_hash) REFERENCES asset_content (scope, content_hash)
 );
 
 -- What a release contains: the manifest as rows, with enough metadata to list without payloads.
@@ -112,19 +125,31 @@ CREATE TABLE release_entries (
     resource_key    TEXT         NOT NULL,       -- the address inside this release
     resource_id     UUID         NOT NULL,       -- identity, for provenance
     revision_digest CHAR(64)     NOT NULL,
+    fingerprint     CHAR(64)     NOT NULL,       -- the wire digest, for comparing the working copy
     name            VARCHAR(255) NOT NULL,
     description     TEXT,
     PRIMARY KEY (tenant_key, catalog_key, version, resource_type, resource_key),
     FOREIGN KEY (tenant_key, catalog_key, version)
         REFERENCES catalog_releases (tenant_key, catalog_key, version) ON DELETE CASCADE,
     FOREIGN KEY (tenant_key, revision_digest)
-        REFERENCES resource_revisions (tenant_key, digest)
+        REFERENCES resource_revisions (tenant_key, digest) DEFERRABLE INITIALLY DEFERRED
 );
 
 CREATE INDEX idx_release_entries_resource ON release_entries (tenant_key, resource_id);
 ```
 
-Working copies keep their tables and gain the status columns:
+Three details the shipped tables settled (`V20260923162028`). The kind is its own lookup rather than
+`catalog_resource_types`, which holds the catalog wire's own tokens so that a registry address is the
+triple an export uses — a revision kind is storage, and includes `templateModel`, which the wire
+never names on its own. `revision_binaries` carries the dedup `scope` as well as the hash, because
+`asset_content` is keyed by both and a sensitive asset's bytes live under its tenant: without it a
+hash does not resolve to bytes, and there is no key to point a foreign key at. And that foreign key
+is the point — it makes the retention root a fact of the schema rather than a rule the content sweep
+has to remember. The media type is dropped: `asset_content.content_type` already holds it, and a
+second copy is a second thing to keep in step.
+
+Working copies keep their tables. From stage 2, when revisions give the digest one place to be
+written, they gain the status columns:
 
 ```sql
 ALTER TABLE themes ADD COLUMN working_digest CHAR(64), ADD COLUMN ready_digest CHAR(64);
@@ -143,10 +168,27 @@ CREATE INDEX idx_catalog_releases_order
     ON catalog_releases (tenant_key, catalog_key, version_major DESC, version_minor DESC, version_patch DESC);
 ```
 
+Shipped as `V20260923150918`. The per-resource digests a release needs, recorded because they
+cannot be recovered afterwards, live on `release_entries` (`V20260923201010`) rather than on a
+column of their own. An interim `catalog_releases.resource_fingerprints` column carried them while
+the revisions they point at were still being built, and was folded into that table before any of
+this work was released — one record of one fact, rather than two that come to disagree.
+
+An entry carries **both** digests. `revision_digest` says where the content is stored;
+`fingerprint` is the contract's canonical digest over the wire form, which is what the working copy
+is compared against to say a resource changed. Neither is derivable from the other (§5), and the
+status in §2 reads the second. The revision reference is deferred rather than cascading: a revision
+must never be deleted while a release still names it, but deleting a tenant removes both, and
+Postgres cascades in an order that reaches the revisions first — checking at commit keeps the
+refusal without breaking the cascade.
+
 The text `version` stays canonical — it is in the primary key, the wire format and URLs — and the
-components are a derived sort key, computed by the application because `SemVer.parseOrNull`
-deliberately tolerates legacy labels such as `5.5` or `1`. Those keep null components, sort last and
-fall back to `released_at`. Pre-release identifiers are out of scope in `SemVer`; adding them later
+components are a derived sort key. They are `GENERATED ALWAYS … STORED` rather than written by the
+release command: the value is a pure function of `version`, so it cannot drift, and a row arriving
+by any other route — a tenant restore, a future importer — is filled without that writer having to
+remember. The pattern yields NULL for a label that is not `MAJOR.MINOR.PATCH`, which is deliberate:
+`SemVer.parseOrNull` tolerates legacy labels such as `5.5` or `1`, and those keep null components,
+sort last and fall back to `released_at`. Pre-release identifiers are out of scope in `SemVer`; adding them later
 needs its own ordering column, because `rc.10` sorts before `rc.2` as text.
 
 The dependency and deployment tables that the plan introduces —`catalog_dependencies` and
@@ -167,6 +209,22 @@ So a revision may reference child revisions by digest:
 | Code list                        | header and source configuration, without credentials                | its entries                                         |
 | Font                             | family header and face list                                         | face binaries, already content-addressed            |
 | Theme, stencil, image, attribute | the whole resource; these are small (the system theme is 600 bytes) | —                                                   |
+
+The child kind is `templateModel`, after the field it is lifted out of, so the reference in the
+payload and the row it names agree. It implies no ownership: a model belongs to a template
+_version_, which belongs to a variant, which belongs to a template, and a content-addressed row has
+no owner at all — two variants with the same model share one.
+
+**Only the variant models are split so far.** A template revision carries its data contract
+(`dataModel` and `dataExamples`, which are one thing and become one child — `contract_versions`
+already stores them in a single row, and only the wire form flattens them into sibling fields) and a
+code list carries its entries inline, rather than as children of their own. Deferring costs little and can be undone later without a migration: a child is a
+`{"revisionDigest": …}` object substituted wherever it appears, so revisions written with content
+inline keep assembling unchanged once a new child kind is introduced. What it costs is not that the template
+revision changes — it must, since a change to any variant is a change to the template, which is what
+lets one digest identify the whole — but that the contract's example payloads are copied through
+every one of those rewrites. A contract digest in the header does not avoid the rewrite; it makes it
+cheap.
 
 The parent digest covers its children, so a template's digest still identifies the template as a
 whole, which is what a release entry needs. Publishing and ready stay at template level: storage
@@ -235,14 +293,63 @@ The release **fingerprint** stays what it is today: computed by the portable can
 never appear on the wire. Deriving the fingerprint from digests was rejected: the algorithm belongs
 to the contract, and other implementations have no revisions.
 
-### 6. A subscribed catalog is releases that cannot be modified
+### 6. A catalog is several releases, and more than one of them resolves
 
-A subscribed catalog has no working copy and no status: it is the releases it has installed, one of
-which is selected. Upgrading selects another. The bundled `system` catalog has the same shape.
+A subscribed catalog has no working copy and no status: it is the releases it has installed. The
+bundled `system` catalog has the same shape.
 
-Read paths therefore resolve a resource in a catalog through one seam: the working copy for an
-authored catalog, the selected release for a subscribed one. Until every read path goes through it,
-the existing mirror of subscribed content into the domain tables stays as a rebuildable cache.
+**An installation may hold and resolve several releases of one catalog at once.** This replaces
+"one live resource set, never a parallel install of two versions", and it is a decision rather than
+a consequence — the alternative was one release per catalog with a rule that every pin must agree,
+which is simpler but makes some combinations uninstallable through no fault of their author, breaks
+a consumer when its dependency upgrades, and cannot express a rollout that reaches one environment
+before another.
+
+Three different things reach a catalog resource, and they resolve differently. Only the third has a
+default, because only the third is free to choose.
+
+| What reaches it                                                                | Resolves to                                      |
+| ------------------------------------------------------------------------------ | ------------------------------------------------ |
+| **A reference inside one catalog** — a template's own theme, a stencil it uses | whatever release is already being resolved       |
+| **A pin** — a reference from one catalog into another                          | the release it names, while it names it          |
+| **A request** — generating, previewing, a REST call, opening the editor        | the release the environment is on, or the latest |
+
+The first row is what makes a release self-contained, and it is the one that would be easy to get
+wrong. A same-catalog reference must **not** resolve to the latest release of its own catalog:
+rendering `letters@1.0.0` has to reach the theme as `1.0.0` held it, not as a later release or the
+working copy has it. It carries no version precisely because it never needs one — the release being
+resolved already decides.
+
+The second is the pin from the plan (`A` depends on `B@1.2.0`), and the reason several releases have
+to resolve at once: two catalogs can pin different releases of a third, and both must work.
+
+Only the third is unversioned by nature — nobody asks to render "the 1.2.0 invoice", they ask to
+render the invoice — so it is the only one that needs a default.
+
+**Latest release, not the working copy.** That is the behaviour change: today anything rendering
+from an authored catalog reads the working copy implicitly, because the domain tables _are_ the
+live set. Once the default is the latest release, unreleased edits stop reaching a render that did
+not ask for them — which is the point, and is why it belongs in the major release together with the
+rest of §6. An environment may still be pointed at a catalog's working copy deliberately, for
+testing.
+
+Read paths therefore resolve a resource in a catalog through one seam, and what the seam returns
+depends on what the caller asked for rather than on the catalog's type. Until every read path goes
+through it, the existing mirror of subscribed content into the domain tables stays as a rebuildable
+cache.
+
+**A subscribed catalog is not upgraded; another release of it is installed.** There is no in-place
+replacement and nothing to overwrite: installing `1.3.0` leaves `1.2.0` installed, and what resolves
+follows from the rules above rather than from the act of installing. Three things fall out of that.
+A pin to `1.2.0` keeps working when `1.3.0` arrives, which is the whole point. Moving an environment
+back is pointing it at a release that is still there, not a reinstall. And a subscribed catalog gets
+a history for the first time — today `UpgradeCatalog` sets `installed_release_version` and nothing
+records what was there before, which is why a subscribed catalog has no releases to show.
+
+What does not fall out for free: retention has to know which releases are still referenced — by a
+pin, by an environment, or by being the latest — before it can collect anything. Installing without
+ever removing is only affordable because revisions are deduplicated, and a release nothing
+references still has to become collectable.
 
 ## Considered options
 
@@ -294,12 +401,25 @@ severity lives.
 
 ## Transition
 
-1. Add the tables; compute `working_digest` on save; backfill digests for existing content.
-2. Write revisions when a template or stencil is published; backfill revisions from existing
-   published versions, resumably.
-3. Releases store entries and binary references, so a release retains its content.
-4. Read paths resolve through the seam; the subscribed mirror becomes a cache.
+1. **Done** — record what a release contained and derive each resource's status from it, so the
+   review before a release names what it will change
+   ([#988](https://github.com/epistola-app/epistola-suite/issues/988)).
+2. **Done** — the revision tables, and a revision written for every resource at release
+   ([#990](https://github.com/epistola-app/epistola-suite/issues/990)). Written at release, not at
+   publish as first planned: in v1 the release is the only moment content becomes immutable, and
+   publishing becomes that moment only when the release is the version. `working_digest` stays
+   derived until then, per §2, because that is when a revision gives it one place to be written.
+   There is no backfill: releases cut earlier retained nothing and cannot be reconstructed.
+3. **Done** — releases store entries and binary references, so a release retains its content, can be
+   rebuilt to the fingerprint it was cut with, and can be exported as released.
+4. Read paths resolve through the seam; the subscribed mirror becomes a cache. Exchange submits the
+   retained archive rather than rebuilding one, which is what lets its archive table shrink to
+   in-flight submissions.
 5. Drop the redundant payload columns and the version cap once the new path is verified.
+
+Nothing yet collects a revision. Deduplication means storage grows with genuine change rather than
+with releases, but it is unbounded until retention by reachability arrives, and the content sweep
+already has to reach through `revision_binaries` not to undo it.
 
 ## Open
 

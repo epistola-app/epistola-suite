@@ -491,9 +491,51 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(body).contains("id=\"export-confirmation-dialog\"")
             assertThat(body).contains("Only the latest published version of versioned resources will be included.")
             assertThat(body).contains("Drafts and older published versions will not be exported.")
-            assertThat(body).contains("href=\"/tenants/${t.id}/catalogs/exportable-cat/export\"")
+            assertThat(body).contains("action=\"/tenants/${t.id}/catalogs/exportable-cat/export\"")
             assertThat(body).contains("hx-boost=\"false\"")
             assertThat(body).contains("Export as ZIP")
+            // Nothing released, so nothing to choose between: no version picker at all.
+            assertThat(body).doesNotContain("export-version")
+        }
+    }
+
+    @Test
+    fun `a catalog with a retained release offers it, and exporting it names the version`() = fixture {
+        lateinit var t: Tenant
+        given {
+            t = tenant("Export Released Dialog")
+            withMediator {
+                val catalogKey = CatalogKey.of("released-cat")
+                CreateCatalog(tenantKey = t.id, id = catalogKey, name = "Released Cat").execute()
+                CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalogKey, TenantId(t.id))), name = "Brand").execute()
+                ReleaseCatalogVersion(tenantKey = t.id, catalogKey = catalogKey, version = "1.0.0").execute()
+            }
+        }
+
+        whenever {
+            restTemplate.exchange(
+                "/tenants/${t.id}/catalogs/released-cat/export-check",
+                HttpMethod.GET,
+                HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
+                String::class.java,
+            )
+        }
+
+        then {
+            val body = result<org.springframework.http.ResponseEntity<String>>().body!!
+            assertThat(body).contains("export-version")
+            assertThat(body).contains("Release v1.0.0")
+
+            val download = restTemplate.exchange(
+                "/tenants/${t.id}/catalogs/released-cat/export?version=1.0.0",
+                HttpMethod.GET,
+                HttpEntity<Void>(HttpHeaders()),
+                ByteArray::class.java,
+            )
+            assertThat(download.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(download.headers.getFirst("Content-Disposition"))
+                .`as`("the filename names the release, not a -dev working copy")
+                .contains("released-cat-1.0.0.zip")
         }
     }
 

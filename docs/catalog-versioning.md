@@ -22,9 +22,17 @@ different "version" even when nothing changed (or the same one when it did).
 A catalog is **one row per `(tenant_key, slug)` with one live resource set** —
 there is never a parallel install of two versions.
 
+> This describes what ships today. [ADR 0026 §6](adr/0026-revisions-releases-and-the-working-copy.md)
+> decides otherwise for the next major: an installation will hold and resolve several releases of one
+> catalog; a request that names no version will resolve to the release its environment is on, or the
+> latest outside one; and a subscribed catalog will not be upgraded at all — another release of it is
+> installed alongside, leaving the one already there in place.
+
 - **AUTHORED (publisher side)** — one live, editable working copy. Cutting a
   release records an **immutable boundary** in `catalog_releases`
-  (author-set SemVer + content fingerprint + notes + a manifest snapshot) and
+  (author-set SemVer + content fingerprint + notes + a manifest snapshot), one
+  `release_entries` row per resource naming the revision that holds its content
+  and the digest it fingerprinted to, and
   advances the `catalogs.released_version` / `released_fingerprint` /
   `released_at` pointer. `catalog_releases` is AUTHORED release **history**
   (changelog), not parallel installs and **not** the consumer upgrade-diff
@@ -129,22 +137,61 @@ everyone than one large catalog nobody wants all of.
 
 The web UI catalog list shows a **Release new version** action (AUTHORED only)
 opening a dialog: Patch / Minor / Major quick-picks, an editable SemVer field,
-release notes, and a drift line ("This working copy has unreleased changes" vs
-"No changes since the last release"). It dispatches
+release notes, a drift line ("This working copy has unreleased changes" vs
+"No changes since the last release") and — named, not counted — what this
+release will add, update and drop. It dispatches
 [`ReleaseCatalogVersion`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/ReleaseCatalogVersion.kt):
 AUTHORED-only, parses + monotonic-checks the SemVer, computes the fingerprint,
-inserts the `catalog_releases` row (with the manifest snapshot) and advances
-the catalog pointer — one transaction. Releasing content byte-identical to a
-prior release is allowed (notes-only re-release) but logged.
+inserts the `catalog_releases` row (with the manifest snapshot and the
+per-resource digests) and advances the catalog pointer — one transaction.
+Releasing content byte-identical to a prior release is allowed (notes-only
+re-release) but logged.
 
 [`GetCatalogReleaseStatus`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/GetCatalogReleaseStatus.kt)
 is the shared primitive (latest version/fingerprint, working fingerprint,
-`hasUnreleasedChanges`, suggested next bumps, history).
+`hasUnreleasedChanges`, suggested next bumps).
+
+### What changed, resource by resource
+
+[`GetCatalogResourceChanges`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/GetCatalogResourceChanges.kt)
+diffs the working copy's per-resource digests against the `fingerprint` of each
+`release_entries` row of the latest release, giving each resource one of NEW,
+MODIFIED, RELEASED or REMOVED. Both sides come from the same canonicaliser that
+computes the catalog fingerprint, so a per-resource difference is exactly a
+fingerprint difference localised to one resource and the drift check and the
+detail cannot disagree. It is the authored mirror of the SUBSCRIBED upgrade
+diff, which reads `installed_resource_fingerprints` the same way.
+
+A release cut before those entries existed (migration `V20260923201010`) recorded
+no baseline, and none can be reconstructed — the manifest snapshot holds the
+manifest entries, not the payloads they were built from. While such a catalog
+still matches its released fingerprint the working digests _are_ that release's
+digests, so the answer stays exact; once it has drifted the query reports
+UNKNOWN and says it has no baseline rather than calling everything new. The
+next release records one.
+
+## Exporting a release
+
+`ExportCatalogZip` takes an optional `version`. With one, it hands over **that release as it was
+released**: rebuilt by `ReleaseContentAssembler` from the content the release retained, carrying the
+version, timestamp and fingerprint it was cut with, whatever the working copy has done since. The
+export dialog offers the versions `ListRetainedReleases` reports, which is the same set the command
+will accept, so the offer cannot fail at download.
+
+Neither the stencil-version precheck nor `requirePublishable` runs for a release. Both describe the
+working copy; the release passed them when it was cut, it is immutable, and a rule that has tightened
+since must not retroactively make a published release unexportable. The fingerprint _is_ recomputed
+and a mismatch refuses the export — it should be impossible, and if it happens the retained content
+has been altered.
+
+Releases cut before `V20260923201010` retained no content and refuse with
+`CatalogReleaseNotRetainedException` rather than quietly substituting the working copy.
 
 ## Export drift policy
 
-`ExportCatalogZip` always emits a fingerprint describing the **actual exported
-bytes**. The version label encodes release state and export is never blocked:
+Without a version, `ExportCatalogZip` exports the working copy and always emits a fingerprint
+describing the **actual exported bytes**. The version label encodes release state and export is never
+blocked:
 
 - never released → `0.0.0-dev` (logged WARN)
 - working copy differs from the latest release → `<version>-dev` (logged WARN)

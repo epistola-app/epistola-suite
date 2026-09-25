@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Release v' + ${release.version},
+            pageDescription=${release.catalog.name},
+            backLinkHref=@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalogId})},
+            backLinkLabel='Back to catalog',
+            actions=~{::release-actions}
+        )}"></div>
+
+        <th:block th:fragment="release-actions">
+            <a th:if="${release.retained}" class="ep-btn ep-btn-primary"
+               th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId},version=${release.version})}"
+               hx-boost="false" download>Export as ZIP</a>
+        </th:block>
+
+        <!--/* Everything here is what the release froze, never the live catalog. A catalog's
+               details are version-dependent, so reading them from the working copy would be the
+               same mistake this page exists to correct. Laid out like the catalog's own details
+               panel, because it is the same information at a different point in time. */-->
+        <div class="ep-panel detail-section">
+            <div class="detail-section-header catalog-detail-header">
+                <div>
+                    <div class="catalog-detail-heading">
+                        <h2>As released</h2>
+                        <span class="badge badge-info" th:text="'v' + ${release.version}">v1.0.0</span>
+                        <span th:unless="${release.retained}" class="badge badge-default">content not kept</span>
+                    </div>
+                    <p class="text-muted text-sm" style="margin: var(--ep-space-1) 0 0;">
+                        The catalog as this release carried it — not as it is now.
+                    </p>
+                </div>
+            </div>
+
+            <div class="catalog-detail-summary">
+                <div class="catalog-detail-summary-item">
+                    <span class="catalog-detail-label">Released</span>
+                    <p class="catalog-detail-value" th:text="${#temporals.format(release.releasedAt, 'yyyy-MM-dd HH:mm')}"></p>
+                </div>
+                <div class="catalog-detail-summary-item">
+                    <span class="catalog-detail-label">Fingerprint</span>
+                    <code class="catalog-detail-value" th:text="${release.shortFingerprint}"
+                          th:title="${release.fingerprint}"></code>
+                </div>
+                <div class="catalog-detail-summary-item">
+                    <span class="catalog-detail-label">Resources</span>
+                    <p class="catalog-detail-value"
+                       th:text="${release.retained} ? ${release.resources.size()} : 'not kept'"></p>
+                </div>
+            </div>
+
+            <div class="catalog-detail-grid">
+                <div class="catalog-detail-item">
+                    <div class="catalog-detail-item-header"><h3>Name</h3></div>
+                    <p class="catalog-detail-value" style="margin: 0;" th:text="${release.catalog.name}"></p>
+                    <p th:if="${release.catalog.description != null}" class="text-muted text-sm"
+                       style="margin: var(--ep-space-1) 0 0;" th:text="${release.catalog.description}"></p>
+                    <p th:if="${release.catalog.description == null}" class="text-muted text-sm"
+                       style="margin: var(--ep-space-1) 0 0;">No description.</p>
+                </div>
+
+                <div class="catalog-detail-item">
+                    <div class="catalog-detail-item-header"><h3>Keywords</h3></div>
+                    <div th:if="${!keywords.isEmpty()}" class="badge-list">
+                        <span th:each="keyword : ${keywords}" class="badge badge-outline"
+                              th:text="${keyword}" th:title="${keyword}"></span>
+                    </div>
+                    <p th:if="${keywords.isEmpty()}" class="text-muted text-sm" style="margin: 0;">No keywords.</p>
+                </div>
+
+                <div class="catalog-detail-item">
+                    <div class="catalog-detail-item-header"><h3>Discovery attributes</h3></div>
+                    <div th:if="${!release.catalog.attributes.isEmpty()}" class="badge-list">
+                        <span th:each="attribute : ${release.catalog.attributes}" class="badge badge-outline"
+                              th:text="${attribute.catalog + '.' + attribute.key + ': ' + attribute.value}"
+                              th:title="${attribute.catalog + '.' + attribute.key + ': ' + attribute.value}"></span>
+                    </div>
+                    <p th:if="${release.catalog.attributes.isEmpty()}" class="text-muted text-sm" style="margin: 0;">No discovery attributes.</p>
+                </div>
+
+                <div class="catalog-detail-item">
+                    <div class="catalog-detail-item-header"><h3>Usage terms</h3></div>
+                    <p th:if="${release.catalog.license != null}" class="catalog-detail-value" style="margin: 0;"
+                       th:text="${release.catalog.license.name}"></p>
+                    <p th:if="${release.catalog.license != null and release.catalog.license.spdxExpression != null}"
+                       class="text-muted text-sm" style="margin: var(--ep-space-1) 0 0;"
+                       th:text="${release.catalog.license.spdxExpression}"></p>
+                    <p th:if="${release.catalog.license == null}" class="text-muted text-sm" style="margin: 0;">No licence stated.</p>
+                </div>
+
+                <div th:if="${release.notes != null}" class="catalog-detail-item">
+                    <div class="catalog-detail-item-header"><h3>Release notes</h3></div>
+                    <p class="text-muted text-sm" style="margin: 0;" th:text="${release.notes}"></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="ep-panel detail-section">
+            <div class="detail-section-header">
+                <h2>Resources</h2>
+            </div>
+            <div>
+                <!--/* A release that kept no content can still show its details -- the manifest
+                       snapshot was always stored -- but it cannot list what it contained, and an
+                       empty table would read as "this release was empty". */-->
+                <p th:if="${!release.retained}" class="text-muted">
+                    This release was cut before Epistola kept the content of a release, so what it
+                    contained cannot be listed. Its details above are what it was released with.
+                </p>
+                <div th:if="${release.retained}" class="ep-table-scroll" role="region" aria-label="Released resources" tabindex="0">
+                <table class="ep-table">
+                    <thead>
+                        <tr><th>Type</th><th>Name</th><th>Address</th><th>Description</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="resource : ${release.resources}">
+                            <td><span class="badge badge-default" th:text="${resource.resourceType}"></span></td>
+                            <td style="font-weight: 500;" th:text="${resource.name}"></td>
+                            <td><code style="font-size: var(--ep-text-xs);" th:text="${resource.resourceKey}"></code></td>
+                            <td th:text="${resource.description}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>

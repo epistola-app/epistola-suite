@@ -41,14 +41,22 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.queries.BrowseCatalog
+import app.epistola.suite.catalog.queries.CatalogReleaseSummary
 import app.epistola.suite.catalog.queries.FindResourceUsages
 import app.epistola.suite.catalog.queries.FindStencilVersionExportConflicts
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
+import app.epistola.suite.catalog.queries.GetCatalogRelease
+import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
+import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
+import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.queries.ListRetainedReleases
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
+import app.epistola.suite.catalog.queries.ResourceStatus
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.exchange.CancelCatalogPublication
+import app.epistola.suite.exchange.CatalogPublicationState
 import app.epistola.suite.exchange.ExchangeSourceUri
 import app.epistola.suite.exchange.GetCatalogPublicationState
 import app.epistola.suite.exchange.GetExchangeCatalogLink
@@ -306,20 +314,65 @@ class CatalogHandler {
         }
     }
 
+    /**
+     * One release as it was released.
+     *
+     * Every detail here is read from what that release froze, never from the live catalog: its
+     * resources from the release's own entries, its name, keywords, presentation and license from
+     * the manifest snapshot. A catalog's details are version-dependent, and the browse page has
+     * been showing the working copy's as though they applied to every release.
+     */
+    fun releaseDetail(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        val version = request.pathVariable("version")
+
+        val release = GetCatalogRelease(tenantId.key, catalogKey, version).query()
+            ?: return listWithError(request, "Catalog '${catalogKey.value}' has no release $version.")
+
+        return ServerResponse.ok().page("catalogs/release") {
+            "pageTitle" to "${release.catalog.name} v$version - Release - Epistola"
+            "tenantId" to tenantId.key
+            "activeNavSection" to "catalogs"
+            "catalogId" to catalogKey.value
+            "release" to release
+            "keywords" to release.catalog.keywords.sorted()
+        }
+    }
+
     fun releaseDialog(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
-        val status = GetCatalogReleaseStatus(tenantId.key, catalogKey).query()
         return ServerResponse.ok().render(
             "catalogs/list :: release-dialog",
-            mapOf(
-                "tenantId" to tenantId.key,
-                "catalogId" to catalogKey.value,
-                "status" to status,
-                "publication" to GetCatalogPublicationState(tenantId.key, catalogKey).query(),
+            releaseDialogModel(
+                tenantId,
+                catalogKey,
+                GetCatalogPublicationState(tenantId.key, catalogKey).query(),
             ),
         )
     }
+
+    /**
+     * What the release dialog renders from.
+     *
+     * The release pointer and the working-copy changes are read separately because only the second
+     * builds the catalog: [GetCatalogResourceChanges] already answers whether anything is
+     * unreleased, so asking [GetCatalogReleaseStatus] as well would build it twice for one dialog.
+     */
+    private fun releaseDialogModel(
+        tenantId: TenantId,
+        catalogKey: CatalogKey,
+        publication: CatalogPublicationState?,
+        error: String? = null,
+    ): Map<String, Any?> = mapOf(
+        "tenantId" to tenantId.key,
+        "catalogId" to catalogKey.value,
+        "status" to GetLatestCatalogRelease(tenantId.key, catalogKey).query(),
+        "changes" to GetCatalogResourceChanges(tenantId.key, catalogKey).query(),
+        "publication" to publication,
+        "error" to error,
+    )
 
     fun release(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -337,19 +390,10 @@ class CatalogHandler {
         // would be pure waste.
         val publication = GetCatalogPublicationState(tenantId.key, catalogKey).query()
 
-        fun reRenderWithError(message: String): ServerResponse {
-            val status = GetCatalogReleaseStatus(tenantId.key, catalogKey).query()
-            return ServerResponse.ok().render(
-                "catalogs/list :: release-dialog",
-                mapOf(
-                    "tenantId" to tenantId.key,
-                    "catalogId" to catalogKey.value,
-                    "status" to status,
-                    "error" to message,
-                    "publication" to publication,
-                ),
-            )
-        }
+        fun reRenderWithError(message: String): ServerResponse = ServerResponse.ok().render(
+            "catalogs/list :: release-dialog",
+            releaseDialogModel(tenantId, catalogKey, publication, error = message),
+        )
 
         if (form.hasErrors()) {
             return reRenderWithError("Version must be SemVer — MAJOR.MINOR.PATCH (e.g. 1.4.0).")
@@ -435,7 +479,13 @@ class CatalogHandler {
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
         return try {
             chooseNamespaceIfOffered(request, tenantId.key, catalogKey)
-            PublishCurrentCatalogRelease(tenantId.key, catalogKey).execute()
+            // A version from the release list publishes that release; without one, the release the
+            // catalog is currently on, which is what the catalog-level action sends.
+            PublishCurrentCatalogRelease(
+                tenantId.key,
+                catalogKey,
+                version = request.param("version").orElse(null)?.ifBlank { null },
+            ).execute()
             ServerResponse.status(303)
                 .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
                 .build()
@@ -564,6 +614,29 @@ class CatalogHandler {
             } else {
                 null
             }
+            // Only an authored catalog has releases of its own. A subscribed one records which
+            // release it installed, on the catalog row, and the version column already shows it.
+            val releases = if (result.catalog.type == CatalogType.AUTHORED) {
+                ListCatalogReleases(tenantId.key, catalogKey).query()
+            } else {
+                emptyList()
+            }
+            // Each release with its two affordances already decided. The template gates on one
+            // name apiece rather than assembling the conjunction itself -- the catalog being able
+            // to publish at all, this release having content to send, and it not having been sent
+            // are three facts from three places, and a screen that ANDs them is a rule with no home.
+            val publishedVersions = publication?.publications.orEmpty().mapTo(HashSet()) { it.version }
+            val releaseViews = releases.map { release ->
+                CatalogReleaseView(
+                    release = release,
+                    published = release.version in publishedVersions,
+                    publishable = release.retained &&
+                        publication != null &&
+                        publication.canPublish &&
+                        publication.hasPublishableDestination &&
+                        release.version !in publishedVersions,
+                )
+            }
             // The catalog's page on Exchange, when it came from there. Null for a plain URL
             // subscription, a ZIP import, or an authored catalog — the view falls back to the text
             // it rendered before. Resolved once per page: the rows append to it themselves.
@@ -584,6 +657,12 @@ class CatalogHandler {
                     "$staleVersions still pinned by ${c.pins.size} template(s) (latest v${c.latestPublishedVersion})"
             }
 
+            // Installing a subscribed catalog installs the whole manifest (#850), so the action
+            // means something only while the manifest holds something this installation does not.
+            // Gated on that rather than on the catalog being subscribed, which was always true and
+            // left the button offering to install what was already installed.
+            val hasUninstalledResources = result.resources.any { it.status == ResourceStatus.AVAILABLE }
+
             ServerResponse.ok().page("catalogs/browse") {
                 "pageTitle" to "${result.catalog.name} - Catalog - Epistola"
                 "tenantId" to tenantId.key
@@ -591,8 +670,10 @@ class CatalogHandler {
                 "catalog" to result.catalog
                 "exchangeCatalogUrl" to exchangeCatalogUrl
                 "publication" to publication
+                "releases" to releaseViews
                 "publicationError" to error
                 "resources" to result.resources
+                "hasUninstalledResources" to hasUninstalledResources
                 "usageCounts" to usageCounts
                 "stencilVersionConflicts" to stencilVersionConflicts
                 "hasImages" to images.isNotEmpty()
@@ -1134,6 +1215,9 @@ class CatalogHandler {
                 mapOf(
                     "tenantId" to tenantId.key,
                     "catalogId" to catalogKey.value,
+                    // Only releases that retained their content can be handed over as released;
+                    // the dialog offers exactly these, so the choice cannot fail at download.
+                    "retainedReleases" to ListRetainedReleases(tenantId.key, catalogKey).query(),
                 ),
             )
         }
@@ -1166,6 +1250,7 @@ class CatalogHandler {
             val result = ExportCatalogZip(
                 tenantKey = tenantId.key,
                 catalogKey = catalogKey,
+                version = request.param("version").orElse(null)?.ifBlank { null },
             ).execute()
 
             ServerResponse.ok()
@@ -1187,6 +1272,15 @@ class CatalogHandler {
                 .body(mapOf("error" to (e.message ?: "Failed to export catalog")))
         }
     }
+
+    /** One release as the catalog page shows it: the release, and what may be done with it. */
+    data class CatalogReleaseView(
+        val release: CatalogReleaseSummary,
+        /** Already sent to Exchange, so the row says so instead of offering to send it again. */
+        val published: Boolean,
+        /** Publishing this release would be accepted — the command decides the same way. */
+        val publishable: Boolean,
+    )
 
     data class StencilConflictView(
         val name: String,
