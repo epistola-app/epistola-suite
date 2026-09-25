@@ -81,6 +81,8 @@ class CatalogBarTest : BaseIntegrationTest() {
         assertThat(body).contains("catalog-bar")
         assertThat(body).contains("Context cat")
         assertThat(body).contains("catalogs/ctx-cat/browse")
+        // The one place the summary is checked verbatim: that the query's sentence reaches the
+        // markup unaltered. Its content is GetCatalogContextTest's to pin.
         assertThat(body).contains("Authored catalog · last released v1.0.0")
         // Carried by the badge, and only there: the summary used to say it too.
         assertThat(body.split("unreleased changes").size - 1)
@@ -163,9 +165,11 @@ class CatalogBarTest : BaseIntegrationTest() {
                 .`as`("the $resource page puts the bar above the page header")
                 .isLessThan(body.indexOf("class=\"page-header\""))
             assertThat(body).`as`("the $resource page names the catalog").contains("Bar cat")
-            assertThat(body)
-                .`as`("the $resource page words the release state the same way")
-                .contains("Authored catalog · last released v2.1.0")
+            // The state reaches the markup, and says which version. What it *says* is the query's
+            // to decide and GetCatalogContextTest's to pin — repeating the sentence on four pages
+            // would make rewording it a five-test edit for no extra cover.
+            assertThat(body).`as`("the $resource page carries the release state").contains("catalog-bar-state")
+            assertThat(body).`as`("the $resource page names the released version").contains("v2.1.0")
             // Nothing has changed since the release, so no page offers one — but every page still
             // carries the mount, because the offer appears the moment something is edited.
             assertThat(body).`as`("the $resource page has nothing to release").doesNotContain("Release catalog")
