@@ -15,14 +15,18 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ObjectNode
 
 class GetActiveVersionTest : IntegrationTestBase() {
 
@@ -87,6 +91,48 @@ class GetActiveVersionTest : IntegrationTestBase() {
 
             val activeVersion2 = GetActiveVersion(variantId = variantId2, environmentId = environmentId).query()
             assertThat(activeVersion2).isNotNull
+        }
+    }
+
+    @Test
+    fun `returns the same version as reading it directly, including its contract version`() {
+        val tenant = createTenant("ActiveVersion Contract Test")
+        val tenantId = TenantId(tenant.id)
+
+        withMediator {
+            val envKey = TestIdHelpers.nextEnvironmentId()
+            CreateEnvironment(id = EnvironmentId(envKey, tenantId), name = "Production").execute()
+
+            val slug = TestIdHelpers.nextTemplateId().value
+            val dataModel = ObjectMapper().readValue(
+                """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
+                ObjectNode::class.java,
+            )
+            val results = ImportTemplates(
+                tenantId = tenantId,
+                templates = listOf(
+                    ImportTemplateInput(
+                        slug = slug,
+                        name = "Contracted Template",
+                        version = "1.0.0",
+                        dataModel = dataModel,
+                        dataExamples = emptyList(),
+                        templateModel = templateModel,
+                        variants = listOf(
+                            ImportVariantInput(id = "default", title = "Default", attributes = emptyMap(), templateModel = null, isDefault = true),
+                        ),
+                        publishTo = listOf(envKey.value),
+                    ),
+                ),
+            ).execute()
+            assertThat(results).allSatisfy { assertThat(it.status).isNotEqualTo(ImportStatus.FAILED) }
+
+            val variantId = VariantId(VariantKey.of("default"), TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId)))
+            val activeVersion = GetActiveVersion(variantId = variantId, environmentId = EnvironmentId(envKey, tenantId)).query()!!
+
+            // Generation and preview validate data only when the version carries its contract version.
+            assertThat(activeVersion.contractVersion).isNotNull
+            assertThat(activeVersion).isEqualTo(GetVersion(VersionId(activeVersion.id, variantId)).query())
         }
     }
 }

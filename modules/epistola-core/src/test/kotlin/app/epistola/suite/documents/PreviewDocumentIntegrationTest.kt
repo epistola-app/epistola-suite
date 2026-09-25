@@ -6,18 +6,24 @@ package app.epistola.suite.documents
 
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.documents.queries.PreviewVariant
+import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.NoActiveVersionException
+import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.validation.TemplateDataInvalidException
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
@@ -720,6 +726,53 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 }.isInstanceOf(IllegalArgumentException::class.java)
                     .hasMessageContaining("Data validation failed")
             }
+        }
+
+        @Test
+        fun `preview for an environment validates data against the activated version's contract`() = scenario {
+            given {
+                val tenant = tenant("Test Tenant")
+                val tenantId = TenantId(tenant.id)
+                val template = template(tenant.id, "Test Template")
+                val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
+                app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+                    templateId = compositeTemplateId,
+                    dataModel = objectMapper.readValue(
+                        """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
+                        ObjectNode::class.java,
+                    ),
+                    dataExamples = listOf(
+                        app.epistola.suite.templates.model.DataExample(
+                            "example-1",
+                            "Example 1",
+                            objectMapper.createObjectNode().put("name", "Ada"),
+                        ),
+                    ),
+                ).execute()
+                val variant = variant(compositeTemplateId, "Default")
+                val compositeVariantId = VariantId(variant.id, compositeTemplateId)
+                val version = version(compositeVariantId, TestTemplateBuilder.buildMinimal(name = "Test Template"))
+                val environmentId = EnvironmentId(TestIdHelpers.nextEnvironmentId(), tenantId)
+                CreateEnvironment(id = environmentId, name = "Production").execute()
+                PublishToEnvironment(VersionId(version.id, compositeVariantId), environmentId).execute()
+                DocumentSetup(tenant, template, variant, version) to environmentId.key
+            }.whenever { it }
+                .then { (setup, environmentKey), _ ->
+                    // Non-empty data, so the preview doesn't fall back to the contract's example.
+                    val error = assertThrows<TemplateDataInvalidException> {
+                        query(
+                            PreviewDocument(
+                                tenantId = setup.tenant.id,
+                                catalogKey = CatalogKey.DEFAULT,
+                                templateId = setup.template.id,
+                                variantId = setup.variant.id,
+                                environmentId = environmentKey,
+                                data = objectMapper.createObjectNode().put("other", "value"),
+                            ),
+                        )
+                    }
+                    assertThat(error).hasMessageContaining("Data validation failed").hasMessageContaining("name")
+                }
         }
     }
 }
