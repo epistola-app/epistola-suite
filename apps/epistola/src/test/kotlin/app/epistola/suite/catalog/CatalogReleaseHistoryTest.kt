@@ -88,6 +88,42 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         assertThat(body)
             .`as`("a subscribed catalog records the release it installed, not releases it cut")
             .doesNotContain("<h2>Releases</h2>")
+        assertThat(body)
+            .`as`("and nothing can be released from a catalog this installation does not author")
+            .doesNotContain("Release new version")
+    }
+
+    /**
+     * The catalog page is where you go to work on a catalog, and it was the one place that listed
+     * every release while offering no way to cut one — the action lived only in the catalogs list.
+     */
+    @Test
+    fun `the catalog page offers a release, with somewhere for the dialog to land`() {
+        val tenant = tenantWithCatalog("hist-cut")
+
+        withMediator {
+            val catalog = CatalogId(CatalogKey.of("hist-cut"), TenantId(tenant.id))
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
+        }
+
+        val body = browse(tenant.id.value, "hist-cut")
+
+        assertThat(body).contains("Release new version")
+        assertThat(body).contains("catalogs/hist-cut/release")
+        // The trigger swaps into this mount. Rendering one without the other is the failure that
+        // looks like a broken button: HTMX fires, finds nothing to swap into, and does nothing.
+        assertThat(body).contains("id=\"release-dialog-container\"")
+    }
+
+    /** Never released, so the empty state says how to cut the first one rather than only why. */
+    @Test
+    fun `a catalog with no releases points at the action`() {
+        val tenant = tenantWithCatalog("hist-none")
+
+        val body = browse(tenant.id.value, "hist-none")
+
+        assertThat(body).contains("Not released yet")
+        assertThat(body).contains("Release new version")
     }
 
     @Test

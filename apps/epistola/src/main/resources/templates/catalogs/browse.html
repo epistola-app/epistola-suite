@@ -389,14 +389,24 @@
 
         <!--/* Releases of an authored catalog. A subscribed one has none of its own -- it records
                which release it installed, and the Version column already shows that. */-->
-        <div class="card" th:if="${catalog.type.name() == 'AUTHORED'}">
-            <div class="card-header">
+        <div class="card" th:if="${catalog.type.name() == 'AUTHORED'}"
+             th:with="canRelease=${auth.has('TEMPLATE_PUBLISH')}">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h2>Releases</h2>
+                <!--/* Cutting a release belongs here, beside what has been released, rather than
+                       only in the catalogs list: this is the page you open to work on a catalog, and
+                       it was the one place that showed every release but offered no way to make one.
+                       The dialog reports whether the working copy has changed since the last one, so
+                       it is never a dead end. */-->
+                <button th:if="${canRelease}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalog.id})}"
+                        hx-target="#release-dialog-container" hx-swap="innerHTML">Release new version</button>
             </div>
             <div class="card-body">
                 <p th:if="${releases.isEmpty()}" class="text-muted">
                     Not released yet. Releasing records what the catalog contained, so you can come
                     back to this version and export it exactly as it was.
+                    <th:block th:if="${canRelease}">Use <em>Release new version</em> above to cut the first one.</th:block>
                 </p>
                 <div th:if="${!releases.isEmpty()}" class="ep-table-scroll" role="region" aria-label="Releases table" tabindex="0">
                 <table class="ep-table">
@@ -601,6 +611,11 @@
 
         <!-- HTMX host for catalog metadata and other URL-addressable dialogs. -->
         <div id="dialog-mount" data-dialog-mount></div>
+
+        <!--/* Where the release dialog lands, opened on swap by the app-wide behaviour. In this
+               fragment, because the button that targets it is: a mount somewhere that does not
+               render leaves a control that silently does nothing. */-->
+        <div id="release-dialog-container" data-open-dialog-on-swap="release-dialog"></div>
 
         <!-- Usage detail dialog -->
         <dialog id="usage-detail-dialog" class="ep-dialog">
