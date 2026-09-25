@@ -11,7 +11,7 @@ dependencies {
     implementation("com.itextpdf:svg:9.7.1")
 
     // WEBP decoding for PDF image rendering
-    implementation("com.twelvemonkeys.imageio:imageio-webp:3.15.0")
+    implementation("com.twelvemonkeys.imageio:imageio-webp:3.15.1")
 
     // Kotlin reflection for expression evaluation
     implementation("org.jetbrains.kotlin:kotlin-reflect")
