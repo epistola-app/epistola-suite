@@ -7,17 +7,26 @@
            lists, fonts, images, attributes — so the answer to "which catalog am I changing, and is
            my work released" is in the same place and the same words everywhere.
 
-           Kept separate from the page header on purpose. The header is about the resource; this is
-           about the catalog it lives in. Merging them reads as though the resource had a version of
-           its own, which is exactly the confusion the release model removes: editing happens in the
-           working copy, and only a catalog has versions.
+           Kept separate from the page header on purpose, and placed above it. The header is about
+           the resource; this is about the catalog it lives in. Merging them reads as though the
+           resource had a version of its own, which is exactly the confusion the release model
+           removes: editing happens in the working copy, and only a catalog has versions. It comes
+           first because the catalog is the wider context, and because its release action belongs to
+           the catalog rather than among the resource's own actions.
 
-           Usage, from any resource page:
+           Renders nothing unless the `catalog-context` feature is on — GetCatalogContext returns
+           null while it is off, so a page needs no toggle check of its own.
+
+           Usage, from any resource page, before the page header — one line, which is all:
              <div th:replace="~{catalogs/bar :: catalog-bar(context=${catalogContext})}"></div>
-           and, once, for the release dialog to land in:
-             <div th:replace="~{catalogs/bar :: catalog-bar-dialog}"></div>
+
+           The mount the release button swaps into is part of this fragment rather than a second
+           include, because a page that took the button without the mount rendered a control that
+           silently did nothing, and a page that took the mount without the bar left a stray element
+           behind with the feature off. One include cannot get either wrong.
     */-->
-    <div th:fragment="catalog-bar" th:if="${context != null}" class="catalog-bar">
+    <th:block th:fragment="catalog-bar" th:if="${context != null}">
+    <div class="catalog-bar">
         <div class="catalog-bar-context">
             <span class="catalog-bar-label">Catalog</span>
             <a class="catalog-bar-name"
@@ -40,7 +49,9 @@
                 hx-target="#release-dialog-container" hx-swap="innerHTML">Release catalog</button>
     </div>
 
-    <!--/* The release dialog lands here and is opened on swap by the app-wide behaviour. */-->
-    <div th:fragment="catalog-bar-dialog" id="release-dialog-container" data-open-dialog-on-swap="release-dialog"></div>
+    <!--/* The release dialog lands here and is opened on swap by the app-wide behaviour. Outside
+           the bar's flex row, so an empty mount adds no gap. */-->
+    <div id="release-dialog-container" data-open-dialog-on-swap="release-dialog"></div>
+    </th:block>
 </body>
 </html>

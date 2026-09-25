@@ -7,14 +7,19 @@
 /*
  * Catalog bar — which catalog a resource belongs to, and where that catalog stands.
  *
- * Shown on every page that edits a catalog resource, between the page header and the content. It is
+ * The first thing on every page that edits a catalog resource, above the page header. It is
  * deliberately a separate element from the header: the header is about the resource you are
  * editing, this is about the catalog it lives in and the release it is waiting for. Folding the two
  * together reads as though a template had a version of its own, which is the confusion the whole
  * release model exists to remove.
  *
- * Styled as a strip rather than a panel so it sits below the page title without competing with it:
- * one line, muted, with a left accent marking it as context about something else.
+ * It comes first because it is the wider context — which catalog you are in, before what you are
+ * editing in it — and because its release action belongs to the catalog rather than sitting among
+ * the resource's own actions in the header.
+ *
+ * Styled as a strip rather than a panel so it introduces the page title without competing with it:
+ * one line, muted, with a left accent marking it as context about something else. No bottom margin —
+ * the page header's own top padding is the gap.
  */
 .catalog-bar {
   display: flex;
@@ -22,7 +27,7 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--ep-space-3);
-  margin-bottom: var(--ep-space-4);
+  margin-top: var(--ep-space-4);
   padding: var(--ep-space-2) var(--ep-space-3);
   border: 1px solid var(--ep-border-color);
   border-left: 3px solid var(--ep-primary);

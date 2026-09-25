@@ -21,6 +21,8 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -42,6 +44,9 @@ import org.springframework.boot.resttestclient.TestRestTemplate
  *
  * The bar is one fragment on purpose, so the answer is worded the same everywhere; this test is the
  * reason a fifth resource page cannot quietly be added without it.
+ *
+ * All of this is behind `catalog-context`, default off, so every test here turns it on — and one
+ * asserts what an installation that has not opted in sees, which is the pages exactly as before.
  */
 class CatalogBarTest : BaseIntegrationTest() {
 
@@ -57,6 +62,7 @@ class CatalogBarTest : BaseIntegrationTest() {
                 withMediator {
                     val catalogKey = CatalogKey.of("ctx-cat")
                     val catalog = CatalogId(catalogKey, TenantId(tenant.id))
+                    SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_CONTEXT, enabled = true).execute()
                     CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Context cat").execute()
                     CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice")
                         .execute().withRequiredDataExample()
@@ -97,6 +103,7 @@ class CatalogBarTest : BaseIntegrationTest() {
                 withMediator {
                     val catalogKey = CatalogKey.of("clean-cat")
                     val catalog = CatalogId(catalogKey, TenantId(tenant.id))
+                    SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_CONTEXT, enabled = true).execute()
                     CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Clean cat").execute()
                     CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice")
                         .execute().withRequiredDataExample()
@@ -123,6 +130,7 @@ class CatalogBarTest : BaseIntegrationTest() {
                 tenant = tenant("Bar Everywhere")
                 withMediator {
                     val catalog = CatalogId(catalogKey, TenantId(tenant.id))
+                    SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_CONTEXT, enabled = true).execute()
                     CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Bar cat").execute()
                     CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice")
                         .execute().withRequiredDataExample()
@@ -149,6 +157,11 @@ class CatalogBarTest : BaseIntegrationTest() {
         pages.forEach { (resource, path) ->
             val body = get(tenant, path)
             assertThat(body).`as`("the $resource page carries the bar").contains("catalog-bar")
+            // Catalog before resource: the bar introduces the page rather than interrupting it, and
+            // its release action stays clear of the header's actions for the resource itself.
+            assertThat(body.indexOf("class=\"catalog-bar\""))
+                .`as`("the $resource page puts the bar above the page header")
+                .isLessThan(body.indexOf("class=\"page-header\""))
             assertThat(body).`as`("the $resource page names the catalog").contains("Bar cat")
             assertThat(body)
                 .`as`("the $resource page words the release state the same way")
@@ -159,6 +172,43 @@ class CatalogBarTest : BaseIntegrationTest() {
             assertThat(body)
                 .`as`("the $resource page mounts the release dialog")
                 .contains("id=\"release-dialog-container\"")
+        }
+    }
+
+    /**
+     * The default. `catalog-context` is alpha, so an installation that has not switched it on gets
+     * the pages it had before — not an empty bar, not a stray mount, nothing.
+     *
+     * The gate lives in `GetCatalogContext`, which returns null while the feature is off, so this
+     * covers all four pages at once: none of them can render a bar without a context.
+     */
+    @Test
+    fun `with the feature off, no resource page shows a bar`() {
+        lateinit var tenant: Tenant
+        fixture {
+            given {
+                tenant = tenant("Bar Off")
+                withMediator {
+                    val catalogKey = CatalogKey.of("off-cat")
+                    val catalog = CatalogId(catalogKey, TenantId(tenant.id))
+                    CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Off cat").execute()
+                    CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice")
+                        .execute().withRequiredDataExample()
+                    CreateStencil(id = StencilId(StencilKey.of("address"), catalog), name = "Address").execute()
+                    CreateTheme(id = ThemeId(ThemeKey.of("house"), catalog), name = "House").execute()
+                    // Released and then edited: the state that would produce the loudest bar.
+                    ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.0.0").execute()
+                    CreateDocumentTemplate(TemplateId(TemplateKey.of("later"), catalog), "Later")
+                        .execute().withRequiredDataExample()
+                }
+            }
+        }
+
+        listOf("/templates/off-cat/invoice", "/stencils/off-cat/address", "/themes/off-cat/house").forEach { path ->
+            val body = get(tenant, path)
+            assertThat(body).`as`("$path renders no bar").doesNotContain("class=\"catalog-bar\"")
+            assertThat(body).`as`("$path offers no release").doesNotContain("Release catalog")
+            assertThat(body).`as`("$path mounts no release dialog").doesNotContain("id=\"release-dialog-container\"")
         }
     }
 

@@ -7,8 +7,11 @@ package app.epistola.suite.catalog.queries
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
@@ -24,6 +27,11 @@ import org.springframework.stereotype.Component
  * Deliberately not a release: a working copy is not a version. What this reports is the version the
  * catalog was last released at, and whether anything has moved since — which together say what
  * releasing now would do.
+ *
+ * **Returns null while `catalog-context` is off**, which is the default. The gate lives here rather
+ * than in each of the four resource handlers so that the toggle cannot be honoured on three pages
+ * and forgotten on the fourth: the bar renders only when there is a context, so one check switches
+ * every page. A caller that needs this data regardless of the toggle wants a different query.
  */
 data class GetCatalogContext(
     override val tenantKey: TenantKey,
@@ -68,7 +76,12 @@ class GetCatalogContextHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<GetCatalogContext, CatalogContext?> {
 
-    override fun handle(query: GetCatalogContext): CatalogContext? = jdbi.withHandle<CatalogContext?, Exception> { handle ->
+    override fun handle(query: GetCatalogContext): CatalogContext? {
+        if (ResolveFeatureToggles(query.tenantKey).query()[KnownFeatures.CATALOG_CONTEXT] != true) return null
+        return load(query)
+    }
+
+    private fun load(query: GetCatalogContext): CatalogContext? = jdbi.withHandle<CatalogContext?, Exception> { handle ->
         handle.createQuery(
             """
             $CATALOG_ACTIVITY_CTE

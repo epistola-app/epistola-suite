@@ -4,17 +4,18 @@
     <th:block th:fragment="content">
         <link rel="stylesheet" th:href="@{/editor/theme-editor.css}">
 
-        <!--/* The header is about the theme; the bar below is about the catalog it lives in.
-               Kept apart deliberately — see catalogs/bar.html. It also says read-only for a
-               subscribed catalog, which is why no separate notice does. */-->
+        <!--/* Catalog first, then the resource: the bar says which catalog you are in, the header
+               below says what you are editing in it. Kept apart deliberately — see
+               catalogs/bar.html. The bar also says read-only for a subscribed catalog, which is why
+               no separate notice does. */-->
+        <div th:replace="~{catalogs/bar :: catalog-bar(context=${catalogContext})}"></div>
+
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${theme.name},
             backLinkHref=@{/tenants/{tenantId}/themes(tenantId=${tenantId})},
             backLinkLabel='Themes',
             actions=~{::theme-detail-actions}
         )}"></div>
-
-        <div th:replace="~{catalogs/bar :: catalog-bar(context=${catalogContext})}"></div>
 
         <div class="ep-panel detail-section theme-settings-panel">
             <div class="detail-section-header">
@@ -48,9 +49,6 @@
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
 
-        <!--/* Mounted inside the content block, beside the bar whose button targets it: a mount
-               in another fragment is not on the page, and the trigger then silently does nothing. */-->
-        <div th:replace="~{catalogs/bar :: catalog-bar-dialog}"></div>
     </th:block>
     <th:block th:fragment="theme-detail-actions">
         <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"

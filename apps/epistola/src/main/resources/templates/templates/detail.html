@@ -4,15 +4,16 @@
     <th:block th:fragment="content">
         <link rel="stylesheet" th:href="@{/editor/data-contract-editor.css}">
 
-        <!--/* The header is about the template; the bar below is about the catalog it lives in.
-               Kept apart deliberately — see catalogs/bar.html. */-->
+        <!--/* Catalog first, then the resource: the bar says which catalog you are in, the header
+               below says what you are editing in it. Kept apart deliberately — see
+               catalogs/bar.html. */-->
+        <div th:replace="~{catalogs/bar :: catalog-bar(context=${catalogContext})}"></div>
+
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${template.name},
             backLinkHref=@{/tenants/{tenantId}/templates(tenantId=${tenantId})},
             backLinkLabel='Templates'
         )}"></div>
-
-        <div th:replace="~{catalogs/bar :: catalog-bar(context=${catalogContext})}"></div>
 
         <!-- Tab Navigation -->
         <div class="tab-nav">
@@ -36,9 +37,6 @@
         <!-- Version comparison (reusable component, available on all tabs) -->
         <th:block th:replace="~{fragments/version-comparison :: version-comparison}" />
 
-        <!--/* Mounted inside the content block, beside the bar whose button targets it: a mount
-               in another fragment is not on the page, and the trigger then silently does nothing. */-->
-        <div th:replace="~{catalogs/bar :: catalog-bar-dialog}"></div>
     </th:block>
 
     <!-- Fragment: edit variant form (loaded into dialog via HTMX) -->
