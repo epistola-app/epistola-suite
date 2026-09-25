@@ -30,9 +30,11 @@ fun ServerRequest.render(
     wantsFragmentResponse && fragment != null -> {
         ServerResponse.ok().render("$template :: $fragment", model)
     }
+
     !isHtmx && redirectOnSuccess != null -> {
         ServerResponse.seeOther(URI.create(redirectOnSuccess)).build()
     }
+
     else -> {
         ServerResponse.ok().render(template, model)
     }

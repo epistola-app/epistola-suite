@@ -291,16 +291,21 @@ class SpringMediator(
     private fun enforceAuthorization(message: Any) {
         when (message) {
             is SystemInternal -> { /* no-op: system-internal operations bypass auth */ }
+
             is RequiresPermission -> {
                 requireTenantAccess(message.tenantKey)
                 requirePermission(message.tenantKey, message.permission)
             }
+
             is RequiresPlatformRole -> requirePlatformRole(message.platformRole)
+
             is RequiresAuthentication -> {
                 currentUser()
                 if (message is TenantScoped) requireTenantAccess(message.tenantId)
             }
+
             is Authorized -> error("Unhandled Authorized subtype: ${message::class.simpleName}")
+
             else -> error("${message::class.simpleName} must implement Authorized")
         }
     }

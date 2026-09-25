@@ -64,6 +64,7 @@ class TemplatePathExtractor {
                     scopeStack
                 }
             }
+
             else -> {
                 // Conditional
                 extractExpressionRaw(props["condition"])?.let { raw ->

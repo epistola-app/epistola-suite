@@ -174,9 +174,12 @@ class ExchangeCatalogInstaller(
 
         val heldBy = when {
             existing.type == CatalogType.AUTHORED -> "an authored catalog"
+
             ExchangeSourceUri.matches(existing.sourceUrl) ->
                 "a catalog installed from ${ExchangeSourceUri.parse(existing.sourceUrl)}"
+
             existing.sourceUrl != null -> "a catalog subscribed from ${existing.sourceUrl}"
+
             else -> "a catalog imported from a ZIP"
         }
         throw ValidationException(

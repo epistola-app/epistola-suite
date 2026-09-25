@@ -28,7 +28,7 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import org.springframework.web.servlet.function.ServerRequest
 
-/**
+/*
  * Extension properties for detecting and reading HTMX request headers.
  *
  * @see <a href="https://htmx.org/reference/#request_headers">HTMX Request Headers</a>

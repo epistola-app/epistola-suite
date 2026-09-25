@@ -132,7 +132,9 @@ class ImportNameLengthValidationTest {
                     } else {
                         "$label: rejected for the wrong reason (field '${thrown.field}': ${thrown.message})"
                     }
+
                 null -> "$label: accepted a ${value.length}-char value (no length validation)"
+
                 else -> "$label: threw ${thrown::class.simpleName} instead of ValidationException"
             }
         }

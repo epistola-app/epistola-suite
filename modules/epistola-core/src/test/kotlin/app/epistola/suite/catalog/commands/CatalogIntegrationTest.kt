@@ -277,11 +277,6 @@ class CatalogIntegrationTest : IntegrationTestBase() {
     private fun escapeJson(value: String): String = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
     /**
-     * Writes a minimal `file:` catalog under [dir]: a current-version (5) manifest
-     * declaring one `codeList`, whose detail is deliberately stamped at version 3.
-     * Returns the `file:` URL of the manifest.
-     */
-    /**
      * A resource that fails mid-install must leave nothing behind.
      *
      * The catalog below installs a theme cleanly and then a template the importer refuses (no
@@ -375,6 +370,11 @@ class CatalogIntegrationTest : IntegrationTestBase() {
         return dir.resolve("catalog.json").toUri().toString()
     }
 
+    /**
+     * Writes a minimal `file:` catalog under [dir]: a current-version (5) manifest
+     * declaring one `codeList`, whose detail is deliberately stamped at version 3.
+     * Returns the `file:` URL of the manifest.
+     */
     private fun writeDriftedCatalog(dir: Path): String {
         val manifest = """
             {

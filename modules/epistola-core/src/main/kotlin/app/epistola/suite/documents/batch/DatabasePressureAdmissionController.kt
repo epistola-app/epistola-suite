@@ -65,10 +65,13 @@ class DatabasePressureAdmissionController(
 
         return when (state.get()) {
             DatabasePressureState.NORMAL -> handleNormal(nowMs, config, configuredMaximum, pressured, healthy)
+
             DatabasePressureState.THROTTLED ->
                 handleActive(nowMs, config, configuredMaximum, pressured, healthy, fromPaused = false)
+
             DatabasePressureState.PAUSED ->
                 handleActive(nowMs, config, configuredMaximum, pressured, healthy, fromPaused = true)
+
             DatabasePressureState.RECOVERING ->
                 handleActive(nowMs, config, configuredMaximum, pressured, healthy, fromPaused = false)
         }

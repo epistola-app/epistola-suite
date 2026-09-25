@@ -65,11 +65,14 @@ class OAuth2UserProvisioningServiceTest {
                     loginCalls.add(command)
                     Unit as R
                 }
+
                 is SyncTenantMemberships -> {
                     syncCalls.add(command.memberships)
                     Unit as R
                 }
+
                 is CreateUser -> user as R
+
                 else -> error("Unexpected command: $command")
             }
 
@@ -297,16 +300,20 @@ class OAuth2UserProvisioningServiceTest {
             @Suppress("UNCHECKED_CAST")
             override fun <R> send(command: Command<R>): R = when (command) {
                 is RecordUserLogin -> Unit as R
+
                 is CreateUser -> {
                     created.add(command)
                     newUser as R
                 }
+
                 else -> error("Unexpected command: $command")
             }
 
             @Suppress("UNCHECKED_CAST")
             override fun <R> query(query: Query<R>): R = when (query) {
-                is GetUserByExternalId -> null as R // first login: user does not exist yet
+                is GetUserByExternalId -> null as R
+
+                // first login: user does not exist yet
                 else -> error("Unexpected query: $query")
             }
         }

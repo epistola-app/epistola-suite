@@ -27,10 +27,33 @@ val kotlinVersion =
         .named("libs").findVersion("kotlin").get().requiredVersion
 extra["kotlin.version"] = kotlinVersion
 
+ktlint {
+    version.set(
+        extensions.getByType<org.gradle.api.artifacts.VersionCatalogsExtension>()
+            .named("libs").findVersion("ktlint-engine").get().requiredVersion,
+    )
+}
+
+// ktlint parses with the Kotlin compiler it was built against. In a module that also applies
+// io.spring.dependency-management, the BOM (pinned to our kotlin.version above) would move ktlint's
+// kotlin-compiler-embeddable up to our Kotlin version, and a ktlint built on an older compiler then
+// fails to start ("Extensions storage is not registered"). Keep ktlint's own tooling classpath on
+// the versions ktlint asked for. The rule is registered once that plugin is applied, so it runs
+// after the BOM's own rule and has the last word.
+pluginManager.withPlugin("io.spring.dependency-management") {
+    configurations.matching { it.name.startsWith("ktlint") }.configureEach {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "org.jetbrains.kotlin" && requested.version != null) {
+                useVersion(requested.version!!)
+            }
+        }
+    }
+}
+
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     compilerOptions {
         allWarningsAsErrors.set(true)
-        freeCompilerArgs.addAll("-Xjsr305=strict", "-Xannotation-default-target=param-property")
+        freeCompilerArgs.addAll("-Xjsr305=strict")
     }
 }
 

@@ -15,7 +15,7 @@ import com.itextpdf.layout.element.Image
 import com.itextpdf.layout.layout.LayoutArea
 import com.itextpdf.layout.layout.LayoutContext
 
-/**
+/*
  * Shared composition + measurement for page header / footer bands.
  *
  * A page header/footer renders its slot children into a `Div` wrapper that

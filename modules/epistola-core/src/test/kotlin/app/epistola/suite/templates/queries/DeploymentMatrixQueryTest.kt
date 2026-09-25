@@ -93,7 +93,6 @@ class DeploymentMatrixQueryTest : IntegrationTestBase() {
             secondVariant.id to staging.id,
             secondVariant.id to production.id,
         )
-        Unit
     }
 
     @Test
@@ -132,7 +131,6 @@ class DeploymentMatrixQueryTest : IntegrationTestBase() {
         assertThat(publishableVersions).hasSize(2) // v1 (published) + v2 (draft)
         assertThat(publishableVersions.all { it.variantKey == defaultVariant.id }).isTrue()
         assertThat(publishableVersions.map { it.status }).containsExactlyInAnyOrder(VersionStatus.DRAFT, VersionStatus.PUBLISHED)
-        Unit
     }
 
     @Test
@@ -151,6 +149,5 @@ class DeploymentMatrixQueryTest : IntegrationTestBase() {
 
         assertThat(publishableVersions).hasSize(1)
         assertThat(publishableVersions.first().status).isEqualTo(VersionStatus.DRAFT)
-        Unit
     }
 }

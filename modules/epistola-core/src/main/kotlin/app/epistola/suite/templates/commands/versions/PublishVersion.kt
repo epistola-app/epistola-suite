@@ -196,6 +196,7 @@ class PublishVersionHandler(
         val effectiveThemeKey = when (val ref = version.templateModel.themeRef) {
             is app.epistola.template.model.ThemeRefOverride ->
                 app.epistola.suite.common.ids.ThemeKey.of(ref.themeId)
+
             else -> null
         } ?: template?.themeKey ?: tenant?.defaultThemeKey
 

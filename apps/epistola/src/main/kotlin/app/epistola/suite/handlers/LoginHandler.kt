@@ -79,9 +79,11 @@ class LoginHandler(
         val repo = clientRegistrationRepository
         return when (repo) {
             is InMemoryClientRegistrationRepository -> repo.iterator().asSequence().firstOrNull()?.registrationId
+
             is Iterable<*> -> (repo as Iterable<*>).firstOrNull()?.let {
                 (it as? org.springframework.security.oauth2.client.registration.ClientRegistration)?.registrationId
             }
+
             else -> null
         }
     }

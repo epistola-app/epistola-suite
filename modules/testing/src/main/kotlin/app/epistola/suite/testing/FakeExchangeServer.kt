@@ -186,21 +186,25 @@ class FakeExchangeServer : AutoCloseable {
                                 ?: Response(404, PROBLEM_NOT_FOUND),
                         )
                 }
+
                 segments.size == 7 && segments[6] == "releases" ->
                     exchange.respond(
                         catalog?.let { Response(200, releasePage(it)) } ?: Response(404, PROBLEM_NOT_FOUND),
                     )
+
                 segments.size == 9 && segments[6] == "releases" && segments[8] == "archive" -> {
                     val version = segments[7]
                     val release = catalog?.releases?.firstOrNull { it.version == version }
                     archiveResponse?.let { exchange.respond(it(release)) } ?: when {
                         release == null -> exchange.respond(Response(404, PROBLEM_NOT_FOUND))
+
                         else -> {
                             archiveDownloads += "$namespace/$catalogKey@$version"
                             exchange.respondBytes(200, "application/zip", release.archive, mapOf("ETag" to "\"${release.sha256}\""))
                         }
                     }
                 }
+
                 else -> exchange.respond(Response(404, PROBLEM_NOT_FOUND))
             }
         }

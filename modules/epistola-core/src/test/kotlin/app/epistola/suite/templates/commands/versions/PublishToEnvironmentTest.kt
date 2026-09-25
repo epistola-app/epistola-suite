@@ -75,7 +75,6 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val updatedVersions = ListVersions(variantId = variantId).query()
         assertThat(updatedVersions).hasSize(1)
         assertThat(updatedVersions.all { it.status == VersionStatus.PUBLISHED }).isTrue()
-        Unit
     }
 
     @Test
@@ -121,7 +120,6 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         val activations = ListActivations(variantId = variantId).query()
         assertThat(activations).hasSize(2)
         assertThat(activations.map { it.environmentKey }).containsExactlyInAnyOrder(staging.id, production.id)
-        Unit
     }
 
     @Test
@@ -159,7 +157,6 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         // Only one activation should exist
         val activations = ListActivations(variantId = variantId).query()
         assertThat(activations).hasSize(1)
-        Unit
     }
 
     @Test
@@ -262,7 +259,6 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
             ).execute()
         }.isInstanceOf(VersionStillActiveException::class.java)
             .hasMessageContaining("still active in environments")
-        Unit
     }
 
     @Test
@@ -301,7 +297,6 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
         assertThat(result.version.status).isEqualTo(VersionStatus.PUBLISHED)
         assertThat(result.activation.environmentKey).isEqualTo(environmentId.key)
         assertThat(result.activation.versionKey).isEqualTo(published.id)
-        Unit
     }
 
     @Test
@@ -337,6 +332,5 @@ class PublishToEnvironmentTest : IntegrationTestBase() {
 
         assertThat(archived).isNotNull
         assertThat(archived.status).isEqualTo(VersionStatus.ARCHIVED)
-        Unit
     }
 }

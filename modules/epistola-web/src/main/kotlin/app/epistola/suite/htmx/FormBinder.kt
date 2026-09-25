@@ -356,51 +356,61 @@ class FormBuilder {
                             errors[fieldName] = "Invalid attribute ID format"
                         }
                     }
+
                     spec.asEnvironmentId -> {
                         if (EnvironmentKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid environment ID format"
                         }
                     }
+
                     spec.asCatalogId -> {
                         if (CatalogKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid catalog ID format"
                         }
                     }
+
                     spec.asCodeListId -> {
                         if (CodeListKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid code-list ID format"
                         }
                     }
+
                     spec.asStencilId -> {
                         if (StencilKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid stencil ID format"
                         }
                     }
+
                     spec.asTemplateId -> {
                         if (TemplateKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid template ID format"
                         }
                     }
+
                     spec.asThemeId -> {
                         if (ThemeKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid theme ID format"
                         }
                     }
+
                     spec.asVariantId -> {
                         if (VariantKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid variant ID format"
                         }
                     }
+
                     spec.asVersionId -> {
                         if (value.toIntOrNull() == null) {
                             errors[fieldName] = "Version must be a number"
                         }
                     }
+
                     spec.asTenantId -> {
                         if (TenantKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid tenant ID format"
                         }
                     }
+
                     spec.asInt -> {
                         if (value.toIntOrNull() == null) {
                             errors[fieldName] = "${fieldName.replaceFirstChar { it.uppercase() }} must be a number"

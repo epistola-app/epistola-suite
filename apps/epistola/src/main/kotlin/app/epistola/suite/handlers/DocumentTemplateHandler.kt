@@ -116,12 +116,6 @@ data class EditorThemeConfig(
 )
 
 /**
- * Handles core template CRUD operations and template detail views.
- * Variant operations are handled by [VariantRouteHandler].
- * Version lifecycle operations are handled by [VersionRouteHandler].
- * Preview generation is handled by [TemplatePreviewHandler].
- */
-/**
  * Backend feature toggles forwarded to the editor page as `editorFeatures`, keyed by
  * the field name the editor bundle reads (`EditorFeatures` in `modules/editor`) and
  * carrying resolved enablement plus the feature's maturity badge. The two sides live
@@ -138,6 +132,12 @@ internal val EDITOR_FEATURES: Map<String, FeatureKey> = mapOf(
     "editorWalkthrough" to KnownFeatures.EDITOR_WALKTHROUGH,
 )
 
+/**
+ * Handles core template CRUD operations and template detail views.
+ * Variant operations are handled by [VariantRouteHandler].
+ * Version lifecycle operations are handled by [VersionRouteHandler].
+ * Preview generation is handled by [TemplatePreviewHandler].
+ */
 @Component
 class DocumentTemplateHandler(
     private val objectMapper: ObjectMapper,

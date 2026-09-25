@@ -98,12 +98,14 @@ class TenantBackupService(
             backup.id to
                 when {
                     backup.schemaStamp == live -> Restorable(restorable = true, note = null)
+
                     backup.schemaStamp < live ->
                         if (boundary == null || backup.schemaStamp >= boundary) {
                             Restorable(restorable = true, note = null)
                         } else {
                             Restorable(restorable = false, note = "Older version")
                         }
+
                     else -> forwardRestorable(handle, tenantKey, backup)
                 }
         }

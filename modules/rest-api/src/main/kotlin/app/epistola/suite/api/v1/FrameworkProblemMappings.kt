@@ -47,6 +47,7 @@ fun writeFrameworkProblemDetail(
                 mapOf("method" to ex.method, "supportedMethods" to supportedMethods),
             )
         }
+
         is HttpMediaTypeNotSupportedException -> writeProblemDetail(
             response,
             objectMapper,
@@ -58,6 +59,7 @@ fun writeFrameworkProblemDetail(
                 "supportedTypes" to ex.supportedMediaTypes.map { it.toString() },
             ),
         )
+
         is HttpMediaTypeNotAcceptableException -> writeProblemDetail(
             response,
             objectMapper,
@@ -69,6 +71,7 @@ fun writeFrameworkProblemDetail(
                 "supportedTypes" to ex.supportedMediaTypes.map { it.toString() },
             ),
         )
+
         is MaxUploadSizeExceededException -> writeProblemDetail(
             response,
             objectMapper,
@@ -77,6 +80,7 @@ fun writeFrameworkProblemDetail(
             "The uploaded content exceeds the maximum allowed size",
             mapOf("maxBytes" to ex.maxUploadSize),
         )
+
         is NoHandlerFoundException -> writeProblemDetail(
             response,
             objectMapper,
@@ -85,6 +89,7 @@ fun writeFrameworkProblemDetail(
             "No endpoint exists for ${ex.httpMethod} ${ex.requestURL}",
             mapOf("path" to ex.requestURL),
         )
+
         is NoResourceFoundException -> writeProblemDetail(
             response,
             objectMapper,
@@ -93,6 +98,7 @@ fun writeFrameworkProblemDetail(
             "Resource not found: ${ex.resourcePath}",
             mapOf("path" to ex.resourcePath),
         )
+
         else -> return false
     }
     return true

@@ -60,6 +60,7 @@ class SimplePathEvaluator : ExpressionEvaluatorInterface {
                     }
                     i++
                 }
+
                 '[' -> {
                     if (current.isNotEmpty()) {
                         segments.add(parseSegment(current.toString()))
@@ -76,6 +77,7 @@ class SimplePathEvaluator : ExpressionEvaluatorInterface {
                     segments.add(parseSegment(indexStr))
                     i = closeBracket + 1
                 }
+
                 else -> {
                     current.append(char)
                     i++
@@ -117,6 +119,7 @@ class SimplePathEvaluator : ExpressionEvaluatorInterface {
 
     private fun resolveProperty(obj: Any, name: String): Any? = when (obj) {
         is Map<*, *> -> obj[name]
+
         else -> {
             // Try to get property via reflection (for data classes, etc.)
             try {

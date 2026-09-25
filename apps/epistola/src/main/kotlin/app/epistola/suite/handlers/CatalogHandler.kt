@@ -409,12 +409,6 @@ class CatalogHandler {
     private fun publicationPolicy(raw: String?): CatalogPublicationPolicy = CatalogPublicationPolicy.entries.firstOrNull { it.name == raw }
         ?: throw ValidationException("publicationPolicy", "Choose a valid publication policy.")
 
-    /**
-     * The button that offered this action was rendered from state that may have moved since — the
-     * working copy edited in another tab, a second administrator queueing first. Those races are
-     * exactly what the command validates, so a rejection returns the catalog page with the reason
-     * rather than an error page.
-     */
     /** Withdraws a queued publication; rejections stay on the catalog page like the publish action. */
     fun cancelPublication(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -430,6 +424,12 @@ class CatalogHandler {
         }
     }
 
+    /**
+     * The button that offered this action was rendered from state that may have moved since — the
+     * working copy edited in another tab, a second administrator queueing first. Those races are
+     * exactly what the command validates, so a rejection returns the catalog page with the reason
+     * rather than an error page.
+     */
     fun publishCurrentRelease(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
@@ -445,14 +445,6 @@ class CatalogHandler {
         }
     }
 
-    /**
-     * Explicit per-row upgrade check (user clicks "Check for updates"). Returns
-     * the `upgrade-indicator` fragment in one of:
-     * `UP_TO_DATE` / `UPDATE_AVAILABLE` / `ZIP_MANAGED` / `CHECK_FAILED`.
-     * Cheap — `CheckCatalogUpgrade` fetches only the manifest. ZIP-managed
-     * (no source URL) catalogs can't be polled — they upgrade by re-importing
-     * a newer ZIP, so we say so instead of erroring.
-     */
     /**
      * The per-row "check for updates" button.
      *
@@ -1201,17 +1193,6 @@ class CatalogHandler {
         )
     }
 
-    /**
-     * The shared model for **every** render of the catalog list — the full
-     * page *and* the `catalog-list` fragment/OOB swaps. One source of truth so
-     * no render path can forget the AUTHORED drift hint:
-     *  - `tenantId`;
-     *  - `catalogs` — `List<CatalogListRow>` from `ListCatalogsForManagement`:
-     *    each row is a `Catalog` plus the list-only `pendingChanges` flag
-     *    (AUTHORED working copy drifted since the last release/import),
-     *    computed in one SQL join. No parallel id set, no template-side
-     *    cross-reference, no content build.
-     */
     /**
      * The catalog list as every full-page render of it needs it: the list, plus whether the
      * Organise action in its header is available. The create, register and import dialogs render
