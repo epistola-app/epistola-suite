@@ -7,6 +7,7 @@ package app.epistola.suite.api.v1
 import app.epistola.api.model.ValidationError
 import app.epistola.suite.documents.commands.BatchValidationException
 import app.epistola.suite.templates.validation.DataModelValidationException
+import app.epistola.suite.templates.validation.TemplateDataInvalidException
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import jakarta.servlet.http.HttpServletRequest
@@ -43,6 +44,7 @@ data class ApiProblemType(
 object ApiProblemTypes {
     val BATCH_VALIDATION_ERROR = problem("BATCH_VALIDATION_ERROR", "Batch Validation Error", HttpStatus.BAD_REQUEST, "The batch request contains duplicate or inconsistent item-level values.", listOf("errors"))
     val DATA_MODEL_VALIDATION_ERROR = problem("DATA_MODEL_VALIDATION_ERROR", "Data Model Validation Error", HttpStatus.UNPROCESSABLE_ENTITY, "One or more data examples failed validation against the template data schema.", listOf("validationErrors"))
+    val TEMPLATE_DATA_INVALID = problem("TEMPLATE_DATA_INVALID", "Template Data Invalid", HttpStatus.BAD_REQUEST, "The preview data does not satisfy the template's data contract. `errors` lists each field; `missingFields` and `invalidFields` describe what to supply or correct.", listOf("errors", "missingFields", "invalidFields"))
     val BAD_REQUEST = problem("BAD_REQUEST", "Bad Request", HttpStatus.BAD_REQUEST, "The request is invalid and cannot be processed.", emptyList())
     val UNAUTHORIZED = problem("UNAUTHORIZED", "Unauthorized", HttpStatus.UNAUTHORIZED, "Authentication is missing, invalid, or expired.", emptyList())
     val API_KEY_AUTH_DISABLED = problem("API_KEY_AUTH_DISABLED", "API Key Authentication Disabled", HttpStatus.UNAUTHORIZED, "API-key authentication is disabled for this deployment; use Authorization: Bearer <jwt> instead.", emptyList())
@@ -114,6 +116,7 @@ object ApiProblemTypes {
     val all: List<ApiProblemType> = listOf(
         BATCH_VALIDATION_ERROR,
         DATA_MODEL_VALIDATION_ERROR,
+        TEMPLATE_DATA_INVALID,
         BAD_REQUEST,
         UNAUTHORIZED,
         API_KEY_AUTH_DISABLED,
@@ -312,6 +315,32 @@ fun DataModelValidationException.toProblemDetail(request: HttpServletRequest): P
     detail = "Data examples failed validation against schema",
     extensions = mapOf("validationErrors" to validationErrors),
 )
+
+/**
+ * The contract's validation problem (`errors[]`, one entry per field, `field` a JSON Pointer into the
+ * request body) plus the full analysis. The analysis paths are JSON Pointers into `data`.
+ */
+fun TemplateDataInvalidException.toProblemDetail(request: HttpServletRequest): ProblemDetail {
+    val errors = analysis.missingFields.filter { it.required }.map { field ->
+        ValidationError(field = "/data${field.path}", message = "is required", rejectedValue = null)
+    } + analysis.invalidFields.map { field ->
+        ValidationError(
+            field = "/data${field.path}",
+            message = field.message,
+            rejectedValue = data.at(field.path).takeUnless { it.isMissingNode },
+        )
+    }
+    return problemDetail(
+        request = request,
+        type = ApiProblemTypes.TEMPLATE_DATA_INVALID,
+        detail = message ?: "Data validation failed",
+        extensions = mapOf(
+            "errors" to errors,
+            "missingFields" to analysis.missingFields,
+            "invalidFields" to analysis.invalidFields,
+        ),
+    )
+}
 
 fun writeProblemDetail(
     response: HttpServletResponse,
