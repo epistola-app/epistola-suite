@@ -45,8 +45,7 @@ class ProseMirrorConverter(
 ) {
     /**
      * Converts ProseMirror JSON content to a list of iText block elements.
-     */
-    /**
+     *
      * @param resolvedStyles Resolved style cascade for the parent text node.
      *   ProseMirrorConverter reads properties like `lineHeight` from this map
      *   and applies them to generated paragraphs/headings.
@@ -271,6 +270,7 @@ class ProseMirrorConverter(
                     val textContent = child["text"] as? String ?: ""
                     append(expressionEvaluator.processTemplate(textContent, defaultLanguage, data, loopContext))
                 }
+
                 "expression" -> {
                     @Suppress("UNCHECKED_CAST")
                     val exprAttrs = child["attrs"] as? Map<String, Any>
@@ -398,7 +398,9 @@ class ProseMirrorConverter(
                         listItem.add(paragraph)
                     }
                 }
+
                 "bulletList", "bullet_list" -> listItem.add(convertBulletList(child, data, loopContext, fontCache, resolvedStyles, face))
+
                 "orderedList", "ordered_list" -> listItem.add(convertOrderedList(child, data, loopContext, fontCache, resolvedStyles, face))
             }
         }
@@ -451,10 +453,12 @@ class ProseMirrorConverter(
 
                     paragraph.add(text)
                 }
+
                 "hard_break", "hardBreak" -> {
                     // Hard breaks are handled by splitting paragraphs in convertParagraph/convertHeading.
                     // This case should not be reached, but is kept as a safe fallback.
                 }
+
                 "expression" -> {
                     // Expression atom node
                     @Suppress("UNCHECKED_CAST")
@@ -539,6 +543,7 @@ class ProseMirrorConverter(
                         if (marks != null) applyMarks(text, marks, fontCache, face)
                         paragraph.add(text)
                     }
+
                     "hard_break", "hardBreak" -> {
                         // Soft fall-through inside an inline binding: a literal newline
                         // would split the host paragraph, which we cannot do here.
@@ -556,18 +561,25 @@ class ProseMirrorConverter(
         for (mark in marks) {
             when (mark["type"]) {
                 "bold", "strong" -> isBold = true
+
                 "italic", "em" -> isItalic = true
+
                 "underline" -> text.setUnderline()
+
                 "strike", "strikethrough" -> text.setLineThrough()
+
                 "subscript" -> {
                     text.setTextRise(-3f)
                     text.setFontSize(renderingDefaults.baseFontSizePt * 0.75f)
                 }
+
                 "superscript" -> {
                     text.setTextRise(5f)
                     text.setFontSize(renderingDefaults.baseFontSizePt * 0.75f)
                 }
+
                 "link" -> { /* handled separately via Link element */ }
+
                 "textStyle" -> {
                     @Suppress("UNCHECKED_CAST")
                     val attrs = mark["attrs"] as? Map<String, Any>
@@ -620,11 +632,8 @@ class ProseMirrorConverter(
     }
 
     /**
-     * Apply resolved text styles (lineHeight, etc.) to a paragraph.
+     * Apply pre-resolved text styles (lineHeight, etc.) to a paragraph.
      * This is the single place to add new style properties that affect ProseMirror paragraphs/headings.
-     */
-    /**
-     * Apply pre-resolved text styles to a paragraph.
      * Values in the map should already be in points (resolved by the caller).
      */
     private fun applyTextStyles(paragraph: Paragraph, resolvedStyles: Map<String, Any>) {
@@ -642,12 +651,14 @@ class ProseMirrorConverter(
                 val b = cleanHex.substring(4, 6).toInt(16)
                 DeviceRgb(r, g, b)
             }
+
             3 -> {
                 val r = cleanHex.substring(0, 1).repeat(2).toInt(16)
                 val g = cleanHex.substring(1, 2).repeat(2).toInt(16)
                 val b = cleanHex.substring(2, 3).repeat(2).toInt(16)
                 DeviceRgb(r, g, b)
             }
+
             else -> null
         }
     } catch (_: Exception) {

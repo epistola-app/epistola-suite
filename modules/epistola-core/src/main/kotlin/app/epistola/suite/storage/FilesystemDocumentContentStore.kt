@@ -32,9 +32,10 @@ class FilesystemDocumentContentStore(
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    /** Root under which document blobs live — the sweep is scoped to this subtree. */
     /** Normalized storage root; every resolved key is checked to stay within it. */
     private val root: Path = basePath.normalize()
+
+    /** Root under which document blobs live — the sweep is scoped to this subtree. */
     private val documentsRoot: Path = root.resolve(DOCUMENTS_PREFIX)
 
     override fun put(key: String, content: InputStream, contentType: String, sizeBytes: Long, createdAt: OffsetDateTime) {

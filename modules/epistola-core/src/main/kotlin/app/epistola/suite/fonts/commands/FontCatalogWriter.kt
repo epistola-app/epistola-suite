@@ -32,14 +32,6 @@ import java.util.concurrent.ConcurrentHashMap
  */
 @Component
 class FontCatalogWriter {
-    /**
-     * UPSERT [slug]'s family row and atomically replace its variants. The caller
-     * owns the transaction, so several families can share one. Returns INSTALLED
-     * for a newly inserted family, UPDATED otherwise.
-     *
-     * [assetBytes] supplies the bytes of an ASSET-backed face so its content hash
-     * can be computed; classpath faces are hashed from cached classpath bytes.
-     */
     /** One font family to write: its slug, display name, kind and faces. */
     data class FontSpec(
         val slug: String,
@@ -48,6 +40,14 @@ class FontCatalogWriter {
         val variants: List<ImportFontVariant>,
     )
 
+    /**
+     * UPSERT [slug]'s family row and atomically replace its variants. The caller
+     * owns the transaction, so several families can share one. Returns INSTALLED
+     * for a newly inserted family, UPDATED otherwise.
+     *
+     * [assetBytes] supplies the bytes of an ASSET-backed face so its content hash
+     * can be computed; classpath faces are hashed from cached classpath bytes.
+     */
     fun writeFont(
         handle: Handle,
         tenantId: TenantId,

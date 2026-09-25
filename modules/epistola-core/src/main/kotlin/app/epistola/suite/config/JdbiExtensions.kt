@@ -7,7 +7,7 @@ package app.epistola.suite.config
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 
-/**
+/*
  * Kotlin extension functions to reduce JDBI boilerplate.
  *
  * These eliminate the need to specify `<T, Exception>` type parameters for every

@@ -38,6 +38,7 @@ class SiteBannerHandler {
     fun save(request: ServerRequest): ServerResponse {
         when (request.param("action").orElse("save")) {
             "clear" -> ClearSiteBanner().execute()
+
             else -> SetSiteBanner(
                 message = request.param("message").orElse(""),
                 severity = request.param("severity")

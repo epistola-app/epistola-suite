@@ -337,6 +337,7 @@ object StyleApplicator {
     internal fun parseFontWeight(value: Any?): Int {
         val numeric: Int? = when (value) {
             is Number -> value.toInt()
+
             is String -> when (value.trim().lowercase()) {
                 "", "normal" -> 400
                 "bold" -> 700
@@ -344,6 +345,7 @@ object StyleApplicator {
                 "bolder" -> 600
                 else -> value.trim().toIntOrNull()
             }
+
             else -> null
         }
         return (numeric ?: 400).coerceIn(1, 1000)
@@ -363,8 +365,12 @@ object StyleApplicator {
 
         val parsed = when {
             size.endsWith("pt") -> size.removeSuffix("pt").toFloatOrNull()
-            size.endsWith("mm") -> size.removeSuffix("mm").toFloatOrNull()?.let { it * 2.83465f } // page margins
+
+            size.endsWith("mm") -> size.removeSuffix("mm").toFloatOrNull()?.let { it * 2.83465f }
+
+            // page margins
             size.endsWith("sp") -> size.removeSuffix("sp").toFloatOrNull()?.let { it * spacingUnit }
+
             else -> size.toFloatOrNull() // unitless number treated as pt
         }
         return parsed?.coerceAtLeast(0f)
@@ -381,15 +387,18 @@ object StyleApplicator {
                         val b = hex.substring(4, 6).toInt(16)
                         DeviceRgb(r, g, b)
                     }
+
                     3 -> {
                         val r = hex.substring(0, 1).repeat(2).toInt(16)
                         val g = hex.substring(1, 2).repeat(2).toInt(16)
                         val b = hex.substring(2, 3).repeat(2).toInt(16)
                         DeviceRgb(r, g, b)
                     }
+
                     else -> null
                 }
             }
+
             color.startsWith("rgb(") -> {
                 val values = color.removePrefix("rgb(").removeSuffix(")")
                     .split(",")
@@ -400,6 +409,7 @@ object StyleApplicator {
                     null
                 }
             }
+
             else -> null
         }
     } catch (_: Exception) {

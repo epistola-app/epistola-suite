@@ -80,8 +80,12 @@ class SecurityFilter : OncePerRequestFilter() {
 
         return when {
             authentication == null || !authentication.isAuthenticated -> null
-            authPrincipal is String -> null // AnonymousAuthenticationToken
+
+            authPrincipal is String -> null
+
+            // AnonymousAuthenticationToken
             authPrincipal is EpistolaPrincipal -> authPrincipal
+
             authPrincipal is EpistolaPrincipalHolder -> try {
                 authPrincipal.epistolaPrincipal
             } catch (e: Exception) {
@@ -89,9 +93,11 @@ class SecurityFilter : OncePerRequestFilter() {
                 request.session?.invalidate()
                 null
             }
+
             // JWT bearer tokens: EpistolaJwtAuthenticationConverter stores principal in details
             authentication is JwtAuthenticationToken && authentication.details is EpistolaPrincipal ->
                 authentication.details as EpistolaPrincipal
+
             else -> {
                 log.warn(
                     "Authenticated but unrecognized principal type: {} (interfaces: {})",

@@ -84,6 +84,7 @@ internal fun murmur3x86_32(data: ByteArray, seed: Int): Int {
             k1 *= c2
             h1 = h1 xor k1
         }
+
         2 -> {
             k1 = k1 xor ((data[tail + 1].toInt() and 0xFF) shl 8)
             k1 = k1 xor (data[tail].toInt() and 0xFF)
@@ -92,6 +93,7 @@ internal fun murmur3x86_32(data: ByteArray, seed: Int): Int {
             k1 *= c2
             h1 = h1 xor k1
         }
+
         1 -> {
             k1 = k1 xor (data[tail].toInt() and 0xFF)
             k1 *= c1

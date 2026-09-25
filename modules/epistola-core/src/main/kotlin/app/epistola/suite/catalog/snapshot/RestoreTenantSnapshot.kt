@@ -177,8 +177,10 @@ class RestoreTenantSnapshotHandler(
                     when {
                         entry.name == "snapshot.json" ->
                             manifest = objectMapper.readValue(content, SnapshotManifest::class.java)
+
                         entry.name == "identities.json" ->
                             identities = objectMapper.readValue(content, TenantResourceIdentities::class.java)
+
                         entry.name.startsWith("catalogs/") -> innerZips[entry.name] = content
                     }
                 }

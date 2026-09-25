@@ -127,6 +127,7 @@ class CatalogContentBuilder(
                         ?: continue
                     assetContents[resource.contentPath()] = content.content
                 }
+
                 is FontResource -> {
                     // A face carries its own binary from wire v7, so the family's bytes no longer
                     // arrive as separate image resources -- and the face has no wire key to look
@@ -140,6 +141,7 @@ class CatalogContentBuilder(
                         assetContents[face.contentPath()] = content.content
                     }
                 }
+
                 else -> Unit
             }
         }
@@ -341,6 +343,7 @@ class CatalogContentBuilder(
                             dependencies.add(DependencyRef.Stencil(catalogKey = refCatalog, slug = stencilId))
                         }
                     }
+
                     "image" -> {
                         // Mirrors the stencil case above: only a reference that names its catalog
                         // can be declared as a dependency, because catalog v7 requires one. An

@@ -225,15 +225,21 @@ class InstallFromCatalogHandler(
         releaseVersion: String,
     ): InstallStatus = when (val resource = requireNotNull(item.resource) { "Resource '${item.entry.slug}' was not staged" }) {
         is TemplateResource -> installTemplate(command, resource, releaseVersion)
+
         is ThemeResource -> installTheme(command, resource)
+
         is StencilResource -> installStencil(command, resource)
+
         is AttributeResource -> installAttribute(command, resource)
+
         is ImageResource -> installAsset(
             command,
             resource,
             requireNotNull(item.binaries[resource.contentPath()]) { "Image '${resource.slug}' was not staged" },
         )
+
         is CodeListResource -> installCodeList(command, resource)
+
         is FontResource -> installFont(command, resource, item.binaries)
     }
 

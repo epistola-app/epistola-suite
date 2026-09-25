@@ -74,6 +74,7 @@ object DependencyScanner {
                     val stencilId = node.props?.get("stencilId") as? String
                     if (stencilId != null) stencilRefs.add(stencilId)
                 }
+
                 "image" -> {
                     val assetId = node.props?.get("assetId") as? String
                     val assetCatalogKey = node.props?.get("catalogKey") as? String

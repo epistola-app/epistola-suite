@@ -60,11 +60,13 @@ class CodeListClient(
             if (!path.toFile().exists()) throw CodeListFetchException("File not found: $path")
             objectMapper.readValue(path.toFile(), ENTRIES_TYPE)
         }
+
         url.startsWith("classpath:") -> {
             val resource = resourceLoader.getResource(url)
             if (!resource.exists()) throw CodeListFetchException("Classpath resource not found: $url")
             objectMapper.readValue(resource.contentAsByteArray, ENTRIES_TYPE)
         }
+
         else -> null
     }
 

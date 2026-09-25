@@ -92,18 +92,21 @@ internal fun applyCellBorder(
         BorderStyle.all -> {
             cell.setBorder(solidBorder)
         }
+
         BorderStyle.horizontal -> {
             cell.setBorderTop(solidBorder)
             cell.setBorderBottom(solidBorder)
             cell.setBorderLeft(Border.NO_BORDER)
             cell.setBorderRight(Border.NO_BORDER)
         }
+
         BorderStyle.vertical -> {
             cell.setBorderTop(Border.NO_BORDER)
             cell.setBorderBottom(Border.NO_BORDER)
             cell.setBorderLeft(solidBorder)
             cell.setBorderRight(solidBorder)
         }
+
         BorderStyle.none -> {
             cell.setBorder(Border.NO_BORDER)
         }
@@ -137,6 +140,7 @@ internal fun parseNodeHeight(node: Node?, context: RenderContext): Float? {
     val value = node?.props?.get("height") ?: return null
     return when (value) {
         is Number -> value.toFloat()
+
         is String -> {
             SpacingScale.parseSp(value, context.spacingUnit)?.let { return it }
             when {
@@ -144,6 +148,7 @@ internal fun parseNodeHeight(node: Node?, context: RenderContext): Float? {
                 else -> value.toFloatOrNull()
             }
         }
+
         else -> null
     }
 }

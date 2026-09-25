@@ -84,6 +84,7 @@ class ImageNodeRenderer(
                     "Failed to render image node '${node.id}' (asset=$assetId, type=${resolution.mimeType}): ${e.message}",
                     e,
                 )
+
                 RenderMode.PREVIEW -> ErrorPlaceholder.render("Image failed: ${e.message}")
             }
         }
@@ -112,16 +113,19 @@ class ImageNodeRenderer(
                 applyDimension(requireNotNull(width), isWidth = true, image, spacingUnit)
                 applyDimension(requireNotNull(height), isWidth = false, image, spacingUnit)
             }
+
             hasWidth -> {
                 val widthValue = requireNotNull(width)
                 applyDimension(widthValue, isWidth = true, image, spacingUnit)
                 scaleProportionally(widthValue, isWidthGiven = true, image, spacingUnit)
             }
+
             hasHeight -> {
                 val heightValue = requireNotNull(height)
                 applyDimension(heightValue, isWidth = false, image, spacingUnit)
                 scaleProportionally(heightValue, isWidthGiven = false, image, spacingUnit)
             }
+
             else -> {
                 // No dimensions specified: auto-scale to fit available width
                 image.setAutoScale(true)

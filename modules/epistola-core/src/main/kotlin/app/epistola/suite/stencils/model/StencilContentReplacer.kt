@@ -411,6 +411,7 @@ object StencilContentReplacer {
                 (value["content"] as? List<*>)?.firstNotNullOfOrNull(::canonicalText)
             }
         }
+
         is JsonNode -> {
             if (value["type"]?.asString() == "text") {
                 value["text"]?.asString()
@@ -418,6 +419,7 @@ object StencilContentReplacer {
                 value["content"]?.takeIf(JsonNode::isArray)?.firstNotNullOfOrNull(::canonicalText)
             }
         }
+
         else -> null
     }
 

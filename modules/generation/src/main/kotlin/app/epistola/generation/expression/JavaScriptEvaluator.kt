@@ -77,7 +77,9 @@ class JavaScriptEvaluator : ExpressionEvaluator {
      */
     private fun convertToProxyValue(value: Any?): Any? = when (value) {
         null -> null
+
         is String, is Number, is Boolean -> value
+
         is Map<*, *> -> {
             @Suppress("UNCHECKED_CAST")
             val map = value as Map<String, Any?>
@@ -85,12 +87,15 @@ class JavaScriptEvaluator : ExpressionEvaluator {
                 map.mapValues { (_, v) -> convertToProxyValue(v) }.toMutableMap(),
             )
         }
+
         is List<*> -> {
             ProxyArray.fromList(
                 value.map { convertToProxyValue(it) }.toMutableList(),
             )
         }
+
         is Array<*> -> convertToProxyValue(value.toList())
+
         else -> value.toString()
     }
 
@@ -102,6 +107,7 @@ class JavaScriptEvaluator : ExpressionEvaluator {
 
         return when {
             value.isBoolean -> value.asBoolean()
+
             value.isNumber -> {
                 if (value.fitsInLong()) {
                     value.asLong()
@@ -109,17 +115,21 @@ class JavaScriptEvaluator : ExpressionEvaluator {
                     value.asDouble()
                 }
             }
+
             value.isString -> value.asString()
+
             value.hasArrayElements() -> {
                 (0 until value.arraySize).map { i ->
                     convertFromGraalValue(value.getArrayElement(i))
                 }
             }
+
             value.hasMembers() -> {
                 value.memberKeys.associateWith { key ->
                     convertFromGraalValue(value.getMember(key))
                 }
             }
+
             else -> value.toString()
         }
     }

@@ -46,9 +46,13 @@ enum class StencilParameterType {
                 null -> STRING
                 else -> null
             }
+
             "number" -> NUMBER
+
             "integer" -> INTEGER
+
             "boolean" -> BOOLEAN
+
             else -> null
         }
     }
@@ -81,6 +85,7 @@ fun parametersFromSchema(schema: JsonNode?): List<StencilParameter> {
                     default = prop.get("default"),
                 )
             }
+
             else -> {
                 val type = StencilParameterType.fromSchema(prop.get("type"), prop.get("format")) ?: return@mapNotNull null
                 StencilParameter(

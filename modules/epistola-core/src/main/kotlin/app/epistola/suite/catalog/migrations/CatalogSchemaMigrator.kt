@@ -51,10 +51,12 @@ class CatalogSchemaMigrator {
             version = message.versionInMessage() ?: CatalogWireSchema.CURRENT_VERSION + 1,
             current = CatalogWireSchema.CURRENT_VERSION,
         )
+
         CatalogMigrationCodes.SCHEMA_TOO_OLD -> CatalogSchemaTooOldException(
             version = message.versionInMessage() ?: CatalogWireSchema.BASELINE_VERSION - 1,
             baseline = CatalogWireSchema.BASELINE_VERSION,
         )
+
         else -> CatalogSchemaUnknownException(
             if (message.startsWith("resource detail is at schemaVersion")) {
                 "$message; every part of a catalog must carry the same wire version"

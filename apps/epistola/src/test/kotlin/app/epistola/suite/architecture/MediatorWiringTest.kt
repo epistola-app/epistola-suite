@@ -30,9 +30,11 @@ class MediatorWiringTest {
             when {
                 handlers.isEmpty() ->
                     "${message.name} has no CommandHandler/QueryHandler — dispatching it fails at runtime"
+
                 handlers.size > 1 ->
                     "${message.name} has ${handlers.size} handlers (${handlers.joinToString { it.simpleName }}) — " +
                         "SpringMediator picks one in undefined order"
+
                 else -> null
             }
         }

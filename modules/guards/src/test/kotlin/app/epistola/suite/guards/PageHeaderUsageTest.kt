@@ -182,8 +182,11 @@ class PageHeaderUsageTest {
             val ch = text[i]
             when {
                 inQuote -> if (ch == '\'') inQuote = false
+
                 ch == '\'' -> inQuote = true
+
                 ch == '(' -> depth++
+
                 ch == ')' -> {
                     depth--
                     if (depth == 0) return i
@@ -206,22 +209,27 @@ class PageHeaderUsageTest {
                     cur.append(ch)
                     if (ch == '\'') inQuote = false
                 }
+
                 ch == '\'' -> {
                     inQuote = true
                     cur.append(ch)
                 }
+
                 ch == '(' || ch == '{' || ch == '[' -> {
                     depth++
                     cur.append(ch)
                 }
+
                 ch == ')' || ch == '}' || ch == ']' -> {
                     depth--
                     cur.append(ch)
                 }
+
                 ch == ',' && depth == 0 -> {
                     args.add(cur.toString())
                     cur.setLength(0)
                 }
+
                 else -> cur.append(ch)
             }
         }

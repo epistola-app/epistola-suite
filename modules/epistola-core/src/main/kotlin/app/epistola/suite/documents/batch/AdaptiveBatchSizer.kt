@@ -104,6 +104,7 @@ class AdaptiveBatchSizer(
                 }
                 increased to reasonText
             }
+
             emaMs > properties.slowThresholdMs -> {
                 // Processing is slow, decrease batch size (back off to avoid overload)
                 val decreased = max(current - 1, properties.minBatchSize)
@@ -114,6 +115,7 @@ class AdaptiveBatchSizer(
                 }
                 decreased to reasonText
             }
+
             else -> {
                 // Processing is normal, maintain current batch size
                 current to "STABLE: Normal processing (${properties.fastThresholdMs}ms < EMA ${emaMs}ms < ${properties.slowThresholdMs}ms)"

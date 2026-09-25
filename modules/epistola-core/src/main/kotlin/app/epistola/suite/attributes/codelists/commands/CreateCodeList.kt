@@ -52,6 +52,7 @@ data class CreateCodeList(
                 validate("sourceUrl", sourceUrl == null) { "Inline code lists must not have a source URL" }
                 validate("entries", entries.isNotEmpty()) { "Inline code lists must have at least one entry" }
             }
+
             CodeListSource.URL, CodeListSource.CLASSPATH -> {
                 validate("sourceUrl", !sourceUrl.isNullOrBlank()) { "Source URL is required for ${sourceType.name} code lists" }
             }

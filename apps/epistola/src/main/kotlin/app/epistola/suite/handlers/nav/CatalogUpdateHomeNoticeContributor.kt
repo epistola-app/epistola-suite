@@ -40,8 +40,10 @@ class CatalogUpdateHomeNoticeContributor : HomeNoticeContributor {
             when {
                 check.installedAvailability == UpstreamAvailability.WITHDRAWN ->
                     CatalogUpdateNotice(name, check, withdrawn = true)
+
                 check.upgradeAvailable(catalog.installedReleaseVersion) ->
                     CatalogUpdateNotice(name, check, withdrawn = false)
+
                 else -> null
             }
         }.sortedByDescending { it.withdrawn }
