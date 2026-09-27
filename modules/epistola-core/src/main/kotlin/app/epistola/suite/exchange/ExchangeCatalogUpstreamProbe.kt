@@ -110,7 +110,9 @@ class ExchangeCatalogUpstreamProbe(
             // returning a release to everyone except the installation that publishes it.
             installedAvailability = when {
                 installedVersion == null -> null
+
                 installed == null -> UpstreamAvailability.WITHDRAWN
+
                 else -> runCatching { UpstreamAvailability.valueOf(installed.availability) }
                     .getOrDefault(UpstreamAvailability.AVAILABLE)
             },

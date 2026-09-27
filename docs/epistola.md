@@ -132,8 +132,8 @@ Batch generation is tracked as jobs with status progression: `PENDING` → `PROC
 
 | Component          | Technology                          |
 | ------------------ | ----------------------------------- |
-| Framework          | Spring Boot 4.0.0                   |
-| Language           | Kotlin 2.3.0 on JDK 25              |
+| Framework          | Spring Boot 4.1                     |
+| Language           | Kotlin 2.4 on JDK 25                |
 | Database           | PostgreSQL                          |
 | SQL mapping        | JDBI 3                              |
 | Migrations         | Flyway                              |

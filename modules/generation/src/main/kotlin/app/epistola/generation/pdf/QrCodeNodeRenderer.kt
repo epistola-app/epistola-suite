@@ -80,8 +80,11 @@ class QrCodeNodeRenderer : NodeRenderer {
                 logger.debug("QR code node {} resolved to null, skipping", node.id)
                 null
             }
+
             is String -> resolved.trim().takeIf { it.isNotEmpty() }
+
             is Number, is Boolean -> resolved.toString()
+
             else -> {
                 logger.warn(
                     "QR code node {} resolved to unsupported type {}, skipping",
@@ -95,6 +98,7 @@ class QrCodeNodeRenderer : NodeRenderer {
 
     private fun parseSizePt(value: Any?, context: RenderContext): Float? = when (value) {
         is Number -> value.toFloat().takeIf { it > 0f }
+
         is String -> {
             SpacingScale.parseSp(value, context.spacingUnit)?.let { return it.takeIf { size -> size > 0f } }
             when {
@@ -102,6 +106,7 @@ class QrCodeNodeRenderer : NodeRenderer {
                 else -> value.toFloatOrNull()?.takeIf { it > 0f }
             }
         }
+
         else -> null
     }
 

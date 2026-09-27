@@ -106,6 +106,7 @@ class ResolveFontFaceHandler(
             FontVariantSource.CLASSPATH -> best.classpathLocation?.let { location ->
                 this::class.java.classLoader.getResourceAsStream(location)?.readBytes()
             }
+
             FontVariantSource.ASSET -> best.assetKey?.let { assetKey ->
                 GetAssetContent(query.tenantId, assetKey).query()?.content
             }

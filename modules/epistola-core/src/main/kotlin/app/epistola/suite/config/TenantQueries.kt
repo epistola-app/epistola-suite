@@ -8,7 +8,7 @@ import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.kotlin.mapTo
 
-/**
+/*
  * Kotlin extension functions for tenant-scoped queries.
  *
  * These provide type-safe wrappers around common patterns:

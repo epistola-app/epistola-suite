@@ -40,16 +40,27 @@ class AuditEntityLinks {
 
         return when (type) {
             "template" -> AuditEntityLink("template ${s(2)}", templateHref(seg))
+
             "variant" -> AuditEntityLink("template ${s(2)} › variant ${s(3)}", templateHref(seg))
+
             "version" -> AuditEntityLink("template ${s(2)} › variant ${s(3)} › v${s(4)}", templateHref(seg))
+
             "contract-version" -> AuditEntityLink("template ${s(2)} › contract v${s(3)}", templateHref(seg))
+
             "theme" -> AuditEntityLink("theme ${s(2)}", catalogScoped("themes", seg))
+
             "stencil" -> AuditEntityLink("stencil ${s(2)}", catalogScoped("stencils", seg))
+
             "stencil-version" -> AuditEntityLink("stencil ${s(2)} › v${s(3)}", catalogScoped("stencils", seg))
+
             "attribute" -> AuditEntityLink("attribute ${s(2)}", catalogScoped("attributes", seg))
+
             "code-list" -> AuditEntityLink("code list ${s(2)}", catalogScoped("code-lists", seg))
+
             "font" -> AuditEntityLink("font ${s(2)}", catalogScoped("fonts", seg))
+
             "environment" -> AuditEntityLink("environment ${s(1)}", s(0)?.let { "/tenants/$it/environments/${s(1)}" })
+
             // Unmapped but typed: keep the full path for context, no link.
             else -> AuditEntityLink("$type $id", href = null)
         }

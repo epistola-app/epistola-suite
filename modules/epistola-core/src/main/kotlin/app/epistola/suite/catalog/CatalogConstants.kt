@@ -6,7 +6,7 @@ package app.epistola.suite.catalog
 
 import app.epistola.catalog.migration.CatalogWireSchema
 
-/**
+/*
  * The catalog exchange wire format carries a single, **catalog-wide** schema
  * version. It is stamped on the manifest (`catalog.json`) and — so each file is
  * self-describing — on every resource detail, but there is **one** version for

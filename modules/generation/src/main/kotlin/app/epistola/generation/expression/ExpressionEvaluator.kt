@@ -88,13 +88,17 @@ interface ExpressionEvaluator {
          */
         fun valueToString(value: Any?): String = when (value) {
             null -> ""
+
             is String -> value
+
             is Number -> if (value.toDouble() == value.toLong().toDouble()) {
                 value.toLong().toString()
             } else {
                 value.toString()
             }
+
             is Boolean -> value.toString()
+
             else -> value.toString()
         }
 

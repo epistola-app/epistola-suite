@@ -79,7 +79,9 @@ class DependencyResolver(
                         deps += DependencyScanner.scan(resource.templateModel, variantAttrs)
                         resource.variants.mapNotNull { it.templateModel }.forEach { deps += DependencyScanner.scan(it) }
                     }
+
                     is StencilResource -> deps += DependencyScanner.scan(resource.content)
+
                     is AttributeResource -> {
                         // Same-catalog bindings are auto-included via the
                         // resolver; cross-catalog ones (`catalogKey != null`)
@@ -90,6 +92,7 @@ class DependencyResolver(
                             deps += DependencyScanner.Dependencies(codeListRefs = setOf(binding.slug))
                         }
                     }
+
                     is ThemeResource -> {
                         // A theme's documentStyles / blockStylePresets can carry
                         // a `fontFamily` ref. Same-catalog refs (no explicit
@@ -104,11 +107,13 @@ class DependencyResolver(
                             deps += DependencyScanner.Dependencies(fontRefs = sameCatalogFonts)
                         }
                     }
+
                     is FontResource -> {
                         // A `FontResource` carries no binding to scan: its
                         // faces are same-catalog assets, which are declared
                         // and pulled in as ordinary asset dependencies.
                     }
+
                     else -> {}
                 }
             }

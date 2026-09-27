@@ -153,6 +153,7 @@ class FontHandler(
                 errors["slug"] = "Slug is required"
                 null
             }
+
             else -> try {
                 FontKey.of(slugStr)
             } catch (e: IllegalArgumentException) {
@@ -168,6 +169,7 @@ class FontHandler(
                 errors["kind"] = "Kind is required"
                 null
             }
+
             else -> try {
                 FontKind.fromWire(kindStr)
             } catch (e: IllegalArgumentException) {

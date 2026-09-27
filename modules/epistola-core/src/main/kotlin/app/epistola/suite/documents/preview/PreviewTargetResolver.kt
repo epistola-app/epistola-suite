@@ -86,8 +86,10 @@ class PreviewTargetResolver(
         val version = when {
             versionKey != null -> mediator.query(GetVersion(VersionId(versionKey, variantId)))
                 ?: throw VersionNotFoundException(tenantKey, templateKey, resolvedVariantKey, versionKey)
+
             environmentKey != null -> mediator.query(GetActiveVersion(variantId, EnvironmentId(environmentKey, tenantId)))
                 ?: throw NoActiveVersionException(tenantKey, resolvedVariantKey, environmentKey)
+
             else -> mediator.query(GetLatestPublishedVersion(variantId))
                 ?: throw NoPublishedVersionException(tenantKey, templateKey, resolvedVariantKey)
         }

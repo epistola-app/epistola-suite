@@ -137,7 +137,9 @@ class TemplateDataAnalyzer(
                         missing[childPointer] = MissingDataField(childPointer, isRequired, schemas.inline(propertySchema))
                     }
                 }
+
                 is ObjectNode -> collectMissing(schemas, propertySchema, value, childPointer, childPath, referenced, missing)
+
                 is ArrayNode -> schemas.itemsOf(propertySchema)?.let { items ->
                     value.forEachIndexed { index, element ->
                         if (element is ObjectNode) {
@@ -145,6 +147,7 @@ class TemplateDataAnalyzer(
                         }
                     }
                 }
+
                 else -> Unit
             }
         }
@@ -251,9 +254,11 @@ internal class ContractSchemas(private val root: ObjectNode) {
                 }
             }
         }
+
         is ArrayNode -> node.deepCopy().also { copy ->
             node.forEachIndexed { index, value -> copy.set(index, inline(value, resolving)) }
         }
+
         else -> node
     }
 

@@ -326,7 +326,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     @ExceptionHandler(DataModelValidationException::class)
     fun handleDataModelValidationException(ex: DataModelValidationException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         log.warn("Data model validation failed: {} examples with errors", ex.validationErrors.size)
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
             .contentType(MediaType.APPLICATION_PROBLEM_JSON)
             .body(ex.toProblemDetail(request))
     }

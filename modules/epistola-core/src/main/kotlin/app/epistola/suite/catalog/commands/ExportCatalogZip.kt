@@ -75,6 +75,7 @@ class ExportCatalogZipHandler(
                 logger.warn("Exporting never-released catalog '{}' as 0.0.0-dev", command.catalogKey.value)
                 "0.0.0-dev"
             }
+
             release.latestFingerprint != null && !fingerprintService.matchesFingerprint(content, release.latestFingerprint) -> {
                 logger.warn(
                     "Exporting catalog '{}' with unreleased changes — labelling {}-dev",
@@ -83,6 +84,7 @@ class ExportCatalogZipHandler(
                 )
                 "${release.latestVersion}-dev"
             }
+
             else -> release.latestVersion
         }
         val releasedAt = if (version.endsWith("-dev")) null else EpistolaClock.offsetDateTime().toString()

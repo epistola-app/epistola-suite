@@ -131,8 +131,11 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
         val catalogId = catalogId(tenant, catalog)
         when (movable) {
             MovableResource.STENCIL -> CreateStencil(StencilId(StencilKey.of(key), catalogId), "Stencil $key").execute()
+
             MovableResource.ATTRIBUTE -> CreateAttributeDefinition(AttributeId(AttributeKey.of(key), catalogId), "Attribute $key").execute()
+
             MovableResource.TEMPLATE -> CreateDocumentTemplate(TemplateId(TemplateKey.of(key), catalogId), "Template $key").execute()
+
             MovableResource.CODE_LIST -> CreateCodeList(
                 CodeListId(CodeListKey.of(key), catalogId),
                 displayName = "Code list $key",
@@ -140,8 +143,11 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
                 // An inline code list must have at least one entry.
                 entries = listOf(CodeListEntry("nl", "Nederlands"), CodeListEntry("en", "English")),
             ).execute()
+
             MovableResource.ASSET -> uploadPng(tenant, catalog, key)
+
             MovableResource.FONT -> importFont(tenant, catalog, key)
+
             MovableResource.THEME -> CreateTheme(ThemeId(ThemeKey.of(key), catalogId), "Theme $key").execute()
         }
         ResourceAddress(movable.type, catalog.value, key)

@@ -43,7 +43,7 @@ data class ApiProblemType(
  */
 object ApiProblemTypes {
     val BATCH_VALIDATION_ERROR = problem("BATCH_VALIDATION_ERROR", "Batch Validation Error", HttpStatus.BAD_REQUEST, "The batch request contains duplicate or inconsistent item-level values.", listOf("errors"))
-    val DATA_MODEL_VALIDATION_ERROR = problem("DATA_MODEL_VALIDATION_ERROR", "Data Model Validation Error", HttpStatus.UNPROCESSABLE_ENTITY, "One or more data examples failed validation against the template data schema.", listOf("validationErrors"))
+    val DATA_MODEL_VALIDATION_ERROR = problem("DATA_MODEL_VALIDATION_ERROR", "Data Model Validation Error", HttpStatus.UNPROCESSABLE_CONTENT, "One or more data examples failed validation against the template data schema.", listOf("validationErrors"))
     val TEMPLATE_DATA_INVALID = problem("TEMPLATE_DATA_INVALID", "Template Data Invalid", HttpStatus.BAD_REQUEST, "The preview data does not satisfy the template's data contract. `errors` lists each field; `missingFields` and `invalidFields` describe what to supply or correct.", listOf("errors", "missingFields", "invalidFields"))
     val BAD_REQUEST = problem("BAD_REQUEST", "Bad Request", HttpStatus.BAD_REQUEST, "The request is invalid and cannot be processed.", emptyList())
     val UNAUTHORIZED = problem("UNAUTHORIZED", "Unauthorized", HttpStatus.UNAUTHORIZED, "Authentication is missing, invalid, or expired.", emptyList())
@@ -55,7 +55,7 @@ object ApiProblemTypes {
     val INTERNAL_ERROR = problem("INTERNAL_ERROR", "Internal Error", HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected server error occurred.", emptyList())
     val METHOD_NOT_ALLOWED = problem("METHOD_NOT_ALLOWED", "Method Not Allowed", HttpStatus.METHOD_NOT_ALLOWED, "The HTTP method is not allowed for the requested resource.", listOf("method", "supportedMethods"))
     val UNSUPPORTED_MEDIA_TYPE = problem("UNSUPPORTED_MEDIA_TYPE", "Unsupported Media Type", HttpStatus.UNSUPPORTED_MEDIA_TYPE, "The request body media type is not supported.", listOf("contentType", "supportedTypes"))
-    val PAYLOAD_TOO_LARGE = problem("PAYLOAD_TOO_LARGE", "Payload Too Large", HttpStatus.PAYLOAD_TOO_LARGE, "The uploaded content exceeds the maximum allowed size.", listOf("maxBytes"))
+    val PAYLOAD_TOO_LARGE = problem("PAYLOAD_TOO_LARGE", "Payload Too Large", HttpStatus.CONTENT_TOO_LARGE, "The uploaded content exceeds the maximum allowed size.", listOf("maxBytes"))
     val NOT_ACCEPTABLE = problem("NOT_ACCEPTABLE", "Not Acceptable", HttpStatus.NOT_ACCEPTABLE, "The requested response representation is not available.", listOf("acceptHeader", "supportedTypes"))
     val NOT_FOUND = problem("NOT_FOUND", "Not Found", HttpStatus.NOT_FOUND, "The requested endpoint or resource does not exist.", listOf("path"))
     val MISSING_PARAMETER = problem("MISSING_PARAMETER", "Missing Parameter", HttpStatus.BAD_REQUEST, "A required query or form parameter is missing.", listOf("parameterName", "parameterType"))
@@ -78,7 +78,7 @@ object ApiProblemTypes {
     val NO_PUBLISHED_VERSION = problem("NO_PUBLISHED_VERSION", "No Published Version", HttpStatus.NOT_FOUND, "No published version is available for the requested template and variant.", listOf("tenantId", "templateId", "variantId"))
     val DEFAULT_VARIANT_NOT_FOUND = problem("DEFAULT_VARIANT_NOT_FOUND", "Default Variant Not Found", HttpStatus.NOT_FOUND, "The requested template has no default variant.", listOf("tenantId", "templateId"))
     val ASSET_NOT_FOUND = problem("ASSET_NOT_FOUND", "Asset Not Found", HttpStatus.NOT_FOUND, "The requested asset does not exist or is not visible to the caller.", emptyList())
-    val ASSET_TOO_LARGE = problem("ASSET_TOO_LARGE", "Asset Too Large", HttpStatus.PAYLOAD_TOO_LARGE, "The uploaded asset exceeds the maximum allowed size.", emptyList())
+    val ASSET_TOO_LARGE = problem("ASSET_TOO_LARGE", "Asset Too Large", HttpStatus.CONTENT_TOO_LARGE, "The uploaded asset exceeds the maximum allowed size.", emptyList())
     val UNSUPPORTED_ASSET_TYPE = problem("UNSUPPORTED_ASSET_TYPE", "Unsupported Asset Type", HttpStatus.BAD_REQUEST, "The asset media type is not supported.", emptyList())
     val ASSET_IN_USE = problem("ASSET_IN_USE", "Asset In Use", HttpStatus.CONFLICT, "The asset cannot be deleted because template versions still reference it.", listOf("assetId", "usages"))
     val ENVIRONMENT_IN_USE = problem("ENVIRONMENT_IN_USE", "Environment In Use", HttpStatus.CONFLICT, "The environment cannot be deleted because active version activations still reference it.", listOf("environmentId", "activationCount"))

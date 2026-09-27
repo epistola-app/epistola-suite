@@ -79,21 +79,27 @@ class RelocationTypeMatrixTest : RelocationTestSupport() {
             when (movable) {
                 MovableResource.STENCIL ->
                     assertThat(ListStencilVersions(StencilId(StencilKey.of(target.key), catalog)).query()).isNotEmpty()
+
                 MovableResource.ATTRIBUTE ->
                     assertThat(GetAttributeDefinition(AttributeId(AttributeKey.of(target.key), catalog)).query()).isNotNull()
+
                 MovableResource.TEMPLATE -> {
                     val templateId = TemplateId(TemplateKey.of(target.key), catalog)
                     assertThat(GetDocumentTemplate(templateId).query()).isNotNull()
                     assertThat(GetDraft(VariantId(VariantKey.INITIAL, templateId)).query()).isNotNull()
                 }
+
                 MovableResource.CODE_LIST ->
                     assertThat(ListCodeListEntries(CodeListId(CodeListKey.of(target.key), catalog)).query().map { it.code })
                         .containsExactlyInAnyOrder("nl", "en")
+
                 MovableResource.ASSET ->
                     assertThat(GetAssetContent(tenant, AssetKey.of(target.key), CatalogKey.of(target.catalogKey)).query()).isNotNull()
+
                 MovableResource.FONT ->
                     assertThat(ResolveFontFace(tenant, CatalogKey.of(target.catalogKey), FontKey.of(target.key), 400, italic = false).query())
                         .isEqualTo(ttfBytes())
+
                 MovableResource.THEME ->
                     assertThat(GetTheme(ThemeId(ThemeKey.of(target.key), catalog)).query()).isNotNull()
             }

@@ -67,9 +67,12 @@ object ParameterScope {
                 val defaultValue = propSchema?.get("default")
                 when {
                     defaultValue != null -> defaultValue
+
                     name !in required -> null
+
                     outer.renderMode == RenderMode.STRICT ->
                         error("Required parameter '$name' has no binding and no default")
+
                     // PREVIEW: visible placeholder so the preview pane mirrors the
                     // editor canvas (which renders `<paramName>` from the editor's
                     // own scope provider). Without this, PREVIEW would silently
