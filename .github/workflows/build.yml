@@ -580,8 +580,11 @@ jobs:
     # App image builds only for app releases (v* tags); chart releases
     # (epistola-*/epistola-grafana-*) must not trigger an app build.
     if: startsWith(github.ref, 'refs/tags/v') || contains(github.event.pull_request.labels.*.name, 'publish')
+    # One group per variant: publishes of the same image stay serialised across runs, while the
+    # variants of one run never share a group. GitHub keeps only one pending job per group, so a
+    # shared group let a third matrix job cancel the pending second one (v1.3.0 lost its Demo image).
     concurrency:
-      group: docker-publish
+      group: docker-publish-${{ matrix.variant }}
       cancel-in-progress: false
     permissions:
       contents: write
