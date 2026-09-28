@@ -273,6 +273,22 @@ class ImportTemplatesHandler(
         // 2b. Upsert contract version (data model + examples) into contract_versions
         // Every template must have a contract version — always create one on import.
         run {
+            // Delete existing drafts — import supersedes local edits. Draft
+            // versions first: they FK-reference the draft contract
+            // (fk_template_versions_contract_version), so deleting the
+            // contract first aborts the import on any template that was
+            // never published (e.g. an API-created shell with only drafts).
+            handle.createUpdate(
+                """
+                    DELETE FROM template_versions
+                    WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND status = 'draft'
+                    """,
+            )
+                .bind("tenantId", tenantId.key)
+                .bind("catalogKey", catalogKey)
+                .bind("templateId", templateId)
+                .execute()
+
             // Delete existing draft contract — import supersedes local edits
             handle.createUpdate(
                 """

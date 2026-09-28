@@ -14,6 +14,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.templates.templateJoin
@@ -527,6 +528,64 @@ class ImportTemplatesTest : IntegrationTestBase() {
                 .one()
         }
         assertThat(referencedPaths).isEqualTo("""["invoice.number"]""")
+    }
+
+    @Test
+    fun `import over a newly created empty template replaces drafts instead of failing`() {
+        val tenant = createTenant("Shell Import Test")
+        val tenantId = TenantId(tenant.id)
+        val slug = TestIdHelpers.nextTemplateId().value
+        val templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId))
+
+        withMediator {
+            // Newly created empty template: template row + default variant +
+            // draft contract + draft version, nothing published. Exactly
+            // what the REST createTemplate endpoint leaves behind.
+            CreateDocumentTemplate(id = templateId, name = "Shell Template").execute()
+
+            // Full template import over the shell (the catalog-ZIP MERGE path).
+            val results = ImportTemplates(
+                tenantId = tenantId,
+                templates = listOf(
+                    ImportTemplateInput(
+                        slug = slug,
+                        name = "Imported Template",
+                        version = "1.0.0",
+                        dataModel = null,
+                        dataExamples = emptyList(),
+                        templateModel = templateModel,
+                        variants = listOf(
+                            ImportVariantInput(id = "initial", title = "Default", attributes = emptyMap(), templateModel = null, isDefault = true),
+                        ),
+                        publishTo = emptyList(),
+                    ),
+                ),
+            ).execute()
+
+            assertThat(results.single().status).isEqualTo(ImportStatus.UPDATED)
+        }
+
+        // The import ran to completion: a published version exists.
+        val publishedCount = jdbi.withHandle<Int, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT COUNT(*)
+                FROM template_versions versions
+                JOIN document_templates template
+                  ON template.resource_id = versions.template_resource_id
+                 AND template.tenant_key = versions.tenant_key
+                WHERE template.tenant_key = :tenantKey
+                  AND template.catalog_key = 'default'
+                  AND template.id = :templateKey
+                  AND versions.status = 'published'
+                """,
+            )
+                .bind("tenantKey", tenant.id)
+                .bind("templateKey", slug)
+                .mapTo(Int::class.java)
+                .one()
+        }
+        assertThat(publishedCount).isGreaterThan(0)
     }
 
     private fun templateModelWithPath(path: String): TemplateDocument = TemplateDocument(
