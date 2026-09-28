@@ -2,6 +2,24 @@
 
 > **Note:** Helm chart changes are tracked separately in [`charts/epistola/CHANGELOG.md`](charts/epistola/CHANGELOG.md).
 
+## [1.3.0] - 2026-09-28
+
+This release makes a preview that fails its data contract say exactly which fields are missing or wrong, and signs single-sign-on users in without a click inside an embedded Epistola too. It also fixes importing a catalog over a never-published template, and validates environment-based generation and preview against the data contract again — **integrations that sent incomplete data for an environment will now be rejected**.
+
+- feat(api,mcp): **Preview says which data fields are missing or wrong.** A REST preview whose data breaks the template's data contract used to fail with one flattened message. It now answers with a `template-data-invalid` problem (still status 400): `errors[]` lists each field as a JSON Pointer into the request body, and `missingFields` and `invalidFields` give each field's pointer into `data` and its JSON Schema, so a downstream app can ask for exactly those. Required fields are always reported; optional ones only when the template reads them. The new MCP tool `analyze_template_data` returns the same analysis without rendering, and needs only the template view permission.
+
+- **[user]** feat(auth,embedding): **An embedded Epistola signs single-sign-on users in without a click too.** The login page skipped its silent single-sign-on attempt inside an iframe, because identity providers usually refuse to be framed. With `epistola.embedding.enabled` on, sign-in already has to work inside the frame, so the provider allows the embedding host anyway. The silent attempt now runs there as well, and a user with a live provider session is signed in straight away. Deployments without embedding keep skipping it inside a frame. A failed attempt shows the normal login page, as before.
+
+- **[user]** fix(catalog): **Importing a catalog over a newly created template no longer fails.** Importing a catalog ZIP over a template that had been created but never published failed with a generic 500: the import deleted the template's draft contract while its draft version still referenced it, and the database refused. Draft versions are now deleted first, so the import completes and the template is updated as expected.
+
+- **[user]** fix(documents,api): **Generating or previewing a document for an environment validates its data against the template's data contract again.** A request that resolved its template version through `environmentId` skipped data-contract validation, so data missing a required field rendered a document with that field left empty, while the same request without an environment was rejected. Environment-based requests are now validated like any other: generation fails the job and preview returns `400` with `Data validation failed`. Integrations that were sending incomplete data for an environment will now see those requests rejected, and should send the fields their contract requires. Contract defaults and preview's fall-back to the contract's first data example now apply on this path as well.
+
+- **[user]** fix(editor): **The breaking-change banner no longer fires while authoring a template's first data contract.** Adding a required field with no default while authoring a template's first data contract was flagged as a breaking change, even though no contract had ever been published for that template to break. The banner now only appears once a contract has actually been published.
+
+- **[dev]** perf(catalog): **The latest catalog release is found by the database, not by reading every release.** Finding a catalog's latest release used to load every release and compare versions in application code. `catalog_releases` now carries the version's parts as generated columns, so it is one indexed lookup whose cost no longer grows with each release. A label that is not `MAJOR.MINOR.PATCH` sorts last and falls back to its release time.
+
+- **[dev]** build(deps): **Dependencies and toolchain raised to their latest minor and patch releases.** Among them Vite 8.3, Vitest 5.0.1, the Scalar API reference 1.69 (which renders `/api-docs` schemas as a collapsible tree), the AWS SDK 2.55.0, Kotlin 2.4.20, Gradle 9.7.1, Node 24.21.0 and pnpm 12.5.1. ktlint is pinned to engine 1.8.0 so it runs on Kotlin 2.4.
+
 ## [1.2.0] - 2026-09-22
 
 This release makes catalogs install and upgrade as whole releases, gives images their own REST API and readable names, adds default values and `maxItems` to data contracts, signs single-sign-on users in without a click, and brings alpha Epistola Exchange publishing and installing. **Upgrading needs a maintenance window and invalidates existing tenant backups** — follow the [Upgrades](docs/upgrades.md) guide — and the REST asset endpoints are removed in favour of `/images`.
