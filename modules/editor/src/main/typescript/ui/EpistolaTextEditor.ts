@@ -83,6 +83,18 @@ export class EpistolaTextEditor extends LitElement {
   // ---------------------------------------------------------------------------
 
   override firstUpdated(): void {
+    this._mount();
+  }
+
+  override connectedCallback(): void {
+    super.connectedCallback();
+    // Moving a block (a keyed `repeat` moving its element) disconnects and reconnects this same
+    // element: disconnectedCallback destroyed the ProseMirror view, and firstUpdated will not run
+    // again, so mount it here.
+    if (this.hasUpdated && !this._pmView) this._mount();
+  }
+
+  private _mount(): void {
     this._pmContainer = this.querySelector('.prosemirror-container');
     if (!this._pmContainer) return;
     this._createProseMirror();
