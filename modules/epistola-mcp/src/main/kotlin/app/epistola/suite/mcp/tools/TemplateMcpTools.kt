@@ -207,8 +207,10 @@ class TemplateMcpTools(
     @McpTool(
         name = "create_variant",
         description = "Add a variant to a template, e.g. a second language. The variant starts with an empty " +
-            "draft; fill it with `update_template_draft`. Attribute keys must be defined for the catalog " +
-            "(see `list_attributes`) and each attribute combination must be unique within the template. " +
+            "draft; fill it with `update_template_draft`. Attribute keys must be defined (see " +
+            "`list_attributes`); use the catalog-qualified form, e.g. `system.locale`, and values must satisfy " +
+            "the definition. Give each variant a distinct attribute set: identical sets are accepted here but " +
+            "make attribute-based variant selection fail as ambiguous at generation time. " +
             "Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
