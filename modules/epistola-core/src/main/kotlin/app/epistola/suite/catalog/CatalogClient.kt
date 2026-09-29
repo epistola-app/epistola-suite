@@ -141,11 +141,13 @@ class CatalogClient(
             if (!path.toFile().exists()) throw CatalogFetchException("File not found: $path")
             path.toFile().readBytes()
         }
+
         url.startsWith("classpath:") -> {
             val resource = resourceLoader.getResource(url)
             if (!resource.exists()) throw CatalogFetchException("Classpath resource not found: $url")
             resource.contentAsByteArray
         }
+
         else -> null
     }
 

@@ -85,6 +85,7 @@ class GetFontVariantContentHandler(
             FontVariantSource.CLASSPATH -> pointer.classpathLocation?.let { location ->
                 this::class.java.classLoader.getResourceAsStream(location)?.readBytes()
             }
+
             FontVariantSource.ASSET -> pointer.assetKey?.let { assetKey ->
                 GetAssetContent(query.tenantId, assetKey).query()?.content
             }

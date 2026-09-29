@@ -1169,18 +1169,21 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
                                 HttpEntity("""{"templateModel": ${validTemplateModel("body-$index", "text-$index")}}""", baseHeaders(key)),
                                 String::class.java,
                             )
+
                             1 -> restTemplate.exchange(
                                 "$draftUrl/publish",
                                 HttpMethod.POST,
                                 HttpEntity<String>(null, baseHeaders(key)),
                                 String::class.java,
                             )
+
                             2 -> restTemplate.exchange(
                                 "$draftUrl/discard",
                                 HttpMethod.POST,
                                 HttpEntity<String>(null, baseHeaders(key)),
                                 String::class.java,
                             )
+
                             else -> restTemplate.exchange(
                                 draftUrl,
                                 HttpMethod.POST,

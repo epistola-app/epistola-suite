@@ -4,7 +4,7 @@
 
 package app.epistola.suite.mediator
 
-/**
+/*
  * Extension functions for Command and Query that enable clean, idiomatic dispatch syntax.
  *
  * Instead of injecting Mediator and calling mediator.send(command), use:

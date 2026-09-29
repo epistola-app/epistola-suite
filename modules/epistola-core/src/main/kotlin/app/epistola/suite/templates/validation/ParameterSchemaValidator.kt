@@ -59,12 +59,16 @@ class ParameterSchemaValidator {
     private fun TemplateValidationFinding.legacyMessage(relative: String): String = when {
         code == TemplateValidationCodes.PARAMETER_SCHEMA_INVALID_TYPE && relative == "required" ->
             "'required' must be an array"
+
         code == TemplateValidationCodes.PARAMETER_SCHEMA_INVALID_TYPE && relative == "properties" ->
             "'properties' must be an object"
+
         code == TemplateValidationCodes.PARAMETER_TYPE_UNSUPPORTED && message.contains("must contain primitives") ->
             "parameter '${relative.substringBefore(".items")}' is missing 'items'"
+
         code == TemplateValidationCodes.PARAMETER_TYPE_UNSUPPORTED && message.contains("'<missing>'") ->
             "parameter '${relative.substringBefore(".type")}' is missing 'type'"
+
         else -> message
     }
 

@@ -170,6 +170,7 @@ class ImportStencilHandler(
                         wasRenumbered = false,
                     )
                 }
+
                 existingMatchOrNull -> {
                     // Idempotent re-import — same (slug, version) with identical
                     // content. Stencil row metadata was already upserted above.
@@ -179,12 +180,14 @@ class ImportStencilHandler(
                         wasRenumbered = false,
                     )
                 }
+
                 else -> when (command.onConflict) {
                     OnStencilConflict.FAIL -> throw StencilVersionConflictException(
                         catalogKey = command.catalogKey,
                         stencilKey = stencilKey,
                         version = command.version,
                     )
+
                     OnStencilConflict.RENUMBER -> {
                         val newVersion = handle.createQuery(
                             "SELECT COALESCE(MAX(id), 0) + 1 FROM stencil_versions WHERE tenant_key = :tenantKey AND stencil_resource_id = ${stencilAtAddress("tenantKey", "catalogKey", "stencilKey")}",

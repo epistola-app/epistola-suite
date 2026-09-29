@@ -195,6 +195,7 @@ class JsonSchemaValidator(
 
         when (val items = schema.get("items")) {
             is ObjectNode -> check(items, "$path.items", pointer.append("items"))?.let { return it }
+
             is ArrayNode -> {
                 for ((index, entry) in items.withIndex()) {
                     if (entry is ObjectNode) {
@@ -202,6 +203,7 @@ class JsonSchemaValidator(
                     }
                 }
             }
+
             else -> Unit
         }
 
@@ -422,7 +424,9 @@ class JsonSchemaValidator(
                 }
                 node.properties().forEach { (_, child) -> relaxDateTimeInPlace(child) }
             }
+
             is ArrayNode -> node.forEach(::relaxDateTimeInPlace)
+
             else -> Unit
         }
     }
@@ -512,6 +516,7 @@ class JsonSchemaValidator(
                     autoMigratable = autoMigratable,
                 )
             }
+
             ValidationIssueType.MISSING_REQUIRED -> {
                 MigrationSuggestion(
                     exampleId = example.id,
@@ -524,6 +529,7 @@ class JsonSchemaValidator(
                     autoMigratable = false,
                 )
             }
+
             ValidationIssueType.UNKNOWN_FIELD -> {
                 null // Unknown fields don't need migration suggestions
             }
@@ -537,9 +543,12 @@ class JsonSchemaValidator(
         val message = error.message.lowercase()
         return when {
             message.contains("type") -> ValidationIssueType.TYPE_MISMATCH
+
             message.contains("required") -> ValidationIssueType.MISSING_REQUIRED
+
             message.contains("additional") || message.contains("unrecognized") ->
                 ValidationIssueType.UNKNOWN_FIELD
+
             else -> ValidationIssueType.TYPE_MISMATCH // Default to type mismatch
         }
     }
@@ -564,10 +573,12 @@ class JsonSchemaValidator(
         for (segment in segments) {
             current = when {
                 current.isObject -> current.get(segment) ?: return null
+
                 current.isArray -> {
                     val index = segment.toIntOrNull() ?: return null
                     current.get(index) ?: return null
                 }
+
                 else -> return null
             }
         }
@@ -625,15 +636,18 @@ class JsonSchemaValidator(
 
     private fun tryConvertToString(value: JsonNode): Pair<JsonNode?, Boolean> = when {
         value.isString -> Pair(value, true)
+
         value.isNumber || value.isBoolean -> {
             val stringValue = objectMapper.valueToTree<JsonNode>(value.asString())
             Pair(stringValue, true)
         }
+
         else -> Pair(null, false) // Objects/arrays cannot be auto-converted to string
     }
 
     private fun tryConvertToNumber(value: JsonNode, expectedType: String): Pair<JsonNode?, Boolean> = when {
         value.isNumber -> Pair(value, true)
+
         value.isString -> {
             val text = value.asString()
             val number = if (expectedType == "integer") {
@@ -643,11 +657,13 @@ class JsonSchemaValidator(
             }
             if (number != null) Pair(number, true) else Pair(null, false)
         }
+
         else -> Pair(null, false)
     }
 
     private fun tryConvertToBoolean(value: JsonNode): Pair<JsonNode?, Boolean> = when {
         value.isBoolean -> Pair(value, true)
+
         value.isString -> {
             val text = value.asString().lowercase()
             when (text) {
@@ -656,10 +672,12 @@ class JsonSchemaValidator(
                 else -> Pair(null, false)
             }
         }
+
         value.isNumber -> {
             val boolValue = value.asInt() != 0
             Pair(objectMapper.valueToTree(boolValue), true)
         }
+
         else -> Pair(null, false)
     }
 

@@ -92,20 +92,24 @@ fun TenantRole.permissions(): Set<Permission> = when (this) {
         Permission.CATALOG_VIEW,
         Permission.BACKUP_VIEW,
     )
+
     TenantRole.CONTENT_AUTHOR -> setOf(
         Permission.TEMPLATE_EDIT,
         Permission.THEME_EDIT,
         Permission.STENCIL_EDIT,
         Permission.REFERENCE_EDIT,
     )
+
     TenantRole.DOCUMENT_GENERATOR -> setOf(
         Permission.DOCUMENT_GENERATE,
     )
+
     TenantRole.CONTENT_PUBLISHER -> setOf(
         Permission.TEMPLATE_PUBLISH,
         Permission.STENCIL_PUBLISH,
         Permission.CATALOG_PUBLISH,
     )
+
     TenantRole.TENANT_ADMINISTRATOR -> setOf(
         Permission.TENANT_SETTINGS,
         Permission.TENANT_USERS,

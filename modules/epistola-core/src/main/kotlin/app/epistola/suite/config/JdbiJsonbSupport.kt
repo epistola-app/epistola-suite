@@ -8,7 +8,7 @@ import org.jdbi.v3.core.statement.Query
 import org.jdbi.v3.core.statement.Update
 import tools.jackson.databind.ObjectMapper
 
-/**
+/*
  * Extension functions for JSONB binding and serialization.
  *
  * These helpers eliminate the need to manually call `objectMapper.writeValueAsString()`

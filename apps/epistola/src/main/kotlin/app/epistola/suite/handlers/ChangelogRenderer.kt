@@ -201,6 +201,9 @@ class ChangelogRenderer {
         return result
     }
 
+    /** The optional release-summary prose: everything from the version heading up to the first bullet or `### ` heading. */
+    private fun introOf(section: String): String = section.lineSequence().takeWhile { !it.startsWith("- ") && !it.startsWith("### ") }.joinToString("\n").trim()
+
     /**
      * Splits a version section into individual top-level bullet items, each carrying its conventional-commit
      * type, scope, and audience. A new item starts at a column-0 `- ` bullet and runs until the next such
@@ -208,9 +211,6 @@ class ChangelogRenderer {
      * line inside a code sample does not split an item. Legacy `### ` headings set the fallback type for
      * bullets that carry no `type(scope):` prefix.
      */
-    /** The optional release-summary prose: everything from the version heading up to the first bullet or `### ` heading. */
-    private fun introOf(section: String): String = section.lineSequence().takeWhile { !it.startsWith("- ") && !it.startsWith("### ") }.joinToString("\n").trim()
-
     private fun parseItems(section: String): List<ParsedItem> {
         val items = mutableListOf<ParsedItem>()
         var legacyType = "chore"

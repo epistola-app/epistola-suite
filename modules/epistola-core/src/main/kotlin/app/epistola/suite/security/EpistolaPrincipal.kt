@@ -9,6 +9,15 @@ import app.epistola.suite.common.ids.UserKey
 import java.io.Serializable
 
 /**
+ * Marker interface for authentication wrappers that carry an [EpistolaPrincipal].
+ * Implemented by LocalUserDetails and OAuth2UserWrapper so that [SecurityFilter]
+ * can extract the principal without reflection.
+ */
+interface EpistolaPrincipalHolder {
+    val epistolaPrincipal: EpistolaPrincipal
+}
+
+/**
  * Represents an authenticated user in the Epistola Suite.
  *
  * This is the domain representation of an authenticated user, independent of
@@ -18,15 +27,6 @@ import java.io.Serializable
  * The UI layer (apps/epistola) is responsible for creating instances of this
  * class from Spring Security authentication tokens (OAuth2User, UserDetails, etc.).
  */
-/**
- * Marker interface for authentication wrappers that carry an [EpistolaPrincipal].
- * Implemented by LocalUserDetails and OAuth2UserWrapper so that [SecurityFilter]
- * can extract the principal without reflection.
- */
-interface EpistolaPrincipalHolder {
-    val epistolaPrincipal: EpistolaPrincipal
-}
-
 data class EpistolaPrincipal(
     val userId: UserKey,
     val externalId: String,

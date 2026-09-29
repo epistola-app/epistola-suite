@@ -24,11 +24,13 @@ internal fun CodeList.toDto() = CodeListDto(
     displayName = displayName,
     sourceType = when (sourceType) {
         CodeListSource.URL -> CodeListDto.SourceType.URL
+
         // INLINE + CLASSPATH (bundled catalogs) both surface as INLINE here.
         // CLASSPATH is suite-internal and never appears for tenant-authored
         // code lists; it shows up only after a catalog import, where the
         // tenant sees the materialized inline entries.
         CodeListSource.INLINE -> CodeListDto.SourceType.INLINE
+
         CodeListSource.CLASSPATH -> CodeListDto.SourceType.INLINE
     },
     authType = when (authType) {

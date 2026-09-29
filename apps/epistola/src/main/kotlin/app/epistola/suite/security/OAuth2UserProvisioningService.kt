@@ -122,6 +122,7 @@ class OAuth2UserProvisioningService(
         val raw = oauth2User.getAttribute<Any>(attributeName) ?: return emptyList()
         return when (raw) {
             is List<*> -> raw.filterIsInstance<String>()
+
             else -> {
                 logger.warn("Unexpected '{}' attribute type: {}", attributeName, raw::class.simpleName)
                 emptyList()

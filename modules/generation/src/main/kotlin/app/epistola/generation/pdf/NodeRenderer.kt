@@ -166,7 +166,9 @@ class NodeRendererRegistry(
         for (element in elements) {
             when (element) {
                 is IBlockElement -> group.add(element)
+
                 is Image -> group.add(element)
+
                 // AreaBreak is excluded by the caller; retain this branch as a
                 // defensive fallback for future element implementations.
                 is AreaBreak -> group.add(element)

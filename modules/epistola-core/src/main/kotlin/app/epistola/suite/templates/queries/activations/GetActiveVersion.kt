@@ -46,7 +46,8 @@ class GetActiveVersionHandler(
                     ver.published_at,
                     ver.archived_at,
                     ver.rendering_defaults_version,
-                    ver.resolved_theme
+                    ver.resolved_theme,
+                    ver.contract_version
                 FROM environment_activations ea
                 JOIN template_versions ver ON ver.tenant_key = ea.tenant_key AND ver.template_resource_id = ea.template_resource_id AND ver.variant_key = ea.variant_key AND ver.id = ea.version_key
                 WHERE ea.environment_key = :environmentId

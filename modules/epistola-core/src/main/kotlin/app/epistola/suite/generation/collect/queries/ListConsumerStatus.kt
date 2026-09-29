@@ -114,6 +114,7 @@ data class NodeStatus(
      */
     val partitionsLabel: String get() = when {
         assignedPartitions.size <= PARTITIONS_LABEL_HEAD -> assignedPartitions.joinToString(", ")
+
         else -> assignedPartitions.take(PARTITIONS_LABEL_HEAD).joinToString(", ") +
             " (+${assignedPartitions.size - PARTITIONS_LABEL_HEAD} more)"
     }

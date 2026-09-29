@@ -85,7 +85,7 @@ class ClusterStatusHandler(
             // `detail` and, on a 4xx, replaces Delete with Cancel.
             val detail = e.message
             return if (request.isHtmx) {
-                ServerResponse.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                ServerResponse.status(HttpStatus.UNPROCESSABLE_CONTENT)
                     .header("Content-Type", "application/json")
                     .body(mapOf("detail" to detail, "error" to detail))
             } else {
