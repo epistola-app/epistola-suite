@@ -34,6 +34,7 @@ import app.epistola.suite.stencils.queries.ListStencils
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
@@ -428,6 +429,29 @@ class StencilIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a template built on a stencil draft publishes once its instances are upgraded`() = test {
+        val tenant = createTenant("Stencil Draft Relink")
+        val tenantId = TenantId(tenant.id)
+        val stencilId = stencilId(tenantId)
+        CreateStencil(id = stencilId, name = "Header", content = createTestContent()).execute()
+
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
+        CreateDocumentTemplate(id = templateId, name = "Letter").execute().withRequiredDataExample()
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
+        UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value, "draftVersion" to 1)).execute()
+        val draft = VersionId(VersionKey.of(1), variantId)
+
+        // A draft reference blocks publishing.
+        assertThatThrownBy { PublishVersion(versionId = draft).execute() }
+            .hasMessageContaining("cannot reference draft stencil versions")
+
+        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
+        UpdateStencilInTemplate(variantId = variantId, stencilId = stencilId, newVersion = 1).execute()
+
+        assertThat(PublishVersion(versionId = draft).execute()?.status).isEqualTo(VersionStatus.PUBLISHED)
+    }
+
+    @Test
     fun `upgrade stencil in template synchronizes referenced paths`() = test {
         val tenant = createTenant("Stencil Upgrade Paths")
         val tenantId = TenantId(tenant.id)
@@ -563,7 +587,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
     }
 
     /** A template body embedding [stencilKey] v1 once (with a children slot so the upgrade can rewrite it). */
-    private fun templateEmbedding(stencilKey: String): TemplateDocument = TemplateDocument(
+    private fun templateEmbedding(stencilKey: String, ref: Pair<String, Int> = "version" to 1): TemplateDocument = TemplateDocument(
         modelVersion = 1,
         root = "root",
         nodes = mapOf(
@@ -572,7 +596,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
                 id = "stencil-instance",
                 type = "stencil",
                 slots = listOf("stencil-children"),
-                props = mapOf("stencilId" to stencilKey, "version" to 1),
+                props = mapOf("stencilId" to stencilKey, ref),
             ),
         ),
         slots = mapOf(
