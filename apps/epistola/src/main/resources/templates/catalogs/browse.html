@@ -390,7 +390,7 @@
         <!--/* Releases of an authored catalog. A subscribed one has none of its own -- it records
                which release it installed, and the Version column already shows that. */-->
         <div class="card" th:if="${catalog.type.name() == 'AUTHORED'}"
-             th:with="canRelease=${auth.has('TEMPLATE_PUBLISH')}">
+             th:with="canRelease=${auth.has('TEMPLATE_PUBLISH')}, canForget=${auth.has('CATALOG_MANAGE')}">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h2>Releases</h2>
                 <!--/* Cutting a release belongs here, beside what has been released, rather than
@@ -461,6 +461,24 @@
                                 <span th:if="${row.published}"
                                       class="text-muted" style="font-size: var(--ep-text-xs);"
                                       title="Already sent to Epistola Exchange">published</span>
+                                <!--/* The only way to reclaim what a release holds. Offered while
+                                       there is content to drop, so it disappears once used -- the
+                                       row then reads "not kept", the state a release cut before
+                                       Epistola retained content has always had. */-->
+                                <form th:if="${row.forgettable and canForget}"
+                                      method="post" style="display: inline;"
+                                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/releases/{version}/forget(tenantId=${tenantId},catalogId=${catalog.id},version=${release.version})}">
+                                    <button type="button"
+                                            class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
+                                            th:title="'Forget the content of v' + ${release.version}"
+                                            data-confirm-submit
+                                            data-confirm-submit-title="Forget this release's content"
+                                            th:attr="data-confirm-submit-message='v' + ${release.version} + ' stays in the history with its version, date and fingerprint, but its content is deleted: it can no longer be exported or published, and this cannot be undone. Storage it holds is reclaimed.'"
+                                            data-confirm-submit-label="Forget content"
+                                            data-confirm-submit-class="ep-btn-destructive">
+                                        <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                     </tbody>

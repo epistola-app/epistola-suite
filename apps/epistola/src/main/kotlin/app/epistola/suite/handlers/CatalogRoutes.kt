@@ -40,6 +40,7 @@ class CatalogRoutes(
             POST("/{catalogId}/publications/{publicationId}/cancel", handler::cancelPublication)
             GET("/{catalogId}/browse", handler::browse)
             GET("/{catalogId}/releases/{version}", handler::releaseDetail)
+            POST("/{catalogId}/releases/{version}/forget", handler::forgetReleaseContent)
             // Reorganising is its own page: a browser across catalogs that allows moving. Deep
             // linkable via ?resource=<type>:<catalog>/<key>, repeatable.
             GET("/organise", organise::page)
