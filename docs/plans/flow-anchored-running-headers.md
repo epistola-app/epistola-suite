@@ -28,61 +28,76 @@ Four layers enforce this:
 Because the validator also runs on stencils, a header at a stencil's own root passes on its own and
 then fails once the stencil is embedded in a template.
 
-## The model: sections
+## The model: headers look down, footers look up
 
 **A document is divided into sections by its page breaks.** The division uses the rendered flow,
 so a page break inside a false conditional does not divide the document, and one inside a loop
 divides it once per iteration. Each section starts on a new page.
 
-Within a section, header and footer blocks are collected in flow order. Their exact position in
-the section does not matter, only their order.
+A block is **at the start of its section** when no content comes before it in that section.
+Other headers and footers, and wrappers that have not drawn anything yet (such as the container a
+stencil opens with), do not count as content.
 
-1. **One header in a section** applies to every page of that section.
-2. **Several headers in a section:** the first applies to the section's first page, the second to
-   its second page, and so on. The last one applies to the rest of the section. Two headers are
-   therefore "first page plus running header", now available per section.
-3. **A section with no header** continues the running header of the section before it, meaning
-   the last header that section used. An empty `pageheader` switches the header off.
-4. **Pages before the first header** get no header.
+### Headers apply to what comes after them
 
-Footers follow the same four rules, except for rule 4:
+1. **At the start of a section** (the document start, or right after a page break), a header
+   applies from that page.
+2. **Several headers at the start of a section** form a first-page variant: the first applies to
+   the section's first page, the next to its second page, and the last one continues from there.
+   This is today's "first page plus running header", now available per section.
+3. **After content**, a header takes over from the page after the one it lands on. If several land
+   on the same page, they take over one page at a time, in flow order.
+4. **A header lasts** until the next header takes over. An empty `pageheader` switches the header
+   off.
+5. **Pages before the first header** get no header.
 
-4. **Pages before the first footer** use the first footer.
+### Footers apply to what comes before them
 
-Rule 4 differs for footers because of compatibility. For years the editor forced the footer to be
-the last block of the document, so in an existing document with page breaks the footer is in the
-_last_ section. Without the backfill, every page before that section would lose its footer. The
-cost is that "a footer only on the appendix" also puts that footer on the pages before it, unless
-they have a footer of their own (an empty one will do).
+1. **A footer covers its own section**, wherever in that section it sits. The natural place is at
+   the bottom.
+2. **It also covers every section above it that has no footer of its own**, back to the previous
+   footer. Such sections get its running (last) footer.
+3. **Several footers in one section** form a first-page variant: the first applies to the section's
+   first page, the next to its second page, and the last one to the rest. Where they sit does not
+   matter, only their order. A one-page section therefore never shows the second footer.
+4. **Pages after the last footer** get no footer. This mirrors pages before the first header.
 
 `hideOnFirstPage` keeps its meaning: page 1 of the document.
 
-### Why sections, and not "switch on the page after the block lands"
+### Labels and a warning, so the result is not a surprise
 
-The earlier draft let a header placed anywhere take effect on the page after the one it landed on.
-That breaks existing footers: a footer at the end of the document would take effect after the last
-page, so it would never be drawn. It also switches one page late in the common case, a section that
-starts with a page break.
+- **The editor labels every header and footer** with what it gets, computed from the page breaks in
+  the document (a conditional shows "depends on data"). Examples: "Header · from this page",
+  "Header · from the next page", "Footer · first page of section", "Footer · pages 2+ of section",
+  "Footer · also covers the sections above".
+- **The validator warns** (`WARNING`, which the portable validator already supports; nothing emits
+  one yet) when a section holds more than one footer and they are not directly next to each other
+  in the flow. Adjacent footers read as a deliberate first-page variant. Scattered ones are usually
+  an accident, typically a letter-shell stencil with a footer plus a footer in the template, where
+  the second one silently disappears on a one-page letter. Headers need no such warning, because a
+  header's position is meaningful.
 
-Sections avoid both problems. Which header or footer each section uses is known _before_ layout,
-because the element tree is fully built (conditionals and loops evaluated) before anything is added
-to the iText `Document`. Layout only has to report which section a new page starts. What remains is
-a pure function that can be unit-tested.
+### Why footers cannot switch in the middle of a section
 
-**Not supported:** a switch in the middle of a section, i.e. a new header for a chapter that starts
-mid-page with no page break. The spike shows this is feasible later (see _Deferred_ below), and it
-can be added without changing rules 1–4.
+A page's bottom band is reserved before the page is laid out. The footer that should cover page N
+is the next one _below_ page N's content, which has not been laid out at that point. Switching
+mid-section would need either a second layout pass, which may not settle because footer heights
+move content, or deferred painting (see _Deferred_). Page breaks cover the real cases: cover,
+letter, terms and appendix, and one letter per loop iteration.
+
+Headers do not have this problem. The header that takes over on page N landed on an earlier page,
+and the spike shows every earlier landing is known when page N's band is chosen.
 
 ### Existing documents keep their meaning
 
-Every document the current validator accepts renders the same under the section model:
+Every document the current validator accepts renders the same under this model, with no migration:
 
-| Existing document                       | Today                     | Section model                                                     |
-| --------------------------------------- | ------------------------- | ----------------------------------------------------------------- |
-| One header at the top                   | every page                | section 0 has one header, and later sections inherit it           |
-| Two headers at the top                  | page 1: H1; pages 2–N: H2 | section 0: H1 then H2; later sections inherit H2, the running one |
-| One footer at the end, with page breaks | every page                | it is the first footer, so rule 4 backfills every earlier section |
-| Footer with `hideOnFirstPage`           | hidden on page 1          | unchanged                                                         |
+| Existing document                       | Today                     | New model                                                        |
+| --------------------------------------- | ------------------------- | ---------------------------------------------------------------- |
+| One header at the top                   | every page                | a header at the start of section 0, lasting until replaced       |
+| Two headers at the top                  | page 1: H1; pages 2–N: H2 | a first-page variant at the document start; H2 runs to the end   |
+| One footer at the end, with page breaks | every page                | it covers its own section and every footer-less section above it |
+| Footer with `hideOnFirstPage`           | hidden on page 1          | unchanged                                                        |
 
 Parity tests prove this against the #399 documents and the demo catalog. The behaviour also stays
 gated for published versions (see Compatibility).
@@ -100,38 +115,52 @@ These iText 9.7.1 mechanisms are proven by `PageBandItextProbeTest`:
   announces its section in `layout()` runs before the new page's margins are chosen. This also holds
   when the break is nested in a container `Div`, which is how `ContainerNodeRenderer` and stencils
   emit it.
+- **Header landings are known in time.** A zero-height anchor records its page in `draw()`. Every
+  anchor drawn on an earlier page is known when page N's band is chosen, and none from page N
+  itself. `layout()` would be wrong: iText may lay an anchor out on one page and then move it.
+- **Anchors are invisible.** They do not move body text and, with `role = null`, add nothing to a
+  tagged PDF.
 - **Painting matches the reservation.** The `END_PAGE` handlers read the decision the margins
   function recorded for that page, so the reserved band and the painted header cannot disagree.
 
 ### Steps
 
-1. **Collect.** A per-render `PageBandCollector` goes in the `RenderContext` of the body render only.
-   It is not used when rendering band content or measuring.
-   - `PageBreakNodeRenderer` emits a `SectionPageBreak(sectionIndex)` and advances the collector's
-     section counter.
-   - `PageHeaderNodeRenderer` and `PageFooterNodeRenderer` still emit nothing. They register a
-     _band occurrence_ `(nodeId, sectionIndex, ordinal, contextSnapshot)`, capturing the loop and
+1. **Emit.** In the body render only (not band content, not measurement):
+   - `PageBreakNodeRenderer` emits a `SectionPageBreak`;
+   - `PageHeaderNodeRenderer` and `PageFooterNodeRenderer` emit a zero-height anchor carrying a
+     _band occurrence_ `(nodeId, ordinal, contextSnapshot)`. The snapshot captures the loop and
      parameter scope, because in a loop the same node ID renders once per iteration with different
      data.
-2. **Measure.** Each occurrence's band height is `max(height prop, measured content)`, exactly as
+2. **Classify.** After the element tree is built, and before anything is added to the iText
+   `Document`, one walk in document order numbers the sections, assigns each occurrence its
+   section, and marks whether it is at the start of that section. Conditionals and loops are already
+   evaluated at this point, so this is exact rather than conservative.
+3. **Measure.** Each occurrence's band height is `max(height prop, measured content)`, exactly as
    ADR 0008 does today, but measured per occurrence with its own context snapshot. This reuses
    `buildBandWrapper` and `measureBandContentHeight`, and replaces `measureEffectiveBandHeights`.
-3. **Schedule.** `PageBandSchedule` is a pure function: given the occurrences grouped by section,
-   plus `(sectionIndex, pageInSection)`, it returns the header and footer occurrences for that page.
+4. **Schedule.** `PageBandSchedule` is pure and unit-tested:
+   - **Footers** are static. From the occurrences per section it derives each section's footer
+     list, using rules 1–4 above.
+   - **Headers** are a queue of eligible headers, one promoted per page. Section-start headers
+     become eligible on their section's first page, replacing anything still queued. The others
+     become eligible on the page after they land.
+
    The margins function tracks which section the current page is in, from the pending
-   `SectionPageBreak` or else the previous page's section, and calls it.
-4. **Reserve.** The margins function returns top = the header occurrence's `marginTop` + band,
+   `SectionPageBreak` or else the previous page's section, and asks the schedule for the page.
+
+5. **Reserve.** The margins function returns top = the header occurrence's `marginTop` + band,
    bottom = the footer's `marginBottom` + band, sides as today. It records the decision per page.
-5. **Paint.** `PageHeaderEventHandler` and `PageFooterEventHandler` take the recorded occurrence
+6. **Paint.** `PageHeaderEventHandler` and `PageFooterEventHandler` take the recorded occurrence
    for the page instead of a static node ID. Their drawing code is unchanged, except that the band
    is built with the occurrence's context snapshot plus the page parameters.
-6. **Address block.** `bodyContentTopPt` becomes the page-1 header band from the schedule, which is
-   known statically.
-7. **Delete** `pageHeaderNodesInDocumentOrder`, `HeaderBands` and `computeHeaderBands`, the
+7. **Address block.** `bodyContentTopPt` becomes the page-1 header band, which is known before
+   layout.
+8. **Delete** `pageHeaderNodesInDocumentOrder`, `HeaderBands` and `computeHeaderBands`, the
    first-page spacer, and the footer `firstOrNull`.
 
-Pass count is unchanged: one pass, or two when `sys.pages.total` is used. A fresh collector is made
-per pass. `TwoPassAnalyzer` already walks header and footer descendants wherever they sit.
+Pass count is unchanged: one pass, or two when `sys.pages.total` is used. The per-render state is
+recreated for each pass. `TwoPassAnalyzer` already walks header and footer descendants wherever they
+sit.
 
 ## Compatibility (stability contract)
 
@@ -139,29 +168,32 @@ per pass. `TwoPassAnalyzer` already walks header and footer descendants wherever
   `CURRENT`. Versions published under V1–V3 keep the old code path, frozen. Separately, a parity
   test proves the new path lays out legacy-shaped documents identically (body baselines and band
   positions per page), because a published version with no resolved theme renders with `CURRENT`.
+- **No data migration.** Existing documents keep their meaning (see the table above), so stored
+  drafts and imported catalogs need no rewriting.
 - **Contract (epistola-contract 1.4.0).**
-  - Drop the three `PAGEHEADER_*` rules. Add one: no header or footer inside a header or footer.
+  - Drop the three `PAGEHEADER_*` rules. Add an error (no header or footer inside a header or
+    footer) and the scattered-footers warning.
   - Set `maxInstancesPerDocument` to `null` for both. Rewrite the registry descriptions and
-    examples: a per-section first-page variant, and a letterhead stencil.
-  - Bump the catalog `schemaVersion` from 7 to 8 with a no-op migration. Otherwise an older Suite
-    would import a catalog with several footers (it has no footer rule) and silently render the
-    wrong one. With the bump it refuses with `CATALOG_SCHEMA_TOO_NEW`.
+    examples: a per-section first-page variant, a mid-document header, and a letter shell.
+  - Bump the catalog `schemaVersion` from 7 to 8 with a no-op migration. The JSON shape does not
+    change, but an older Suite would import a catalog with several footers (it has no footer rule)
+    and silently render the first one everywhere. With the bump it refuses with
+    `CATALOG_SCHEMA_TOO_NEW`. The cost: an older Suite cannot read anything a new one exports.
 - **Suite validation codes.** Keep `PAGEHEADER_TOO_MANY`, `_ROOT_MISSING` and `_NOT_AT_ROOT` in
   `ValidationCode`, deprecated and no longer emitted, because REST clients may match on them.
+  Check how the Suite surfaces a `WARNING` finding, since none is emitted today.
 
 ## Editor
 
 - **Remove the header and footer rules** from `commands.ts` (insert, move,
   `validateRootContentBoundaries`), `drop-logic.ts`, `EpistolaPalette._insertNode`,
   `_getRootInsertBounds` (which removes a latent bug with two headers) and the canvas/tree
-  `isFixedPageBlock`. Header and footer become ordinary blocks.
+  `isFixedPageBlock`. Headers and footers become ordinary blocks.
 - **One new rule:** no header or footer inside a header or footer. It is checked for every
   restored subtree too (paste, stencil content), not only the inserted node's type.
-- **Chrome.** Each header and footer is labelled with what the section model gives it, for example
-  "Header · section 2, first page" or "Footer · all pages". This is computed from the root slot's
-  page breaks. Conditionals are shown as "depends on data".
+- **Labels and the warning**, as described in the model above.
 - **Stencils need no special work.** Their content is copied into the template and re-keyed, so a
-  letterhead stencil's header becomes an ordinary header in the template's flow.
+  letter shell's header and footer become ordinary blocks in the template's flow.
 
 ## Surfaces
 
@@ -170,12 +202,13 @@ per pass. `TwoPassAnalyzer` already walks header and footer descendants wherever
   `ComponentTypesIntegrationTest` (it currently asserts 2 and 1) and the stale `ComponentTypeInfo`
   KDoc.
 - **Demo catalog** (`apps/epistola-demo/.../catalogs/demo`, mirrored in the test fixture catalog):
-  - `letter-shell` gains a letterhead header and footer;
-  - a sectioned document (cover, letter, terms with their own header and footer, appendix);
+  - `letter-shell` gains a header at its top and a footer at its bottom;
+  - a sectioned document: a cover, a letter, terms with their own header and footer, and a
+    mid-document header switch;
   - `release.version` 5.18.3 → 5.19.0, fingerprint regenerated.
 - **Docs:**
-  - a new ADR (next free number, 0027) for the section model, recording the decisions on #1020's
-    open questions;
+  - a new ADR (next free number, 0027) for this model, recording the decisions on #1020's open
+    questions;
   - rewrite the header and footer sections of `docs/generation.md` and `docs/editor-features.md`;
   - remove the stale `PageHeaderCardinalityValidator` references (`generation.md`,
     `editor-features.md`, `output-formats.md`, the `DirectPdfRenderer` KDoc);
@@ -183,21 +216,21 @@ per pass. `TwoPassAnalyzer` already walks header and footer descendants wherever
 
 ## Open questions from #1020, answered
 
-| #   | Question           | Answer                                                                       |
-| --- | ------------------ | ---------------------------------------------------------------------------- |
-| 1   | Footers too?       | Yes, the same section model, plus the backfill rule for compatibility.       |
-| 2   | Last-page header   | Out of scope. It needs the page count per section, i.e. a second pass.       |
-| 3   | Odd/even           | Out of scope. It would be a property on the header, not a placement rule.    |
-| 4   | `height` prop      | Kept as a minimum (ADR 0008). Removing it would be a wire break for no gain. |
-| 5   | Address block      | Positioned against the page-1 header from the schedule.                      |
-| 6   | Loops / datatables | Allowed. Each rendered occurrence counts, in flow order, within its section. |
+| #   | Question           | Answer                                                                                         |
+| --- | ------------------ | ---------------------------------------------------------------------------------------------- |
+| 1   | Footers too?       | Yes, mirrored: footers cover what comes before them, scoped by section.                        |
+| 2   | Last-page header   | Out of scope. It needs the page count per section, i.e. a second pass.                         |
+| 3   | Odd/even           | Out of scope. It would be a property on the header, not a placement rule.                      |
+| 4   | `height` prop      | Kept as a minimum (ADR 0008). Removing it would be a wire break for no gain.                   |
+| 5   | Address block      | Positioned against the page-1 header, which is known before layout.                            |
+| 6   | Loops / datatables | Allowed. Each rendered occurrence counts. A page break in the loop gives one section per item. |
 
 ## Delivery
 
 1. **Contract PR** (epistola-contract → 1.4.0): validator, registry, schema 8, fixtures.
 2. **Suite PR:**
    - `PageBandSchedule` and its unit tests;
-   - the collector, `SectionPageBreak`, the margins function and the handlers;
+   - the anchors, `SectionPageBreak`, the classifying walk, the margins function and the handlers;
    - the V4 gate and parity tests;
    - the contract bump, validation codes and MCP tests;
    - the editor;
@@ -206,10 +239,13 @@ per pass. `TwoPassAnalyzer` already walks header and footer descendants wherever
 ### Tests
 
 - **Unit:** `PageBandSchedule` covering the legacy table above, per-section first-page variants,
-  inheritance, the footer backfill, an empty header, and occurrences from a loop.
+  a mid-section header switch, several switches landing on one page, a section-start header
+  replacing queued switches, footers covering footer-less sections above, pages after the last
+  footer, an empty header, and occurrences from a loop. The classifying walk gets its own test.
 - **Generation, extending `PageHeaderFooterTest`:**
-  - a header inside a stencil;
+  - a letter-shell stencil with a header at its top and a footer at its bottom;
   - a footer at the end with page breaks;
+  - a header switching mid-section;
   - a header inside a false conditional;
   - a page break plus letterhead inside a loop (a batch of letters);
   - a nested page break;
@@ -218,8 +254,10 @@ per pass. `TwoPassAnalyzer` already walks header and footer descendants wherever
   - the address block under a sectioned header.
 - **Probes:** `PageBandItextProbeTest` pins the iText behaviour across upgrades.
 - **Editor:** rewrite the header and footer specs in `engine.test.ts`, `drop-logic.test.ts` and
-  `drop-handler.test.ts`. Add a spec for the nested-band rule on paste and stencil content.
-- **Contract:** validator fixtures, and a test for the no-op schema 8 migration.
+  `drop-handler.test.ts`. Add specs for the nested-band rule on paste and stencil content, and for
+  the labels.
+- **Contract:** validator fixtures (including the warning), and a test for the no-op schema 8
+  migration.
 
 ## Spike results (2026-09-29)
 
@@ -232,13 +270,19 @@ iText 9.7.1, all passing:
 | Page break announces its section before the new page's band     | Works, both top-level and nested in a `Div`                                                                                                         |
 | `END_PAGE` handler paints what the margins function decided     | Works                                                                                                                                               |
 | Zero-height anchor elements                                     | Do not move body text; with `role = null` they add no structure elements to a tagged PDF                                                            |
-| Anchor landing pages (for the deferred mid-section switch)      | Recorded in `draw()`, every earlier-page landing is known when page N's band is chosen, and none from page N itself; also nested and in table cells |
+| Anchor landing pages (for the mid-section header switch)        | Recorded in `draw()`, every earlier-page landing is known when page N's band is chosen, and none from page N itself; also nested and in table cells |
 | Why `draw()` and not `layout()`                                 | An anchor kept with the next block is laid out on page 1, discarded, and drawn on page 2. A keep-together block is not trial-laid at all            |
 | Anchor at the foot of a full page                               | Lands on that page unless `keepWithNext`, in which case it moves with the next block                                                                |
 
-## Deferred: switching in the middle of a section
+## Deferred: footers switching in the middle of a section
 
-If authors need a new header for a chapter that starts mid-page, a header could also become a
-zero-height anchor element. Its landing page, recorded in `draw()`, would make it active from the
-next page. The probes show every input for that is available when page N's band is chosen, still
-in a single pass. This adds to rules 1–4 and does not change them.
+If authors need footer switches without a page break, two changes together make the footer
+covering page N "the first footer at or below page N":
+
+1. **Reserve the tallest footer of the section** on every page of it, so the layout no longer
+   depends on which footer is painted. A shorter footer then leaves a gap above it.
+2. **Paint footers after layout finishes**, once every footer's landing page is known. That means
+   keeping pages in memory (`immediateFlush = false`) instead of writing them out as they fill,
+   which costs memory on large documents and batch runs.
+
+It remains a single pass and adds to the footer rules without changing them.
