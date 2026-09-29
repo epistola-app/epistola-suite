@@ -33,6 +33,16 @@ data class StencilVersionSummaryInfo(
             archivedAt = summary.archivedAt,
             parameterSchema = summary.parameterSchema,
         )
+
+        /** The summary of a version a write tool just stored, without echoing its content back. */
+        fun from(version: StencilVersion): StencilVersionSummaryInfo = StencilVersionSummaryInfo(
+            version = version.id.value,
+            status = version.status.name.lowercase(),
+            createdAt = version.createdAt,
+            publishedAt = version.publishedAt,
+            archivedAt = version.archivedAt,
+            parameterSchema = version.parameterSchema,
+        )
     }
 }
 

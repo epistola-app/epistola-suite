@@ -35,7 +35,8 @@ class PreviewMcpTools(
             "When `data` is omitted, the contract's first sample example is used. " +
             "Specify either `versionId` (a specific version number) OR `environmentId` (resolves to the " +
             "version active in that environment) — never both. If neither is set, the latest published " +
-            "version of the variant is used. If the data does not satisfy the template's data contract the " +
+            "version of the variant is used, and the call fails when there is none; to preview a draft, " +
+            "pass its number as `versionId` (from `update_template_draft` or `list_versions`). If the data does not satisfy the template's data contract the " +
             "call fails; `analyze_template_data` then says which fields are missing or wrong.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
