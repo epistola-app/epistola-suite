@@ -18,7 +18,7 @@ class PageBandScheduleTest {
 
         fun header(id: String, section: Int = 0, atStart: Boolean = true, landsOn: Int? = null) = add(PageBandKind.HEADER, id, section, atStart, landsOn)
 
-        fun footer(id: String, section: Int = 0, atStart: Boolean = false) = add(PageBandKind.FOOTER, id, section, atStart, null)
+        fun footer(id: String, landsOn: Int, section: Int = 0) = add(PageBandKind.FOOTER, id, section, false, landsOn)
 
         private fun add(kind: PageBandKind, id: String, section: Int, atStart: Boolean, landsOn: Int?): PageBandOccurrence {
             sections = maxOf(sections, section + 1)
@@ -33,7 +33,7 @@ class PageBandScheduleTest {
             val schedule = PageBandSchedule(occurrences, sections)
             return (1..pages).map { page ->
                 val choice = schedule.next(page, sectionStarts[page])
-                choice.header?.nodeId to choice.footer?.nodeId
+                choice.header?.nodeId to schedule.footerOf(page)?.nodeId
             }
         }
     }
@@ -127,52 +127,79 @@ class PageBandScheduleTest {
     }
 
     @Test
-    fun `one footer at the end of a document with page breaks covers every page`() {
-        val flow = Flow().apply { footer("f", section = 2) }
+    fun `one footer at the end of a document covers every page`() {
+        val flow = Flow().apply { footer("f", landsOn = 4, section = 2) }
 
         assertEquals(listOf("f", "f", "f", "f"), footers(flow.schedule(4, mapOf(2 to 1, 4 to 2))))
     }
 
     @Test
-    fun `a footer covers its own section and the footer-less sections above it, not the ones below`() {
+    fun `a footer applies from the page it lands on until the next one lands`() {
         val flow = Flow().apply {
-            footer("letter", section = 1)
-            footer("terms", section = 3)
-            sections = 5
+            footer("letter", landsOn = 1)
+            footer("terms", landsOn = 3)
         }
 
-        assertEquals(
-            listOf("letter", "letter", "terms", "terms", null),
-            footers(flow.schedule(5, mapOf(2 to 1, 3 to 2, 4 to 3, 5 to 4))),
-        )
+        assertEquals(listOf("letter", "letter", "terms", "terms"), footers(flow.schedule(4)))
     }
 
     @Test
-    fun `several footers in one section are a first-page variant in flow order`() {
+    fun `later footers landing on a page that already has one are skipped`() {
         val flow = Flow().apply {
-            footer("first")
-            footer("running")
+            footer("first", landsOn = 1)
+            footer("skipped", landsOn = 1)
+            footer("also-skipped", landsOn = 1)
+            footer("later", landsOn = 2)
         }
 
-        assertEquals(listOf("first", "running", "running"), footers(flow.schedule(3)))
+        assertEquals(listOf("first", "later", "later"), footers(flow.schedule(3)))
     }
 
     @Test
-    fun `a footer-less section above a first-page variant takes its running footer`() {
+    fun `pages before the first footer lands take the first footer`() {
         val flow = Flow().apply {
-            footer("first", section = 1)
-            footer("running", section = 1)
+            footer("first", landsOn = 3)
+            footer("second", landsOn = 4)
         }
 
-        assertEquals(listOf("running", "first", "running"), footers(flow.schedule(3, mapOf(2 to 1))))
+        assertEquals(listOf("first", "first", "first", "second"), footers(flow.schedule(4)))
+    }
+
+    @Test
+    fun `a page reserves room for the footer carried over and every footer still to land`() {
+        val flow = Flow().apply {
+            footer("a", landsOn = 1)
+            footer("b", landsOn = 3)
+        }
+        val schedule = PageBandSchedule(flow.occurrences, flow.sections)
+        // Landings are recorded as pages complete; replay that by hiding the future ones.
+        val landings = flow.occurrences.associateWith { it.landingPage }
+        fun candidatesOf(page: Int): List<String> {
+            flow.occurrences.forEach { it.landingPage = landings.getValue(it)?.takeIf { landed -> landed < page } }
+            return schedule.next(page, null).footerCandidates.map { it.nodeId }
+        }
+
+        assertEquals(listOf("a", "b"), candidatesOf(1))
+        assertEquals(listOf("a", "b"), candidatesOf(2))
+        assertEquals(listOf("a", "b"), candidatesOf(3))
+        assertEquals(listOf("b"), candidatesOf(4))
+    }
+
+    @Test
+    fun `without footers no page reserves a footer band`() {
+        val flow = Flow().apply { header("h") }
+        val schedule = PageBandSchedule(flow.occurrences, flow.sections)
+
+        assertEquals(emptyList(), schedule.next(1, null).footerCandidates)
+        assertNull(schedule.footerOf(1))
     }
 
     @Test
     fun `occurrences of one node from a loop with a page break give each iteration its own header and footer`() {
         val flow = Flow().apply {
-            (0..2).forEach { letter ->
+            listOf(1, 2, 4).forEachIndexed { letter, firstPage ->
                 header("letterhead", section = letter)
-                footer("letterfoot", section = letter)
+                footer("letterfoot", landsOn = firstPage, section = letter)
             }
         }
 

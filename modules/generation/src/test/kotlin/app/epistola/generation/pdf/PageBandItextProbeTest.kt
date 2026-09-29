@@ -365,4 +365,25 @@ class PageBandItextProbeTest {
         assertEquals(listOf("HEADER none"), headers.getValue(1))
         (2..headers.size).forEach { assertEquals(listOf("HEADER letter"), headers.getValue(it), "page $it") }
     }
+
+    @Test
+    fun `an end-of-page handler sees every anchor drawn on its page, including the last page`() {
+        val sink = Sink()
+        val seenAtPageEnd = linkedMapOf<Int, Map<String, Int>>()
+        render(sink, endPage = { _, page -> seenAtPageEnd[page] = sink.landings.filterValues { it == page } }) {
+            add(Anchor("first-page", sink))
+            addAll(lines(1, 70))
+            add(Div().add(Paragraph("nested")).add(Anchor("nested", sink)))
+            addAll(lines(71, 160))
+            add(Anchor("last-page", sink))
+            add(Paragraph("end"))
+        }
+
+        assertTrue(seenAtPageEnd.size >= 3, "expected several pages, got ${seenAtPageEnd.keys}")
+        assertEquals((1..seenAtPageEnd.size).toList(), seenAtPageEnd.keys.toList(), "pages end in order")
+        for ((page, seen) in seenAtPageEnd) {
+            assertEquals(sink.landings.filterValues { it == page }, seen, "anchors drawn on page $page")
+        }
+        assertEquals(seenAtPageEnd.size, sink.landings.getValue("last-page"))
+    }
 }

@@ -12,8 +12,8 @@ import kotlin.test.assertTrue
 
 /**
  * Page headers and footers anywhere in the flow (#1020), end to end through the renderer.
- * Headers apply to what comes after them; footers apply to what comes before them, per page
- * section. The schedule itself is unit-tested in [PageBandScheduleTest].
+ * Headers apply to what comes after them, per page section; a footer applies from the page it
+ * lands on. The schedule itself is unit-tested in [PageBandScheduleTest].
  */
 class SectionPageBandsTest {
 
@@ -42,7 +42,7 @@ class SectionPageBandsTest {
         assertTrue(pages.size >= 3, "the letter should run over several pages, got ${pages.size}")
         assertEquals(emptyList(), pages.headersOn(1), "the cover comes before the letter's header")
         (2..pages.size).forEach { assertEquals(listOf("HEADER letterhead"), pages.headersOn(it), "page $it") }
-        // The footer covers its own section and the footer-less cover above it.
+        // The stencil's footer is the first footer, so it also covers the cover before it.
         (1..pages.size).forEach { assertEquals(listOf("FOOTER letter"), pages.footersOn(it), "page $it") }
     }
 
@@ -67,7 +67,7 @@ class SectionPageBandsTest {
     }
 
     @Test
-    fun `each section's footers cover it, and a section below the last footer has none`() {
+    fun `a footer applies from the page it lands on until the next one lands`() {
         val doc = BandDoc()
         val pages = drawnText(
             renderBands(
@@ -77,8 +77,8 @@ class SectionPageBandsTest {
                     doc.text("letter", "Letter"),
                     doc.footer("letter-footer", doc.text("letter-footer-text", "FOOTER letter")),
                     doc.pageBreak("break-2"),
-                    doc.text("terms", "Terms"),
                     doc.footer("terms-footer", doc.text("terms-footer-text", "FOOTER terms")),
+                    doc.text("terms", "Terms"),
                     doc.pageBreak("break-3"),
                     doc.text("appendix", "Appendix"),
                 ),
@@ -86,27 +86,45 @@ class SectionPageBandsTest {
         )
 
         assertEquals(4, pages.size)
+        // The cover comes before the first footer lands, so it takes the first footer.
         assertEquals(listOf("FOOTER letter"), pages.footersOn(1))
         assertEquals(listOf("FOOTER letter"), pages.footersOn(2))
         assertEquals(listOf("FOOTER terms"), pages.footersOn(3))
-        assertEquals(emptyList(), pages.footersOn(4))
+        // No footer lands on the appendix page, so the terms footer carries on.
+        assertEquals(listOf("FOOTER terms"), pages.footersOn(4))
     }
 
     @Test
-    fun `adjacent footers in a section are a first-page variant`() {
+    fun `a later footer landing on a page that already has one is skipped`() {
         val doc = BandDoc()
         val pages = drawnText(
             renderBands(
                 doc.build(
+                    doc.footer("first", doc.text("first-text", "FOOTER first"), props = mapOf("height" to "10pt")),
+                    doc.footer("skipped", doc.text("skipped-text", "FOOTER skipped"), props = mapOf("height" to "10pt")),
                     *doc.body("body", 40).toTypedArray(),
-                    doc.footer("first", doc.text("first-text", "FOOTER first")),
-                    doc.footer("running", doc.text("running-text", "FOOTER running")),
+                    doc.footer(
+                        "last",
+                        doc.text("last-1", "FOOTER last"),
+                        *(2..8).map { doc.text("last-$it", "footer line $it") }.toTypedArray(),
+                        props = mapOf("height" to "10pt"),
+                    ),
                 ),
             ),
         )
 
-        assertEquals(listOf("FOOTER first"), pages.footersOn(1))
-        (2..pages.size).forEach { assertEquals(listOf("FOOTER running"), pages.footersOn(it), "page $it") }
+        val lastPage = pages.size
+        assertTrue(lastPage > 2, "the body should run over several pages, got $lastPage")
+        (1 until lastPage).forEach { assertEquals(listOf("FOOTER first"), pages.footersOn(it), "page $it") }
+        assertEquals(listOf("FOOTER last"), pages.footersOn(lastPage))
+        assertTrue((1..lastPage).none { pages.pageText(it).contains("FOOTER skipped") })
+
+        // Page 1 could not know which footer would fill it, so it kept room for the tallest one:
+        // its body stays clear of where the eight-line footer is drawn on the last page.
+        val tallFooterTop = pages.baselineOf(lastPage, "FOOTER last")
+        val pageOneFooterLine = pages.baselineOf(1, "FOOTER first")
+        val pageOneBodyBottom = pages.getValue(1).filter { it.y > pageOneFooterLine }.minOf { it.y }
+        assertTrue(pageOneBodyBottom > tallFooterTop, "page 1's body ($pageOneBodyBottom) must end above the tall footer ($tallFooterTop)")
     }
 
     @Test

@@ -10,12 +10,23 @@ import com.itextpdf.kernel.pdf.event.AbstractPdfDocumentEventHandler
 import com.itextpdf.kernel.pdf.event.PdfDocumentEvent
 
 /**
- * Paints the header and footer the page-band schedule chose for each page (#1020). [choices]
- * is filled while pages are created, before each page ends, so the painted band is always the
- * one whose height the page reserved.
+ * Per-render state shared by the margins function, which fills [choices] as iText creates each
+ * page, and [PageBandEventHandler], which paints when each page ends. [schedule] is set once the
+ * body flow is built, before its first page is laid out.
+ */
+internal class PageBandState {
+    val choices = mutableMapOf<Int, PageBandChoice>()
+    var schedule: PageBandSchedule? = null
+}
+
+/**
+ * Paints each page's bands (#1020): the header the schedule chose when the page was created,
+ * and the footer it resolves now that the page is complete and every footer drawn on it has
+ * recorded its landing. The footer always fits, because the page reserved room for the tallest
+ * footer that could still apply to it.
  */
 internal class PageBandEventHandler(
-    private val choices: Map<Int, PageBandChoice>,
+    private val state: PageBandState,
     private val document: TemplateDocument,
     private val context: RenderContext,
     private val registry: NodeRendererRegistry,
@@ -25,13 +36,14 @@ internal class PageBandEventHandler(
         val docEvent = event as? PdfDocumentEvent ?: return
         val page = docEvent.page ?: return
         val pdfDoc = docEvent.document
-        val choice = choices[pdfDoc.getPageNumber(page)] ?: return
+        val pageNumber = pdfDoc.getPageNumber(page)
+        val schedule = state.schedule ?: return
 
-        choice.header?.let { header ->
+        state.choices[pageNumber]?.header?.let { header ->
             val node = document.nodes[header.nodeId] ?: return@let
             paintHeaderBand(page, pdfDoc, node, header.heightPt, document, header.scope(context), registry)
         }
-        choice.footer?.let { footer ->
+        schedule.footerOf(pageNumber)?.let { footer ->
             val node = document.nodes[footer.nodeId] ?: return@let
             paintFooterBand(page, pdfDoc, node, footer.heightPt, document, footer.scope(context), registry)
         }

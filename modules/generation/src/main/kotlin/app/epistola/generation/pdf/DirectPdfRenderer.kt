@@ -380,9 +380,9 @@ class DirectPdfRenderer(
         // is moved to the body root, so it never renders inside — and inflates — a
         // header/footer band, and the bands were measured against this same graph.
 
-        // Section bands: the per-page choices are filled in as pages are created (below), and
-        // the painter is registered here so it runs before the address block and watermark.
-        val bandChoices = mutableMapOf<Int, PageBandChoice>()
+        // Section bands: the schedule and per-page choices are filled in below, and the painter
+        // is registered here so it runs before the address block and watermark.
+        val bandState = PageBandState()
         when (bands) {
             is BandPlan.Positional -> {
                 iTextDocument.setMargins(bands.topMargin, rightMargin, bands.bottomMargin, leftMargin)
@@ -399,7 +399,7 @@ class DirectPdfRenderer(
                 if (enableHeaderFooter) {
                     pdfDocument.addEventHandler(
                         PdfDocumentEvent.END_PAGE,
-                        PageBandEventHandler(bandChoices, hoistedDocument, context, nodeRendererRegistry),
+                        PageBandEventHandler(bandState, hoistedDocument, context, nodeRendererRegistry),
                     )
                 }
             }
@@ -462,7 +462,7 @@ class DirectPdfRenderer(
                 pdfaCompliant = pdfaCompliant,
                 rightMargin = rightMargin,
                 leftMargin = leftMargin,
-                choices = bandChoices,
+                state = bandState,
             )
         }
         for (element in elements) {
@@ -749,7 +749,7 @@ class DirectPdfRenderer(
     /**
      * Renders the body flow with a [PageBandCollector], measures every header and footer it
      * met, and installs the per-page margins that the [PageBandSchedule] chooses. Returns the
-     * body elements, ready to add to [iTextDocument]; [choices] fills in as iText creates pages.
+     * body elements, ready to add to [iTextDocument]; [state] fills in as iText creates pages.
      */
     private fun renderWithSectionBands(
         iTextDocument: Document,
@@ -761,7 +761,7 @@ class DirectPdfRenderer(
         pdfaCompliant: Boolean,
         rightMargin: Float,
         leftMargin: Float,
-        choices: MutableMap<Int, PageBandChoice>,
+        state: PageBandState,
     ): List<com.itextpdf.layout.element.IElement> {
         val collector = PageBandCollector()
         val elements = registry.renderNode(hoistedDocument.root, hoistedDocument, context.copy(pageBands = collector))
@@ -792,10 +792,12 @@ class DirectPdfRenderer(
         } ?: effectivePageMarginPt(null, "marginBottom", context)
 
         val schedule = PageBandSchedule(occurrences, collector.sectionCount)
+        state.schedule = schedule
         collector.resolvePageOneBodyTop(topBand(schedule.pageOneHeader))
         iTextDocument.setPageMargins { page: Int ->
-            val choice = choices.getOrPut(page) { schedule.next(page, collector.takePendingSection()) }
-            PageBandMargins(topBand(choice.header), rightMargin, bottomBand(choice.footer), leftMargin)
+            val choice = state.choices.getOrPut(page) { schedule.next(page, collector.takePendingSection()) }
+            val bottom = choice.footerCandidates.maxOfOrNull(::bottomBand) ?: bottomBand(null)
+            PageBandMargins(topBand(choice.header), rightMargin, bottom, leftMargin)
         }
         return elements
     }

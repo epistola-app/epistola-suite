@@ -7,13 +7,15 @@ package app.epistola.generation.pdf
 /*
  * Page headers and footers placed anywhere in the flow (#1020).
  *
- * Page breaks divide the rendered flow into sections. Headers apply to what comes after them;
- * footers apply to what comes before them. The rules, and why footers cannot switch in the
- * middle of a section, are in `docs/plans/flow-anchored-running-headers.md`.
+ * Page breaks divide the rendered flow into sections. Headers apply to what comes after them,
+ * from their own page at the start of a section and from the next page after content. A footer
+ * applies from the page it lands on; the first footer also covers the pages before it. The rules
+ * are in `docs/generation.md` and ADR 0027.
  *
  * The body render registers every header and footer it meets as a [PageBandOccurrence] in the
  * [PageBandCollector]. Once the element tree is built, [PageBandSchedule] decides page by page
- * which occurrence fills the top and bottom band. Layout asks it when each page is created.
+ * which header fills the top band when the page is created, how much bottom band to reserve,
+ * and, once the page is complete, which footer fills that band.
  */
 
 internal enum class PageBandKind { HEADER, FOOTER }
@@ -110,10 +112,14 @@ class PageBandCollector {
     internal fun takePendingSection(): Int? = pendingSection.also { pendingSection = null }
 }
 
-/** Which header and footer occurrence fill the bands of one page; null means no band. */
+/**
+ * What a page gets when it is created: its header (null for none) and the footers that could
+ * still fill its bottom band, whose tallest decides how much to reserve. Which of them it is
+ * becomes known only when the page is complete ([PageBandSchedule.footerOf]).
+ */
 internal data class PageBandChoice(
     val header: PageBandOccurrence?,
-    val footer: PageBandOccurrence?,
+    val footerCandidates: List<PageBandOccurrence>,
 )
 
 /**
@@ -125,11 +131,14 @@ internal data class PageBandChoice(
  * - a header after content becomes eligible on the page after the one it landed on;
  * - one eligible header takes over per page, in flow order, and it lasts until replaced.
  *
- * Footers apply to what comes before them, which is decided per section before layout:
- * - a section's own footers, in flow order, cover its first page, second page, and so on,
- *   the last one covering the rest;
- * - a section without footers takes the running (last) footer of the nearest section after it;
- * - sections after the last footer have none.
+ * Footers apply from the page they land on:
+ * - the first footer that lands on a page is that page's footer, and it continues on the pages
+ *   after it until another footer lands; later footers landing on the same page are skipped;
+ * - pages before the first footer lands take the first footer, so a footer at the end of a
+ *   document still covers all of it;
+ * - since a page's bottom band is reserved before its content is laid out, each page reserves
+ *   room for the tallest footer that could still fill it: the one carried over, and every footer
+ *   that has not landed yet.
  */
 internal class PageBandSchedule(
     occurrences: List<PageBandOccurrence>,
@@ -144,19 +153,12 @@ internal class PageBandSchedule(
         .filter { it.kind == PageBandKind.HEADER && !it.atSectionStart }
         .sortedBy { it.ordinal }
 
-    private val footersBySection: List<List<PageBandOccurrence>> = run {
-        val own = occurrences.filter { it.kind == PageBandKind.FOOTER }.sortedBy { it.ordinal }.groupBy { it.section }
-        val result = MutableList(sectionCount) { own[it].orEmpty() }
-        var below: PageBandOccurrence? = null
-        for (section in sectionCount - 1 downTo 0) {
-            if (result[section].isNotEmpty()) {
-                below = result[section].last()
-            } else if (below != null) {
-                result[section] = listOf(below)
-            }
-        }
-        result
-    }
+    private val footers: List<PageBandOccurrence> = occurrences
+        .filter { it.kind == PageBandKind.FOOTER }
+        .sortedBy { it.ordinal }
+
+    /** Footer per page (index = page - 1), filled in page order by [footerOf]. */
+    private val footerByPage = mutableListOf<PageBandOccurrence?>()
 
     private val queue = ArrayDeque<PageBandOccurrence>()
     private var active: PageBandOccurrence? = null
@@ -198,8 +200,22 @@ internal class PageBandSchedule(
         }
         queue.removeFirstOrNull()?.let { active = it }
 
-        val footers = footersBySection.getOrElse(section) { emptyList() }
-        val footer = if (footers.isEmpty()) null else footers[minOf(pageInSection, footers.lastIndex)]
-        return PageBandChoice(active, footer)
+        val carried = if (page == 1) footers.firstOrNull() else footerOf(page - 1)
+        val candidates = (listOfNotNull(carried) + footers.filter { it.landingPage == null }).distinct()
+        return PageBandChoice(active, candidates)
+    }
+
+    /**
+     * The footer of [page]. Every footer drawn on this page and the pages before it must already
+     * have recorded its landing page, which holds once the page is complete.
+     */
+    fun footerOf(page: Int): PageBandOccurrence? {
+        require(page >= 1) { "page numbers start at 1, got $page" }
+        while (footerByPage.size < page) {
+            val current = footerByPage.size + 1
+            val landed = footers.firstOrNull { it.landingPage == current }
+            footerByPage += landed ?: footerByPage.lastOrNull() ?: footers.firstOrNull()
+        }
+        return footerByPage[page - 1]
     }
 }
