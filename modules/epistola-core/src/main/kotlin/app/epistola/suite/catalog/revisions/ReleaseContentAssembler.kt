@@ -22,6 +22,18 @@ import tools.jackson.databind.node.ArrayNode
 import tools.jackson.databind.node.ObjectNode
 
 /**
+ * A release, read back: its content and the release metadata it was cut with.
+ *
+ * [release] comes from the manifest snapshot rather than being composed now, so an archive built
+ * from this carries the version, timestamp and fingerprint the original did — which is what makes
+ * the rebuilt bytes the released bytes rather than a new export of old content.
+ */
+data class RetainedRelease(
+    val content: CatalogContent,
+    val release: ReleaseInfo,
+)
+
+/**
  * Rebuilds the content of a named release from what that release retained.
  *
  * This is the read side of [ResourceRevisionStore] and [ReleaseEntryStore], and the point of
@@ -34,18 +46,6 @@ import tools.jackson.databind.node.ObjectNode
  * and it is the only check that the stored shape is faithful — including that lifting a template's
  * variant models into revisions of their own loses nothing.
  */
-/**
- * A release, read back: its content and the release metadata it was cut with.
- *
- * [release] comes from the manifest snapshot rather than being composed now, so an archive built
- * from this carries the version, timestamp and fingerprint the original did — which is what makes
- * the rebuilt bytes the released bytes rather than a new export of old content.
- */
-data class RetainedRelease(
-    val content: CatalogContent,
-    val release: ReleaseInfo,
-)
-
 @Component
 class ReleaseContentAssembler(
     private val jdbi: Jdbi,
@@ -120,12 +120,15 @@ class ReleaseContentAssembler(
             }
             resolveRefs(handle, tenantKey, child)
         }
+
         node is ObjectNode -> objectMapper.createObjectNode().also { copy ->
             node.propertyNames().forEach { name -> copy.set(name, resolveRefs(handle, tenantKey, node.get(name))) }
         }
+
         node is ArrayNode -> objectMapper.createArrayNode().also { copy ->
             node.forEach { copy.add(resolveRefs(handle, tenantKey, it)) }
         }
+
         else -> node
     }
 
@@ -142,9 +145,11 @@ class ReleaseContentAssembler(
         for (detail in details) {
             when (val resource = detail.resource) {
                 is ImageResource -> pathsByHash.getOrPut(resource.contentHash) { mutableListOf() }.add(resource.contentPath())
+
                 is FontResource -> resource.variants.forEach {
                     pathsByHash.getOrPut(it.contentHash) { mutableListOf() }.add(it.contentPath())
                 }
+
                 else -> Unit
             }
         }

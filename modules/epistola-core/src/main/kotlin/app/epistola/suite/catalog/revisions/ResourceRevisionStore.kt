@@ -244,9 +244,11 @@ class ResourceRevisionStore(
         is ObjectNode -> objectMapper.createObjectNode().also { sorted ->
             node.propertyNames().sorted().forEach { name -> sorted.set(name, sortKeys(node.get(name))) }
         }
+
         is ArrayNode -> objectMapper.createArrayNode().also { sorted ->
             node.forEach { sorted.add(sortKeys(it)) }
         }
+
         else -> node
     }
 }
