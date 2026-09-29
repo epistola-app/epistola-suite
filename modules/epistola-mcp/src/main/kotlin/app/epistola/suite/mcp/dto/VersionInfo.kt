@@ -4,6 +4,7 @@
 
 package app.epistola.suite.mcp.dto
 
+import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.model.VersionSummary
 import java.time.OffsetDateTime
 
@@ -27,6 +28,17 @@ data class VersionInfo(
 ) {
     companion object {
         fun from(version: VersionSummary): VersionInfo = VersionInfo(
+            id = version.id.value,
+            variantId = version.variantKey.value,
+            status = version.status.name.lowercase(),
+            createdAt = version.createdAt,
+            publishedAt = version.publishedAt,
+            archivedAt = version.archivedAt,
+            contractVersion = version.contractVersion?.value,
+        )
+
+        /** The summary of a version a write tool just stored, without echoing its content back. */
+        fun from(version: TemplateVersion): VersionInfo = VersionInfo(
             id = version.id.value,
             variantId = version.variantKey.value,
             status = version.status.name.lowercase(),

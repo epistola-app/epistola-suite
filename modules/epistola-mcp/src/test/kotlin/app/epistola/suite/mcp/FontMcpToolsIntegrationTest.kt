@@ -28,7 +28,7 @@ import org.springframework.core.io.ResourceLoader
 import java.util.UUID
 
 /**
- * Read-only font discovery via MCP. Exercises `list_fonts` against the bundled
+ * Font discovery via MCP (upload is covered by `McpWriteToolsIntegrationTest`). Exercises `list_fonts` against the bundled
  * `system` catalog every tenant gets, plus a tenant-uploaded AUTHORED family.
  * Mirrors `CodeListAndAttributeMcpToolsIntegrationTest`.
  */
@@ -106,10 +106,9 @@ class FontMcpToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `no font write tool is exposed`() {
+    fun `font MCP surface can upload but never delete a family`() {
         val mcpToolMethods = FontMcpTools::class.java.methods
             .filter { it.isAnnotationPresent(org.springframework.ai.mcp.annotation.McpTool::class.java) }
-        assertThat(mcpToolMethods).hasSize(1)
-        assertThat(mcpToolMethods[0].name).isEqualTo("listFonts")
+        assertThat(mcpToolMethods.map { it.name }).containsExactlyInAnyOrder("listFonts", "uploadFont")
     }
 }

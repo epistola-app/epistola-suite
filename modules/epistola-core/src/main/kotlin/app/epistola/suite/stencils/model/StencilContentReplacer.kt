@@ -123,6 +123,9 @@ object StencilContentReplacer {
             // and prune bindings whose parameters no longer exist in the new schema.
             val updatedProps = (stencilNode.props ?: emptyMap()).toMutableMap()
             updatedProps[StencilNodeKeys.PROP_VERSION] = newVersion
+            // The instance now pins a published version. A leftover draft reference would keep the
+            // template unpublishable and make the editor rehydrate it from the stencil's draft.
+            updatedProps.remove(StencilNodeKeys.PROP_DRAFT_VERSION)
 
             // Refresh the schema snapshot. When no schema is supplied (caller didn't
             // pass one — typically because the new version has no parameters), drop

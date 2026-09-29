@@ -29,7 +29,7 @@ detail belongs in the area guide, the rule card (`.agents/rules/`), or the doc t
 - `modules/rest-api` — REST controllers implementing the external `epistola-contract`
 - `modules/generation` — pure PDF rendering, no business logic
 - `modules/editor` — Lit + ProseMirror editors (TypeScript)
-- `modules/epistola-mcp` — read-only MCP server at `/api/mcp` (`docs/mcp.md`)
+- `modules/epistola-mcp` — MCP server at `/api/mcp`: read, author and publish (`docs/mcp.md`)
 - `modules/epistola-quality` — quality-findings ledger — OSS, alpha (`docs/quality.md`)
 - `modules/epistola-audit`, `-crypto`, `-version-check`, `loadtest` — audit log, credential encryption, release check, load tests
 - `modules/epistola-support*` — commercial tier: hub client plus feedback, snapshots, backups, upgrading, telemetry
@@ -57,30 +57,28 @@ These hold everywhere. Each is enforced — the guard is named in the routing ta
 
 ## Where to look
 
-Read the guide for the area you are touching first. The right-hand column is what fails the build.
+Read the guide for the area you are touching first.
 
-| When you touch                      | Read                                                                                              | Enforced by                                                             |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Commands, queries, domains          | [`modules/epistola-core/AGENTS.md`](modules/epistola-core/AGENTS.md)                              | `MediatorWiringTest`, `AuthorizationCoverageTest`, `DomainBoundaryTest` |
-| Catalog, exchange, bundled catalogs | [`catalog/AGENTS.md`](modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/AGENTS.md) | `CatalogExchangeIndependenceTest`, the fingerprint tests                |
-| UI handlers, routes, page chrome    | [`apps/epistola/AGENTS.md`](apps/epistola/AGENTS.md)                                              | `UiRestApiSeparationTest`, the markup guards                            |
-| Thymeleaf templates, static JS      | [`.agents/rules/ui-markup.md`](.agents/rules/ui-markup.md)                                        | the markup guards, named in the card                                    |
-| Any test                            | [`.agents/rules/tests.md`](.agents/rules/tests.md)                                                | `UiTestHygieneTest`                                                     |
-| Flyway migrations                   | [`.agents/rules/migrations.md`](.agents/rules/migrations.md)                                      | `checkMigrationVersions`, plus the schema-drift guards                  |
-| Bundled system/demo catalogs        | [`.agents/rules/bundled-catalogs.md`](.agents/rules/bundled-catalogs.md)                          | the fingerprint tests                                                   |
-| Configuration properties            | [`.agents/rules/config-properties.md`](.agents/rules/config-properties.md)                        | `NoHardcodedSecretsTest`                                                |
-| Application time                    | [`docs/clock.md`](docs/clock.md)                                                                  | `ApplicationClockUsageTest`                                             |
-| The editor                          | [`modules/editor/AGENTS.md`](modules/editor/AGENTS.md)                                            | `registry-examples.test.ts`, `check-component-registry.mjs`             |
-| REST endpoints, contract bumps      | [`modules/rest-api/AGENTS.md`](modules/rest-api/AGENTS.md)                                        | `checkContractVersionAlignment`, `ApiExceptionMappingsConsistencyTest`  |
-| Feature toggles                     | [`docs/feature-toggles.md`](docs/feature-toggles.md)                                              | `KnownFeaturesTest`                                                     |
-| Quality findings                    | [`docs/quality.md`](docs/quality.md)                                                              | the `epistola-quality` tests                                            |
-| Support-tier modules                | [`docs/tenant-backup.md`](docs/tenant-backup.md), [`docs/feedback.md`](docs/feedback.md)          | `WireContractAlignmentTest`, `TenantTableTopologyDriftIntegrationTest`  |
-| MCP tools                           | [`docs/mcp.md`](docs/mcp.md)                                                                      | `ComponentTypesIntegrationTest`                                         |
-| Auth, demo mode, API keys           | [`docs/auth.md`](docs/auth.md)                                                                    | review                                                                  |
-| Helm charts                         | [`charts/AGENTS.md`](charts/AGENTS.md)                                                            | `helm.yml`, the chart render tests                                      |
-| CI workflows                        | [`.github/AGENTS.md`](.github/AGENTS.md)                                                          | the workflows themselves                                                |
-| Docs                                | [`docs/AGENTS.md`](docs/AGENTS.md)                                                                | review                                                                  |
-| Vulnerability records               | [`vulnerabilities/AGENTS.md`](vulnerabilities/AGENTS.md)                                          | `pnpm vulnerabilities:check`                                            |
+- **Commands, queries, domains** — [`modules/epistola-core/AGENTS.md`](modules/epistola-core/AGENTS.md) — enforced by `MediatorWiringTest`, `AuthorizationCoverageTest`, `DomainBoundaryTest`
+- **Catalog, exchange, bundled catalogs** — [`catalog/AGENTS.md`](modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/AGENTS.md) — enforced by `CatalogExchangeIndependenceTest`, the fingerprint tests
+- **UI handlers, routes, page chrome** — [`apps/epistola/AGENTS.md`](apps/epistola/AGENTS.md) — enforced by `UiRestApiSeparationTest`, the markup guards
+- **Thymeleaf templates, static JS** — [`.agents/rules/ui-markup.md`](.agents/rules/ui-markup.md) — enforced by the markup guards, named in the card
+- **Any test** — [`.agents/rules/tests.md`](.agents/rules/tests.md) — enforced by `UiTestHygieneTest`
+- **Flyway migrations** — [`.agents/rules/migrations.md`](.agents/rules/migrations.md) — enforced by `checkMigrationVersions`, plus the schema-drift guards
+- **Bundled system/demo catalogs** — [`.agents/rules/bundled-catalogs.md`](.agents/rules/bundled-catalogs.md) — enforced by the fingerprint tests
+- **Configuration properties** — [`.agents/rules/config-properties.md`](.agents/rules/config-properties.md) — enforced by `NoHardcodedSecretsTest`
+- **Application time** — [`docs/clock.md`](docs/clock.md) — enforced by `ApplicationClockUsageTest`
+- **The editor** — [`modules/editor/AGENTS.md`](modules/editor/AGENTS.md) — enforced by `registry-examples.test.ts`, `check-component-registry.mjs`
+- **REST endpoints, contract bumps** — [`modules/rest-api/AGENTS.md`](modules/rest-api/AGENTS.md) — enforced by `checkContractVersionAlignment`, `ApiExceptionMappingsConsistencyTest`
+- **Feature toggles** — [`docs/feature-toggles.md`](docs/feature-toggles.md) — enforced by `KnownFeaturesTest`
+- **Quality findings** — [`docs/quality.md`](docs/quality.md) — enforced by the `epistola-quality` tests
+- **Support-tier modules** — [`docs/tenant-backup.md`](docs/tenant-backup.md), [`docs/feedback.md`](docs/feedback.md) — enforced by `WireContractAlignmentTest`, `TenantTableTopologyDriftIntegrationTest`
+- **MCP tools** — [`docs/mcp.md`](docs/mcp.md) — enforced by `ComponentTypesIntegrationTest`
+- **Auth, demo mode, API keys** — [`docs/auth.md`](docs/auth.md) — enforced by review
+- **Helm charts** — [`charts/AGENTS.md`](charts/AGENTS.md) — enforced by `helm.yml`, the chart render tests
+- **CI workflows** — [`.github/AGENTS.md`](.github/AGENTS.md) — enforced by the workflows themselves
+- **Docs** — [`docs/AGENTS.md`](docs/AGENTS.md) — enforced by review
+- **Vulnerability records** — [`vulnerabilities/AGENTS.md`](vulnerabilities/AGENTS.md) — enforced by `pnpm vulnerabilities:check`
 
 Before offering any control, read [`.agents/rules/ui-affordances.md`](.agents/rules/ui-affordances.md).
 
@@ -91,14 +89,12 @@ in the working tree. It arrives from the `epistola-contract` artifacts, so grep 
 
 Scope the command to what you touched; a `--tests` filter matching nothing is no longer an error.
 
-| Change                | Run                                                                        |
-| --------------------- | -------------------------------------------------------------------------- |
-| Pure logic            | `./gradlew :module:unitTest`                                               |
-| Commands, queries, DB | `./gradlew :modules:epistola-core:integrationTest --tests "*YourTest*"`    |
-| Handlers, templates   | `./gradlew :apps:epistola:integrationTest --tests "*YourHandlerHtmxTest*"` |
-| Browser behaviour     | `./gradlew :apps:epistola:uiTest --tests "*YourUiTest*"`                   |
-| Conventions           | `./gradlew :modules:guards:test`                                           |
-| Before a PR           | `./gradlew test uiTest` — `test` excludes UI and perf                      |
+- Pure logic: `./gradlew :module:unitTest`
+- Commands, queries, DB: `./gradlew :modules:epistola-core:integrationTest --tests "*YourTest*"`
+- Handlers, templates: `./gradlew :apps:epistola:integrationTest --tests "*YourHandlerHtmxTest*"`
+- Browser behaviour: `./gradlew :apps:epistola:uiTest --tests "*YourUiTest*"`
+- Conventions: `./gradlew :modules:guards:test`
+- Before a PR: `./gradlew test uiTest` — `test` excludes UI and perf
 
 Integration and UI tests need Docker. App-level Gradle tasks need `pnpm build` once first, because
 the app packages the editor bundle. What CI runs is in [`.github/AGENTS.md`](.github/AGENTS.md).
@@ -110,7 +106,7 @@ To see a change working, run the demo app — it has a tenant, the demo catalog 
 
 1. Formatted: `pnpm format`, and `./gradlew ktlintFormat` for Kotlin.
 2. Tested at the right tier, with the command you actually ran stated.
-3. A CHANGELOG entry under `[Unreleased]` (see below).
+3. A changelog fragment under `changelog/unreleased/` (see below).
 4. Docs updated where behaviour they describe changed; a new page indexed in `docs/README.md`.
 5. Every user-facing capability demonstrated in the demo catalog — a PR blocker — with the
    catalog's `release.version` bumped and `release.fingerprint` regenerated.
@@ -118,24 +114,15 @@ To see a change working, run the demo app — it has a tenant, the demo catalog 
 
 ## Commits and changelog
 
-Conventional Commits. `.husky/commitlint.config.js` is the source of truth for the accepted types;
-a scope is optional in a commit subject and **required** in a changelog entry. Breaking changes use
-`feat!:` / `fix!:` or a `BREAKING CHANGE:` footer — but see the stability contract above for what a
-break costs on a GA surface versus an alpha or beta one. Release versions come from the release
+Conventional Commits; the accepted types are in `.husky/commitlint.config.js`. A break on a GA
+surface costs a major release (see the stability contract). AI assistance may be credited with
+trailers; the subject describes the change, not the tooling. Release versions come from the release
 process, not from commit types.
 
-AI assistance may be credited with trailers; the subject describes the change, not the tooling.
-
-A notable change adds **one file** under `changelog/unreleased/`, never an edit to `CHANGELOG.md`
-(which holds released history only, and is assembled at release time):
-
-```bash
-changelog/unreleased/$(date -u +%Y%m%d%H%M%S)-<slug>.md
-```
-
-The format is in [`changelog/README.md`](changelog/README.md), and `checkChangelogFragments`
-enforces it — including that a change to shipped code carries a fragment, unless the pull request is
-labelled `no-changelog`. Helm chart changes go in `charts/epistola/CHANGELOG.md` instead.
+A notable change adds one fragment under `changelog/unreleased/`, never an edit to `CHANGELOG.md`.
+The format, including the required scope, is in [`changelog/README.md`](changelog/README.md), and
+`checkChangelogFragments` enforces it unless the pull request is labelled `no-changelog`. Helm chart
+changes go in `charts/epistola/CHANGELOG.md` instead.
 
 ## Rare workflows
 
