@@ -136,7 +136,8 @@ class StencilMcpTools(
         description = "Create a stencil — a reusable content block, such as a letterhead or a signature — in an " +
             "AUTHORED catalog. It starts with a draft version holding `content` (or an empty document). " +
             "Templates embed a stencil with a `stencil` component; a draft template may reference the draft, " +
-            "publishing the template needs a published stencil version, which is done in the UI. " +
+            "publishing the template needs a published stencil version: see `publish_stencil_version` and " +
+            "`upgrade_stencil_in_template`. " +
             "Requires the STENCIL_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
@@ -201,7 +202,8 @@ class StencilMcpTools(
     @McpTool(
         name = "update_stencil_draft",
         description = "Replace the content of a stencil's draft version, creating a new draft from the latest " +
-            "version when the stencil has none. Published versions are never changed. Returns the draft's " +
+            "version when the stencil has none. Published versions are never changed; publish the draft with " +
+            "`publish_stencil_version`. Returns the draft's " +
             "version number and parameter schema. Requires the STENCIL_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )

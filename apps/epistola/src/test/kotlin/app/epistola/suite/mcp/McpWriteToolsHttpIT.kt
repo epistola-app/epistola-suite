@@ -68,7 +68,8 @@ class McpWriteToolsHttpIT : IntegrationTestBase() {
         assertThat(tools.keys).contains(
             "create_template", "update_template", "create_variant", "update_variant", "update_template_draft",
             "update_data_contract", "create_stencil", "update_stencil", "update_stencil_draft", "create_theme",
-            "update_theme", "upload_image", "upload_font", "get_authoring_schemas",
+            "update_theme", "upload_image", "upload_font", "get_authoring_schemas", "publish_stencil_version",
+            "upgrade_stencil_in_template", "publish_data_contract", "publish_template_version",
         )
         val stencilArgs = tools.getValue("create_stencil").get("inputSchema")
         assertThat(stencilArgs.get("properties").get("tags").get("type").asString()).isEqualTo("array")

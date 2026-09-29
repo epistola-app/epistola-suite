@@ -89,7 +89,8 @@ class VersionMcpTools(
             "when the variant has none. The document is the node/slot graph `get_template_content` returns " +
             "under `templateModel`: `{modelVersion, root, nodes, slots, ...}`. Build it from the component " +
             "types `list_component_types` describes — their `examples` are fragments to copy. Published " +
-            "versions are never changed; publishing the draft is done in the UI after review. " +
+            "versions are never changed; publish the draft with `publish_template_version` once it has been " +
+            "reviewed. " +
             "A `stencil` node must carry a copy of the stencil version's content in its `children` slot: " +
             "the server renders only what is stored in the document. Check the result with " +
             "`preview_document`, passing the returned `id` as `versionId` — without it, preview renders " +

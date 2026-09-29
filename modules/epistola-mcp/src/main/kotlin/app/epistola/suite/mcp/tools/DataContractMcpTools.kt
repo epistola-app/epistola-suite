@@ -70,8 +70,9 @@ class DataContractMcpTools(
         description = "Set a template's draft data contract: the JSON Schema of the data the template reads " +
             "(`dataModel`) and named example datasets (`dataExamples`) that drive previews. Creates the draft " +
             "when only published contract versions exist. Omitted arguments are left unchanged. Every example " +
-            "must validate against the schema, and at least one example is required. Publishing the contract " +
-            "is done in the UI. Requires the TEMPLATE_EDIT permission.",
+            "must validate against the schema, and at least one example is required. `publish_template_version` " +
+            "publishes a compatible draft contract along with the template; use `publish_data_contract` for a " +
+            "breaking change. Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
     fun updateDataContract(
