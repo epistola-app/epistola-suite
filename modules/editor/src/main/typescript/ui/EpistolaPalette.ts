@@ -6,12 +6,8 @@ import { LitElement, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import type { EditorEngine } from '../engine/EditorEngine.js';
-import {
-  type ComponentDefinition,
-  type ComponentCategory,
-  PAGE_HEADER_TYPE,
-  PAGE_FOOTER_TYPE,
-} from '../engine/registry.js';
+import { type ComponentDefinition, type ComponentCategory } from '../engine/registry.js';
+import { PAGE_HEADER_TYPE, PAGE_FOOTER_TYPE, rootBodyBounds } from '../engine/page-bands.js';
 import type { DragData } from '../dnd/types.js';
 import { icon, type IconName, ICONS } from './icons.js';
 
@@ -55,28 +51,19 @@ export class EpistolaPalette extends LitElement {
   private _insertNode(type: string, overrideProps?: Record<string, unknown>) {
     if (!this.engine) return;
 
-    const doc = this.engine.doc;
-    const rootNode = doc.nodes[doc.root];
-    if (!rootNode || rootNode.slots.length === 0) return;
+    const bounds = rootBodyBounds(this.engine.doc);
+    if (!bounds) return;
+    const targetSlotId = bounds.slotId;
 
-    const targetSlotId = rootNode.slots[0];
-    const targetSlot = doc.slots[targetSlotId];
-    if (!targetSlot) return;
-
-    const footerIndex = targetSlot.children.findIndex(
-      (id) => doc.nodes[id]?.type === PAGE_FOOTER_TYPE,
-    );
+    // "Add" places a header after the headers that open the document (so it applies from page
+    // 1, or becomes the running header of a first-page variant), a footer at the very end, and
+    // anything else at the end of the body, before the footers that close the document.
     const insertIndex =
       type === PAGE_HEADER_TYPE
-        ? // Append within the header zone — when a header already exists, the new
-          // one becomes the page-2+ (running) variant. applyInsertNode clamps to
-          // the zone size.
-          -1
+        ? bounds.startIndex
         : type === PAGE_FOOTER_TYPE
-          ? targetSlot.children.length
-          : footerIndex >= 0
-            ? footerIndex
-            : targetSlot.children.length;
+          ? -1
+          : bounds.endIndex;
 
     const { node, slots, extraNodes } = this.engine.registry.createNode(type, overrideProps);
 

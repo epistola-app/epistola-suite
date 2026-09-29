@@ -8,12 +8,8 @@ import { keyed } from 'lit/directives/keyed.js';
 import type { TemplateDocument, NodeId, SlotId, EditorTheme } from '../types/index.js';
 import { EditorEngine } from '../engine/EditorEngine.js';
 import { wireParameterCache } from '../engine/parameter-evaluation-cache.js';
-import {
-  createDefaultRegistry,
-  PAGE_HEADER_TYPE,
-  PAGE_FOOTER_TYPE,
-  isAnchoredPageBlock,
-} from '../engine/registry.js';
+import { createDefaultRegistry } from '../engine/registry.js';
+import { isInsidePageBand, isPageBand, rootBodyBounds } from '../engine/page-bands.js';
 import {
   STENCIL_BINDING_ERRORS_KEY,
   bindingErrorsForSaveState,
@@ -995,7 +991,7 @@ export class EpistolaEditor extends LitElement {
 
   private _setInsertDialogTarget(target: InsertTarget): void {
     this._insertTarget = target;
-    this._insertDialogBlockOptions = this._buildInsertableOptions(target.parentType);
+    this._insertDialogBlockOptions = this._buildInsertableOptions(target.parentType, target.slotId);
     this._insertDialogHighlight = this._insertDialogBlockOptions.length > 0 ? 1 : 0;
     this._insertDialogError =
       this._insertDialogBlockOptions.length > 0 ? '' : 'No blocks can be inserted at this location';
@@ -1140,15 +1136,21 @@ export class EpistolaEditor extends LitElement {
     return 'failed';
   }
 
-  private _buildInsertableOptions(parentType: string): ComponentDefinition[] {
+  private _buildInsertableOptions(parentType: string, slotId?: SlotId): ComponentDefinition[] {
     if (!this._engine) return [];
+    const engine = this._engine;
+    // Page headers and footers go anywhere in the flow, except inside another one.
+    const insideBand =
+      slotId !== undefined &&
+      this._doc !== undefined &&
+      isInsidePageBand(this._doc, engine.indexes, slotId);
     return (
-      this._engine.registry
+      engine.registry
         .insertable(this._doc)
         // Root is the single document container and must never be insertable as a block.
         .filter((def) => def.type !== 'root')
-        .filter((def) => parentType === 'root' || !isAnchoredPageBlock(def.type))
-        .filter((def) => this._engine!.registry.canContain(parentType, def.type))
+        .filter((def) => !insideBand || !isPageBand(def.type))
+        .filter((def) => engine.registry.canContain(parentType, def.type))
     );
   }
 
@@ -1220,30 +1222,9 @@ export class EpistolaEditor extends LitElement {
     return { slotId: bounds.slotId, index: bounds.startIndex, parentType: rootNode.type };
   }
 
+  /** Body bounds of the root slot: after the opening headers, before the closing footers. */
   private _getRootInsertBounds(): { slotId: SlotId; startIndex: number; endIndex: number } | null {
-    if (!this._doc) return null;
-
-    const rootNode = this._doc.nodes[this._doc.root];
-    if (!rootNode || rootNode.slots.length === 0) return null;
-
-    const slotId = rootNode.slots[0];
-    const rootSlot = this._doc.slots[slotId];
-    if (!rootSlot) return null;
-
-    const headerIndex = rootSlot.children.findIndex(
-      (nodeId) => this._doc?.nodes[nodeId]?.type === PAGE_HEADER_TYPE,
-    );
-    const footerIndex = rootSlot.children.findIndex(
-      (nodeId) => this._doc?.nodes[nodeId]?.type === PAGE_FOOTER_TYPE,
-    );
-    const startIndex = headerIndex >= 0 ? headerIndex + 1 : 0;
-    const endIndex = footerIndex >= 0 ? footerIndex : rootSlot.children.length;
-
-    return {
-      slotId,
-      startIndex,
-      endIndex: Math.max(startIndex, endIndex),
-    };
+    return this._doc ? rootBodyBounds(this._doc) : null;
   }
 
   private _getInsertSlotOptionsForInside(): InsertSlotOption[] {
@@ -1255,7 +1236,7 @@ export class EpistolaEditor extends LitElement {
     const selectedNode = doc.nodes[selectedNodeId];
     if (!selectedNode) return [];
 
-    const insertable = this._buildInsertableOptions(selectedNode.type);
+    const insertable = this._buildInsertableOptions(selectedNode.type, selectedNode.slots[0]);
     if (insertable.length === 0) return [];
 
     return selectedNode.slots

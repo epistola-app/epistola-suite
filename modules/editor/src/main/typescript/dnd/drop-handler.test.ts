@@ -26,26 +26,22 @@ describe('handleDrop', () => {
     expect(engine.doc.slots[rootSlotId].children).toContain(engine.selectedNodeId!);
   });
 
-  it('keeps document unchanged when palette insert is rejected', () => {
+  it('keeps document unchanged when a palette insert is rejected', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
     const rootSlotId = doc.nodes[doc.root].slots[0];
 
-    // First and second pageheader drops both succeed (max = 2 for the first-page variant).
-    handleDrop(engine, { source: 'palette', blockType: 'pageheader' }, rootSlotId, -1);
-    handleDrop(engine, { source: 'palette', blockType: 'pageheader' }, rootSlotId, -1);
-    const headerCountAfterTwo = engine.doc.slots[rootSlotId].children
-      .map((id) => engine.doc.nodes[id])
-      .filter((node) => node?.type === 'pageheader').length;
-    expect(headerCountAfterTwo).toBe(2);
+    handleDrop(engine, { source: 'palette', blockType: 'pagefooter' }, rootSlotId, -1);
+    const footer = engine.doc.nodes[engine.doc.slots[rootSlotId].children[0]];
+    const footerSlotId = footer.slots[0];
+    const before = engine.doc;
 
-    // A third pageheader drop is rejected.
-    handleDrop(engine, { source: 'palette', blockType: 'pageheader' }, rootSlotId, -1);
-    const headerCountAfterThird = engine.doc.slots[rootSlotId].children
-      .map((id) => engine.doc.nodes[id])
-      .filter((node) => node?.type === 'pageheader').length;
-    expect(headerCountAfterThird).toBe(2);
+    // A header cannot go inside a footer.
+    handleDrop(engine, { source: 'palette', blockType: 'pageheader' }, footerSlotId, 0);
+
+    expect(engine.doc).toBe(before);
+    expect(engine.doc.slots[footerSlotId].children).toHaveLength(0);
   });
 
   it('moves block drag data between slots', () => {
@@ -94,7 +90,7 @@ describe('handleDrop', () => {
     expect(childrenAfter[1]).toBe(header1);
   });
 
-  it('keeps anchored page block in place when move is rejected', () => {
+  it('moves a page footer by drag like any other block', () => {
     const registry = testRegistry();
     const { doc, rootSlotId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -108,7 +104,6 @@ describe('handleDrop', () => {
       index: -1,
     });
     expect(insert.ok).toBe(true);
-    const childrenBeforeMove = [...engine.doc.slots[rootSlotId].children];
 
     handleDrop(
       engine,
@@ -117,9 +112,6 @@ describe('handleDrop', () => {
       0,
     );
 
-    expect(engine.doc.slots[rootSlotId].children).toEqual(childrenBeforeMove);
-    expect(
-      engine.doc.slots[rootSlotId].children[engine.doc.slots[rootSlotId].children.length - 1],
-    ).toBe(footer.node.id);
+    expect(engine.doc.slots[rootSlotId].children[0]).toBe(footer.node.id);
   });
 });

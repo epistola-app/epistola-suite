@@ -157,28 +157,23 @@ export class EpistolaCanvas extends LitElement {
 
       const node = this.doc.nodes[nodeId];
       if (!node) continue;
-      // Page footer is fixed at the bottom; page headers can be reordered amongst
-      // themselves so they remain draggable.
-      const isFixedPageBlock = node.type === 'pagefooter';
 
       // Drag source
-      if (!isFixedPageBlock) {
-        cleanups.push(
-          draggable({
-            element: blockEl,
-            dragHandle: this.cleanMode
-              ? blockEl
-              : (blockEl.querySelector<HTMLElement>('.canvas-block-header') ?? blockEl),
-            getInitialData: (): DragData => ({
-              source: 'block',
-              nodeId,
-              blockType: node.type,
-            }),
-            onDragStart: () => blockEl.classList.add('dragging'),
-            onDrop: () => blockEl.classList.remove('dragging'),
+      cleanups.push(
+        draggable({
+          element: blockEl,
+          dragHandle: this.cleanMode
+            ? blockEl
+            : (blockEl.querySelector<HTMLElement>('.canvas-block-header') ?? blockEl),
+          getInitialData: (): DragData => ({
+            source: 'block',
+            nodeId,
+            blockType: node.type,
           }),
-        );
-      }
+          onDragStart: () => blockEl.classList.add('dragging'),
+          onDrop: () => blockEl.classList.remove('dragging'),
+        }),
+      );
 
       // Drop target on each block (edge detection for inserting before/after in parent slot)
       cleanups.push(

@@ -74,12 +74,8 @@ export class EpistolaTree extends LitElement {
       if (!node) continue;
 
       const isRoot = nodeId === this.doc.root;
-      // Page footer is fixed at the bottom; page headers can be reordered amongst
-      // themselves (first-page vs. running) so they remain draggable.
-      const isFixedPageBlock = node.type === 'pagefooter';
-
       // Drag source (skip root — can't drag the document root)
-      if (!isRoot && !isFixedPageBlock) {
+      if (!isRoot) {
         cleanups.push(
           draggable({
             element: labelEl,

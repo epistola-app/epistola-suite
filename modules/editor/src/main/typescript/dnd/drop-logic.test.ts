@@ -204,42 +204,47 @@ describe('canDropHere', () => {
     expect(canDropHere(dragData, rootSlotId, doc, indexes, registry)).toBe(false);
   });
 
-  it('rejects palette drag of page header into non-root slot', () => {
-    const indexes = buildIndexes(doc);
-    const dragData: DragData = { source: 'palette', blockType: 'pageheader' };
-
-    expect(canDropHere(dragData, containerSlotId, doc, indexes, registry)).toBe(false);
-  });
-
-  it('rejects palette drag of page header when two already exist', () => {
-    const header1 = registry.createNode('pageheader');
-    const header2 = registry.createNode('pageheader');
-    for (const header of [header1, header2]) {
-      doc.nodes[header.node.id] = header.node;
-      for (const slot of header.slots) {
-        doc.slots[slot.id] = slot;
-      }
-      doc.slots[rootSlotId].children.unshift(header.node.id);
-    }
-
-    const indexes = buildIndexes(doc);
-    const dragData: DragData = { source: 'palette', blockType: 'pageheader' };
-
-    expect(canDropHere(dragData, rootSlotId, doc, indexes, registry)).toBe(false);
-  });
-
-  it('allows palette drag of a second page header when only one exists', () => {
-    const header = registry.createNode('pageheader');
-    doc.nodes[header.node.id] = header.node;
-    for (const slot of header.slots) {
+  function addBand(type: 'pageheader' | 'pagefooter', target: SlotId) {
+    const band = registry.createNode(type);
+    doc.nodes[band.node.id] = band.node;
+    for (const slot of band.slots) {
       doc.slots[slot.id] = slot;
     }
-    doc.slots[rootSlotId].children.unshift(header.node.id);
+    doc.slots[target].children.unshift(band.node.id);
+    return band;
+  }
 
+  it('allows palette drags of page headers and footers into any slot, however many exist', () => {
+    addBand('pageheader', rootSlotId);
+    addBand('pageheader', rootSlotId);
+    addBand('pagefooter', rootSlotId);
     const indexes = buildIndexes(doc);
-    const dragData: DragData = { source: 'palette', blockType: 'pageheader' };
 
-    expect(canDropHere(dragData, rootSlotId, doc, indexes, registry)).toBe(true);
+    for (const blockType of ['pageheader', 'pagefooter']) {
+      const dragData: DragData = { source: 'palette', blockType };
+      expect(canDropHere(dragData, rootSlotId, doc, indexes, registry)).toBe(true);
+      expect(canDropHere(dragData, containerSlotId, doc, indexes, registry)).toBe(true);
+    }
+  });
+
+  it('rejects palette drags of page headers and footers into a page header or footer', () => {
+    const footer = addBand('pagefooter', rootSlotId);
+    const indexes = buildIndexes(doc);
+
+    for (const blockType of ['pageheader', 'pagefooter']) {
+      const dragData: DragData = { source: 'palette', blockType };
+      expect(canDropHere(dragData, footer.slots[0].id, doc, indexes, registry)).toBe(false);
+    }
+    // Ordinary content still goes into a footer.
+    expect(
+      canDropHere(
+        { source: 'palette', blockType: 'text' },
+        footer.slots[0].id,
+        doc,
+        indexes,
+        registry,
+      ),
+    ).toBe(true);
   });
 
   it('allows block drag to different slot', () => {
@@ -258,34 +263,39 @@ describe('canDropHere', () => {
     expect(canDropHere(dragData, containerSlotId, doc, indexes, registry)).toBe(false);
   });
 
-  it('allows block drag of page header into the root slot (reorder)', () => {
-    const header = registry.createNode('pageheader');
-    doc.nodes[header.node.id] = header.node;
-    for (const slot of header.slots) {
-      doc.slots[slot.id] = slot;
-    }
-    doc.slots[rootSlotId].children.unshift(header.node.id);
-
+  it('allows block drags of page headers and footers anywhere, including the footer', () => {
+    const header = addBand('pageheader', rootSlotId);
+    const footer = addBand('pagefooter', rootSlotId);
     const indexes = buildIndexes(doc);
-    const dragData: DragData = { source: 'block', nodeId: header.node.id, blockType: 'pageheader' };
 
-    // Reordering within the root slot is allowed; the move command enforces that the
-    // header lands within the header zone.
-    expect(canDropHere(dragData, rootSlotId, doc, indexes, registry)).toBe(true);
+    for (const band of [header, footer]) {
+      const dragData: DragData = {
+        source: 'block',
+        nodeId: band.node.id,
+        blockType: band.node.type,
+      };
+      expect(canDropHere(dragData, rootSlotId, doc, indexes, registry)).toBe(true);
+      expect(canDropHere(dragData, containerSlotId, doc, indexes, registry)).toBe(true);
+    }
   });
 
-  it('rejects block drag of page header into a non-root slot', () => {
-    const header = registry.createNode('pageheader');
-    doc.nodes[header.node.id] = header.node;
-    for (const slot of header.slots) {
-      doc.slots[slot.id] = slot;
-    }
-    doc.slots[rootSlotId].children.unshift(header.node.id);
-
+  it('rejects a block drag that would put a page header or footer inside another', () => {
+    const header = addBand('pageheader', rootSlotId);
+    const footer = addBand('pagefooter', containerSlotId);
     const indexes = buildIndexes(doc);
-    const dragData: DragData = { source: 'block', nodeId: header.node.id, blockType: 'pageheader' };
 
-    expect(canDropHere(dragData, containerSlotId, doc, indexes, registry)).toBe(false);
+    const footerDrag: DragData = {
+      source: 'block',
+      nodeId: footer.node.id,
+      blockType: 'pagefooter',
+    };
+    const containerDrag: DragData = {
+      source: 'block',
+      nodeId: containerNodeId,
+      blockType: 'container',
+    };
+    expect(canDropHere(footerDrag, header.slots[0].id, doc, indexes, registry)).toBe(false);
+    expect(canDropHere(containerDrag, header.slots[0].id, doc, indexes, registry)).toBe(false);
   });
 
   it('rejects block drag into a descendant slot', () => {

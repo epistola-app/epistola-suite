@@ -310,212 +310,99 @@ describe('InsertNode', () => {
     expect(engine.doc.slots[slots[0].id].nodeId).toBe(node.id);
   });
 
-  it('appends a second page header after the existing one when index is -1', () => {
-    const first = registry.createNode('pageheader');
-    const firstInsert = engine.dispatch({
+  function insertBand(type: 'pageheader' | 'pagefooter', target: SlotId, index: number) {
+    const band = registry.createNode(type);
+    const result = engine.dispatch({
       type: 'InsertNode',
-      node: first.node,
-      slots: first.slots,
-      targetSlotId: rootSlotId,
-      index: -1,
+      node: band.node,
+      slots: band.slots,
+      targetSlotId: target,
+      index,
     });
-    expect(firstInsert.ok).toBe(true);
+    return { band, result };
+  }
 
-    const second = registry.createNode('pageheader');
-    const secondInsert = engine.dispatch({
-      type: 'InsertNode',
-      node: second.node,
-      slots: second.slots,
-      targetSlotId: rootSlotId,
-      index: -1,
-    });
-    expect(secondInsert.ok).toBe(true);
+  it('inserts any number of page headers and footers where asked', () => {
+    const inserted = [
+      insertBand('pageheader', rootSlotId, 0),
+      insertBand('pageheader', rootSlotId, 1),
+      insertBand('pageheader', rootSlotId, 3),
+      insertBand('pagefooter', rootSlotId, -1),
+      insertBand('pagefooter', rootSlotId, 0),
+    ];
 
-    // Index -1 means "append within the header zone" → new header becomes the
-    // running (page 2+) variant; the pre-existing header stays at index 0 and
-    // keeps the first-page role.
-    expect(engine.doc.slots[rootSlotId].children[0]).toBe(first.node.id);
-    expect(engine.doc.slots[rootSlotId].children[1]).toBe(second.node.id);
+    expect(inserted.every(({ result }) => result.ok)).toBe(true);
+    const children = engine.doc.slots[rootSlotId].children;
+    expect(children[0]).toBe(inserted[4].band.node.id);
+    expect(children[1]).toBe(inserted[0].band.node.id);
+    expect(children[2]).toBe(inserted[1].band.node.id);
+    expect(children[children.length - 1]).toBe(inserted[3].band.node.id);
   });
 
-  it('inserts a second page header above an existing one when index is 0', () => {
-    const first = registry.createNode('pageheader');
+  it('inserts page headers and footers inside a container, as a stencil carries them', () => {
+    // The container that createTestDocumentWithChildren puts in the root slot.
+    const container = slotId('container-slot');
+    expect(engine.doc.slots[container]).toBeDefined();
+
+    expect(insertBand('pageheader', container, 0).result.ok).toBe(true);
+    expect(insertBand('pagefooter', container, -1).result.ok).toBe(true);
+  });
+
+  it('places content before a page header and after a page footer', () => {
+    insertBand('pageheader', rootSlotId, 0);
+    insertBand('pagefooter', rootSlotId, -1);
+
+    const before = registry.createNode('text');
+    const after = registry.createNode('text');
     expect(
       engine.dispatch({
         type: 'InsertNode',
-        node: first.node,
-        slots: first.slots,
+        node: before.node,
+        slots: before.slots,
+        targetSlotId: rootSlotId,
+        index: 0,
+      }).ok,
+    ).toBe(true);
+    expect(
+      engine.dispatch({
+        type: 'InsertNode',
+        node: after.node,
+        slots: after.slots,
         targetSlotId: rootSlotId,
         index: -1,
       }).ok,
     ).toBe(true);
-
-    const second = registry.createNode('pageheader');
-    const result = engine.dispatch({
-      type: 'InsertNode',
-      node: second.node,
-      slots: second.slots,
-      targetSlotId: rootSlotId,
-      index: 0,
-    });
-    expect(result.ok).toBe(true);
-
-    // Dropping above the existing header makes the new one the first-page variant.
-    expect(engine.doc.slots[rootSlotId].children[0]).toBe(second.node.id);
-    expect(engine.doc.slots[rootSlotId].children[1]).toBe(first.node.id);
-  });
-
-  it('rejects inserting a third page header', () => {
-    for (let i = 0; i < 2; i += 1) {
-      const header = registry.createNode('pageheader');
-      const insert = engine.dispatch({
-        type: 'InsertNode',
-        node: header.node,
-        slots: header.slots,
-        targetSlotId: rootSlotId,
-        index: -1,
-      });
-      expect(insert.ok).toBe(true);
-    }
-
-    const third = registry.createNode('pageheader');
-    const thirdInsert = engine.dispatch({
-      type: 'InsertNode',
-      node: third.node,
-      slots: third.slots,
-      targetSlotId: rootSlotId,
-      index: -1,
-    });
-
-    expect(thirdInsert.ok).toBe(false);
-    if (!thirdInsert.ok) {
-      expect(thirdInsert.error).toContain("Only 2 'pageheader' blocks allowed per document");
-    }
-  });
-
-  it('rejects inserting a second page footer', () => {
-    const first = registry.createNode('pagefooter');
-    const firstInsert = engine.dispatch({
-      type: 'InsertNode',
-      node: first.node,
-      slots: first.slots,
-      targetSlotId: rootSlotId,
-      index: -1,
-    });
-    expect(firstInsert.ok).toBe(true);
-
-    const second = registry.createNode('pagefooter');
-    const secondInsert = engine.dispatch({
-      type: 'InsertNode',
-      node: second.node,
-      slots: second.slots,
-      targetSlotId: rootSlotId,
-      index: -1,
-    });
-
-    expect(secondInsert.ok).toBe(false);
-    if (!secondInsert.ok) {
-      expect(secondInsert.error).toContain("Only 1 'pagefooter' block allowed per document");
-    }
-  });
-
-  it('anchors page header at the top of root slot', () => {
-    const { node, slots } = registry.createNode('pageheader');
-    const result = engine.dispatch({
-      type: 'InsertNode',
-      node,
-      slots,
-      targetSlotId: rootSlotId,
-      index: -1,
-    });
-
-    expect(result.ok).toBe(true);
-    expect(engine.doc.slots[rootSlotId].children[0]).toBe(node.id);
-  });
-
-  it('anchors page footer at the bottom of root slot', () => {
-    const { node, slots } = registry.createNode('pagefooter');
-    const result = engine.dispatch({
-      type: 'InsertNode',
-      node,
-      slots,
-      targetSlotId: rootSlotId,
-      index: 0,
-    });
-
-    expect(result.ok).toBe(true);
     const children = engine.doc.slots[rootSlotId].children;
-    expect(children[children.length - 1]).toBe(node.id);
+    expect(children[0]).toBe(before.node.id);
+    expect(children[children.length - 1]).toBe(after.node.id);
   });
 
-  it('rejects inserting page header outside root slot', () => {
-    const { containerSlotId } = createTestDocumentWithChildren();
-    const { node, slots } = registry.createNode('pageheader');
+  it('rejects a page header or footer inside another', () => {
+    const { band: footer } = insertBand('pagefooter', rootSlotId, -1);
+    const footerSlot = footer.slots[0].id;
 
-    const result = engine.dispatch({
-      type: 'InsertNode',
-      node,
-      slots,
-      targetSlotId: containerSlotId,
-      index: 0,
-    });
+    const header = insertBand('pageheader', footerSlot, 0).result;
+    const nestedFooter = insertBand('pagefooter', footerSlot, 0).result;
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain('top of the document');
-    }
+    expect(header.ok).toBe(false);
+    expect(nestedFooter.ok).toBe(false);
+    if (!header.ok)
+      expect(header.error).toContain('cannot be placed inside another page header or footer');
   });
 
-  it('rejects inserting content before anchored page header', () => {
-    const header = registry.createNode('pageheader');
-    const headerResult = engine.dispatch({
-      type: 'InsertNode',
-      node: header.node,
-      slots: header.slots,
-      targetSlotId: rootSlotId,
-      index: 0,
-    });
-    expect(headerResult.ok).toBe(true);
-
+  it('still allows ordinary content inside a page header', () => {
+    const { band: header } = insertBand('pageheader', rootSlotId, 0);
     const text = registry.createNode('text');
-    const result = engine.dispatch({
-      type: 'InsertNode',
-      node: text.node,
-      slots: text.slots,
-      targetSlotId: rootSlotId,
-      index: 0,
-    });
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain('before the page header');
-    }
-  });
-
-  it('rejects inserting content after anchored page footer', () => {
-    const footer = registry.createNode('pagefooter');
-    const footerResult = engine.dispatch({
-      type: 'InsertNode',
-      node: footer.node,
-      slots: footer.slots,
-      targetSlotId: rootSlotId,
-      index: -1,
-    });
-    expect(footerResult.ok).toBe(true);
-
-    const text = registry.createNode('text');
-    const result = engine.dispatch({
-      type: 'InsertNode',
-      node: text.node,
-      slots: text.slots,
-      targetSlotId: rootSlotId,
-      index: -1,
-    });
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain('after the page footer');
-    }
+    expect(
+      engine.dispatch({
+        type: 'InsertNode',
+        node: text.node,
+        slots: text.slots,
+        targetSlotId: header.slots[0].id,
+        index: 0,
+      }).ok,
+    ).toBe(true);
   });
 });
 
@@ -784,7 +671,7 @@ describe('MoveNode', () => {
         node: header1.node,
         slots: header1.slots,
         targetSlotId: rootSlotId,
-        index: -1,
+        index: 0,
       }).ok,
     ).toBe(true);
 
@@ -795,11 +682,11 @@ describe('MoveNode', () => {
         node: header2.node,
         slots: header2.slots,
         targetSlotId: rootSlotId,
-        index: -1,
+        index: 1,
       }).ok,
     ).toBe(true);
 
-    // After both inserts (palette appends): [header1 (first-page), header2 (running), …body]
+    // After both inserts: [header1 (first-page), header2 (running), …body]
     expect(engine.doc.slots[rootSlotId].children[0]).toBe(header1.node.id);
     expect(engine.doc.slots[rootSlotId].children[1]).toBe(header2.node.id);
 
@@ -818,146 +705,106 @@ describe('MoveNode', () => {
     expect(engine.doc.slots[rootSlotId].children[1]).toBe(header1.node.id);
   });
 
-  it('rejects moving a page header outside the header zone', () => {
-    const registry = testRegistry();
-    const { doc, rootSlotId } = createTestDocumentWithChildren();
-    const engine = new EditorEngine(doc, registry);
-
-    const header = registry.createNode('pageheader');
-    expect(
-      engine.dispatch({
-        type: 'InsertNode',
-        node: header.node,
-        slots: header.slots,
-        targetSlotId: rootSlotId,
-        index: 0,
-      }).ok,
-    ).toBe(true);
-
-    // Try to drop the header amongst the body content (index 2).
-    const result = engine.dispatch({
-      type: 'MoveNode',
-      nodeId: header.node.id,
-      targetSlotId: rootSlotId,
-      index: 2,
-    });
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain('top of the document');
-    }
-  });
-
-  it('rejects moving a page header into a non-root slot', () => {
+  it('moves page headers and footers anywhere in the flow', () => {
     const registry = testRegistry();
     const { doc, rootSlotId, containerSlotId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
     const header = registry.createNode('pageheader');
-    expect(
-      engine.dispatch({
-        type: 'InsertNode',
-        node: header.node,
-        slots: header.slots,
-        targetSlotId: rootSlotId,
-        index: 0,
-      }).ok,
-    ).toBe(true);
-
-    const result = engine.dispatch({
-      type: 'MoveNode',
-      nodeId: header.node.id,
-      targetSlotId: containerSlotId,
-      index: 0,
-    });
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain('cannot be moved');
-    }
-  });
-
-  it('rejects moving page footer', () => {
-    const registry = testRegistry();
-    const { doc, rootSlotId } = createTestDocumentWithChildren();
-    const engine = new EditorEngine(doc, registry);
-
     const footer = registry.createNode('pagefooter');
-    const insert = engine.dispatch({
-      type: 'InsertNode',
-      node: footer.node,
-      slots: footer.slots,
-      targetSlotId: rootSlotId,
-      index: -1,
-    });
-    expect(insert.ok).toBe(true);
-
-    const result = engine.dispatch({
-      type: 'MoveNode',
-      nodeId: footer.node.id,
-      targetSlotId: rootSlotId,
-      index: 0,
-    });
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain('cannot be moved');
-    }
-  });
-
-  it('rejects moving content before anchored page header', () => {
-    const registry = testRegistry();
-    const { doc, rootSlotId, textNodeId } = createTestDocumentWithChildren();
-    const engine = new EditorEngine(doc, registry);
-
-    const header = registry.createNode('pageheader');
-    const insert = engine.dispatch({
+    engine.dispatch({
       type: 'InsertNode',
       node: header.node,
       slots: header.slots,
       targetSlotId: rootSlotId,
       index: 0,
     });
-    expect(insert.ok).toBe(true);
-
-    const result = engine.dispatch({
-      type: 'MoveNode',
-      nodeId: textNodeId,
-      targetSlotId: rootSlotId,
-      index: 0,
-    });
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain('before the page header');
-    }
-  });
-
-  it('rejects moving content after anchored page footer', () => {
-    const registry = testRegistry();
-    const { doc, rootSlotId, textNodeId } = createTestDocumentWithChildren();
-    const engine = new EditorEngine(doc, registry);
-
-    const footer = registry.createNode('pagefooter');
-    const insert = engine.dispatch({
+    engine.dispatch({
       type: 'InsertNode',
       node: footer.node,
       slots: footer.slots,
       targetSlotId: rootSlotId,
       index: -1,
     });
-    expect(insert.ok).toBe(true);
 
-    const result = engine.dispatch({
-      type: 'MoveNode',
-      nodeId: textNodeId,
+    // A header after content, a footer at the top, and both into a container.
+    expect(
+      engine.dispatch({
+        type: 'MoveNode',
+        nodeId: header.node.id,
+        targetSlotId: rootSlotId,
+        index: 2,
+      }).ok,
+    ).toBe(true);
+    expect(engine.doc.slots[rootSlotId].children[2]).toBe(header.node.id);
+    expect(
+      engine.dispatch({
+        type: 'MoveNode',
+        nodeId: footer.node.id,
+        targetSlotId: rootSlotId,
+        index: 0,
+      }).ok,
+    ).toBe(true);
+    expect(engine.doc.slots[rootSlotId].children[0]).toBe(footer.node.id);
+    expect(
+      engine.dispatch({
+        type: 'MoveNode',
+        nodeId: header.node.id,
+        targetSlotId: containerSlotId,
+        index: 0,
+      }).ok,
+    ).toBe(true);
+    expect(
+      engine.dispatch({
+        type: 'MoveNode',
+        nodeId: footer.node.id,
+        targetSlotId: containerSlotId,
+        index: 1,
+      }).ok,
+    ).toBe(true);
+  });
+
+  it('rejects moving a page header or footer, or a block holding one, into another', () => {
+    const registry = testRegistry();
+    const { doc, rootSlotId, containerSlotId, containerNodeId } = createTestDocumentWithChildren();
+    const engine = new EditorEngine(doc, registry);
+
+    const header = registry.createNode('pageheader');
+    const footer = registry.createNode('pagefooter');
+    engine.dispatch({
+      type: 'InsertNode',
+      node: header.node,
+      slots: header.slots,
       targetSlotId: rootSlotId,
-      index: Number.MAX_SAFE_INTEGER,
+      index: 0,
+    });
+    engine.dispatch({
+      type: 'InsertNode',
+      node: footer.node,
+      slots: footer.slots,
+      targetSlotId: containerSlotId,
+      index: 0,
     });
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain('after the page footer');
+    const footerIntoHeader = engine.dispatch({
+      type: 'MoveNode',
+      nodeId: footer.node.id,
+      targetSlotId: header.slots[0].id,
+      index: 0,
+    });
+    const containerIntoHeader = engine.dispatch({
+      type: 'MoveNode',
+      nodeId: containerNodeId,
+      targetSlotId: header.slots[0].id,
+      index: 0,
+    });
+
+    expect(footerIntoHeader.ok).toBe(false);
+    expect(containerIntoHeader.ok).toBe(false);
+    if (!containerIntoHeader.ok) {
+      expect(containerIntoHeader.error).toContain(
+        'cannot be placed inside another page header or footer',
+      );
     }
   });
 
@@ -1890,34 +1737,21 @@ describe('ComponentRegistry', () => {
     expect(() => registry.createNode('nonexistent')).toThrow('Unknown component type');
   });
 
-  it('insertable(document) respects page block instance limits', () => {
+  it('insertable(document) never runs out of page headers or footers', () => {
     const registry = createDefaultRegistry();
     const doc = createTestDocument();
     const rootSlotId = doc.nodes[doc.root].slots[0];
     if (!rootSlotId) throw new Error('Root slot missing');
 
-    // With a single page header, a second one is still insertable (max = 2 for the
-    // first-page variant). After adding the second, pageheader becomes saturated.
-    const header1 = registry.createNode('pageheader');
-    doc.nodes[header1.node.id] = header1.node;
-    for (const slot of header1.slots) {
-      doc.slots[slot.id] = slot;
+    for (const type of ['pageheader', 'pageheader', 'pageheader', 'pagefooter', 'pagefooter']) {
+      const band = registry.createNode(type);
+      doc.nodes[band.node.id] = band.node;
+      for (const slot of band.slots) doc.slots[slot.id] = slot;
+      doc.slots[rootSlotId].children.push(band.node.id);
     }
-    doc.slots[rootSlotId].children.push(header1.node.id);
 
-    let insertableTypes = new Set(registry.insertable(doc).map((def) => def.type));
+    const insertableTypes = new Set(registry.insertable(doc).map((def) => def.type));
     expect(insertableTypes.has('pageheader')).toBe(true);
-    expect(insertableTypes.has('pagefooter')).toBe(true);
-
-    const header2 = registry.createNode('pageheader');
-    doc.nodes[header2.node.id] = header2.node;
-    for (const slot of header2.slots) {
-      doc.slots[slot.id] = slot;
-    }
-    doc.slots[rootSlotId].children.unshift(header2.node.id);
-
-    insertableTypes = new Set(registry.insertable(doc).map((def) => def.type));
-    expect(insertableTypes.has('pageheader')).toBe(false);
     expect(insertableTypes.has('pagefooter')).toBe(true);
   });
 });

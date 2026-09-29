@@ -29,7 +29,7 @@ import type { Change, ChangeContext } from './change.js';
 import { CommandChange } from './command-change.js';
 import { TextChange } from './text-change.js';
 import type { TextChangeOps } from './undo.js';
-import { type ComponentRegistry, type ScopeDeclaration, isAnchoredPageBlock } from './registry.js';
+import { type ComponentRegistry, type ScopeDeclaration, isPageBand } from './registry.js';
 import type { JsonSchemaNode } from '../json-schema/schema-node.js';
 import { type SchemaCursor, schemaRootCursor } from './schema-navigator.js';
 import { materializeScopeDeclaration, type SchemaScopeEnvironment } from './schema-scopes.js';
@@ -310,11 +310,11 @@ export class EditorEngine {
   /** Check if a node is inside a page header or footer (or is one itself). */
   private _isInsidePageBlock(nodeId: NodeId): boolean {
     const node = this._doc.nodes[nodeId];
-    if (node && isAnchoredPageBlock(node.type)) return true;
+    if (node && isPageBand(node.type)) return true;
     let current: NodeId | undefined = this._indexes.parentNodeByNodeId.get(nodeId);
     while (current !== undefined) {
       const ancestor = this._doc.nodes[current];
-      if (ancestor && isAnchoredPageBlock(ancestor.type)) return true;
+      if (ancestor && isPageBand(ancestor.type)) return true;
       current = this._indexes.parentNodeByNodeId.get(current);
     }
     return false;
