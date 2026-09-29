@@ -4,7 +4,7 @@ Epistola exposes a [Model Context Protocol](https://modelcontextprotocol.io) ser
 
 ## Status
 
-- **Read tools are GA; write tools are beta.** The read tools cover discovery, inspection and document preview. The [write tools](#write-tools-beta) author drafts — templates, variants, data contracts, stencils, themes, images and fonts — and may still change their arguments in a minor release. Nothing over MCP publishes, deploys or deletes: a person reviews and publishes the result in the UI.
+- **Read tools are GA; write tools are beta.** The read tools cover discovery, inspection and document preview. The [write tools](#write-tools-beta) author drafts — templates, variants, data contracts, stencils, themes, images and fonts — and publish them, and may still change their arguments in a minor release. Nothing over MCP activates a version in an environment or deletes anything: whether a published version is used to generate documents is still decided in the UI.
 - **Transport: Streamable HTTP**, mounted at `/api/mcp` on the same Spring Boot service that serves the UI and REST API.
 - **Auth: `Authorization: ApiKey`.** Reuses the existing per-tenant API-key mechanism — no new credential type. Legacy `X-API-Key` remains accepted for existing clients.
 - **Server-wide toggle: `epistola.mcp.enabled`** (default `true`). Setting it to `false` disables the entire MCP endpoint — no `/api/mcp` route, no Spring AI MCP server, no eager loading of the component registry JSON. Wired through to Spring AI's own `spring.ai.mcp.server.enabled`.
@@ -95,21 +95,25 @@ Enough to convert an existing document into Epistola. Every write dispatches the
 and REST API use, so validation, permissions and the read-only rule for SUBSCRIBED catalogs (such as
 `system`) apply unchanged. Omitted optional arguments leave a field as it is.
 
-| Tool                    | Purpose                                                                                                                                                                                      | Permission                        |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `create_template`       | Create a template, optionally with a theme and default-variant attributes (e.g. `system.locale`). It starts with a default variant holding an empty draft, and an empty draft data contract. | `TEMPLATE_EDIT`                   |
-| `update_template`       | Change a template's name, theme (or clear it) and PDF/A flag.                                                                                                                                | `TEMPLATE_EDIT`                   |
-| `create_variant`        | Add a variant with attributes, e.g. `{"system.locale": "nl-NL"}`. Values are validated; identical attribute sets are accepted but make selection ambiguous.                                  | `TEMPLATE_EDIT`                   |
-| `update_variant`        | Change a variant's title or replace its attributes.                                                                                                                                          | `TEMPLATE_EDIT`                   |
-| `update_template_draft` | Replace a variant's draft with a template document, creating the draft when there is none. Published versions are never touched.                                                             | `TEMPLATE_EDIT`                   |
-| `update_data_contract`  | Set the draft contract's JSON Schema (`dataModel`) and examples, creating the draft when only published versions exist.                                                                      | `TEMPLATE_EDIT`                   |
-| `create_stencil`        | Create a stencil with an initial draft (content and parameter schema optional).                                                                                                              | `STENCIL_EDIT`                    |
-| `update_stencil`        | Change a stencil's name, description or tags.                                                                                                                                                | `STENCIL_EDIT`                    |
-| `update_stencil_draft`  | Replace a stencil's draft content, creating a draft when there is none. An omitted parameter schema is kept.                                                                                 | `STENCIL_EDIT`                    |
-| `create_theme`          | Create a theme with document styles, page settings, block style presets and spacing unit.                                                                                                    | `THEME_EDIT`                      |
-| `update_theme`          | Change a theme. A given styling field replaces that whole field, so read it with `get_theme` and send back the merged value.                                                                 | `THEME_EDIT`                      |
-| `upload_image`          | Upload an image as base64 or a `data:` URL, optionally under a readable key such as `company-logo`. Images are immutable; upload a new one.                                                  | `TEMPLATE_EDIT`                   |
-| `upload_font`           | Create or replace a font family from base64 TTF/OTF faces. Every face is checked for embeddability before anything is stored.                                                                | `TEMPLATE_EDIT`, `REFERENCE_EDIT` |
+| Tool                          | Purpose                                                                                                                                                                                                                        | Permission                        |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
+| `create_template`             | Create a template, optionally with a theme and default-variant attributes (e.g. `system.locale`). It starts with a default variant holding an empty draft, and an empty draft data contract.                                   | `TEMPLATE_EDIT`                   |
+| `update_template`             | Change a template's name, theme (or clear it) and PDF/A flag.                                                                                                                                                                  | `TEMPLATE_EDIT`                   |
+| `create_variant`              | Add a variant with attributes, e.g. `{"system.locale": "nl-NL"}`. Values are validated; identical attribute sets are accepted but make selection ambiguous.                                                                    | `TEMPLATE_EDIT`                   |
+| `update_variant`              | Change a variant's title or replace its attributes.                                                                                                                                                                            | `TEMPLATE_EDIT`                   |
+| `update_template_draft`       | Replace a variant's draft with a template document, creating the draft when there is none. Published versions are never touched.                                                                                               | `TEMPLATE_EDIT`                   |
+| `update_data_contract`        | Set the draft contract's JSON Schema (`dataModel`) and examples, creating the draft when only published versions exist.                                                                                                        | `TEMPLATE_EDIT`                   |
+| `create_stencil`              | Create a stencil with an initial draft (content and parameter schema optional).                                                                                                                                                | `STENCIL_EDIT`                    |
+| `update_stencil`              | Change a stencil's name, description or tags.                                                                                                                                                                                  | `STENCIL_EDIT`                    |
+| `update_stencil_draft`        | Replace a stencil's draft content, creating a draft when there is none. An omitted parameter schema is kept.                                                                                                                   | `STENCIL_EDIT`                    |
+| `create_theme`                | Create a theme with document styles, page settings, block style presets and spacing unit.                                                                                                                                      | `THEME_EDIT`                      |
+| `update_theme`                | Change a theme. A given styling field replaces that whole field, so read it with `get_theme` and send back the merged value.                                                                                                   | `THEME_EDIT`                      |
+| `upload_image`                | Upload an image as base64 or a `data:` URL, optionally under a readable key such as `company-logo`. Images are immutable; upload a new one.                                                                                    | `TEMPLATE_EDIT`                   |
+| `upload_font`                 | Create or replace a font family from base64 TTF/OTF faces. Every face is checked for embeddability before anything is stored.                                                                                                  | `TEMPLATE_EDIT`, `REFERENCE_EDIT` |
+| `publish_stencil_version`     | Publish a stencil draft, freezing its content and parameter schema.                                                                                                                                                            | `STENCIL_PUBLISH`                 |
+| `upgrade_stencil_in_template` | Point every instance of a stencil in a variant's draft at a published version, replacing its content. Relinks instances built against the stencil's draft; reports dropped fills and bindings and unbound required parameters. | `TEMPLATE_EDIT`                   |
+| `publish_data_contract`       | Publish the draft data contract on its own. A breaking change returns a preview (`published: false`, `breakingChanges`, `incompatibleVersions`) and is published only with `confirmBreaking: true`.                            | `TEMPLATE_EDIT`                   |
+| `publish_template_version`    | Publish a variant's draft (or a given version), freezing theme and rendering defaults and publishing a compatible draft contract. Does not activate it in an environment.                                                      | `TEMPLATE_PUBLISH`                |
 
 Structured arguments — template documents, schemas, styles, attributes, examples, font faces — are
 passed as JSON strings, like `preview_document`'s `data`. A malformed one fails with a message naming
@@ -130,10 +134,19 @@ stencil version's content, with `stencilId`, `catalogKey`, and `version` (publis
 `parameterSchemaSnapshot` when the stencil has parameters. The server renders only the stored copy;
 only the editor refreshes draft instances from the stencil when a template is opened. A draft
 template may embed a draft stencil; publishing the template needs the stencil published first, and
-its instances upgraded to that version, in the UI.
+its instances upgraded to that version.
 
-Not available over MCP: publishing or archiving versions, deploying to environments, publishing a
-contract, and deleting anything.
+Publishing a catalog built this way:
+
+1. `publish_stencil_version` for every stencil the templates use.
+2. `upgrade_stencil_in_template` for each (stencil, template variant), to the published version. A
+   template that still references a stencil draft cannot be published.
+3. `publish_template_version` for each variant. It publishes a compatible draft contract along with
+   it; run `publish_data_contract` first when the contract change is breaking, and confirm only after
+   the user has seen the preview.
+
+Not available over MCP: activating versions in environments, archiving versions, and deleting
+anything.
 
 ## Limitations and notes
 
@@ -191,13 +204,13 @@ contract, and deleting anything.
   The validator rejects mismatches: sending a list to a `richTextInline` field, or any block content to an inline expression chip's binding, fails preview with a JSON Schema error.
 
 - **Data contract auto-creation.** Creating a template auto-creates an empty draft contract (v1). `get_data_contract` returns it even before the contract has been authored.
-- **Writes stop at drafts.** Publishing, deployment and deletion stay in the UI (or the REST API), so a person reviews what an assistant produced before it can be used to generate documents.
+- **Writes stop at published versions.** Activation in an environment and deletion stay in the UI (or the REST API), so a person decides when a version an assistant published is used to generate documents. Give an assistant's key the publisher role only if it may publish.
 - **Rate limiting.** The MCP endpoint shares the existing `/api/**` security chain; no MCP-specific rate limiting is in place.
 
 ## Troubleshooting
 
 - **`401 Unauthorized`**: The `Authorization: ApiKey` header is missing, the key is malformed (must start with `epk_`), or the key has been revoked/disabled/expired. Legacy `X-API-Key` is still accepted.
-- **Tool errors mentioning permission**: The API key is missing `TEMPLATE_VIEW` (for read tools), `DOCUMENT_GENERATE` (for preview), or the edit permission a [write tool](#write-tools-beta) needs.
+- **Tool errors mentioning permission**: The API key is missing `TEMPLATE_VIEW` (for read tools), `DOCUMENT_GENERATE` (for preview), or the edit or publish permission a [write tool](#write-tools-beta) needs (`STENCIL_PUBLISH` / `TEMPLATE_PUBLISH` come with the content publisher role).
 - **Tool errors mentioning a read-only catalog**: Write tools only write to AUTHORED catalogs; SUBSCRIBED catalogs such as `system` are read-only.
 - **`MCP request has no tenant scope`**: The principal has no `currentTenantId`. With API-key auth, this should not happen — the key is always tenant-scoped. If you see it, the key may have been provisioned without a tenant binding.
 
