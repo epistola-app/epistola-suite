@@ -31,6 +31,19 @@ interface CatalogReleasePublicationPort {
 
     /** Records durable publication intent for a release being committed on [handle]. */
     fun recordReleasePublication(handle: Handle, request: CatalogReleasePublicationRequest): UUID
+
+    /**
+     * True while this release is actually being sent — queued, submitted, or retrying.
+     *
+     * Asked before deleting a release, because the outbox row and the retained archive a sender is
+     * mid-flight with cascade away with it. Which statuses count as "being sent" is the
+     * integration's rule and stays on its side of this seam: copying the list into catalog's SQL
+     * would be the same rule in two places, and the copy would be the one that goes stale.
+     *
+     * Not about a release having *been* published. A decided, withdrawn or failed publication is
+     * inert, and the copy Exchange holds is Exchange's to keep.
+     */
+    fun isSendInFlight(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): Boolean
 }
 
 /**

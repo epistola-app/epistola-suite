@@ -8,6 +8,7 @@ import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeleteCatalogRelease
 import app.epistola.suite.catalog.commands.ForgetReleaseContent
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.UnregisterCatalog
@@ -201,6 +202,79 @@ class RevisionCollectionTest : IntegrationTestBase() {
         }
     }
 
+    /**
+     * Deleting a release moves the catalog's current-release pointer, and that is the part that
+     * matters. `catalogs.released_version` / `released_fingerprint` / `released_at` have no foreign
+     * key keeping them honest, and `released_at` is what the drift rule compares the working copy
+     * against — so a pointer left naming a deleted release makes every catalog screen report drift
+     * against something that no longer exists.
+     */
+    @Test
+    fun `deleting the latest release points the catalog at the one before it`() {
+        val tenant = createTenant("Delete Latest")
+        val key = CatalogKey.of("latest-cat")
+        val catalog = CatalogId(key, TenantId(tenant.id))
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = key, name = "Latest cat").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
+            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second").execute()
+            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.1.0").execute()
+
+            assertThat(pointer(tenant.id.value, "latest-cat")["released_version"]).isEqualTo("1.1.0")
+
+            assertThat(DeleteCatalogRelease(tenant.id, key, "1.1.0").execute()).isTrue()
+
+            val after = pointer(tenant.id.value, "latest-cat")
+            assertThat(after["released_version"]).`as`("back to the release before it").isEqualTo("1.0.0")
+            assertThat(after["released_fingerprint"]).`as`("and its fingerprint, not the deleted one's")
+                .isEqualTo(releaseFingerprint(tenant.id.value, "latest-cat", "1.0.0"))
+            assertThat(after["released_at"]).isNotNull()
+        }
+    }
+
+    @Test
+    fun `deleting an older release leaves the pointer where it is`() {
+        val tenant = createTenant("Delete Older")
+        val key = CatalogKey.of("older-cat")
+        val catalog = CatalogId(key, TenantId(tenant.id))
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = key, name = "Older cat").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
+            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second").execute()
+            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.1.0").execute()
+
+            DeleteCatalogRelease(tenant.id, key, "1.0.0").execute()
+
+            assertThat(pointer(tenant.id.value, "older-cat")["released_version"])
+                .`as`("1.1.0 is still the current release")
+                .isEqualTo("1.1.0")
+        }
+    }
+
+    @Test
+    fun `deleting the only release leaves the catalog never released`() {
+        val tenant = createTenant("Delete Only")
+        val key = CatalogKey.of("only-cat")
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = key, name = "Only cat").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant.id))), name = "Brand").execute()
+            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
+
+            DeleteCatalogRelease(tenant.id, key, "1.0.0").execute()
+
+            val after = pointer(tenant.id.value, "only-cat")
+            assertThat(after["released_version"]).`as`("cleared, not left naming a deleted release").isNull()
+            assertThat(after["released_fingerprint"]).isNull()
+            assertThat(after["released_at"]).isNull()
+            assertThat(revisionCount(tenant.id)).`as`("and its content went with it").isZero()
+            assertThat(DeleteCatalogRelease(tenant.id, key, "1.0.0").execute())
+                .`as`("a second click has nothing to delete")
+                .isFalse()
+        }
+    }
+
     /** Creates a template, gives it a document and publishes it, so a release can carry a model. */
     private fun publishTemplate(templateId: TemplateId) {
         val variant = VariantId(VariantKey.INITIAL, templateId)
@@ -216,6 +290,34 @@ class RevisionCollectionTest : IntegrationTestBase() {
             ),
         ).execute()
         PublishVersion(VersionId(GetDraft(variant).query()!!.id, variant)).execute()
+    }
+
+    /**
+     * Raw SQL: the pointer is three columns on `catalogs` that no read model exposes as such, and
+     * what is under test is the columns themselves rather than anything derived from them.
+     */
+    private fun pointer(tenantKey: String, catalogKey: String): Map<String, Any?> = jdbi.withHandle<Map<String, Any?>, Exception> { handle ->
+        handle.createQuery(
+            "SELECT released_version, released_fingerprint, released_at FROM catalogs WHERE tenant_key = :t AND id = :c",
+        )
+            .bind("t", tenantKey).bind("c", catalogKey)
+            .map { rs, _ ->
+                mapOf(
+                    "released_version" to rs.getString("released_version"),
+                    "released_fingerprint" to rs.getString("released_fingerprint"),
+                    "released_at" to rs.getObject("released_at"),
+                )
+            }
+            .one()
+    }
+
+    private fun releaseFingerprint(tenantKey: String, catalogKey: String, version: String): String = jdbi.withHandle<String, Exception> { handle ->
+        handle.createQuery(
+            "SELECT fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_key = :c AND version = :v",
+        )
+            .bind("t", tenantKey).bind("c", catalogKey).bind("v", version)
+            .mapTo(String::class.java)
+            .one()
     }
 
     private fun revisionCount(tenantKey: TenantKey, kind: String? = null): Int = jdbi.withHandle<Int, Exception> { handle ->

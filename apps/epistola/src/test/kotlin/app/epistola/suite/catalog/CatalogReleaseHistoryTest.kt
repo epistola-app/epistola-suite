@@ -186,6 +186,40 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
             .doesNotContain("catalogs/hist-forget/export?version=1.0.0")
     }
 
+    /**
+     * Deleting a release from its row. The two destructive actions differ in what survives, so this
+     * pins the difference the confirm dialogs describe: forgetting leaves the release listed, this
+     * does not.
+     */
+    @Test
+    fun `a release can be deleted from the history, and the catalog follows`() {
+        val tenant = tenantWithCatalog("hist-delete")
+
+        withMediator {
+            val catalog = CatalogId(CatalogKey.of("hist-delete"), TenantId(tenant.id))
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
+            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalog.key, version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second").execute()
+            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalog.key, version = "1.1.0").execute()
+        }
+
+        assertThat(browse(tenant.id.value, "hist-delete")).contains("Delete v1.1.0 from the history")
+
+        val response = restTemplate.postForEntity(
+            "/tenants/${tenant.id.value}/catalogs/hist-delete/releases/1.1.0/delete",
+            HttpEntity<Void>(HttpHeaders()),
+            String::class.java,
+        )
+        assertThat(response.statusCode.is2xxSuccessful).isTrue()
+
+        val after = browse(tenant.id.value, "hist-delete")
+        assertThat(after).`as`("gone from the history, unlike forgetting its content").doesNotContain("v1.1.0")
+        assertThat(after).`as`("and the one before it is still there").contains("v1.0.0")
+        assertThat(after)
+            .`as`("the catalog's own version followed the pointer back")
+            .contains("v1.0.0")
+    }
+
     private fun tenantWithCatalog(slug: String): Tenant {
         lateinit var created: Tenant
         fixture {

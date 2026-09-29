@@ -438,8 +438,16 @@ the working copy.
 
 - The "hold" escape hatch for work in progress that must not block a release (#1009).
 - Whether an installation ever collects on its own, rather than only when asked. It does not need to
-  while the two commands above are the only ways to make a revision unreachable; a release that can
-  be removed by some other path would change that.
+  while forgetting a release, deleting one and deleting a catalog are the only ways to make a
+  revision unreachable; a release that can be removed by some other path would change that.
+
+**Considered and not needed:** an index of which releases hold a given resource. Content that must
+genuinely be destroyed is handled by forgetting or deleting the releases that carry it, and that
+choice is made by date rather than by hunting one resource through a history — so the question the
+index would answer has not come up. `idx_release_entries_resource` already supports it if it ever
+does. Note the copy on Exchange is Exchange's: withdrawing a published release from it is a separate
+authority and out of scope here.
+
 - When payloads move to the content store, decided on measured sizes.
 - When the Exchange archive table shrinks to in-flight only.
 

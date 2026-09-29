@@ -23,6 +23,7 @@ import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.commands.CheckCatalogUpstream
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeleteCatalogRelease
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ForgetReleaseContent
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -489,6 +490,21 @@ class CatalogHandler {
                 .build()
         } catch (failure: ValidationException) {
             logger.warn("Forgetting the content of a release of '{}' was rejected: {}", catalogKey.value, failure.message)
+            browse(request, error = failure.message)
+        }
+    }
+
+    /** Removes a release from the history. Refusals -- a send in flight -- stay on the page. */
+    fun deleteRelease(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        return try {
+            DeleteCatalogRelease(tenantId.key, catalogKey, request.pathVariable("version")).execute()
+            ServerResponse.status(303)
+                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
+                .build()
+        } catch (failure: ValidationException) {
+            logger.warn("Deleting a release of '{}' was rejected: {}", catalogKey.value, failure.message)
             browse(request, error = failure.message)
         }
     }

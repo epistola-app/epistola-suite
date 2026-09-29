@@ -476,6 +476,24 @@
                                             th:attr="data-confirm-submit-message='v' + ${release.version} + ' stays in the history with its version, date and fingerprint, but its content is deleted: it can no longer be exported or published, and this cannot be undone. Storage it holds is reclaimed.'"
                                             data-confirm-submit-label="Forget content"
                                             data-confirm-submit-class="ep-btn-destructive">
+                                        <th:block th:replace="~{epistola-web/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
+                                    </button>
+                                </form>
+                                <!--/* The stronger of the two: the release leaves the history
+                                       altogether. Offered whether or not it was published -- the
+                                       copy on Exchange is Exchange's and stays there -- and refused
+                                       by the command only while a send is actually in flight. */-->
+                                <form th:if="${canForget}"
+                                      method="post" style="display: inline;"
+                                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/releases/{version}/delete(tenantId=${tenantId},catalogId=${catalog.id},version=${release.version})}">
+                                    <button type="button"
+                                            class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
+                                            th:title="'Delete v' + ${release.version} + ' from the history'"
+                                            data-confirm-submit
+                                            data-confirm-submit-title="Delete this release"
+                                            th:attr="data-confirm-submit-message='v' + ${release.version} + ' is removed from the history entirely, with its content, its notes and its fingerprint. Anything already published to Epistola Exchange stays there. This cannot be undone.'"
+                                            data-confirm-submit-label="Delete release"
+                                            data-confirm-submit-class="ep-btn-destructive">
                                         <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                     </button>
                                 </form>
