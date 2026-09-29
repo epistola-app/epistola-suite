@@ -417,13 +417,37 @@ severity lives.
    in-flight submissions.
 5. Drop the redundant payload columns and the version cap once the new path is verified.
 
-Nothing yet collects a revision. Deduplication means storage grows with genuine change rather than
-with releases, but it is unbounded until retention by reachability arrives, and the content sweep
-already has to reach through `revision_binaries` not to undo it.
+Two claims, easily confused. **Per release**, storage is bounded by deduplication: re-releasing
+unchanged content writes nothing, so it grows with genuine change rather than with releases. **Over
+time**, only deletion bounds it, and a revision is deleted at exactly the two moments it stops being
+reachable — forgetting one release's content, and deleting a catalog, whose releases cascade away
+with it. Both collect inside the transaction that caused them
+(`ResourceRevisionStore.collectUnreferenced`), so the database never holds content nothing can
+reach.
+
+Reachability is a graph: a release entry names a resource's revision, and a template's revision names
+its models by reference, so a model is reachable only through its parent. Collecting what no entry
+names _directly_ would delete every model.
+
+`ContentReaper` still owns the bytes. Dropping the last `revision_binaries` row that named a blob
+only makes it collectable; the sweep decides when. That is also why the sweep has to consult
+`revision_binaries` in the first place — a release's bytes must survive the asset being deleted from
+the working copy.
 
 ## Open
 
-- The "hold" escape hatch for work in progress that must not block a release.
+- The "hold" escape hatch for work in progress that must not block a release (#1009).
+- Whether an installation ever collects on its own, rather than only when asked. It does not need to
+  while forgetting a release, deleting one and deleting a catalog are the only ways to make a
+  revision unreachable; a release that can be removed by some other path would change that.
+
+**Considered and not needed:** an index of which releases hold a given resource. Content that must
+genuinely be destroyed is handled by forgetting or deleting the releases that carry it, and that
+choice is made by date rather than by hunting one resource through a history — so the question the
+index would answer has not come up. `idx_release_entries_resource` already supports it if it ever
+does. Note the copy on Exchange is Exchange's: withdrawing a published release from it is a separate
+authority and out of scope here.
+
 - When payloads move to the content store, decided on measured sizes.
 - When the Exchange archive table shrinks to in-flight only.
 

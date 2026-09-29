@@ -39,6 +39,17 @@ class ExchangeReleasePublicationAdapter(
             bound != null && bound in namespaceBinder.grantedNamespaces(handle, tenantKey)
         }
 
+    /**
+     * Reads the outbox on the caller's handle, so the answer is inside the transaction that is about
+     * to delete the release — asking on a separate connection would leave a window in which a
+     * publication could start between the check and the delete.
+     *
+     * [CatalogPublicationStatus.isActive] is the one definition of "being sent" and stays here.
+     * `findByVersion` takes `FOR UPDATE`, so the row a sender would claim is locked by the deleting
+     * transaction rather than merely observed — there is one publication per version, by unique key.
+     */
+    override fun isSendInFlight(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): Boolean = store.findByVersion(handle, tenantKey, catalogKey, version)?.status?.isActive == true
+
     override fun recordReleasePublication(handle: Handle, request: CatalogReleasePublicationRequest): UUID {
         val id = UUIDv7.generate()
         store.insert(

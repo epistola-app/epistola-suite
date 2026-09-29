@@ -23,7 +23,9 @@ import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.commands.CheckCatalogUpstream
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeleteCatalogRelease
 import app.epistola.suite.catalog.commands.ExportCatalogZip
+import app.epistola.suite.catalog.commands.ForgetReleaseContent
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
@@ -474,6 +476,39 @@ class CatalogHandler {
         }
     }
 
+    /**
+     * Drops the content a release retained, and lands back on the catalog where the row now says
+     * "not kept". A rejection stays on the page with its reason, like the publish actions beside it.
+     */
+    fun forgetReleaseContent(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        return try {
+            ForgetReleaseContent(tenantId.key, catalogKey, request.pathVariable("version")).execute()
+            ServerResponse.status(303)
+                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
+                .build()
+        } catch (failure: ValidationException) {
+            logger.warn("Forgetting the content of a release of '{}' was rejected: {}", catalogKey.value, failure.message)
+            browse(request, error = failure.message)
+        }
+    }
+
+    /** Removes a release from the history. Refusals -- a send in flight -- stay on the page. */
+    fun deleteRelease(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        return try {
+            DeleteCatalogRelease(tenantId.key, catalogKey, request.pathVariable("version")).execute()
+            ServerResponse.status(303)
+                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
+                .build()
+        } catch (failure: ValidationException) {
+            logger.warn("Deleting a release of '{}' was rejected: {}", catalogKey.value, failure.message)
+            browse(request, error = failure.message)
+        }
+    }
+
     fun publishCurrentRelease(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
@@ -630,6 +665,9 @@ class CatalogHandler {
                 CatalogReleaseView(
                     release = release,
                     published = release.version in publishedVersions,
+                    // Nothing to forget about a release that kept nothing, which is also the state
+                    // forgetting one leaves behind -- so the action disappears once it has been used.
+                    forgettable = release.retained,
                     publishable = release.retained &&
                         publication != null &&
                         publication.canPublish &&
@@ -1280,6 +1318,8 @@ class CatalogHandler {
         val published: Boolean,
         /** Publishing this release would be accepted — the command decides the same way. */
         val publishable: Boolean,
+        /** There is retained content to drop, so forgetting it would actually reclaim something. */
+        val forgettable: Boolean,
     )
 
     data class StencilConflictView(

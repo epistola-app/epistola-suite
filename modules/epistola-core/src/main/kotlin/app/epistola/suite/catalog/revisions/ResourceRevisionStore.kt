@@ -129,6 +129,72 @@ class ResourceRevisionStore(
         return digest
     }
 
+    /**
+     * Deletes every revision of this tenant that no release reaches any more, and returns how many.
+     *
+     * Called wherever release entries stop existing — forgetting one release's content, and deleting
+     * a catalog, which cascades its releases away. Without it those revisions are unreachable and
+     * permanent: nothing else ever deletes one, and `revision_binaries` would go on holding the
+     * bytes they named against the content sweep, so an image deleted from a deleted catalog could
+     * never be reclaimed.
+     *
+     * **Reachability is a graph, not a lookup.** A release entry names a resource's revision; a
+     * template's revision names its models through [REVISION_REF_FIELD], so a model is reachable
+     * only through its parent. Deleting what no `release_entries` row names directly would take
+     * every model with it. The closure below walks the refs out of the payloads, at any depth, so a
+     * deeper tree costs a round trip rather than correctness.
+     *
+     * Deliberately not a scheduled sweep. Revisions become unreachable at exactly two moments, both
+     * of them commands, and collecting inside the transaction that caused it means there is never a
+     * window in which the database holds content nothing can reach. `ContentReaper` still owns the
+     * blobs: dropping the last `revision_binaries` row only makes them collectable.
+     */
+    fun collectUnreferenced(handle: Handle, tenantKey: TenantKey): Int {
+        val reachable = mutableSetOf<String>()
+        var frontier = handle.createQuery(
+            "SELECT DISTINCT revision_digest FROM release_entries WHERE tenant_key = :t",
+        )
+            .bind("t", tenantKey)
+            .mapTo(String::class.java)
+            .set()
+
+        while (frontier.isNotEmpty()) {
+            reachable += frontier
+            frontier = childrenOf(handle, tenantKey, frontier) - reachable
+        }
+
+        return handle.createUpdate(
+            """
+            DELETE FROM resource_revisions
+            WHERE tenant_key = :t AND NOT (digest = ANY(:reachable))
+            """,
+        )
+            .bind("t", tenantKey)
+            .bindArray("reachable", String::class.java, reachable.toTypedArray())
+            .execute()
+    }
+
+    /**
+     * The revisions these payloads reference, wherever they sit in the JSON.
+     *
+     * `$.**` is PostgreSQL's recursive jsonpath wildcard, so this finds a reference nested at any
+     * depth without the store having to know the shape of a payload — which is the point, because
+     * the shape is the contract's and changes without this code.
+     */
+    private fun childrenOf(handle: Handle, tenantKey: TenantKey, digests: Set<String>): Set<String> = handle.createQuery(
+        """
+        SELECT DISTINCT jsonb_array_elements_text(
+                   jsonb_path_query_array(payload, '$.**.$REVISION_REF_FIELD')
+               ) AS child
+        FROM resource_revisions
+        WHERE tenant_key = :t AND digest = ANY(:digests)
+        """,
+    )
+        .bind("t", tenantKey)
+        .bindArray("digests", String::class.java, digests.toTypedArray())
+        .mapTo(String::class.java)
+        .set()
+
     private fun writeBinary(handle: Handle, tenantKey: TenantKey, digest: String, scope: String, contentHash: String) {
         handle.createUpdate(
             """

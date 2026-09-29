@@ -20,6 +20,8 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
+import org.springframework.http.HttpEntity
+import org.springframework.http.HttpHeaders
 
 /**
  * The release history a catalog page shows.
@@ -142,6 +144,80 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         // Exchange, so the row carries the export action and no publish action.
         assertThat(body).contains("catalogs/hist-publish/export?version=1.0.0")
         assertThat(body).doesNotContain("Publish v1.0.0 to Epistola Exchange")
+    }
+
+    /**
+     * The only way to reclaim what releases hold, so the row has to offer it — and stop offering it
+     * once there is nothing left to drop, which is the same state a release cut before Epistola
+     * retained content has always had.
+     */
+    @Test
+    fun `a retained release offers to forget its content, and stops once it has`() {
+        val tenant = tenantWithCatalog("hist-forget")
+
+        withMediator {
+            val catalog = CatalogId(CatalogKey.of("hist-forget"), TenantId(tenant.id))
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
+            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalog.key, version = "1.0.0").execute()
+        }
+
+        assertThat(browse(tenant.id.value, "hist-forget"))
+            .`as`("there is content to drop")
+            .contains("Forget the content of v1.0.0")
+
+        // The redirect is followed by the test client, so the body here is where it landed: the
+        // catalog page, already showing the release with its content gone.
+        val response = restTemplate.postForEntity(
+            "/tenants/${tenant.id.value}/catalogs/hist-forget/releases/1.0.0/forget",
+            HttpEntity<Void>(HttpHeaders()),
+            String::class.java,
+        )
+        assertThat(response.statusCode.is2xxSuccessful).isTrue()
+        assertThat(response.body).`as`("lands back on the catalog").contains("<h2>Releases</h2>")
+
+        val after = browse(tenant.id.value, "hist-forget")
+        assertThat(after).`as`("the release is still in the history").contains("v1.0.0")
+        assertThat(after).`as`("and says its content is gone").contains("not kept")
+        assertThat(after)
+            .`as`("nothing left to forget, so the action goes")
+            .doesNotContain("Forget the content of v1.0.0")
+        assertThat(after)
+            .`as`("and it can no longer be exported as released")
+            .doesNotContain("catalogs/hist-forget/export?version=1.0.0")
+    }
+
+    /**
+     * Deleting a release from its row. The two destructive actions differ in what survives, so this
+     * pins the difference the confirm dialogs describe: forgetting leaves the release listed, this
+     * does not.
+     */
+    @Test
+    fun `a release can be deleted from the history, and the catalog follows`() {
+        val tenant = tenantWithCatalog("hist-delete")
+
+        withMediator {
+            val catalog = CatalogId(CatalogKey.of("hist-delete"), TenantId(tenant.id))
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
+            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalog.key, version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second").execute()
+            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalog.key, version = "1.1.0").execute()
+        }
+
+        assertThat(browse(tenant.id.value, "hist-delete")).contains("Delete v1.1.0 from the history")
+
+        val response = restTemplate.postForEntity(
+            "/tenants/${tenant.id.value}/catalogs/hist-delete/releases/1.1.0/delete",
+            HttpEntity<Void>(HttpHeaders()),
+            String::class.java,
+        )
+        assertThat(response.statusCode.is2xxSuccessful).isTrue()
+
+        val after = browse(tenant.id.value, "hist-delete")
+        assertThat(after).`as`("gone from the history, unlike forgetting its content").doesNotContain("v1.1.0")
+        assertThat(after).`as`("and the one before it is still there").contains("v1.0.0")
+        assertThat(after)
+            .`as`("the catalog's own version followed the pointer back")
+            .contains("v1.0.0")
     }
 
     private fun tenantWithCatalog(slug: String): Tenant {
