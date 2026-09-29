@@ -114,24 +114,15 @@ To see a change working, run the demo app — it has a tenant, the demo catalog 
 
 ## Commits and changelog
 
-Conventional Commits. `.husky/commitlint.config.js` is the source of truth for the accepted types;
-a scope is optional in a commit subject and **required** in a changelog entry. Breaking changes use
-`feat!:` / `fix!:` or a `BREAKING CHANGE:` footer — but see the stability contract above for what a
-break costs on a GA surface versus an alpha or beta one. Release versions come from the release
+Conventional Commits; the accepted types are in `.husky/commitlint.config.js`. A break on a GA
+surface costs a major release (see the stability contract). AI assistance may be credited with
+trailers; the subject describes the change, not the tooling. Release versions come from the release
 process, not from commit types.
 
-AI assistance may be credited with trailers; the subject describes the change, not the tooling.
-
-A notable change adds **one file** under `changelog/unreleased/`, never an edit to `CHANGELOG.md`
-(which holds released history only, and is assembled at release time):
-
-```bash
-changelog/unreleased/$(date -u +%Y%m%d%H%M%S)-<slug>.md
-```
-
-The format is in [`changelog/README.md`](changelog/README.md), and `checkChangelogFragments`
-enforces it — including that a change to shipped code carries a fragment, unless the pull request is
-labelled `no-changelog`. Helm chart changes go in `charts/epistola/CHANGELOG.md` instead.
+A notable change adds one fragment under `changelog/unreleased/`, never an edit to `CHANGELOG.md`.
+The format, including the required scope, is in [`changelog/README.md`](changelog/README.md), and
+`checkChangelogFragments` enforces it unless the pull request is labelled `no-changelog`. Helm chart
+changes go in `charts/epistola/CHANGELOG.md` instead.
 
 ## Rare workflows
 
