@@ -14,6 +14,7 @@ import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.themes.BlockStylePresets
@@ -100,21 +101,19 @@ class ThemeMcpTools(
         @McpToolParam(description = SPACING_UNIT, required = false)
         spacingUnit: Float?,
     ): ThemeInfo = ThemeInfo.from(
-        mediator.send(
-            CreateTheme(
-                id = themeId(catalogId, themeId),
-                name = name,
-                description = description?.takeIf { it.isNotBlank() },
-                documentStyles = parseDocumentStyles(documentStyles) ?: emptyMap(),
-                pageSettings = objectMapper.parseOptionalArgument("pageSettings", pageSettings, PageSettings::class.java),
-                blockStylePresets = objectMapper.parseOptionalArgument(
-                    "blockStylePresets",
-                    blockStylePresets,
-                    BlockStylePresets::class.java,
-                ),
-                spacingUnit = spacingUnit,
+        CreateTheme(
+            id = themeId(catalogId, themeId),
+            name = name,
+            description = description?.takeIf { it.isNotBlank() },
+            documentStyles = parseDocumentStyles(documentStyles) ?: emptyMap(),
+            pageSettings = objectMapper.parseOptionalArgument("pageSettings", pageSettings, PageSettings::class.java),
+            blockStylePresets = objectMapper.parseOptionalArgument(
+                "blockStylePresets",
+                blockStylePresets,
+                BlockStylePresets::class.java,
             ),
-        ),
+            spacingUnit = spacingUnit,
+        ).execute(),
     )
 
     @McpTool(
@@ -142,21 +141,19 @@ class ThemeMcpTools(
         blockStylePresets: String?,
         @McpToolParam(description = SPACING_UNIT, required = false)
         spacingUnit: Float?,
-    ): ThemeInfo = mediator.send(
-        UpdateTheme(
-            id = themeId(catalogId, themeId),
-            name = name?.takeIf { it.isNotBlank() },
-            description = description?.takeIf { it.isNotBlank() },
-            documentStyles = parseDocumentStyles(documentStyles),
-            pageSettings = objectMapper.parseOptionalArgument("pageSettings", pageSettings, PageSettings::class.java),
-            blockStylePresets = objectMapper.parseOptionalArgument(
-                "blockStylePresets",
-                blockStylePresets,
-                BlockStylePresets::class.java,
-            ),
-            spacingUnit = spacingUnit,
+    ): ThemeInfo = UpdateTheme(
+        id = themeId(catalogId, themeId),
+        name = name?.takeIf { it.isNotBlank() },
+        description = description?.takeIf { it.isNotBlank() },
+        documentStyles = parseDocumentStyles(documentStyles),
+        pageSettings = objectMapper.parseOptionalArgument("pageSettings", pageSettings, PageSettings::class.java),
+        blockStylePresets = objectMapper.parseOptionalArgument(
+            "blockStylePresets",
+            blockStylePresets,
+            BlockStylePresets::class.java,
         ),
-    )?.let { ThemeInfo.from(it) } ?: throw notFound("Theme", catalogId, themeId)
+        spacingUnit = spacingUnit,
+    ).execute()?.let { ThemeInfo.from(it) } ?: throw notFound("Theme", catalogId, themeId)
 
     @Suppress("UNCHECKED_CAST")
     private fun parseDocumentStyles(json: String?): DocumentStyles? = objectMapper.parseOptionalArgument("documentStyles", json, Map::class.java) as DocumentStyles?

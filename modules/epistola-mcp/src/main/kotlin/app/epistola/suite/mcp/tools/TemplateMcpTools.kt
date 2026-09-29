@@ -19,6 +19,8 @@ import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
@@ -155,15 +157,13 @@ class TemplateMcpTools(
         themeCatalogId: String?,
     ): TemplateInfo {
         val id = templateId(catalogId, templateId)
-        val created = mediator.send(CreateDocumentTemplate(id = id, name = name))
+        val created = CreateDocumentTemplate(id = id, name = name).execute()
         if (themeId.isNullOrBlank()) return TemplateInfo.from(created)
-        val themed = mediator.send(
-            UpdateDocumentTemplate(
-                id = id,
-                themeId = ThemeKey.of(themeId),
-                themeCatalogKey = CatalogKey.of(themeCatalogId?.takeIf { it.isNotBlank() } ?: catalogId),
-            ),
-        ) ?: error("Template '$templateId' disappeared while applying its theme")
+        val themed = UpdateDocumentTemplate(
+            id = id,
+            themeId = ThemeKey.of(themeId),
+            themeCatalogKey = CatalogKey.of(themeCatalogId?.takeIf { it.isNotBlank() } ?: catalogId),
+        ).execute() ?: error("Template '$templateId' disappeared while applying its theme")
         return TemplateInfo.from(themed)
     }
 
@@ -194,16 +194,14 @@ class TemplateMcpTools(
             throw ValidationException("clearTheme", "`clearTheme` cannot be combined with `themeId`")
         }
         val theme = themeId?.takeIf { it.isNotBlank() }
-        return mediator.send(
-            UpdateDocumentTemplate(
-                id = templateId(catalogId, templateId),
-                name = name?.takeIf { it.isNotBlank() },
-                themeId = theme?.let { ThemeKey.of(it) },
-                themeCatalogKey = theme?.let { CatalogKey.of(themeCatalogId?.takeIf { c -> c.isNotBlank() } ?: catalogId) },
-                clearThemeId = clearTheme == true,
-                pdfaEnabled = pdfaEnabled,
-            ),
-        )?.let { TemplateInfo.from(it) } ?: throw notFound("Template", catalogId, templateId)
+        return UpdateDocumentTemplate(
+            id = templateId(catalogId, templateId),
+            name = name?.takeIf { it.isNotBlank() },
+            themeId = theme?.let { ThemeKey.of(it) },
+            themeCatalogKey = theme?.let { CatalogKey.of(themeCatalogId?.takeIf { c -> c.isNotBlank() } ?: catalogId) },
+            clearThemeId = clearTheme == true,
+            pdfaEnabled = pdfaEnabled,
+        ).execute()?.let { TemplateInfo.from(it) } ?: throw notFound("Template", catalogId, templateId)
     }
 
     @McpTool(
@@ -230,14 +228,12 @@ class TemplateMcpTools(
             required = false,
         )
         attributes: String?,
-    ): VariantInfo = mediator.send(
-        CreateVariant(
-            id = variantId(catalogId, templateId, variantId),
-            title = title,
-            description = description?.takeIf { it.isNotBlank() },
-            attributes = parseAttributes(attributes) ?: emptyMap(),
-        ),
-    )?.let { VariantInfo.from(it) } ?: throw notFound("Template", catalogId, templateId)
+    ): VariantInfo = CreateVariant(
+        id = variantId(catalogId, templateId, variantId),
+        title = title,
+        description = description?.takeIf { it.isNotBlank() },
+        attributes = parseAttributes(attributes) ?: emptyMap(),
+    ).execute()?.let { VariantInfo.from(it) } ?: throw notFound("Template", catalogId, templateId)
 
     @McpTool(
         name = "update_variant",
@@ -261,14 +257,12 @@ class TemplateMcpTools(
         attributes: String?,
     ): VariantInfo {
         val id = variantId(catalogId, templateId, variantId)
-        val current = mediator.query(GetVariant(id)) ?: throw notFound("Variant", catalogId, "$templateId/$variantId")
-        return mediator.send(
-            UpdateVariant(
-                variantId = id,
-                title = title?.takeIf { it.isNotBlank() } ?: current.title,
-                attributes = parseAttributes(attributes) ?: current.attributes,
-            ),
-        )?.let { VariantInfo.from(it) } ?: throw notFound("Variant", catalogId, "$templateId/$variantId")
+        val current = GetVariant(id).query() ?: throw notFound("Variant", catalogId, "$templateId/$variantId")
+        return UpdateVariant(
+            variantId = id,
+            title = title?.takeIf { it.isNotBlank() } ?: current.title,
+            attributes = parseAttributes(attributes) ?: current.attributes,
+        ).execute()?.let { VariantInfo.from(it) } ?: throw notFound("Variant", catalogId, "$templateId/$variantId")
     }
 
     private fun parseAttributes(json: String?): Map<String, String>? = objectMapper

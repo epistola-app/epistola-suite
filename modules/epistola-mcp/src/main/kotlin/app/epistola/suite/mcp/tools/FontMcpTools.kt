@@ -24,6 +24,8 @@ import app.epistola.suite.mcp.support.decodeBase64Argument
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mcp.support.parseArgument
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.validation.ValidationException
 import org.springframework.ai.mcp.annotation.McpTool
 import org.springframework.ai.mcp.annotation.McpToolParam
@@ -110,31 +112,27 @@ class FontMcpTools(
         // Every face is validated before any is stored, so a bad face leaves no orphaned asset behind.
         val parsed = parseFaces(objectMapper.parseArgument("faces", faces, ArrayNode::class.java))
         val variants = parsed.map { face ->
-            val asset = mediator.send(
-                UploadAsset(
-                    tenantId = tenantId.key,
-                    name = "${slug.value}-${face.weight}${if (face.italic) "-italic" else ""}.${face.extension}",
-                    mediaType = face.mediaType,
-                    content = face.bytes,
-                    width = null,
-                    height = null,
-                    catalogKey = catalogKey,
-                ),
-            )
+            val asset = UploadAsset(
+                tenantId = tenantId.key,
+                name = "${slug.value}-${face.weight}${if (face.italic) "-italic" else ""}.${face.extension}",
+                mediaType = face.mediaType,
+                content = face.bytes,
+                width = null,
+                height = null,
+                catalogKey = catalogKey,
+            ).execute()
             ImportFontVariant(weight = face.weight, italic = face.italic, source = FontVariantSource.ASSET, assetKey = asset.id)
         }
-        mediator.send(
-            ImportFont(
-                tenantId = tenantId,
-                catalogKey = catalogKey,
-                slug = slug.value,
-                name = name,
-                kind = fontKind.wire,
-                variants = variants,
-            ),
-        )
-        val font = mediator.query(ListFonts(tenantId = tenantId, catalogKey = catalogKey)).first { it.slug == slug }
-        val stored = mediator.query(GetFontVariants(fontId = FontId(slug, CatalogId(catalogKey, tenantId))))
+        ImportFont(
+            tenantId = tenantId,
+            catalogKey = catalogKey,
+            slug = slug.value,
+            name = name,
+            kind = fontKind.wire,
+            variants = variants,
+        ).execute()
+        val font = ListFonts(tenantId = tenantId, catalogKey = catalogKey).query().first { it.slug == slug }
+        val stored = GetFontVariants(fontId = FontId(slug, CatalogId(catalogKey, tenantId))).query()
             .map { FontVariantInfo(it.weight, it.italic) }
         return FontInfo.from(font, stored)
     }

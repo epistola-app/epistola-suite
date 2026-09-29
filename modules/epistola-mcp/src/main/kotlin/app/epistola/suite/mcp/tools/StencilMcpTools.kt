@@ -18,6 +18,8 @@ import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseArgument
 import app.epistola.suite.mcp.support.parseOptionalArgument
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.CreateStencilVersion
 import app.epistola.suite.stencils.commands.UpdateStencil
@@ -161,16 +163,14 @@ class StencilMcpTools(
         )
         parameterSchema: String?,
     ): StencilInfo = StencilInfo.from(
-        mediator.send(
-            CreateStencil(
-                id = stencilId(catalogId, stencilId),
-                name = name,
-                description = description?.takeIf { it.isNotBlank() },
-                tags = tags.orEmpty(),
-                content = objectMapper.parseOptionalArgument("content", content, TemplateDocument::class.java),
-                parameterSchema = objectMapper.parseOptionalArgument("parameterSchema", parameterSchema, JsonNode::class.java),
-            ),
-        ),
+        CreateStencil(
+            id = stencilId(catalogId, stencilId),
+            name = name,
+            description = description?.takeIf { it.isNotBlank() },
+            tags = tags.orEmpty(),
+            content = objectMapper.parseOptionalArgument("content", content, TemplateDocument::class.java),
+            parameterSchema = objectMapper.parseOptionalArgument("parameterSchema", parameterSchema, JsonNode::class.java),
+        ).execute(),
     )
 
     @McpTool(
@@ -191,14 +191,12 @@ class StencilMcpTools(
         description: String?,
         @McpToolParam(description = "Tags; replaces all current tags.", required = false)
         tags: List<String>?,
-    ): StencilInfo = mediator.send(
-        UpdateStencil(
-            id = stencilId(catalogId, stencilId),
-            name = name?.takeIf { it.isNotBlank() },
-            description = description?.takeIf { it.isNotBlank() },
-            tags = tags,
-        ),
-    )?.let { StencilInfo.from(it) } ?: throw notFound("Stencil", catalogId, stencilId)
+    ): StencilInfo = UpdateStencil(
+        id = stencilId(catalogId, stencilId),
+        name = name?.takeIf { it.isNotBlank() },
+        description = description?.takeIf { it.isNotBlank() },
+        tags = tags,
+    ).execute()?.let { StencilInfo.from(it) } ?: throw notFound("Stencil", catalogId, stencilId)
 
     @McpTool(
         name = "update_stencil_draft",
@@ -224,26 +222,22 @@ class StencilMcpTools(
         val id = stencilId(catalogId, stencilId)
         val document = objectMapper.parseArgument("content", content, TemplateDocument::class.java)
         val schema = objectMapper.parseOptionalArgument("parameterSchema", parameterSchema, JsonNode::class.java)
-        if (mediator.query(GetStencil(id)) == null) throw notFound("Stencil", catalogId, stencilId)
-        val draft = mediator.query(ListStencilVersions(id)).firstOrNull { it.status == StencilVersionStatus.DRAFT }
+        if (GetStencil(id).query() == null) throw notFound("Stencil", catalogId, stencilId)
+        val draft = ListStencilVersions(id).query().firstOrNull { it.status == StencilVersionStatus.DRAFT }
         val version = if (draft == null) {
-            mediator.send(
-                CreateStencilVersion(
-                    stencilId = id,
-                    content = document,
-                    parameterSchema = schema,
-                    inheritParameterSchemaFromSource = schema == null,
-                ),
-            ) ?: throw notFound("Stencil", catalogId, stencilId)
+            CreateStencilVersion(
+                stencilId = id,
+                content = document,
+                parameterSchema = schema,
+                inheritParameterSchemaFromSource = schema == null,
+            ).execute() ?: throw notFound("Stencil", catalogId, stencilId)
         } else {
             // UpdateStencilDraft stores the schema it is given, so an omitted one is carried over.
-            mediator.send(
-                UpdateStencilDraft(
-                    versionId = StencilVersionId(draft.id, id),
-                    content = document,
-                    parameterSchema = schema ?: draft.parameterSchema,
-                ),
-            )
+            UpdateStencilDraft(
+                versionId = StencilVersionId(draft.id, id),
+                content = document,
+                parameterSchema = schema ?: draft.parameterSchema,
+            ).execute()
         }
         return StencilVersionSummaryInfo.from(version)
     }

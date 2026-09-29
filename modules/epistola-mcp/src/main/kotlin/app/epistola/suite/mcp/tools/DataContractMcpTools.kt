@@ -13,6 +13,7 @@ import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.contracts.commands.CreateContractVersion
 import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
 import app.epistola.suite.templates.contracts.commands.UpdateContractVersionResult
@@ -99,7 +100,7 @@ class DataContractMcpTools(
                 ?.let(::toExamples),
         )
         val result = sendUpdate(command) ?: run {
-            mediator.send(CreateContractVersion(templateId = id)) ?: throw notFound("Template", catalogId, templateId)
+            CreateContractVersion(templateId = id).execute() ?: throw notFound("Template", catalogId, templateId)
             sendUpdate(command)
         } ?: throw notFound("Template", catalogId, templateId)
         return DataContractInfo.from(result.contractVersion)
@@ -107,7 +108,7 @@ class DataContractMcpTools(
 
     /** Surfaces which example failed where; the exception's own message names neither. */
     private fun sendUpdate(command: UpdateContractVersion): UpdateContractVersionResult? = try {
-        mediator.send(command)
+        command.execute()
     } catch (e: DataModelValidationException) {
         val details = e.validationErrors.entries.joinToString("; ") { (example, errors) ->
             "$example: " + errors.joinToString(", ") { "${it.path} ${it.message}" }

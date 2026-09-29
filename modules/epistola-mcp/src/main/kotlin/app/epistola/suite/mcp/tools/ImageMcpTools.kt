@@ -14,6 +14,7 @@ import app.epistola.suite.mcp.dto.ImageInfo
 import app.epistola.suite.mcp.support.decodeBase64Argument
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.springframework.ai.mcp.annotation.McpTool
@@ -119,18 +120,16 @@ class ImageMcpTools(
         }
         val dimensions = if (resolved.mimeType != "image/svg+xml") imageDimensions(decoded.bytes) else null
         return ImageInfo.from(
-            mediator.send(
-                UploadAsset(
-                    tenantId = mcpTenantKey(),
-                    name = name,
-                    mediaType = resolved,
-                    content = decoded.bytes,
-                    width = dimensions?.first,
-                    height = dimensions?.second,
-                    catalogKey = CatalogKey.of(catalogId),
-                    id = imageId?.takeIf { it.isNotBlank() }?.let { AssetKey.of(it) },
-                ),
-            ),
+            UploadAsset(
+                tenantId = mcpTenantKey(),
+                name = name,
+                mediaType = resolved,
+                content = decoded.bytes,
+                width = dimensions?.first,
+                height = dimensions?.second,
+                catalogKey = CatalogKey.of(catalogId),
+                id = imageId?.takeIf { it.isNotBlank() }?.let { AssetKey.of(it) },
+            ).execute(),
         )
     }
 

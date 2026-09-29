@@ -18,6 +18,7 @@ import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseArgument
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.queries.versions.GetVersion
@@ -107,7 +108,7 @@ class VersionMcpTools(
             TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), mcpTenantId())),
         )
         val document = objectMapper.parseArgument("content", content, TemplateDocument::class.java)
-        return mediator.send(UpdateDraft(variantId = variant, templateModel = document))
+        return UpdateDraft(variantId = variant, templateModel = document).execute()
             ?.let(VersionInfo::from)
             ?: throw notFound("Variant", catalogId, "$templateId/$variantId")
     }
