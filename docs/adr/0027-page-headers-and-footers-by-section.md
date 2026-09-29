@@ -37,7 +37,7 @@ content is laid out.
    covers its whole section wherever it sits. Keeps existing documents, known before layout, but a
    header can never switch without a page break, and a footer at the end of a document with page
    breaks would only cover the last section unless a special backfill rule is added.
-3. **Headers look down, footers look up** (chosen). Sections as in option 2, but headers apply to
+3. **Headers look down, footers look up** (chosen for headers). Sections as in option 2, but headers apply to
    what comes after them (from their page at the start of a section, from the next page after
    content) and footers to what comes before them (their section and the footer-less sections
    above it).
