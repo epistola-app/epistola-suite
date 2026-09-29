@@ -171,14 +171,19 @@ sit.
 - **No data migration.** Existing documents keep their meaning (see the table above), so stored
   drafts and imported catalogs need no rewriting.
 - **Contract (epistola-contract 1.4.0).**
-  - Drop the three `PAGEHEADER_*` rules. Add an error (no header or footer inside a header or
-    footer) and the scattered-footers warning.
-  - Set `maxInstancesPerDocument` to `null` for both. Rewrite the registry descriptions and
-    examples: a per-section first-page variant, a mid-document header, and a letter shell.
-  - Bump the catalog `schemaVersion` from 7 to 8 with a no-op migration. The JSON shape does not
-    change, but an older Suite would import a catalog with several footers (it has no footer rule)
-    and silently render the first one everywhere. With the bump it refuses with
-    `CATALOG_SCHEMA_TOO_NEW`. The cost: an older Suite cannot read anything a new one exports.
+  - Drop the three `PAGEHEADER_*` rules (the constants stay, deprecated). Add `PAGEBAND_NESTED`
+    (error: a header or footer inside another) and `PAGEFOOTER_NOT_ADJACENT` (warning: a section's
+    footers are not adjacent children of one slot). Done on `feat/page-bands-anywhere` in
+    epistola-contract.
+  - Remove `maxInstancesPerDocument` from both and rewrite the example descriptions. Registry
+    examples are single-component fragments, so the letter shell is demonstrated in the demo
+    catalog rather than as an example.
+  - **No catalog `schemaVersion` bump.** The contract bumps it only for changes that are not
+    round-trip compatible, and this one relaxes the rules: every v7 archive stays valid and the
+    JSON shape is identical. The accepted cost is that an older Suite importing a catalog with
+    several footers renders its first footer on every page; the release notes say catalogs using
+    several footers need this Suite version or later. Exchange validates with the same contract,
+    so it takes 1.4.0 too.
 - **Suite validation codes.** Keep `PAGEHEADER_TOO_MANY`, `_ROOT_MISSING` and `_NOT_AT_ROOT` in
   `ValidationCode`, deprecated and no longer emitted, because REST clients may match on them.
   Check how the Suite surfaces a `WARNING` finding, since none is emitted today.
@@ -227,7 +232,7 @@ sit.
 
 ## Delivery
 
-1. **Contract PR** (epistola-contract → 1.4.0): validator, registry, schema 8, fixtures.
+1. **Contract PR** (epistola-contract → 1.4.0): validator, registry, fixtures, docs.
 2. **Suite PR:**
    - `PageBandSchedule` and its unit tests;
    - the anchors, `SectionPageBreak`, the classifying walk, the margins function and the handlers;
@@ -256,8 +261,7 @@ sit.
 - **Editor:** rewrite the header and footer specs in `engine.test.ts`, `drop-logic.test.ts` and
   `drop-handler.test.ts`. Add specs for the nested-band rule on paste and stencil content, and for
   the labels.
-- **Contract:** validator fixtures (including the warning), and a test for the no-op schema 8
-  migration.
+- **Contract:** validator fixtures (including the warning) and parity cases.
 
 ## Spike results (2026-09-29)
 
