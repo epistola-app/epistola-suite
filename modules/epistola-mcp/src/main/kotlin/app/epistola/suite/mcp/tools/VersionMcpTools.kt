@@ -90,7 +90,11 @@ class VersionMcpTools(
             "under `templateModel`: `{modelVersion, root, nodes, slots, ...}`. Build it from the component " +
             "types `list_component_types` describes — their `examples` are fragments to copy. Published " +
             "versions are never changed; publishing the draft is done in the UI after review. " +
-            "Check the result with `preview_document`. Requires the TEMPLATE_EDIT permission.",
+            "A `stencil` node must carry a copy of the stencil version's content in its `children` slot: " +
+            "the server renders only what is stored in the document. Check the result with " +
+            "`preview_document`, passing the returned `id` as `versionId` — without it, preview renders " +
+            "the latest published version, which a new template does not have. " +
+            "Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
     fun updateTemplateDraft(

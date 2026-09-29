@@ -92,7 +92,7 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
         val tenantId = newTenant()
 
         val template = runAsApiKey(tenantId) {
-            templateTools.createTemplate("default", "welcome-letter", "Welcome letter", null, null)
+            templateTools.createTemplate("default", "welcome-letter", "Welcome letter", null, null, null)
         }
         assertThat(template.id).isEqualTo("welcome-letter")
         val variant = runAsApiKey(tenantId) { templateTools.listVariants("default", "welcome-letter") }.single()
@@ -114,9 +114,36 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `create_template sets the default variant's attributes`() {
+        val tenantId = newTenant()
+
+        runAsApiKey(tenantId) {
+            templateTools.createTemplate("default", "brief", "Brief", null, null, """{"system.locale": "nl-NL"}""")
+        }
+
+        val variant = runAsApiKey(tenantId) { templateTools.listVariants("default", "brief") }.single()
+        assertThat(variant.isDefault).isTrue
+        assertThat(variant.attributes).isEqualTo(mapOf("system.locale" to "nl-NL"))
+    }
+
+    @Test
+    fun `create_template with invalid variant attributes creates nothing`() {
+        val tenantId = newTenant()
+
+        assertThatThrownBy {
+            runAsApiKey(tenantId) {
+                templateTools.createTemplate("default", "brief", "Brief", null, null, """{"system.locale": "nl"}""")
+            }
+        }.hasMessageContaining("nl")
+
+        assertThat(runAsApiKey(tenantId) { templateTools.listTemplates("default", null) }.map { it.id })
+            .doesNotContain("brief")
+    }
+
+    @Test
     fun `update_template_draft reports a malformed document against the content argument`() {
         val tenantId = newTenant()
-        runAsApiKey(tenantId) { templateTools.createTemplate("default", "broken", "Broken", null, null) }
+        runAsApiKey(tenantId) { templateTools.createTemplate("default", "broken", "Broken", null, null, null) }
         val variant = runAsApiKey(tenantId) { templateTools.listVariants("default", "broken") }.single()
 
         assertThatThrownBy {
@@ -127,7 +154,7 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
     @Test
     fun `create_variant and update_variant manage attributes`() {
         val tenantId = newTenant()
-        runAsApiKey(tenantId) { templateTools.createTemplate("default", "letter", "Letter", null, null) }
+        runAsApiKey(tenantId) { templateTools.createTemplate("default", "letter", "Letter", null, null, null) }
 
         val created = runAsApiKey(tenantId) {
             templateTools.createVariant("default", "letter", "english", "English", "In English", """{"locale": "en-GB"}""")
@@ -149,7 +176,7 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
     @Test
     fun `update_variant on a missing variant names it`() {
         val tenantId = newTenant()
-        runAsApiKey(tenantId) { templateTools.createTemplate("default", "letter", "Letter", null, null) }
+        runAsApiKey(tenantId) { templateTools.createTemplate("default", "letter", "Letter", null, null, null) }
 
         assertThatThrownBy {
             runAsApiKey(tenantId) { templateTools.updateVariant("default", "letter", "nope", "Nope", null) }
@@ -184,7 +211,7 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
         // Page settings were not given, so they are kept.
         assertThat(updated.pageSettings.toString()).contains("A4")
 
-        runAsApiKey(tenantId) { templateTools.createTemplate("default", "invoice", "Invoice", "corporate", null) }
+        runAsApiKey(tenantId) { templateTools.createTemplate("default", "invoice", "Invoice", "corporate", null, null) }
             .also { assertThat(it.themeId).isEqualTo("corporate") }
         val cleared = runAsApiKey(tenantId) {
             templateTools.updateTemplate("default", "invoice", null, null, null, true, null)
@@ -218,7 +245,7 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
 
         assertThatThrownBy {
             runAsApiKey(tenantId, roles = setOf(TenantRole.CONTENT_VIEWER)) {
-                templateTools.createTemplate("default", "sneaky", "Sneaky", null, null)
+                templateTools.createTemplate("default", "sneaky", "Sneaky", null, null, null)
             }
         }.hasMessageContaining("TEMPLATE_EDIT")
         val templates = runAsApiKey(tenantId) { templateTools.listTemplates("default", null) }
@@ -228,7 +255,7 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
     @Test
     fun `update_data_contract sets the schema and examples and explains an example that does not fit`() {
         val tenantId = newTenant()
-        runAsApiKey(tenantId) { templateTools.createTemplate("default", "letter", "Letter", null, null) }
+        runAsApiKey(tenantId) { templateTools.createTemplate("default", "letter", "Letter", null, null, null) }
         val schema = """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}"""
 
         val contract = runAsApiKey(tenantId) {

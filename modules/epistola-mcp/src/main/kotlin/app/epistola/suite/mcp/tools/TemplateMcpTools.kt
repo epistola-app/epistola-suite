@@ -25,6 +25,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariant
+import app.epistola.suite.templates.commands.variants.validateAttributes
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.templates.queries.ListTemplateSummaries
@@ -140,8 +141,9 @@ class TemplateMcpTools(
         description = "Create a template in an AUTHORED catalog. The template starts with a default variant " +
             "holding an empty draft, and an empty draft data contract. Fill the draft with " +
             "`update_template_draft`, describe its input data with `update_data_contract`, and add " +
-            "further variants with `create_variant`. Optionally pick a theme up front. " +
-            "Requires the TEMPLATE_EDIT permission.",
+            "further variants with `create_variant`. Optionally pick a theme and the default variant's " +
+            "attributes up front — set `system.locale` there, since `\$formatDate` and " +
+            "`\$formatLocaleNumber` follow it. Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
     fun createTemplate(
@@ -155,16 +157,34 @@ class TemplateMcpTools(
         themeId: String?,
         @McpToolParam(description = "Catalog key of the theme. Defaults to `catalogId`.", required = false)
         themeCatalogId: String?,
+        @McpToolParam(
+            description = "JSON object of attributes for the default variant, e.g. " +
+                "`{\"system.locale\": \"nl-NL\"}`. Omit for none.",
+            required = false,
+        )
+        variantAttributes: String?,
     ): TemplateInfo {
         val id = templateId(catalogId, templateId)
-        val created = CreateDocumentTemplate(id = id, name = name).execute()
-        if (themeId.isNullOrBlank()) return TemplateInfo.from(created)
-        val themed = UpdateDocumentTemplate(
-            id = id,
-            themeId = ThemeKey.of(themeId),
-            themeCatalogKey = CatalogKey.of(themeCatalogId?.takeIf { it.isNotBlank() } ?: catalogId),
-        ).execute() ?: error("Template '$templateId' disappeared while applying its theme")
-        return TemplateInfo.from(themed)
+        // Validated before anything is created, so bad attributes leave no half-made template behind.
+        val attributes = parseAttributes(variantAttributes, field = "variantAttributes")
+            ?.also { validateAttributes(mcpTenantId(), it) }
+        var template = CreateDocumentTemplate(id = id, name = name).execute()
+        if (!themeId.isNullOrBlank()) {
+            template = UpdateDocumentTemplate(
+                id = id,
+                themeId = ThemeKey.of(themeId),
+                themeCatalogKey = CatalogKey.of(themeCatalogId?.takeIf { it.isNotBlank() } ?: catalogId),
+            ).execute() ?: error("Template '$templateId' disappeared while applying its theme")
+        }
+        if (!attributes.isNullOrEmpty()) {
+            val defaultVariant = ListVariants(id).query().single { it.isDefault }
+            UpdateVariant(
+                variantId = VariantId(defaultVariant.id, id),
+                title = defaultVariant.title,
+                attributes = attributes,
+            ).execute()
+        }
+        return TemplateInfo.from(template)
     }
 
     @McpTool(
@@ -267,11 +287,11 @@ class TemplateMcpTools(
         ).execute()?.let { VariantInfo.from(it) } ?: throw notFound("Variant", catalogId, "$templateId/$variantId")
     }
 
-    private fun parseAttributes(json: String?): Map<String, String>? = objectMapper
-        .parseOptionalArgument("attributes", json, Map::class.java)
+    private fun parseAttributes(json: String?, field: String = "attributes"): Map<String, String>? = objectMapper
+        .parseOptionalArgument(field, json, Map::class.java)
         ?.entries
         ?.associate { (key, value) ->
-            if (value !is String) throw ValidationException("attributes", "Attribute '$key' must have a string value")
+            if (value !is String) throw ValidationException(field, "Attribute '$key' must have a string value")
             key.toString() to value
         }
 

@@ -95,21 +95,21 @@ Enough to convert an existing document into Epistola. Every write dispatches the
 and REST API use, so validation, permissions and the read-only rule for SUBSCRIBED catalogs (such as
 `system`) apply unchanged. Omitted optional arguments leave a field as it is.
 
-| Tool                    | Purpose                                                                                                                                                     | Permission                        |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `create_template`       | Create a template, optionally with a theme. It starts with a default variant holding an empty draft, and an empty draft data contract.                      | `TEMPLATE_EDIT`                   |
-| `update_template`       | Change a template's name, theme (or clear it) and PDF/A flag.                                                                                               | `TEMPLATE_EDIT`                   |
-| `create_variant`        | Add a variant with attributes, e.g. `{"system.locale": "nl-NL"}`. Values are validated; identical attribute sets are accepted but make selection ambiguous. | `TEMPLATE_EDIT`                   |
-| `update_variant`        | Change a variant's title or replace its attributes.                                                                                                         | `TEMPLATE_EDIT`                   |
-| `update_template_draft` | Replace a variant's draft with a template document, creating the draft when there is none. Published versions are never touched.                            | `TEMPLATE_EDIT`                   |
-| `update_data_contract`  | Set the draft contract's JSON Schema (`dataModel`) and examples, creating the draft when only published versions exist.                                     | `TEMPLATE_EDIT`                   |
-| `create_stencil`        | Create a stencil with an initial draft (content and parameter schema optional).                                                                             | `STENCIL_EDIT`                    |
-| `update_stencil`        | Change a stencil's name, description or tags.                                                                                                               | `STENCIL_EDIT`                    |
-| `update_stencil_draft`  | Replace a stencil's draft content, creating a draft when there is none. An omitted parameter schema is kept.                                                | `STENCIL_EDIT`                    |
-| `create_theme`          | Create a theme with document styles, page settings, block style presets and spacing unit.                                                                   | `THEME_EDIT`                      |
-| `update_theme`          | Change a theme. A given styling field replaces that whole field, so read it with `get_theme` and send back the merged value.                                | `THEME_EDIT`                      |
-| `upload_image`          | Upload an image as base64 or a `data:` URL, optionally under a readable key such as `company-logo`. Images are immutable; upload a new one.                 | `TEMPLATE_EDIT`                   |
-| `upload_font`           | Create or replace a font family from base64 TTF/OTF faces. Every face is checked for embeddability before anything is stored.                               | `TEMPLATE_EDIT`, `REFERENCE_EDIT` |
+| Tool                    | Purpose                                                                                                                                                                                      | Permission                        |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `create_template`       | Create a template, optionally with a theme and default-variant attributes (e.g. `system.locale`). It starts with a default variant holding an empty draft, and an empty draft data contract. | `TEMPLATE_EDIT`                   |
+| `update_template`       | Change a template's name, theme (or clear it) and PDF/A flag.                                                                                                                                | `TEMPLATE_EDIT`                   |
+| `create_variant`        | Add a variant with attributes, e.g. `{"system.locale": "nl-NL"}`. Values are validated; identical attribute sets are accepted but make selection ambiguous.                                  | `TEMPLATE_EDIT`                   |
+| `update_variant`        | Change a variant's title or replace its attributes.                                                                                                                                          | `TEMPLATE_EDIT`                   |
+| `update_template_draft` | Replace a variant's draft with a template document, creating the draft when there is none. Published versions are never touched.                                                             | `TEMPLATE_EDIT`                   |
+| `update_data_contract`  | Set the draft contract's JSON Schema (`dataModel`) and examples, creating the draft when only published versions exist.                                                                      | `TEMPLATE_EDIT`                   |
+| `create_stencil`        | Create a stencil with an initial draft (content and parameter schema optional).                                                                                                              | `STENCIL_EDIT`                    |
+| `update_stencil`        | Change a stencil's name, description or tags.                                                                                                                                                | `STENCIL_EDIT`                    |
+| `update_stencil_draft`  | Replace a stencil's draft content, creating a draft when there is none. An omitted parameter schema is kept.                                                                                 | `STENCIL_EDIT`                    |
+| `create_theme`          | Create a theme with document styles, page settings, block style presets and spacing unit.                                                                                                    | `THEME_EDIT`                      |
+| `update_theme`          | Change a theme. A given styling field replaces that whole field, so read it with `get_theme` and send back the merged value.                                                                 | `THEME_EDIT`                      |
+| `upload_image`          | Upload an image as base64 or a `data:` URL, optionally under a readable key such as `company-logo`. Images are immutable; upload a new one.                                                  | `TEMPLATE_EDIT`                   |
+| `upload_font`           | Create or replace a font family from base64 TTF/OTF faces. Every face is checked for embeddability before anything is stored.                                                                | `TEMPLATE_EDIT`, `REFERENCE_EDIT` |
 
 Structured arguments — template documents, schemas, styles, attributes, examples, font faces — are
 passed as JSON strings, like `preview_document`'s `data`. A malformed one fails with a message naming
@@ -119,9 +119,18 @@ check it against `get_authoring_schemas`.
 
 A typical conversion: `upload_font` and `upload_image` for the document's typeface and pictures,
 `create_theme` for its page setup and styles, `create_stencil` for repeated blocks such as a
-letterhead, `create_template` with the theme, `update_data_contract` for the merge fields, then
-`update_template_draft` and `preview_document` until the result matches. A draft template may
-embed a draft stencil; publishing the template needs the stencil published first, in the UI.
+letterhead, `create_template` with the theme and `system.locale`, `update_data_contract` for the
+merge fields, then `update_template_draft` and `preview_document` until the result matches. Preview
+a draft by passing the version number `update_template_draft` returns as `versionId`: without it,
+`preview_document` renders the latest published version, which a new template doesn't have.
+
+Embedding a stencil means writing a `stencil` node whose `children` slot holds a **copy** of the
+stencil version's content, with `stencilId`, `catalogKey`, and `version` (published) or
+`draftVersion` (draft) in its props, plus `parameterBindings` (JSONata per parameter) and
+`parameterSchemaSnapshot` when the stencil has parameters. The server renders only the stored copy;
+only the editor refreshes draft instances from the stencil when a template is opened. A draft
+template may embed a draft stencil; publishing the template needs the stencil published first, and
+its instances upgraded to that version, in the UI.
 
 Not available over MCP: publishing or archiving versions, deploying to environments, publishing a
 contract, and deleting anything.
