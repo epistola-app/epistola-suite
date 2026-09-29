@@ -71,19 +71,17 @@ class ComponentTypesIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `pageheader allows up to two instances for the first-page variant`() {
+    fun `page headers and footers are unlimited and say where they apply`() {
         val pageHeader = componentTools.getComponentType("pageheader")
-        assertThat(pageHeader).isNotNull
-        assertThat(pageHeader!!.category).isEqualTo("page")
-        assertThat(pageHeader.maxInstancesPerDocument).isEqualTo(2)
-    }
-
-    @Test
-    fun `pagefooter remains a singleton page block`() {
         val pageFooter = componentTools.getComponentType("pagefooter")
+        assertThat(pageHeader).isNotNull
         assertThat(pageFooter).isNotNull
+        assertThat(pageHeader!!.category).isEqualTo("page")
         assertThat(pageFooter!!.category).isEqualTo("page")
-        assertThat(pageFooter.maxInstancesPerDocument).isEqualTo(1)
+        assertThat(pageHeader.maxInstancesPerDocument).isNull()
+        assertThat(pageFooter.maxInstancesPerDocument).isNull()
+        assertThat(pageHeader.examples.map { it.description }).anyMatch { it.contains("applies to what comes after it") }
+        assertThat(pageFooter.examples.map { it.description }).anyMatch { it.contains("applies to what comes before it") }
     }
 
     @Test
