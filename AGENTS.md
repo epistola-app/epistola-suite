@@ -29,7 +29,7 @@ detail belongs in the area guide, the rule card (`.agents/rules/`), or the doc t
 - `modules/rest-api` — REST controllers implementing the external `epistola-contract`
 - `modules/generation` — pure PDF rendering, no business logic
 - `modules/editor` — Lit + ProseMirror editors (TypeScript)
-- `modules/epistola-mcp` — read-only MCP server at `/api/mcp` (`docs/mcp.md`)
+- `modules/epistola-mcp` — MCP server at `/api/mcp`: read tools plus draft-authoring write tools (`docs/mcp.md`)
 - `modules/epistola-quality` — quality-findings ledger — OSS, alpha (`docs/quality.md`)
 - `modules/epistola-audit`, `-crypto`, `-version-check`, `loadtest` — audit log, credential encryption, release check, load tests
 - `modules/epistola-support*` — commercial tier: hub client plus feedback, snapshots, backups, upgrading, telemetry

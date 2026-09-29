@@ -106,11 +106,11 @@ under its title. That banner, not this table, is authoritative.
 
 ## Integration surfaces
 
-| Doc                                               | Status   | What it covers                                                             |
-| ------------------------------------------------- | -------- | -------------------------------------------------------------------------- |
-| [MCP server](mcp.md)                              | Current  | Read-only Model Context Protocol tools at `/api/mcp` for AI assistants.    |
-| [Iframe embedding](embedding.md)                  | Current  | Embedding the UI in a host page and driving it over `postMessage`.         |
-| [Consumer management API](consumer-management.md) | Proposed | Design for the consumer-management surface defined in `epistola-contract`. |
+| Doc                                               | Status   | What it covers                                                                              |
+| ------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------- |
+| [MCP server](mcp.md)                              | Current  | Model Context Protocol tools at `/api/mcp` for AI assistants: read, preview, author drafts. |
+| [Iframe embedding](embedding.md)                  | Current  | Embedding the UI in a host page and driving it over `postMessage`.                          |
+| [Consumer management API](consumer-management.md) | Proposed | Design for the consumer-management surface defined in `epistola-contract`.                  |
 
 The REST API contract itself is owned by the external `epistola-contract`
 package (the suite consumes its generated server interfaces); the controllers

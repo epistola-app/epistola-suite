@@ -402,7 +402,7 @@ The schema mismatch takes **priority** over the release-version upgrade state �
 
 - **Web UI** (import dialog): a **rejection** renders inline in the dialog (the same `alert-error` slot as a stencil conflict) with the actionable remediation — upgrade this instance, or re-export from a current source. A **confirmable** AUTHORED migration renders an inline "Update available — Import & update to v*N*" prompt (`import-migration-confirm`) whose button re-submits the same form with `confirmMigration=true`. A subscribed source's **out-of-sync** state shows as the amber / "upgrade Epistola" badge in the catalog list's Version cell (`version-status` fragment).
 - **REST** (`POST /api/tenants/{id}/catalogs/import`): non-interactive, so it sets `confirmMigration = true` implicitly — a migratable-old AUTHORED import migrates without a round-trip. A **rejection** is an [RFC 9457](../adr/0004-rfc7807-problem-details.md) problem with a dedicated `type` — `…/errors/catalog-schema-too-new` (extensions `version`, `supportedVersion`), `…/catalog-schema-too-old` (`version`, `baselineVersion`), or `…/catalog-schema-unknown` — all `400`.
-- **MCP**: catalog import is not an MCP surface (the MCP server is read-only), so there is no MCP change.
+- **MCP**: catalog import is not an MCP surface (MCP writes stop at drafts), so there is no MCP change.
 
 ### Dependency Resolution
 

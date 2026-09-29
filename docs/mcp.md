@@ -1,10 +1,10 @@
 # MCP server (AI assistant integration)
 
-Epistola exposes a [Model Context Protocol](https://modelcontextprotocol.io) server so AI assistants (Claude Desktop, Cursor, MCP Inspector, etc.) can talk to a tenant's templates, themes, stencils, and data contracts directly. The intended workflow is **AI-assisted template design**: the assistant discovers existing templates, inspects their structure, and renders previews to verify what they produce.
+Epistola exposes a [Model Context Protocol](https://modelcontextprotocol.io) server so AI assistants (Claude Desktop, Cursor, MCP Inspector, etc.) can talk to a tenant's templates, themes, stencils, and data contracts directly. The intended workflows are **AI-assisted template design** — the assistant discovers existing templates, inspects their structure, and renders previews to verify what they produce — and **document conversion**: the assistant turns an existing document, such as a Word template, into an Epistola template with its stencils, theme, images and fonts.
 
 ## Status
 
-- **Read-only for 1.0 (deliberate GA scope).** Tools cover discovery, inspection, and document preview; the server never mutates tenant data. This is a settled decision for the 1.0 release, not a temporary limitation — authoring over MCP (drafts, themes, stencils, contract edits, publishing) is a possible post-1.0 addition, and adding write tools later is additive (no breaking change to the read surface).
+- **Read tools are GA; write tools are beta.** The read tools cover discovery, inspection and document preview. The [write tools](#write-tools-beta) author drafts — templates, variants, data contracts, stencils, themes, images and fonts — and may still change their arguments in a minor release. Nothing over MCP publishes, deploys or deletes: a person reviews and publishes the result in the UI.
 - **Transport: Streamable HTTP**, mounted at `/api/mcp` on the same Spring Boot service that serves the UI and REST API.
 - **Auth: `Authorization: ApiKey`.** Reuses the existing per-tenant API-key mechanism — no new credential type. Legacy `X-API-Key` remains accepted for existing clients.
 - **Server-wide toggle: `epistola.mcp.enabled`** (default `true`). Setting it to `false` disables the entire MCP endpoint — no `/api/mcp` route, no Spring AI MCP server, no eager loading of the component registry JSON. Wired through to Spring AI's own `spring.ai.mcp.server.enabled`.
@@ -26,7 +26,7 @@ Authorization: ApiKey epk_<your-key>
 The API key must:
 
 1. Belong to the tenant whose templates you want to manage. All tools resolve the tenant from the key — they take no `tenantId` argument.
-2. Have the **`TEMPLATE_VIEW`** permission (read tools) and the **`DOCUMENT_GENERATE`** permission (for `preview_document`). `analyze_template_data` needs only `TEMPLATE_VIEW`: it renders nothing.
+2. Have the **`TEMPLATE_VIEW`** permission (read tools) and the **`DOCUMENT_GENERATE`** permission (for `preview_document`). `analyze_template_data` needs only `TEMPLATE_VIEW`: it renders nothing. Write tools need the edit permission of what they write — see [Write tools](#write-tools-beta). A key scoped to viewing roles gets every write refused, so choose the key's roles to match what the assistant may change.
 
 Provision an MCP-purpose key from the Epistola UI under **Operations → API Keys**.
 
@@ -87,6 +87,44 @@ Then enter the URL and `Authorization: ApiKey <key>` header in the Inspector UI.
 | `list_fonts`              | Discover font families in the current tenant, optionally filtered by catalog. Each entry carries the present variant faces (`regular`/`bold`/`italic`/`bold_italic`) and a `readOnly` flag for SUBSCRIBED-catalog families (the bundled `system` fonts: inter, roboto, lato, source-sans-3, source-serif-4, merriweather, lora, jetbrains-mono). Use this to pick a `fontFamily` ref (`{ slug, catalogKey }`) for a theme or template.                                                                                       |
 | `list_images`             | Discover images in the current tenant, optionally filtered by catalog or name. Returns image IDs, media types, dimensions, sizes, and catalog provenance without binary content.                                                                                                                                                                                                                                                                                                                                             |
 | `get_image`               | Fetch metadata for one exact image reference by catalog and UUID. Use this to verify image identity and dimensions while tracing template and stencil dependencies.                                                                                                                                                                                                                                                                                                                                                          |
+| `get_authoring_schemas`   | The JSON Schemas the write tools accept — `templateDocument`, `theme`, the `shared` definitions both refer to — and the style registry (every style key, type and unit). Ships in the `epistola-catalog` artifact.                                                                                                                                                                                                                                                                                                           |
+
+## Write tools (beta)
+
+Enough to convert an existing document into Epistola. Every write dispatches the same command the UI
+and REST API use, so validation, permissions and the read-only rule for SUBSCRIBED catalogs (such as
+`system`) apply unchanged. Omitted optional arguments leave a field as it is.
+
+| Tool                    | Purpose                                                                                                                                     | Permission                        |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `create_template`       | Create a template, optionally with a theme. It starts with a default variant holding an empty draft, and an empty draft data contract.      | `TEMPLATE_EDIT`                   |
+| `update_template`       | Change a template's name, theme (or clear it) and PDF/A flag.                                                                               | `TEMPLATE_EDIT`                   |
+| `create_variant`        | Add a variant with attributes, e.g. `{"locale": "nl-NL"}`. Attribute values are validated against their definitions.                        | `TEMPLATE_EDIT`                   |
+| `update_variant`        | Change a variant's title or replace its attributes.                                                                                         | `TEMPLATE_EDIT`                   |
+| `update_template_draft` | Replace a variant's draft with a template document, creating the draft when there is none. Published versions are never touched.            | `TEMPLATE_EDIT`                   |
+| `update_data_contract`  | Set the draft contract's JSON Schema (`dataModel`) and examples, creating the draft when only published versions exist.                     | `TEMPLATE_EDIT`                   |
+| `create_stencil`        | Create a stencil with an initial draft (content and parameter schema optional).                                                             | `STENCIL_EDIT`                    |
+| `update_stencil`        | Change a stencil's name, description or tags.                                                                                               | `STENCIL_EDIT`                    |
+| `update_stencil_draft`  | Replace a stencil's draft content, creating a draft when there is none. An omitted parameter schema is kept.                                | `STENCIL_EDIT`                    |
+| `create_theme`          | Create a theme with document styles, page settings, block style presets and spacing unit.                                                   | `THEME_EDIT`                      |
+| `update_theme`          | Change a theme. A given styling field replaces that whole field, so read it with `get_theme` and send back the merged value.                | `THEME_EDIT`                      |
+| `upload_image`          | Upload an image as base64 or a `data:` URL, optionally under a readable key such as `company-logo`. Images are immutable; upload a new one. | `TEMPLATE_EDIT`                   |
+| `upload_font`           | Create or replace a font family from base64 TTF/OTF faces. Every face is checked for embeddability before anything is stored.               | `TEMPLATE_EDIT`, `REFERENCE_EDIT` |
+
+Structured arguments — template documents, schemas, styles, attributes, examples, font faces — are
+passed as JSON strings, like `preview_document`'s `data`. A malformed one fails with a message naming
+the argument. A template document is the node/slot graph `get_template_content` returns under
+`templateModel`; build it from `list_component_types` (its `examples` are fragments to copy) and
+check it against `get_authoring_schemas`.
+
+A typical conversion: `upload_font` and `upload_image` for the document's typeface and pictures,
+`create_theme` for its page setup and styles, `create_stencil` for repeated blocks such as a
+letterhead, `create_template` with the theme, `update_data_contract` for the merge fields, then
+`update_template_draft` and `preview_document` until the result matches. A draft template may
+embed a draft stencil; publishing the template needs the stencil published first, in the UI.
+
+Not available over MCP: publishing or archiving versions, deploying to environments, publishing a
+contract, and deleting anything.
 
 ## Limitations and notes
 
@@ -144,13 +182,14 @@ Then enter the URL and `Authorization: ApiKey <key>` header in the Inspector UI.
   The validator rejects mismatches: sending a list to a `richTextInline` field, or any block content to an inline expression chip's binding, fails preview with a JSON Schema error.
 
 - **Data contract auto-creation.** Creating a template auto-creates an empty draft contract (v1). `get_data_contract` returns it even before the contract has been authored.
-- **No write tools (by design for 1.0).** The MCP server cannot create or modify templates, drafts, themes, stencils, images, fonts, or contracts. Switch to the UI for authoring; the AI can still inspect what it has access to.
+- **Writes stop at drafts.** Publishing, deployment and deletion stay in the UI (or the REST API), so a person reviews what an assistant produced before it can be used to generate documents.
 - **Rate limiting.** The MCP endpoint shares the existing `/api/**` security chain; no MCP-specific rate limiting is in place.
 
 ## Troubleshooting
 
 - **`401 Unauthorized`**: The `Authorization: ApiKey` header is missing, the key is malformed (must start with `epk_`), or the key has been revoked/disabled/expired. Legacy `X-API-Key` is still accepted.
-- **Tool errors mentioning permission**: The API key is missing `TEMPLATE_VIEW` (for read tools) or `DOCUMENT_GENERATE` (for preview).
+- **Tool errors mentioning permission**: The API key is missing `TEMPLATE_VIEW` (for read tools), `DOCUMENT_GENERATE` (for preview), or the edit permission a [write tool](#write-tools-beta) needs.
+- **Tool errors mentioning a read-only catalog**: Write tools only write to AUTHORED catalogs; SUBSCRIBED catalogs such as `system` are read-only.
 - **`MCP request has no tenant scope`**: The principal has no `currentTenantId`. With API-key auth, this should not happen — the key is always tenant-scoped. If you see it, the key may have been provisioned without a tenant binding.
 
 ## Related

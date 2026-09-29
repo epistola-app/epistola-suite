@@ -18,7 +18,7 @@ import app.epistola.suite.templates.queries.EditorContext
 data class TemplateContentInfo(
     val templateName: String,
     val variantAttributes: Map<String, String>,
-    /** TemplateDocument node/slot graph. AI tools edit this in subsequent draft updates (write tools — out of MVP). */
+    /** TemplateDocument node/slot graph — the shape `update_template_draft` takes back. */
     val templateModel: Any,
     val dataExamples: List<DataExampleInfo>,
     /** JSON Schema describing the template's input data. May be null for templates without a contract yet. */
