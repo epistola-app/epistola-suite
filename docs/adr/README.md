@@ -35,6 +35,7 @@ Back to the [documentation index](../README.md).
 | [0024](0024-where-a-catalog-resource-identity-is-allocated.md) Where a resource identity is allocated | Proposed                       | The application proposes a UUIDv7 and the registry's address constraint decides; replaces minting in the sync trigger (#952).                                               |
 | [0025](0025-relocation-without-aliases.md) Relocation without aliases                                 | Accepted                       | Aliases withdrawn before release; relocation is a crude move until published content is self-contained.                                                                     |
 | [0026](0026-revisions-releases-and-the-working-copy.md) Revisions, releases, working copy             | Proposed                       | Content-addressed revisions, releases as manifests, a status per resource; subscribed catalogs are releases.                                                                |
+| [0027](0027-page-headers-and-footers-by-section.md) Page headers and footers by section               | Accepted                       | Headers apply to what follows them, footers to what precedes them, per page-break section; any number, anywhere.                                                            |
 
 ## Adding an ADR
 

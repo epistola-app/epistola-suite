@@ -114,45 +114,44 @@ override it.
 
 ### Page Header / Footer
 
-Headers and footers render on every page via iText page event handlers.
+Headers and footers are blocks like any other: insert, drag and move them anywhere in the
+document, in any number, including inside a stencil, a conditional or a loop. The one rule is that a
+header or footer cannot go inside another one; the editor refuses that for inserts, moves, drags,
+pastes and stencil content alike.
+
+Where a header or footer sits decides which pages it applies to (full rules in
+[generation.md](generation.md#page-headers-and-footers)):
+
+- **Headers apply to what comes after them.** At the start of the document or right after a page
+  break a header applies from that page; after content it takes over from the next page.
+- **Footers apply to what comes before them.** A footer covers the pages of its section (the part
+  of the document between page breaks) and any sections above it without a footer.
+- **Several in a row** at the start of a section (headers) or in one section (footers) form a
+  first-page variant: the first covers the section's first page, the last the pages after it.
+
+The canvas label of every header and footer says what its position gives it, for example
+"Page Header · from this page", "Page Header · from the next page", "Page Footer · this section and
+the sections above", or "· depends on data" inside a conditional or loop. Footers in one section
+that are not next to each other are flagged, because order rather than position then decides which
+page gets which. The palette's "Add" puts a header after the headers that open the document, a
+footer at the very end, and other blocks before the footers that close it.
 
 #### Page Header
 
-| Property | Type | Default | Description               |
-| -------- | ---- | ------- | ------------------------- |
-| height   | unit | 60pt    | Height of the header band |
-
-A document may declare **up to two** `pageheader` nodes as direct children of the
-root slot. The order in the root slot is the positional selector for which header
-applies to which page (validated by `PageHeaderCardinalityValidator`):
-
-| Header count | Page 1                 | Page 2 and onward       |
-| ------------ | ---------------------- | ----------------------- |
-| 0            | (no header)            | (no header)             |
-| 1            | the sole `pageheader`  | the sole `pageheader`   |
-| 2            | the first `pageheader` | the second `pageheader` |
-
-Each header can have its own `height`, padding, border, and content. The body's
-top margin matches its own page's header band: page 1 sits below the first-page
-band, pages 2+ sit below the running band. Internally this is implemented by
-setting iText's document margin to the running band and prepending an invisible
-spacer to the body flow sized to the extra first-page height — so a tall cover
-header on page 1 doesn't leak whitespace onto running pages.
-
-In the editor, the two headers can be reordered by dragging within the header
-zone of the root slot — useful for swapping which header is the first-page
-variant and which is the running variant after the fact. Dragging a header out
-of the root slot or below the body is rejected by the engine.
+| Property | Type | Default | Description                       |
+| -------- | ---- | ------- | --------------------------------- |
+| height   | unit | 60pt    | Minimum height of the header band |
 
 #### Page Footer
 
 | Property        | Type    | Default | Description                        |
 | --------------- | ------- | ------- | ---------------------------------- |
-| height          | unit    | 60pt    | Height of the footer band          |
+| height          | unit    | 60pt    | Minimum height of the footer band  |
 | hideOnFirstPage | boolean | false   | When true, footer hidden on page 1 |
 
-A document may declare a single `pagefooter` node. Per-page footer variants are
-not currently supported — file a follow-up issue if needed.
+The height is a minimum: content taller than it grows the band
+([ADR 0008](adr/0008-header-footer-height-minimum.md)). An empty header or footer still reserves
+its height; set it to `0` to switch the band off for a section.
 
 **System parameters available:** `sys.pages.current` (page number), `sys.pages.total` (total pages, requires two-pass rendering).
 

@@ -1,9 +1,10 @@
 # Page headers and footers anywhere in the flow
 
-> **Status:** Design, not implemented. Tracks
-> [#1020](https://github.com/epistola-app/epistola-suite/issues/1020). This replaces an earlier
-> draft of the same name that covered headers only and assumed a custom `DocumentRenderer`; git
-> history keeps it. The iText mechanics were proven by a spike, recorded below.
+> **Status:** Design, implemented on branch `feat/flow-anchored-page-bands` (not yet merged) and
+> epistola-contract PR #93. Tracks [#1020](https://github.com/epistola-app/epistola-suite/issues/1020);
+> the decision is [ADR 0027](../adr/0027-page-headers-and-footers-by-section.md). This replaces an
+> earlier draft of the same name that covered headers only; git history keeps it. Where the
+> implementation settled a detail differently, it says so below.
 
 ## Goal
 
@@ -47,8 +48,9 @@ stencil opens with), do not count as content.
    This is today's "first page plus running header", now available per section.
 3. **After content**, a header takes over from the page after the one it lands on. If several land
    on the same page, they take over one page at a time, in flow order.
-4. **A header lasts** until the next header takes over. An empty `pageheader` switches the header
-   off.
+4. **A header lasts** until the next header takes over. An empty header still reserves its
+   `height`; set `height` to `0` to switch the band off (as existing documents with an empty header
+   reserve it today).
 5. **Pages before the first header** get no header.
 
 ### Footers apply to what comes before them
@@ -131,10 +133,12 @@ These iText 9.7.1 mechanisms are proven by `PageBandItextProbeTest`:
      _band occurrence_ `(nodeId, ordinal, contextSnapshot)`. The snapshot captures the loop and
      parameter scope, because in a loop the same node ID renders once per iteration with different
      data.
-2. **Classify.** After the element tree is built, and before anything is added to the iText
-   `Document`, one walk in document order numbers the sections, assigns each occurrence its
-   section, and marks whether it is at the start of that section. Conditionals and loops are already
-   evaluated at this point, so this is exact rather than conservative.
+2. **Classify.** Sections and "at the start of its section" are decided while the body renders,
+   which happens in document order: a page break starts a section, and `NodeRendererRegistry`
+   marks content after any node that draws something (containers, stencils, conditionals, loops,
+   tables, columns, the address block and the bands themselves do not count). Conditionals and
+   loops are evaluated at that point, so this is exact rather than conservative. _(Implementation
+   note: this replaced a separate walk over the built element tree.)_
 3. **Measure.** Each occurrence's band height is `max(height prop, measured content)`, exactly as
    ADR 0008 does today, but measured per occurrence with its own context snapshot. This reuses
    `buildBandWrapper` and `measureBandContentHeight`, and replaces `measureEffectiveBandHeights`.
@@ -235,7 +239,7 @@ sit.
 1. **Contract PR** (epistola-contract → 1.4.0): validator, registry, fixtures, docs.
 2. **Suite PR:**
    - `PageBandSchedule` and its unit tests;
-   - the anchors, `SectionPageBreak`, the classifying walk, the margins function and the handlers;
+   - the anchors, `SectionPageBreak`, the content marking, the margins function and the handlers;
    - the V4 gate and parity tests;
    - the contract bump, validation codes and MCP tests;
    - the editor;
@@ -246,7 +250,7 @@ sit.
 - **Unit:** `PageBandSchedule` covering the legacy table above, per-section first-page variants,
   a mid-section header switch, several switches landing on one page, a section-start header
   replacing queued switches, footers covering footer-less sections above, pages after the last
-  footer, an empty header, and occurrences from a loop. The classifying walk gets its own test.
+  footer, an empty header, and occurrences from a loop.
 - **Generation, extending `PageHeaderFooterTest`:**
   - a letter-shell stencil with a header at its top and a footer at its bottom;
   - a footer at the end with page breaks;
