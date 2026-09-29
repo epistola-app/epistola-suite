@@ -29,6 +29,10 @@ import org.springframework.stereotype.Component
  * already understands and reports as "not kept". Reusing it is why this adds no new vocabulary to
  * the UI.
  *
+ * **A gate this will need once environments deploy releases.** A release whose content is gone
+ * cannot be served, so once an environment is on a named release (ADR 0026 §6, #1036) this will have
+ * to refuse for a deployed one. Nothing to consult yet — no deployment exists.
+ *
  * Deliberately not reversible, and not pretending to be. The content is gone; re-releasing the
  * working copy is a new version, not this one restored.
  */
