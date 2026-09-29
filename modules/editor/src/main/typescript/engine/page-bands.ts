@@ -13,6 +13,12 @@
 import type { Node, NodeId, SlotId, TemplateDocument } from '../types/index.js';
 import type { DocumentIndexes } from './indexes.js';
 
+/** Mirrors `BlockHint` in registry.ts, which imports this module. */
+export interface PageBandHint {
+  text: string;
+  tone: 'info' | 'warning';
+}
+
 export const PAGE_HEADER_TYPE = 'pageheader';
 export const PAGE_FOOTER_TYPE = 'pagefooter';
 export const PAGE_BREAK_TYPE = 'pagebreak';
@@ -175,7 +181,7 @@ function ordinal(n: number): string {
  * is the layout when all conditions hold; a band inside a conditional or loop says so. Where a
  * page ends is not known here, so a footer that may share its page with the one before it says so.
  */
-export function describePageBands(doc: TemplateDocument): Map<NodeId, string> {
+export function describePageBands(doc: TemplateDocument): Map<NodeId, PageBandHint> {
   const bands: BandInfo[] = [];
   let section = 0;
   let contentSeen = false;
@@ -219,51 +225,76 @@ export function describePageBands(doc: TemplateDocument): Map<NodeId, string> {
   const headersAtStart = (s: number) =>
     bands.filter((b) => b.node.type === PAGE_HEADER_TYPE && b.section === s && b.atSectionStart);
 
-  const labels = new Map<NodeId, string>();
-  const suffix = (b: BandInfo) => (b.dataDependent ? ' · depends on data' : '');
+  const hints = new Map<NodeId, PageBandHint>();
+  const onlyWhenRendered = (b: BandInfo) =>
+    b.dataDependent
+      ? ' It is inside a conditional or loop, so this holds only when it renders.'
+      : '';
+  const set = (b: BandInfo, text: string, tone: PageBandHint['tone'] = 'info') =>
+    hints.set(b.node.id, { text: text + onlyWhenRendered(b), tone });
 
   for (let s = 0; s < sectionCount; s += 1) {
     const starts = headersAtStart(s);
     starts.forEach((b, i) => {
-      const where =
-        starts.length === 1
-          ? 'from this page'
-          : i === starts.length - 1
-            ? `from the section's ${ordinal(i + 1)} page`
-            : `${ordinal(i + 1)} page of section`;
-      labels.set(b.node.id, `${where}${suffix(b)}`);
+      if (starts.length === 1) {
+        set(b, 'Applies from this page on, until another header takes over.');
+      } else if (i === starts.length - 1) {
+        set(
+          b,
+          `Applies from the ${ordinal(i + 1)} page of its section on, until another header takes over.`,
+        );
+      } else {
+        set(
+          b,
+          `Applies to the ${ordinal(i + 1)} page of its section only; the next header takes the page after it.`,
+        );
+      }
     });
   }
 
   const footers = bands.filter((b) => b.node.type === PAGE_FOOTER_TYPE);
   footers.forEach((b, i) => {
-    const where =
-      i === 0
-        ? 'from its page, and the pages before it'
-        : b.breakSincePreviousFooter
-          ? 'from the page it lands on'
-          : b.contentSincePreviousFooter
-            ? 'from the page it lands on, unless the footer before it lands there too'
-            : 'skipped: it lands on the same page as the footer before it';
-    labels.set(b.node.id, `${where}${suffix(b)}`);
+    if (i === 0) {
+      set(
+        b,
+        'Applies from the page it lands on, and to the pages before it, until another footer lands.',
+      );
+    } else if (b.breakSincePreviousFooter) {
+      set(b, 'Applies from the page it lands on, until another footer lands.');
+    } else if (b.contentSincePreviousFooter) {
+      set(
+        b,
+        'Applies from the page it lands on, but only if the footer before it did not land on that page too: a page keeps the first footer that lands on it.',
+        'warning',
+      );
+    } else {
+      set(
+        b,
+        'Skipped: it lands on the same page as the footer before it, and a page keeps the first footer that lands on it. Put a page break between them, or remove one.',
+        'warning',
+      );
+    }
   });
 
   for (const b of bands) {
     if (b.node.type === PAGE_HEADER_TYPE && !b.atSectionStart) {
-      labels.set(b.node.id, `from the next page${suffix(b)}`);
+      set(
+        b,
+        'Takes over from the page after the one it lands on, because content comes before it in its section.',
+      );
     }
   }
-  return labels;
+  return hints;
 }
 
-const labelCache = new WeakMap<TemplateDocument, Map<NodeId, string>>();
+const hintCache = new WeakMap<TemplateDocument, Map<NodeId, PageBandHint>>();
 
 /** [describePageBands], computed once per document snapshot. */
-export function pageBandLabel(doc: TemplateDocument, nodeId: NodeId): string | undefined {
-  let labels = labelCache.get(doc);
-  if (!labels) {
-    labels = describePageBands(doc);
-    labelCache.set(doc, labels);
+export function pageBandHint(doc: TemplateDocument, nodeId: NodeId): PageBandHint | undefined {
+  let hints = hintCache.get(doc);
+  if (!hints) {
+    hints = describePageBands(doc);
+    hintCache.set(doc, hints);
   }
-  return labels.get(nodeId);
+  return hints.get(nodeId);
 }

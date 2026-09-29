@@ -130,11 +130,11 @@ Where a header or footer sits decides which pages it applies to (full rules in
 - **Several headers in a row** at the start of a section form a first-page variant: the first
   covers the section's first page, the last the pages after it.
 
-The canvas label of every header and footer says what its position gives it, for example
-"Page Header · from this page", "Page Header · from the next page", "Page Footer · from its page, and
-the pages before it", "Page Footer · skipped: it lands on the same page as the footer before it", or
-"· depends on data" inside a conditional or loop. The palette's "Add" puts a header after the headers that open the document, a
-footer at the very end, and other blocks before the footers that close it.
+The canvas shows an icon next to every header and footer's label; its tooltip says which pages the
+block's position gives it. It is an info icon normally, and a warning icon for a footer that is
+skipped, or may be, because the footer before it lands on the same page. The palette's "Add"
+puts a header after the headers that open the document, a footer at the very end, and other blocks
+before the footers that close it.
 
 #### Page Header
 

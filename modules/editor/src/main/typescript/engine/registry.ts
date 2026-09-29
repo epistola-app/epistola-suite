@@ -9,7 +9,7 @@
  */
 
 import type { JsonSchema } from '../data-contract/types.js';
-import { PAGE_HEADER_TYPE, PAGE_FOOTER_TYPE, pageBandLabel } from './page-bands.js';
+import { PAGE_HEADER_TYPE, PAGE_FOOTER_TYPE, pageBandHint } from './page-bands.js';
 import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../types/index.js';
 import type { DocumentIndexes } from './indexes.js';
 import type { CommandResult } from './commands.js';
@@ -33,11 +33,10 @@ import { buildIterationScope } from './scoped-fields.js';
 
 export { PAGE_HEADER_TYPE, PAGE_FOOTER_TYPE, isPageBand } from './page-bands.js';
 
-/** A header or footer's canvas label, with the pages its position gives it (see page-bands.ts). */
-function bandLabel(base: string, node: Node, engine: unknown): string {
+/** Which pages a header or footer's position gives it, for its canvas hint (see page-bands.ts). */
+function bandHint(node: Node, engine: unknown): BlockHint | undefined {
   const doc = (engine as { doc?: TemplateDocument } | null)?.doc;
-  const where = doc ? pageBandLabel(doc, node.id) : undefined;
-  return where ? `${base} · ${where}` : base;
+  return doc ? pageBandHint(doc, node.id) : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -220,11 +219,22 @@ export interface InspectorPresentation {
   suppressDeleteSection?: boolean;
 }
 
+/** See [ComponentDefinition.getHint]. */
+export interface BlockHint {
+  text: string;
+  tone: 'info' | 'warning';
+}
+
 export interface ComponentDefinition {
   type: string;
   label: string;
   /** Dynamic label based on node state. If defined, takes precedence over static `label`. */
   getLabel?: (node: Node, engine: unknown) => string;
+  /**
+   * A short explanation shown as an icon next to the block's label on the canvas, with the text
+   * as its tooltip. `warning` marks something the author probably wants to fix.
+   */
+  getHint?: (node: Node, engine: unknown) => BlockHint | undefined;
   icon?: string;
   category: ComponentCategory;
   /** Hide from the block palette (e.g. child-only components like datatable-column). */
@@ -1485,7 +1495,7 @@ export function createDefaultRegistry(): ComponentRegistry {
   registry.register({
     type: PAGE_HEADER_TYPE,
     label: 'Page Header',
-    getLabel: (node, engine) => bandLabel('Page Header', node, engine),
+    getHint: bandHint,
     icon: 'panel-top',
     category: 'page',
     slots: [{ name: 'children' }],
@@ -1611,7 +1621,7 @@ export function createDefaultRegistry(): ComponentRegistry {
   registry.register({
     type: PAGE_FOOTER_TYPE,
     label: 'Page Footer',
-    getLabel: (node, engine) => bandLabel('Page Footer', node, engine),
+    getHint: bandHint,
     icon: 'panel-bottom',
     category: 'page',
     slots: [{ name: 'children' }],

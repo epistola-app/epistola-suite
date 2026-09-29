@@ -58,72 +58,87 @@ function doc(...rootChildren: Spec[]): TemplateDocument {
 }
 
 describe('describePageBands', () => {
-  it('describes the legacy shape: first-page and running header, one footer at the end', () => {
-    const labels = describePageBands(
-      doc('pageheader:first', 'pageheader:running', 'text:body', 'pagefooter:footer'),
-    );
+  const hintOf = (d: TemplateDocument, id: string) => describePageBands(d).get(id as NodeId);
 
-    expect(labels.get('first' as NodeId)).toBe('first page of section');
-    expect(labels.get('running' as NodeId)).toBe("from the section's second page");
-    expect(labels.get('footer' as NodeId)).toBe('from its page, and the pages before it');
+  it('describes the legacy shape: first-page and running header, one footer at the end', () => {
+    const d = doc('pageheader:first', 'pageheader:running', 'text:body', 'pagefooter:footer');
+
+    expect(hintOf(d, 'first')).toEqual({
+      text: 'Applies to the first page of its section only; the next header takes the page after it.',
+      tone: 'info',
+    });
+    expect(hintOf(d, 'running')?.text).toBe(
+      'Applies from the second page of its section on, until another header takes over.',
+    );
+    expect(hintOf(d, 'footer')).toEqual({
+      text: 'Applies from the page it lands on, and to the pages before it, until another footer lands.',
+      tone: 'info',
+    });
   });
 
   it('tells a section-start header from a header after content', () => {
-    const labels = describePageBands(
-      doc(
-        'pageheader:intro',
-        'text:a',
-        'pageheader:chapter',
-        'text:b',
-        'pagebreak:br',
-        'pageheader:appendix',
-        'text:c',
-      ),
+    const d = doc(
+      'pageheader:intro',
+      'text:a',
+      'pageheader:chapter',
+      'text:b',
+      'pagebreak:br',
+      'pageheader:appendix',
+      'text:c',
     );
 
-    expect(labels.get('intro' as NodeId)).toBe('from this page');
-    expect(labels.get('chapter' as NodeId)).toBe('from the next page');
-    expect(labels.get('appendix' as NodeId)).toBe('from this page');
+    expect(hintOf(d, 'intro')?.text).toBe(
+      'Applies from this page on, until another header takes over.',
+    );
+    expect(hintOf(d, 'chapter')?.text).toContain(
+      'Takes over from the page after the one it lands on',
+    );
+    expect(hintOf(d, 'appendix')?.text).toBe(
+      'Applies from this page on, until another header takes over.',
+    );
   });
 
   it('counts a header at the top of a stencil as the start of its section', () => {
-    const labels = describePageBands(
-      doc('text:cover', 'pagebreak:br', [
-        'stencil:shell',
-        ['pageheader:letterhead', 'text:letter', 'pagefooter:foot'],
-      ]),
-    );
+    const d = doc('text:cover', 'pagebreak:br', [
+      'stencil:shell',
+      ['pageheader:letterhead', 'text:letter', 'pagefooter:foot'],
+    ]);
 
-    expect(labels.get('letterhead' as NodeId)).toBe('from this page');
-    expect(labels.get('foot' as NodeId)).toBe('from its page, and the pages before it');
+    expect(hintOf(d, 'letterhead')?.text).toBe(
+      'Applies from this page on, until another header takes over.',
+    );
+    expect(hintOf(d, 'foot')?.text).toContain('and to the pages before it');
   });
 
-  it('marks bands inside conditionals and loops as depending on data', () => {
-    const labels = describePageBands(doc(['conditional:if', ['pageheader:maybe']], 'text:body'));
+  it('says when a band only applies if its conditional or loop renders it', () => {
+    const d = doc(['conditional:if', ['pageheader:maybe']], 'text:body');
 
-    expect(labels.get('maybe' as NodeId)).toBe('from this page · depends on data');
+    expect(hintOf(d, 'maybe')?.text).toContain('inside a conditional or loop');
   });
 
-  it('says when a footer may, or must, share its page with the footer before it', () => {
-    const labels = describePageBands(
-      doc(
-        'pagefooter:first',
-        'pagefooter:skipped',
-        'text:body',
-        'pagefooter:maybe',
-        'pagebreak:br',
-        'pagefooter:next-page',
-      ),
+  it('warns when a footer may be, or will be, skipped for the footer before it', () => {
+    const d = doc(
+      'pagefooter:first',
+      'pagefooter:skipped',
+      'text:body',
+      'pagefooter:maybe',
+      'pagebreak:br',
+      'pagefooter:next-page',
     );
 
-    expect(labels.get('first' as NodeId)).toBe('from its page, and the pages before it');
-    expect(labels.get('skipped' as NodeId)).toBe(
-      'skipped: it lands on the same page as the footer before it',
+    expect(hintOf(d, 'first')?.tone).toBe('info');
+    expect(hintOf(d, 'skipped')).toMatchObject({ tone: 'warning' });
+    expect(hintOf(d, 'skipped')?.text).toMatch(
+      /^Skipped: it lands on the same page as the footer before it/,
     );
-    expect(labels.get('maybe' as NodeId)).toBe(
-      'from the page it lands on, unless the footer before it lands there too',
+    expect(hintOf(d, 'maybe')).toMatchObject({ tone: 'warning' });
+    expect(hintOf(d, 'maybe')?.text).toContain(
+      'only if the footer before it did not land on that page too',
     );
-    expect(labels.get('next-page' as NodeId)).toBe('from the page it lands on');
+    expect(hintOf(d, 'next-page')).toEqual({
+      text: 'Applies from the page it lands on, until another footer lands.',
+      tone: 'info',
+    });
   });
 });
 
@@ -183,15 +198,17 @@ describe('pageBandNestingError', () => {
   });
 });
 
-describe('page band canvas label', () => {
-  it('appends where the band applies to the block label', () => {
+describe('page band canvas hint', () => {
+  it('keeps the plain label and puts where the band applies in a hint', () => {
     const d = doc('pageheader:first', 'pageheader:running', 'text:body');
     const engine = new EditorEngine(d, createDefaultRegistry());
     const def = engine.registry.get('pageheader');
 
-    expect(def?.getLabel?.(d.nodes['first'], engine)).toBe('Page Header · first page of section');
-    expect(def?.getLabel?.(d.nodes['running'], engine)).toBe(
-      "Page Header · from the section's second page",
+    expect(def?.getLabel).toBeUndefined();
+    expect(def?.label).toBe('Page Header');
+    expect(def?.getHint?.(d.nodes['first'], engine)).toMatchObject({ tone: 'info' });
+    expect(def?.getHint?.(d.nodes['running'], engine)?.text).toContain(
+      'second page of its section',
     );
   });
 });

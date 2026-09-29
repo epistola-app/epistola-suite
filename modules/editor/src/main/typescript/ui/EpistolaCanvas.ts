@@ -420,6 +420,7 @@ export class EpistolaCanvas extends LitElement {
     const isSelected = this.selectedNodeId === nodeId;
     const def = this.engine!.registry.get(node.type);
     const label = def?.getLabel?.(node, this.engine!) ?? def?.label ?? node.type;
+    const hint = def?.getHint?.(node, this.engine!);
     const collapsible = this._isCollapsible(nodeId);
     const collapsed = collapsible && this._collapsedNodes.has(nodeId);
     // Read-only blocks (whose parent slot is locked) get no tabindex so they
@@ -464,6 +465,18 @@ export class EpistolaCanvas extends LitElement {
               : nothing
           }
           <span class="canvas-block-label">${label}</span>
+          ${
+            hint
+              ? html`<span
+                  class="canvas-block-hint ${hint.tone}"
+                  data-testid="canvas-block-hint"
+                  role="img"
+                  title=${hint.text}
+                  aria-label=${hint.text}
+                  >${icon(hint.tone === 'warning' ? 'triangle-alert' : 'info', 12)}</span
+                >`
+              : nothing
+          }
           ${
             collapsed
               ? html`<span class="canvas-block-child-count"
