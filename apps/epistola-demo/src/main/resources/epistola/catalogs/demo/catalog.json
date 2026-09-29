@@ -28,9 +28,9 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "5.20.0",
+    "version": "5.20.1",
     "releasedAt": "2026-09-29T00:00:00Z",
-    "fingerprint": "92968039214906ff7875f9b43ba484ddbec085b661c5884d7b5f9cd96245ea76"
+    "fingerprint": "d4b59a21c7e9dacd9c91f5fd205d6584332f82268240a5bc1e424aa15a96cc96"
   },
   "resources": [
     {
@@ -141,7 +141,7 @@
       "type": "template",
       "slug": "sectioned-letter",
       "name": "Sectioned Letter",
-      "description": "A cover, a letter and terms, each with its own page header and footer. Demonstrates headers and footers placed anywhere: a conditional cover header, a letterhead stencil, a section-start header after a page break, a header switching mid-section, a first-page footer variant, and an empty footer that switches the band off.",
+      "description": "A cover, a letter and terms, each with its own page header and footer. Demonstrates headers and footers placed anywhere: a conditional cover header, a letterhead stencil, a section-start header after a page break, a header switching mid-section, footers that apply from the page they land on, and an empty footer that switches the band off.",
       "updatedAt": "2026-09-29T00:00:00Z",
       "detailUrl": "./resources/templates/sectioned-letter.json"
     },

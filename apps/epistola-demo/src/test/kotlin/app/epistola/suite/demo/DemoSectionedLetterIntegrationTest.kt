@@ -71,14 +71,10 @@ class DemoSectionedLetterIntegrationTest : IntegrationTestBase() {
                 .contains("Globex Corporation · page ${page + 1} of ${pages.size}")
                 .doesNotContain("CONFIDENTIAL")
         }
-        // Terms: their own header from the page the section starts on, and a first-page footer.
-        assertThat(pages[termsStart])
-            .contains("Terms and conditions")
-            .contains("Please sign and return the first page")
-            .doesNotContain("Terms and appendix · page")
-            .doesNotContain("Letterhead from")
-        // The running footer covers the rest of the section.
-        pages.drop(termsStart + 1).forEach { assertThat(it).contains("Terms and appendix · page").doesNotContain("Please sign") }
+        // Terms: their own header from the page the section starts on, and a footer placed at the
+        // start of the section, so it applies from that page and carries on to the end.
+        assertThat(pages[termsStart]).contains("Terms and conditions").doesNotContain("Letterhead from")
+        pages.drop(termsStart).forEach { assertThat(it).contains("Terms and appendix · page").doesNotContain("Globex Corporation · page") }
         // The appendix header comes after content, so it takes over only from the next page.
         assertThat(pages[appendixStart]).contains("Terms and conditions").doesNotContain("Appendix: figures")
         assertThat(pages.drop(appendixStart + 1)).isNotEmpty.allSatisfy { assertThat(it).contains("Appendix: figures") }

@@ -315,10 +315,10 @@
           "name": "body",
           "children": [
             "n-letter-header",
+            "n-letter-footer",
             "n-letter-greeting",
             "n-letter-text",
             "n-letter-closing",
-            "n-letter-footer",
             "n-next-letter"
           ]
         },

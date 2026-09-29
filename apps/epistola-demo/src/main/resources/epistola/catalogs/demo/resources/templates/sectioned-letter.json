@@ -789,41 +789,6 @@
             "fontWeight": "bold",
             "color": "#b91c1c"
           }
-        },
-        "n-terms-footer-first": {
-          "id": "n-terms-footer-first",
-          "type": "pagefooter",
-          "slots": [
-            "s-terms-footer-first-children"
-          ],
-          "props": {
-            "height": "20pt"
-          }
-        },
-        "n-terms-footer-first-text": {
-          "id": "n-terms-footer-first-text",
-          "type": "text",
-          "slots": [],
-          "props": {
-            "content": {
-              "type": "doc",
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    {
-                      "type": "text",
-                      "text": "Please sign and return the first page of these terms"
-                    }
-                  ]
-                }
-              ]
-            }
-          },
-          "styles": {
-            "fontSize": "8pt",
-            "textAlign": "right"
-          }
         }
       },
       "slots": {
@@ -898,13 +863,12 @@
             "n-letter-closing",
             "n-break-terms",
             "n-terms-header",
+            "n-terms-footer",
             "n-terms-intro",
             "n-terms-loop",
             "n-appendix-title",
             "n-appendix-header",
-            "n-appendix-loop",
-            "n-terms-footer-first",
-            "n-terms-footer"
+            "n-appendix-loop"
           ]
         },
         "s-lh-header-children": {
@@ -947,14 +911,6 @@
           "name": "children",
           "children": [
             "n-cover-header-text"
-          ]
-        },
-        "s-terms-footer-first-children": {
-          "id": "s-terms-footer-first-children",
-          "nodeId": "n-terms-footer-first",
-          "name": "children",
-          "children": [
-            "n-terms-footer-first-text"
           ]
         }
       }
