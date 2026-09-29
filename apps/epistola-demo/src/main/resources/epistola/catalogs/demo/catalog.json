@@ -28,9 +28,9 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "5.19.0",
+    "version": "5.20.0",
     "releasedAt": "2026-09-29T00:00:00Z",
-    "fingerprint": "e96b1d4818a848de54a21c7ce94a0ac6cb1d43650840babf0c2bce9588b47a7a"
+    "fingerprint": "92968039214906ff7875f9b43ba484ddbec085b661c5884d7b5f9cd96245ea76"
   },
   "resources": [
     {
@@ -141,9 +141,17 @@
       "type": "template",
       "slug": "sectioned-letter",
       "name": "Sectioned Letter",
-      "description": "A cover, a letter and terms, each with its own page header and footer. Demonstrates headers and footers placed anywhere: carried by a stencil, starting a section after a page break, switching mid-section, and an empty footer that switches the band off.",
+      "description": "A cover, a letter and terms, each with its own page header and footer. Demonstrates headers and footers placed anywhere: a conditional cover header, a letterhead stencil, a section-start header after a page break, a header switching mid-section, a first-page footer variant, and an empty footer that switches the band off.",
       "updatedAt": "2026-09-29T00:00:00Z",
       "detailUrl": "./resources/templates/sectioned-letter.json"
+    },
+    {
+      "type": "template",
+      "slug": "batch-letters",
+      "name": "Batch Letters",
+      "description": "One letter per recipient in a single document: a loop repeats a page header, footer and page break, so each letter gets its own header and footer with that recipient's data.",
+      "updatedAt": "2026-09-29T00:00:00Z",
+      "detailUrl": "./resources/templates/batch-letters.json"
     }
   ]
 }

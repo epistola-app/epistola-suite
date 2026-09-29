@@ -1,0 +1,345 @@
+{
+  "schemaVersion": 7,
+  "resource": {
+    "type": "template",
+    "slug": "batch-letters",
+    "name": "Batch Letters",
+    "pdfaEnabled": false,
+    "themeId": "corporate",
+    "dataModel": {
+      "type": "object",
+      "properties": {
+        "companyName": {
+          "type": "string",
+          "description": "Sender"
+        },
+        "letters": {
+          "type": "array",
+          "description": "One letter per recipient",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "reference": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "dataExamples": [
+      {
+        "name": "Three letters",
+        "data": {
+          "companyName": "Globex Corporation",
+          "letters": [
+            {
+              "name": "Alice de Vries",
+              "reference": "GX-1001",
+              "message": "Your subscription renews next month. No action is needed."
+            },
+            {
+              "name": "Bram Jansen",
+              "reference": "GX-1002",
+              "message": "We received your payment. Thank you."
+            },
+            {
+              "name": "Chantal Bakker",
+              "reference": "GX-1003",
+              "message": "Your new card is on its way and should arrive within five working days."
+            }
+          ]
+        }
+      }
+    ],
+    "templateModel": {
+      "modelVersion": 1,
+      "root": "n-root",
+      "themeRef": {
+        "type": "inherit"
+      },
+      "nodes": {
+        "n-root": {
+          "id": "n-root",
+          "type": "root",
+          "slots": [
+            "s-root-children"
+          ]
+        },
+        "n-letters": {
+          "id": "n-letters",
+          "type": "loop",
+          "slots": [
+            "s-letters-body"
+          ],
+          "props": {
+            "expression": {
+              "raw": "letters",
+              "language": "jsonata"
+            },
+            "itemAlias": "item"
+          }
+        },
+        "n-letter-header": {
+          "id": "n-letter-header",
+          "type": "pageheader",
+          "slots": [
+            "s-letter-header-children"
+          ],
+          "props": {
+            "height": "30pt"
+          }
+        },
+        "n-letter-header-text": {
+          "id": "n-letter-header-text",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "companyName"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": " · letter for "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "item.name"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "styles": {
+            "fontWeight": "bold"
+          }
+        },
+        "n-letter-greeting": {
+          "id": "n-letter-greeting",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Dear "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "item.name"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": ","
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-letter-text": {
+          "id": "n-letter-text",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "item.message"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-letter-closing": {
+          "id": "n-letter-closing",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Kind regards, "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "companyName"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-letter-footer": {
+          "id": "n-letter-footer",
+          "type": "pagefooter",
+          "slots": [
+            "s-letter-footer-children"
+          ],
+          "props": {
+            "height": "20pt"
+          }
+        },
+        "n-letter-footer-text": {
+          "id": "n-letter-footer-text",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Reference "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "item.reference"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": " · page "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "sys.pages.current"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "styles": {
+            "fontSize": "8pt",
+            "textAlign": "right"
+          }
+        },
+        "n-next-letter": {
+          "id": "n-next-letter",
+          "type": "conditional",
+          "slots": [
+            "s-next-letter-body"
+          ],
+          "props": {
+            "condition": {
+              "raw": "item_last",
+              "language": "jsonata"
+            },
+            "inverse": true
+          }
+        },
+        "n-letter-break": {
+          "id": "n-letter-break",
+          "type": "pagebreak",
+          "slots": []
+        }
+      },
+      "slots": {
+        "s-letter-header-children": {
+          "id": "s-letter-header-children",
+          "nodeId": "n-letter-header",
+          "name": "children",
+          "children": [
+            "n-letter-header-text"
+          ]
+        },
+        "s-letter-footer-children": {
+          "id": "s-letter-footer-children",
+          "nodeId": "n-letter-footer",
+          "name": "children",
+          "children": [
+            "n-letter-footer-text"
+          ]
+        },
+        "s-next-letter-body": {
+          "id": "s-next-letter-body",
+          "nodeId": "n-next-letter",
+          "name": "body",
+          "children": [
+            "n-letter-break"
+          ]
+        },
+        "s-letters-body": {
+          "id": "s-letters-body",
+          "nodeId": "n-letters",
+          "name": "body",
+          "children": [
+            "n-letter-header",
+            "n-letter-greeting",
+            "n-letter-text",
+            "n-letter-closing",
+            "n-letter-footer",
+            "n-next-letter"
+          ]
+        },
+        "s-root-children": {
+          "id": "s-root-children",
+          "nodeId": "n-root",
+          "name": "children",
+          "children": [
+            "n-letters"
+          ]
+        }
+      }
+    },
+    "variants": [
+      {
+        "slug": "default",
+        "title": "Default",
+        "attributes": {},
+        "templateModel": null,
+        "isDefault": true
+      }
+    ]
+  }
+}

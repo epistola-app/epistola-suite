@@ -37,6 +37,10 @@
             "type": "string"
           },
           "description": "Appendix figures"
+        },
+        "confidential": {
+          "type": "boolean",
+          "description": "Shows the confidential header on the cover"
         }
       }
     },
@@ -94,7 +98,65 @@
             "Figure 18. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
             "Figure 19. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
             "Figure 20. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it."
-          ]
+          ],
+          "confidential": true
+        }
+      },
+      {
+        "name": "Not confidential",
+        "data": {
+          "companyName": "Globex Corporation",
+          "customerName": "Initech B.V.",
+          "paragraphs": [
+            "Paragraph 1. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 2. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 3. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 4. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 5. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 6. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 7. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 8. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 9. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 10. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 11. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 12. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 13. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 14. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 15. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 16. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 17. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 18. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it."
+          ],
+          "terms": [
+            "Article 1. These terms apply to every order placed with us after the date of this letter.",
+            "Article 2. These terms apply to every order placed with us after the date of this letter.",
+            "Article 3. These terms apply to every order placed with us after the date of this letter.",
+            "Article 4. These terms apply to every order placed with us after the date of this letter.",
+            "Article 5. These terms apply to every order placed with us after the date of this letter."
+          ],
+          "appendix": [
+            "Figure 1. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 2. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 3. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 4. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 5. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 6. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 7. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 8. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 9. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 10. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 11. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 12. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 13. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 14. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 15. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 16. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 17. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 18. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 19. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 20. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it."
+          ],
+          "confidential": false
         }
       }
     ],
@@ -677,6 +739,91 @@
             "fontSize": "8pt",
             "textAlign": "center"
           }
+        },
+        "n-cover-if-confidential": {
+          "id": "n-cover-if-confidential",
+          "type": "conditional",
+          "slots": [
+            "s-cover-if-confidential-body"
+          ],
+          "props": {
+            "condition": {
+              "raw": "confidential",
+              "language": "jsonata"
+            },
+            "inverse": false
+          }
+        },
+        "n-cover-header": {
+          "id": "n-cover-header",
+          "type": "pageheader",
+          "slots": [
+            "s-cover-header-children"
+          ],
+          "props": {
+            "height": "20pt"
+          }
+        },
+        "n-cover-header-text": {
+          "id": "n-cover-header-text",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "CONFIDENTIAL · only when the data marks this review confidential"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "styles": {
+            "fontSize": "8pt",
+            "fontWeight": "bold",
+            "color": "#b91c1c"
+          }
+        },
+        "n-terms-footer-first": {
+          "id": "n-terms-footer-first",
+          "type": "pagefooter",
+          "slots": [
+            "s-terms-footer-first-children"
+          ],
+          "props": {
+            "height": "20pt"
+          }
+        },
+        "n-terms-footer-first-text": {
+          "id": "n-terms-footer-first-text",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Please sign and return the first page of these terms"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "styles": {
+            "fontSize": "8pt",
+            "textAlign": "right"
+          }
         }
       },
       "slots": {
@@ -739,6 +886,7 @@
           "nodeId": "n-root",
           "name": "children",
           "children": [
+            "n-cover-if-confidential",
             "n-cover-title",
             "n-cover-subtitle",
             "n-cover-note",
@@ -755,6 +903,7 @@
             "n-appendix-title",
             "n-appendix-header",
             "n-appendix-loop",
+            "n-terms-footer-first",
             "n-terms-footer"
           ]
         },
@@ -782,6 +931,30 @@
           "children": [
             "n-lh-header",
             "n-lh-footer"
+          ]
+        },
+        "s-cover-if-confidential-body": {
+          "id": "s-cover-if-confidential-body",
+          "nodeId": "n-cover-if-confidential",
+          "name": "body",
+          "children": [
+            "n-cover-header"
+          ]
+        },
+        "s-cover-header-children": {
+          "id": "s-cover-header-children",
+          "nodeId": "n-cover-header",
+          "name": "children",
+          "children": [
+            "n-cover-header-text"
+          ]
+        },
+        "s-terms-footer-first-children": {
+          "id": "s-terms-footer-first-children",
+          "nodeId": "n-terms-footer-first",
+          "name": "children",
+          "children": [
+            "n-terms-footer-first-text"
           ]
         }
       }
