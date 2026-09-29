@@ -1184,7 +1184,7 @@ class DirectPdfRendererTest {
             id = rootSlotId,
             nodeId = rootNodeId,
             name = "children",
-            children = listOf("text1", "pagebreak1", "text2", "pagebreak2", "text3"),
+            children = listOf("text1", "pagebreak1", "text2", "pagebreak2", "text3", "pagefooter1"),
         )
 
         val document = TemplateDocument(

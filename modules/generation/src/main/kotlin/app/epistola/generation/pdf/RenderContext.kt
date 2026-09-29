@@ -102,6 +102,13 @@ data class RenderContext(
      * outside body layout, where the address block falls back to its own estimate.
      */
     val bodyContentTopPt: Float? = null,
+    /**
+     * Collects page headers, footers and page breaks while the body flow renders, so each
+     * page gets the header and footer its position selects (#1020). Set only on the body render
+     * of the section-band path ([RenderingDefaults.sectionPageBands]); null everywhere else,
+     * including while band content itself renders.
+     */
+    val pageBands: PageBandCollector? = null,
 ) {
     /**
      * Returns a copy of this context with updated inherited styles based on a node's

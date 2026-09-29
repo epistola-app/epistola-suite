@@ -68,6 +68,14 @@ data class RenderingDefaults(
     val pageHeaderHeight: Float = 60f,
     val pageFooterPadding: Float = 20f,
     val pageFooterHeight: Float = 60f,
+
+    // -- Page header/footer placement --
+    /**
+     * When true, page headers and footers may sit anywhere in the flow and their position picks
+     * the pages they apply to, per page section (#1020). When false, the positional model:
+     * at most two root-level headers (page 1, pages 2–N) and one footer on every page.
+     */
+    val sectionPageBands: Boolean = false,
 ) {
     /** Total vertical space reserved for the page header (padding + content height). */
     val pageHeaderReservedHeight: Float get() = pageHeaderPadding + pageHeaderHeight
@@ -162,12 +170,18 @@ data class RenderingDefaults(
         )
 
         /** The defaults version used for newly published template versions. */
-        val CURRENT = V3
+        val V4 = V3.copy(
+            version = 4,
+            sectionPageBands = true,
+        )
+
+        val CURRENT = V4
 
         private val REGISTRY: Map<Int, RenderingDefaults> = mapOf(
             1 to V1,
             2 to V2,
             3 to V3,
+            4 to V4,
         )
 
         /**

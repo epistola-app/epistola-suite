@@ -34,6 +34,11 @@ class RenderingDefaultsTest {
     }
 
     @Test
+    fun `forVersion returns V4 for version 4`() {
+        assertSame(RenderingDefaults.V4, RenderingDefaults.forVersion(4))
+    }
+
+    @Test
     fun `forVersion throws for unknown version`() {
         assertFailsWith<IllegalArgumentException> {
             RenderingDefaults.forVersion(999)
@@ -41,8 +46,8 @@ class RenderingDefaultsTest {
     }
 
     @Test
-    fun `CURRENT is V3`() {
-        assertSame(RenderingDefaults.V3, RenderingDefaults.CURRENT)
+    fun `CURRENT is V4`() {
+        assertSame(RenderingDefaults.V4, RenderingDefaults.CURRENT)
     }
 
     // -----------------------------------------------------------------------
@@ -167,6 +172,13 @@ class RenderingDefaultsTest {
         assertEquals(2f, RenderingDefaults.V2.columnCellPadding)
         assertEquals(0f, RenderingDefaults.V3.columnCellPadding)
         assertEquals(RenderingDefaults.V2.columnGap, RenderingDefaults.V3.columnGap)
+    }
+
+    @Test
+    fun `V4 places page headers and footers by section without changing older versions`() {
+        assertEquals(listOf(false, false, false), listOf(RenderingDefaults.V1, RenderingDefaults.V2, RenderingDefaults.V3).map { it.sectionPageBands })
+        assertEquals(true, RenderingDefaults.V4.sectionPageBands)
+        assertEquals(RenderingDefaults.V3.copy(version = 4, sectionPageBands = true), RenderingDefaults.V4)
     }
 
     // -----------------------------------------------------------------------

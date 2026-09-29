@@ -10,7 +10,8 @@ import com.itextpdf.layout.element.AreaBreak
 import com.itextpdf.layout.element.IElement
 
 /**
- * Renders a "pagebreak" node to force content onto a new page.
+ * Renders a "pagebreak" node to force content onto a new page. In the body flow of the
+ * section-band path it also starts a new page section (see [PageBandCollector]).
  */
 class PageBreakNodeRenderer : NodeRenderer {
     override fun render(
@@ -18,5 +19,8 @@ class PageBreakNodeRenderer : NodeRenderer {
         document: TemplateDocument,
         context: RenderContext,
         registry: NodeRendererRegistry,
-    ): List<IElement> = listOf(AreaBreak())
+    ): List<IElement> {
+        val bands = context.pageBands ?: return listOf(AreaBreak())
+        return listOf(SectionPageBreak(bands.startSection(), bands))
+    }
 }

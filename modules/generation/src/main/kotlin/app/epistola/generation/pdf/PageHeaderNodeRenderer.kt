@@ -9,8 +9,9 @@ import app.epistola.template.model.TemplateDocument
 import com.itextpdf.layout.element.IElement
 
 /**
- * Renderer for "pageheader" nodes.
- * Returns empty list because headers are rendered via [PageHeaderEventHandler].
+ * Renderer for "pageheader" nodes. The band itself is painted at the end of each page. In the body
+ * flow of the section-band path this emits a zero-height [PageBandAnchor] that registers the
+ * occurrence, so its position decides which pages it applies to; otherwise it emits nothing.
  */
 class PageHeaderNodeRenderer : NodeRenderer {
     override fun render(
@@ -18,5 +19,8 @@ class PageHeaderNodeRenderer : NodeRenderer {
         document: TemplateDocument,
         context: RenderContext,
         registry: NodeRendererRegistry,
-    ): List<IElement> = emptyList()
+    ): List<IElement> {
+        val bands = context.pageBands ?: return emptyList()
+        return listOf(PageBandAnchor(bands.register(PageBandKind.HEADER, node.id, context)))
+    }
 }

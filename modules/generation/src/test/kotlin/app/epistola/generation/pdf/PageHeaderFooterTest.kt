@@ -391,14 +391,14 @@ class PageHeaderFooterTest {
     }
 
     // -----------------------------------------------------------------------
-    // Renderer-level invariants: same shape as PageHeaderCardinalityValidator,
-    // re-asserted here so render paths that bypass UpdateDraft (PreviewDocument,
-    // PreviewVariant, catalog import, …) can't render with undefined positional
-    // semantics on a malformed document.
+    // The positional model (RenderingDefaults V1–V3, i.e. versions published
+    // before #1020) keeps its renderer-level invariants: at most two headers,
+    // all direct children of the root slot. From V4 on headers go anywhere;
+    // see SectionPageBandsTest.
     // -----------------------------------------------------------------------
 
     @Test
-    fun `renderer rejects pageheader nested below a non-root container`() {
+    fun `the positional model rejects a pageheader nested below a non-root container`() {
         val rootSlotId = "slot-root"
         val containerSlotId = "slot-container"
         val headerSlotId = "slot-header"
@@ -424,14 +424,14 @@ class PageHeaderFooterTest {
         )
 
         val ex = assertFailsWith<IllegalArgumentException> {
-            renderer.render(doc, emptyMap(), ByteArrayOutputStream())
+            renderer.render(doc, emptyMap(), ByteArrayOutputStream(), renderingDefaults = RenderingDefaults.V3)
         }
         assertContains(ex.message ?: "", "header-misplaced")
         assertContains(ex.message ?: "", "direct children of the root slot")
     }
 
     @Test
-    fun `renderer rejects more than two pageheaders even when all are at root`() {
+    fun `the positional model rejects more than two pageheaders even when all are at root`() {
         val rootSlotId = "slot-root"
         fun header(id: String, height: String) = Node(
             id = id,
@@ -457,7 +457,7 @@ class PageHeaderFooterTest {
         )
 
         val ex = assertFailsWith<IllegalArgumentException> {
-            renderer.render(doc, emptyMap(), ByteArrayOutputStream())
+            renderer.render(doc, emptyMap(), ByteArrayOutputStream(), renderingDefaults = RenderingDefaults.V3)
         }
         assertContains(ex.message ?: "", "at most 2 pageheader")
     }
