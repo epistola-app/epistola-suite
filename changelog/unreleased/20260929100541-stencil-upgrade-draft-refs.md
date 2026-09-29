@@ -1,7 +1,7 @@
 ---
 type: fix
 scopes: [stencils]
-issues: [1024, 1032]
+issues: [1032]
 title: Upgrading a template's stencils now makes it publishable, and only to published versions.
 ---
 
