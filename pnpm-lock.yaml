@@ -173,8 +173,8 @@ importers:
         specifier: ^1.69.0
         version: 1.71.0(qrcode@1.5.4)(supports-color@10.2.2)(tailwindcss@4.3.3)(typescript@7.0.2)(zod@4.6.5)
       htmx.org:
-        specifier: 2.0.10
-        version: 2.0.10
+        specifier: 2.0.11
+        version: 2.0.11
     devDependencies:
       oxfmt:
         specifier: ^0.70.0
@@ -2193,8 +2193,8 @@ packages:
   html-whitespace-sensitive-tag-names@3.0.1:
     resolution: {integrity: sha512-q+310vW8zmymYHALr1da4HyXUQ0zgiIwIicEfotYPWGN0OJVEN/58IJ3A4GBYcEq3LGAZqKb+ugvP0GNB9CEAA==}
 
-  htmx.org@2.0.10:
-    resolution: {integrity: sha512-kdeJe7ZVwaS6QMz/ebBIVtZdpwen6L0OQ5GOhPV9MKBb196TCZeZu4yA7ZIQsaLKv7EpXz+So7KSXNuHXhj7Cw==}
+  htmx.org@2.0.11:
+    resolution: {integrity: sha512-Thx/WtpeOQqSrqBCw/A1cwGJGg4UrVa3+sW0GmrM3p4gJgO89ecH4qtbnyzDDWFvBTqjnIMCgELTNt636dtamA==}
 
   http-cache-semantics@4.2.0:
     resolution: {integrity: sha512-dTxcvPXqPvXBQpq5dUr6mEMJX4oIEFv6bwom3FDwKRDsuIjjJGANqhBuoAn9c1RQJIdAKav33ED65E2ys+87QQ==}
@@ -5678,7 +5678,7 @@ snapshots:
 
   html-whitespace-sensitive-tag-names@3.0.1: {}
 
-  htmx.org@2.0.10: {}
+  htmx.org@2.0.11: {}
 
   http-cache-semantics@4.2.0: {}
 
