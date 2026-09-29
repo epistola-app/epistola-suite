@@ -1625,7 +1625,7 @@ export function createDefaultRegistry(): ComponentRegistry {
       {
         name: 'centered-text',
         description:
-          'Page footer with a single centered text block, drawn at the bottom of the page. A footer applies to what comes before it: it covers the pages of its section, wherever in the section it sits, and any sections above it without a footer of their own.',
+          'Page footer with a single centered text block, drawn at the bottom of the page. A footer applies from the page it lands on and continues until another footer lands; a later footer landing on a page that already has one is skipped. The first footer also covers the pages before it, so a single footer anywhere covers the whole document.',
         fragment: {
           rootNodeId: 'n-pagefooter',
           nodes: {

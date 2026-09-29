@@ -65,7 +65,7 @@ describe('describePageBands', () => {
 
     expect(labels.get('first' as NodeId)).toBe('first page of section');
     expect(labels.get('running' as NodeId)).toBe("from the section's second page");
-    expect(labels.get('footer' as NodeId)).toBe('this section');
+    expect(labels.get('footer' as NodeId)).toBe('from its page, and the pages before it');
   });
 
   it('tells a section-start header from a header after content', () => {
@@ -95,7 +95,7 @@ describe('describePageBands', () => {
     );
 
     expect(labels.get('letterhead' as NodeId)).toBe('from this page');
-    expect(labels.get('foot' as NodeId)).toBe('this section and the sections above');
+    expect(labels.get('foot' as NodeId)).toBe('from its page, and the pages before it');
   });
 
   it('marks bands inside conditionals and loops as depending on data', () => {
@@ -104,13 +104,26 @@ describe('describePageBands', () => {
     expect(labels.get('maybe' as NodeId)).toBe('from this page · depends on data');
   });
 
-  it('flags footers in one section that are not next to each other', () => {
-    const scattered = describePageBands(doc('pagefooter:a', 'text:body', 'pagefooter:b'));
-    const adjacent = describePageBands(doc('text:body', 'pagefooter:a', 'pagefooter:b'));
+  it('says when a footer may, or must, share its page with the footer before it', () => {
+    const labels = describePageBands(
+      doc(
+        'pagefooter:first',
+        'pagefooter:skipped',
+        'text:body',
+        'pagefooter:maybe',
+        'pagebreak:br',
+        'pagefooter:next-page',
+      ),
+    );
 
-    expect(scattered.get('a' as NodeId)).toContain('not next to the section');
-    expect(adjacent.get('a' as NodeId)).toBe('first page of section');
-    expect(adjacent.get('b' as NodeId)).toBe("from the section's second page");
+    expect(labels.get('first' as NodeId)).toBe('from its page, and the pages before it');
+    expect(labels.get('skipped' as NodeId)).toBe(
+      'skipped: it lands on the same page as the footer before it',
+    );
+    expect(labels.get('maybe' as NodeId)).toBe(
+      'from the page it lands on, unless the footer before it lands there too',
+    );
+    expect(labels.get('next-page' as NodeId)).toBe('from the page it lands on');
   });
 });
 

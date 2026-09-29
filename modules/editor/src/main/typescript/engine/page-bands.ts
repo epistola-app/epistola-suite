@@ -2,11 +2,12 @@
  * Page headers and footers placed anywhere in the flow (#1020).
  *
  * Page breaks divide the document into sections. A header applies to what comes after it: at
- * the start of a section it applies from that page, after content from the next page. A footer
- * applies to what comes before it: it covers its section and the footer-less sections above it.
- * Several of either at the start of / within a section form a first-page variant, in flow order.
- * The renderer (`PageBandSchedule` in modules/generation) is the authority; this module mirrors
- * it statically for the editor, which cannot evaluate conditionals or loops.
+ * the start of a section it applies from that page (several there in a row form a first-page
+ * variant), after content from the next page. A footer applies from the page it lands on until
+ * another lands; a later footer on a page that already has one is skipped, and the first footer
+ * also covers the pages before it. The renderer (`PageBandSchedule` in modules/generation) is the
+ * authority; this module mirrors it statically for the editor, which cannot evaluate conditionals
+ * or loops, or know where pages end.
  */
 
 import type { Node, NodeId, SlotId, TemplateDocument } from '../types/index.js';
@@ -159,9 +160,9 @@ interface BandInfo {
   section: number;
   atSectionStart: boolean;
   dataDependent: boolean;
-  /** Index among the section's header runs or footers, and how many there are. */
-  position: number;
-  count: number;
+  /** For a footer: whether a page break, or any content, came since the previous footer. */
+  breakSincePreviousFooter: boolean;
+  contentSincePreviousFooter: boolean;
 }
 
 function ordinal(n: number): string {
@@ -171,12 +172,15 @@ function ordinal(n: number): string {
 /**
  * Describes, for every header and footer in [doc], which pages it applies to. Sections come
  * from every page break outside a header or footer, whatever conditional wraps it, so the result
- * is the layout when all conditions hold; a band inside a conditional or loop says so.
+ * is the layout when all conditions hold; a band inside a conditional or loop says so. Where a
+ * page ends is not known here, so a footer that may share its page with the one before it says so.
  */
 export function describePageBands(doc: TemplateDocument): Map<NodeId, string> {
   const bands: BandInfo[] = [];
   let section = 0;
   let contentSeen = false;
+  let breakSinceFooter = false;
+  let contentSinceFooter = false;
 
   const walk = (nodeId: NodeId, dataDependent: boolean) => {
     const node = doc.nodes[nodeId];
@@ -184,6 +188,7 @@ export function describePageBands(doc: TemplateDocument): Map<NodeId, string> {
     if (node.type === PAGE_BREAK_TYPE) {
       section += 1;
       contentSeen = false;
+      breakSinceFooter = true;
       return;
     }
     if (isPageBand(node.type)) {
@@ -192,22 +197,27 @@ export function describePageBands(doc: TemplateDocument): Map<NodeId, string> {
         section,
         atSectionStart: !contentSeen,
         dataDependent,
-        position: 0,
-        count: 0,
+        breakSincePreviousFooter: breakSinceFooter,
+        contentSincePreviousFooter: contentSinceFooter,
       });
+      if (node.type === PAGE_FOOTER_TYPE) {
+        breakSinceFooter = false;
+        contentSinceFooter = false;
+      }
       return; // band content is page furniture, not flow
     }
     const inner = dataDependent || DATA_DEPENDENT_TYPES.has(node.type);
     for (const childId of childrenOf(doc, node)) walk(childId, inner);
-    if (!NON_CONTENT_TYPES.has(node.type)) contentSeen = true;
+    if (!NON_CONTENT_TYPES.has(node.type)) {
+      contentSeen = true;
+      contentSinceFooter = true;
+    }
   };
   walk(doc.root, false);
   const sectionCount = section + 1;
 
   const headersAtStart = (s: number) =>
     bands.filter((b) => b.node.type === PAGE_HEADER_TYPE && b.section === s && b.atSectionStart);
-  const footersIn = (s: number) =>
-    bands.filter((b) => b.node.type === PAGE_FOOTER_TYPE && b.section === s);
 
   const labels = new Map<NodeId, string>();
   const suffix = (b: BandInfo) => (b.dataDependent ? ' · depends on data' : '');
@@ -223,25 +233,20 @@ export function describePageBands(doc: TemplateDocument): Map<NodeId, string> {
             : `${ordinal(i + 1)} page of section`;
       labels.set(b.node.id, `${where}${suffix(b)}`);
     });
-
-    const footers = footersIn(s);
-    const coversAbove = s > 0 && footers.length > 0 && footersIn(s - 1).length === 0;
-    const adjacent = footersAdjacent(
-      doc,
-      footers.map((f) => f.node.id),
-    );
-    footers.forEach((b, i) => {
-      let where =
-        footers.length === 1
-          ? 'this section'
-          : i === footers.length - 1
-            ? `from the section's ${ordinal(i + 1)} page`
-            : `${ordinal(i + 1)} page of section`;
-      if (coversAbove && i === footers.length - 1) where += ' and the sections above';
-      if (!adjacent) where += ' · not next to the section’s other footer';
-      labels.set(b.node.id, `${where}${suffix(b)}`);
-    });
   }
+
+  const footers = bands.filter((b) => b.node.type === PAGE_FOOTER_TYPE);
+  footers.forEach((b, i) => {
+    const where =
+      i === 0
+        ? 'from its page, and the pages before it'
+        : b.breakSincePreviousFooter
+          ? 'from the page it lands on'
+          : b.contentSincePreviousFooter
+            ? 'from the page it lands on, unless the footer before it lands there too'
+            : 'skipped: it lands on the same page as the footer before it';
+    labels.set(b.node.id, `${where}${suffix(b)}`);
+  });
 
   for (const b of bands) {
     if (b.node.type === PAGE_HEADER_TYPE && !b.atSectionStart) {
@@ -249,17 +254,6 @@ export function describePageBands(doc: TemplateDocument): Map<NodeId, string> {
     }
   }
   return labels;
-}
-
-/** Whether [footerIds] are adjacent children of one slot, as the validator's warning requires. */
-function footersAdjacent(doc: TemplateDocument, footerIds: NodeId[]): boolean {
-  if (footerIds.length < 2) return true;
-  const slot = Object.values(doc.slots).find((candidate) =>
-    candidate.children.includes(footerIds[0]),
-  );
-  if (!slot || !footerIds.every((id) => slot.children.includes(id))) return false;
-  const indices = footerIds.map((id) => slot.children.indexOf(id)).sort((a, b) => a - b);
-  return indices[indices.length - 1] - indices[0] === indices.length - 1;
 }
 
 const labelCache = new WeakMap<TemplateDocument, Map<NodeId, string>>();

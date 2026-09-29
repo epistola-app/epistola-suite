@@ -561,7 +561,7 @@ packages:
       postcss-selector-parser: ^7.1.1
 
   '@epistola.app/epistola-catalog@file:../epistola-contract-page-bands/contracts/catalog/build/local-npm/epistola.app-epistola-catalog-1.4.0-SNAPSHOT.tgz':
-    resolution: {integrity: sha512-iAaruXiTuv+YzjhPNrWQFy8QB5EyP1lZgw/vuItX78jAr+Pz365ASu85zkda4eXbh6f52HhqQTxPR3xrWUN6Tw==, tarball: file:../epistola-contract-page-bands/contracts/catalog/build/local-npm/epistola.app-epistola-catalog-1.4.0-SNAPSHOT.tgz}
+    resolution: {integrity: sha512-r2dklFkTPAjHSx1m95piG8rVnMAY0nGHD959Xbs//Vj+pC2CDx/5r1OebO0VSWLFKfvpC9I2reEf0xEuYmEkxA==, tarball: file:../epistola-contract-page-bands/contracts/catalog/build/local-npm/epistola.app-epistola-catalog-1.4.0-SNAPSHOT.tgz}
     version: 1.4.0-SNAPSHOT
 
   '@faker-js/faker@10.6.0':
