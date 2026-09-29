@@ -8,6 +8,7 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mcp.dto.TemplateContentInfo
@@ -15,19 +16,28 @@ import app.epistola.suite.mcp.dto.TemplateInfo
 import app.epistola.suite.mcp.dto.TemplateSummaryInfo
 import app.epistola.suite.mcp.dto.VariantInfo
 import app.epistola.suite.mcp.support.mcpTenantId
+import app.epistola.suite.mcp.support.notFound
+import app.epistola.suite.mcp.support.parseOptionalArgument
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.templates.commands.variants.CreateVariant
+import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.templates.queries.ListTemplateSummaries
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.ListVariants
+import app.epistola.suite.validation.ValidationException
 import org.springframework.ai.mcp.annotation.McpTool
 import org.springframework.ai.mcp.annotation.McpToolParam
 import org.springframework.stereotype.Component
+import tools.jackson.databind.ObjectMapper
 
 @Component
 class TemplateMcpTools(
     private val mediator: Mediator,
+    private val objectMapper: ObjectMapper,
 ) {
 
     @McpTool(
@@ -122,6 +132,152 @@ class TemplateMcpTools(
     ): TemplateContentInfo? = mediator
         .query(GetEditorContext(variantId(catalogId, templateId, variantId)))
         ?.let { TemplateContentInfo.from(it) }
+
+    @McpTool(
+        name = "create_template",
+        description = "Create a template in an AUTHORED catalog. The template starts with a default variant " +
+            "holding an empty draft, and an empty draft data contract. Fill the draft with " +
+            "`update_template_draft`, describe its input data with `update_data_contract`, and add " +
+            "further variants with `create_variant`. Optionally pick a theme up front. " +
+            "Requires the TEMPLATE_EDIT permission.",
+        annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
+    )
+    fun createTemplate(
+        @McpToolParam(description = "Catalog key to create the template in. Must be an AUTHORED catalog.")
+        catalogId: String,
+        @McpToolParam(description = "Key for the new template: lowercase letters, digits and hyphens, e.g. `invoice-letter`.")
+        templateId: String,
+        @McpToolParam(description = "Display name.")
+        name: String,
+        @McpToolParam(description = "Theme key to apply. Use `list_themes` to discover. Omit for no theme.", required = false)
+        themeId: String?,
+        @McpToolParam(description = "Catalog key of the theme. Defaults to `catalogId`.", required = false)
+        themeCatalogId: String?,
+    ): TemplateInfo {
+        val id = templateId(catalogId, templateId)
+        val created = mediator.send(CreateDocumentTemplate(id = id, name = name))
+        if (themeId.isNullOrBlank()) return TemplateInfo.from(created)
+        val themed = mediator.send(
+            UpdateDocumentTemplate(
+                id = id,
+                themeId = ThemeKey.of(themeId),
+                themeCatalogKey = CatalogKey.of(themeCatalogId?.takeIf { it.isNotBlank() } ?: catalogId),
+            ),
+        ) ?: error("Template '$templateId' disappeared while applying its theme")
+        return TemplateInfo.from(themed)
+    }
+
+    @McpTool(
+        name = "update_template",
+        description = "Update a template's metadata: name, theme, PDF/A output. Omitted arguments are left " +
+            "unchanged. Content lives in variant drafts; change it with `update_template_draft`. " +
+            "Requires the TEMPLATE_EDIT permission.",
+        annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
+    )
+    fun updateTemplate(
+        @McpToolParam(description = "Catalog key the template belongs to.")
+        catalogId: String,
+        @McpToolParam(description = "Template key.")
+        templateId: String,
+        @McpToolParam(description = "New display name.", required = false)
+        name: String?,
+        @McpToolParam(description = "Theme key to apply.", required = false)
+        themeId: String?,
+        @McpToolParam(description = "Catalog key of the theme. Defaults to `catalogId`.", required = false)
+        themeCatalogId: String?,
+        @McpToolParam(description = "True to remove the template's theme. Cannot be combined with `themeId`.", required = false)
+        clearTheme: Boolean?,
+        @McpToolParam(description = "Whether the template renders as PDF/A.", required = false)
+        pdfaEnabled: Boolean?,
+    ): TemplateInfo {
+        if (clearTheme == true && !themeId.isNullOrBlank()) {
+            throw ValidationException("clearTheme", "`clearTheme` cannot be combined with `themeId`")
+        }
+        val theme = themeId?.takeIf { it.isNotBlank() }
+        return mediator.send(
+            UpdateDocumentTemplate(
+                id = templateId(catalogId, templateId),
+                name = name?.takeIf { it.isNotBlank() },
+                themeId = theme?.let { ThemeKey.of(it) },
+                themeCatalogKey = theme?.let { CatalogKey.of(themeCatalogId?.takeIf { c -> c.isNotBlank() } ?: catalogId) },
+                clearThemeId = clearTheme == true,
+                pdfaEnabled = pdfaEnabled,
+            ),
+        )?.let { TemplateInfo.from(it) } ?: throw notFound("Template", catalogId, templateId)
+    }
+
+    @McpTool(
+        name = "create_variant",
+        description = "Add a variant to a template, e.g. a second language. The variant starts with an empty " +
+            "draft; fill it with `update_template_draft`. Attribute keys must be defined for the catalog " +
+            "(see `list_attributes`) and each attribute combination must be unique within the template. " +
+            "Requires the TEMPLATE_EDIT permission.",
+        annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
+    )
+    fun createVariant(
+        @McpToolParam(description = "Catalog key the template belongs to.")
+        catalogId: String,
+        @McpToolParam(description = "Template key.")
+        templateId: String,
+        @McpToolParam(description = "Key for the new variant: lowercase letters, digits and hyphens, e.g. `nl`.")
+        variantId: String,
+        @McpToolParam(description = "Display title.")
+        title: String,
+        @McpToolParam(description = "Optional description.", required = false)
+        description: String?,
+        @McpToolParam(
+            description = "JSON object of attribute key to value, e.g. `{\"language\": \"nl\"}`. Omit for none.",
+            required = false,
+        )
+        attributes: String?,
+    ): VariantInfo = mediator.send(
+        CreateVariant(
+            id = variantId(catalogId, templateId, variantId),
+            title = title,
+            description = description?.takeIf { it.isNotBlank() },
+            attributes = parseAttributes(attributes) ?: emptyMap(),
+        ),
+    )?.let { VariantInfo.from(it) } ?: throw notFound("Template", catalogId, templateId)
+
+    @McpTool(
+        name = "update_variant",
+        description = "Update a variant's title and attributes. Omitted arguments are left unchanged; a given " +
+            "`attributes` object replaces the whole attribute set. Requires the TEMPLATE_EDIT permission.",
+        annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
+    )
+    fun updateVariant(
+        @McpToolParam(description = "Catalog key the template belongs to.")
+        catalogId: String,
+        @McpToolParam(description = "Template key.")
+        templateId: String,
+        @McpToolParam(description = "Variant key.")
+        variantId: String,
+        @McpToolParam(description = "New display title.", required = false)
+        title: String?,
+        @McpToolParam(
+            description = "JSON object of attribute key to value. Replaces all attributes; `{}` clears them.",
+            required = false,
+        )
+        attributes: String?,
+    ): VariantInfo {
+        val id = variantId(catalogId, templateId, variantId)
+        val current = mediator.query(GetVariant(id)) ?: throw notFound("Variant", catalogId, "$templateId/$variantId")
+        return mediator.send(
+            UpdateVariant(
+                variantId = id,
+                title = title?.takeIf { it.isNotBlank() } ?: current.title,
+                attributes = parseAttributes(attributes) ?: current.attributes,
+            ),
+        )?.let { VariantInfo.from(it) } ?: throw notFound("Variant", catalogId, "$templateId/$variantId")
+    }
+
+    private fun parseAttributes(json: String?): Map<String, String>? = objectMapper
+        .parseOptionalArgument("attributes", json, Map::class.java)
+        ?.entries
+        ?.associate { (key, value) ->
+            if (value !is String) throw ValidationException("attributes", "Attribute '$key' must have a string value")
+            key.toString() to value
+        }
 
     private fun templateId(catalogId: String, templateId: String): TemplateId {
         val catalog = CatalogId(CatalogKey.of(catalogId), mcpTenantId())
