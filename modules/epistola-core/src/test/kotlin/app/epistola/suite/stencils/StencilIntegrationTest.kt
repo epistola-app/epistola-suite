@@ -452,6 +452,23 @@ class StencilIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `upgrading a template to an unpublished stencil version is refused`() = test {
+        val tenant = createTenant("Stencil Upgrade To Draft")
+        val tenantId = TenantId(tenant.id)
+        val stencilId = stencilId(tenantId)
+        CreateStencil(id = stencilId, name = "Header", content = createTestContent()).execute()
+
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
+        CreateDocumentTemplate(id = templateId, name = "Letter").execute().withRequiredDataExample()
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
+        UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value, "draftVersion" to 1)).execute()
+
+        assertThatThrownBy { UpdateStencilInTemplate(variantId = variantId, stencilId = stencilId, newVersion = 1).execute() }
+            .isInstanceOf(ValidationException::class.java)
+            .hasMessageContaining("not published")
+    }
+
+    @Test
     fun `upgrade stencil in template synchronizes referenced paths`() = test {
         val tenant = createTenant("Stencil Upgrade Paths")
         val tenantId = TenantId(tenant.id)

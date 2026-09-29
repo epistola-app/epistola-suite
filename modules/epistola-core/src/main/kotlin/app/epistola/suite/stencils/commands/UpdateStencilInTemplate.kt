@@ -96,7 +96,7 @@ class UpdateStencilInTemplateHandler(
             // 3. Fetch the new stencil version's content + parameter schema
             val newStencilRow = handle.createQuery(
                 """
-            SELECT content::text AS content, parameter_schema::text AS parameter_schema
+            SELECT content::text AS content, parameter_schema::text AS parameter_schema, status
             FROM stencil_versions
             WHERE tenant_key = :tenantId AND stencil_resource_id = ${stencilAtAddress("tenantId", "catalogKey", "stencilId")} AND id = :versionId
             """,
@@ -109,6 +109,15 @@ class UpdateStencilInTemplateHandler(
                 .findOne()
                 .orElse(null)
                 ?: throw ValidationException("newVersion", "Stencil version ${command.newVersion} not found")
+            // Instances pin published versions only: a draft's content is still changing, and a
+            // template pinned to one could not be published.
+            if (newStencilRow["status"] != "published") {
+                throw ValidationException(
+                    "newVersion",
+                    "Stencil version ${command.newVersion} is not published (status: ${newStencilRow["status"]}). " +
+                        "Publish it before upgrading templates to it.",
+                )
+            }
 
             val newContent = objectMapper.readValue(
                 newStencilRow["content"].toString(),
