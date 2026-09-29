@@ -57,9 +57,19 @@ enum class ValidationCode(val wire: String) {
     STENCIL_REFERENCE_INVALID("STENCIL_REFERENCE_INVALID"),
     STENCIL_REFERENCE_NOT_FOUND("STENCIL_REFERENCE_NOT_FOUND"),
 
-    // Page-header cardinality / placement.
+    // Page header and footer placement.
+    PAGEBAND_NESTED("PAGEBAND_NESTED"),
+
+    /** No longer emitted: page headers are unlimited (#1020). Kept because clients may match on it. */
+    @Deprecated("No longer emitted since page headers may appear in any number (#1020).")
     PAGEHEADER_TOO_MANY("PAGEHEADER_TOO_MANY"),
+
+    /** No longer emitted: page headers may sit anywhere (#1020). Kept because clients may match on it. */
+    @Deprecated("No longer emitted since page headers may sit anywhere in the flow (#1020).")
     PAGEHEADER_ROOT_MISSING("PAGEHEADER_ROOT_MISSING"),
+
+    /** No longer emitted: page headers may sit anywhere (#1020). Kept because clients may match on it. */
+    @Deprecated("No longer emitted since page headers may sit anywhere in the flow (#1020).")
     PAGEHEADER_NOT_AT_ROOT("PAGEHEADER_NOT_AT_ROOT"),
 
     // Template document graph structure.
