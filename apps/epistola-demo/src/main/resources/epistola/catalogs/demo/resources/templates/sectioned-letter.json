@@ -1,0 +1,799 @@
+{
+  "schemaVersion": 7,
+  "resource": {
+    "type": "template",
+    "slug": "sectioned-letter",
+    "name": "Sectioned Letter",
+    "pdfaEnabled": false,
+    "themeId": "corporate",
+    "dataModel": {
+      "type": "object",
+      "properties": {
+        "companyName": {
+          "type": "string",
+          "description": "Sender, shown in the letterhead"
+        },
+        "customerName": {
+          "type": "string",
+          "description": "Recipient"
+        },
+        "paragraphs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Letter paragraphs"
+        },
+        "terms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Articles of the terms"
+        },
+        "appendix": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Appendix figures"
+        }
+      }
+    },
+    "dataExamples": [
+      {
+        "name": "Default",
+        "data": {
+          "companyName": "Globex Corporation",
+          "customerName": "Initech B.V.",
+          "paragraphs": [
+            "Paragraph 1. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 2. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 3. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 4. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 5. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 6. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 7. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 8. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 9. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 10. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 11. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 12. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 13. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 14. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 15. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 16. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 17. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Paragraph 18. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it."
+          ],
+          "terms": [
+            "Article 1. These terms apply to every order placed with us after the date of this letter.",
+            "Article 2. These terms apply to every order placed with us after the date of this letter.",
+            "Article 3. These terms apply to every order placed with us after the date of this letter.",
+            "Article 4. These terms apply to every order placed with us after the date of this letter.",
+            "Article 5. These terms apply to every order placed with us after the date of this letter."
+          ],
+          "appendix": [
+            "Figure 1. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 2. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 3. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 4. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 5. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 6. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 7. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 8. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 9. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 10. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 11. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 12. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 13. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 14. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 15. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 16. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 17. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 18. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 19. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it.",
+            "Figure 20. The appendix header was placed after the appendix title, so it takes over from the next page, not this one. This paragraph is long enough to wrap across several lines, so that the letter runs over more than one page and the running header and footer show on every page of it."
+          ]
+        }
+      }
+    ],
+    "templateModel": {
+      "modelVersion": 1,
+      "root": "n-root",
+      "themeRef": {
+        "type": "inherit"
+      },
+      "nodes": {
+        "n-root": {
+          "id": "n-root",
+          "type": "root",
+          "slots": [
+            "s-root-children"
+          ]
+        },
+        "n-cover-footer": {
+          "id": "n-cover-footer",
+          "type": "pagefooter",
+          "slots": [
+            "s-cover-footer-children"
+          ],
+          "props": {
+            "height": "0pt"
+          }
+        },
+        "n-cover-title": {
+          "id": "n-cover-title",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 1
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Annual review"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-cover-subtitle": {
+          "id": "n-cover-subtitle",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Prepared for "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "customerName"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-cover-note": {
+          "id": "n-cover-note",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "This cover page has no header, and an empty footer with height 0 keeps the letter's footer off it."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "styles": {
+            "color": "#64748b"
+          }
+        },
+        "n-break-letter": {
+          "id": "n-break-letter",
+          "type": "pagebreak",
+          "slots": []
+        },
+        "n-letterhead": {
+          "id": "n-letterhead",
+          "type": "stencil",
+          "slots": [
+            "s-letterhead-children"
+          ],
+          "props": {
+            "stencilId": "letterhead",
+            "catalogKey": "epistola-demo",
+            "version": 1,
+            "paramsAlias": "params",
+            "parameterBindings": {
+              "companyName": "companyName"
+            },
+            "parameterSchemaSnapshot": {
+              "type": "object",
+              "properties": {
+                "companyName": {
+                  "type": "string",
+                  "description": "Company name shown in the letterhead and footer",
+                  "default": "Acme Corporation"
+                }
+              },
+              "required": [
+                "companyName"
+              ]
+            }
+          }
+        },
+        "n-letter-greeting": {
+          "id": "n-letter-greeting",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Dear "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "customerName"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": ","
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-letter-paragraph": {
+          "id": "n-letter-paragraph",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "item"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-letter-loop": {
+          "id": "n-letter-loop",
+          "type": "loop",
+          "slots": [
+            "s-letter-loop-body"
+          ],
+          "props": {
+            "expression": {
+              "raw": "paragraphs",
+              "language": "jsonata"
+            },
+            "itemAlias": "item"
+          }
+        },
+        "n-letter-closing": {
+          "id": "n-letter-closing",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Kind regards, "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "companyName"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-break-terms": {
+          "id": "n-break-terms",
+          "type": "pagebreak",
+          "slots": []
+        },
+        "n-terms-header": {
+          "id": "n-terms-header",
+          "type": "pageheader",
+          "slots": [
+            "s-terms-header-children"
+          ],
+          "props": {
+            "height": "30pt"
+          }
+        },
+        "n-terms-header-text": {
+          "id": "n-terms-header-text",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Terms and conditions"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "styles": {
+            "fontWeight": "bold"
+          }
+        },
+        "n-terms-intro": {
+          "id": "n-terms-intro",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "The terms section starts on a new page, so its header applies from this page and its footer covers only this section."
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-terms-loop": {
+          "id": "n-terms-loop",
+          "type": "loop",
+          "slots": [
+            "s-terms-loop-body"
+          ],
+          "props": {
+            "expression": {
+              "raw": "terms",
+              "language": "jsonata"
+            },
+            "itemAlias": "item"
+          }
+        },
+        "n-terms-item": {
+          "id": "n-terms-item",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "item"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-appendix-header": {
+          "id": "n-appendix-header",
+          "type": "pageheader",
+          "slots": [
+            "s-appendix-header-children"
+          ],
+          "props": {
+            "height": "30pt"
+          }
+        },
+        "n-appendix-header-text": {
+          "id": "n-appendix-header-text",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Appendix: figures"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "styles": {
+            "fontWeight": "bold"
+          }
+        },
+        "n-appendix-title": {
+          "id": "n-appendix-title",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 2
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Appendix"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-appendix-loop": {
+          "id": "n-appendix-loop",
+          "type": "loop",
+          "slots": [
+            "s-appendix-loop-body"
+          ],
+          "props": {
+            "expression": {
+              "raw": "appendix",
+              "language": "jsonata"
+            },
+            "itemAlias": "item"
+          }
+        },
+        "n-appendix-item": {
+          "id": "n-appendix-item",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "item"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-terms-footer": {
+          "id": "n-terms-footer",
+          "type": "pagefooter",
+          "slots": [
+            "s-terms-footer-children"
+          ],
+          "props": {
+            "height": "20pt"
+          }
+        },
+        "n-terms-footer-text": {
+          "id": "n-terms-footer-text",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Terms and appendix · page "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "sys.pages.current"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "styles": {
+            "fontSize": "8pt",
+            "textAlign": "right"
+          }
+        },
+        "n-lh-header": {
+          "id": "n-lh-header",
+          "type": "pageheader",
+          "slots": [
+            "s-lh-header-children"
+          ],
+          "props": {
+            "height": "40pt"
+          }
+        },
+        "n-lh-header-name": {
+          "id": "n-lh-header-name",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "params.companyName"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "styles": {
+            "fontWeight": "bold",
+            "fontSize": "14pt"
+          }
+        },
+        "n-lh-header-tagline": {
+          "id": "n-lh-header-tagline",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Letterhead from the Letterhead stencil: it applies from the page the stencil starts on."
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "styles": {
+            "fontSize": "8pt",
+            "color": "#64748b"
+          }
+        },
+        "n-lh-footer": {
+          "id": "n-lh-footer",
+          "type": "pagefooter",
+          "slots": [
+            "s-lh-footer-children"
+          ],
+          "props": {
+            "height": "30pt"
+          }
+        },
+        "n-lh-footer-text": {
+          "id": "n-lh-footer-text",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "params.companyName"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": " · page "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "sys.pages.current"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": " of "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "sys.pages.total"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "styles": {
+            "fontSize": "8pt",
+            "textAlign": "center"
+          }
+        }
+      },
+      "slots": {
+        "s-cover-footer-children": {
+          "id": "s-cover-footer-children",
+          "nodeId": "n-cover-footer",
+          "name": "children",
+          "children": []
+        },
+        "s-letter-loop-body": {
+          "id": "s-letter-loop-body",
+          "nodeId": "n-letter-loop",
+          "name": "body",
+          "children": [
+            "n-letter-paragraph"
+          ]
+        },
+        "s-terms-header-children": {
+          "id": "s-terms-header-children",
+          "nodeId": "n-terms-header",
+          "name": "children",
+          "children": [
+            "n-terms-header-text"
+          ]
+        },
+        "s-terms-loop-body": {
+          "id": "s-terms-loop-body",
+          "nodeId": "n-terms-loop",
+          "name": "body",
+          "children": [
+            "n-terms-item"
+          ]
+        },
+        "s-appendix-header-children": {
+          "id": "s-appendix-header-children",
+          "nodeId": "n-appendix-header",
+          "name": "children",
+          "children": [
+            "n-appendix-header-text"
+          ]
+        },
+        "s-appendix-loop-body": {
+          "id": "s-appendix-loop-body",
+          "nodeId": "n-appendix-loop",
+          "name": "body",
+          "children": [
+            "n-appendix-item"
+          ]
+        },
+        "s-terms-footer-children": {
+          "id": "s-terms-footer-children",
+          "nodeId": "n-terms-footer",
+          "name": "children",
+          "children": [
+            "n-terms-footer-text"
+          ]
+        },
+        "s-root-children": {
+          "id": "s-root-children",
+          "nodeId": "n-root",
+          "name": "children",
+          "children": [
+            "n-cover-title",
+            "n-cover-subtitle",
+            "n-cover-note",
+            "n-cover-footer",
+            "n-break-letter",
+            "n-letterhead",
+            "n-letter-greeting",
+            "n-letter-loop",
+            "n-letter-closing",
+            "n-break-terms",
+            "n-terms-header",
+            "n-terms-intro",
+            "n-terms-loop",
+            "n-appendix-title",
+            "n-appendix-header",
+            "n-appendix-loop",
+            "n-terms-footer"
+          ]
+        },
+        "s-lh-header-children": {
+          "id": "s-lh-header-children",
+          "nodeId": "n-lh-header",
+          "name": "children",
+          "children": [
+            "n-lh-header-name",
+            "n-lh-header-tagline"
+          ]
+        },
+        "s-lh-footer-children": {
+          "id": "s-lh-footer-children",
+          "nodeId": "n-lh-footer",
+          "name": "children",
+          "children": [
+            "n-lh-footer-text"
+          ]
+        },
+        "s-letterhead-children": {
+          "id": "s-letterhead-children",
+          "nodeId": "n-letterhead",
+          "name": "children",
+          "children": [
+            "n-lh-header",
+            "n-lh-footer"
+          ]
+        }
+      }
+    },
+    "variants": [
+      {
+        "slug": "default",
+        "title": "Default",
+        "attributes": {},
+        "templateModel": null,
+        "isDefault": true
+      }
+    ]
+  }
+}
