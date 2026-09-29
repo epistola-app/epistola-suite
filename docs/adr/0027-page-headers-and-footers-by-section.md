@@ -1,4 +1,4 @@
-# ADR 0027: Page headers and footers placed anywhere, by section
+# ADR 0027: Page headers and footers placed anywhere
 
 - **Status:** Accepted
 - **Date:** 2026-09-29
@@ -41,31 +41,34 @@ content is laid out.
    what comes after them (from their page at the start of a section, from the next page after
    content) and footers to what comes before them (their section and the footer-less sections
    above it).
-4. **Footers that switch mid-section too.** Possible only by reserving the tallest footer of a
-   section on every page and painting footers after layout finishes (`immediateFlush = false`),
-   which costs memory on large documents and leaves a gap above shorter footers. Deferred.
+4. **Footers from the page they land on** (chosen for footers). Trying option 3 on a real
+   template showed its footer rule is hard to predict: several footers in one section applied by
+   flow order (first page, second page, …), so a footer placed at the bottom could lose to one
+   placed above it. Instead a footer applies from the page it lands on, a later one landing on the
+   same page is skipped, and the first footer also covers the pages before it. Its page's footer
+   is known only once the page is complete, so each page reserves room for the tallest footer
+   that could still fill it.
 
 ## Decision
 
-Option 3. Page breaks in the rendered flow (a false conditional's do not count, a loop's count
-once per iteration) divide the document into sections.
+Option 3 for headers, option 4 for footers. Page breaks in the rendered flow (a false
+conditional's do not count, a loop's count once per iteration) divide the document into sections.
 
 - **Headers apply to what comes after them.** At the start of a section a header applies from
   that page; several in a row form a first-page variant. After content, a header takes over from
   the page after it lands; several landing on one page take over one page at a time. A header
   lasts until replaced; pages before the first header have none.
-- **Footers apply to what comes before them.** A footer covers its own section, wherever in it,
-  and the sections above it that have no footer, with its running (last) footer. Several in one
-  section form a first-page variant in flow order. Pages after the last footer have none.
+- **Footers apply from the page they land on.** The first footer landing on a page is its footer
+  and carries on until another lands; later footers on the same page are skipped. Pages before the
+  first footer lands take the first footer. Footers do not depend on sections.
 - **One structural rule remains:** no header or footer inside another (`PAGEBAND_NESTED`, an
-  error). A section whose footers are not adjacent in one slot gets a warning
-  (`PAGEFOOTER_NOT_ADJACENT`), since order rather than position then decides which page gets which.
+  error).
 
 The answers to #1020's open questions:
 
 | Question           | Answer                                                                                       |
 | ------------------ | -------------------------------------------------------------------------------------------- |
-| Footers too?       | Yes, mirrored: footers cover what comes before them, scoped by section.                      |
+| Footers too?       | Yes: a footer applies from the page it lands on; the first also covers the pages before it.  |
 | Last-page header   | Out of scope; it needs each section's page count, i.e. a second pass.                        |
 | Odd/even headers   | Out of scope; that is a property of a header, not a placement rule.                          |
 | The `height` prop  | Stays a minimum ([ADR 0008](0008-header-footer-height-minimum.md)). `0` switches a band off. |
@@ -75,14 +78,15 @@ The answers to #1020's open questions:
 ## Consequences
 
 - **Existing documents keep their layout.** Two headers at the top are a first-page variant whose
-  second header runs to the end; one footer at the end covers every section above it.
+  second header runs to the end; one footer anywhere covers every page.
   `PageBandParityTest` proves identical text positions against the positional renderer. Versions
   published before this change also keep the positional code path itself: `RenderingDefaults` V4
   (`sectionPageBands = true`) selects the new model, V1–V3 the old.
 - **Still one pass.** Each page's bands are chosen when iText creates the page, through the public
   `Document.setPageMargins { page -> … }`; a `SectionPageBreak` announces its section before the
-  new page, and header anchors record their landing page in `draw()`. `PageBandItextProbeTest`
-  pins that iText behaviour across upgrades.
+  new page, and anchors record their landing page in `draw()`. Footers are painted when a page
+  ends, once everything on it is drawn. `PageBandItextProbeTest` pins that iText behaviour across
+  upgrades.
 - **No catalog wire change.** The rules only loosen, so `schemaVersion` stays 7 and every existing
   archive stays valid (epistola-contract 1.4.0). The accepted cost: an older Suite importing a
   catalog with several footers renders its first footer on every page. Exchange validates with the
@@ -90,9 +94,12 @@ The answers to #1020's open questions:
 - **The deprecated validation codes stay.** `PAGEHEADER_TOO_MANY`, `PAGEHEADER_ROOT_MISSING` and
   `PAGEHEADER_NOT_AT_ROOT` are no longer emitted but remain in the contract and in `ValidationCode`,
   because clients may match on them.
-- **Footers cannot switch mid-section**, and a section that starts on a new page only because the
-  previous one ran full (no page break) sees a mid-section header one page late. Page breaks cover
-  the real cases; option 4 remains available if authors need more.
+- **A page may reserve more footer space than its footer needs**, while a taller footer has yet to
+  land. And a footer at the end of a multi-page section applies only from its own page: to cover a
+  section, place its footer at the start of it. The two-footers-in-a-row first-page variant does
+  not exist; `hideOnFirstPage` still hides a footer on page 1.
+- **A mid-section header can switch one page late** when a section starts on a new page only
+  because the previous one ran full (no page break).
 - **The editor mirrors the rules statically** (`engine/page-bands.ts`): labels say what each band
   gets, counting every page break regardless of conditionals, and marking bands inside a
   conditional or loop as depending on data.

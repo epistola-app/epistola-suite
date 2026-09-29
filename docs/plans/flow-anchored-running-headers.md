@@ -5,6 +5,13 @@
 > the decision is [ADR 0027](../adr/0027-page-headers-and-footers-by-section.md). This replaces an
 > earlier draft of the same name that covered headers only; git history keeps it. Where the
 > implementation settled a detail differently, it says so below.
+>
+> **Revision (2026-09-29): footers.** The section-scoped footer rules below (rules 1–4 under
+> "Footers apply to what comes before them", the adjacency warning and its labels) were replaced
+> after trying them on a real template: a footer now applies from the page it lands on, a later
+> footer landing on the same page is skipped, and the first footer also covers the pages before
+> it. Each page reserves room for the tallest footer that could still fill it, and the footer is
+> painted when the page ends. See ADR 0027 and `docs/generation.md`.
 
 ## Goal
 

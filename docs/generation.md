@@ -236,25 +236,27 @@ Headers apply to what comes after them:
   one page take over one page at a time, in flow order.
 - A header lasts until the next one takes over. Pages before the first header have none.
 
-Footers apply to what comes before them:
+Footers apply from the page they land on:
 
-- A footer covers the pages of its own section, wherever in the section it sits, so the natural
-  place is at the bottom.
-- It also covers the sections above it that have no footer of their own, with its running (last)
-  footer. Pages after the last footer have none.
-- Several footers in one section form a first-page variant, in flow order. The portable validator
-  warns (`PAGEFOOTER_NOT_ADJACENT`) when they are not adjacent children of one slot.
+- The first footer that lands on a page is that page's footer, and it carries on to the pages
+  after it until another footer lands. A later footer landing on a page that already has one is
+  skipped.
+- Pages before the first footer lands take the first footer, so a single footer anywhere, for
+  instance at the end of the document, covers every page.
+- To give a section its own footer from its first page, place the footer at the start of the
+  section. A footer at the end of a multi-page section applies only from the page it lands on.
 
-Footers cannot switch in the middle of a section: a page's bottom band is reserved before the page
-is laid out, and the footer covering it is the next one _below_ its content, not yet laid out.
-Headers can, because the header that takes over on page N landed on an earlier page.
+A page's bottom band is reserved before its content is laid out, when it is not yet known which
+footer will land there. Each page therefore reserves room for the tallest footer that could still
+fill it: the one carried over and every footer that has not landed yet. A shorter footer then sits
+at the bottom of that space; once every footer has landed, pages reserve exactly their footer.
 
 `hideOnFirstPage` keeps its meaning: page 1 of the document. An empty header or footer still
 reserves its `height`; set `height` to `0` to switch a band off.
 
 Every document the positional model accepted keeps its layout: two headers at the top are a
-first-page variant with the second running to the end, and one footer at the end covers every
-section above it. `PageBandParityTest` proves this against the positional renderer.
+first-page variant with the second running to the end, and one footer anywhere covers every page.
+`PageBandParityTest` proves this against the positional renderer.
 
 **How it renders** (single pass; `PageBands.kt`, `PageBandElements.kt`):
 
@@ -266,10 +268,12 @@ section above it. `PageBandParityTest` proves this against the positional render
 2. **Measure.** Each occurrence is measured with its own data scope (see auto-grow below).
 3. **Schedule.** `PageBandSchedule` is a pure function of the occurrences. The margins function
    installed with `Document.setPageMargins { page -> … }` asks it for each page as iText creates
-   the page: the pending `SectionPageBreak` says which section starts there, and every header
-   anchor drawn on an earlier page has recorded its landing page in `draw()` by then.
-4. **Paint.** `PageBandEventHandler` paints the header and footer the schedule chose for the page,
-   so the painted band is always the one whose height the page reserved.
+   the page: the pending `SectionPageBreak` says which section starts there, and every anchor
+   drawn on an earlier page has recorded its landing page in `draw()` by then. It returns the
+   header and the footers that could still fill the page, and the page reserves the tallest.
+4. **Paint.** `PageBandEventHandler` runs when a page ends, once everything on it is drawn: it
+   paints the header chosen when the page was created, and asks the schedule for the page's footer
+   (`PageBandSchedule.footerOf`), which always fits the space the page reserved.
 
 The iText behaviour this relies on is pinned by `PageBandItextProbeTest`.
 

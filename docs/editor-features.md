@@ -124,16 +124,16 @@ Where a header or footer sits decides which pages it applies to (full rules in
 
 - **Headers apply to what comes after them.** At the start of the document or right after a page
   break a header applies from that page; after content it takes over from the next page.
-- **Footers apply to what comes before them.** A footer covers the pages of its section (the part
-  of the document between page breaks) and any sections above it without a footer.
-- **Several in a row** at the start of a section (headers) or in one section (footers) form a
-  first-page variant: the first covers the section's first page, the last the pages after it.
+- **Footers apply from the page they land on**, until another footer lands. A later footer that
+  lands on a page that already has one is skipped, and the first footer also covers the pages
+  before it. To give a section its own footer, put it at the start of the section.
+- **Several headers in a row** at the start of a section form a first-page variant: the first
+  covers the section's first page, the last the pages after it.
 
 The canvas label of every header and footer says what its position gives it, for example
-"Page Header · from this page", "Page Header · from the next page", "Page Footer · this section and
-the sections above", or "· depends on data" inside a conditional or loop. Footers in one section
-that are not next to each other are flagged, because order rather than position then decides which
-page gets which. The palette's "Add" puts a header after the headers that open the document, a
+"Page Header · from this page", "Page Header · from the next page", "Page Footer · from its page, and
+the pages before it", "Page Footer · skipped: it lands on the same page as the footer before it", or
+"· depends on data" inside a conditional or loop. The palette's "Add" puts a header after the headers that open the document, a
 footer at the very end, and other blocks before the footers that close it.
 
 #### Page Header
