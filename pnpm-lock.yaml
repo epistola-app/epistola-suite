@@ -222,8 +222,8 @@ importers:
         specifier: ^2.2.2
         version: 2.2.2
       '@epistola.app/epistola-catalog':
-        specifier: file:../../../epistola-contract-page-bands/contracts/catalog/build/local-npm/epistola.app-epistola-catalog-1.4.0-SNAPSHOT.tgz
-        version: file:../epistola-contract-page-bands/contracts/catalog/build/local-npm/epistola.app-epistola-catalog-1.4.0-SNAPSHOT.tgz
+        specifier: file:../../../epistola-contract/build/local-1.4.0/epistola.app-epistola-catalog-1.4.0.tgz
+        version: file:../epistola-contract/build/local-1.4.0/epistola.app-epistola-catalog-1.4.0.tgz
       '@epistola/design-system':
         specifier: workspace:*
         version: link:../design-system
@@ -560,9 +560,9 @@ packages:
     peerDependencies:
       postcss-selector-parser: ^7.1.1
 
-  '@epistola.app/epistola-catalog@file:../epistola-contract-page-bands/contracts/catalog/build/local-npm/epistola.app-epistola-catalog-1.4.0-SNAPSHOT.tgz':
-    resolution: {integrity: sha512-r2dklFkTPAjHSx1m95piG8rVnMAY0nGHD959Xbs//Vj+pC2CDx/5r1OebO0VSWLFKfvpC9I2reEf0xEuYmEkxA==, tarball: file:../epistola-contract-page-bands/contracts/catalog/build/local-npm/epistola.app-epistola-catalog-1.4.0-SNAPSHOT.tgz}
-    version: 1.4.0-SNAPSHOT
+  '@epistola.app/epistola-catalog@file:../epistola-contract/build/local-1.4.0/epistola.app-epistola-catalog-1.4.0.tgz':
+    resolution: {integrity: sha512-VQBEgV/RE08QEsXVJSe/4QYuvLMaN28K7TKw2vheRG7IIoFRDQEo+LOClDFvmd22HKM187GMIdtsgWFQBjGgNA==, tarball: file:../epistola-contract/build/local-1.4.0/epistola.app-epistola-catalog-1.4.0.tgz}
+    version: 1.4.0
 
   '@faker-js/faker@10.6.0':
     resolution: {integrity: sha512-3RQHgEtvL1Frl/d1cSreo7qhJ3Gk1OdNUai/CtZ8G+wYeRQnJih3s9xJ9/kgYekPQRdwgh0HXRPqMlzWGwivIQ==}
@@ -3927,7 +3927,7 @@ snapshots:
     dependencies:
       postcss-selector-parser: 7.1.6
 
-  '@epistola.app/epistola-catalog@file:../epistola-contract-page-bands/contracts/catalog/build/local-npm/epistola.app-epistola-catalog-1.4.0-SNAPSHOT.tgz': {}
+  '@epistola.app/epistola-catalog@file:../epistola-contract/build/local-1.4.0/epistola.app-epistola-catalog-1.4.0.tgz': {}
 
   '@faker-js/faker@10.6.0': {}
 
