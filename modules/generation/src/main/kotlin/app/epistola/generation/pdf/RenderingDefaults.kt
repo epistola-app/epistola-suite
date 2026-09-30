@@ -95,6 +95,16 @@ data class RenderingDefaults(
      * parameter is present and `$exists` is always true.
      */
     val omitUnsetParameters: Boolean = false,
+
+    // -- Options the registries offered but rendering ignored (#1027) --
+    /** When true, the `letterSpacing` style sets the character spacing of the text it styles. */
+    val applyLetterSpacing: Boolean = false,
+
+    /** When true, `pageSettings.backgroundColor` fills every page beneath its content. */
+    val pageBackground: Boolean = false,
+
+    /** When true, a page header honours `hideOnFirstPage` the way a page footer always has. */
+    val headerHideOnFirstPage: Boolean = false,
 ) {
     /** Total vertical space reserved for the page header (padding + content height). */
     val pageHeaderReservedHeight: Float get() = pageHeaderPadding + pageHeaderHeight
@@ -196,12 +206,16 @@ data class RenderingDefaults(
 
         /**
          * V5: styles the renderer ignored or mis-cascaded now take effect, and unset stencil
-         * parameters are absent. See each flag: [mergedFontSelection], [omitUnsetParameters].
+         * parameters are absent. See each flag: [mergedFontSelection], [omitUnsetParameters],
+         * [applyLetterSpacing], [pageBackground], [headerHideOnFirstPage].
          */
         val V5 = V4.copy(
             version = 5,
             mergedFontSelection = true,
             omitUnsetParameters = true,
+            applyLetterSpacing = true,
+            pageBackground = true,
+            headerHideOnFirstPage = true,
         )
 
         /** The defaults version used for newly published template versions. */

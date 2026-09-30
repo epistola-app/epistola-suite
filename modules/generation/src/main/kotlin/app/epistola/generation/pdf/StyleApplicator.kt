@@ -86,29 +86,30 @@ object StyleApplicator {
         baseFontSizePt: Float = 12f,
         spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
         mergedFontSelection: Boolean = false,
+        applyLetterSpacing: Boolean = false,
     ) {
         // With merged selection the layers below set everything but the font, which is
         // picked once afterwards from all of them; otherwise each layer picks its own.
         val selectFontPerLayer = !mergedFontSelection
 
         // Apply component default styles first (lowest priority)
-        defaultStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit, selectFontPerLayer) }
+        defaultStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit, selectFontPerLayer, applyLetterSpacing) }
 
         // Apply inherited styles (from parent node, or document styles at root level),
         // but only for keys that are allowed to cascade.
         val effectiveInheritedStyles = inheritedStyles.filterKeys { it in INHERITABLE_KEYS }
         if (effectiveInheritedStyles.isNotEmpty()) {
-            applyBlockStyles(element, effectiveInheritedStyles, fontCache, baseFontSizePt, spacingUnit, selectFontPerLayer)
+            applyBlockStyles(element, effectiveInheritedStyles, fontCache, baseFontSizePt, spacingUnit, selectFontPerLayer, applyLetterSpacing)
         }
 
         // Resolve preset styles (if preset exists)
         val presetStyles = blockStylePreset?.let { blockStylePresets[it] }
 
         // Apply preset styles (override inherited styles)
-        presetStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit, selectFontPerLayer) }
+        presetStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit, selectFontPerLayer, applyLetterSpacing) }
 
         // Apply block inline styles (override preset styles)
-        blockInlineStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit, selectFontPerLayer) }
+        blockInlineStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit, selectFontPerLayer, applyLetterSpacing) }
 
         if (mergedFontSelection) {
             val merged = buildMap {
@@ -174,6 +175,7 @@ object StyleApplicator {
         baseFontSizePt: Float = 12f,
         spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
         selectFont: Boolean = true,
+        applyLetterSpacing: Boolean = false,
     ) {
         // Font size
         (styles["fontSize"] as? String)?.let { fontSize ->
@@ -235,6 +237,13 @@ object StyleApplicator {
         }
 
         if (selectFont) selectFont(element, styles, fontCache)
+
+        // Letter spacing: iText's character spacing, inherited by the paragraphs and text inside.
+        if (applyLetterSpacing) {
+            (styles["letterSpacing"] as? String)?.let { spacing ->
+                parseSize(spacing, baseFontSizePt, spacingUnit)?.let { element.setCharacterSpacing(it) }
+            }
+        }
 
         // Borders: per-side shorthand (e.g., "2pt solid #2563eb")
         for ((side, setter) in BORDER_SIDE_SETTERS) {
