@@ -223,8 +223,11 @@ export class EpistolaInspector extends LitElement {
               this._handlePageSettingChange('format', (e.target as HTMLSelectElement).value)}
           >
             ${pageFormatOptions(settings.format).map(
-              (o) =>
-                html` <option .value=${o.value} ?selected=${settings.format === o.value}>${o.label}</option> `,
+              (o) => html`
+                <option .value=${o.value} ?selected=${settings.format === o.value}>
+                  ${o.label}
+                </option>
+              `,
             )}
           </select>
         </div>

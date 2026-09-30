@@ -40,8 +40,9 @@ export function renderPageSettingsSection(state: ThemeEditorState, readOnly = fa
             state.updatePageSetting('format', (e.target as HTMLSelectElement).value)}
         >
           ${pageFormatOptions(format).map(
-            (o) =>
-              html` <option .value=${o.value} ?selected=${format === o.value}>${o.label}</option> `,
+            (o) => html`
+              <option .value=${o.value} ?selected=${format === o.value}>${o.label}</option>
+            `,
           )}
         </select>
       </div>

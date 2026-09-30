@@ -123,12 +123,12 @@ change table border width):
 
 Each version changes only what its flag names; everything else is copied from the one before.
 
-| Version | Change                                                                                                     |
-| ------- | ---------------------------------------------------------------------------------------------------------- |
-| V1      | The 4pt spacing grid.                                                                                      |
-| V2      | List item spacing applies between sibling items only (`listItemSpacingBetweenOnly`).                       |
-| V3      | Column cells lose iText's implicit padding (`columnCellPadding = 0`).                                      |
-| V4      | Page headers and footers are placed by section (`sectionPageBands`, #1020).                                |
+| Version | Change                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| V1      | The 4pt spacing grid.                                                                                                                                                                                                                                                                                                                                                                               |
+| V2      | List item spacing applies between sibling items only (`listItemSpacingBetweenOnly`).                                                                                                                                                                                                                                                                                                                |
+| V3      | Column cells lose iText's implicit padding (`columnCellPadding = 0`).                                                                                                                                                                                                                                                                                                                               |
+| V4      | Page headers and footers are placed by section (`sectionPageBands`, #1020).                                                                                                                                                                                                                                                                                                                         |
 | V5      | A block's font is picked once from its merged style cascade, so bold or italic keeps the inherited family (`mergedFontSelection`, #1030). An unset stencil parameter is absent from `params` (`omitUnsetParameters`, #1031). `letterSpacing`, a page `backgroundColor` and `hideOnFirstPage` on a page header take effect (`applyLetterSpacing`, `pageBackground`, `headerHideOnFirstPage`, #1027). |
 
 ## Engine Version Tracking
