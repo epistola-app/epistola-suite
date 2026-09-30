@@ -171,14 +171,14 @@ class VariantResolverTest : IntegrationTestBase() {
                     ),
                 )
 
-                // dutchAcme: optionalMatches=2, totalAttrs=2 -> score = 2*10 + 2 = 22
-                // dutch: optionalMatches=1, totalAttrs=1 -> score = 1*10 + 1 = 11
+                // dutchAcme: optionalMatches=2 -> score = 2*10 = 20
+                // dutch: optionalMatches=1 -> score = 1*10 = 10
                 assertThat(resolved).isEqualTo(dutchAcme.id)
             }
         }
 
         @Test
-        fun `most specific variant wins via total attributes tiebreaker`() {
+        fun `an optional match breaks a tie on the required attributes`() {
             withMediator {
                 val tenant = createTenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
@@ -315,18 +315,19 @@ class VariantResolverTest : IntegrationTestBase() {
                 val variant1 = mediator.send(
                     CreateVariant(
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
-                        title = "Dutch",
+                        title = "Dutch Acme",
                         description = null,
-                        attributes = mapOf("lang" to "dutch"),
+                        attributes = mapOf("lang" to "dutch", "brand" to "acme"),
                     ),
                 )!!
 
+                // Distinct sets that tie on what was asked: identical sets are refused when created.
                 val variant2 = mediator.send(
                     CreateVariant(
                         id = VariantId(TestIdHelpers.nextVariantId(), templateId),
-                        title = "Also Dutch",
+                        title = "Dutch Globex",
                         description = null,
-                        attributes = mapOf("lang" to "dutch"),
+                        attributes = mapOf("lang" to "dutch", "brand" to "globex"),
                     ),
                 )!!
 
