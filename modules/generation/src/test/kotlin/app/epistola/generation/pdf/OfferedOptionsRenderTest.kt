@@ -113,7 +113,7 @@ class OfferedOptionsRenderTest {
 
         assertTrue(pageCount >= 2, "The fixture must span pages")
         (1..pageCount).forEach { page ->
-            assertTrue(TINT in fills[page].orEmpty(), "page $page must be filled with the background; fills=${fills[page]}")
+            assertTrue(backgroundTint in fills[page].orEmpty(), "page $page must be filled with the background; fills=${fills[page]}")
         }
     }
 
@@ -123,7 +123,7 @@ class OfferedOptionsRenderTest {
         processPages(renderBands(tintedPages(), renderingDefaults = RenderingDefaults.V5), setOf(EventType.RENDER_PATH)) { _, data, _ ->
             val info = data as PathRenderInfo
             val rgb = (info.fillColor as? DeviceRgb)?.colorValue?.map { Math.round(it * 100f) / 100f }
-            if (info.operation and PathRenderInfo.FILL != 0 && rgb == TINT) {
+            if (info.operation and PathRenderInfo.FILL != 0 && rgb == backgroundTint) {
                 backgroundFills++
                 assertTrue(info.canvasTagHierarchy.any { it.role == com.itextpdf.kernel.pdf.PdfName.Artifact }, "background fill must be marked as an artifact")
             }
@@ -143,7 +143,7 @@ class OfferedOptionsRenderTest {
     fun `before V5 a page backgroundColor is ignored`() {
         val fills = pageFills(renderBands(tintedPages(), renderingDefaults = RenderingDefaults.V4))
 
-        fills.forEach { (page, colors) -> assertFalse(TINT in colors, "page $page must not be filled; fills=$colors") }
+        fills.forEach { (page, colors) -> assertFalse(backgroundTint in colors, "page $page must not be filled; fills=$colors") }
     }
 
     // -----------------------------------------------------------------------
@@ -151,7 +151,7 @@ class OfferedOptionsRenderTest {
     // -----------------------------------------------------------------------
 
     /** `#ffeeaa`, rounded like [pageFills] rounds. */
-    private val TINT = listOf(1f, 0.93f, 0.67f)
+    private val backgroundTint = listOf(1f, 0.93f, 0.67f)
 
     /** The character spacing the first chunk containing [text] was drawn with. */
     private fun characterSpacing(pdfBytes: ByteArray, text: String): Float {
