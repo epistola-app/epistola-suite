@@ -22,6 +22,10 @@ import app.epistola.template.model.Node
  *      aliased `letter`) stays visible inside a nested node aliased `params`.
  *      Aliases that collide intentionally shadow.
  *
+ * A parameter that ends up without a value — its binding found nothing, or it is optional,
+ * unbound and has no default — is left out of the map under
+ * [RenderingDefaults.omitUnsetParameters], so `$exists(params.x)` is false for it.
+ *
  * Returns the outer context unchanged when [schema] is null (the node has no
  * parameters declared) or has no `properties`. Render mode is honoured for
  * required-without-binding-and-no-default: STRICT throws; PREVIEW substitutes
@@ -56,7 +60,7 @@ object ParameterScope {
             @Suppress("UNCHECKED_CAST")
             val propSchema = propSchemaRaw as? Map<String, Any?>
             val expr = rawBindings[name] as? String
-            evaluated[name] = if (expr != null && expr.isNotBlank()) {
+            val value = if (expr != null && expr.isNotBlank()) {
                 outer.expressionEvaluator.evaluate(
                     raw = expr,
                     language = ExpressionLanguage.jsonata,
@@ -81,6 +85,9 @@ object ParameterScope {
                     else -> "<$name>"
                 }
             }
+            // An unset parameter is absent, not null, so `$exists(params.x)` means "was given".
+            // Versions published before V5 keep every declared parameter present.
+            if (value != null || !outer.renderingDefaults.omitUnsetParameters) evaluated[name] = value
         }
 
         return outer.copy(

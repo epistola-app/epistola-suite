@@ -86,6 +86,15 @@ data class RenderingDefaults(
      * built-in face.
      */
     val mergedFontSelection: Boolean = false,
+
+    // -- Stencil parameters --
+    /**
+     * When true, a stencil parameter whose binding finds no value, or that is optional, unbound
+     * and has no default, is left out of `params` rather than set to null, so `$exists(params.x)`
+     * means "was given" as it does for template data (#1031). When false, every declared
+     * parameter is present and `$exists` is always true.
+     */
+    val omitUnsetParameters: Boolean = false,
 ) {
     /** Total vertical space reserved for the page header (padding + content height). */
     val pageHeaderReservedHeight: Float get() = pageHeaderPadding + pageHeaderHeight
@@ -186,12 +195,13 @@ data class RenderingDefaults(
         )
 
         /**
-         * V5: styles the renderer ignored or mis-cascaded now take effect. See each flag:
-         * [mergedFontSelection].
+         * V5: styles the renderer ignored or mis-cascaded now take effect, and unset stencil
+         * parameters are absent. See each flag: [mergedFontSelection], [omitUnsetParameters].
          */
         val V5 = V4.copy(
             version = 5,
             mergedFontSelection = true,
+            omitUnsetParameters = true,
         )
 
         /** The defaults version used for newly published template versions. */

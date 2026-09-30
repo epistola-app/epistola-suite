@@ -180,8 +180,16 @@ planned RFC 9457 `application/problem+json` migration.
 3. `ParameterScope.push(node, schema, context)` — evaluates each binding via
    `CompositeExpressionEvaluator` (= JSONata), applies defaults, returns a
    context whose `parameterScopes[alias]` is the new map. Required params
-   without binding nor default throw in `STRICT` mode and yield null in
-   `PREVIEW` mode.
+   without binding nor default throw in `STRICT` mode and render a `<name>`
+   placeholder in `PREVIEW` mode.
+
+A parameter that ends up with no value — its binding finds nothing in the data,
+or it is optional, unbound and has no default — is **absent** from `params`, so
+`$exists(params.medewerker)` is false for it, just as `$exists(medewerker)` is
+for template data. Test for a given value with `$exists(params.x)`, or for a
+non-empty one with `params.x` alone. Versions published before rendering
+defaults V5 keep the old behaviour, where every declared parameter is present
+(as null) and `$exists(params.x)` is always true.
 
 `ParameterScope.push` is **component-agnostic**: the same one-liner adds
 parameter support to any future renderer.
