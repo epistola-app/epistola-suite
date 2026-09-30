@@ -18,7 +18,8 @@ The contract registry owns the serializable vocabulary:
 - component `type`, `label`, `icon`, `category`, and `hidden`
 - slot templates and `allowedChildren`
 - `applicableStyles`, inspector fields, default styles, and default props
-- `maxInstancesPerDocument`
+- `maxInstancesPerDocument` — enforced by the editor and, on save, import and publish, by
+  `TemplateDocumentValidator`, which reads it from the registry
 - curated example fragments
 - parameter metadata:
   `{ "kind": "dynamic" }` for per-node schemas and
