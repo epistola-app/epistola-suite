@@ -215,33 +215,103 @@ $formatDate(sys.render.time, "dd-MM-yyyy HH:mm") // "03-04-2026 10:30"
 └─────────────────────────────────────────────────────────┘
 ```
 
-### Page Headers (first-page variant)
+### Page headers and footers
 
-A template may declare up to two `pageheader` nodes as direct children of the
-root slot. Mapping to physical pages is **positional** — the order of header
-nodes in the root slot's `children` array selects which header applies where:
+A template may contain any number of `pageheader` and `pagefooter` nodes, anywhere a block can go:
+inside stencils, conditionals, loops and containers, but never inside another header or footer.
+Where one sits decides which pages it applies to. The design and the alternatives weighed are in
+[ADR 0027](adr/0027-page-headers-and-footers-by-section.md).
 
-| Header count | Page 1                 | Page 2 and onward       |
-| ------------ | ---------------------- | ----------------------- |
-| 0            | (no header)            | (no header)             |
-| 1            | the sole `pageheader`  | the sole `pageheader`   |
-| 2            | the first `pageheader` | the second `pageheader` |
+#### Terms
 
-No second pass over the document is required to make this decision: the
-`PageHeaderEventHandler` runs at iText's END_PAGE event and selects the right
-header node from the current page number. Each page's body sits below its own
-header band: iText's document margin is set to the running header band, and a
-zero-opacity spacer Div is prepended to the body flow sized to the extra height
-that the first-page header needs. The spacer is consumed on page 1, so pages 2+
-start cleanly at the running band — a tall cover header doesn't leak whitespace
-onto running pages.
+```
+┌──────────────────────────────┐
+│ top band      ← page header  │  reserved when the page is created
+├──────────────────────────────┤
+│                              │
+│ body: the flow of blocks     │  laid out top to bottom, page by page
+│                              │
+├──────────────────────────────┤
+│ bottom band   ← page footer  │  reserved when the page is created
+└──────────────────────────────┘
+```
 
-Cardinality (max 2) and root-level placement are enforced server-side by
-`PageHeaderCardinalityValidator` before any draft update reaches the renderer.
+- **Band**: the strip at the top or bottom of a page, between the page margin and the body, that
+  a page header or footer is drawn into. Its height is the header's or footer's own height
+  (`max(height prop, measured content)`, see auto-grow below). A page without a header or footer
+  has no band there, only the page margin. In the code, "page band" means a header or a footer.
+- **Flow**: the template's blocks in document order, as they render, after conditionals are
+  evaluated and loops are repeated. A header or footer is a block in the flow like any other; it
+  draws nothing there, but its position decides which pages it applies to.
+- **Section**: the part of the flow between two page breaks. Each section starts on a new page.
+- **Landing page**: the page on which a header's or footer's position in the flow ends up. It is
+  known only once layout has placed the content around it.
+- **Occurrence**: one rendered header or footer. A header inside a loop renders once per
+  iteration, each with its own data, so one node can have many occurrences.
+- **First-page variant**: two headers in a row at the start of a section; the first covers the
+  section's first page, the second the pages after it.
+- **Positional model**: the rules before this change (at most two headers, both at the top of the
+  document; one footer on every page). Versions published before it still render that way.
 
-Out of scope for this iteration (filed as follow-ups): last-page header,
-per-section / page-range headers, odd/even alternating headers, and the same
-variant model for footers.
+**Page breaks divide the rendered flow into sections.** A page break inside a false conditional
+does not divide it, and one inside a loop divides it once per iteration. A block is _at the start
+of its section_ when nothing that draws content comes before it in the section; containers,
+stencils, conditionals, loops and other headers or footers do not count as content.
+
+Headers apply to what comes after them:
+
+- At the start of a section (the document start, or right after a page break) a header applies
+  from that page. Several there in a row form a first-page variant: the first applies to the
+  section's first page, the next to its second page, and the last continues from there.
+- After content, a header takes over from the page after the one it lands on. Several landing on
+  one page take over one page at a time, in flow order.
+- A header lasts until the next one takes over. Pages before the first header have none.
+
+Footers apply from the page they land on:
+
+- The first footer that lands on a page is that page's footer, and it carries on to the pages
+  after it until another footer lands. A later footer landing on a page that already has one is
+  skipped.
+- Pages before the first footer lands take the first footer, so a single footer anywhere, for
+  instance at the end of the document, covers every page.
+- To give a section its own footer from its first page, place the footer at the start of the
+  section. A footer at the end of a multi-page section applies only from the page it lands on.
+
+A page's bottom band is reserved before its content is laid out, when it is not yet known which
+footer will land there. Each page therefore reserves room for the tallest footer that could still
+fill it: the one carried over and every footer that has not landed yet. A shorter footer then sits
+at the bottom of that space; once every footer has landed, pages reserve exactly their footer.
+
+`hideOnFirstPage` keeps its meaning: page 1 of the document. An empty header or footer still
+reserves its `height`; set `height` to `0` to switch a band off.
+
+Every document the positional model accepted keeps its layout: two headers at the top are a
+first-page variant with the second running to the end, and one footer anywhere covers every page.
+`PageBandParityTest` proves this against the positional renderer.
+
+**How it renders** (single pass; `PageBands.kt`, `PageBandElements.kt`):
+
+1. **Collect.** The body render carries a `PageBandCollector` in `RenderContext.pageBands`. A page
+   break emits a `SectionPageBreak` and starts a section; a header or footer emits a zero-height
+   `PageBandAnchor` and registers a `PageBandOccurrence` with its section, whether it is at the
+   section start, and its data scope (a loop gives one occurrence per iteration). Band content and
+   band measurement render without the collector.
+2. **Measure.** Each occurrence is measured with its own data scope (see auto-grow below).
+3. **Schedule.** `PageBandSchedule` is a pure function of the occurrences. The margins function
+   installed with `Document.setPageMargins { page -> … }` asks it for each page as iText creates
+   the page: the pending `SectionPageBreak` says which section starts there, and every anchor
+   drawn on an earlier page has recorded its landing page in `draw()` by then. It returns the
+   header and the footers that could still fill the page, and the page reserves the tallest.
+4. **Paint.** `PageBandEventHandler` runs when a page ends, once everything on it is drawn: it
+   paints the header chosen when the page was created, and asks the schedule for the page's footer
+   (`PageBandSchedule.footerOf`), which always fits the space the page reserved.
+
+The iText behaviour this relies on is pinned by `PageBandItextProbeTest`.
+
+**Versions published before this model** (`RenderingDefaults` V1–V3) keep the positional model: at
+most two root-level headers (first for page 1, second for pages 2–N) and one footer on every page,
+with the renderer rejecting anything else. `RenderingDefaults.sectionPageBands` selects the model;
+V4 turns it on.
 
 ### Header & footer band height (auto-grow)
 
@@ -261,8 +331,8 @@ that failure mode.
 
 How it works — a small pre-pass before the real render:
 
-1. **Measure** (`DirectPdfRenderer.measureEffectiveBandHeights`). For each header
-   and footer node, build the exact content wrapper the event handler will draw
+1. **Measure** (`DirectPdfRenderer.measureBandHeights`). For each header
+   and footer (each occurrence, with its own data scope, in the section model), build the exact content wrapper the event handler will draw
    (`buildBandWrapper`, shared with the handlers so measured == rendered) and lay
    it out via an iText **dry layout** (`measureBandContentHeight`:
    `renderer.layout(...)` into a tall area, read `occupiedArea.bBox.height` — draws
@@ -271,13 +341,13 @@ How it works — a small pre-pass before the real render:
    into the real render. It runs only when the document has a header or footer, and
    any measurement error falls back to the configured/default height, so it can
    never make a previously-working render fail.
-2. **Resolve** (`resolveBandLayout` → `computeHeaderBands`). The effective heights
-   (`nodeId → height`) drive both the body top/bottom margin and the rectangle each
-   event handler draws, so the reserved space and the drawn band always agree.
-   `computeHeaderBands` turns the (up to two) header heights into the running-page
-   `topMargin` plus the page-1 spacer described above.
-3. **Render** (`performRenderWithContext`). The effective-height map is handed to
-   `PageHeaderEventHandler` / `PageFooterEventHandler`, which also set
+2. **Resolve.** The effective heights drive both the page's top/bottom band and the
+   rectangle the band is painted into, so the reserved space and the drawn band always
+   agree. In the section model the margins function reserves each page's band from the
+   height of the occurrence the schedule chose; in the positional model
+   (`resolveBandLayout` → `computeHeaderBands`) the running header sets the document
+   margin and a page-1 spacer covers a taller first-page header.
+3. **Render.** `paintHeaderBand` / `paintFooterBand` (shared by both models) set
    `OVERFLOW_Y/X = VISIBLE` on the band canvas as a safety net so content is never
    silently dropped even if a measurement edge case under-sizes the band.
 
@@ -293,13 +363,17 @@ header/footer doesn't break the layout:
 
 - **The graph is hoisted before the bands are measured and rendered.** Each render
   path hoists once (`renderDocument`) and passes that graph to band measurement,
-  `computeHeaderBands`, the event handlers and the body alike. So an address block
+  the band schedule, the event handlers and the body alike. So an address block
   nested in a header/footer is moved to the body and never renders inside the band
   — otherwise its ~window-height spacer would inflate the band with empty space.
-- **The body reservation respects the real header height.** The renderer passes the
-  resolved page-1 body-content top (page margin + effective first-page band +
-  spacer) to the body via `RenderContext.bodyContentTopPt`; the address block
-  reserves down to its window bottom **relative to that**. Under a header tall
+- **The body reservation respects the real header height.** The address block
+  reserves down to its window bottom **relative to** the page-1 body-content top:
+  page margin + the effective band of the header that applies on page 1. The
+  positional model passes it in `RenderContext.bodyContentTopPt`; the section model
+  knows it only once every header is measured, so the address block registers a
+  `PageBandCollector.onPageOneBodyTop` callback that sets its reservation then. The
+  address block's aside renders without the collector, so it never ends the start of
+  the first section. Under a header tall
   enough to already cover the window, the reservation shrinks to zero instead of
   always reserving the full window height from the raw `height` prop.
 
@@ -308,11 +382,13 @@ page top) can still geometrically overlap a tall header — address blocks are b
 elements and aren't _meant_ to live inside a header; the renderer just no longer
 blows the layout apart when one does.
 
-Code map: `HeaderFooterBand.kt` (`buildBandWrapper`, `measureBandContentHeight`),
-`DirectPdfRenderer.kt` (`measureEffectiveBandHeights`, `resolveBandLayout`,
-`computeHeaderBands`, `hoistAddressBlock`, `performRenderWithContext`),
-`PageHeaderEventHandler` / `PageFooterEventHandler`, `AddressBlockNodeRenderer`,
-and `RenderContext.bodyContentTopPt`.
+Code map: `HeaderFooterBand.kt` (`buildBandWrapper`, `measureBandContentHeight`,
+`paintHeaderBand`, `paintFooterBand`), `PageBands.kt` (`PageBandCollector`,
+`PageBandSchedule`), `PageBandElements.kt`, `PageBandEventHandler`,
+`DirectPdfRenderer.kt` (`bandPlan`, `renderWithSectionBands`, `measureBandHeights`,
+`resolveBandLayout`, `computeHeaderBands`, `hoistAddressBlock`,
+`performRenderWithContext`), `PageHeaderEventHandler` / `PageFooterEventHandler`
+(positional model), `AddressBlockNodeRenderer`, and `RenderContext.bodyContentTopPt`.
 
 ### Page Settings
 

@@ -14,7 +14,8 @@
 import type { TemplateDocument, Node, Slot, NodeId, SlotId } from '../types/index.js';
 import type { DocumentIndexes } from './indexes.js';
 import { isAncestor } from './indexes.js';
-import { type ComponentRegistry, PAGE_HEADER_TYPE, PAGE_FOOTER_TYPE } from './registry.js';
+import type { ComponentRegistry } from './registry.js';
+import { pageBandNestingError, subtreeOf } from './page-bands.js';
 import { isSlotLocked } from './locks.js';
 import { nanoid } from 'nanoid';
 
@@ -295,66 +296,8 @@ function applyComponentCommand(
   return { ok: false, error: `Unknown command type: ${commandType}` };
 }
 
-function getRootSlotId(doc: TemplateDocument): SlotId | null {
-  const rootNode = doc.nodes[doc.root];
-  if (!rootNode || rootNode.slots.length === 0) {
-    return null;
-  }
-  return rootNode.slots[0];
-}
-
 function normalizeInsertIndex(index: number, length: number): number {
   return index < 0 || index >= length ? length : index;
-}
-
-function findNodeIndexByType(
-  children: readonly NodeId[],
-  nodes: Record<NodeId, Node>,
-  type: string,
-): number {
-  return children.findIndex((id) => nodes[id]?.type === type);
-}
-
-function findLastNodeIndexByType(
-  children: readonly NodeId[],
-  nodes: Record<NodeId, Node>,
-  type: string,
-): number {
-  for (let i = children.length - 1; i >= 0; i -= 1) {
-    if (nodes[children[i]]?.type === type) return i;
-  }
-  return -1;
-}
-
-function countNodesByType(
-  children: readonly NodeId[],
-  nodes: Record<NodeId, Node>,
-  type: string,
-): number {
-  let n = 0;
-  for (const id of children) if (nodes[id]?.type === type) n += 1;
-  return n;
-}
-
-function validateRootContentBoundaries(
-  children: readonly NodeId[],
-  nodes: Record<NodeId, Node>,
-  insertIndex: number,
-): string | null {
-  // A document may declare up to two page headers; body content must be inserted
-  // *after* the last one so the header zone stays contiguous at the top.
-  const lastHeaderIndex = findLastNodeIndexByType(children, nodes, PAGE_HEADER_TYPE);
-  const footerIndex = findNodeIndexByType(children, nodes, PAGE_FOOTER_TYPE);
-
-  if (lastHeaderIndex >= 0 && insertIndex <= lastHeaderIndex) {
-    return 'Cannot place blocks before the page header';
-  }
-
-  if (footerIndex >= 0 && insertIndex > footerIndex) {
-    return 'Cannot place blocks after the page footer';
-  }
-
-  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -363,7 +306,7 @@ function validateRootContentBoundaries(
 
 function applyInsertNode(
   doc: TemplateDocument,
-  _indexes: DocumentIndexes,
+  indexes: DocumentIndexes,
   cmd: InsertNode,
   registry: ComponentRegistry,
 ): CommandResult {
@@ -390,35 +333,23 @@ function applyInsertNode(
     return err(`Only ${maxInstances} '${cmd.node.type}' ${noun} allowed per document`);
   }
 
-  const rootSlotId = getRootSlotId(doc);
-  let insertIndex = normalizeInsertIndex(cmd.index, targetSlot.children.length);
-
-  if (cmd.node.type === PAGE_HEADER_TYPE) {
-    if (!rootSlotId || cmd.targetSlotId !== rootSlotId) {
-      return err('Page header can only be inserted at the top of the document');
-    }
-    // Respect the user's drop position within the header zone — dropping above
-    // the existing header makes the new one the first-page variant; dropping on
-    // or below makes it the running (page 2+) variant. `-1` (append, e.g. the
-    // palette "Add" button with no explicit position) defaults to the end of
-    // the header zone so a brand-new header becomes the running variant.
-    const existingHeaderCount = countNodesByType(targetSlot.children, doc.nodes, PAGE_HEADER_TYPE);
-    insertIndex = cmd.index < 0 ? existingHeaderCount : Math.min(cmd.index, existingHeaderCount);
-  } else if (cmd.node.type === PAGE_FOOTER_TYPE) {
-    if (!rootSlotId || cmd.targetSlotId !== rootSlotId) {
-      return err('Page footer can only be inserted at the bottom of the document');
-    }
-    insertIndex = targetSlot.children.length;
-  } else if (rootSlotId && cmd.targetSlotId === rootSlotId) {
-    const boundaryError = validateRootContentBoundaries(
-      targetSlot.children,
-      doc.nodes,
-      insertIndex,
-    );
-    if (boundaryError) {
-      return err(boundaryError);
+  // Page headers and footers may go anywhere in the flow, but never inside one another.
+  const insertedSlots: Record<SlotId, Slot> = Object.fromEntries(
+    cmd.slots.map((slot) => [slot.id, slot]),
+  );
+  for (const n of cmd._restoreNodes ?? []) {
+    for (const slotId of n.slots) {
+      const slot = doc.slots[slotId] ?? insertedSlots[slotId];
+      if (slot) insertedSlots[slotId] = slot;
     }
   }
+  const nestingError = pageBandNestingError(doc, indexes, cmd.targetSlotId, {
+    nodes: [cmd.node, ...(cmd._restoreNodes ?? [])],
+    slots: insertedSlots,
+  });
+  if (nestingError) return err(nestingError);
+
+  const insertIndex = normalizeInsertIndex(cmd.index, targetSlot.children.length);
 
   // Build new document
   const newNodes: Record<NodeId, Node> = { ...doc.nodes, [cmd.node.id]: cmd.node };
@@ -552,18 +483,6 @@ function applyMoveNode(
 
   if (cmd.nodeId === doc.root) return err('Cannot move root node');
 
-  // Page footer is fixed at the bottom. Page headers (up to two) can be reordered
-  // within the root slot's header zone, swapping their first-page / running roles.
-  if (node.type === PAGE_FOOTER_TYPE) {
-    return err('Page footer is fixed at the bottom and cannot be moved');
-  }
-  if (node.type === PAGE_HEADER_TYPE) {
-    const rootSlotId = getRootSlotId(doc);
-    if (!rootSlotId || cmd.targetSlotId !== rootSlotId) {
-      return err('Page header is fixed at the top and cannot be moved');
-    }
-  }
-
   const targetSlot = doc.slots[cmd.targetSlotId];
   if (!targetSlot) return err(`Target slot ${cmd.targetSlotId} not found`);
 
@@ -583,6 +502,10 @@ function applyMoveNode(
     return err(`Node type '${node.type}' cannot be placed in '${targetParent.type}'`);
   }
 
+  const moved = subtreeOf(doc, cmd.nodeId);
+  const nestingError = moved && pageBandNestingError(doc, indexes, cmd.targetSlotId, moved);
+  if (nestingError) return err(nestingError);
+
   // Find current parent slot
   const currentSlotId = indexes.parentSlotByNodeId.get(cmd.nodeId);
   if (!currentSlotId) return err(`Node ${cmd.nodeId} has no parent slot`);
@@ -597,30 +520,6 @@ function applyMoveNode(
     ? currentSlot.children.filter((id) => id !== cmd.nodeId)
     : [...targetSlot.children];
   const insertIndex = normalizeInsertIndex(cmd.index, targetChildrenBase.length);
-
-  const rootSlotId = getRootSlotId(doc);
-  if (rootSlotId && cmd.targetSlotId === rootSlotId) {
-    if (node.type === PAGE_HEADER_TYPE) {
-      // Within the header zone only: index must land amongst the remaining pageheaders.
-      const remainingHeaderCount = countNodesByType(
-        targetChildrenBase,
-        doc.nodes,
-        PAGE_HEADER_TYPE,
-      );
-      if (insertIndex > remainingHeaderCount) {
-        return err('Page header must stay at the top of the document');
-      }
-    } else {
-      const boundaryError = validateRootContentBoundaries(
-        targetChildrenBase,
-        doc.nodes,
-        insertIndex,
-      );
-      if (boundaryError) {
-        return err(boundaryError);
-      }
-    }
-  }
 
   // Build inverse
   const inverse: MoveNode = {

@@ -78,7 +78,9 @@ class AddressBlockNodeRenderer : NodeRenderer {
         val slotsByName = node.slots.mapNotNull { slotId ->
             document.slots[slotId]?.let { slot -> slot.name to slot.id }
         }.toMap()
-        val childContext = context.withInheritedStylesFrom(node)
+        // The aside is page-1 furniture beside the window, not flow content: it must not end the
+        // start of the first section, where headers apply from page 1.
+        val childContext = context.withInheritedStylesFrom(node).copy(pageBands = null)
         val asideElements = slotsByName["aside"]?.let { registry.renderSlot(it, document, childContext) } ?: emptyList()
 
         val asideDiv = Div()
@@ -98,8 +100,10 @@ class AddressBlockNodeRenderer : NodeRenderer {
         asideDiv.setMarginTop(0f)
         asideDiv.setMarginBottom(0f)
         asideDiv.setPadding(0f)
-        // Ensure body content starts below the address bottom
+        // Ensure body content starts below the address bottom. With page bands, the page-1
+        // header is known only once every header is measured, after the flow is built.
         asideDiv.setMinHeight(maxOf(0f, addressBottomPt - contentAreaTopPt))
+        context.pageBands?.onPageOneBodyTop { topPt -> asideDiv.setMinHeight(maxOf(0f, addressBottomPt - topPt)) }
 
         for (element in asideElements) {
             when (element) {

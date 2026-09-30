@@ -9,6 +9,7 @@
  */
 
 import type { JsonSchema } from '../data-contract/types.js';
+import { PAGE_HEADER_TYPE, PAGE_FOOTER_TYPE, pageBandHint } from './page-bands.js';
 import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../types/index.js';
 import type { DocumentIndexes } from './indexes.js';
 import type { CommandResult } from './commands.js';
@@ -30,12 +31,12 @@ import { buildIterationScope } from './scoped-fields.js';
 // Component type constants
 // ---------------------------------------------------------------------------
 
-export const PAGE_HEADER_TYPE = 'pageheader';
-export const PAGE_FOOTER_TYPE = 'pagefooter';
+export { PAGE_HEADER_TYPE, PAGE_FOOTER_TYPE, isPageBand } from './page-bands.js';
 
-/** Check whether a component type is an anchored page block (header or footer). */
-export function isAnchoredPageBlock(type: string): boolean {
-  return type === PAGE_HEADER_TYPE || type === PAGE_FOOTER_TYPE;
+/** Which pages a header or footer's position gives it, for its canvas hint (see page-bands.ts). */
+function bandHint(node: Node, engine: unknown): BlockHint | undefined {
+  const doc = (engine as { doc?: TemplateDocument } | null)?.doc;
+  return doc ? pageBandHint(doc, node.id) : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -218,11 +219,22 @@ export interface InspectorPresentation {
   suppressDeleteSection?: boolean;
 }
 
+/** See [ComponentDefinition.getHint]. */
+export interface BlockHint {
+  text: string;
+  tone: 'info' | 'warning';
+}
+
 export interface ComponentDefinition {
   type: string;
   label: string;
   /** Dynamic label based on node state. If defined, takes precedence over static `label`. */
   getLabel?: (node: Node, engine: unknown) => string;
+  /**
+   * A short explanation shown as an icon next to the block's label on the canvas, with the text
+   * as its tooltip. `warning` marks something the author probably wants to fix.
+   */
+  getHint?: (node: Node, engine: unknown) => BlockHint | undefined;
   icon?: string;
   category: ComponentCategory;
   /** Hide from the block palette (e.g. child-only components like datatable-column). */
@@ -1483,6 +1495,7 @@ export function createDefaultRegistry(): ComponentRegistry {
   registry.register({
     type: PAGE_HEADER_TYPE,
     label: 'Page Header',
+    getHint: bandHint,
     icon: 'panel-top',
     category: 'page',
     slots: [{ name: 'children' }],
@@ -1491,12 +1504,11 @@ export function createDefaultRegistry(): ComponentRegistry {
     inspector: [
       { key: 'height', label: 'Height', type: 'unit', units: ['pt', 'sp'], defaultValue: '60pt' },
     ],
-    maxInstancesPerDocument: 2,
     examples: [
       {
         name: 'title-only',
         description:
-          'Minimal page header with a single text block. Anchored to the top of every page. When the document declares a second pageheader the second one renders on pages 2..N and this one applies only to page 1.',
+          'Minimal page header with a single text block, drawn at the top of the page. A header applies to what comes after it: placed at the start of the document or right after a page break it applies from that page, placed after content it takes over from the next page, and it lasts until the next header.',
         fragment: {
           rootNodeId: 'n-pageheader',
           nodes: {
@@ -1536,7 +1548,7 @@ export function createDefaultRegistry(): ComponentRegistry {
       {
         name: 'first-page-and-running',
         description:
-          'Two pageheader nodes. The first (declared first in the root slot) renders on page 1 only; the second renders on pages 2..N. Useful for cover-page + running header patterns.',
+          "Two pageheader nodes at the start of a section. The first applies to the section's first page only; the second applies from its second page until the next header. Useful for cover-page + running header patterns.",
         fragment: {
           rootNodeId: 'n-pageheader-first',
           nodes: {
@@ -1609,6 +1621,7 @@ export function createDefaultRegistry(): ComponentRegistry {
   registry.register({
     type: PAGE_FOOTER_TYPE,
     label: 'Page Footer',
+    getHint: bandHint,
     icon: 'panel-bottom',
     category: 'page',
     slots: [{ name: 'children' }],
@@ -1618,12 +1631,11 @@ export function createDefaultRegistry(): ComponentRegistry {
       { key: 'height', label: 'Height', type: 'unit', units: ['pt', 'sp'], defaultValue: '60pt' },
       { key: 'hideOnFirstPage', label: 'Hide on first page', type: 'boolean' },
     ],
-    maxInstancesPerDocument: 1,
     examples: [
       {
         name: 'centered-text',
         description:
-          'Page footer with a single centered text block. Anchored to the bottom of every page.',
+          'Page footer with a single centered text block, drawn at the bottom of the page. A footer applies from the page it lands on and continues until another footer lands; a later footer landing on a page that already has one is skipped. The first footer also covers the pages before it, so a single footer anywhere covers the whole document.',
         fragment: {
           rootNodeId: 'n-pagefooter',
           nodes: {

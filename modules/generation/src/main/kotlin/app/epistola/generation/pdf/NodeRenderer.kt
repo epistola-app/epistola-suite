@@ -70,7 +70,9 @@ class NodeRendererRegistry(
             ?: throw IllegalStateException("Node '$nodeId' not found in template document")
         val renderer = renderers[node.type]
             ?: throw IllegalStateException("Unknown node type '${node.type}' for node '$nodeId'. Supported types: ${renderers.keys.sorted()}")
-        return renderer.render(node, document, context, this)
+        val elements = renderer.render(node, document, context, this)
+        if (elements.isNotEmpty() && node.type !in NON_CONTENT_TYPES) context.pageBands?.markContent()
+        return elements
     }
 
     /**
@@ -112,6 +114,14 @@ class NodeRendererRegistry(
             // visible sibling instead.
             if (elements.isEmpty()) continue
 
+            // A page header or footer anchor has no height and no page-flow effect: keep it in
+            // place, inside a pending keep-with-next group if there is one, without making it
+            // the group's follower.
+            if (elements.all { it is PageBandAnchor }) {
+                if (pendingGroup.isNotEmpty()) pendingGroup += elements else result += elements
+                continue
+            }
+
             // Never group across an explicit page break, including one emitted
             // by a structural child such as a conditional.
             if (elements.any { it is AreaBreak }) {
@@ -152,6 +162,28 @@ class NodeRendererRegistry(
         document: TemplateDocument,
         context: RenderContext,
     ): List<IElement> = node.slots.flatMap { slotId -> renderSlot(slotId, document, context) }
+
+    private companion object {
+        /**
+         * Node types that only arrange other nodes, or that are page furniture, and so do not end
+         * the "start of a section" in which a header applies from its own page (see
+         * [PageBandCollector]). Every other type that renders something counts as content.
+         */
+        val NON_CONTENT_TYPES = setOf(
+            "root",
+            "container",
+            "stencil",
+            "placeholder",
+            "conditional",
+            "loop",
+            "columns",
+            "table",
+            "pagebreak",
+            "pageheader",
+            "pagefooter",
+            "addressblock",
+        )
+    }
 
     private fun keepsWithNext(node: Node, context: RenderContext): Boolean {
         val inline = node.styles?.filterNonNullValues()?.get("keepWithNext")

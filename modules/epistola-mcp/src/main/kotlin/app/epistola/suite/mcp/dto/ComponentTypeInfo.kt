@@ -30,7 +30,7 @@ data class ComponentTypeInfo(
     val inspector: List<InspectorFieldInfo>,
     val defaultStyles: Map<String, Any?>?,
     val defaultProps: Map<String, Any?>?,
-    /** Singleton-style guard (e.g. `pageheader` allows max 1 instance). */
+    /** Optional per-document instance limit (e.g. `addressblock` allows one); null means unlimited. */
     val maxInstancesPerDocument: Int?,
     /** Hand-curated TemplateDocument fragments showing realistic usage patterns. */
     val examples: List<ComponentExampleInfo> = emptyList(),

@@ -165,9 +165,7 @@ class TemplateDocumentValidator(
             TemplateValidationCodes.NODE_PARAMETER_BINDING_SYNTAX_INVALID,
             TemplateValidationCodes.NODE_PARAMETER_BINDING_UNKNOWN,
             TemplateValidationCodes.NODE_PARAMETER_BINDING_MISSING_REQUIRED,
-            TemplateValidationCodes.PAGEHEADER_TOO_MANY,
-            TemplateValidationCodes.PAGEHEADER_ROOT_MISSING,
-            TemplateValidationCodes.PAGEHEADER_NOT_AT_ROOT,
+            TemplateValidationCodes.PAGEBAND_NESTED,
         )
     }
 }

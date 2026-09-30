@@ -54,6 +54,9 @@ dependencies {
     // DemoShowcaseQualityIntegrationTest drives the real quality sources over the shipped demo
     // catalog — it moved here from epistola-quality with the catalog it asserts on.
     testImplementation(project(":modules:epistola-quality"))
+    // DemoSectionedLetterIntegrationTest reads the rendered pages of the demo's sectioned letter;
+    // same iText as modules:generation renders with.
+    testImplementation("com.itextpdf:kernel:9.7.1")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.springframework.boot:spring-boot-resttestclient")
