@@ -76,6 +76,16 @@ data class RenderingDefaults(
      * at most two root-level headers (page 1, pages 2–N) and one footer on every page.
      */
     val sectionPageBands: Boolean = false,
+
+    // -- Font selection --
+    /**
+     * When true, a block's font is picked once, from its merged style cascade (component
+     * defaults, inherited, preset, inline), so a preset or inline style that sets only
+     * `fontWeight` or `fontStyle` keeps the inherited `fontFamily` (#1030). When false, each
+     * layer picks its own font, and a layer with bold or italic but no family swaps in the
+     * built-in face.
+     */
+    val mergedFontSelection: Boolean = false,
 ) {
     /** Total vertical space reserved for the page header (padding + content height). */
     val pageHeaderReservedHeight: Float get() = pageHeaderPadding + pageHeaderHeight
@@ -169,19 +179,30 @@ data class RenderingDefaults(
             columnCellPadding = 0f,
         )
 
-        /** The defaults version used for newly published template versions. */
+        /** V4: page headers and footers are placed by section (#1020). */
         val V4 = V3.copy(
             version = 4,
             sectionPageBands = true,
         )
 
-        val CURRENT = V4
+        /**
+         * V5: styles the renderer ignored or mis-cascaded now take effect. See each flag:
+         * [mergedFontSelection].
+         */
+        val V5 = V4.copy(
+            version = 5,
+            mergedFontSelection = true,
+        )
+
+        /** The defaults version used for newly published template versions. */
+        val CURRENT = V5
 
         private val REGISTRY: Map<Int, RenderingDefaults> = mapOf(
             1 to V1,
             2 to V2,
             3 to V3,
             4 to V4,
+            5 to V5,
         )
 
         /**

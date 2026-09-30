@@ -88,6 +88,7 @@ internal fun buildBandWrapper(
         baseContext.renderingDefaults.componentDefaults(componentDefaultsKey),
         baseContext.renderingDefaults.baseFontSizePt,
         baseContext.spacingUnit,
+        mergedFontSelection = baseContext.renderingDefaults.mergedFontSelection,
     )
     for (element in elements) {
         when (element) {

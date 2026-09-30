@@ -35,6 +35,7 @@ class TextNodeRenderer : NodeRenderer {
             context.renderingDefaults.componentDefaults("text"),
             context.renderingDefaults.baseFontSizePt,
             context.spacingUnit,
+            mergedFontSelection = context.renderingDefaults.mergedFontSelection,
         )
 
         // Resolve the full style cascade, then parse size values to points.

@@ -66,6 +66,7 @@ class TableNodeRenderer : NodeRenderer {
             context.renderingDefaults.componentDefaults("table"),
             context.renderingDefaults.baseFontSizePt,
             context.spacingUnit,
+            mergedFontSelection = context.renderingDefaults.mergedFontSelection,
         )
 
         // Per-cell styles from props

@@ -66,6 +66,7 @@ class QrCodeNodeRenderer : NodeRenderer {
             context.renderingDefaults.componentDefaults("qrcode"),
             context.renderingDefaults.baseFontSizePt,
             context.spacingUnit,
+            mergedFontSelection = context.renderingDefaults.mergedFontSelection,
         )
         div.add(image)
 

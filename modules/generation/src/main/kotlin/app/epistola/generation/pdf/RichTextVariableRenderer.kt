@@ -47,6 +47,7 @@ class RichTextVariableRenderer : NodeRenderer {
                 ?: context.renderingDefaults.componentDefaults("text"),
             context.renderingDefaults.baseFontSizePt,
             context.spacingUnit,
+            mergedFontSelection = context.renderingDefaults.mergedFontSelection,
         )
 
         val binding = (node.props?.get("binding") as? String)?.trim().orEmpty()

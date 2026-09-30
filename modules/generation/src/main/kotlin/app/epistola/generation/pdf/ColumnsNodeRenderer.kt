@@ -70,6 +70,7 @@ class ColumnsNodeRenderer : NodeRenderer {
             context.renderingDefaults.componentDefaults("columns"),
             context.renderingDefaults.baseFontSizePt,
             context.spacingUnit,
+            mergedFontSelection = context.renderingDefaults.mergedFontSelection,
         )
 
         // Gap between columns (simulated via cell padding)

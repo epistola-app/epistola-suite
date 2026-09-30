@@ -144,6 +144,7 @@ class ImageNodeRenderer(
             context.renderingDefaults.componentDefaults("image"),
             context.renderingDefaults.baseFontSizePt,
             context.spacingUnit,
+            mergedFontSelection = context.renderingDefaults.mergedFontSelection,
         )
         div.add(image)
 

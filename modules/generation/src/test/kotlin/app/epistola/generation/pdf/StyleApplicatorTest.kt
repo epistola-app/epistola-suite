@@ -312,6 +312,83 @@ class StyleApplicatorTest {
         assertSame(cache.font(FontRef("system", "inter"), weight = 400, italic = false), applied)
     }
 
+    // -----------------------------------------------------------------------
+    // Font selection across cascade layers (#1030)
+    // -----------------------------------------------------------------------
+
+    private val themeFont = mapOf("slug" to "source-sans-3", "catalogKey" to "system")
+    private val themeFontRef = FontRef("system", "source-sans-3")
+
+    private fun cacheResolvingEveryFamily(): FontCache {
+        val liberation = StyleApplicatorTest::class.java
+            .getResourceAsStream("/fonts/LiberationSans-Regular.ttf")!!.readBytes()
+        return FontCache(fontFamilyResolver = { _, _, _, _ -> liberation })
+    }
+
+    private fun appliedFont(
+        cache: FontCache,
+        inherited: Map<String, Any>,
+        preset: Map<String, Any>? = null,
+        inline: Map<String, Any>? = null,
+        mergedFontSelection: Boolean,
+    ): Any? {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = inline,
+            blockStylePreset = preset?.let { "label" },
+            blockStylePresets = preset?.let { mapOf("label" to it) } ?: emptyMap(),
+            inheritedStyles = inherited,
+            fontCache = cache,
+            mergedFontSelection = mergedFontSelection,
+        )
+        return div.getProperty<Any?>(Property.FONT)
+    }
+
+    @Test
+    fun `a preset that only sets fontWeight keeps the inherited theme family`() {
+        val cache = cacheResolvingEveryFamily()
+
+        val applied = appliedFont(cache, inherited = mapOf("fontFamily" to themeFont), preset = mapOf("fontWeight" to 700), mergedFontSelection = true)
+
+        assertSame(cache.font(themeFontRef, weight = 700, italic = false), applied)
+    }
+
+    @Test
+    fun `inline fontStyle alone keeps the inherited theme family`() {
+        val cache = cacheResolvingEveryFamily()
+
+        val applied = appliedFont(cache, inherited = mapOf("fontFamily" to themeFont), inline = mapOf("fontStyle" to "italic"), mergedFontSelection = true)
+
+        assertSame(cache.font(themeFontRef, weight = 400, italic = true), applied)
+    }
+
+    @Test
+    fun `an inline fontFamily keeps the inherited bold weight`() {
+        val cache = cacheResolvingEveryFamily()
+
+        val applied = appliedFont(cache, inherited = mapOf("fontWeight" to 700), inline = mapOf("fontFamily" to themeFont), mergedFontSelection = true)
+
+        assertSame(cache.font(themeFontRef, weight = 700, italic = false), applied)
+    }
+
+    @Test
+    fun `without any family, weight or style no font is set`() {
+        val applied = appliedFont(cacheResolvingEveryFamily(), inherited = mapOf("fontSize" to "12pt"), mergedFontSelection = true)
+
+        assertEquals(null, applied)
+    }
+
+    @Test
+    fun `versions published before merged selection keep picking the font per layer`() {
+        val cache = cacheResolvingEveryFamily()
+
+        val applied = appliedFont(cache, inherited = mapOf("fontFamily" to themeFont), preset = mapOf("fontWeight" to 700), mergedFontSelection = false)
+
+        // The historical output: the preset layer swaps in the built-in bold.
+        assertSame(cache.bold, applied)
+    }
+
     @Test
     fun `legacy string fontFamily does not crash and applies no custom font`() {
         val div = Div()

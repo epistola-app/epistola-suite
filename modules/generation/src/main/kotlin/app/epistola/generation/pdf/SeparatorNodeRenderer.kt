@@ -73,6 +73,7 @@ class SeparatorNodeRenderer : NodeRenderer {
             context.renderingDefaults.componentDefaults("separator"),
             context.renderingDefaults.baseFontSizePt,
             context.spacingUnit,
+            mergedFontSelection = context.renderingDefaults.mergedFontSelection,
         )
         wrapper.add(line)
         wrapper.setHorizontalAlignment(HorizontalAlignment.CENTER)

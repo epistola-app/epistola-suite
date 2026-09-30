@@ -35,6 +35,7 @@ class ContainerNodeRenderer : NodeRenderer {
             context.renderingDefaults.componentDefaults(node.type),
             context.renderingDefaults.baseFontSizePt,
             context.spacingUnit,
+            mergedFontSelection = context.renderingDefaults.mergedFontSelection,
         )
 
         // Render all slots with this node's resolved styles as inherited styles for children
