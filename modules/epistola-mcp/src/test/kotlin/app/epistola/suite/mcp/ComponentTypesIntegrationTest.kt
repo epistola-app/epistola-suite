@@ -81,7 +81,7 @@ class ComponentTypesIntegrationTest : IntegrationTestBase() {
         assertThat(pageHeader.maxInstancesPerDocument).isNull()
         assertThat(pageFooter.maxInstancesPerDocument).isNull()
         assertThat(pageHeader.examples.map { it.description }).anyMatch { it.contains("applies to what comes after it") }
-        assertThat(pageFooter.examples.map { it.description }).anyMatch { it.contains("applies to what comes before it") }
+        assertThat(pageFooter.examples.map { it.description }).anyMatch { it.contains("applies from the page it lands on") }
     }
 
     @Test
