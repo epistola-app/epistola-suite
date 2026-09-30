@@ -222,6 +222,37 @@ inside stencils, conditionals, loops and containers, but never inside another he
 Where one sits decides which pages it applies to. The design and the alternatives weighed are in
 [ADR 0027](adr/0027-page-headers-and-footers-by-section.md).
 
+#### Terms
+
+```
+┌──────────────────────────────┐
+│ top band      ← page header  │  reserved when the page is created
+├──────────────────────────────┤
+│                              │
+│ body: the flow of blocks     │  laid out top to bottom, page by page
+│                              │
+├──────────────────────────────┤
+│ bottom band   ← page footer  │  reserved when the page is created
+└──────────────────────────────┘
+```
+
+- **Band**: the strip at the top or bottom of a page, between the page margin and the body, that
+  a page header or footer is drawn into. Its height is the header's or footer's own height
+  (`max(height prop, measured content)`, see auto-grow below). A page without a header or footer
+  has no band there, only the page margin. In the code, "page band" means a header or a footer.
+- **Flow**: the template's blocks in document order, as they render, after conditionals are
+  evaluated and loops are repeated. A header or footer is a block in the flow like any other; it
+  draws nothing there, but its position decides which pages it applies to.
+- **Section**: the part of the flow between two page breaks. Each section starts on a new page.
+- **Landing page**: the page on which a header's or footer's position in the flow ends up. It is
+  known only once layout has placed the content around it.
+- **Occurrence**: one rendered header or footer. A header inside a loop renders once per
+  iteration, each with its own data, so one node can have many occurrences.
+- **First-page variant**: two headers in a row at the start of a section; the first covers the
+  section's first page, the second the pages after it.
+- **Positional model**: the rules before this change (at most two headers, both at the top of the
+  document; one footer on every page). Versions published before it still render that way.
+
 **Page breaks divide the rendered flow into sections.** A page break inside a false conditional
 does not divide it, and one inside a loop divides it once per iteration. A block is _at the start
 of its section_ when nothing that draws content comes before it in the section; containers,

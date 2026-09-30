@@ -7,6 +7,10 @@ package app.epistola.generation.pdf
 /*
  * Page headers and footers placed anywhere in the flow (#1020).
  *
+ * A page band is the strip at the top (header) or bottom (footer) of a page, between the page
+ * margin and the body, that a page header or footer is drawn into; "page band" also names the
+ * header or footer node itself. Terms are explained in `docs/generation.md` ("Terms").
+ *
  * Page breaks divide the rendered flow into sections. Headers apply to what comes after them,
  * from their own page at the start of a section and from the next page after content. A footer
  * applies from the page it lands on; the first footer also covers the pages before it. The rules

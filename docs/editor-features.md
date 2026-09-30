@@ -149,7 +149,8 @@ before the footers that close it.
 | height          | unit    | 60pt    | Minimum height of the footer band  |
 | hideOnFirstPage | boolean | false   | When true, footer hidden on page 1 |
 
-The height is a minimum: content taller than it grows the band
+A header or footer is drawn in a _band_: the strip at the top or bottom of the page, between the
+page margin and the body ([terms](generation.md#terms)). The height is a minimum: content taller than it grows the band
 ([ADR 0008](adr/0008-header-footer-height-minimum.md)). An empty header or footer still reserves
 its height; set it to `0` to switch the band off for a section.
 

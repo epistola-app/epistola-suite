@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /**
  * Page headers and footers placed anywhere in the flow (#1020).
  *
