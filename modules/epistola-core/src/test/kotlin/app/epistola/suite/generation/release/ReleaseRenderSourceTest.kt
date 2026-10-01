@@ -20,6 +20,10 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.fonts.commands.ImportFont
+import app.epistola.suite.fonts.commands.ImportFontVariant
+import app.epistola.suite.fonts.model.FontKind
+import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -56,6 +60,12 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var source: ReleaseRenderSource
+
+    @Autowired
+    private lateinit var dependencies: app.epistola.suite.catalog.revisions.ReleaseDependencyStore
+
+    @Autowired
+    private lateinit var jdbi: org.jdbi.v3.core.Jdbi
 
     @Test
     fun `a release renders its own theme, model and contract after the working copy moves on`() {
@@ -100,6 +110,65 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
             .`as`("letters@1.0.0 pinned shared@1.0.0, so a later release of shared does not reach it")
             .containsEntry("color", "#ff0000")
         assertThat(pinnedSecond.resolvedTheme.documentStyles).containsEntry("color", "#0000ff")
+    }
+
+    @Test
+    fun `a catalog used only through another one is recorded at release, and rendered as recorded`() {
+        val tenant = createTenant("rr-transitive")
+        val base = catalogIn(tenant.id, "base")
+        val shared = catalogIn(tenant.id, "shared")
+        val letters = catalogIn(tenant.id, "letters")
+        val regular = classpathBytes("epistola/fonts/inter/inter-Regular.ttf")
+        withMediator {
+            // base: a font. shared: a theme naming it. letters: a template using the theme.
+            importFont(base, "brand-sans", regular)
+            release(base, "1.0.0")
+            CreateTheme(
+                ThemeId(ThemeKey.of("brand"), shared),
+                "Brand",
+                documentStyles = mapOf("fontFamily" to mapOf("slug" to "brand-sans", "catalogKey" to "base")),
+            ).execute()
+            release(shared, "1.0.0")
+            invoice(letters, theme = ThemeKey.of("brand"), themeCatalog = shared.key, nodeId = "body")
+            release(letters, "1.0.0")
+
+            // base moves on: a different face under the same slug, released as 1.1.0.
+            importFont(base, "brand-sans", classpathBytes("epistola/fonts/inter/inter-Bold.ttf"))
+            release(base, "1.1.0")
+        }
+
+        val pins = jdbi.withHandle<Map<CatalogKey, String>, Exception> { dependencies.pinsOf(it, tenant.id, letters.key, "1.0.0") }
+        assertThat(pins).`as`("letters uses base only through shared's theme").containsEntry(CatalogKey.of("base"), "1.0.0")
+
+        val inputs = source.resolve(tenantOf(letters), ReleaseRef(letters.key, "1.0.0"), "invoice", VariantKey.INITIAL.value)
+        assertThat(inputs.fontFamilyResolver.resolve("base", "brand-sans", 400, false))
+            .`as`("the face base had when letters was released, not base's latest")
+            .isEqualTo(regular)
+    }
+
+    @Test
+    fun `a release that lacks a catalog it reaches fails to render rather than guessing a release`() {
+        val tenant = createTenant("rr-strict")
+        val shared = catalogIn(tenant.id, "shared")
+        val letters = catalogIn(tenant.id, "letters")
+        withMediator {
+            CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand", documentStyles = mapOf("color" to "#ff0000")).execute()
+            release(shared, "1.0.0")
+            invoice(letters, theme = ThemeKey.of("brand"), themeCatalog = shared.key, nodeId = "body")
+            release(letters, "1.0.0")
+        }
+        // Raw SQL: no command can produce a release that renders with a catalog it did not record —
+        // that is the point. Removing the row stands in for a record that is incomplete.
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate("DELETE FROM release_dependencies WHERE tenant_key = :t AND catalog_key = 'letters'")
+                .bind("t", tenant.id)
+                .execute()
+        }
+
+        assertThatThrownBy { source.resolve(tenantOf(letters), ReleaseRef(letters.key, "1.0.0"), "invoice", VariantKey.INITIAL.value) }
+            .isInstanceOf(ReleaseRenderException::class.java)
+            .hasMessageContaining("did not record")
+            .hasMessageContaining("'shared'")
     }
 
     @Test
@@ -201,6 +270,28 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
         slots = mapOf("children" to Slot(id = "children", nodeId = "root", name = "children", children = listOf(nodeId))),
         themeRef = ThemeRef.Inherit,
     )
+
+    private fun importFont(catalog: CatalogId, slug: String, bytes: ByteArray) {
+        val asset = UploadAsset(
+            tenantId = catalog.tenantKey,
+            name = "$slug-${bytes.size}.ttf",
+            mediaType = AssetMediaType.TTF,
+            content = bytes,
+            width = null,
+            height = null,
+            catalogKey = catalog.key,
+        ).execute().id
+        ImportFont(
+            tenantId = TenantId(catalog.tenantKey),
+            catalogKey = catalog.key,
+            slug = slug,
+            name = slug,
+            kind = FontKind.SANS.wire,
+            variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = asset)),
+        ).execute()
+    }
+
+    private fun classpathBytes(path: String): ByteArray = javaClass.classLoader.getResourceAsStream(path)!!.use { it.readBytes() }
 
     private fun tenantOf(catalog: CatalogId): Tenant = withMediator { GetTenant(catalog.tenantKey).query()!! }
 

@@ -102,9 +102,10 @@ class RecordInstalledReleaseHandler(
             // A dependency without a release is not pinned rather than refused: refusing would fail
             // the install of a publisher's release over a gap on this installation. Rendering falls
             // back to the dependency's latest release for a catalog it did not pin.
-            val pins = referenced.mapNotNull { dependency ->
+            val direct = referenced.mapNotNull { dependency ->
                 dependencyStore.latestRetainedRelease(handle, command.tenantKey, dependency)?.let { dependency to it }
             }.toMap()
+            val pins = dependencyStore.closure(handle, command.tenantKey, command.catalogKey, direct)
             val releasedAt = handle.createQuery("SELECT NOW()").mapTo(OffsetDateTime::class.java).one()
             val manifest = content.toManifest(ReleaseInfo(version = version, releasedAt = releasedAt.toString(), fingerprint = fingerprint))
 

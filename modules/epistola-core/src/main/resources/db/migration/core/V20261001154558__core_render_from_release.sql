@@ -28,6 +28,10 @@ CREATE TABLE release_dependencies (
     version                VARCHAR(50) NOT NULL,
     dependency_catalog_key CATALOG_KEY NOT NULL,
     dependency_version     VARCHAR(50) NOT NULL,
+    -- TRUE when the release's own resources reference the catalog; FALSE when it is reached only
+    -- through another dependency. The record holds the whole closure, flattened, so rendering never
+    -- has to work out a catalog's release; the flag keeps the tree drawable.
+    direct                 BOOLEAN     NOT NULL DEFAULT TRUE,
     CONSTRAINT pk_release_dependencies PRIMARY KEY (tenant_key, catalog_key, version, dependency_catalog_key),
     CONSTRAINT fk_release_dependencies_release FOREIGN KEY (tenant_key, catalog_key, version)
         REFERENCES catalog_releases (tenant_key, catalog_key, version) ON DELETE CASCADE,
@@ -40,7 +44,7 @@ CREATE TABLE release_dependencies (
 );
 
 COMMENT ON TABLE release_dependencies IS
-    'For each release, the release of every other catalog it renders with: the latest one when it was cut. Immutable, like the release.';
+    'For each release, the release of every other catalog it renders with, directly or through another dependency: one release per catalog, the highest any dependency asked for. Immutable, like the release.';
 
 -- "Which releases render with this one" -- the guard on deleting or forgetting a release.
 CREATE INDEX idx_release_dependencies_dependency

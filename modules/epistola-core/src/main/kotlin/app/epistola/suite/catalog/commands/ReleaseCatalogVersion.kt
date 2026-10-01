@@ -18,6 +18,7 @@ import app.epistola.suite.catalog.CatalogReleasePublicationRequest
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.revisions.Pin
 import app.epistola.suite.catalog.revisions.ReleaseDependencyStore
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
@@ -129,8 +130,9 @@ class ReleaseCatalogVersionHandler(
         // release rather than leaving one that cannot be rendered.
         val tenantDefaultThemeCatalog = GetTenant(command.tenantKey).query()?.takeIf { it.defaultThemeKey != null }?.defaultThemeCatalogKey
         val referencedCatalogs = dependencyStore.referencedCatalogs(content, command.catalogKey, tenantDefaultThemeCatalog)
-        val pins = jdbi.withHandle<Map<CatalogKey, String>, Exception> { handle ->
-            dependencyStore.resolveLatest(handle, command.tenantKey, referencedCatalogs)
+        val pins = jdbi.withHandle<List<Pin>, Exception> { handle ->
+            val direct = dependencyStore.resolveLatest(handle, command.tenantKey, referencedCatalogs)
+            dependencyStore.closure(handle, command.tenantKey, command.catalogKey, direct)
         }
         if (unchanged) {
             logger.warn(

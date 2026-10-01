@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.revisions
 
 import app.epistola.catalog.protocol.DependencyRef
 import app.epistola.suite.catalog.CatalogContent
+import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.queries.LATEST_RELEASE_ORDER
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -25,6 +26,9 @@ import org.springframework.stereotype.Component
  *
  * Only releases that kept their content can be pinned, because a pinned release is read to render.
  */
+/** One recorded dependency of a release: [catalog] at [version], used directly or through another one. */
+data class Pin(val catalog: CatalogKey, val version: String, val direct: Boolean)
+
 @Component
 class ReleaseDependencyStore {
 
@@ -70,22 +74,59 @@ class ReleaseDependencyStore {
         return resolved.mapValues { (_, version) -> version!! }
     }
 
+    /**
+     * The whole set of releases [ownCatalog] renders with, starting from the catalogs it references
+     * directly ([direct]) and following each dependency's own recorded dependencies.
+     *
+     * Flattened, one release per catalog: a document never mixes two releases of one catalog. Where
+     * two dependencies recorded different releases of the same catalog, the highest wins — what
+     * semantic versioning promises is compatible, and what the release check is there to confirm.
+     * A direct dependency is recorded at that catalog's latest release, so it is never lowered by a
+     * dependency that recorded an older one. The release's own catalog is never a dependency, so a
+     * catalog depending back on it ends the walk rather than looping.
+     */
+    fun closure(handle: Handle, tenantKey: TenantKey, ownCatalog: CatalogKey, direct: Map<CatalogKey, String>): List<Pin> {
+        val chosen = LinkedHashMap<CatalogKey, Pin>()
+        direct.forEach { (catalog, version) -> chosen[catalog] = Pin(catalog, version, direct = true) }
+        val pending = ArrayDeque(chosen.values.toList())
+        while (pending.isNotEmpty()) {
+            val pin = pending.removeFirst()
+            for ((catalog, version) in pinsOf(handle, tenantKey, pin.catalog, pin.version)) {
+                if (catalog == ownCatalog) continue
+                val current = chosen[catalog]
+                if (current == null || (!current.direct && isHigher(version, current.version))) {
+                    val next = Pin(catalog, version, direct = current?.direct ?: false)
+                    chosen[catalog] = next
+                    pending += next
+                }
+            }
+        }
+        return chosen.values.toList()
+    }
+
     /** Records the pins of one release. Called inside the release transaction. */
-    fun record(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String, pins: Map<CatalogKey, String>) {
-        for ((dependency, dependencyVersion) in pins) {
+    fun record(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String, pins: List<Pin>) {
+        for (pin in pins) {
             handle.createUpdate(
                 """
-                INSERT INTO release_dependencies (tenant_key, catalog_key, version, dependency_catalog_key, dependency_version)
-                VALUES (:t, :c, :version, :dependency, :dependencyVersion)
+                INSERT INTO release_dependencies (tenant_key, catalog_key, version, dependency_catalog_key, dependency_version, direct)
+                VALUES (:t, :c, :version, :dependency, :dependencyVersion, :direct)
                 """,
             )
                 .bind("t", tenantKey)
                 .bind("c", catalogKey)
                 .bind("version", version)
-                .bind("dependency", dependency)
-                .bind("dependencyVersion", dependencyVersion)
+                .bind("dependency", pin.catalog)
+                .bind("dependencyVersion", pin.version)
+                .bind("direct", pin.direct)
                 .execute()
         }
+    }
+
+    private fun isHigher(candidate: String, current: String): Boolean {
+        val a = SemVer.parseOrNull(candidate)
+        val b = SemVer.parseOrNull(current)
+        return if (a != null && b != null) a > b else candidate > current
     }
 
     /** The pins of one release: dependency catalog to the release it renders with. */

@@ -71,7 +71,8 @@ class ReleaseRenderException(message: String) : IllegalStateException(message)
  *
  * **Which release a resource comes from.** A reference inside the catalog resolves in the release
  * being rendered. A reference into another catalog resolves in the release this one pinned for that
- * catalog (`release_dependencies`). A release cut before pins were recorded has none, and falls back
+ * catalog (`release_dependencies`), which holds every catalog it reaches, directly or not. Only a
+ * release cut before dependencies were recorded may miss one, and that one alone falls back
  * to the other catalog's latest release that kept its content.
  *
  * **Caching.** Revisions are immutable, so a resource read from a release never changes while that
@@ -111,7 +112,10 @@ class ReleaseRenderSource(
         val pins = jdbi.withHandle<Map<CatalogKey, String>, Exception> { handle ->
             dependencyStore.pinsOf(handle, tenantKey, release.catalogKey, release.version)
         }
-        val scope = Scope(tenantKey, release, pins)
+        // A release cut before dependencies were recorded has no rendering defaults version either;
+        // only such a release may look a catalog up at render time. Any other release recorded every
+        // catalog it renders with, so one missing from its record is an error, not a guess.
+        val scope = Scope(tenantKey, release, pins, legacy = renderingDefaultsVersion == null)
 
         val template = read(scope.tenantKey, release, "template", templateKey) as? TemplateResource
             ?: throw ReleaseRenderException("Release ${release.label()} does not contain template '$templateKey'")
@@ -251,11 +255,15 @@ class ReleaseRenderSource(
     }
 
     /** Where a catalog's resources come from while rendering one release. */
-    private inner class Scope(val tenantKey: TenantKey, val release: ReleaseRef, val pins: Map<CatalogKey, String>) {
+    private inner class Scope(val tenantKey: TenantKey, val release: ReleaseRef, val pins: Map<CatalogKey, String>, val legacy: Boolean) {
         fun releaseOf(catalog: CatalogKey): ReleaseRef = when {
             catalog == release.catalogKey -> release
 
             pins[catalog] != null -> ReleaseRef(catalog, pins.getValue(catalog))
+
+            !legacy -> throw ReleaseRenderException(
+                "Release ${release.label()} renders with catalog '${catalog.value}', which it did not record as a dependency",
+            )
 
             else -> ReleaseRef(
                 catalog,
