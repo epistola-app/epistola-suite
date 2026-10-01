@@ -36,6 +36,7 @@ Back to the [documentation index](../README.md).
 | [0025](0025-relocation-without-aliases.md) Relocation without aliases                                 | Accepted                            | Aliases withdrawn before release; relocation is a crude move until published content is self-contained.                                                                     |
 | [0026](0026-revisions-releases-and-the-working-copy.md) Revisions, releases, working copy             | Accepted — steps 1 to 3 implemented | Content-addressed revisions, releases as manifests, a status per resource; subscribed catalogs are releases.                                                                |
 | [0027](0027-page-headers-and-footers-by-section.md) Page headers and footers placed anywhere          | Accepted                            | Any number, anywhere; headers apply to what follows them per page-break section, footers from the page they land on.                                                        |
+| [0029](0029-how-a-release-pins-another-catalog.md) How a release pins another catalog                 | Proposed                            | One pin per catalog, per template, or per reference; the trade-offs of partial dependency upgrades.                                                                         |
 
 ## Adding an ADR
 

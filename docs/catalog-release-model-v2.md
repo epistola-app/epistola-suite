@@ -515,21 +515,22 @@ Additive on the new model, in minors:
 
 ## 12. Decisions to record in ADR 0028
 
-| #   | Decision                                                      | Proposed answer                                                                        |
-| --- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| D1  | Environments behind latest at upgrade                         | Measure; default to latest with a note; synthesise only if the measurement says        |
-| D2  | Backfill old published versions into revisions                | No; dead table, provenance only                                                        |
-| D3  | Stencil model                                                 | §3.4 as written                                                                        |
-| D4  | Release refuses while modified from day one                   | Yes; #1009 A follows immediately                                                       |
-| D5  | Draft state for themes, fonts, images, code lists, attributes | No; the release preview is the safety net                                              |
-| D6  | Does `catalogs.type` survive                                  | Yes, as a cached discriminator; "has a working copy" is the truth                      |
-| D7  | Working copy base on the API                                  | Yes, additive                                                                          |
-| D8  | Version ranges                                                | Lockfile model, post-major, with pins                                                  |
-| D9  | `StencilResource.version` on the wire                         | Decide with the contract bump under ADR 0007                                           |
-| D10 | System catalog as per-tenant releases                         | Yes                                                                                    |
-| D11 | Where the auto-release version comes from                     | Patch bump, or the first-release default; note names the upgrade                       |
-| D12 | What "ready" covers for a template                            | Its own content, fills and bindings; a stencil's ready covers the stencil              |
-| D13 | Permissions                                                   | `CATALOG_RELEASE` and a deploy permission replace `TEMPLATE_PUBLISH`/`STENCIL_PUBLISH` |
+| #   | Decision                                                      | Proposed answer                                                                                                                      |
+| --- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| D1  | Environments behind latest at upgrade                         | Measure; default to latest with a note; synthesise only if the measurement says                                                      |
+| D2  | Backfill old published versions into revisions                | No; dead table, provenance only                                                                                                      |
+| D3  | Stencil model                                                 | §3.4 as written                                                                                                                      |
+| D4  | Release refuses while modified from day one                   | Yes; #1009 A follows immediately                                                                                                     |
+| D5  | Draft state for themes, fonts, images, code lists, attributes | No; the release preview is the safety net                                                                                            |
+| D6  | Does `catalogs.type` survive                                  | Yes, as a cached discriminator; "has a working copy" is the truth                                                                    |
+| D7  | Working copy base on the API                                  | Yes, additive                                                                                                                        |
+| D14 | Granularity of a pin into another catalog                     | Catalog pin, built (#1057); per-template overrides under consideration in [ADR 0029](adr/0029-how-a-release-pins-another-catalog.md) |
+| D8  | Version ranges                                                | Lockfile model, post-major, with pins                                                                                                |
+| D9  | `StencilResource.version` on the wire                         | Decide with the contract bump under ADR 0007                                                                                         |
+| D10 | System catalog as per-tenant releases                         | Yes                                                                                                                                  |
+| D11 | Where the auto-release version comes from                     | Patch bump, or the first-release default; note names the upgrade                                                                     |
+| D12 | What "ready" covers for a template                            | Its own content, fills and bindings; a stencil's ready covers the stencil                                                            |
+| D13 | Permissions                                                   | `CATALOG_RELEASE` and a deploy permission replace `TEMPLATE_PUBLISH`/`STENCIL_PUBLISH`                                               |
 
 ## 13. Risks
 
