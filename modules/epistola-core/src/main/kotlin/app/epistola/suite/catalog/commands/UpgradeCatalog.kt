@@ -184,6 +184,10 @@ class UpgradeCatalogHandler(
             objectMapper.writeValueAsString(CatalogMetadata.from(manifest.catalog)),
         )
 
+        if (!InstalledReleaseRecording.isDeferred) {
+            RecordInstalledRelease(command.tenantKey, command.catalogKey).execute()
+        }
+
         val newVersion = manifest.release.version
         val installed = installResults.count { it.status == InstallStatus.INSTALLED }
         val updatedCount = installResults.count { it.status == InstallStatus.UPDATED }

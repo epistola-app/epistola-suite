@@ -86,7 +86,14 @@ class BackupRevisionBinaryIntegrationTest : IntegrationTestBase() {
      * point of the stage. This asserts against the rows the release wrote.
      */
     private fun heldHash(tenantKey: String): String? = jdbi.withHandle<String?, Exception> { handle ->
-        handle.createQuery("SELECT content_hash FROM revision_binaries WHERE tenant_key = :t")
+        // Scoped to `main`: every tenant also holds the bundled system catalog's release and its bytes.
+        handle.createQuery(
+            """
+            SELECT b.content_hash FROM revision_binaries b
+            JOIN release_entries e ON e.tenant_key = b.tenant_key AND e.revision_digest = b.digest
+            WHERE b.tenant_key = :t AND e.catalog_key = 'main'
+            """,
+        )
             .bind("t", tenantKey)
             .mapTo(String::class.java)
             .findFirst()
