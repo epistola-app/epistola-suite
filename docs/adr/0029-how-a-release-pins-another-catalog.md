@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # ADR 0029: How a release pins another catalog
 
-- **Status:** Proposed
+- **Status:** Proposed — decision C, awaiting acceptance
 - **Date:** 2026-10-01
 - **Deciders:** Epistola team
 - **Tags:** catalog, releases, dependencies, upgrades, generation
@@ -38,13 +38,20 @@ Two situations test that answer.
    `system@1.3.0` and keeps rendering as it was approved. The next release of a catalog adopts 1.4.0
    automatically, because pinning takes the latest. That is correct, but silent, and all or nothing:
    one release of `letters` cannot move half its templates.
-2. **A large catalog trying an upgrade on a few templates first.** A catalog with 100 templates
-   wants five of them on `B@2.0.0` while the other 95 stay on `B@1.0.0` until the new release of B
-   has proven itself. One pin per catalog cannot express that inside one release of the catalog.
+2. **A large catalog moving to a new dependency release in steps.** A catalog with 100 templates
+   moves five of them to `B@2.0.0` while the other 95 stay on `B@1.0.0` — not only to try the new
+   release, but **released and deployed to production in that state**, for as long as moving the
+   rest takes. One pin per catalog cannot express that inside one release of the catalog.
 
 The question this ADR records: **at what granularity does a release pin another catalog — the
 catalog, the template, or each reference?** It is a question about the pin, not about where
 dependencies come from; those always come from resource references.
+
+### The requirement
+
+**A release of a catalog — including one deployed to production — may have adopted a new release of
+another catalog for some of its templates and not yet for others.** Partial adoption is a normal,
+possibly long-lived state of a released catalog, not only a test step before it.
 
 ### What has to hold whatever is chosen
 
@@ -137,6 +144,16 @@ detached into plain content).
 list describes. Any of A–D still has to decide what is recorded when the release is cut; a range only
 changes which release that is. Recorded here so it is not mistaken for an answer to this question.
 
+### Against the requirement
+
+| Option | Partial adoption in production | Every document consistent | Upgrade effort by default     |
+| ------ | ------------------------------ | ------------------------- | ----------------------------- |
+| A      | no                             | yes                       | one decision                  |
+| B      | yes                            | **no**                    | one decision per reference    |
+| C      | yes                            | yes                       | one decision, plus exceptions |
+| D      | only by moving or copying      | yes                       | one decision                  |
+| E      | not this question              | —                         | —                             |
+
 ### Trying an upgrade without any of this
 
 Independently of the option chosen, the common case — _try the new release of B on a few templates
@@ -152,17 +169,18 @@ the rest. That is the case C exists for.
 
 ## Decision
 
-**Open.** The leaning recorded on 2026-10-01 is towards **C — a catalog pin with per-template
-overrides** — because a catalog of 100 templates should not have to upgrade a dependency all at once
-in production, and because a per-template override keeps every document internally consistent, which
-B does not.
+**C — a catalog pin, overridable per template.** Proposed; to be accepted by the team.
 
-Against it, and the reason A was built first: A already covers trying an upgrade (through a test
-environment) and keeps "what does this release use" a one-line answer; C's override on shared
-resources of the consuming catalog is the subtle part; and C can be added on top of A later without
-changing anything A recorded.
+Partial adoption in production is a requirement, which rules out A (no partial adoption) and leaves D
+only as a workaround that moves or forks content to express a temporary state. Of the two options
+that meet it, C keeps every generated document internally consistent and keeps the default upgrade a
+single decision; B gives up both. The cost C accepts is a second pin level and the shared-resource
+rule in point 4 below.
 
-If C is adopted, these are proposed with it:
+C is built on top of A: the catalog pin #1057 records stays the default, and nothing A records
+changes.
+
+The rules that come with it:
 
 1. **The catalog pin stays the default** and is what a release dialog leads with. An override is an
    exception that is listed, not a second way of working.
@@ -178,14 +196,21 @@ catalog) → dependency release` beside `release_dependencies`, written in the s
    that follow it; moving an override checks that template.
 7. **No override on resources inside the dependency.** A stencil of B is only ever read as a whole
    release of B; overriding parts of B is option B by another name.
+8. **An override can point either way.** Pinning a few templates back while the catalog moves on, and
+   moving a few forward while the catalog stays, are the same mechanism.
 
 ## Consequences
 
-- With A only (today): one combination per release, one decision per dependency upgrade, partial
-  upgrades only through a test environment or by splitting a catalog.
-- With C: partial upgrades in production, at the cost of a second pin level, an override UI, per-pin
-  compatibility checks, and the shared-resource rule in point 4. Retention keeps more releases of a
-  dependency alive during a transition.
+- A released catalog can carry a dependency partly adopted for as long as moving the rest takes,
+  in every environment including production.
+- A second pin level: a table beside `release_dependencies`, a resolution step before the catalog
+  pin, an override UI on templates, per-pin compatibility checks, and the shared-resource rule in
+  point 4.
+- Retention keeps more releases of a dependency alive during a transition: typically two, one per
+  distinct pin in a live release.
+- "What does this release use?" becomes the catalog pin plus a listed set of exceptions.
+- Until C is built, #1057's catalog pin applies, and partial adoption needs a test environment or a
+  split catalog.
 - Either way: the release dialog should name dependency changes ("system 1.3.0 → 1.4.0, affects these
   templates"), so that adopting a new release of another catalog is a reviewed step rather than a
   side effect of releasing. That is needed under A and C alike.
