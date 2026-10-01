@@ -79,7 +79,7 @@ class PreviewTargetResolver(
         val templateId = TemplateId(templateKey, CatalogId(catalogKey, tenantId))
 
         val resolvedVariantKey = variantKey
-            ?: variantSelectionCriteria?.let { variantResolver.resolve(tenantKey, templateKey, it) }
+            ?: variantSelectionCriteria?.let { variantResolver.resolve(templateId, it) }
             ?: resolveDefaultVariant(tenantKey, catalogKey, templateKey)
         val variantId = VariantId(resolvedVariantKey, templateId)
 
