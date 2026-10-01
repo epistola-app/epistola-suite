@@ -46,7 +46,7 @@ class GetStencilUsageHandler(
             JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS node(key, value)
             WHERE tv.tenant_key = :tenantId
-              AND ${StencilReferences.refersTo("node", "dt")}
+              AND ${StencilReferences.usedBy("node", "dt")}
             ORDER BY dt.name, tv.variant_key, tv.id
             """,
         )

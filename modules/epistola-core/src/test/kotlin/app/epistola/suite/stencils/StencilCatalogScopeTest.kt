@@ -148,6 +148,19 @@ class StencilCatalogScopeTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a reference whose catalog no longer has the stencil is reported under the stencil that has the key`() {
+        // brand-b/letterhead is gone, so the instance naming it dangles. Usage reports it under the
+        // remaining letterhead, as after a move, so an author can find and fix it.
+        val f = setUp("brand-b-instance" to brandB.value)
+        withMediator { DeleteStencil(f.brandBLetterhead, force = true).execute() }
+
+        withMediator {
+            assertThat(FindStencilUsages(f.acmeLetterhead).query()).containsExactly("Letter")
+            assertThat(GetStencilUsagePage(f.acmeLetterhead).query().totalAll).isEqualTo(1)
+        }
+    }
+
+    @Test
     fun `a stencil is not held in use by a same-named stencil from another catalog`() {
         val f = setUp("brand-b-instance" to brandB.value)
 

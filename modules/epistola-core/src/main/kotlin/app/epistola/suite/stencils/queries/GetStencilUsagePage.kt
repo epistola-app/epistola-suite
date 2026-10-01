@@ -75,7 +75,7 @@ private val USAGE_CTES = """
         JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.id = dt.catalog_key
         CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS node(key, value)
         WHERE tv.tenant_key = :tenantId
-          AND ${StencilReferences.refersTo("node", "dt")}
+          AND ${StencilReferences.usedBy("node", "dt")}
         GROUP BY dt.id, dt.catalog_key, c.type, dt.name, tv.variant_key, tv.id, tv.status,
                  COALESCE((node.value -> 'props' ->> 'version')::int, 0)
     ),

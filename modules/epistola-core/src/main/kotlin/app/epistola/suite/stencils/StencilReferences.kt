@@ -36,6 +36,32 @@ object StencilReferences {
     fun refersTo(nodeAlias: String, templateAlias: String): String = """(
         $nodeAlias.value ->> 'type' = '${StencilNodeKeys.NODE_TYPE}'
         AND $nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_STENCIL_ID}' = :$KEY_PARAM
-        AND COALESCE(NULLIF($nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_CATALOG_KEY}', ''), $templateAlias.catalog_key) = :$CATALOG_PARAM
+        AND ${referencedCatalog(nodeAlias, templateAlias)} = :$CATALOG_PARAM
     )"""
+
+    /**
+     * What the **usage** queries count as using the stencil: [refersTo], plus a *dangling*
+     * reference — one naming the same key in a catalog that no longer has a stencil with that key.
+     *
+     * After a resource move (relocation is a crude move: no aliases, the old address is free at
+     * once) published templates still name the old address; reporting them under the stencil that
+     * now carries the key is how an author finds them. A same-keyed stencil that still exists in
+     * another catalog is not dangling, so it is never counted here (#1024). Upgrades stay on
+     * [refersTo]: they rewrite only instances that name this exact stencil.
+     */
+    fun usedBy(nodeAlias: String, templateAlias: String): String = """(
+        $nodeAlias.value ->> 'type' = '${StencilNodeKeys.NODE_TYPE}'
+        AND $nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_STENCIL_ID}' = :$KEY_PARAM
+        AND (
+            ${referencedCatalog(nodeAlias, templateAlias)} = :$CATALOG_PARAM
+            OR NOT EXISTS (
+                SELECT 1 FROM stencils referenced
+                WHERE referenced.tenant_key = $templateAlias.tenant_key
+                  AND referenced.catalog_key = ${referencedCatalog(nodeAlias, templateAlias)}
+                  AND referenced.id = :$KEY_PARAM
+            )
+        )
+    )"""
+
+    private fun referencedCatalog(nodeAlias: String, templateAlias: String) = "COALESCE(NULLIF($nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_CATALOG_KEY}', ''), $templateAlias.catalog_key)"
 }

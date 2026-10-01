@@ -41,7 +41,7 @@ class CountStencilUsageByVersionHandler(
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
             WHERE tv.tenant_key = :tenantId
               AND tv.status IN ('draft', 'published')
-              AND ${StencilReferences.refersTo("n", "dt")}
+              AND ${StencilReferences.usedBy("n", "dt")}
               AND n.value -> 'props' ->> 'version' ~ '^[0-9]+$'
             GROUP BY (n.value -> 'props' ->> 'version')::int
             """,
