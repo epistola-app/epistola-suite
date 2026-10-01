@@ -143,7 +143,8 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
             InstallFromCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
             ImportCodeList(tenantId, catalogKey, "stale-list", "Stale List").execute()
-            ImportFont(tenantId, catalogKey, "stale-font", "Stale Font", "sans").execute()
+            // Fonts reach an installed catalog only through a catalog import (#1023).
+            CatalogImportContext.runAsImport { ImportFont(tenantId, catalogKey, "stale-font", "Stale Font", "sans").execute() }
 
             val result = UpgradeCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
 
@@ -173,7 +174,8 @@ class UpgradeCatalogTest : IntegrationTestBase() {
                 displayName = "Uses List",
                 codeListId = CodeListId(CodeListKey.of("used-list"), subscribedCatalog),
             ).execute()
-            ImportFont(tenantId, catalogKey, "used-font", "Used Font", "sans").execute()
+            // Fonts reach an installed catalog only through a catalog import (#1023).
+            CatalogImportContext.runAsImport { ImportFont(tenantId, catalogKey, "used-font", "Used Font", "sans").execute() }
             CreateTheme(
                 id = ThemeId(ThemeKey.of("uses-font"), CatalogId.default(tenantId)),
                 name = "Uses Font",
@@ -209,7 +211,8 @@ class UpgradeCatalogTest : IntegrationTestBase() {
                 codeListCatalogKey = catalogKey,
                 codeListSlug = CodeListKey.of("obsolete-list"),
             ).execute()
-            ImportFont(tenantId, catalogKey, "obsolete-font", "Obsolete Font", "sans").execute()
+            // Fonts reach an installed catalog only through a catalog import (#1023).
+            CatalogImportContext.runAsImport { ImportFont(tenantId, catalogKey, "obsolete-font", "Obsolete Font", "sans").execute() }
             ImportTheme(
                 tenantId = tenantId,
                 catalogKey = catalogKey,
