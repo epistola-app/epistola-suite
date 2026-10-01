@@ -283,6 +283,61 @@ Implicitly. Nobody declares that catalog A depends on catalog B.
   latest release, so the preview shows what A's next release will render. _(Not built yet: the
   working copy reads B's working copy live.)_
 
+## Dependencies of dependencies
+
+A release records **every** catalog it renders with, not only the ones its own resources reference.
+When `letters` uses a theme from `shared`, and that theme names a font from `base`, releasing
+`letters` records both `shared` and `base`. Rendering reads every catalog from the release recorded
+for it, so nothing is looked up when a document is generated.
+
+```
+letters@1.4.0
+├── recorded
+│     shared → shared@2.0.0      direct: a template uses shared's theme
+│     base   → base@1.2.0        through shared: that theme names a font from base
+└── variant en   pins shared → shared@1.0.0   (an exception; base follows from what shared@1.0.0 recorded)
+
+shared@2.0.0
+└── recorded
+      base   → base@1.2.0
+```
+
+How the record is built when a catalog is released:
+
+1. Each catalog its own resources reference is recorded at that catalog's latest release. The release
+   is refused if one has none.
+2. Each recorded release's own recorded dependencies are followed, and so on down.
+3. **One release per catalog.** Where two dependencies recorded different releases of the same
+   catalog, the highest wins. A catalog referenced directly is never lowered by one reached through
+   another. Semantic versioning promises the higher release is compatible; the check below confirms
+   it.
+4. The release's own catalog is never a dependency of itself, so a cycle ends the walk.
+5. Each row records whether the catalog is used directly or only through another one, so the tree
+   above can be drawn from the records.
+
+The alternative was to let each release resolve its own dependencies — `shared`'s theme reading
+`base` from what `shared` recorded, while `letters` reads `base` from what `letters` recorded. It is
+more faithful to what each catalog was released with, but one document could then contain resources
+of two releases of `base`, which is what every other rule here prevents.
+
+**What the closure check confirms at release.** For every variant, resolved the way it will render
+(the recorded releases plus any variant pin), every reference it reaches must resolve — including
+references inside other catalogs' stencils and themes:
+
+- every font, image and stencil they name exists in the release it resolves to;
+- every style preset named exists in the theme the document uses (#1059 moves presets to a
+  vocabulary with defaults);
+- every stencil's placeholders and parameters still fit what the variant fills (#1047).
+
+Whatever fails is listed per variant, in the release dialog and the upgrade tool, and the release
+waits. Two dependencies that need incompatible releases of a third cannot both be satisfied in one
+document; that needs a release of one of them that works with the other, or copying the resource
+that is needed.
+
+_(Built: the record of every catalog, and rendering that refuses to guess (#1057). Not built yet:
+the closure check; today a reference the recorded release lacks fails when rendering, not when
+releasing.)_
+
 ## Pickers
 
 Selecting a theme, stencil, font or image becomes a choice across catalogs, and the picker orders it
