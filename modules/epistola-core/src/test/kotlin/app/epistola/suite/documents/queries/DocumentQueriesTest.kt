@@ -20,6 +20,7 @@ import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.publishAndRelease
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -42,19 +43,19 @@ class DocumentQueriesTest : IntegrationTestBase() {
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
-        val version = mediator.send(
+        mediator.send(
             UpdateDraft(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
+        val version = mediator.publishAndRelease(variantId)
 
         val request = mediator.send(
             GenerateDocument(
                 tenantId = tenant.id,
                 templateId = template.id,
                 variantId = variant.id,
-                versionId = version.id,
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "test.pdf",
@@ -68,7 +69,8 @@ class DocumentQueriesTest : IntegrationTestBase() {
         assertThat(job.items).hasSize(1)
         assertThat(job.items[0].templateKey).isEqualTo(template.id)
         assertThat(job.items[0].variantKey).isEqualTo(variant.id)
-        assertThat(job.items[0].versionKey).isEqualTo(version.id)
+        assertThat(job.items[0].versionKey).`as`("a request renders a release, not a version").isNull()
+        assertThat(job.items[0].releaseVersion).isEqualTo("1.0.0")
     }
 
     @Test
@@ -94,19 +96,19 @@ class DocumentQueriesTest : IntegrationTestBase() {
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
-        val version = mediator.send(
+        mediator.send(
             UpdateDraft(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
+        val version = mediator.publishAndRelease(variantId)
 
         val request = mediator.send(
             GenerateDocument(
                 tenantId = tenant1.id,
                 templateId = template.id,
                 variantId = variant.id,
-                versionId = version.id,
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "test.pdf",
@@ -129,12 +131,13 @@ class DocumentQueriesTest : IntegrationTestBase() {
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
-        val version = mediator.send(
+        mediator.send(
             UpdateDraft(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
+        val version = mediator.publishAndRelease(variantId)
 
         // Create multiple requests
         (1..3).forEach { i ->
@@ -143,7 +146,6 @@ class DocumentQueriesTest : IntegrationTestBase() {
                     tenantId = tenant.id,
                     templateId = template.id,
                     variantId = variant.id,
-                    versionId = version.id,
                     environmentId = null,
                     data = objectMapper.createObjectNode().put("test", i),
                     filename = "test-$i.pdf",
@@ -175,12 +177,13 @@ class DocumentQueriesTest : IntegrationTestBase() {
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
-        val version = mediator.send(
+        mediator.send(
             UpdateDraft(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
+        val version = mediator.publishAndRelease(variantId)
 
         // Create 5 requests
         (1..5).forEach { i ->
@@ -189,7 +192,6 @@ class DocumentQueriesTest : IntegrationTestBase() {
                     tenantId = tenant.id,
                     templateId = template.id,
                     variantId = variant.id,
-                    versionId = version.id,
                     environmentId = null,
                     data = objectMapper.createObjectNode().put("test", i),
                     filename = "test-$i.pdf",
@@ -225,19 +227,19 @@ class DocumentQueriesTest : IntegrationTestBase() {
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
-        val version = mediator.send(
+        mediator.send(
             UpdateDraft(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
+        val version = mediator.publishAndRelease(variantId)
 
         val request = mediator.send(
             GenerateDocument(
                 tenantId = tenant.id,
                 templateId = template.id,
                 variantId = variant.id,
-                versionId = version.id,
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "test.pdf",
@@ -298,18 +300,20 @@ class DocumentQueriesTest : IntegrationTestBase() {
         val templateModel2 = TestTemplateBuilder.buildMinimal(
             name = "Template 2",
         )
-        val version1 = mediator.send(
+        mediator.send(
             UpdateDraft(
                 variantId = variantId1,
                 templateModel = templateModel1,
             ),
         )!!
-        val version2 = mediator.send(
+        val version1 = mediator.publishAndRelease(variantId1)
+        mediator.send(
             UpdateDraft(
                 variantId = variantId2,
                 templateModel = templateModel2,
             ),
         )!!
+        val version2 = mediator.publishAndRelease(variantId2)
 
         // Generate documents for template1
         (1..2).forEach { i ->
@@ -318,7 +322,6 @@ class DocumentQueriesTest : IntegrationTestBase() {
                     tenantId = tenant.id,
                     templateId = template1.id,
                     variantId = variant1.id,
-                    versionId = version1.id,
                     environmentId = null,
                     data = objectMapper.createObjectNode().put("test", i),
                     filename = "template1-$i.pdf",
@@ -332,7 +335,6 @@ class DocumentQueriesTest : IntegrationTestBase() {
                 tenantId = tenant.id,
                 templateId = template2.id,
                 variantId = variant2.id,
-                versionId = version2.id,
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "template2.pdf",

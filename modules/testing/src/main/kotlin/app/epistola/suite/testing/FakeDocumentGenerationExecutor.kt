@@ -38,6 +38,7 @@ class FakeDocumentGenerationExecutor(
     fontSnapshotVerifier: app.epistola.suite.fonts.FontSnapshotVerifier,
     fontByteCache: app.epistola.suite.fonts.FontByteCache,
     localeResolver: app.epistola.suite.i18n.TenantLocaleResolver,
+    releaseRenderSource: app.epistola.suite.generation.release.ReleaseRenderSource,
     @Value("\${epistola.generation.jobs.retention-days:7}")
     retentionDays: Int = 7,
     @Value("\${epistola.generation.documents.max-size-mb:50}")
@@ -53,6 +54,7 @@ class FakeDocumentGenerationExecutor(
     fontSnapshotVerifier = fontSnapshotVerifier,
     fontByteCache = fontByteCache,
     localeResolver = localeResolver,
+    releaseRenderSource = releaseRenderSource,
     retentionDays = retentionDays,
     maxDocumentSizeMb = maxDocumentSizeMb,
 ) {
@@ -141,12 +143,12 @@ class FakeDocumentGenerationExecutor(
                 handle.createUpdate(
                     """
                     INSERT INTO documents (
-                        id, tenant_key, template_key, variant_key, version_key,
+                        id, tenant_key, template_key, variant_key, version_key, release_version,
                         filename, correlation_id, content_type, size_bytes,
                         created_at, created_by
                     )
                     VALUES (
-                        :id, :tenantId, :templateId, :variantId, :versionId,
+                        :id, :tenantId, :templateId, :variantId, :versionId, :releaseVersion,
                         :filename, :correlationId, 'application/pdf', :sizeBytes,
                         :createdAt, :createdBy
                     )
@@ -156,7 +158,8 @@ class FakeDocumentGenerationExecutor(
                     .bind("tenantId", request.tenantKey)
                     .bind("templateId", request.templateKey)
                     .bind("variantId", request.variantKey)
-                    .bind("versionId", request.versionKey ?: request.environmentKey) // Use either
+                    .bind("versionId", request.versionKey)
+                    .bind("releaseVersion", request.releaseVersion)
                     .bind("filename", filename)
                     .bind("correlationId", request.correlationId)
                     .bind("sizeBytes", fakePdfBytes.size.toLong())

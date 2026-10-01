@@ -39,7 +39,9 @@ internal fun DocumentMetadata.toDto() = DocumentDto(
     tenantId = tenantId.value,
     templateId = templateId.value,
     variantId = variantId.value,
-    versionId = versionId.value,
+    // Interim, until the 2.0 contract: a document rendered from a catalog release has no template
+    // version, but the 1.x DocumentDto requires one. 0 is never a real version (they start at 1).
+    versionId = versionId?.value ?: 0,
     filename = filename,
     correlationId = correlationId,
     contentType = contentType,

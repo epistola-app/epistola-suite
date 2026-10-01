@@ -54,7 +54,7 @@ class GetDocumentHandler(
     override fun handle(query: GetDocument): Document? = jdbi.withHandle<Document?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_key, catalog_key, template_key, variant_key, version_key,
+            SELECT id, tenant_key, catalog_key, template_key, variant_key, version_key, release_version,
                    filename, correlation_id, content_type, size_bytes,
                    created_at, created_by
             FROM documents
@@ -71,7 +71,8 @@ class GetDocumentHandler(
                     catalogKey = CatalogKey(rs.getString("catalog_key")),
                     templateKey = TemplateKey(rs.getString("template_key")),
                     variantKey = VariantKey(rs.getString("variant_key")),
-                    versionKey = VersionKey(rs.getInt("version_key")),
+                    versionKey = (rs.getObject("version_key") as Int?)?.let(::VersionKey),
+                    releaseVersion = rs.getString("release_version"),
                     filename = rs.getString("filename"),
                     correlationId = rs.getString("correlation_id"),
                     contentType = rs.getString("content_type"),

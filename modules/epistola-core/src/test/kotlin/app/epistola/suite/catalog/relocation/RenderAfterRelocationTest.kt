@@ -37,29 +37,33 @@ class RenderAfterRelocationTest : RelocationTestSupport() {
      * cycle and the only question is whether the published document still renders.
      */
     @Test
-    fun `a published document fails to render after its theme's font family moves`() {
+    fun `a released document still renders after its theme's font family moves`() {
         val tenant = tenantWith("Render after font move", listOf(letters, shared, archive))
         importFont(tenant, letters, "acme")
         withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, archive)), "Brand", documentStyles = fontStyle("acme", letters.value)).execute() }
-        val version = publishTemplate(tenant, archive, textModel(usesTheme("brand", archive.value).themeRef))
-        assertPreviewRenders(tenant, archive, version)
+        publishTemplate(tenant, archive, textModel(usesTheme("brand", archive.value).themeRef))
+        releaseAll(tenant, catalogsOf(tenant))
+        assertPreviewRenders(tenant, archive)
 
         move(tenant, address(CatalogResourceType.FONT, letters, "acme").movedTo(shared))
 
-        assertThatThrownBy { assertPreviewRenders(tenant, archive, version) }.isInstanceOf(FontIntegrityException::class.java)
+        // The release kept the font's bytes, so moving the family in the working copy does not reach it.
+        assertPreviewRenders(tenant, archive)
     }
 
     @Test
-    fun `a published document fails to render after its theme's font family is renamed`() {
+    fun `a released document still renders after its theme's font family is renamed`() {
         val tenant = tenantWith("Render after font rename")
         importFont(tenant, letters, "acme")
         withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, letters)), "Brand", documentStyles = fontStyle("acme", letters.value)).execute() }
-        val version = publishTemplate(tenant, letters, textModel(usesTheme("brand", letters.value).themeRef))
-        assertPreviewRenders(tenant, letters, version)
+        publishTemplate(tenant, letters, textModel(usesTheme("brand", letters.value).themeRef))
+        releaseAll(tenant, catalogsOf(tenant))
+        assertPreviewRenders(tenant, letters)
 
         move(tenant, address(CatalogResourceType.FONT, letters, "acme").renamedTo("acme-grotesk"))
 
-        assertThatThrownBy { assertPreviewRenders(tenant, letters, version) }.isInstanceOf(FontIntegrityException::class.java)
+        // The release kept the font's bytes, so renaming the family in the working copy does not reach it.
+        assertPreviewRenders(tenant, letters)
     }
 
     @Test
@@ -67,35 +71,38 @@ class RenderAfterRelocationTest : RelocationTestSupport() {
         val tenant = tenantWith("Render after theme move", listOf(letters, shared, archive))
         importFont(tenant, letters, "acme")
         withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, letters)), "Brand", documentStyles = fontStyle("acme", letters.value)).execute() }
-        val version = publishTemplate(tenant, archive, textModel(usesTheme("brand", letters.value).themeRef))
+        publishTemplate(tenant, archive, textModel(usesTheme("brand", letters.value).themeRef))
+        releaseAll(tenant, catalogsOf(tenant))
 
         move(tenant, address(CatalogResourceType.THEME, letters, "brand").movedTo(shared))
 
-        assertPreviewRenders(tenant, archive, version)
+        assertPreviewRenders(tenant, archive)
     }
 
     @Test
     fun `a published document still renders after the image it shows moves, without the image`() {
         val tenant = tenantWith("Render after image move")
         uploadPng(tenant, letters, "logo", renderablePng())
-        val version = publishTemplate(tenant, letters, singleNodeModel(Node(id = "logo", type = "image", props = mapOf("assetId" to "logo", "catalogKey" to letters.value))))
+        publishTemplate(tenant, letters, singleNodeModel(Node(id = "logo", type = "image", props = mapOf("assetId" to "logo", "catalogKey" to letters.value))))
+        releaseAll(tenant, catalogsOf(tenant))
 
         move(tenant, address(CatalogResourceType.IMAGE, letters, "logo").movedTo(shared))
 
-        assertPreviewRenders(tenant, letters, version)
+        assertPreviewRenders(tenant, letters)
     }
 
     @Test
     fun `a published document still renders after the stencil it inserts moves and is renamed`() {
         val tenant = tenantWith("Render after stencil move")
         val header = StencilId(StencilKey.of("header"), catalogId(tenant, letters))
-        val version = publishTemplate(tenant, letters, templateEmbedding("header", letters.value)) {
+        publishTemplate(tenant, letters, templateEmbedding("header", letters.value)) {
             CreateStencil(header, "Header").execute()
             PublishStencilVersion(StencilVersionId(VersionKey.of(1), header)).execute()
         }
+        releaseAll(tenant, catalogsOf(tenant))
 
         move(tenant, address(CatalogResourceType.STENCIL, letters, "header").movedTo(shared, "masthead"))
 
-        assertPreviewRenders(tenant, letters, version)
+        assertPreviewRenders(tenant, letters)
     }
 }

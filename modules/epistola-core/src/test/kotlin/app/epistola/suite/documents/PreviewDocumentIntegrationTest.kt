@@ -589,7 +589,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val variant = variant(compositeTemplateId, "Default")
                 val compositeVariantId = VariantId(variant.id, compositeTemplateId)
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
-                val version = version(compositeVariantId, templateModel)
+                val version = released(compositeVariantId, templateModel)
                 DocumentSetup(tenant, template, variant, version)
             }.whenever { setup ->
                 query(
@@ -598,7 +598,6 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                         catalogKey = CatalogKey.DEFAULT,
                         templateId = setup.template.id,
                         variantId = setup.variant.id,
-                        versionId = setup.version.id,
                         data = emptyData(),
                     ),
                 )
@@ -609,7 +608,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
         }
 
         @Test
-        fun `preview throws when version not found`() = scenario {
+        fun `preview refuses an explicit template version`() = scenario {
             given {
                 val tenant = tenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
@@ -618,7 +617,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val variant = variant(compositeTemplateId, "Default")
                 val compositeVariantId = VariantId(variant.id, compositeTemplateId)
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
-                val version = version(compositeVariantId, templateModel)
+                val version = released(compositeVariantId, templateModel)
                 DocumentSetup(tenant, template, variant, version)
             }.whenever { setup ->
                 setup
@@ -630,13 +629,12 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                             catalogKey = CatalogKey.DEFAULT,
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
-                            versionId = app.epistola.suite.common.ids.VersionKey.of(199),
+                            versionId = setup.version.id,
                             data = emptyData(),
                         ),
                     )
-                }.isInstanceOf(VersionNotFoundException::class.java)
-                    .hasMessageContaining("Version")
-                    .hasMessageContaining("not found")
+                }.isInstanceOf(app.epistola.suite.validation.ValidationException::class.java)
+                    .hasMessageContaining("no longer supported")
             }
         }
 
@@ -650,7 +648,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val variant = variant(compositeTemplateId, "Default")
                 val compositeVariantId = VariantId(variant.id, compositeTemplateId)
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
-                val version = version(compositeVariantId, templateModel)
+                val version = released(compositeVariantId, templateModel)
                 DocumentSetup(tenant, template, variant, version)
             }.whenever { setup ->
                 setup
@@ -751,7 +749,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 ).execute()
                 val variant = variant(compositeTemplateId, "Default")
                 val compositeVariantId = VariantId(variant.id, compositeTemplateId)
-                val version = version(compositeVariantId, TestTemplateBuilder.buildMinimal(name = "Test Template"))
+                val version = released(compositeVariantId, TestTemplateBuilder.buildMinimal(name = "Test Template"))
                 val environmentId = EnvironmentId(TestIdHelpers.nextEnvironmentId(), tenantId)
                 CreateEnvironment(id = environmentId, name = "Production").execute()
                 PublishToEnvironment(VersionId(version.id, compositeVariantId), environmentId).execute()
