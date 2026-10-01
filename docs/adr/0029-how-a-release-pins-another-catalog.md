@@ -243,6 +243,30 @@ Implicitly. Nobody declares that catalog A depends on catalog B.
   latest release, so the preview shows what A's next release will render. _(Not built yet: the
   working copy reads B's working copy live.)_
 
+## Pickers
+
+Selecting a theme, stencil, font or image becomes a choice across catalogs, and the picker orders it
+so the common case stays one click:
+
+1. **This catalog's own resources** first.
+2. **Resources of catalogs it already uses**, grouped by catalog and labelled with the release they
+   come from ("shared · 2.0.0"). Choosing one adds no new dependency.
+3. **Resources of catalogs it does not use yet**, last and marked as such ("adds a dependency on
+   `branding`"). Choosing one is how a dependency arises. A catalog with no release offers nothing
+   here, with the reason: there is nothing it could be released against.
+
+"Already uses" means: referenced by this catalog's working copy, which is also what its next release
+will record.
+
+**Pinning from the picker.** As stencil versions could be pinned at insertion before, the picker
+offers the release to use — the default, which follows the latest, or a specific earlier release.
+Choosing a specific one sets **the template's pin for that catalog**, not a pin on the one reference
+(point 1 of the template pin rules above): every resource of that catalog the template reaches then
+comes from that release. The picker says so when the template already uses other resources of that
+catalog ("pins all 4 resources from `shared` in this template to 1.0.0"), and offers only releases
+that still contain everything the template uses from that catalog. A resource of the catalog's own
+release is never pinned; within a catalog there is one revision of everything (#1047).
+
 ## The upgrade tool
 
 One tool for every kind of upstream change a template can be exposed to: a newer release of another
