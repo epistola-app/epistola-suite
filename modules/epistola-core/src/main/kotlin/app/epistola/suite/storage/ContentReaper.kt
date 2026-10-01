@@ -17,22 +17,51 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
+import java.time.OffsetDateTime
 import java.util.concurrent.atomic.AtomicLong
+
+/**
+ * What still holds an `asset_content` blob, for a row aliased `ac`.
+ *
+ * One definition for the sweep and for the gauge: two copies of a reachability rule is how a blob
+ * comes to be deleted by one and counted as present by the other.
+ *
+ * Two kinds of holder. A **live asset row** — scope derived from its `sensitive` flag exactly as at
+ * write time, so a global blob survives while any asset references it and a sensitive one only
+ * while its own tenant does. And a **revision**, which is the content a release retained:
+ * `revision_binaries` names the bytes a released resource needs, and dropping that resource from
+ * the working copy must not take them with it (ADR 0026). The foreign key from `revision_binaries`
+ * says the same thing, so a miss here fails loudly rather than losing bytes.
+ */
+private const val BLOB_IS_HELD = """
+    EXISTS (
+        SELECT 1 FROM assets a
+        WHERE a.content_hash = ac.content_hash
+          AND (CASE WHEN a.sensitive THEN a.tenant_key::text ELSE 'global' END) = ac.scope
+    )
+    OR EXISTS (
+        SELECT 1 FROM revision_binaries rb
+        WHERE rb.content_hash = ac.content_hash AND rb.scope = ac.scope
+    )
+"""
 
 /**
  * Reclaims unreferenced blob storage and drives backend-specific document retention
  * (issue #738). A single-owner, daily cluster task that:
  *
- *  1. **Mark-and-sweeps asset blobs** — deletes `asset_content` rows no live `assets`
- *     row references (its `(scope, content_hash)`). This is how a deleted or re-pointed
- *     asset's bytes are actually reclaimed, since `DeleteAsset` no longer deletes blobs.
- *     A grace window skips very recently written blobs so an in-flight upload (blob
- *     written, `assets` row not yet inserted) is never swept.
+ *  1. **Mark-and-sweeps asset blobs** — deletes `asset_content` rows that nothing holds
+ *     ([BLOB_IS_HELD]: no live `assets` row and no retained revision). This is how a
+ *     deleted or re-pointed asset's bytes are actually reclaimed, since `DeleteAsset` no
+ *     longer deletes blobs. A grace window skips very recently written blobs so an
+ *     in-flight upload (blob written, `assets` row not yet inserted) is never swept.
  *  2. **Drives [ContentRetentionMaintainer]s** — the filesystem document backend's age
  *     sweep (PostgreSQL reclaims via partition drops, S3 via its lifecycle rule, so both
  *     contribute a no-op maintainer).
  *  3. **Publishes a gauge** — `epistola.storage.orphaned_blobs{namespace=asset}` so a
- *     leak (or a regression in the reclaim path) can't grow silently.
+ *     leak (or a regression in the reclaim path) can't grow silently. It counts blobs
+ *     that outlived the grace window and that nothing holds — which the sweep that just
+ *     ran should have taken — so a healthy installation reads zero rather than however
+ *     many uploads happen to be in flight.
  *
  * All work is idempotent (set-based `DELETE … WHERE NOT EXISTS`, put-if-absent uploads),
  * so a re-run of a wedged single-owner occurrence is safe — no advisory lock needed.
@@ -82,7 +111,10 @@ class ContentReaper(
 
     fun reap() {
         meterRegistry.recordScheduledTask("content-reaper") {
-            val swept = sweepUnreferencedAssetBlobs()
+            // One cutoff for the sweep and the count that follows it: the gauge is asking whether
+            // the sweep did its job, which is only a meaningful question about the same rows.
+            val cutoff = EpistolaClock.offsetDateTime().minusMinutes(assetGraceMinutes)
+            val swept = sweepUnreferencedAssetBlobs(cutoff)
             if (swept > 0) logger.info("Reaped {} unreferenced asset blob(s)", swept)
 
             maintainers.forEach { maintainer ->
@@ -93,47 +125,33 @@ class ContentReaper(
                 }
             }
 
-            orphanedAssetBlobs.set(countUnreferencedAssetBlobs())
+            orphanedAssetBlobs.set(countUnreferencedAssetBlobs(cutoff))
         }
+    }
+
+    /** Delete blobs older than the grace window that nothing holds — see [BLOB_IS_HELD]. */
+    private fun sweepUnreferencedAssetBlobs(cutoff: OffsetDateTime): Int = jdbi.withHandle<Int, Exception> { handle ->
+        handle.createUpdate(
+            """
+                DELETE FROM asset_content ac
+                WHERE ac.created_at < :cutoff
+                  AND NOT ($BLOB_IS_HELD)
+                """,
+        )
+            .bind("cutoff", cutoff)
+            .execute()
     }
 
     /**
-     * Delete `asset_content` blobs older than the grace window that no `assets` row
-     * references. Scope is derived from the referencing asset's `sensitive` flag exactly
-     * as at write time (`sensitive ? tenant_key : 'global'`), so a global blob survives
-     * as long as ANY asset references it, and a sensitive blob only while its tenant does.
+     * How many blobs the sweep should have taken and did not.
+     *
+     * Same cutoff, so a blob still inside the grace window — an upload whose `assets` row is not
+     * written yet — is not counted as orphaned. Those are the normal case, not a leak, and counting
+     * them made the gauge noisy enough that its own test could only assert a non-negative number.
      */
-    private fun sweepUnreferencedAssetBlobs(): Int {
-        val cutoff = EpistolaClock.offsetDateTime().minusMinutes(assetGraceMinutes)
-        return jdbi.withHandle<Int, Exception> { handle ->
-            handle.createUpdate(
-                """
-                DELETE FROM asset_content ac
-                WHERE ac.created_at < :cutoff
-                  AND NOT EXISTS (
-                      SELECT 1 FROM assets a
-                      WHERE a.content_hash = ac.content_hash
-                        AND (CASE WHEN a.sensitive THEN a.tenant_key::text ELSE 'global' END) = ac.scope
-                  )
-                """,
-            )
-                .bind("cutoff", cutoff)
-                .execute()
-        }
-    }
-
-    /** Count of unreferenced asset blobs still present (bounded small table). */
-    private fun countUnreferencedAssetBlobs(): Long = jdbi.withHandle<Long, Exception> { handle ->
-        handle.createQuery(
-            """
-            SELECT count(*) FROM asset_content ac
-            WHERE NOT EXISTS (
-                SELECT 1 FROM assets a
-                WHERE a.content_hash = ac.content_hash
-                  AND (CASE WHEN a.sensitive THEN a.tenant_key::text ELSE 'global' END) = ac.scope
-            )
-            """,
-        )
+    private fun countUnreferencedAssetBlobs(cutoff: OffsetDateTime): Long = jdbi.withHandle<Long, Exception> { handle ->
+        handle.createQuery("SELECT count(*) FROM asset_content ac WHERE ac.created_at < :cutoff AND NOT ($BLOB_IS_HELD)")
+            .bind("cutoff", cutoff)
             .mapTo(Long::class.java)
             .one()
     }

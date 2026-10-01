@@ -66,10 +66,18 @@ class DumpTenantTables(
     }
 
     /**
-     * The asset_content blobs referenced by this tenant's assets, resolved through the
-     * `content_hash` pointer and the derived dedup scope
-     * (`sensitive ? tenant_key : 'global'`). DISTINCT because many assets may share one
-     * deduplicated blob (#738).
+     * The asset_content blobs this tenant holds.
+     *
+     * Two holders, the same two the content reaper refuses to collect. Its **assets**, resolved
+     * through the `content_hash` pointer and the derived dedup scope
+     * (`sensitive ? tenant_key : 'global'`). And its **retained revisions**, which name the bytes a
+     * released resource needs directly — a release whose image has since been deleted from the
+     * working copy has no asset row left to reach them through, and restoring without them would
+     * restore a release that can no longer be reproduced.
+     *
+     * One pass over `asset_content` asking whether either holder exists, and DISTINCT, because many
+     * assets may share one deduplicated blob (#738) and a revision may name one an asset still
+     * points at.
      */
     private fun dumpBlobs(
         handle: Handle,
@@ -79,9 +87,13 @@ class DumpTenantTables(
             "SELECT DISTINCT ac.scope, ac.content_hash, ac.content_type, ac.size_bytes, " +
                 "  ac.created_at::text AS created_at, ac.content " +
                 "FROM asset_content ac " +
-                "JOIN assets a ON a.content_hash = ac.content_hash " +
-                "  AND ac.scope = CASE WHEN a.sensitive THEN a.tenant_key::text ELSE 'global' END " +
-                "WHERE a.tenant_key = :tk " +
+                "WHERE EXISTS (" +
+                "    SELECT 1 FROM assets a WHERE a.tenant_key = :tk AND a.content_hash = ac.content_hash " +
+                "      AND ac.scope = CASE WHEN a.sensitive THEN a.tenant_key::text ELSE 'global' END" +
+                "  ) OR EXISTS (" +
+                "    SELECT 1 FROM revision_binaries rb WHERE rb.tenant_key = :tk " +
+                "      AND rb.content_hash = ac.content_hash AND rb.scope = ac.scope" +
+                "  ) " +
                 "ORDER BY ac.scope, ac.content_hash",
         ).bind("tk", tenantKey)
         .map { rs, _ ->

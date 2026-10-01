@@ -128,15 +128,16 @@ class AssetContentStoreIT : IntegrationTestBase() {
         // which computes its cutoff from EpistolaClock, not DB now() — treats it as aged.
         // Raw SQL: planting a historical timestamp the reaper asserts against; no command
         // sets asset_content.created_at.
-        backdateBlob(GLOBAL_ASSET_SCOPE, hash)
+        jdbi.backdateAssetBlob(GLOBAL_ASSET_SCOPE, hash)
         reaper.reap()
 
         assertThat(assetContentStore.exists(GLOBAL_ASSET_SCOPE, hash))
             .`as`("reaper should mark-and-sweep the now-unreferenced blob")
             .isFalse()
-        // Gauge is published by the reaper (global count; other parallel tests may add
-        // within-grace orphans, so only assert it's a finite non-negative value).
-        assertThat(orphanGauge()).isGreaterThanOrEqualTo(0.0)
+        // The gauge counts what the sweep should have taken and did not, so a run that swept
+        // everything reads zero. Blobs other tests leave inside the grace window are not orphans
+        // and no longer inflate it.
+        assertThat(orphanGauge()).isZero()
     }
 
     @Test
@@ -189,13 +190,6 @@ class AssetContentStoreIT : IntegrationTestBase() {
         catalogKey = cat,
         sensitive = sensitive,
     ).execute().id
-
-    private fun backdateBlob(scope: String, hash: String) = jdbi.useHandle<Exception> { handle ->
-        handle.createUpdate("UPDATE asset_content SET created_at = now() - interval '5 years' WHERE scope = :s AND content_hash = :h")
-            .bind("s", scope)
-            .bind("h", hash)
-            .execute()
-    }
 
     private fun orphanGauge(): Double = meterRegistry.get("epistola.storage.orphaned_blobs").tag("namespace", "asset").gauge().value()
 }

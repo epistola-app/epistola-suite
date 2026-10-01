@@ -1,0 +1,1330 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Epistola Suite — Engineering Review Brief</title>
+    <style>
+      :root {
+        --bg: #fbfaf8;
+        --panel: #ffffff;
+        --ink: #16151a;
+        --ink-2: #4a4752;
+        --ink-3: #6f6b78;
+        --line: #e2ded8;
+        --line-2: #cfc9c0;
+        --accent: #7c3f1d;
+        --accent-soft: #f4ece5;
+        --good: #2f6b45;
+        --good-soft: #e8f2ec;
+        --warn: #8a6116;
+        --warn-soft: #f8f0dd;
+        --bad: #9a2f2f;
+        --bad-soft: #f9eaea;
+        --code-bg: #f2efea;
+        --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+        --sans:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #141317;
+          --panel: #1c1b21;
+          --ink: #f0eee9;
+          --ink-2: #bab5c0;
+          --ink-3: #918c9b;
+          --line: #2e2c35;
+          --line-2: #403d49;
+          --accent: #e0a074;
+          --accent-soft: #2a2018;
+          --good: #7fc79b;
+          --good-soft: #18251d;
+          --warn: #e0bb6b;
+          --warn-soft: #272014;
+          --bad: #e58c8c;
+          --bad-soft: #2a1a1a;
+          --code-bg: #26242c;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 15px;
+        line-height: 1.55;
+        padding: 0 0 6rem;
+      }
+      .wrap {
+        max-width: 1060px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+      header.top {
+        border-bottom: 1px solid var(--line);
+        padding: 44px 0 30px;
+        margin-bottom: 36px;
+      }
+      .eyebrow {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin: 0 0 12px;
+      }
+      h1 {
+        font-size: 34px;
+        line-height: 1.15;
+        margin: 0 0 10px;
+        letter-spacing: -0.02em;
+        font-weight: 640;
+      }
+      .sub {
+        color: var(--ink-2);
+        margin: 0;
+        max-width: 62ch;
+        font-size: 16px;
+      }
+      h2 {
+        font-size: 13px;
+        font-family: var(--mono);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--ink-3);
+        margin: 56px 0 4px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+      }
+      h2 .n {
+        color: var(--accent);
+        font-weight: 700;
+      }
+      h3 {
+        font-size: 17px;
+        margin: 30px 0 8px;
+        letter-spacing: -0.01em;
+        font-weight: 620;
+      }
+      p {
+        margin: 0 0 12px;
+        max-width: 76ch;
+      }
+      code,
+      .m {
+        font-family: var(--mono);
+        font-size: 0.87em;
+        background: var(--code-bg);
+        padding: 1px 5px;
+        border-radius: 4px;
+        color: var(--ink);
+      }
+      a {
+        color: var(--accent);
+      }
+      .lead {
+        font-size: 16px;
+        color: var(--ink-2);
+        max-width: 72ch;
+        margin-top: 14px;
+      }
+
+      /* stats */
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1px;
+        background: var(--line);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 22px 0 8px;
+      }
+      .stat {
+        background: var(--panel);
+        padding: 16px 16px 14px;
+      }
+      .stat b {
+        display: block;
+        font-size: 25px;
+        letter-spacing: -0.02em;
+        font-weight: 640;
+        line-height: 1.1;
+      }
+      .stat span {
+        display: block;
+        font-size: 12px;
+        color: var(--ink-3);
+        margin-top: 5px;
+        line-height: 1.35;
+      }
+      .stat.warn b {
+        color: var(--warn);
+      }
+      .stat.good b {
+        color: var(--good);
+      }
+
+      /* figure */
+      figure {
+        margin: 26px 0 8px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 20px 18px 12px;
+        overflow-x: auto;
+      }
+      figure svg {
+        display: block;
+        width: 100%;
+        height: auto;
+        min-width: 660px;
+      }
+      figcaption {
+        font-size: 12.5px;
+        color: var(--ink-3);
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid var(--line);
+        line-height: 1.5;
+      }
+
+      /* svg tokens */
+      svg .bx {
+        fill: var(--panel);
+        stroke: var(--line-2);
+        stroke-width: 1.4;
+      }
+      svg .bx-a {
+        fill: var(--accent-soft);
+        stroke: var(--accent);
+        stroke-width: 1.6;
+      }
+      svg .bx-g {
+        fill: var(--good-soft);
+        stroke: var(--good);
+        stroke-width: 1.4;
+      }
+      svg .bx-w {
+        fill: var(--warn-soft);
+        stroke: var(--warn);
+        stroke-width: 1.4;
+      }
+      svg .t {
+        fill: var(--ink);
+        font-family: var(--sans);
+        font-size: 13px;
+        font-weight: 600;
+      }
+      svg .t2 {
+        fill: var(--ink-3);
+        font-family: var(--mono);
+        font-size: 10.5px;
+      }
+      svg .t3 {
+        fill: var(--ink-2);
+        font-family: var(--sans);
+        font-size: 11.5px;
+      }
+      svg .ta {
+        fill: var(--accent);
+        font-family: var(--mono);
+        font-size: 10.5px;
+        font-weight: 600;
+      }
+      svg .ln {
+        stroke: var(--line-2);
+        stroke-width: 1.4;
+        fill: none;
+      }
+      svg .ln-a {
+        stroke: var(--accent);
+        stroke-width: 1.8;
+        fill: none;
+      }
+      svg .ln-d {
+        stroke: var(--line-2);
+        stroke-width: 1.3;
+        fill: none;
+        stroke-dasharray: 4 3;
+      }
+
+      /* tables */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 18px 0 6px;
+        font-size: 13.5px;
+        display: block;
+        overflow-x: auto;
+      }
+      th {
+        text-align: left;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--ink-3);
+        padding: 0 12px 8px 0;
+        border-bottom: 1px solid var(--line-2);
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      td {
+        padding: 9px 12px 9px 0;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+        line-height: 1.45;
+      }
+      td:first-child {
+        white-space: nowrap;
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+
+      .pill {
+        display: inline-block;
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 2px 7px;
+        border-radius: 20px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .p-fix {
+        background: var(--good-soft);
+        color: var(--good);
+      }
+      .p-open {
+        background: var(--bad-soft);
+        color: var(--bad);
+      }
+      .p-part {
+        background: var(--warn-soft);
+        color: var(--warn);
+      }
+      .p-acc {
+        background: var(--code-bg);
+        color: var(--ink-3);
+      }
+
+      /* qa */
+      .qa {
+        border-left: 2px solid var(--line-2);
+        padding: 2px 0 2px 20px;
+        margin: 26px 0;
+      }
+      .qa .q {
+        font-weight: 640;
+        font-size: 15.5px;
+        margin: 0 0 8px;
+        letter-spacing: -0.01em;
+      }
+      .qa p {
+        font-size: 14.5px;
+        color: var(--ink-2);
+        margin-bottom: 10px;
+      }
+      .qa strong {
+        color: var(--ink);
+      }
+      .qa.hot {
+        border-left-color: var(--accent);
+      }
+
+      .callout {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--accent);
+        border-radius: 0 8px 8px 0;
+        padding: 14px 18px;
+        margin: 20px 0;
+        font-size: 14px;
+        color: var(--ink-2);
+      }
+      .callout b {
+        color: var(--ink);
+      }
+      .callout.bad {
+        border-left-color: var(--bad);
+      }
+
+      ul {
+        margin: 8px 0 14px;
+        padding-left: 20px;
+        max-width: 76ch;
+      }
+      li {
+        margin-bottom: 7px;
+        color: var(--ink-2);
+      }
+      li strong {
+        color: var(--ink);
+      }
+      .tight li {
+        margin-bottom: 4px;
+      }
+
+      footer {
+        margin-top: 64px;
+        padding-top: 20px;
+        border-top: 1px solid var(--line);
+        font-size: 12px;
+        color: var(--ink-3);
+        font-family: var(--mono);
+      }
+      @media print {
+        body {
+          background: #fff;
+        }
+        h2 {
+          page-break-after: avoid;
+        }
+        figure {
+          page-break-inside: avoid;
+        }
+        .qa {
+          page-break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <p class="eyebrow">Internal briefing · prepared 2 September 2026</p>
+        <h1>Epistola Suite — engineering review brief</h1>
+        <p class="sub">
+          What the system is, how it is built, what enforces quality, and — deliberately up front —
+          what is still wrong with it. Every claim here is traceable to a path in the repository.
+        </p>
+      </header>
+
+      <h2><span class="n">01</span> At a glance</h2>
+      <div class="stats">
+        <div class="stat">
+          <b>1,133</b><span>commits since 17 Dec 2025 · 337 in the last 90 days</span>
+        </div>
+        <div class="stat">
+          <b>v1.1.0</b
+          ><span>GA at 1.0.0 on 31 Jul 2026 · 84 tags · 32 released changelog sections</span>
+        </div>
+        <div class="stat">
+          <b>3,068</b><span>JUnit tests · 904 main / 463 test Kotlin files</span>
+        </div>
+        <div class="stat good">
+          <b>79%</b><span>Kover line coverage — badged, <em>not</em> gated</span>
+        </div>
+        <div class="stat"><b>21+2</b><span>Gradle modules plus two deployable apps</span></div>
+        <div class="stat">
+          <b>101</b><span>REST operations · 26 MCP tools · 98 Thymeleaf templates</span>
+        </div>
+        <div class="stat"><b>49</b><span>Flyway migrations, module-owned, forward-only</span></div>
+        <div class="stat warn">
+          <b>8 high</b><span>current Trivy badge · 0 critical (critical fails CI)</span>
+        </div>
+      </div>
+      <p class="lead">
+        Test split: <strong>994</strong> integration tests on a real Postgres via Testcontainers,
+        <strong>94</strong> Playwright browser tests, <strong>18</strong> architecture-guard tests,
+        the balance unit tests, plus <strong>1,822</strong> vitest cases in the TypeScript editor.
+        Licence AGPL-3.0 with REUSE/SPDX compliance; release images are cosign-signed with an
+        attested CycloneDX SBOM.
+      </p>
+
+      <h2><span class="n">02</span> What it is</h2>
+      <p>
+        A multi-tenant document generation platform. Business users design templates in a block
+        editor; developers generate PDFs through a REST API. The unit of work is a
+        <strong>template</strong>, which owns a JSON-Schema <strong>data contract</strong> and N
+        <strong>variants</strong> (language, brand, audience), each with immutable numbered
+        <strong>versions</strong> that move <span class="m">DRAFT → PUBLISHED → ARCHIVED</span> and
+        are promoted per <strong>environment</strong>. Templates, themes, stencils, fonts, code
+        lists and attributes are all owned by a <strong>catalog</strong>, which is the unit of
+        exchange between installations.
+      </p>
+      <p>
+        Rendering is <strong>direct to iText</strong> — a normalised flat node/slot graph straight
+        to PDF, with no intermediate HTML and no headless browser. 10–50 ms simple, 50–200 ms
+        complex.
+      </p>
+
+      <figure>
+        <svg
+          viewBox="0 0 880 468"
+          role="img"
+          aria-label="System context: three surfaces converge on one mediator"
+        >
+          <text class="t2" x="0" y="12">
+            SURFACES — all three funnel through one dispatch point
+          </text>
+
+          <rect class="bx" x="0" y="24" width="268" height="58" rx="7" />
+          <text class="t" x="16" y="47">Web UI</text>
+          <text class="t2" x="16" y="65">Thymeleaf + HTMX · /tenants/**</text>
+
+          <rect class="bx" x="290" y="24" width="268" height="58" rx="7" />
+          <text class="t" x="306" y="47">REST API</text>
+          <text class="t2" x="306" y="65">/api/** · 101 ops · ApiKey or JWT</text>
+
+          <rect class="bx bx-w" x="580" y="24" width="268" height="58" rx="7" />
+          <text class="t" x="596" y="47">MCP server</text>
+          <text class="t2" x="596" y="65">/api/mcp · 26 read-only tools</text>
+
+          <path class="ln" d="M134 82 L134 106 L424 106 L424 126" />
+          <path class="ln" d="M424 82 L424 126" />
+          <path class="ln" d="M714 82 L714 106 L424 106" />
+          <path class="ln-a" d="M424 118 L424 130 M418 124 L424 132 L430 124" />
+
+          <rect class="bx-a" x="0" y="134" width="848" height="62" rx="7" />
+          <text class="t" x="16" y="158">
+            SpringMediator — authorization enforced before dispatch
+          </text>
+          <text class="ta" x="16" y="177">
+            Authorized marker required · unmarked message throws at dispatch · NESTED transaction
+            per command
+          </text>
+
+          <path class="ln-a" d="M424 196 L424 216 M418 208 L424 216 L430 208" />
+
+          <rect class="bx" x="0" y="222" width="410" height="62" rx="7" />
+          <text class="t" x="16" y="245">Domain handlers</text>
+          <text class="t2" x="16" y="264">119 command · 118 query handlers, Spring-discovered</text>
+
+          <rect class="bx" x="438" y="222" width="410" height="62" rx="7" />
+          <text class="t" x="454" y="245">Async generation pipeline</text>
+          <text class="t2" x="454" y="264">
+            JobPoller · FOR UPDATE SKIP LOCKED · platform threads
+          </text>
+
+          <path class="ln" d="M205 284 L205 316 M199 308 L205 316 L211 308" />
+          <path class="ln" d="M643 284 L643 316 M637 308 L643 316 L649 308" />
+
+          <rect class="bx" x="0" y="322" width="268" height="66" rx="7" />
+          <text class="t" x="16" y="345">PostgreSQL</text>
+          <text class="t2" x="16" y="363">JDBI 3, hand-written SQL, no ORM</text>
+          <text class="t2" x="16" y="378">49 Flyway migrations · partitioned tables</text>
+
+          <rect class="bx" x="290" y="322" width="268" height="66" rx="7" />
+          <text class="t" x="306" y="345">ContentStore</text>
+          <text class="t2" x="306" y="363">Postgres (supported)</text>
+          <text class="t2" x="306" y="378">S3 · filesystem · memory (alpha)</text>
+
+          <rect class="bx bx-g" x="580" y="322" width="268" height="66" rx="7" />
+          <text class="t" x="596" y="345">modules/generation</text>
+          <text class="t2" x="596" y="363">iText 9.7 · pure renderer</text>
+          <text class="t2" x="596" y="378">zero dependency on epistola-core</text>
+
+          <rect class="bx" x="0" y="410" width="848" height="46" rx="7" />
+          <text class="t3" x="16" y="429">
+            Coordination is PostgreSQL only — no Kafka, no Redis, no ZooKeeper.
+          </text>
+          <text class="t2" x="16" y="447">
+            cluster_nodes heartbeat · leased single-owner scheduled tasks · capability routing
+            (suite | pdf-render) enforced in SQL at claim time
+          </text>
+        </svg>
+        <figcaption>
+          The load-bearing property: the UI, the REST API and the MCP server are three thin adapters
+          over <em>the same</em> command and query objects. A permission is written once, on the
+          message, and holds on all three. <span class="m">UiRestApiSeparationTest</span> keeps the
+          UI from short-cutting through REST; <span class="m">DomainBoundaryTest</span> keeps
+          handlers from calling each other directly and bypassing the gate.
+        </figcaption>
+      </figure>
+
+      <h2><span class="n">03</span> The dispatch path — where the guarantees live</h2>
+      <p>
+        This is the part worth defending in detail. Authorization is not sprinkled across
+        controllers; it is a property of the message, checked centrally, and
+        <strong>fail-closed by construction</strong>.
+      </p>
+
+      <figure>
+        <svg
+          viewBox="0 0 880 330"
+          role="img"
+          aria-label="Request dispatch and authorization pipeline"
+        >
+          <rect class="bx" x="0" y="16" width="118" height="52" rx="7" />
+          <text class="t" x="12" y="38">Request</text>
+          <text class="t2" x="12" y="56">any surface</text>
+
+          <path class="ln" d="M118 42 L146 42 M138 36 L146 42 L138 48" />
+          <rect class="bx" x="146" y="16" width="150" height="52" rx="7" />
+          <text class="t" x="158" y="38">MediatorFilter</text>
+          <text class="t2" x="158" y="56">binds mediator + Clock</text>
+
+          <path class="ln" d="M296 42 L324 42 M316 36 L324 42 L316 48" />
+          <rect class="bx" x="324" y="16" width="150" height="52" rx="7" />
+          <text class="t" x="336" y="38">SecurityFilter</text>
+          <text class="t2" x="336" y="56">binds EpistolaPrincipal</text>
+
+          <path class="ln" d="M474 42 L502 42 M494 36 L502 42 L494 48" />
+          <rect class="bx" x="502" y="16" width="150" height="52" rx="7" />
+          <text class="t" x="514" y="38">FeatureToggle</text>
+          <text class="t2" x="514" y="56">per-request cache</text>
+
+          <path class="ln" d="M652 42 L680 42 M672 36 L680 42 L672 48" />
+          <rect class="bx" x="680" y="16" width="168" height="52" rx="7" />
+          <text class="t" x="692" y="38">mediator.send()</text>
+          <text class="t2" x="692" y="56">ScopedValue-bound</text>
+
+          <path class="ln-a" d="M764 68 L764 88 M758 80 L764 88 L770 80" />
+
+          <rect class="bx-a" x="0" y="94" width="848" height="76" rx="7" />
+          <text class="t" x="16" y="117">enforceAuthorization() — one gate, four contracts</text>
+          <text class="t2" x="16" y="137">
+            RequiresPermission → tenant access + permission · RequiresPlatformRole ·
+            RequiresAuthentication (+ TenantScoped)
+          </text>
+          <text class="ta" x="16" y="156">
+            SystemInternal → BYPASSES ALL CHECKS · referenced across 48 files · the one soft spot,
+            see §07
+          </text>
+
+          <path class="ln-a" d="M424 170 L424 190 M418 182 L424 190 L430 182" />
+
+          <rect class="bx bx-g" x="0" y="196" width="848" height="62" rx="7" />
+          <text class="t" x="16" y="219">PROPAGATION_NESTED transaction</text>
+          <text class="t2" x="16" y="238">
+            handler → IMMEDIATE event handlers → CommandCompleted · nested command = JDBC savepoint,
+            so an inner failure cannot poison the outer transaction
+          </text>
+
+          <path class="ln" d="M424 258 L424 276 M418 268 L424 276 L430 268" />
+          <rect class="bx" x="0" y="282" width="848" height="42" rx="7" />
+          <text class="t3" x="16" y="308">
+            AFTER_COMMIT — event_log (unless NotEventLogged) · PII-free audit_log in its own
+            transaction · Micrometer timers tagged by message name and outcome
+          </text>
+        </svg>
+        <figcaption>
+          A command or query that does not implement <span class="m">Authorized</span> throws at
+          dispatch rather than running unguarded — and
+          <span class="m">AuthorizationCoverageTest</span> fails the build before that can ever
+          reach production. JDBI joins the same Spring transaction through a custom
+          <span class="m">SpringAwareTransactionHandler</span>, so a nested
+          <span class="m">inTransaction {}</span> becomes a savepoint instead of silently committing
+          the outer transaction.
+        </figcaption>
+      </figure>
+
+      <h3>Multi-tenancy, honestly stated</h3>
+      <p>
+        Isolation is <strong>application-level, not database-level</strong>. There is no row-level
+        security and no schema-per-tenant. Three layers carry it instead:
+      </p>
+      <ul class="tight">
+        <li>
+          A <span class="m">TENANT_KEY</span> domain type and a
+          <span class="m">tenant_key</span> column with a cascading FK on every tenant-owned table;
+          composite FKs thread
+          <span class="m">(tenant, catalog, template, variant, version)</span> through the whole
+          graph.
+        </li>
+        <li>
+          <span class="m">TenantScoped</span> /
+          <span class="m">RequiresPermission.tenantKey</span> checked at the mediator against
+          <span class="m">tenant_memberships</span>.
+        </li>
+        <li>
+          Every handler's SQL filters on <span class="m">tenant_key</span>, helped by
+          <span class="m">TenantQueries</span> extension functions that bake the scoping in.
+        </li>
+      </ul>
+      <p>Expect this to be challenged. The honest answer is in §07.</p>
+
+      <h2><span class="n">04</span> Module structure and the commercial boundary</h2>
+
+      <figure>
+        <svg viewBox="0 0 880 350" role="img" aria-label="Module dependency layering">
+          <rect class="bx bx-g" x="0" y="14" width="250" height="50" rx="7" />
+          <text class="t" x="14" y="36">modules/generation</text>
+          <text class="t2" x="14" y="54">pure iText renderer · no core dep</text>
+          <rect class="bx bx-g" x="268" y="14" width="180" height="50" rx="7" />
+          <text class="t" x="282" y="36">epistola-crypto</text>
+          <text class="t2" x="282" y="54">AES-256-GCM envelope</text>
+          <rect class="bx" x="466" y="14" width="382" height="50" rx="7" />
+          <text class="t" x="480" y="36">epistola-contract (external artifact)</text>
+          <text class="t2" x="480" y="54">
+            OpenAPI + catalog JSON Schema · one version across Gradle, package.json and the pnpm
+            lockfile
+          </text>
+
+          <path class="ln" d="M125 64 L125 82 M119 74 L125 82 L131 74" />
+          <path class="ln" d="M358 64 L358 82 M352 74 L358 82 L364 74" />
+          <path class="ln" d="M657 64 L657 82 M651 74 L657 82 L663 74" />
+
+          <rect class="bx-a" x="0" y="88" width="848" height="52" rx="7" />
+          <text class="t" x="14" y="111">
+            epistola-core — domain, CQRS, JDBI, catalog exchange, storage, cluster, features
+          </text>
+          <text class="ta" x="14" y="130">
+            the review's finding #2: this module is doing a lot, and is the single most likely place
+            for unrelated concerns to accumulate
+          </text>
+
+          <path class="ln" d="M424 140 L424 158 M418 150 L424 158 L430 150" />
+          <rect class="bx" x="0" y="164" width="848" height="46" rx="7" />
+          <text class="t" x="14" y="186">epistola-web — HTMX DSL + the contribution SPIs</text>
+          <text class="t2" x="14" y="202">
+            NavContributor · FooterContributor · HomeNoticeContributor, each handed the per-request
+            UiRequestContext
+          </text>
+
+          <path class="ln-d" d="M140 210 L140 232" />
+          <path class="ln-d" d="M424 210 L424 232" />
+          <path class="ln-d" d="M700 210 L700 232" />
+
+          <text class="t2" x="0" y="252">OSS FEATURE MODULES</text>
+          <rect class="bx" x="0" y="260" width="270" height="46" rx="7" />
+          <text class="t3" x="14" y="279">epistola-quality · epistola-audit</text>
+          <text class="t2" x="14" y="296">rest-api · epistola-mcp · editor · testing</text>
+
+          <text class="t2" x="292" y="252">COMMERCIAL TIER — off by default</text>
+          <rect class="bx bx-w" x="292" y="260" width="556" height="46" rx="7" />
+          <text class="t3" x="306" y="279">
+            epistola-support + feedback · snapshots · backups · upgrading · telemetry
+          </text>
+          <text class="t2" x="306" y="296">
+            every hub call behind a Port with a no-op fallback — the JARs ship, the beans are never
+            constructed
+          </text>
+
+          <rect class="bx" x="0" y="316" width="848" height="30" rx="7" />
+          <text class="t2" x="14" y="335">
+            Direction is inverted on purpose: core declares FeatureEntitlementGate, support
+            implements it. Core must never call quality — the pipeline emits, the module subscribes.
+            Enforced by the Gradle graph itself.
+          </text>
+        </svg>
+        <figcaption>
+          The paid boundary is <em>not</em> feature-present vs feature-absent. Feedback, for
+          example, is entirely free and works locally; only <em>sync to the hub</em> is gated, via a
+          no-op adapter. That is what makes an AGPL core and a commercial tier coherent rather than
+          crippleware.
+        </figcaption>
+      </figure>
+
+      <h2><span class="n">05</span> How Epistola and GZAC integrate</h2>
+      <p>
+        GZAC (Generiek Zaakafhandelcomponent) is Valtimo-based, so Epistola plugs in as a
+        <strong>Valtimo plugin</strong> rather than as a bespoke integration:
+        <span class="m">app.epistola.valtimo:epistola-plugin</span> on Maven Central for the backend
+        and <span class="m">@epistola.app/valtimo-plugin</span> on npm for the Angular side,
+        EUPL-1.2, currently targeting the Valtimo 13.x line. It registers through Valtimo's public
+        extension points only — <span class="m">PLUGINS_TOKEN</span>,
+        <span class="m">MenuService.registerAppendMenuItemsFunction()</span> and
+        <span class="m">registerCustomFormioComponent()</span> — so it adds a plugin, a menu entry
+        and Form.io components without forking or patching the host.
+      </p>
+
+      <figure>
+        <svg viewBox="0 0 880 610" role="img" aria-label="Epistola and GZAC integration flow">
+          <path class="ln-d" d="M440 52 L440 528" />
+
+          <rect class="bx" x="0" y="0" width="400" height="44" rx="7" />
+          <text class="t" x="14" y="21">GZAC · Valtimo 13.x</text>
+          <text class="t2" x="14" y="37">
+            epistola-plugin (EUPL-1.2) · Spring auto-configuration + Angular package
+          </text>
+
+          <rect class="bx" x="480" y="0" width="400" height="44" rx="7" />
+          <text class="t" x="494" y="21">Epistola Suite</text>
+          <text class="t2" x="494" y="37">
+            multi-tenant · REST API · ApiKey scoped to one tenant
+          </text>
+
+          <circle class="bx-a" cx="18" cy="82" r="11" />
+          <text class="ta" x="18" y="86" text-anchor="middle">1</text>
+          <rect class="bx" x="0" y="58" width="400" height="48" rx="7" />
+          <text class="t" x="38" y="80">BPMN service task: generate-document</text>
+          <text class="t2" x="38" y="98">
+            sets epistolaResult = {requestId, status PENDING, jobPath}
+          </text>
+          <path class="ln-a" d="M400 82 L472 82 M464 76 L472 82 L464 88" />
+          <text class="t2" x="404" y="72">POST /documents</text>
+          <rect class="bx" x="480" y="58" width="400" height="48" rx="7" />
+          <text class="t" x="494" y="80">REST API accepts, returns 202 + requestId</text>
+          <text class="t2" x="494" y="98">
+            row written to document_generation_requests — nothing rendered yet
+          </text>
+
+          <circle class="bx-a" cx="498" cy="146" r="11" />
+          <text class="ta" x="498" y="150" text-anchor="middle">2</text>
+          <rect class="bx" x="480" y="122" width="400" height="48" rx="7" />
+          <text class="t" x="518" y="144">JobPoller claims it — FOR UPDATE SKIP LOCKED</text>
+          <text class="t2" x="518" y="162">
+            renders through iText on a platform thread → ContentStore
+          </text>
+
+          <circle class="bx-a" cx="498" cy="210" r="11" />
+          <text class="ta" x="498" y="214" text-anchor="middle">3</text>
+          <rect class="bx bx-g" x="480" y="186" width="400" height="48" rx="7" />
+          <text class="t" x="518" y="208">generation_results — the append-only feed</text>
+          <text class="t2" x="518" y="226">
+            globally monotonic sequence · routing partitions 0–63
+          </text>
+
+          <circle class="bx-a" cx="18" cy="274" r="11" />
+          <text class="ta" x="18" y="278" text-anchor="middle">4</text>
+          <rect class="bx bx-g" x="0" y="250" width="400" height="48" rx="7" />
+          <text class="t" x="38" y="272">ResultCollector — NDJSON poll loop, virtual thread</text>
+          <text class="t2" x="38" y="290">
+            high-water cursor persisted in Valtimo&apos;s OWN database
+          </text>
+          <path class="ln-a" d="M472 274 L408 274 M416 268 L408 274 L416 280" />
+          <text class="t2" x="404" y="316">
+            POST /generation/collect · WHERE sequence &gt; cursor
+          </text>
+          <rect class="bx" x="480" y="250" width="400" height="48" rx="7" />
+          <text class="t" x="494" y="272">Streams results for this consumer&apos;s partitions</text>
+          <text class="t2" x="494" y="290">
+            consumer acknowledges → per-partition cursor advances
+          </text>
+
+          <circle class="bx-a" cx="18" cy="362" r="11" />
+          <text class="ta" x="18" y="366" text-anchor="middle">5</text>
+          <rect class="bx" x="0" y="338" width="400" height="48" rx="7" />
+          <text class="t" x="38" y="360">Message correlation</text>
+          <text class="t2" x="38" y="378">
+            EpistolaDocumentGenerated, matched on epistolaWaitFor = jobPath
+          </text>
+
+          <circle class="bx-a" cx="18" cy="426" r="11" />
+          <text class="ta" x="18" y="430" text-anchor="middle">6</text>
+          <rect class="bx" x="0" y="402" width="400" height="48" rx="7" />
+          <text class="t" x="38" y="424">Catch event wakes exactly that branch</text>
+          <text class="t2" x="38" y="442">gateway on epistolaResult.status == COMPLETED</text>
+
+          <circle class="bx-a" cx="18" cy="490" r="11" />
+          <text class="ta" x="18" y="494" text-anchor="middle">7</text>
+          <rect class="bx" x="0" y="466" width="400" height="48" rx="7" />
+          <text class="t" x="38" y="488">download-document</text>
+          <text class="t2" x="38" y="506">
+            → Valtimo temporary-resource, or raw bytes in a process variable
+          </text>
+          <path
+            class="ln-d"
+            d="M480 466 L880 466 M480 466 L480 514 M880 466 L880 514 M480 514 L880 514"
+          />
+          <text class="t2" x="494" y="488">
+            The zaak flow decides where it goes next — Documenten API,
+          </text>
+          <text class="t2" x="494" y="504">e-mail, print. Epistola is not in that decision.</text>
+
+          <rect class="bx bx-w" x="0" y="548" width="880" height="58" rx="7" />
+          <text class="t" x="14" y="571">Design-time plane</text>
+          <text class="t2" x="14" y="590">
+            plugin configuration (baseUrl · apiKey · tenantId) · catalog sync on startup so authors
+            pick templates by name · Form.io components with live preview inside Valtimo forms ·
+            plugin admin tab lists connected consumer nodes
+          </text>
+        </svg>
+        <figcaption>
+          The two systems share <strong>nothing but HTTP</strong> — no shared database, no shared
+          schema, no message broker. That is the whole reason the coupling stays manageable:
+          Epistola owns an append-only result feed, and the consumer owns its own cursor. Steps 2–3
+          are the async boundary; a GZAC process is never blocked on a render.
+        </figcaption>
+      </figure>
+
+      <h3>Why a feed rather than a callback or a timer loop</h3>
+      <p>
+        The naive BPMN pattern is a timer loop — generate, wait 30 s, poll, repeat — which makes the
+        process engine wake every waiting instance just to ask "done yet?". The plugin replaces that
+        with a message intermediate catch event fed by one collector per plugin configuration.
+        Webhooks were the other option and were not taken: a callback needs Epistola to reach
+        <em>into</em> the municipal network, needs retry and dead-letter handling on the sending
+        side, and breaks the moment GZAC is behind a firewall. A pull feed inverts all three — GZAC
+        dials out, and its cursor is the only delivery state that matters.
+      </p>
+
+      <div class="callout">
+        <b>The war story worth telling.</b> The feed is Kafka-shaped: monotonic
+        <span class="m">sequence</span>, consumer-held cursor. A destructive database reset in a
+        test environment restarted the <span class="m">BIGSERIAL</span> at 1 while the consumer's
+        cursor survived at 4 — so every new result landed <em>below</em> the cursor and was
+        <strong>silently never delivered</strong>. Valtimo catch events simply never fired. The fix
+        seeds the sequence from wall-clock epoch-milliseconds on every schema (re)initialisation, so
+        any post-reset sequence strictly exceeds every previously issued one and a stale cursor
+        always self-heals — no client change, and deploying it unblocks an already-stuck consumer on
+        next boot. It is a good illustration of the failure mode this architecture actually has: not
+        crashes, but silence.
+      </div>
+
+      <h3>What a reviewer will probe here</h3>
+      <ul class="tight">
+        <li>
+          <strong>Multiple Valtimo instances against one tenant.</strong> Handled: results are
+          spread over 64 routing partitions assigned to consumer nodes through a consistent-hash
+          ring, with submitting-node affinity so the instance that submitted a job tends to receive
+          its own result. There is an integration test named for exactly that (<span class="m"
+            >SubmittingNodeAffinityIT</span
+          >).
+        </li>
+        <li>
+          <strong>Delivery semantics.</strong> At-least-once, deliberately — the suite's stated
+          stance is that work must never be permanently orphaned, and it prefers a duplicate over a
+          loss. Correlation is keyed on <span class="m">jobPath</span>, and the collector resumes
+          from its cursor after a crash.
+        </li>
+        <li>
+          <strong>Authentication is the weak spot, and it is the same one as finding #5.</strong>
+          Today each API key is implicitly a consumer — its UUID lands in
+          <span class="m">consumer_node_assignments</span> when a Valtimo node first polls — and an
+          API key carries <em>every</em> tenant role. The
+          <span class="m">epistola-contract</span> spec already defines a full Consumer Management
+          surface (register, approve/reject, per-resource permissions, public keys, node visibility)
+          and <strong>the suite has not implemented any of it</strong>. That is the cleanest example
+          of the broad-API-key finding having a real, customer-visible consequence rather than a
+          theoretical one.
+        </li>
+        <li>
+          <strong>Latency.</strong> Peers pick up work on a ~5 s poll, so a small batch drains on
+          the submitting node; <span class="m">LISTEN/NOTIFY</span> is the intended fix and is not
+          built.
+        </li>
+      </ul>
+
+      <h2><span class="n">06</span> What actually enforces quality</h2>
+      <p>
+        The strongest claim available:
+        <strong>conventions here are build failures, not wiki pages.</strong> Eighteen architecture
+        tests run in the fast <span class="m">unitTest</span> cycle with no Spring and no Docker,
+        scanning the whole repo from <span class="m">settings.gradle.kts</span>.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Guard</th>
+            <th>Fails the build when…</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>AuthorizationCoverageTest</code></td>
+            <td>any command or query does not declare an <code>Authorized</code> contract</td>
+          </tr>
+          <tr>
+            <td><code>MediatorWiringTest</code></td>
+            <td>
+              a message has zero or two handlers, or a handler is not a <code>@Component</code> —
+              otherwise a runtime-only failure on first dispatch
+            </td>
+          </tr>
+          <tr>
+            <td><code>DomainBoundaryTest</code></td>
+            <td>
+              a handler is imported outside its own package, i.e. someone bypassed the mediator and
+              with it authz, metrics and events
+            </td>
+          </tr>
+          <tr>
+            <td><code>ApplicationClockUsageTest</code></td>
+            <td>
+              production code calls <code>Instant.now()</code> and friends instead of
+              <code>EpistolaClock</code>. The allowlist is currently <strong>empty</strong>
+            </td>
+          </tr>
+          <tr>
+            <td><code>UiRestApiSeparationTest</code></td>
+            <td>a template or static JS file calls the versioned REST API</td>
+          </tr>
+          <tr>
+            <td><code>CspTemplateComplianceTest</code></td>
+            <td>
+              an inline <code>&lt;script&gt;</code>, an <code>on*=</code> handler or an
+              <code>hx-on::*</code> attribute appears — all silently dead under the strict CSP
+            </td>
+          </tr>
+          <tr>
+            <td><code>UiTestHygieneTest</code></td>
+            <td>
+              a Playwright test uses <code>waitForTimeout</code>, <code>:visible</code> or a blind
+              <code>waitForSelector</code> — a deliberate anti-flake ratchet, no test retries
+              anywhere
+            </td>
+          </tr>
+          <tr>
+            <td><code>NoHardcodedSecretsTest</code></td>
+            <td>
+              a committed config file holds a literal secret rather than <code>${ENV}</code> —
+              complements gitleaks rather than duplicating it
+            </td>
+          </tr>
+          <tr>
+            <td><code>IconUsageTest</code> · <code>PageHeaderUsageTest</code></td>
+            <td>
+              a template references a missing icon, or misspells a fragment parameter — Thymeleaf
+              silently nulls typos
+            </td>
+          </tr>
+          <tr>
+            <td><code>MovableResourceGuardTest</code></td>
+            <td>
+              a resource type resolved by address at render time is registered as movable — which
+              would break every published template using it
+            </td>
+          </tr>
+          <tr>
+            <td><code>checkMigrationVersions</code></td>
+            <td>
+              a new migration sorts before the target branch head, or an already-merged migration is
+              edited, renamed or deleted
+            </td>
+          </tr>
+          <tr>
+            <td><code>checkContractVersionAlignment</code></td>
+            <td>
+              the backend, the editor package and the pnpm lockfile disagree on the contract version
+            </td>
+          </tr>
+          <tr>
+            <td><code>BundledCatalogFingerprintTest</code></td>
+            <td>bundled catalog content changed without a regenerated fingerprint</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Pipeline and supply chain</h3>
+      <ul class="tight">
+        <li>
+          <strong>CI</strong> — one build job packages the Gradle build cache as an artifact so the
+          two test jobs run from cache; UI tests get a <em>dedicated runner</em> because CPU
+          contention was the root cause of the historic flake (issue #418).
+        </li>
+        <li>
+          <strong>Security</strong> — CodeQL (Kotlin + TS,
+          <span class="m">security-and-quality</span> suite, weekly and per-PR), gitleaks over
+          <em>full history</em>, daily Trivy scan on both SBOMs with SARIF into Code Scanning and an
+          auto-filed deduplicated issue, Trivy config scan on the Helm charts.
+          <strong>Any CRITICAL fails the build.</strong>
+        </li>
+        <li>
+          <strong>Release</strong> — tag must match <span class="m">gradle.properties</span>; a
+          <span class="m">-SNAPSHOT</span> cannot ship; image is cosign-signed and the CycloneDX
+          SBOM cosign-attested.
+        </li>
+        <li>
+          <strong>Dependencies</strong> — Renovate with a 7-day minimum release age (mirrored in
+          <span class="m">pnpm-workspace.yaml</span>, with an explicit postinstall allowlist); minor
+          and patch auto-merge, majors and the whole toolchain never do.
+        </li>
+        <li>
+          <strong>Two failure modes only reproduce outside JUnit</strong>, so they are scripted
+          rather than pretended away: <span class="m">scripts/multi-instance-test.sh</span> (3
+          nodes, SIGKILL chaos, stale-job recovery) and
+          <span class="m">scripts/deadlock-burst-test.sh</span> (the fat-jar nested-classloader
+          deadlock that needs a cold concurrent first-load burst — the reason rendering runs on
+          platform threads, not virtual ones).
+        </li>
+      </ul>
+
+      <h2><span class="n">07</span> Our own review — found, fixed, still owed</h2>
+      <p>
+        An internal architecture review was written on <strong>8 June 2026</strong> (<span class="m"
+          >docs/architecture-review.md</span
+        >, 12 findings). Status as verified today:
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Finding</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>7</td>
+            <td>CSP allowed <code>unsafe-inline</code> and a CDN script source</td>
+            <td>
+              <span class="pill p-fix">Fixed</span> now strictly <code>script-src 'self'</code> (ADR
+              0010), enforced by a test. <code>style-src</code> still allows inline — deliberate,
+              Option E
+            </td>
+          </tr>
+          <tr>
+            <td>5</td>
+            <td>API keys grant <em>every</em> tenant role</td>
+            <td>
+              <span class="pill p-open">Open</span> a leaked integration key is broad tenant
+              control. Scoped keys are the single highest-value security item
+            </td>
+          </tr>
+          <tr>
+            <td>6</td>
+            <td>MCP is default-on</td>
+            <td>
+              <span class="pill p-open">Open</span> <code>application.yaml:38</code> still defaults
+              <code>true</code>; 26 tools, read-only, on the same API chain and the same broad keys
+            </td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td><code>SystemInternal</code> is a broad auth bypass</td>
+            <td>
+              <span class="pill p-open">Open</span> referenced across 48 files. Should be split into
+              narrower markers and context-bound
+            </td>
+          </tr>
+          <tr>
+            <td>9</td>
+            <td>JavaScript expressions have no enforced timeout</td>
+            <td>
+              <span class="pill p-open">Open</span> JSONata sets runtime bounds; GraalJS only
+              restricts host access. A CPU-exhaustion path in batch generation
+            </td>
+          </tr>
+          <tr>
+            <td>8</td>
+            <td>
+              <code>file:</code> and arbitrary <code>https:</code> fetching in catalog / code-list
+              clients
+            </td>
+            <td>
+              <span class="pill p-open">Open</span> no directory allowlist, no private-range
+              blocking. Acceptable self-hosted, not acceptable multi-tenant SaaS
+            </td>
+          </tr>
+          <tr>
+            <td>1</td>
+            <td>
+              Module boundaries are implicit — classpath scanning means a dependency can add routes,
+              jobs and migrations silently
+            </td>
+            <td>
+              <span class="pill p-part">Partly</span> new guard tests exist; explicit module
+              manifests / <code>@AutoConfiguration</code> do not
+            </td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td><code>epistola-core</code> does too much</td>
+            <td>
+              <span class="pill p-acc">Accepted</span> a split is deferred; package-level rules are
+              the cheaper first step
+            </td>
+          </tr>
+          <tr>
+            <td>3 · 10 · 11 · 12</td>
+            <td>
+              Vertical-slice modules · nav/route collision tests · toggles hide UI but beans still
+              load · build-time frontend coupling
+            </td>
+            <td><span class="pill p-acc">Accepted</span> known and reasoned, not yet acted on</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        <b>Suggested framing.</b> Open with this table. Reviewers will find these anyway; arriving
+        with them already written down, scored and prioritised converts every one of them from a gap
+        in the work into evidence of how the work is done.
+      </div>
+
+      <h2><span class="n">08</span> Questions they are likely to ask</h2>
+
+      <div class="qa hot">
+        <p class="q">Application-level tenant isolation — why no row-level security?</p>
+        <p>
+          Straight answer: because the mediator gate plus FK-carried tenant keys covers it, and RLS
+          would add a second, partly-overlapping enforcement model without removing the first.
+          <strong
+            >The cost is that a handler which forgets its <span class="m">WHERE tenant_key</span> is
+            a data leak that no compiler catches.</strong
+          >
+          The mitigations are <span class="m">TenantQueries</span> helpers, dedicated
+          tenant-isolation tests, and <span class="m">DomainBoundaryTest</span> forcing everything
+          through the gate. If a reviewer pushes for RLS as defence in depth, that is a fair hit —
+          take it as a to-do rather than defending the gap.
+        </p>
+      </div>
+
+      <div class="qa hot">
+        <p class="q">Why a hand-rolled mediator instead of Axon, or Spring Modulith?</p>
+        <p>
+          The mediator is roughly 12 small files. What it buys is one place where authorization,
+          transaction propagation, metrics, audit and the event log attach to every domain operation
+          — and that is exactly why all three surfaces stay thin. It is CQRS as a dispatch
+          convention, <strong>not</strong> event sourcing: there is no aggregate rehydration, no
+          snapshotting, no separate read model. Adopting a framework would have imported all of that
+          vocabulary for the one property actually wanted. Spring Modulith is the one genuinely
+          worth revisiting — it targets precisely finding #1.
+        </p>
+      </div>
+
+      <div class="qa">
+        <p class="q">JDBI and hand-written SQL rather than JPA?</p>
+        <p>
+          Deliberate. The schema is heavily composite-keyed, partitioned by month, and uses
+          <span class="m">FOR UPDATE SKIP LOCKED</span> for job claiming — all things an ORM
+          obscures or fights. The price is paid honestly: SQL is spread across handlers, and the
+          internal to-do list already carries <em>"niet zo blij met al die SQL overal"</em>. Custom
+          argument factories and column mappers keep typed keys and encrypted credentials from being
+          stringly-typed at the boundary.
+        </p>
+      </div>
+
+      <div class="qa">
+        <p class="q">Server-rendered Thymeleaf + HTMX in 2026 — really?</p>
+        <p>
+          Yes, and it is the reason a two-person-scale team ships this surface area. There is
+          exactly one place where rich client state genuinely pays: the template editor, which is
+          Lit + ProseMirror. Everything else is a form or a list. The corroborating detail is the
+          CSP: <span class="m">script-src 'self'</span> with no inline script anywhere, which is
+          only affordable <em>because</em> there is no SPA build smuggling inline bootstrapping into
+          the page.
+        </p>
+      </div>
+
+      <div class="qa hot">
+        <p class="q">What is the bus factor?</p>
+        <p>
+          Low — and do not dress it up. What compensates is that the knowledge is externalised
+          rather than resident: 115 docs, 16 ADRs, a self-critical architecture review, 18
+          machine-enforced conventions, and a <span class="m">CLAUDE.md</span> that encodes the
+          working rules an onboarding engineer would otherwise have to absorb by osmosis. The
+          correct framing is that the conventions survive the author, because they fail the build
+          rather than a code review.
+        </p>
+      </div>
+
+      <div class="qa">
+        <p class="q">Can we trust an upgrade not to eat our data?</p>
+        <p>
+          From RC1 onward the database is stable and never reset. Migrations are forward-only and
+          module-owned; <span class="m">checkMigrationVersions</span> rejects any edit to an
+          already-merged migration. Deployment defaults to a migration <em>job</em> (Helm
+          pre-upgrade hook) with app pods in <span class="m">validate</span> mode — they fail fast
+          if the schema is behind and never migrate at boot — and a separate DDL-capable role is
+          supported so the runtime role has no DDL at all. Downgrades are explicitly unsupported;
+          rollback is restore-from-backup. Two most recent minor lines are supported.
+        </p>
+      </div>
+
+      <div class="qa">
+        <p class="q">What breaks if we never pay you?</p>
+        <p>
+          Nothing that is running. The whole repository is AGPL-3.0 and the support tier is
+          <span class="m">enabled=false</span> by default — the JARs ship but construct no beans.
+          Feedback, quality checks and backups all work locally; what the tier adds is
+          <em>sync</em> to the separate hub server, plus an SLA. The one honest caveat:
+          version-check phones home once a day with the running version and a stable installation
+          id, on by default, disabled with a single property.
+        </p>
+      </div>
+
+      <div class="qa">
+        <p class="q">Show me evidence it survives horizontal scaling.</p>
+        <p>
+          A real 3-node test on 10 July 2026 found three bugs (#723, #724, #725), all fixed, and the
+          harness that found them is committed. The stance is stated explicitly as
+          <strong>at-least-once over at-most-once</strong>: work must never be permanently orphaned.
+          Defences are layered — scheduler-liveness election on
+          <span class="m">last_poll_completed_at</span> rather than heartbeat alone (a wedged poll
+          thread keeps heartbeating and would otherwise starve the whole fleet), a 15-minute
+          hard-deadline watchdog, and per-node document recovery. Known gap: peers only pick up work
+          on a ~5 s poll, so a small batch drains on the submitting node.
+          <span class="m">LISTEN/NOTIFY</span> is the intended fix and is not built.
+        </p>
+      </div>
+
+      <div class="qa">
+        <p class="q">Coverage is 79% — is that gated?</p>
+        <p>
+          No. The badge is informational; there is no Kover verification rule. Defensible position:
+          the guard tests and 994 real-database integration tests are the actual gate, and a
+          coverage threshold mostly buys test-shaped code. But it is a fair criticism, and "we
+          measure it and chose not to gate it" is the only honest version of the answer.
+        </p>
+      </div>
+
+      <div class="qa">
+        <p class="q">If you had three months, what would you fix?</p>
+        <p>
+          In order: <strong>(1)</strong> scoped API keys and MCP opt-in — the two combine into the
+          largest real exposure; <strong>(2)</strong> an enforced timeout on JavaScript expression
+          evaluation; <strong>(3)</strong> allowlisting <span class="m">file:</span> and outbound
+          URL fetching; <strong>(4)</strong> narrowing <span class="m">SystemInternal</span> into
+          context-bound markers; <strong>(5)</strong> explicit module activation so a dependency
+          cannot silently add routes, schedulers and migrations. That is the review's own priority
+          order, unchanged.
+        </p>
+      </div>
+
+      <h2><span class="n">09</span> Known debt — say it first</h2>
+
+      <div class="callout bad">
+        <b>Fix before the meeting if there is time.</b> <span class="m">docs/roadmap.md</span> still
+        reads <em>"Phase: Pre-MVP"</em>, <em>"In Progress: REST API design"</em>, and names
+        Puppeteer as the PDF engine — for a product at 1.1.0 GA rendering through iText. It is still
+        linked as "Roadmap" from <span class="m">docs/epistola.md</span>. Separately,
+        <span class="m">VULNERABILITIES.md</span> shows EPIS-2026-001 as
+        <em>"Patched release: Unreleased"</em> although 1.1.0 shipped both fixes. Both are
+        five-minute edits and both are exactly what a reviewer opens first.
+      </div>
+
+      <ul>
+        <li>
+          <strong>Security posture</strong> — findings 4, 5, 6, 8 and 9 above. The
+          MCP-plus-broad-API-key combination is the one to raise unprompted.
+        </li>
+        <li>
+          <strong>Documentation drift is a known class of problem here</strong>, not a one-off:
+          <span class="m">docs/output-formats.md</span> already audits it in writing —
+          <em>"our existing documentation already claims we did this… None of it exists."</em> Being
+          the person who wrote that down is a better position than being the person it is discovered
+          about.
+        </li>
+        <li>
+          <strong>Maturity is uneven and labelled</strong> — of eight toggled features, five are
+          alpha and one beta. <span class="m">apps/pdfrender</span> is beta and explicitly not
+          production-supported; S3 and filesystem content stores are alpha and unexercised by CI;
+          PDF/A mode cannot use custom fonts.
+        </li>
+        <li>
+          <strong>Latent bug, recorded but unfiled</strong> — the generation controller hardcodes
+          <span class="m">APPLICATION_PDF</span> while
+          <span class="m">metadata.contentType</span> sits unused on the line above. Harmless only
+          because everything is PDF today.
+        </li>
+        <li>
+          <strong>Other structural debt</strong> — in-memory pagination in ~12 REST endpoints;
+          <span class="m">content_store</span> orphan blobs not reclaimed by partition-drop
+          retention; catalog import bypasses commands so events misfire; no
+          <span class="m">dependency-review-action</span>; the GraalVM native build sits disabled in
+          the release matrix.
+        </li>
+        <li>
+          <strong>In flight right now</strong> — the entire unreleased changelog is catalog resource
+          relocation (alpha). Its own notes record two late discoveries: a move that could have made
+          two catalogs mutually dependent and left snapshots unrestorable, and a template that
+          became permanently unpublishable after relocation. Both found and fixed pre-release, which
+          is the point worth making.
+        </li>
+      </ul>
+
+      <footer>
+        docs/engineering-review-brief.html · figures are inline SVG, no external requests · branch
+        feat/catalog-resource-relocation-alpha · uncommitted
+      </footer>
+    </div>
+  </body>
+</html>

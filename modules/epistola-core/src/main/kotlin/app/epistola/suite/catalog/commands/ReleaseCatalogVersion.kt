@@ -17,6 +17,8 @@ import app.epistola.suite.catalog.CatalogReleasePublicationRequest
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.revisions.ReleaseEntryStore
+import app.epistola.suite.catalog.revisions.ResourceRevisionStore
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.config.bindJsonb
 import app.epistola.suite.mediator.Command
@@ -81,6 +83,8 @@ class ReleaseCatalogVersionHandler(
     private val contentBuilder: CatalogContentBuilder,
     private val archiveBuilder: CatalogArchiveBuilder,
     private val fingerprintService: CatalogFingerprintService,
+    private val revisionStore: ResourceRevisionStore,
+    private val releaseEntryStore: ReleaseEntryStore,
     private val objectMapper: ObjectMapper,
     private val publicationPort: ObjectProvider<CatalogReleasePublicationPort>,
 ) : CommandHandler<ReleaseCatalogVersion, ReleaseCatalogVersionResult> {
@@ -111,6 +115,10 @@ class ReleaseCatalogVersionHandler(
         val content = contentBuilder.build(command.tenantKey, command.catalogKey)
         fingerprintService.requirePublishable(content)
         val fingerprint = fingerprintService.fingerprint(content)
+        // What this release contains, resource by resource. Recorded here because it cannot be
+        // recovered afterwards: `manifest_snapshot` holds the manifest entries, not the payloads
+        // they were built from. It is what lets the next release say which resources changed.
+        val resourceFingerprints = fingerprintService.perResourceFingerprints(content)
         val unchanged = existing.any { fingerprintService.matchesFingerprint(content, it.fingerprint) }
         if (unchanged) {
             logger.warn(
@@ -142,8 +150,8 @@ class ReleaseCatalogVersionHandler(
         jdbi.useTransaction<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalog_releases (tenant_key, catalog_key, version, fingerprint, notes, manifest_snapshot, released_at)
-                VALUES (:t, :c, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt)
+                INSERT INTO catalog_releases (tenant_key, catalog_key, version, fingerprint, notes, manifest_snapshot, released_at, content_retained)
+                VALUES (:t, :c, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, TRUE)
                 """,
             )
                 .bind("t", command.tenantKey)
@@ -169,6 +177,20 @@ class ReleaseCatalogVersionHandler(
                 .bind("fingerprint", fingerprint)
                 .bind("releasedAt", releasedAt)
                 .execute()
+
+            // Inside the release transaction: a release, the content it retains and the record of
+            // what it contained commit together, so there is no state where one exists without the
+            // others.
+            val revisionDigests = revisionStore.retain(handle, command.tenantKey, content)
+            releaseEntryStore.record(
+                handle,
+                command.tenantKey,
+                command.catalogKey,
+                newVersion.toString(),
+                content,
+                revisionDigests,
+                resourceFingerprints,
+            )
 
             if (port != null && archive != null) {
                 publicationId = port.recordReleasePublication(

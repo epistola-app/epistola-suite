@@ -8,6 +8,11 @@
 
 ## Where this stands
 
+_Updated 2026-10-01._ **The goal sequence below is superseded** by
+[Catalog release model v2: the migration plan](catalog-release-model-v2.md): the old world is
+removed in the next major with no bridges, and the upgrade auto-releases what each environment
+serves. The invariants in §3 and the decisions recorded here still hold.
+
 _Updated 2026-09-22._
 
 Goal 1 is complete, but two of its original instructions were reversed once it was clear that

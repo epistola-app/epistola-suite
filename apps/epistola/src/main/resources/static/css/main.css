@@ -33,6 +33,7 @@
 @import url('version-comparison.css') layer(app);
 @import url('deployment-matrix.css') layer(app);
 @import url('variant-card.css') layer(app);
+@import url('catalog-bar.css') layer(app);
 @import url('asset-manager.css') layer(app);
 @import url('feature-toggle.css') layer(app);
 @import url('pages/login.css') layer(app);

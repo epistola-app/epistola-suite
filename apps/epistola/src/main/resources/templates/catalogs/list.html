@@ -166,9 +166,42 @@
                         <p style="margin: var(--ep-space-1) 0 0;">
                             <strong th:if="${status.latestVersion != null}" th:text="'v' + ${status.latestVersion}"></strong>
                             <strong th:if="${status.latestVersion == null}" class="text-muted">none — not published yet</strong>
-                            <span class="form-hint" th:if="${status.latestVersion != null and status.hasUnreleasedChanges}">· this working copy has unreleased changes</span>
-                            <span class="form-hint" th:if="${status.latestVersion != null and !status.hasUnreleasedChanges}">· no changes since the last release</span>
+                            <span class="form-hint" th:if="${status.latestVersion != null and changes.hasUnreleasedChanges}">· this working copy has unreleased changes</span>
+                            <span class="form-hint" th:if="${status.latestVersion != null and !changes.hasUnreleasedChanges}">· no changes since the last release</span>
                         </p>
+                    </div>
+
+                    <!--/* What this release will contain that the last one did not, named rather
+                           than counted — the same shape the upgrade dialog uses below, because it
+                           answers the same question from the other side. Releasing is the moment
+                           the content becomes immutable, so it is the moment to look. */-->
+                    <p th:if="${!changes.baselineAvailable}" class="form-hint">
+                        The last release was cut before Epistola recorded which resources a release
+                        contained, and that cannot be reconstructed — so this catalog cannot say what
+                        changed since. Releasing this version records it, and the next release will say.
+                    </p>
+                    <div class="form-group" th:if="${changes.baselineAvailable and changes.hasUnreleasedChanges}">
+                        <span class="ep-label">This release will</span>
+                        <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
+                            <li th:if="${!changes.added.isEmpty()}">
+                                add <strong th:text="${changes.added.size()}"></strong> new
+                                <span class="form-hint"
+                                      th:text="${'(' + #strings.listJoin(changes.added.![type + '/' + slug], ', ') + ')'}"></span>
+                            </li>
+                            <li th:if="${!changes.modified.isEmpty()}">
+                                update <strong th:text="${changes.modified.size()}"></strong> changed
+                                <span class="form-hint"
+                                      th:text="${'(' + #strings.listJoin(changes.modified.![type + '/' + slug], ', ') + ')'}"></span>
+                            </li>
+                            <li th:if="${!changes.removed.isEmpty()}">
+                                drop <strong th:text="${changes.removed.size()}"></strong>
+                                <span class="form-hint"
+                                      th:text="${'(' + #strings.listJoin(changes.removed.![type + '/' + slug], ', ') + ')'}"></span>
+                            </li>
+                            <li th:if="${!changes.released.isEmpty()}" class="text-muted">
+                                carry <span th:text="${changes.released.size()}"></span> over unchanged
+                            </li>
+                        </ul>
                     </div>
                     <div class="form-group">
                         <span class="ep-label">Bump</span>
@@ -287,7 +320,25 @@
             <div class="ep-dialog-header">
                 <h3>Export catalog</h3>
             </div>
+            <!--/* A plain GET form, unboosted: the response is a ZIP with a Content-Disposition,
+                   which the browser must handle as a download rather than HTMX as a swap. */-->
+            <form method="get" hx-boost="false"
+                  th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId})}">
             <div class="ep-dialog-body">
+                <!--/* Offered only where there is something to choose: a catalog with no release
+                       that retained its content can only be exported as it stands. */-->
+                <div class="form-group" th:if="${retainedReleases != null and !retainedReleases.isEmpty()}">
+                    <label class="ep-label" for="export-version">Export</label>
+                    <select id="export-version" name="version" class="ep-select">
+                        <option value="">The working copy, as it is now</option>
+                        <option th:each="version : ${retainedReleases}"
+                                th:value="${version}"
+                                th:text="'Release v' + ${version} + ' — exactly as released'"></option>
+                    </select>
+                    <span class="form-hint">
+                        A release is handed over as it was released, whatever has been edited since.
+                    </span>
+                </div>
                 <div class="alert alert-info">
                     <th:block th:replace="~{epistola-web/icon :: icon(name='info', class='ep-icon ep-icon-lg')}" />
                     <div>
@@ -299,10 +350,10 @@
             <div class="ep-dialog-footer">
                 <button type="button" class="ep-btn ep-btn-ghost"
                         data-close-dialog="export-confirmation-dialog">Cancel</button>
-                <a class="ep-btn ep-btn-primary"
-                   th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId})}"
-                   data-close-dialog="export-confirmation-dialog" hx-boost="false" download>Export as ZIP</a>
+                <button type="submit" class="ep-btn ep-btn-primary"
+                        data-close-dialog="export-confirmation-dialog">Export as ZIP</button>
             </div>
+            </form>
         </dialog>
     </th:block>
 

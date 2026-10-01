@@ -40,6 +40,11 @@ data class MergeRestoreResult(
 class MergeRestoreTables(
     private val codec: TableRowCodec,
 ) {
+    private companion object {
+        /** The only table a delete-phase trigger writes to today. */
+        const val TRIGGER_TOUCHED_TABLE = "catalogs"
+    }
+
     fun merge(
         handle: Handle,
         manifest: TenantBackupManifest,
@@ -58,6 +63,11 @@ class MergeRestoreTables(
             .createUpdate("UPDATE tenants SET default_theme_resource_id = NULL WHERE id = :tk")
             .bind("tk", tenantKey)
             .execute()
+
+        // Blobs first, because a table may point at one: `revision_binaries` takes a foreign key
+        // into `asset_content`, and that key is not deferrable, so the bytes have to be there
+        // before the row naming them is. Insert-if-absent, so doing it first costs nothing.
+        val blobsRestored = mergeBlobs(handle, manifest, blobBytes)
 
         // Upsert phase — parent → child.
         var rowsRestored = 0
@@ -81,9 +91,8 @@ class MergeRestoreTables(
             }
         }
 
-        val blobsRestored = mergeBlobs(handle, manifest, blobBytes)
-
         reapplyDefaultTheme(handle, tenantKey, targetThemeResourceId)
+        reupsertTriggerTouchedParents(handle, manifest, rowsByTable)
 
         return MergeRestoreResult(
             tablesRestored = manifest.tables.size,
@@ -178,6 +187,36 @@ class MergeRestoreTables(
             ).bind("tk", tenantKey)
             .bind("id", UUID.fromString(themeResourceId.toString()))
             .execute()
+    }
+
+    /**
+     * Re-upserts the parent rows whose columns a trigger may have moved during the delete phase.
+     *
+     * The delete phase drops post-backup work, and a trigger that treats "a row of catalog content
+     * went away" as a content change fires on it — `touch_catalog_content_on_delete` bumps
+     * `catalogs.content_updated_at`, which the upsert phase had just restored from the backup. The
+     * restored tenant then carries a timestamp from the restore rather than from the backup, and a
+     * rebuilt backup no longer fingerprints the same. `TenantBackupRoundTripIntegrationTest` is what
+     * says so.
+     *
+     * A restore is not an edit: it reproduces a state, including whether that state had unreleased
+     * changes. So the backup's rows win. Re-upserting the whole table rather than naming the one
+     * column deliberately — the next such trigger should not need this method edited, and the upsert
+     * is idempotent, so the cost is one statement per catalog.
+     *
+     * Same reason `reapplyDefaultTheme` exists above: the merge itself disturbs something the merge
+     * is supposed to restore.
+     */
+    private fun reupsertTriggerTouchedParents(
+        handle: Handle,
+        manifest: TenantBackupManifest,
+        rowsByTable: Map<String, List<Map<String, Any?>>>,
+    ) {
+        manifest.tables
+            .firstOrNull { it.table == TRIGGER_TOUCHED_TABLE }
+            ?.let { entry ->
+                rowsByTable[entry.table].orEmpty().forEach { upsert(handle, entry.toSpec(), it) }
+            }
     }
 
     private fun BackupTableEntry.toSpec(): TableSpec = TableSpec(

@@ -133,6 +133,17 @@ class KnownFeaturesTest {
     }
 
     @Test
+    fun `catalog context is toggle-only alpha and defaults off`() {
+        assertThat(KnownFeatures.stageOf(KnownFeatures.CATALOG_CONTEXT)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
+        // It reads state the installation already has and talks to no hub, so a key in SUPPORT_TIER
+        // would be permanently unavailable wherever the support tier is on.
+        assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.CATALOG_CONTEXT)
+        assertThat(KnownFeatures.HUB_ONLY).doesNotContain(KnownFeatures.CATALOG_CONTEXT)
+        assertThat(FeatureDefaults().isEnabled(KnownFeatures.CATALOG_CONTEXT)).isFalse()
+        assertThat(FeatureDefaults(catalogContext = true).isEnabled(KnownFeatures.CATALOG_CONTEXT)).isTrue()
+    }
+
+    @Test
     fun `installing and publishing are separate keys`() {
         // Sharing one key would mean switching off publishing silently stopped upgrade checks for
         // catalogs already installed.

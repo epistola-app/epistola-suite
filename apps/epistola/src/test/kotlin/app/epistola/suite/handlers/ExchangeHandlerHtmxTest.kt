@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.exchange.CatalogPublicationWorker
 import app.epistola.suite.exchange.CompleteExchangeConnection
+import app.epistola.suite.exchange.PublishCurrentCatalogRelease
 import app.epistola.suite.exchange.SetCatalogPublicationNamespace
 import app.epistola.suite.exchange.StartExchangeConnection
 import app.epistola.suite.features.KnownFeatures
@@ -316,7 +317,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
     }
 
     @Test
-    fun `the catalog page names a release that can no longer be published`() {
+    fun `the catalog page still offers a release that kept its content after the catalog moves on`() {
         val tenant = createTenant("Exchange Drifted")
         val catalogKey = CatalogKey.of("drifted")
         withMediator {
@@ -339,9 +340,13 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         )
 
         // Asserted on the rendered page, not the query: a state field nothing renders explains nothing.
+        //
+        // The page used to say v1.0.0 could no longer be published, because the archive was rebuilt
+        // from the working copy and that had moved on. The release keeps its own content now, so
+        // there is nothing to warn about and nothing to ask the author to do.
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(response.body).contains("v1.0.0 can no longer be published")
-        assertThat(response.body).contains("Release the current state as a new version")
+        assertThat(response.body).doesNotContain("v1.0.0 can no longer be published")
+        assertThat(response.body).doesNotContain("Release the current state as a new version")
     }
 
     /** Connecting requires the tenant feature as well as the deployment gate. */
@@ -578,5 +583,85 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.body).contains("not available to this Exchange connection")
         assertThat(response.body).contains("Connect to Exchange")
+    }
+
+    /**
+     * The per-row publish action on the catalog page, whose `true` branch nothing asserted. The two
+     * tests either side of it use catalogs with no releases, so no row was ever rendered; the one in
+     * CatalogReleaseHistoryTest uses a tenant with no Exchange connection, so the action was withheld
+     * for an unrelated reason. `publishable` is a four-term conjunction with no home below the
+     * handler, and every term was being taken on trust.
+     */
+    @Test
+    fun `a retained release is offered to Exchange from its row, and marked once sent`() {
+        val tenant = createTenant("Row Publish")
+        val catalogKey = CatalogKey.of("row-publish")
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Row publish").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ReleaseCatalogVersion(
+                tenantKey = tenant.id,
+                catalogKey = catalogKey,
+                version = "1.0.0",
+                publication = ReleasePublication.SKIP,
+            ).execute()
+        }
+
+        assertThat(browsePage(tenant, catalogKey))
+            .`as`("retained, somewhere to send it, not sent yet")
+            .contains("Publish v1.0.0 to Epistola Exchange")
+
+        withMediator { PublishCurrentCatalogRelease(tenant.id, catalogKey, version = "1.0.0").execute() }
+
+        val afterSending = browsePage(tenant, catalogKey)
+        assertThat(afterSending)
+            .`as`("sent once is sent: the row says so")
+            .contains("Already sent to Epistola Exchange")
+        assertThat(afterSending)
+            .`as`("and does not offer to send it again")
+            .doesNotContain("Publish v1.0.0 to Epistola Exchange")
+    }
+
+    /**
+     * Publishing an older release from its row has to send *that* release. The command takes the
+     * version and is well covered in core; what was never proven is that the row's hidden input
+     * reaches it — so a form that dropped it would silently publish the current release instead,
+     * with nothing to show the difference.
+     */
+    @Test
+    fun `the version on the row's form is the release that gets queued`() {
+        val tenant = createTenant("Row Publish Version")
+        val catalogKey = CatalogKey.of("row-version")
+        withMediator {
+            enroll(tenant)
+            CreateCatalog(tenant.id, catalogKey, "Row version").execute()
+            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.SKIP).execute()
+            UpdateCatalogMetadata(tenant.id, catalogKey, name = "Row version edited", description = null).execute()
+            ReleaseCatalogVersion(tenant.id, catalogKey, "1.1.0", publication = ReleasePublication.SKIP).execute()
+        }
+
+        val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_FORM_URLENCODED }
+        val form = LinkedMultiValueMap<String, String>().apply { add("version", "1.0.0") }
+        restTemplate.postForEntity(
+            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/publish-current",
+            HttpEntity(form, headers),
+            String::class.java,
+        )
+
+        assertThat(queuedVersions(tenant, catalogKey))
+            .`as`("the older release asked for, not the one the catalog is on")
+            .containsExactly("1.0.0")
+    }
+
+    private fun queuedVersions(tenant: Tenant, catalogKey: CatalogKey): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
+        handle.createQuery(
+            "SELECT version FROM catalog_release_publications WHERE tenant_key = :t AND catalog_key = :c ORDER BY version",
+        )
+            .bind("t", tenant.id)
+            .bind("c", catalogKey)
+            .mapTo(String::class.java)
+            .list()
     }
 }

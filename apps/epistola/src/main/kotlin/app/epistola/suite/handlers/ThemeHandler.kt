@@ -6,6 +6,7 @@ package app.epistola.suite.themes
 
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.queries.GetCatalogContext
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -263,6 +264,7 @@ class ThemeHandler(
             "pageTitle" to "${theme.name} - Epistola"
             "tenantId" to tenantId.key
             "catalogId" to catalogId.value
+            "catalogContext" to GetCatalogContext(tenantId.key, catalogId).query()
             "theme" to theme
             "themeJson" to themeJson
             "editable" to editable

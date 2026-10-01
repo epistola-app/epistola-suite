@@ -220,6 +220,7 @@ epistola:
     ai-chat: false
     catalog-publishing: false
     catalog-installing: false
+    catalog-context: false
     resource-graph: false
     resource-relocation: false
   generation:

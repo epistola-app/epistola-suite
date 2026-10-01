@@ -113,6 +113,14 @@ class TenantTableTopology(
         return withTenantKey + TENANTS
     }
 
+    /**
+     * A table's columns, in ordinal order, **excluding generated ones**.
+     *
+     * A generated column is a pure function of other columns in its row, so it is not data a backup
+     * carries: PostgreSQL refuses an INSERT that names one ("cannot insert a non-DEFAULT value into
+     * column"), and recomputes it from the values that are restored. `catalog_releases`'
+     * version_major/minor/patch are the first of these.
+     */
     private fun loadColumns(
         handle: Handle,
         tables: Set<String>,
@@ -121,6 +129,7 @@ class TenantTableTopology(
             "SELECT table_name, column_name, data_type, udt_name, is_nullable, ordinal_position " +
                 "FROM information_schema.columns " +
                 "WHERE table_schema = 'public' AND table_name IN (<tables>) " +
+                "  AND is_generated = 'NEVER' " +
                 "ORDER BY table_name, ordinal_position",
         ).bindList("tables", tables.toList())
         .map { rs, _ ->

@@ -61,6 +61,21 @@ object KnownFeatures {
      */
     val EDITOR_WALKTHROUGH = FeatureKey.of("editor-walkthrough")
 
+    /**
+     * Catalog context on a resource page: which catalog a template, stencil, theme or code list
+     * belongs to, where that catalog stands, and a release action where there is something to
+     * release.
+     *
+     * Named for the capability rather than for the bar that carries it today, because renaming a
+     * feature key is a migration (see
+     * `V20260618204750__core_rename_compatibility_check_feature_key.sql`) — where the context is
+     * drawn may change, what it says should not.
+     *
+     * Toggle-only, like [QUALITY] and [EDITOR_WALKTHROUGH]: it reads state this installation already
+     * has and talks to no hub, so it must stay out of [SUPPORT_TIER] and [HUB_ONLY].
+     */
+    val CATALOG_CONTEXT = FeatureKey.of("catalog-context")
+
     val all: List<FeatureKey> = listOf(
         SUPPORT_FEEDBACK,
         SUPPORT_BACKUPS,
@@ -72,6 +87,7 @@ object KnownFeatures {
         RESOURCE_RELOCATION,
         CATALOG_PUBLISHING,
         CATALOG_INSTALLING,
+        CATALOG_CONTEXT,
     )
 
     /**
@@ -167,6 +183,13 @@ object KnownFeatures {
             "Catalog installing",
             "Enables browsing Epistola Exchange and installing catalogs published there. Installed " +
                 "catalogs are read-only mirrors and are checked for newer releases in the background.",
+            stage = FeatureStage.ALPHA,
+        ),
+        CATALOG_CONTEXT to FeatureMetadata(
+            "Catalog context",
+            "Shows, on every page that edits a catalog resource, which catalog it belongs to and " +
+                "where that catalog stands — the version it was last released at, whether anything " +
+                "has changed since, and a release action where there is something to release.",
             stage = FeatureStage.ALPHA,
         ),
     )

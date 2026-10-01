@@ -6,6 +6,7 @@ package app.epistola.suite.catalog
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -16,6 +17,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -103,6 +105,38 @@ class CatalogReleaseHandlerTest : BaseIntegrationTest() {
             assertThat(response.body).containsIgnoringCase("SemVer")
             val catalog = withMediator { GetCatalog(testTenant.id, CatalogKey.of("bad-cat")).query() }
             assertThat(catalog!!.releasedVersion).isNull()
+        }
+    }
+
+    @Test
+    fun `the dialog names what this release would change`() = fixture {
+        lateinit var testTenant: Tenant
+        given {
+            testTenant = tenant("Release Dialog Tenant")
+            seedAuthoredCatalog(testTenant, "diff-cat")
+            val catalogId = CatalogId(CatalogKey.of("diff-cat"), TenantId(testTenant.id))
+            withMediator {
+                ReleaseCatalogVersion(tenantKey = testTenant.id, catalogKey = catalogId.key, version = "1.0.0").execute()
+                UpdateTheme(id = ThemeId(ThemeKey.of("tha"), catalogId), name = "Th edited").execute()
+                CreateTheme(id = ThemeId(ThemeKey.of("thb"), catalogId), name = "Th B").execute()
+            }
+        }
+
+        whenever {
+            restTemplate.exchange(
+                "/tenants/${testTenant.id}/catalogs/diff-cat/release",
+                org.springframework.http.HttpMethod.GET,
+                HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
+                String::class.java,
+            )
+        }
+
+        then {
+            val body = result<org.springframework.http.ResponseEntity<String>>().body
+            assertThat(body).contains("This release will")
+            // Named, not just counted: the edited theme under "update", the added one under "add".
+            assertThat(body).contains("theme/tha")
+            assertThat(body).contains("theme/thb")
         }
     }
 }
