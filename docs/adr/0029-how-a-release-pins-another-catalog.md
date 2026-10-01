@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # ADR 0029: How a release pins another catalog
 
-- **Status:** Proposed — no pin by default, template pins as exceptions, upgrade tool first
+- **Status:** Proposed — no pin by default, variant pins as exceptions, upgrade tool first
 - **Date:** 2026-10-01
 - **Deciders:** Epistola team
 - **Tags:** catalog, releases, dependencies, upgrades, generation
@@ -176,7 +176,8 @@ the rest. That is the case C exists for.
 
 ## Decision
 
-**Resources pin nothing by default; a template may pin explicitly. The upgrade tool comes first.**
+**Resources pin nothing by default; a template variant may pin explicitly. The upgrade tool comes
+first.**
 Proposed; to be accepted by the team.
 
 1. **No pin by default.** No resource — template, stencil, theme — carries a pin of its own. Each
@@ -184,34 +185,44 @@ Proposed; to be accepted by the team.
    released**, and records which one it was (`release_dependencies`, as #1057 built), so that release
    keeps rendering the same way afterwards. The author never chooses a version; the system records
    one. This is option A, seen from the author's side.
-2. **An explicit pin is an exception, on a template.** A template may say "use B at this release"
-   (option C). Nothing else may: a document starts at a template, and everything it reaches —
-   including the consuming catalog's own stencils and themes — follows that template's pin. A pin on a
-   shared stencil or theme could disagree with the template using it and mix two releases of B in one
+2. **An explicit pin is an exception, on a variant.** A template variant may say "use B at this
+   release" (option C, at variant granularity). Nothing else may: a document is rendered from exactly
+   one variant, and everything it reaches — including the consuming catalog's own stencils and themes
+   — follows that variant's pin. The UI offers pinning all variants of a template at once; that is a
+   convenience, not a second pin level. A pin on a
+   shared stencil or theme could disagree with the variant using it and mix two releases of B in one
    document, which every other rule here exists to prevent.
 3. **The upgrade tool is the deliverable that matters most**, described below. It works with
-   point 1 alone; template pins plug into its "apply in steps" when they are built.
+   point 1 alone; variant pins plug into its "apply in steps" when they are built.
 
 **What a template depends on, and what it pins.** A template depends on _resources_ — this
 letterhead, this theme, this font — and that is what pickers record and the upgrade tool analyses. It
 reads another catalog's resources from _one release of that catalog_: the latest by default, a pinned
-one by exception. The pin is per `(template, catalog)` and nothing finer: not per resource, not per
+one by exception. The pin is per `(variant, catalog)` and nothing finer: not per resource, not per
 reference, not per resource revision. Two reasons decide it:
 
 - **Compatibility.** A catalog's resources are released together and checked against each other. A
   stencil from `B@2.0` may name presets or fonts that only `B@2.0`'s theme defines; paired with the
   theme from `B@1.0`, it renders unstyled without an error. Within one release that cannot happen.
-- **Simplicity.** "Which B does this template use?" has one answer, every tool counts per template,
+- **Simplicity.** "Which B does this variant use?" has one answer, every tool counts per variant,
   and the release — the only version anyone sees — stays the only thing that is pinned. Resource
   revisions remain internal: issue 1047 uses them per instance to detect _what_ changed, never to
   choose what is read.
+
+**Why the variant, not the template.** A document is rendered from one variant, so the variant is the
+unit that must be consistent, and per-variant pins keep every document as consistent as per-template
+pins would. They also allow what teams often do: move one language or one brand variant to a new
+release of a shared catalog before the others. A release already stores one model revision per
+variant, so impact and pins per variant cost nothing extra to compute. The template's contract and
+settings are shared by its variants and must fit every variant's pins, as they already must fit
+every variant's content.
 
 **What replaces finer pins:**
 
 - **Two lasting variants of one stencil** ("terms for existing contracts", "terms for new ones") are
   two stencils. Copy one to start the other; each then evolves on its own.
 - **Variation by data** belongs inside one stencil, as a parameter or a condition.
-- **Resources that need to be at different versions in one template** — a theme from `B@1.0` with a
+- **Resources that need to be at different versions in one variant** — a theme from `B@1.0` with a
   stencil from `B@2.0` — do not belong in the same catalog. Split a catalog along how its resources
   change: theme, fonts and presets in a branding catalog, stencils in a building-blocks catalog. A
   template can then use `branding@1.0` with `blocks@2.0`, and the upgrade tool checks the pairing when
@@ -219,7 +230,7 @@ reference, not per resource revision. Two reasons decide it:
 - **Keeping one old resource for good** means copying it into one's own catalog, where the other
   catalog's releases no longer reach it.
 - **A transitional mix during an upgrade** lives in the working copy (held-back instances, #1047); a
-  release is consistent per template.
+  release is consistent per variant.
 
 Why not the alternatives:
 
@@ -232,23 +243,23 @@ Why not the alternatives:
   would make rolling A back meaningless. It is not the default. If a catalog that promises
   compatibility (a corporate brand) ever needs it, it can be an explicit opt-in per dependency.
 
-Partial adoption is strongly wanted, not required, so template pins can follow the upgrade tool
+Partial adoption is strongly wanted, not required, so variant pins can follow the upgrade tool
 rather than precede it. When they are built, these rules come with them:
 
-1. **A pin is per template and covers everything the template reaches in that catalog** — never per
+1. **A pin is per variant and covers everything the variant reaches in that catalog** — never per
    reference.
 2. **Pins are recorded at release** beside the catalog's recorded dependency: a row `(release,
-template, dependency catalog) → dependency release`, written in the same transaction.
-3. **Rendering resolves the template's pin first, then the release's recorded dependency.** A
-   resource of the consuming catalog that references the dependency resolves through the template
+template, variant, dependency catalog) → dependency release`, written in the same transaction.
+3. **Rendering resolves the variant's pin first, then the release's recorded dependency.** A
+   resource of the consuming catalog that references the dependency resolves through the variant
    being rendered.
-4. **A pin is visible until removed:** on the template, in the release dialog, as a quality finding
+4. **A pin is visible until removed:** on the variant, in the release dialog, as a quality finding
    ("invoice still uses system@1.3.0"), and in the upgrade tool's progress.
 5. **The compatibility check of #1047 runs per pin**: moving the default checks the templates that
-   follow it; moving a pin checks that template.
+   follow it; moving a pin checks that variant.
 6. **No pin on resources inside the other catalog.** A stencil of B is only ever read as part of one
    release of B.
-7. **A pin can point either way**: holding a few templates back while the rest follow, or moving a
+7. **A pin can point either way**: holding a few variants back while the rest follow, or moving a
    few forward ahead of the rest, are the same mechanism.
 
 ## How a dependency arises, and goes
@@ -267,7 +278,7 @@ Implicitly. Nobody declares that catalog A depends on catalog B.
 - **Removing.** When the last reference into B is gone, the next release of A does not depend on B.
   Nothing to clean up.
 - **Seeing.** A catalog shows what it uses — "system 1.4.0 (12 templates), shared 2.0.0 (3
-  templates)" — with its template pins listed beneath.
+  templates)" — with its variant pins listed beneath.
 - **The working copy.** Editing and previewing A's working copy should resolve resources of B in B's
   latest release, so the preview shows what A's next release will render. _(Not built yet: the
   working copy reads B's working copy live.)_
@@ -289,11 +300,11 @@ will record.
 
 **Pinning from the picker.** As stencil versions could be pinned at insertion before, the picker
 offers the release to use — the default, which follows the latest, or a specific earlier release.
-Choosing a specific one sets **the template's pin for that catalog**, not a pin on the one reference
-(point 1 of the template pin rules above): every resource of that catalog the template reaches then
-comes from that release. The picker says so when the template already uses other resources of that
-catalog ("pins all 4 resources from `shared` in this template to 1.0.0"), and offers only releases
-that still contain everything the template uses from that catalog. A resource of the catalog's own
+Choosing a specific one sets **the variant's pin for that catalog**, not a pin on the one reference
+(point 1 of the variant pin rules above): every resource of that catalog the variant reaches then
+comes from that release. The picker says so when the variant already uses other resources of that
+catalog ("pins all 4 resources from `shared` in this variant to 1.0.0"), and offers only releases
+that still contain everything the variant uses from that catalog. A resource of the catalog's own
 release is never pinned; within a catalog there is one revision of everything (#1047).
 
 ## The upgrade tool
@@ -306,22 +317,22 @@ release is deployed.
 1. **Discovery.** A catalog says when a newer release of a catalog it uses is available, and how
    many of its templates use it ("system 1.4.0 is available; 37 templates use it"). Never an
    automatic change.
-2. **Impact, per template.** Every template that reaches the changed resources is classified:
+2. **Impact, per variant.** Every variant that reaches the changed resources is classified:
    - _unaffected_ — it uses nothing that changed;
    - _changed, compatible_ — content changed (a theme colour, a stencil's wording) but nothing it
      relies on was removed; it moves along, and its output differs;
    - _breaking_ — something it relies on changed: a filled placeholder removed, a required parameter
      added, a style preset it names gone, a resource it uses removed. Classified per instance, by the
      interface digests of #1047 and the data-contract compatibility rules.
-3. **Before and after, side by side.** Each affected template renders from its examples with the
+3. **Before and after, side by side.** Each affected variant renders from its examples with the
    release it uses now and with the newer one. The renders come from releases, so they are exactly
    what would be generated.
 4. **Guided fixes for what breaks.** Re-home a removed placeholder's fill, map a removed preset to a
    new one, bind a new required parameter, replace a removed resource — each an ordinary, undoable
    edit, as #1047 describes for the editor.
 5. **Apply in steps.** Take everything unaffected and compatible at once; work through the breaking
-   ones template by template. Without template pins, the next release adopts the newer release for
-   all templates and waits until every breaking one is fixed. With them, "these templates now, the
+   ones variant by variant. Without variant pins, the next release adopts the newer release for
+   all variants and waits until every breaking one is fixed. With them, "these variants now, the
    rest later" pins the rest back and the catalog can be released partly moved.
 6. **Progress.** A partly moved catalog shows how far it is ("63 of 100 templates on B@2.0.0") and
    which templates are left.
@@ -333,8 +344,8 @@ release is deployed.
 - Authors never manage versions of other catalogs in the normal case: a release follows the latest
   and records it.
 - The upgrade tool is built first and works with that default as it is; partial adoption plugs into
-  its "apply in steps" once template pins exist.
-- With template pins, a released catalog can carry a dependency partly adopted for as long as moving
+  its "apply in steps" once variant pins exist.
+- With variant pins, a released catalog can carry a dependency partly adopted for as long as moving
   the rest takes, in every environment including production.
 - A second pin level: a table beside `release_dependencies`, a resolution step before the catalog
   pin, an override UI on templates, per-pin compatibility checks, and the shared-resource rule in
