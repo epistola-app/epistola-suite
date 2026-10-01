@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands.variants
 
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
@@ -33,7 +34,12 @@ data class SetDefaultVariant(
 class SetDefaultVariantHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<SetDefaultVariant, TemplateVariant?> {
-    override fun handle(command: SetDefaultVariant): TemplateVariant? = jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
+    override fun handle(command: SetDefaultVariant): TemplateVariant? {
+        requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
+        return setDefault(command)
+    }
+
+    private fun setDefault(command: SetDefaultVariant): TemplateVariant? = jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
         // Verify variant belongs to the template and tenant
         val exists = handle.createQuery(
             """

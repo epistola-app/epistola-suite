@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands.variants
 
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
@@ -41,6 +42,8 @@ class UpdateVariantHandler(
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<UpdateVariant, TemplateVariant?> {
     override fun handle(command: UpdateVariant): TemplateVariant? {
+        requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
+
         // Validate attributes against the tenant's attribute definitions
         validateAttributes(command.variantId.tenantId, command.attributes)
 
