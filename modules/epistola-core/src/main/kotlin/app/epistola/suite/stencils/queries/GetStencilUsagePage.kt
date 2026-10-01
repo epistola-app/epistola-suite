@@ -15,6 +15,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.stencils.StencilReferences
 import app.epistola.suite.stencils.model.StencilUsageDetail
 import app.epistola.suite.stencils.model.StencilUsagePage
 import app.epistola.suite.stencils.stencilAtAddress
@@ -74,8 +75,7 @@ private val USAGE_CTES = """
         JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.id = dt.catalog_key
         CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS node(key, value)
         WHERE tv.tenant_key = :tenantId
-          AND node.value ->> 'type' = 'stencil'
-          AND node.value -> 'props' ->> 'stencilId' = :stencilId
+          AND ${StencilReferences.usedBy("node", "dt")}
         GROUP BY dt.id, dt.catalog_key, c.type, dt.name, tv.variant_key, tv.id, tv.status,
                  COALESCE((node.value -> 'props' ->> 'version')::int, 0)
     ),
@@ -123,6 +123,8 @@ class GetStencilUsagePageHandler(
         )
             .bind("tenantId", query.stencilId.tenantKey)
             .bind("catalogKey", query.stencilId.catalogKey)
+            .bind(StencilReferences.KEY_PARAM, query.stencilId.key.value)
+            .bind(StencilReferences.CATALOG_PARAM, query.stencilId.catalogKey.value)
             .bind("stencilId", query.stencilId.key.value)
             .map { rs, _ -> rs.getInt("total_all") to rs.getInt("upgradable_count") }
             .one()
@@ -153,6 +155,8 @@ class GetStencilUsagePageHandler(
         )
             .bind("tenantId", query.stencilId.tenantKey)
             .bind("catalogKey", query.stencilId.catalogKey)
+            .bind(StencilReferences.KEY_PARAM, query.stencilId.key.value)
+            .bind(StencilReferences.CATALOG_PARAM, query.stencilId.catalogKey.value)
             .bind("stencilId", query.stencilId.key.value)
             .bind("filter", filter)
             .bind("limit", USAGE_PAGE_SIZE)

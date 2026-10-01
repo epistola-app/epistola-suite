@@ -13,6 +13,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.StencilNodeKeys
+import app.epistola.suite.stencils.StencilReferences
 import app.epistola.suite.stencils.model.StencilContentReplacer
 import app.epistola.suite.stencils.stencilAtAddress
 import app.epistola.suite.templates.commands.versions.DraftVersionFactory
@@ -86,9 +87,9 @@ class UpdateStencilInTemplateHandler(
             val templateModel = draft.templateModel
 
             // 2. Count stencil instances before upgrade
+            val templateCatalog = command.variantId.catalogKey
             val stencilNodes = templateModel.nodes.values.filter { node ->
-                node.type == StencilNodeKeys.NODE_TYPE &&
-                    (node.props?.get(StencilNodeKeys.PROP_STENCIL_ID) as? String) == command.stencilId.key.value
+                StencilReferences.refersTo(node, command.stencilId, templateCatalog)
             }
 
             if (stencilNodes.isEmpty()) return@inTransaction UpdateStencilInTemplateResult(upgradedCount = 0)
@@ -130,7 +131,8 @@ class UpdateStencilInTemplateHandler(
             // 4. Upgrade all instances
             val upgrade = StencilContentReplacer.upgradeStencilInstances(
                 document = templateModel,
-                stencilId = command.stencilId.key.value,
+                stencil = command.stencilId,
+                templateCatalog = templateCatalog,
                 newVersion = command.newVersion,
                 newContent = newContent,
                 newParameterSchema = newParameterSchema,

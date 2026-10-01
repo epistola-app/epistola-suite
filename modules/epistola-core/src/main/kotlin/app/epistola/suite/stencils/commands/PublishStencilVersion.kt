@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -44,7 +45,12 @@ class PublishStencilVersionHandler(
     private val templateDocumentValidator: TemplateDocumentValidator,
     private val parameterSchemaValidator: ParameterSchemaValidator,
 ) : CommandHandler<PublishStencilVersion, StencilVersion> {
-    override fun handle(command: PublishStencilVersion): StencilVersion = jdbi.inTransaction<StencilVersion, Exception> { handle ->
+    override fun handle(command: PublishStencilVersion): StencilVersion {
+        requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
+        return publish(command)
+    }
+
+    private fun publish(command: PublishStencilVersion): StencilVersion = jdbi.inTransaction<StencilVersion, Exception> { handle ->
         // Fetch the draft version
         val version = handle.createQuery(
             """
