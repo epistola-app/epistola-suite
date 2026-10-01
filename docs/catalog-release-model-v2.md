@@ -322,6 +322,14 @@ Code is deleted in the major. Schema goes dead in the major and is dropped later
 - **Guards:** `AuthorizationCoverageTest`, `MediatorWiringTest`, `KnownFeaturesTest`, the fingerprint
   tests, the drift ratchet and `checkMigrationVersions` are updated with the code they guard.
 
+### WP11 — The upgrade tool
+
+[ADR 0029](adr/0029-how-a-release-pins-another-catalog.md) § The upgrade tool: discovery of newer
+releases of catalogs in use, per-template impact (unaffected, compatible, breaking), before-and-after
+renders from releases, guided fixes, applying in steps, and progress. Covers newer releases of other
+catalogs and changed stencils in one's own (#1047). UI first, MCP, REST read. Resources pin nothing by
+default; template pins (ADR 0029) plug into "apply in steps" when built.
+
 ### WP10 — Docs, demo, changelog
 
 - Rewrite `docs/catalog-versioning.md` ("one live resource set" is false after WP2),
