@@ -4,6 +4,7 @@
 
 package app.epistola.suite.attributes.commands
 
+import app.epistola.suite.attributes.AttributeReferences
 import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -96,13 +97,12 @@ class UpdateAttributeDefinitionHandler(
                             SELECT COUNT(*) FROM template_variants variants
                             ${templateJoin("variants")}
                             WHERE variants.tenant_key = :tenantId
-                              AND template.catalog_key = :catalogKey
-                              AND variants.attributes ->> :attributeKey = :value
+                              AND ${AttributeReferences.usesValue("variants", "value")}
                             """,
                         )
                             .bind("tenantId", command.id.tenantKey)
-                            .bind("catalogKey", command.id.catalogKey)
-                            .bind("attributeKey", command.id.key.value)
+                            .bind(AttributeReferences.QUALIFIED_PARAM, AttributeReferences.qualifiedKey(command.id))
+                            .bind(AttributeReferences.BARE_PARAM, AttributeReferences.bareKey(command.id))
                             .bind("value", value)
                             .mapTo(Long::class.java)
                             .one() > 0

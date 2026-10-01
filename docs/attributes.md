@@ -17,6 +17,10 @@ Before attributes can be used on variants, they must be defined in a **tenant-sc
 
 Attribute definitions are managed per tenant. Variants can only use attributes that exist in their tenant's registry.
 
+A definition belongs to a catalog. A variant names it either **qualified**, `"<catalog>.<slug>"` (for example `system.locale`), which picks exactly that definition, or by its **bare** slug, which is resolved across all of the tenant's catalogs. Prefer the qualified form whenever the same slug exists in more than one catalog.
+
+A definition cannot be deleted, and values cannot be removed from its `allowedValues`, while a variant still uses it. The check counts variants in **every** catalog of the tenant and both key forms; a bare key is counted for every catalog that defines that slug, so with an ambiguous slug the check errs on the side of refusing. Dropping a definition in a catalog upgrade reports the same variants as conflicts.
+
 For longer or shared value sets (locales, country codes, custom taxonomies),
 prefer a **code list** binding over inline `allowedValues`. See
 [`code-lists.md`](code-lists.md) for the full design.
