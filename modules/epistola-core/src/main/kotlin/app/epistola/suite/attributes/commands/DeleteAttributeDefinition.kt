@@ -4,6 +4,7 @@
 
 package app.epistola.suite.attributes.commands
 
+import app.epistola.suite.attributes.AttributeReferences
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.mediator.Command
@@ -40,18 +41,18 @@ class DeleteAttributeDefinitionHandler(
     override fun handle(command: DeleteAttributeDefinition): Boolean {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         return jdbi.withHandle<Boolean, Exception> { handle ->
-            // Check if any variants still reference this attribute
+            // Any variant, in any catalog, that still names this attribute (qualified or bare)
             val variantCount = handle.createQuery(
                 """
                 SELECT COUNT(*) FROM template_variants variants
                 ${templateJoin("variants")}
-                WHERE variants.tenant_key = :tenantId AND template.catalog_key = :catalogKey
-                  AND jsonb_exists(variants.attributes, :attributeKey)
+                WHERE variants.tenant_key = :tenantId
+                  AND ${AttributeReferences.uses("variants")}
                 """,
             )
                 .bind("tenantId", command.id.tenantKey)
-                .bind("catalogKey", command.id.catalogKey)
-                .bind("attributeKey", command.id.key.value)
+                .bind(AttributeReferences.QUALIFIED_PARAM, AttributeReferences.qualifiedKey(command.id))
+                .bind(AttributeReferences.BARE_PARAM, AttributeReferences.bareKey(command.id))
                 .mapTo(Long::class.java)
                 .one()
 

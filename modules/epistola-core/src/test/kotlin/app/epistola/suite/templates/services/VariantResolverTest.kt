@@ -78,8 +78,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 )
 
                 val resolved = variantResolver.resolve(
-                    tenantId = tenant.id,
-                    templateId = template.id,
+                    template = templateId,
                     criteria = VariantSelectionCriteria(
                         requiredAttributes = mapOf("lang" to "dutch"),
                     ),
@@ -119,8 +118,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 )!!
 
                 val resolved = variantResolver.resolve(
-                    tenantId = tenant.id,
-                    templateId = template.id,
+                    template = templateId,
                     criteria = VariantSelectionCriteria(
                         requiredAttributes = mapOf("lang" to "dutch", "brand" to "acme"),
                     ),
@@ -164,8 +162,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 )!!
 
                 val resolved = variantResolver.resolve(
-                    tenantId = tenant.id,
-                    templateId = template.id,
+                    template = templateId,
                     criteria = VariantSelectionCriteria(
                         optionalAttributes = mapOf("lang" to "dutch", "brand" to "acme"),
                     ),
@@ -207,8 +204,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 )!!
 
                 val resolved = variantResolver.resolve(
-                    tenantId = tenant.id,
-                    templateId = template.id,
+                    template = templateId,
                     criteria = VariantSelectionCriteria(
                         requiredAttributes = mapOf("lang" to "dutch"),
                         optionalAttributes = mapOf("brand" to "acme"),
@@ -246,8 +242,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 )
 
                 val resolved = variantResolver.resolve(
-                    tenantId = tenant.id,
-                    templateId = template.id,
+                    template = templateId,
                     criteria = VariantSelectionCriteria(
                         requiredAttributes = mapOf("lang" to "dutch"),
                     ),
@@ -286,8 +281,7 @@ class VariantResolverTest : IntegrationTestBase() {
 
                 // Request dutch which no variant has — should fall back to default (even though it has empty attributes)
                 val resolved = variantResolver.resolve(
-                    tenantId = tenant.id,
-                    templateId = template.id,
+                    template = templateId,
                     criteria = VariantSelectionCriteria(
                         requiredAttributes = mapOf("lang" to "dutch"),
                     ),
@@ -333,8 +327,7 @@ class VariantResolverTest : IntegrationTestBase() {
 
                 val exception = assertThrows<AmbiguousVariantResolutionException> {
                     variantResolver.resolve(
-                        tenantId = tenant.id,
-                        templateId = template.id,
+                        template = templateId,
                         criteria = VariantSelectionCriteria(
                             requiredAttributes = mapOf("lang" to "dutch"),
                         ),
@@ -390,8 +383,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 )!!
 
                 val resolved = variantResolver.resolve(
-                    tenantId = tenant.id,
-                    templateId = template.id,
+                    template = templateId,
                     criteria = VariantSelectionCriteria(
                         requiredAttributes = mapOf("lang" to "dutch"),
                         optionalAttributes = mapOf("brand" to "acme"),
@@ -434,8 +426,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 )!!
 
                 val resolved = variantResolver.resolve(
-                    tenantId = tenant.id,
-                    templateId = template.id,
+                    template = templateId,
                     criteria = VariantSelectionCriteria(
                         optionalAttributes = mapOf("lang" to "dutch", "brand" to "acme"),
                     ),
@@ -462,8 +453,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 val defaultVariantId = VariantKey.INITIAL
 
                 val resolved = variantResolver.resolve(
-                    tenantId = tenant.id,
-                    templateId = template.id,
+                    template = templateId,
                     criteria = VariantSelectionCriteria(),
                 )
 
@@ -492,8 +482,7 @@ class VariantResolverTest : IntegrationTestBase() {
                 )!!
 
                 val resolved = variantResolver.resolve(
-                    tenantId = tenant.id,
-                    templateId = template.id,
+                    template = templateId,
                     criteria = VariantSelectionCriteria(
                         requiredAttributes = mapOf("lang" to "dutch"),
                     ),

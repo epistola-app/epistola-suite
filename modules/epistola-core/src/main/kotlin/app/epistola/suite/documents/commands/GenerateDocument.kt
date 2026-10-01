@@ -6,9 +6,12 @@ package app.epistola.suite.documents.commands
 
 import app.epistola.suite.common.NotAudited
 import app.epistola.suite.common.NotEventLogged
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.GenerationRequestKey
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
@@ -89,7 +92,7 @@ class GenerateDocumentHandler(
     override fun handle(command: GenerateDocument): DocumentGenerationRequest {
         // Resolve variant: explicit ID > attribute selection > default variant
         val resolvedVariantId = command.variantId
-            ?: command.variantSelectionCriteria?.let { variantResolver.resolve(command.tenantId, command.templateId, it) }
+            ?: command.variantSelectionCriteria?.let { variantResolver.resolve(TemplateId(command.templateId, CatalogId(command.catalogKey, TenantId(command.tenantId))), it) }
             ?: resolveDefaultVariant(command.tenantId, command.catalogKey, command.templateId)
 
         logger.info("Generating single document for tenant {} template {} variant {}", command.tenantId, command.templateId, resolvedVariantId)
