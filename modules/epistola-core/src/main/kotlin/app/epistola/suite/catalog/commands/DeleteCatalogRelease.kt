@@ -30,6 +30,12 @@ import org.springframework.stereotype.Component
  * here is this installation's own record of the release, including the outbox rows and archives that
  * hang off it.
  *
+ * **A gate this will need once environments deploy releases.** Today deleting a release costs only
+ * the record of it. Once an environment serves a named release (ADR 0026 §6, #1036), deleting the
+ * release an environment is on takes that environment down — so this will need to refuse for a
+ * deployed release, the same shape as the in-flight-publication refusal below. There is nothing to
+ * ask yet: no deployment exists to consult.
+ *
  * **What must not be left dangling is the pointer.** `catalogs.released_version`,
  * `released_fingerprint` and `released_at` are a plain pointer at the current release with no foreign
  * key to keep them honest, and `released_at` is what the drift rule in `ListCatalogsForManagement`
