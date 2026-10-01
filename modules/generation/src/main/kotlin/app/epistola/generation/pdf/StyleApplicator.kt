@@ -85,25 +85,41 @@ object StyleApplicator {
         defaultStyles: Map<String, Any>? = null,
         baseFontSizePt: Float = 12f,
         spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
+        mergedFontSelection: Boolean = false,
+        applyLetterSpacing: Boolean = false,
     ) {
+        // With merged selection the layers below set everything but the font, which is
+        // picked once afterwards from all of them; otherwise each layer picks its own.
+        val selectFontPerLayer = !mergedFontSelection
+
         // Apply component default styles first (lowest priority)
-        defaultStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit) }
+        defaultStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit, selectFontPerLayer, applyLetterSpacing) }
 
         // Apply inherited styles (from parent node, or document styles at root level),
         // but only for keys that are allowed to cascade.
         val effectiveInheritedStyles = inheritedStyles.filterKeys { it in INHERITABLE_KEYS }
         if (effectiveInheritedStyles.isNotEmpty()) {
-            applyBlockStyles(element, effectiveInheritedStyles, fontCache, baseFontSizePt, spacingUnit)
+            applyBlockStyles(element, effectiveInheritedStyles, fontCache, baseFontSizePt, spacingUnit, selectFontPerLayer, applyLetterSpacing)
         }
 
         // Resolve preset styles (if preset exists)
         val presetStyles = blockStylePreset?.let { blockStylePresets[it] }
 
         // Apply preset styles (override inherited styles)
-        presetStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit) }
+        presetStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit, selectFontPerLayer, applyLetterSpacing) }
 
         // Apply block inline styles (override preset styles)
-        blockInlineStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit) }
+        blockInlineStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit, selectFontPerLayer, applyLetterSpacing) }
+
+        if (mergedFontSelection) {
+            val merged = buildMap {
+                defaultStyles?.let { putAll(it) }
+                putAll(effectiveInheritedStyles)
+                presetStyles?.let { putAll(it) }
+                blockInlineStyles?.let { putAll(it) }
+            }
+            selectFont(element, merged, fontCache)
+        }
     }
 
     /**
@@ -152,7 +168,15 @@ object StyleApplicator {
         }
     }
 
-    private fun <T : BlockElement<T>> applyBlockStyles(element: T, styles: Map<String, Any>, fontCache: FontCache, baseFontSizePt: Float = 12f, spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT) {
+    private fun <T : BlockElement<T>> applyBlockStyles(
+        element: T,
+        styles: Map<String, Any>,
+        fontCache: FontCache,
+        baseFontSizePt: Float = 12f,
+        spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
+        selectFont: Boolean = true,
+        applyLetterSpacing: Boolean = false,
+    ) {
         // Font size
         (styles["fontSize"] as? String)?.let { fontSize ->
             parseFontSize(fontSize, baseFontSizePt, spacingUnit)?.let { element.setFontSize(it) }
@@ -212,29 +236,13 @@ object StyleApplicator {
             }
         }
 
-        // Font weight: a CSS numeric weight 1..1000. Keywords map to the
-        // canonical numeric stops; absent/unrecognised → 400 (normal).
-        val weight = parseFontWeight(styles["fontWeight"])
+        if (selectFont) selectFont(element, styles, fontCache)
 
-        // Font style
-        val isItalic = (styles["fontStyle"] as? String) == "italic"
-
-        // Font family + weight/style.
-        // A structured fontFamily reference selects the referenced font; the
-        // resolver (which owns the DB) picks the nearest available face for
-        // the requested (weight, italic). Without a reference the legacy
-        // behaviour applies: only swap to the built-in bold/italic when the
-        // numeric weight is bold (>= 700) or italic is requested.
-        val fontRef = parseFontRef(styles["fontFamily"])
-        val isBold = weight >= FontCache.BOLD_THRESHOLD
-        if (fontRef != null) {
-            element.setFont(fontCache.font(fontRef, weight, isItalic))
-        } else if (isBold || isItalic) {
-            val font = when {
-                isBold -> fontCache.bold
-                else -> fontCache.italic
+        // Letter spacing: iText's character spacing, inherited by the paragraphs and text inside.
+        if (applyLetterSpacing) {
+            (styles["letterSpacing"] as? String)?.let { spacing ->
+                parseSize(spacing, baseFontSizePt, spacingUnit)?.let { element.setCharacterSpacing(it) }
             }
-            element.setFont(font)
         }
 
         // Borders: per-side shorthand (e.g., "2pt solid #2563eb")
@@ -266,6 +274,32 @@ object StyleApplicator {
         // iText only handles that property at a document root renderer.
         if (styles["keepTogether"] == true || styles["keepTogether"] == "true") {
             element.setKeepTogether(true)
+        }
+    }
+
+    /**
+     * Sets [element]'s font from the family, weight and style in [styles].
+     *
+     * A structured fontFamily reference selects the referenced font; the resolver (which owns
+     * the DB) picks the nearest available face for the requested (weight, italic). Without a
+     * reference the legacy behaviour applies: only swap to the built-in bold/italic when the
+     * numeric weight is bold (>= 700) or italic is requested, and otherwise leave the font alone.
+     */
+    private fun <T : BlockElement<T>> selectFont(element: T, styles: Map<String, Any>, fontCache: FontCache) {
+        // Font weight: a CSS numeric weight 1..1000. Keywords map to the
+        // canonical numeric stops; absent/unrecognised → 400 (normal).
+        val weight = parseFontWeight(styles["fontWeight"])
+        val isItalic = (styles["fontStyle"] as? String) == "italic"
+        val fontRef = parseFontRef(styles["fontFamily"])
+        val isBold = weight >= FontCache.BOLD_THRESHOLD
+        if (fontRef != null) {
+            element.setFont(fontCache.font(fontRef, weight, isItalic))
+        } else if (isBold || isItalic) {
+            val font = when {
+                isBold -> fontCache.bold
+                else -> fontCache.italic
+            }
+            element.setFont(font)
         }
     }
 

@@ -426,6 +426,14 @@ class DirectPdfRenderer(
             )
         }
 
+        // Page background: painted into a content stream *before* the page's own, so it lies
+        // beneath the body, bands, address block and watermark whatever order they register in.
+        if (context.renderingDefaults.pageBackground) {
+            pageSettings.backgroundColor?.let(StyleApplicator::parseColor)?.let { color ->
+                pdfDocument.addEventHandler(PdfDocumentEvent.END_PAGE, PageBackgroundEventHandler(color))
+            }
+        }
+
         val elements = when (bands) {
             is BandPlan.Positional -> {
                 // First-page spacer: when the first-page pageheader band is taller than the

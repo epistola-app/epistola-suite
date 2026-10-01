@@ -88,6 +88,8 @@ internal fun buildBandWrapper(
         baseContext.renderingDefaults.componentDefaults(componentDefaultsKey),
         baseContext.renderingDefaults.baseFontSizePt,
         baseContext.spacingUnit,
+        mergedFontSelection = baseContext.renderingDefaults.mergedFontSelection,
+        applyLetterSpacing = baseContext.renderingDefaults.applyLetterSpacing,
     )
     for (element in elements) {
         when (element) {
@@ -126,6 +128,10 @@ internal fun paintHeaderBand(
 ) {
     val pageSize = page.pageSize
     val pageNumber = pdfDoc.getPageNumber(page)
+
+    // Like a footer, a header with hideOnFirstPage keeps its band on page 1 but draws nothing.
+    val hideOnFirstPage = headerNode.props?.get("hideOnFirstPage") == true
+    if (context.renderingDefaults.headerHideOnFirstPage && hideOnFirstPage && pageNumber == 1) return
 
     // The header rectangle's distance to each page edge follows the cascade:
     // headerNode.margin{Top,Left,Right} → root.margin{Top,Left,Right} →

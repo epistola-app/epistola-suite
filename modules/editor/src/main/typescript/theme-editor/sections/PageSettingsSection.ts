@@ -11,6 +11,7 @@
 import { html } from 'lit';
 import { renderColorInput, DEFAULT_SPACING_UNIT } from '../../ui/inputs/style-inputs.js';
 import type { ThemeEditorState } from '../ThemeEditorState.js';
+import { pageFormatOptions } from '../../ui/page-format-options.js';
 
 export function renderPageSettingsSection(state: ThemeEditorState, readOnly = false): unknown {
   const settings = state.theme.pageSettings;
@@ -38,8 +39,10 @@ export function renderPageSettingsSection(state: ThemeEditorState, readOnly = fa
           @change=${(e: Event) =>
             state.updatePageSetting('format', (e.target as HTMLSelectElement).value)}
         >
-          ${['A4', 'Letter', 'Custom'].map(
-            (f) => html` <option .value=${f} ?selected=${format === f}>${f}</option> `,
+          ${pageFormatOptions(format).map(
+            (o) => html`
+              <option .value=${o.value} ?selected=${format === o.value}>${o.label}</option>
+            `,
           )}
         </select>
       </div>
