@@ -14,6 +14,9 @@ import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Handle
 import org.springframework.stereotype.Component
 
+/** One recorded dependency of a release: [catalog] at [version], used directly or through another one. */
+data class Pin(val catalog: CatalogKey, val version: String, val direct: Boolean)
+
 /**
  * Which release of another catalog a release renders with.
  *
@@ -26,9 +29,6 @@ import org.springframework.stereotype.Component
  *
  * Only releases that kept their content can be pinned, because a pinned release is read to render.
  */
-/** One recorded dependency of a release: [catalog] at [version], used directly or through another one. */
-data class Pin(val catalog: CatalogKey, val version: String, val direct: Boolean)
-
 @Component
 class ReleaseDependencyStore {
 
