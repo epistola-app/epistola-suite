@@ -170,57 +170,27 @@ class TemplateDocumentValidatorTest {
     }
 
     @Test
-    fun `a template with two address blocks is refused, however they got there`() {
-        val exception = assertThrows<ValidationException> {
-            validator.validateTemplate(documentWithRootChildren("addressblock", "addressblock"))
+    fun `two address blocks are accepted on save and reported as a quality finding instead`() {
+        // #1028: one can arrive inside an included stencil, which the author cannot fix from the
+        // template, so the epistola-quality "layout" source reports it rather than the save refusing.
+        val addressBlock = { id: String ->
+            Node(id = id, type = "addressblock", slots = listOf("$id-address", "$id-aside"))
         }
-
-        assertThat(exception.code).isEqualTo(ValidationCode.TEMPLATE_COMPONENT_TOO_MANY)
-        assertThat(exception.field).isEqualTo("templateModel.nodes.addressblock-2")
-        assertThat(exception.message).contains("addressblock")
-    }
-
-    @Test
-    fun `a stencil with two address blocks is refused`() {
-        val exception = assertThrows<ValidationException> {
-            validator.validateStencil(documentWithRootChildren("addressblock", "addressblock"))
-        }
-
-        assertThat(exception.code).isEqualTo(ValidationCode.TEMPLATE_COMPONENT_TOO_MANY)
-        assertThat(exception.field).startsWith("content.")
-    }
-
-    @Test
-    fun `one address block and any number of page footers are accepted`() {
-        assertThatCode {
-            validator.validateTemplate(documentWithRootChildren("addressblock", "pagefooter", "pagefooter"))
-        }.doesNotThrowAnyException()
-    }
-
-    @Test
-    fun `a stored template that already has two address blocks still renders`() {
-        assertThatCode {
-            validator.validateTemplateGraphForRendering(documentWithRootChildren("addressblock", "addressblock"))
-        }.doesNotThrowAnyException()
-    }
-
-    /** A root holding one empty node per [types], ids `<type>-<n>` numbered per type from 1. */
-    private fun documentWithRootChildren(vararg types: String): TemplateDocument {
-        val seen = mutableMapOf<String, Int>()
-        val children = types.map { type -> "$type-${seen.merge(type, 1, Int::plus)}" }
-        val nodes = mutableMapOf("root" to Node(id = "root", type = "root", slots = listOf("root-slot")))
-        val slots = mutableMapOf(
-            "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = children),
+        val document = TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+                "own" to addressBlock("own"),
+                "from-stencil" to addressBlock("from-stencil"),
+            ),
+            slots = mapOf(
+                "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("own", "from-stencil")),
+            ) + listOf("own", "from-stencil").flatMap { id ->
+                listOf("address", "aside").map { name -> "$id-$name" to Slot(id = "$id-$name", nodeId = id, name = name, children = emptyList()) }
+            },
         )
-        children.zip(types).forEach { (id, type) ->
-            val slotNames = if (type == "addressblock") listOf("address", "aside") else listOf("children")
-            val slotIds = slotNames.map { "$id-$it" }
-            nodes[id] = Node(id = id, type = type, slots = slotIds)
-            slotNames.zip(slotIds).forEach { (name, slotId) ->
-                slots[slotId] = Slot(id = slotId, nodeId = id, name = name, children = emptyList())
-            }
-        }
-        return TemplateDocument(root = "root", nodes = nodes, slots = slots)
+
+        assertThatCode { validator.validateTemplate(document) }.doesNotThrowAnyException()
     }
 
     private fun documentWithMissingRoot() = TemplateDocument(

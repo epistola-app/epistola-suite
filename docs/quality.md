@@ -304,7 +304,7 @@ large artifacts such as rendered PDFs are exposed through short-lived run-bound 
 checker submits its full finding set later with the `run_id` / `input_fingerprint`; stale or failed
 runs must not auto-resolve old findings.
 
-Two ship today, and they are worth reading in that order:
+Several ship today; these are worth reading in this order:
 
 - **`ExampleQualitySource`** (`example`) — a reference implementation, deliberately trivial. Its
   job is to demonstrate the seam and the fingerprint contract, not to be a good check.
@@ -315,6 +315,11 @@ Two ship today, and they are worth reading in that order:
   also the first source to carry a `docsUrl`, since it can point at the WCAG technique rather
   than explain itself. It needs nothing but the template model, which is why it did not wait for
   the widened input.
+- **`ComponentLimitQualitySource`** (`layout`) — reports a document holding more instances of a
+  component than the registry's `maxInstancesPerDocument` allows; today that is a second address
+  block, typically brought in by an included stencil. It is a finding rather than a save-time
+  refusal on purpose: the author often cannot fix it from the template, and the document still
+  renders with one address block.
 
 ### Remote
 

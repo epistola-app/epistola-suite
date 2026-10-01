@@ -15,7 +15,6 @@ import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.Node
 import app.epistola.template.model.TemplateDocument
 import org.springframework.stereotype.Component
-import tools.jackson.databind.json.JsonMapper
 
 /**
  * Suite presentation adapter for the portable catalog validator.
@@ -103,29 +102,6 @@ class TemplateDocumentValidator(
             .filterNot { it.code in ignoredCodes }
             .minWithOrNull(compareBy({ LEGACY_CODE_PRIORITY.indexOf(it.code).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }, { it.path }))
             ?.let { throw it.asSuiteException(requestField, document) }
-        rejectTooManyInstances(requestField, document)
-    }
-
-    /**
-     * Enforces the registry's `maxInstancesPerDocument` (today only `addressblock`, at one).
-     * The portable validator has no such rule and the editor is the only other place that checks,
-     * so without this a document written over REST, MCP or import could carry two address
-     * blocks and render with one silently dropped. Not part of
-     * [validateTemplateGraphForRendering]: stored documents that already break the limit keep
-     * rendering as they did.
-     */
-    private fun rejectTooManyInstances(requestField: String, document: TemplateDocument) {
-        for ((type, limit) in MAX_INSTANCES_PER_DOCUMENT) {
-            val instances = document.nodes.values.filter { it.type == type }.map(Node::id).sorted()
-            if (instances.size > limit) {
-                throw ValidationException(
-                    field = "$requestField.nodes.${instances[limit]}",
-                    message = "A document may hold at most $limit '$type' component${if (limit == 1) "" else "s"}, " +
-                        "but this one holds ${instances.size}: ${instances.joinToString(", ")}",
-                    code = ValidationCode.TEMPLATE_COMPONENT_TOO_MANY,
-                )
-            }
-        }
     }
 
     private fun validate(
@@ -171,20 +147,6 @@ class TemplateDocumentValidator(
     }
 
     companion object {
-        private const val COMPONENT_REGISTRY = "/META-INF/epistola-catalog/component-registry.json"
-
-        /** `type -> maxInstancesPerDocument`, read once from the contract's component registry. */
-        internal val MAX_INSTANCES_PER_DOCUMENT: Map<String, Int> by lazy {
-            val registry = TemplateDocumentValidator::class.java.getResourceAsStream(COMPONENT_REGISTRY)
-                ?.use { JsonMapper.shared().readTree(it) }
-                ?: error("$COMPONENT_REGISTRY is missing from the classpath")
-            registry.required("components").values()
-                .mapNotNull { component ->
-                    component.get("maxInstancesPerDocument")?.asInt()?.let { component.required("type").asString() to it }
-                }
-                .toMap()
-        }
-
         private const val TEMPLATE_FIELD = "templateModel"
         private const val STENCIL_FIELD = "content"
         private val LEGACY_CODE_PRIORITY = listOf(
