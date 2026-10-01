@@ -280,10 +280,20 @@ path already knows how to turn a wire resource into domain shape, so the seam re
 - **MCP:** the version tools from #1040 become `mark_ready`, `release_catalog`, `list_releases`,
   `get_release`, `deploy_release`, `preview_deployment`; `upgrade_stencil_in_template` becomes
   "resolve held-back instances". `docs/mcp.md` and `ComponentTypesIntegrationTest` follow.
-- **Catalog wire format:** `StencilResource.version` is an integer today. Decide whether it becomes
-  provenance or is removed in the protocol's next version under ADR 0007; the fingerprint algorithm
-  for existing formats is preserved either way. A template model's stencil node props change as in
-  WP4.
+- **Catalog wire format** (_decided 2026-10-01_, D9): stencil version numbers are **removed** in a
+  new catalog-wide `schemaVersion`, under ADR 0007. That covers `StencilResource.version` and the
+  `version` / `draftVersion` props on stencil nodes, which become `revisionDigest` and
+  `interfaceDigest` as in WP4. Keeping the numbers as provenance was rejected: the digests change
+  the format anyway, and a field that no longer means anything would still be read as if it did.
+  - **Importing an older archive** runs the migration chain: the stencil's version is dropped, and
+    each node's version maps to the revision of that stencil's content in the same archive.
+  - **Releases cut before 2.0** keep their original schema version. Their retained content must
+    rebuild to the fingerprint they were cut with, so the old shape stays readable and writable for
+    exporting and publishing them as released. The fingerprint algorithm for existing formats is
+    unchanged.
+  - **A 2.0 archive cannot be installed on 1.x**, which refuses a newer `schemaVersion` per ADR 0007.
+    Exchange shows the minimum suite version a release needs.
+  - The new shape ships in the contract major together with the REST and MCP changes above.
 - `checkContractVersionAlignment` and `ApiExceptionMappingsConsistencyTest` are the guards; the
   `contract-bump` skill is the workflow.
 
@@ -528,21 +538,21 @@ Additive on the new model, in minors:
 
 ## 12. Decisions to record in ADR 0028
 
-| #   | Decision                                                      | Proposed answer                                                                        |
-| --- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| D1  | What environments serve after the upgrade                     | Nothing: activations are not converted; operators deploy a release (§8.3)              |
-| D2  | Backfill old published versions into revisions                | No; dead table, provenance only                                                        |
-| D3  | Stencil model                                                 | §3.4 as written                                                                        |
-| D4  | Release refuses while modified from day one                   | Yes; #1009 A follows immediately                                                       |
-| D5  | Draft state for themes, fonts, images, code lists, attributes | No; the release preview is the safety net                                              |
-| D6  | Does `catalogs.type` survive                                  | Yes, as a cached discriminator; "has a working copy" is the truth                      |
-| D7  | Working copy base on the API                                  | Yes, additive                                                                          |
-| D8  | Version ranges                                                | Lockfile model, post-major, with pins                                                  |
-| D9  | `StencilResource.version` on the wire                         | Decide with the contract bump under ADR 0007                                           |
-| D10 | System catalog as per-tenant releases                         | Yes                                                                                    |
-| D11 | Where the auto-release version comes from                     | Patch bump, or the first-release default; note names the upgrade                       |
-| D12 | What "ready" covers for a template                            | Its own content, fills and bindings; a stencil's ready covers the stencil              |
-| D13 | Permissions                                                   | `CATALOG_RELEASE` and a deploy permission replace `TEMPLATE_PUBLISH`/`STENCIL_PUBLISH` |
+| #   | Decision                                                      | Proposed answer                                                                                       |
+| --- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| D1  | What environments serve after the upgrade                     | Nothing: activations are not converted; operators deploy a release (§8.3)                             |
+| D2  | Backfill old published versions into revisions                | No; dead table, provenance only                                                                       |
+| D3  | Stencil model                                                 | §3.4 as written                                                                                       |
+| D4  | Release refuses while modified from day one                   | Yes; #1009 A follows immediately                                                                      |
+| D5  | Draft state for themes, fonts, images, code lists, attributes | No; the release preview is the safety net                                                             |
+| D6  | Does `catalogs.type` survive                                  | Yes, as a cached discriminator; "has a working copy" is the truth                                     |
+| D7  | Working copy base on the API                                  | Yes, additive                                                                                         |
+| D8  | Version ranges                                                | Lockfile model, post-major, with pins                                                                 |
+| D9  | Stencil version numbers on the wire                           | Removed in a new `schemaVersion`; old archives migrate on import; old releases keep their shape (WP6) |
+| D10 | System catalog as per-tenant releases                         | Yes                                                                                                   |
+| D11 | Where the auto-release version comes from                     | Patch bump, or the first-release default; note names the upgrade                                      |
+| D12 | What "ready" covers for a template                            | Its own content, fills and bindings; a stencil's ready covers the stencil                             |
+| D13 | Permissions                                                   | `CATALOG_RELEASE` and a deploy permission replace `TEMPLATE_PUBLISH`/`STENCIL_PUBLISH`                |
 
 ## 13. Risks
 
