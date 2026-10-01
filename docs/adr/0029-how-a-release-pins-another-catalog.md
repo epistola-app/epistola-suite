@@ -192,6 +192,35 @@ Proposed; to be accepted by the team.
 3. **The upgrade tool is the deliverable that matters most**, described below. It works with
    point 1 alone; template pins plug into its "apply in steps" when they are built.
 
+**What a template depends on, and what it pins.** A template depends on _resources_ — this
+letterhead, this theme, this font — and that is what pickers record and the upgrade tool analyses. It
+reads another catalog's resources from _one release of that catalog_: the latest by default, a pinned
+one by exception. The pin is per `(template, catalog)` and nothing finer: not per resource, not per
+reference, not per resource revision. Two reasons decide it:
+
+- **Compatibility.** A catalog's resources are released together and checked against each other. A
+  stencil from `B@2.0` may name presets or fonts that only `B@2.0`'s theme defines; paired with the
+  theme from `B@1.0`, it renders unstyled without an error. Within one release that cannot happen.
+- **Simplicity.** "Which B does this template use?" has one answer, every tool counts per template,
+  and the release — the only version anyone sees — stays the only thing that is pinned. Resource
+  revisions remain internal: issue 1047 uses them per instance to detect _what_ changed, never to
+  choose what is read.
+
+**What replaces finer pins:**
+
+- **Two lasting variants of one stencil** ("terms for existing contracts", "terms for new ones") are
+  two stencils. Copy one to start the other; each then evolves on its own.
+- **Variation by data** belongs inside one stencil, as a parameter or a condition.
+- **Resources that need to be at different versions in one template** — a theme from `B@1.0` with a
+  stencil from `B@2.0` — do not belong in the same catalog. Split a catalog along how its resources
+  change: theme, fonts and presets in a branding catalog, stencils in a building-blocks catalog. A
+  template can then use `branding@1.0` with `blocks@2.0`, and the upgrade tool checks the pairing when
+  either moves.
+- **Keeping one old resource for good** means copying it into one's own catalog, where the other
+  catalog's releases no longer reach it.
+- **A transitional mix during an upgrade** lives in the working copy (held-back instances, #1047); a
+  release is consistent per template.
+
 Why not the alternatives:
 
 - **B, a pin on every reference**, makes pinning the default and gives up consistency within a
