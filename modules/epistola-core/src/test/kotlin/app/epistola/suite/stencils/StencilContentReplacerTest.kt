@@ -69,6 +69,29 @@ class StencilContentReplacerTest {
     }
 
     @Test
+    fun `upgrading an instance inserted against a draft drops its draft reference`() {
+        val template = doc(
+            "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+            "stencil-1" to Node(
+                id = "stencil-1",
+                type = "stencil",
+                slots = listOf("stencil-1-slot"),
+                props = mapOf("stencilId" to "header", "draftVersion" to 1),
+            ),
+            slots = mapOf(
+                "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("stencil-1")),
+                "stencil-1-slot" to Slot(id = "stencil-1-slot", nodeId = "stencil-1", name = "children", children = emptyList()),
+            ),
+        )
+
+        val result = StencilContentReplacer.upgradeStencilInstances(template, "header", 1, stencilContent())
+
+        val props = result.document.nodes["stencil-1"]!!.props!!
+        assertThat(props["version"]).isEqualTo(1)
+        assertThat(props).doesNotContainKey("draftVersion")
+    }
+
+    @Test
     fun `multiple instances get independent re-keyed IDs`() {
         val template = doc(
             "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),

@@ -28,9 +28,9 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "5.18.3",
-    "releasedAt": "2026-09-22T00:00:00Z",
-    "fingerprint": "ceaa4714832b3e55b07b52ca5831d0ef315e9b6c5358965adc02957c4d7eafbb"
+    "version": "5.20.1",
+    "releasedAt": "2026-09-29T00:00:00Z",
+    "fingerprint": "d4b59a21c7e9dacd9c91f5fd205d6584332f82268240a5bc1e424aa15a96cc96"
   },
   "resources": [
     {
@@ -82,6 +82,14 @@
       "detailUrl": "./resources/stencils/letter-shell.json"
     },
     {
+      "type": "stencil",
+      "slug": "letterhead",
+      "name": "Letterhead",
+      "description": "A page header and footer that travel with the stencil: its header applies from where it is placed, its footer covers that section.",
+      "updatedAt": "2026-09-29T00:00:00Z",
+      "detailUrl": "./resources/stencils/letterhead.json"
+    },
+    {
       "type": "template",
       "slug": "hello-world",
       "name": "Hello World",
@@ -125,9 +133,25 @@
       "type": "template",
       "slug": "officiele-snelheidsbekeuring",
       "name": "Verkeersboete",
-      "description": "Dutch traffic-fine notice (CJIB-style). Showcases locale-aware date and number formatting via $formatDate (four distinct patterns \u2014 long-form, short, date+time, no-leading-zero) and $formatLocaleNumber (integer speeds and currency amounts). Three variants exercise the locale chain: default (inherits from tenant/app), nl-NL (Dutch month names, '1.234,56' grouping), en-US (English month names, '1,234.56' grouping).",
+      "description": "Dutch traffic-fine notice (CJIB-style). Showcases locale-aware date and number formatting via $formatDate (four distinct patterns — long-form, short, date+time, no-leading-zero) and $formatLocaleNumber (integer speeds and currency amounts). Three variants exercise the locale chain: default (inherits from tenant/app), nl-NL (Dutch month names, '1.234,56' grouping), en-US (English month names, '1,234.56' grouping).",
       "updatedAt": "2026-05-21T00:00:00Z",
       "detailUrl": "./resources/templates/traffic-fine.json"
+    },
+    {
+      "type": "template",
+      "slug": "sectioned-letter",
+      "name": "Sectioned Letter",
+      "description": "A cover, a letter and terms, each with its own page header and footer. Demonstrates headers and footers placed anywhere: a conditional cover header, a letterhead stencil, a section-start header after a page break, a header switching mid-section, footers that apply from the page they land on, and an empty footer that switches the band off.",
+      "updatedAt": "2026-09-29T00:00:00Z",
+      "detailUrl": "./resources/templates/sectioned-letter.json"
+    },
+    {
+      "type": "template",
+      "slug": "batch-letters",
+      "name": "Batch Letters",
+      "description": "One letter per recipient in a single document: a loop repeats a page header, footer and page break, so each letter gets its own header and footer with that recipient's data.",
+      "updatedAt": "2026-09-29T00:00:00Z",
+      "detailUrl": "./resources/templates/batch-letters.json"
     }
   ]
 }

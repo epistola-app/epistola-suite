@@ -174,3 +174,28 @@ describe('EpistolaTextEditor expression chips and contract defaults', () => {
     expect(chip.textContent).toContain('testss');
   });
 });
+
+describe('EpistolaTextEditor when its block moves', () => {
+  it('keeps showing its text after being detached and re-attached', async () => {
+    const engine = new EditorEngine(initialDocument(), createDefaultRegistry());
+    const editor = new EpistolaTextEditor();
+    editor.engine = engine;
+    editor.nodeId = 'initial-text' as NodeId;
+    editor.content = {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'still here' }] }],
+    };
+    const first = document.createElement('div');
+    const second = document.createElement('div');
+    document.body.append(first, second);
+    first.appendChild(editor);
+    await editor.updateComplete;
+    expect(editor.querySelector('.ProseMirror')?.textContent).toBe('still here');
+
+    // A keyed repeat moves a block by moving its element: disconnect, then connect again.
+    second.appendChild(editor);
+    await editor.updateComplete;
+
+    expect(editor.querySelector('.ProseMirror')?.textContent).toBe('still here');
+  });
+});

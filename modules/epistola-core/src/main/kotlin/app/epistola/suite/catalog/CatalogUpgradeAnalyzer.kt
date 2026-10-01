@@ -4,6 +4,11 @@
 
 package app.epistola.suite.catalog
 
+import app.epistola.suite.attributes.AttributeReferences
+import app.epistola.suite.common.ids.AttributeId
+import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Handle
@@ -155,15 +160,18 @@ class CatalogUpgradeAnalyzer(
     }
 
     private fun findAttributeConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {
+        val attribute = AttributeId(AttributeKey.of(slug), CatalogId(catalogKey, TenantId(tenantKey)))
         handle.createQuery(
             """
             SELECT DISTINCT dt.name, dt.catalog_key
             FROM template_variants v
             JOIN document_templates dt ON dt.tenant_key = v.tenant_key AND dt.resource_id = v.template_resource_id
             WHERE v.tenant_key = :t AND dt.catalog_key != :c
-              AND jsonb_exists(v.attributes::jsonb, :slug)
+              AND ${AttributeReferences.uses("v")}
             """,
-        ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
+        ).bind("t", tenantKey).bind("c", catalogKey)
+            .bind(AttributeReferences.QUALIFIED_PARAM, AttributeReferences.qualifiedKey(attribute))
+            .bind(AttributeReferences.BARE_PARAM, AttributeReferences.bareKey(attribute))
             .map { rs, _ -> "Attribute '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
             .list().let { conflicts.addAll(it) }
     }

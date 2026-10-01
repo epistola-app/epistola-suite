@@ -48,6 +48,7 @@ class UpdateVariantHandler(
 
         return jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
             val attributesJson = objectMapper.writeValueAsString(command.attributes)
+            requireDistinctAttributeSet(handle, command.variantId, command.attributes, attributesJson)
 
             handle.createQuery(
                 """

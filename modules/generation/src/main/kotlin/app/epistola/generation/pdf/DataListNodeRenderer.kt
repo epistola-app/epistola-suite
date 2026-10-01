@@ -83,6 +83,8 @@ class DataListNodeRenderer : NodeRenderer {
             context.renderingDefaults.componentDefaults("datalist"),
             context.renderingDefaults.baseFontSizePt,
             context.spacingUnit,
+            mergedFontSelection = context.renderingDefaults.mergedFontSelection,
+            applyLetterSpacing = context.renderingDefaults.applyLetterSpacing,
         )
 
         for ((index, item) in iterable.withIndex()) {

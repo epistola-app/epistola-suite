@@ -7,10 +7,13 @@ package app.epistola.suite.documents.commands
 import app.epistola.suite.common.NotAudited
 import app.epistola.suite.common.NotEventLogged
 import app.epistola.suite.common.ids.BatchKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.GenerationRequestKey
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
@@ -138,7 +141,7 @@ class GenerateDocumentBatchHandler(
         // Pre-resolve all variants: explicit ID > attribute selection > default variant
         val resolvedVariantIds = command.items.map { item ->
             item.variantId
-                ?: item.variantSelectionCriteria?.let { variantResolver.resolve(command.tenantId, item.templateId, it) }
+                ?: item.variantSelectionCriteria?.let { variantResolver.resolve(TemplateId(item.templateId, CatalogId(item.catalogKey, TenantId(command.tenantId))), it) }
                 ?: resolveDefaultVariant(command.tenantId, item.catalogKey, item.templateId)
         }
 

@@ -4,11 +4,8 @@
 
 package app.epistola.suite.templates.services
 
-import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.model.TemplateVariant
@@ -64,17 +61,19 @@ class VariantResolver {
     /**
      * Resolves the best matching variant for the given template and criteria.
      *
+     * [template] carries its catalog: template keys are unique only within a catalog, so selection
+     * must never fall back to `default` (#1021).
+     *
      * @return the ID of the resolved variant
      * @throws NoMatchingVariantException if no variant matches and no default exists
      * @throws AmbiguousVariantResolutionException if multiple variants tie on score
      */
     fun resolve(
-        tenantId: TenantKey,
-        templateId: TemplateKey,
+        template: TemplateId,
         criteria: VariantSelectionCriteria,
-        catalogKey: app.epistola.suite.common.ids.CatalogKey = app.epistola.suite.common.ids.CatalogKey.DEFAULT,
     ): VariantKey {
-        val variants = ListVariants(TemplateId(templateId, CatalogId(catalogKey, TenantId(tenantId)))).query()
+        val templateId = template.key
+        val variants = ListVariants(template).query()
 
         // Filter variants that match ALL required attributes
         val candidates = variants.filter { variant ->

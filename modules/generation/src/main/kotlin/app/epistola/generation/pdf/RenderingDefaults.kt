@@ -68,6 +68,43 @@ data class RenderingDefaults(
     val pageHeaderHeight: Float = 60f,
     val pageFooterPadding: Float = 20f,
     val pageFooterHeight: Float = 60f,
+
+    // -- Page header/footer placement --
+    /**
+     * When true, page headers and footers may sit anywhere in the flow and their position picks
+     * the pages they apply to, per page section (#1020). When false, the positional model:
+     * at most two root-level headers (page 1, pages 2–N) and one footer on every page.
+     */
+    val sectionPageBands: Boolean = false,
+
+    // -- Font selection --
+    /**
+     * When true, a block's font is picked once, from its merged style cascade (component
+     * defaults, inherited, preset, inline), so a preset or inline style that sets only
+     * `fontWeight` or `fontStyle` keeps the inherited `fontFamily` (#1030). When false, each
+     * layer picks its own font, and a layer with bold or italic but no family swaps in the
+     * built-in face.
+     */
+    val mergedFontSelection: Boolean = false,
+
+    // -- Stencil parameters --
+    /**
+     * When true, a stencil parameter whose binding finds no value, or that is optional, unbound
+     * and has no default, is left out of `params` rather than set to null, so `$exists(params.x)`
+     * means "was given" as it does for template data (#1031). When false, every declared
+     * parameter is present and `$exists` is always true.
+     */
+    val omitUnsetParameters: Boolean = false,
+
+    // -- Options the registries offered but rendering ignored (#1027) --
+    /** When true, the `letterSpacing` style sets the character spacing of the text it styles. */
+    val applyLetterSpacing: Boolean = false,
+
+    /** When true, `pageSettings.backgroundColor` fills every page beneath its content. */
+    val pageBackground: Boolean = false,
+
+    /** When true, a page header honours `hideOnFirstPage` the way a page footer always has. */
+    val headerHideOnFirstPage: Boolean = false,
 ) {
     /** Total vertical space reserved for the page header (padding + content height). */
     val pageHeaderReservedHeight: Float get() = pageHeaderPadding + pageHeaderHeight
@@ -161,13 +198,35 @@ data class RenderingDefaults(
             columnCellPadding = 0f,
         )
 
+        /** V4: page headers and footers are placed by section (#1020). */
+        val V4 = V3.copy(
+            version = 4,
+            sectionPageBands = true,
+        )
+
+        /**
+         * V5: styles the renderer ignored or mis-cascaded now take effect, and unset stencil
+         * parameters are absent. See each flag: [mergedFontSelection], [omitUnsetParameters],
+         * [applyLetterSpacing], [pageBackground], [headerHideOnFirstPage].
+         */
+        val V5 = V4.copy(
+            version = 5,
+            mergedFontSelection = true,
+            omitUnsetParameters = true,
+            applyLetterSpacing = true,
+            pageBackground = true,
+            headerHideOnFirstPage = true,
+        )
+
         /** The defaults version used for newly published template versions. */
-        val CURRENT = V3
+        val CURRENT = V5
 
         private val REGISTRY: Map<Int, RenderingDefaults> = mapOf(
             1 to V1,
             2 to V2,
             3 to V3,
+            4 to V4,
+            5 to V5,
         )
 
         /**

@@ -40,6 +40,7 @@ class ParameterScopeTest {
         data: Map<String, Any?> = emptyMap(),
         renderMode: RenderMode = RenderMode.STRICT,
         parameterScopes: Map<String, Map<String, Any?>> = emptyMap(),
+        renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
     ) = RenderContext(
         data = data,
         expressionEvaluator = evaluator,
@@ -48,6 +49,7 @@ class ParameterScopeTest {
         document = minimalDocument,
         renderMode = renderMode,
         parameterScopes = parameterScopes,
+        renderingDefaults = renderingDefaults,
     )
 
     @Test
@@ -125,6 +127,61 @@ class ParameterScopeTest {
             outer = outer,
         )
         assertNull(ctx.parameterScopes["params"]?.get("name"))
+    }
+
+    // -----------------------------------------------------------------------
+    // $exists(params.x) means "was given" (#1031)
+    // -----------------------------------------------------------------------
+
+    private val optionalMedewerker = mapOf("properties" to mapOf("medewerker" to mapOf("type" to "string")))
+
+    private fun exists(ctx: RenderContext, path: String): Any? = evaluator.evaluate(
+        raw = "\$exists($path)",
+        language = app.epistola.template.model.ExpressionLanguage.jsonata,
+        data = ctx.effectiveData,
+        loopContext = ctx.loopContext,
+    )
+
+    @Test
+    fun `a binding that finds nothing leaves the parameter out`() {
+        val ctx = ParameterScope.push(
+            stencilNode(bindings = mapOf("medewerker" to "afspraak.medewerker")),
+            schema = optionalMedewerker,
+            outer = createContext(data = mapOf("afspraak" to mapOf("datum" to "2026-10-01"))),
+        )
+
+        assertEquals(false, ctx.parameterScopes["params"]?.containsKey("medewerker"))
+        assertEquals(false, exists(ctx, "params.medewerker"))
+    }
+
+    @Test
+    fun `an optional parameter left unbound is left out`() {
+        val ctx = ParameterScope.push(stencilNode(bindings = emptyMap()), schema = optionalMedewerker, outer = createContext())
+
+        assertEquals(false, exists(ctx, "params.medewerker"))
+    }
+
+    @Test
+    fun `a binding that finds a value is present`() {
+        val ctx = ParameterScope.push(
+            stencilNode(bindings = mapOf("medewerker" to "afspraak.medewerker")),
+            schema = optionalMedewerker,
+            outer = createContext(data = mapOf("afspraak" to mapOf("medewerker" to "J. de Vries"))),
+        )
+
+        assertEquals(true, exists(ctx, "params.medewerker"))
+    }
+
+    @Test
+    fun `versions published before V5 keep every declared parameter present`() {
+        val ctx = ParameterScope.push(
+            stencilNode(bindings = mapOf("medewerker" to "afspraak.medewerker")),
+            schema = optionalMedewerker,
+            outer = createContext(renderingDefaults = RenderingDefaults.V4),
+        )
+
+        assertEquals(true, ctx.parameterScopes["params"]?.containsKey("medewerker"))
+        assertEquals(true, exists(ctx, "params.medewerker"))
     }
 
     @Test

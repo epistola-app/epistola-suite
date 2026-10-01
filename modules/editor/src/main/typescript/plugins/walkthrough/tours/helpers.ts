@@ -6,7 +6,7 @@
 
 import type { EditorEngine } from '../../../engine/EditorEngine.js';
 import type { TourContext } from '../registry.js';
-import { PAGE_FOOTER_TYPE } from '../../../engine/registry.js';
+import { rootBodyBounds } from '../../../engine/page-bands.js';
 import type { TourTarget } from '../targets.js';
 
 /** Switch the sidebar to a built-in tab. No-op if absent. */
@@ -64,17 +64,10 @@ export function addStarterBlock(ctx: TourContext): void {
   if (hasAnyBlock(ctx)) return;
   const { engine } = ctx;
 
-  const doc = engine.doc;
-  const root = doc.nodes[doc.root];
-  const targetSlotId = root?.slots[0];
-  if (!targetSlotId) return;
-  const targetSlot = doc.slots[targetSlotId];
-  if (!targetSlot) return;
-
-  const footerIndex = targetSlot.children.findIndex(
-    (id) => doc.nodes[id]?.type === PAGE_FOOTER_TYPE,
-  );
-  const index = footerIndex >= 0 ? footerIndex : targetSlot.children.length;
+  const bounds = rootBodyBounds(engine.doc);
+  if (!bounds) return;
+  const targetSlotId = bounds.slotId;
+  const index = bounds.endIndex;
 
   const { node, slots, extraNodes } = engine.registry.createNode('text');
   const result = engine.dispatch({

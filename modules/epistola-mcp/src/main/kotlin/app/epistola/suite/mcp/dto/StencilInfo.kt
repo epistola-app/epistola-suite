@@ -11,7 +11,7 @@ import java.time.OffsetDateTime
  * A stencil — a reusable content block that templates can embed. Stencils
  * have their own version history (draft + published versions); MCP tools
  * expose stencil metadata so the AI can reference them when designing
- * templates. Authoring stencils is out of scope for the MCP MVP.
+ * templates, and author stencils and their drafts.
  */
 data class StencilInfo(
     val id: String,

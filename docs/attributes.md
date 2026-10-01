@@ -17,6 +17,10 @@ Before attributes can be used on variants, they must be defined in a **tenant-sc
 
 Attribute definitions are managed per tenant. Variants can only use attributes that exist in their tenant's registry.
 
+A definition belongs to a catalog. A variant names it either **qualified**, `"<catalog>.<slug>"` (for example `system.locale`), which picks exactly that definition, or by its **bare** slug, which is resolved across all of the tenant's catalogs. Prefer the qualified form whenever the same slug exists in more than one catalog.
+
+A definition cannot be deleted, and values cannot be removed from its `allowedValues`, while a variant still uses it. The check counts variants in **every** catalog of the tenant and both key forms; a bare key is counted for every catalog that defines that slug, so with an ambiguous slug the check errs on the side of refusing. Dropping a definition in a catalog upgrade reports the same variants as conflicts.
+
 For longer or shared value sets (locales, country codes, custom taxonomies),
 prefer a **code list** binding over inline `allowedValues`. See
 [`code-lists.md`](code-lists.md) for the full design.
@@ -66,14 +70,22 @@ Input: templateId + list of { key, value, required }
 1. Fetch all variants for the template
 2. FILTER: Keep only variants matching ALL required attributes
 3. SCORE remaining candidates:
-       score = (number of optional attribute matches * 10) + total variant attributes
+       score = (required attribute matches * 100) + (optional attribute matches * 10)
 4. SELECT the variant with the highest score
 5. If tied → AmbiguousVariantResolutionException
 6. If no candidates after step 2 → fall back to the default variant (is_default = true)
 7. If no default variant exists → NoMatchingVariantException
 ```
 
-The scoring formula favours variants that match more optional criteria (`* 10` weight) while using the total number of variant attributes as a tiebreaker to prefer more specific variants.
+Only attributes named in the request count. A variant's other attributes neither help nor hurt it, so
+there is no "most specific variant" tiebreak: when two candidates match the request equally, the
+request is ambiguous and fails with `409 AMBIGUOUS_VARIANT`. Add an optional criterion to tell them
+apart, or ask for the variant by id.
+
+Two variants of one template may not have the same attribute set — creating or updating one is
+refused, naming the variant that already has it, because no request could ever tell the two apart.
+Key order does not matter. Variants without attributes are exempt: they never match a required
+criterion and are only reachable by id.
 
 ### Resolution Examples
 
@@ -89,17 +101,25 @@ Given these variants on an `invoice` template:
 **Example 1: Required match**
 
 ```
-Criteria: language=en (required)
-→ Candidates: english (score=1), english-corporate (score=2)
-→ Result: english-corporate (higher score due to more attributes)
+Criteria: language=nl (required)
+→ Candidates: dutch (score=100)
+→ Result: dutch
 ```
 
 **Example 2: Required + optional**
 
 ```
 Criteria: language=en (required), brand=corporate (optional)
-→ Candidates: english (score=0+1=1), english-corporate (score=10+2=12)
+→ Candidates: english (score=100+0=100), english-corporate (score=100+10=110)
 → Result: english-corporate
+```
+
+**Example 2b: Required only, two candidates tie**
+
+```
+Criteria: language=en (required)
+→ Candidates: english (score=100), english-corporate (score=100)
+→ 409 AMBIGUOUS_VARIANT — english-corporate's extra attribute does not count
 ```
 
 **Example 3: No match, falls back to default**

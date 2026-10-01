@@ -89,9 +89,9 @@ class ImageMcpToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `image MCP surface exposes no write tools`() {
+    fun `image MCP surface can upload but never change or delete an image`() {
         val mcpToolMethods = ImageMcpTools::class.java.methods
             .filter { it.isAnnotationPresent(org.springframework.ai.mcp.annotation.McpTool::class.java) }
-        assertThat(mcpToolMethods.map { it.name }).containsExactlyInAnyOrder("listImages", "getImage")
+        assertThat(mcpToolMethods.map { it.name }).containsExactlyInAnyOrder("listImages", "getImage", "uploadImage")
     }
 }

@@ -33,6 +33,7 @@ import {
   type BorderValue,
 } from './inputs/style-inputs.js';
 import './inputs/BorderInput.js';
+import { pageFormatOptions } from './page-format-options.js';
 
 @customElement('epistola-inspector')
 export class EpistolaInspector extends LitElement {
@@ -221,8 +222,12 @@ export class EpistolaInspector extends LitElement {
             @change=${(e: Event) =>
               this._handlePageSettingChange('format', (e.target as HTMLSelectElement).value)}
           >
-            ${['A4', 'Letter', 'Custom'].map(
-              (f) => html` <option .value=${f} ?selected=${settings.format === f}>${f}</option> `,
+            ${pageFormatOptions(settings.format).map(
+              (o) => html`
+                <option .value=${o.value} ?selected=${settings.format === o.value}>
+                  ${o.label}
+                </option>
+              `,
             )}
           </select>
         </div>
