@@ -13,6 +13,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.stencils.StencilReferences
 import app.epistola.suite.stencils.model.StencilUsageDetail
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -47,15 +48,15 @@ class GetStencilUsageDetailsHandler(
                 JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.id = dt.catalog_key
                 CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS node(key, value)
                 WHERE tv.tenant_key = :tenantId
-                  AND node.value ->> 'type' = 'stencil'
-                  AND node.value -> 'props' ->> 'stencilId' = :stencilId
+                  AND ${StencilReferences.refersTo("node", "dt")}
                 GROUP BY dt.id, dt.catalog_key, c.type, dt.name, tv.variant_key, tv.id, tv.status,
                          COALESCE((node.value -> 'props' ->> 'version')::int, 0)
                 ORDER BY (CASE WHEN c.type = 'AUTHORED' THEN 0 ELSE 1 END), dt.catalog_key, dt.name, tv.variant_key, tv.id DESC
                 """,
         )
             .bind("tenantId", query.stencilId.tenantKey)
-            .bind("stencilId", query.stencilId.key.value)
+            .bind(StencilReferences.KEY_PARAM, query.stencilId.key.value)
+            .bind(StencilReferences.CATALOG_PARAM, query.stencilId.catalogKey.value)
             .map { rs, _ ->
                 StencilUsageDetail(
                     templateId = TemplateKey.of(rs.getString("template_key")),

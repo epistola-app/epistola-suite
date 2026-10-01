@@ -4,6 +4,12 @@
 
 package app.epistola.suite.stencils
 
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.StencilId
+import app.epistola.suite.common.ids.StencilKey
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.stencils.model.StencilContentReplacer
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
@@ -25,6 +31,62 @@ class StencilContentReplacerTest {
         slots = slots,
         themeRef = ThemeRef.Inherit,
     )
+
+    private val tenantId = TenantId(TenantKey.of("replacer-tenant"))
+
+    private fun stencilIn(catalog: String, key: String = "header") = StencilId(StencilKey.of(key), CatalogId(CatalogKey.of(catalog), tenantId))
+
+    /** The pre-#1024 call shape: a stencil in `default`, upgraded in a template that is also in `default`. */
+    private fun upgradeInDefault(
+        document: TemplateDocument,
+        stencilId: String,
+        newVersion: Int,
+        newContent: TemplateDocument,
+        newParameterSchema: tools.jackson.databind.JsonNode? = null,
+    ) = StencilContentReplacer.upgradeStencilInstances(document, stencilIn("default", stencilId), "default", newVersion, newContent, newParameterSchema)
+
+    /** A template holding one `header` stencil instance per entry, `nodeId to catalogKey` (null = no catalogKey prop). */
+    private fun templateWithHeaders(vararg instances: Pair<String, String?>): TemplateDocument = doc(
+        "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+        *instances.map { (id, catalog) ->
+            id to Node(
+                id = id,
+                type = "stencil",
+                slots = listOf("$id-slot"),
+                props = buildMap {
+                    put("stencilId", "header")
+                    put("version", 1)
+                    catalog?.let { put("catalogKey", it) }
+                },
+            )
+        }.toTypedArray(),
+        slots = mapOf("root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = instances.map { it.first })) +
+            instances.associate { (id, _) -> "$id-slot" to Slot(id = "$id-slot", nodeId = id, name = "children", children = emptyList()) },
+    )
+
+    private fun TemplateDocument.versionOf(nodeId: String) = nodes.getValue(nodeId).props!!["version"]
+
+    @Test
+    fun `only instances of the stencil's own catalog are upgraded`() {
+        val template = templateWithHeaders("acme-header" to "acme", "brand-b-header" to "brand-b")
+
+        val result = StencilContentReplacer.upgradeStencilInstances(template, stencilIn("acme"), "default", 2, stencilContent())
+
+        assertThat(result.document.versionOf("acme-header")).isEqualTo(2)
+        assertThat(result.document.versionOf("brand-b-header")).isEqualTo(1)
+        assertThat(result.document.slots.getValue("brand-b-header-slot").children).isEmpty()
+    }
+
+    @Test
+    fun `an instance without a catalogKey belongs to its template's catalog`() {
+        val template = templateWithHeaders("local-header" to null)
+
+        val inOwnCatalog = StencilContentReplacer.upgradeStencilInstances(template, stencilIn("acme"), "acme", 2, stencilContent())
+        val inOtherCatalog = StencilContentReplacer.upgradeStencilInstances(template, stencilIn("brand-b"), "acme", 2, stencilContent())
+
+        assertThat(inOwnCatalog.document.versionOf("local-header")).isEqualTo(2)
+        assertThat(inOtherCatalog.document.versionOf("local-header")).isEqualTo(1)
+    }
 
     private fun stencilContent(): TemplateDocument = doc(
         "root" to Node(id = "root", type = "root", slots = listOf("slot-root")),
@@ -51,7 +113,7 @@ class StencilContentReplacerTest {
             ),
         )
 
-        val result = StencilContentReplacer.upgradeStencilInstances(template, "header", 2, stencilContent())
+        val result = upgradeInDefault(template, "header", 2, stencilContent())
 
         // Old content removed
         assertThat(result.document.nodes).doesNotContainKey("old-text")
@@ -84,7 +146,7 @@ class StencilContentReplacerTest {
             ),
         )
 
-        val result = StencilContentReplacer.upgradeStencilInstances(template, "header", 1, stencilContent())
+        val result = upgradeInDefault(template, "header", 1, stencilContent())
 
         val props = result.document.nodes["stencil-1"]!!.props!!
         assertThat(props["version"]).isEqualTo(1)
@@ -104,7 +166,7 @@ class StencilContentReplacerTest {
             ),
         )
 
-        val result = StencilContentReplacer.upgradeStencilInstances(template, "header", 2, stencilContent())
+        val result = upgradeInDefault(template, "header", 2, stencilContent())
 
         val s1Children = result.document.slots["s1-slot"]!!.children
         val s2Children = result.document.slots["s2-slot"]!!.children
@@ -129,7 +191,7 @@ class StencilContentReplacerTest {
             ),
         )
 
-        val result = StencilContentReplacer.upgradeStencilInstances(template, "header", 2, stencilContent())
+        val result = upgradeInDefault(template, "header", 2, stencilContent())
 
         // Node still exists, version NOT updated (skipped)
         assertThat(result.document.nodes["broken"]?.props?.get("version")).isEqualTo(1)
@@ -150,7 +212,7 @@ class StencilContentReplacerTest {
             ),
         )
 
-        val result = StencilContentReplacer.upgradeStencilInstances(template, "header", 2, stencilContent())
+        val result = upgradeInDefault(template, "header", 2, stencilContent())
 
         // Header upgraded
         assertThat(result.document.nodes["header"]?.props?.get("version")).isEqualTo(2)
@@ -171,7 +233,7 @@ class StencilContentReplacerTest {
             ),
         )
 
-        val result = StencilContentReplacer.upgradeStencilInstances(template, "header", 2, stencilContent())
+        val result = upgradeInDefault(template, "header", 2, stencilContent())
 
         assertThat(result.document).isSameAs(template) // Same reference — no changes
         assertThat(result.droppedFills).isEmpty()
@@ -191,7 +253,7 @@ class StencilContentReplacerTest {
             ),
         )
 
-        val result = StencilContentReplacer.upgradeStencilInstances(template, "header", 2, stencilContent())
+        val result = upgradeInDefault(template, "header", 2, stencilContent())
 
         // Surrounding nodes preserved
         assertThat(result.document.nodes["text-before"]?.props?.get("content")).isEqualTo(richText("Before"))
@@ -272,7 +334,7 @@ class StencilContentReplacerTest {
     @Test
     fun `preserves user fill across upgrade when placeholder name matches`() {
         val template = templateWithFilledPlaceholder()
-        val result = StencilContentReplacer.upgradeStencilInstances(template, "header", 2, stencilV2WithPlaceholder())
+        val result = upgradeInDefault(template, "header", 2, stencilV2WithPlaceholder())
 
         // Find the new placeholder ("body") in the upgraded doc
         val newPlaceholders = result.document.nodes.values.filter { it.type == "placeholder" }
@@ -298,7 +360,7 @@ class StencilContentReplacerTest {
     @Test
     fun `dropped fills are reported when placeholder is renamed`() {
         val template = templateWithFilledPlaceholder()
-        val result = StencilContentReplacer.upgradeStencilInstances(template, "header", 3, stencilV3RenamePlaceholder())
+        val result = upgradeInDefault(template, "header", 3, stencilV3RenamePlaceholder())
 
         // The new "main" placeholder is empty (no captured fill matched)
         val newPh = result.document.nodes.values.first { it.type == "placeholder" }
@@ -381,7 +443,7 @@ class StencilContentReplacerTest {
             root = "v2-root",
         )
 
-        val result = StencilContentReplacer.upgradeStencilInstances(template, "header", 2, v2Content)
+        val result = upgradeInDefault(template, "header", 2, v2Content)
 
         // Find the upgraded placeholder.
         val newPh = result.document.nodes.values.first { it.type == "placeholder" }
@@ -456,7 +518,7 @@ class StencilContentReplacerTest {
             root = "v2-root",
         )
 
-        val result = StencilContentReplacer.upgradeStencilInstances(template, "header", 2, v2)
+        val result = upgradeInDefault(template, "header", 2, v2)
 
         val newPh = result.document.nodes.values.first { it.type == "placeholder" }
         val newDefault = result.document.slots[newPh.slots.first { result.document.slots[it]?.name == "default" }]!!
@@ -486,7 +548,7 @@ class StencilContentReplacerTest {
             ),
         )
 
-        val result = StencilContentReplacer.upgradeStencilInstances(template, "header", 2, stencilV2WithPlaceholder())
+        val result = upgradeInDefault(template, "header", 2, stencilV2WithPlaceholder())
 
         // s1's slot now has a re-keyed placeholder; its fill should carry "Fill A"
         val s1Slot = result.document.slots["s1-slot"]!!
@@ -541,7 +603,7 @@ class StencilContentReplacerTest {
             stencilWithParameters(bindings = mapOf("name" to "customer.name")),
         )
 
-        val result = StencilContentReplacer.upgradeStencilInstances(
+        val result = upgradeInDefault(
             template,
             stencilId = "header",
             newVersion = 2,
@@ -570,7 +632,7 @@ class StencilContentReplacerTest {
             ),
         )
 
-        val result = StencilContentReplacer.upgradeStencilInstances(
+        val result = upgradeInDefault(
             template,
             stencilId = "header",
             newVersion = 2,
@@ -604,7 +666,7 @@ class StencilContentReplacerTest {
             stencilWithParameters(bindings = mapOf("name" to "customer.name")),
         )
 
-        val result = StencilContentReplacer.upgradeStencilInstances(
+        val result = upgradeInDefault(
             template,
             stencilId = "header",
             newVersion = 2,
@@ -627,7 +689,7 @@ class StencilContentReplacerTest {
         )
         val template = parametrisedTemplate(stencilWithParameters(bindings = emptyMap()))
 
-        val result = StencilContentReplacer.upgradeStencilInstances(
+        val result = upgradeInDefault(
             template,
             stencilId = "header",
             newVersion = 2,
@@ -653,7 +715,7 @@ class StencilContentReplacerTest {
             ),
         )
 
-        val result = StencilContentReplacer.upgradeStencilInstances(
+        val result = upgradeInDefault(
             template,
             stencilId = "header",
             newVersion = 2,
@@ -675,7 +737,7 @@ class StencilContentReplacerTest {
             ),
         )
 
-        val result = StencilContentReplacer.upgradeStencilInstances(
+        val result = upgradeInDefault(
             template,
             stencilId = "header",
             newVersion = 2,

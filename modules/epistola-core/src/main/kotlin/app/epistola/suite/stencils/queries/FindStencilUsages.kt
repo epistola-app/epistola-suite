@@ -10,6 +10,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.stencils.StencilReferences
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -39,13 +40,13 @@ class FindStencilUsagesHandler(
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
             WHERE tv.tenant_key = :tenantId
               AND tv.status IN ('draft', 'published')
-              AND n.value ->> 'type' = 'stencil'
-              AND n.value -> 'props' ->> 'stencilId' = :stencilId
+              AND ${StencilReferences.refersTo("n", "dt")}
             ORDER BY dt.name
             """,
         )
             .bind("tenantId", query.stencilId.tenantKey)
-            .bind("stencilId", query.stencilId.key.value)
+            .bind(StencilReferences.KEY_PARAM, query.stencilId.key.value)
+            .bind(StencilReferences.CATALOG_PARAM, query.stencilId.catalogKey.value)
             .mapTo(String::class.java)
             .list()
     }

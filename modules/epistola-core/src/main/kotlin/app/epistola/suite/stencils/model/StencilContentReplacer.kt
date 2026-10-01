@@ -4,8 +4,10 @@
 
 package app.epistola.suite.stencils.model
 
+import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.stencils.PlaceholderNodeKeys
 import app.epistola.suite.stencils.StencilNodeKeys
+import app.epistola.suite.stencils.StencilReferences
 import app.epistola.suite.templates.model.NodeParameterKeys
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
@@ -67,16 +69,15 @@ object StencilContentReplacer {
      */
     fun upgradeStencilInstances(
         document: TemplateDocument,
-        stencilId: String,
+        stencil: StencilId,
+        owningCatalogKey: String,
         newVersion: Int,
         newContent: TemplateDocument,
         newParameterSchema: JsonNode? = null,
     ): UpgradeResult {
-        // Find all stencil nodes matching the stencilId
-        val stencilNodes = document.nodes.values.filter { node ->
-            node.type == StencilNodeKeys.NODE_TYPE &&
-                (node.props?.get(StencilNodeKeys.PROP_STENCIL_ID) as? String) == stencilId
-        }
+        // Instances of this stencil only: a same-keyed stencil from another catalog is a different
+        // stencil, and must keep its own content (#1024).
+        val stencilNodes = document.nodes.values.filter { node -> StencilReferences.refersTo(node, stencil, owningCatalogKey) }
 
         if (stencilNodes.isEmpty()) return UpgradeResult(document, emptyMap())
 
