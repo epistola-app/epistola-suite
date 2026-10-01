@@ -130,8 +130,9 @@ generated from — which is why a caller may name a release.
    release; schema retires in two steps: dead at the major, dropped later after verification.
 2. **No bridges.** New-world data may be derived from old-world rows. Old-world rows never depend
    on new-world data. Nothing decides from both. No column on a version row learns about a revision.
-3. **Behaviour-preserving by default.** An environment serves after the upgrade what it served
-   before, by auto-releasing what is currently served (§8).
+3. **Content carries over; deployments do not.** Every catalog gets a release of what is published
+   now (§8). Activations are not converted: every environment starts 2.0 with nothing deployed, and
+   an operator deploys a release to it. No backwards compatibility for what an environment serves.
 4. **Failure is visible before, and loud after.** A readiness report in the last minor names every
    catalog and environment the migration cannot convert cleanly. After the major, a catalog with no
    release says so on its page and generation fails with a problem detail, never an empty document.
@@ -150,9 +151,9 @@ Nothing here changes old-world behaviour. All of it is derived data or reporting
 - [ ] **Measure the installed base**: environments whose activations point at a version other than
       the latest published per variant; catalogs never released; catalogs with unreleased changes;
       stencil instances referencing drafts. One query per item, run against every known installation.
-      The first number decides §8.3.
 - [ ] **Upgrade-readiness report.** A page under the catalogs area, UI first, listing per tenant:
-      catalogs never released; catalogs with unreleased changes; environments behind latest;
+      catalogs never released; catalogs with unreleased changes; environments with activations, which
+      the upgrade leaves with nothing deployed;
       catalogs the release command would refuse, including a latest published version that names a
       moved resource; drafts in flight; stencil instances pinned to a draft. Each row says what the
       upgrade will do about it. Operators fix what it lists, and the auto-release becomes a no-op for
@@ -257,6 +258,9 @@ path already knows how to turn a wire resource into domain shape, so the seam re
 - Deployment preview: per template, what changes; which contracts break; which templates the release
   removes that the environment still serves.
 - The deployment view becomes catalogs × environments, with promote and roll back as pointer changes.
+- No conversion from activations (§8.3). The view must make an empty environment obvious and offer
+  "deploy latest release" per catalog, since that is the first thing every operator does after the
+  upgrade.
 - Resolves #920 (deploy many at once — a release is the unit), #656 and #283 (bulk publish — mark
   ready for all is one action), #79 (promotion workflow), the stage-5 half of #975.
 
@@ -342,7 +346,7 @@ Code is deleted in the major. Schema goes dead in the major and is dropped later
 | `stencils`, `stencil_versions`              | Draft copied to `stencils.draft_content`; versions unread                     | Versions dropped after verification |
 | `contract_versions`                         | Current published contract folded into the template revision; unread          | Dropped after verification          |
 | seven resource tables                       | Gain `working_digest`, `ready_digest`                                         | —                                   |
-| `environment_activations`                   | Converted to deployments by §8; unread                                        | Dropped after verification          |
+| `environment_activations`                   | Not converted (§8.3); unread                                                  | Dropped after verification          |
 | `environment_catalog_deployments`           | New, written by §8                                                            | —                                   |
 | `catalog_releases`                          | Gains provenance for installed releases; `content_retained` true for new rows | —                                   |
 | `catalogs.installed_*`                      | Reinterpreted as "selected release"; unchanged shape                          | The ERD split in #1036, when forced |
@@ -355,7 +359,7 @@ Code is deleted in the major. Schema goes dead in the major and is dropped later
 Every migration is additive or data-copying. The only deletions are of constraints, and the drop of
 dead tables is a separate, later migration gated on verification.
 
-## 8. The upgrade: auto-release what is served now
+## 8. The upgrade: release what is published, deploy nothing
 
 ### 8.1 Why auto-release
 
@@ -363,7 +367,8 @@ Today an environment serves the working copy's latest published versions. A rele
 working copy at upgrade time is exactly that content, frozen. It is behaviour-preserving for every
 environment on latest, bounded by catalog size rather than history, uses the release command and
 stores that exist, and gives the never-released and the retained-nothing cases a release in one
-move. It also answers #1036's first open question: activations that no release contains get one.
+move. It also answers #1036's first open question: no activation is carried over, so none needs a
+release to land on.
 
 ### 8.2 The job
 
@@ -379,28 +384,34 @@ For each tenant:
    survive as drafts in the new columns.
 2. **Subscribed catalogs.** Record the installed version as a release from the mirror, with the
    publisher's fingerprint and the stored per-resource fingerprints. The system catalog likewise.
-3. **Environments.** For every `(environment, catalog)` with at least one activation, deploy the
-   release from step 1 or 2.
+3. **Environments.** Nothing. Activations are not converted and no deployment is created (§8.3).
 4. **Working copies.** Copy each variant's draft row and each stencil's draft into the new columns;
    set `working_digest` from the current content and `ready_digest` from the auto-release for
    everything it contained.
 5. **Stencil instances.** For every stored document, map `stencilId + version` to the revision
    digest of that stencil version's content while `stencil_versions` still exists, and compute the
    interface digest. Instances referencing a draft map to the draft and are reported.
-6. **Record the outcome** per catalog and environment in a migration table the readiness page reads
-   after the upgrade: converted, release cut, or failed with the reason.
+6. **Record the outcome** per catalog in a migration table the readiness page reads after the
+   upgrade: release reused, release cut, or failed with the reason. Per environment it lists the
+   catalogs it had activations for, as the operator's to-do list for deploying.
 
-### 8.3 The one behaviour change
+### 8.3 Environments start with nothing deployed
 
-An environment serving version 7 while version 8 is the latest published will serve 8. Three
-responses, cheapest first; the measurement in §5 decides which:
+_Decided 2026-10-01._ Activations are not converted. An activation names a template version, which
+2.0 does not have, and converting means deciding what an environment that was behind latest should
+serve. Instead every environment starts 2.0 empty, and an operator deploys a release to it.
 
-- No installation has such an environment: the upgrade note says "environments move to the latest
-  published content".
-- A few do: the readiness report names them and operators deploy latest or accept before upgrading.
-- It matters: synthesise, for such an environment only, a release built from the versions it serves.
-  This needs the content builder to produce content from a chosen version per variant, which is the
-  one piece of old-world code the migration may add.
+- **What breaks, and for how long.** Every generation and preview request that names an environment
+  fails with a problem detail (_No release deployed for catalog X in environment Y_) from the end of
+  the upgrade until a release is deployed there. Requests without an environment resolve to the
+  latest release, which step 1 created, and keep working.
+- **Why that is acceptable.** It is a major release, and the operator procedure (§8.6) deploys before
+  traffic is reopened, so the window is part of the maintenance window rather than an outage.
+- **What it removes.** No release built from old versions per environment, no rule for environments
+  behind latest, no reading of version tables after the switch. The migration only cuts releases.
+- **Data is kept, not deleted.** `environment_activations` is left unread, like the version tables,
+  and dropped with them after verification (§7, WP9). The stability contract forbids a destructive
+  migration even in a major; leaving the rows changes nothing a user sees.
 
 ### 8.4 Failure cases, and what must not happen silently
 
@@ -431,30 +442,32 @@ Follows `docs/upgrades.md` for a breaking upgrade:
 2. Take a database-level backup and verify it restores. Tenant backups no longer exist (#1050).
 3. Scale the application to zero. The migration refuses to run while old nodes are live (#906).
 4. Deploy 2.0.0. Readiness stays red until the job has finished for every tenant.
-5. Check the post-upgrade readiness page: every catalog converted or released, every environment
-   deployed, failures listed.
-6. Rollback is the database restore from step 2 and the previous image.
+5. Check the post-upgrade readiness page: every catalog released, failures listed.
+6. **Deploy a release to every environment** that integrations call, using the page's per-environment
+   list. Until then, requests naming that environment fail.
+7. Reopen traffic.
+8. Rollback is the database restore from step 2 and the previous image.
 
 ## 9. Verification
 
 Decisive scenarios, each a test on a 1.3.0-shaped database through `DataPreservationMigrationIT`
 on PostgreSQL 17 and 18, plus the module tiers:
 
-| Scenario                                                                | Required observation                                                                                              |
-| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Environment on latest published, catalog never released                 | After upgrade it serves a release whose content equals what it served before, byte for byte in the resolved model |
-| Environment behind latest                                               | Reported before; serves latest after, with the note; or synthesised if §8.3 chose that                            |
-| Catalog with drafts and unreleased theme edit                           | Draft survives as draft; theme edit is in the auto-release; status shows modified where it should                 |
-| Subscribed catalog at 1.3.0                                             | Has a release 1.3.0, entries match stored fingerprints, serves unchanged; upgrade installs 1.4.0 beside it        |
-| Template using a stencil at version 3, another at a draft               | Both instances carry revision digests; the draft one is listed under needs action                                 |
-| Two catalogs pin nothing but reference each other's theme               | Both resolve through the environment's deployments; a request naming a release resolves per catalog               |
-| Generate by environment, then deploy a newer release mid-batch          | Accepted requests keep the old release; new ones take the new                                                     |
-| Delete or forget a deployed release                                     | Refused, naming the environment                                                                                   |
-| Font re-uploaded after release                                          | The deployed release renders the retained bytes                                                                   |
-| Mark a stencil ready with a removed placeholder filled by two templates | Those two instances are held back, release refuses and names them; the others move                                |
-| Catalog the release command refuses                                     | Named in the readiness report; after upgrade its page says needs a release; generation fails loudly               |
-| Exchange publication of an auto-released catalog                        | Exchange accepts; the archive fingerprint equals the release's                                                    |
-| Tenant with ten catalogs, restart mid-migration                         | Job resumes; outcome table complete; no duplicate releases                                                        |
+| Scenario                                                                | Required observation                                                                                                                                       |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Catalog never released, environment with activations                    | After upgrade the catalog has a release whose content equals what was published, byte for byte in the resolved model; the environment has nothing deployed |
+| Generate naming an environment before and after deploying               | Before: a problem detail naming the catalog and environment, never an empty document. After: the deployed release                                          |
+| Catalog with drafts and unreleased theme edit                           | Draft survives as draft; theme edit is in the auto-release; status shows modified where it should                                                          |
+| Subscribed catalog at 1.3.0                                             | Has a release 1.3.0, entries match stored fingerprints, serves unchanged; upgrade installs 1.4.0 beside it                                                 |
+| Template using a stencil at version 3, another at a draft               | Both instances carry revision digests; the draft one is listed under needs action                                                                          |
+| Two catalogs pin nothing but reference each other's theme               | Both resolve through the environment's deployments; a request naming a release resolves per catalog                                                        |
+| Generate by environment, then deploy a newer release mid-batch          | Accepted requests keep the old release; new ones take the new                                                                                              |
+| Delete or forget a deployed release                                     | Refused, naming the environment                                                                                                                            |
+| Font re-uploaded after release                                          | The deployed release renders the retained bytes                                                                                                            |
+| Mark a stencil ready with a removed placeholder filled by two templates | Those two instances are held back, release refuses and names them; the others move                                                                         |
+| Catalog the release command refuses                                     | Named in the readiness report; after upgrade its page says needs a release; generation fails loudly                                                        |
+| Exchange publication of an auto-released catalog                        | Exchange accepts; the archive fingerprint equals the release's                                                                                             |
+| Tenant with ten catalogs, restart mid-migration                         | Job resumes; outcome table complete; no duplicate releases                                                                                                 |
 
 Guards that must stay green: `MediatorWiringTest`, `AuthorizationCoverageTest`,
 `DomainBoundaryTest`, `UiRestApiSeparationTest`, `CatalogExchangeIndependenceTest`, the fingerprint
@@ -517,7 +530,7 @@ Additive on the new model, in minors:
 
 | #   | Decision                                                      | Proposed answer                                                                        |
 | --- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| D1  | Environments behind latest at upgrade                         | Measure; default to latest with a note; synthesise only if the measurement says        |
+| D1  | What environments serve after the upgrade                     | Nothing: activations are not converted; operators deploy a release (§8.3)              |
 | D2  | Backfill old published versions into revisions                | No; dead table, provenance only                                                        |
 | D3  | Stencil model                                                 | §3.4 as written                                                                        |
 | D4  | Release refuses while modified from day one                   | Yes; #1009 A follows immediately                                                       |
