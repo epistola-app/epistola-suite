@@ -74,6 +74,7 @@ class CreateVariantHandler(
                 if (!templateExists) return@inTransaction null
 
                 val attributesJson = objectMapper.writeValueAsString(command.attributes)
+                requireDistinctAttributeSet(handle, command.id, command.attributes, attributesJson)
 
                 // Auto-default: first variant for a template becomes the default
                 val existingCount = handle.createQuery(
