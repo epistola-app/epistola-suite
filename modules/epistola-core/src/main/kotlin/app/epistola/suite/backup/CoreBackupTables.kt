@@ -29,6 +29,8 @@ class CoreBackupTables : TenantBackupTableContributor {
         "release_entries",
         "resource_revisions",
         "revision_binaries",
+        // Which release of another catalog each release renders with.
+        "release_dependencies",
         "themes",
         "document_templates",
         "template_variants",

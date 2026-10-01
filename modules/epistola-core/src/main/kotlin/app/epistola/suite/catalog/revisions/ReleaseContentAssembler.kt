@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.revisions
 
 import app.epistola.catalog.protocol.CatalogManifest
+import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.ImageResource
 import app.epistola.catalog.protocol.ReleaseInfo
@@ -13,6 +14,7 @@ import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.fonts.model.sha256Hex
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -86,6 +88,85 @@ class ReleaseContentAssembler(
             ),
             release = snapshot.release,
         )
+    }
+
+    /**
+     * One resource of a release, or null when the release does not contain it.
+     *
+     * The narrow read that rendering needs: a whole-release [assemble] loads every payload and every
+     * binary, which is what an export wants and what a render must not pay for.
+     */
+    fun readResource(
+        tenantKey: TenantKey,
+        catalogKey: CatalogKey,
+        version: String,
+        resourceType: String,
+        resourceKey: String,
+    ): CatalogResource? = jdbi.withHandle<CatalogResource?, Exception> { handle ->
+        val digest = handle.createQuery(
+            """
+            SELECT revision_digest FROM release_entries
+            WHERE tenant_key = :t AND catalog_key = :c AND version = :version
+              AND resource_type = :type AND resource_key = :key
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("c", catalogKey)
+            .bind("version", version)
+            .bind("type", resourceType)
+            .bind("key", resourceKey)
+            .mapTo(String::class.java)
+            .findOne()
+            .orElse(null) ?: return@withHandle null
+        val payload = requireNotNull(loadPayloads(handle, tenantKey, listOf(digest))[digest]) {
+            "Release $version of ${catalogKey.value} names revision $digest, which is not stored"
+        }
+        detailOf(handle, tenantKey, payload).resource
+    }
+
+    /**
+     * The bytes a release holds under [contentHash], or null when no retained revision of this tenant
+     * holds them.
+     *
+     * Read through `revision_binaries`, so it answers only for bytes a release retained -- never for an
+     * asset that merely has the same hash today. Bundled font faces are the one exception: they live
+     * on the classpath rather than in the content store, so a release holds their hash but no blob. A
+     * bundled face is found by its hash and its bytes are checked against it, so a suite upgrade that
+     * ships a different file fails the lookup instead of rendering different glyphs.
+     */
+    fun readBinary(tenantKey: TenantKey, contentHash: String): ByteArray? = jdbi.withHandle<ByteArray?, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT c.content
+            FROM revision_binaries b
+            JOIN asset_content c ON c.scope = b.scope AND c.content_hash = b.content_hash
+            WHERE b.tenant_key = :t AND b.content_hash = :hash
+            LIMIT 1
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("hash", contentHash)
+            .mapTo(ByteArray::class.java)
+            .findOne()
+            .orElse(null)
+            ?: bundledFace(handle, tenantKey, contentHash)
+    }
+
+    private fun bundledFace(handle: Handle, tenantKey: TenantKey, contentHash: String): ByteArray? {
+        val location = handle.createQuery(
+            """
+            SELECT classpath_location FROM font_variants
+            WHERE tenant_key = :t AND content_hash = :hash AND source = 'CLASSPATH' AND classpath_location IS NOT NULL
+            LIMIT 1
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("hash", contentHash)
+            .mapTo(String::class.java)
+            .findOne()
+            .orElse(null) ?: return null
+        val bytes = javaClass.classLoader.getResourceAsStream(location)?.use { it.readBytes() } ?: return null
+        return bytes.takeIf { sha256Hex(it) == contentHash }
     }
 
     /** The latest release of a catalog that retained its content, or null when none has. */
