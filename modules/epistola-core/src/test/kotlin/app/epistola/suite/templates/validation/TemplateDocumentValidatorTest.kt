@@ -169,6 +169,30 @@ class TemplateDocumentValidatorTest {
             .isEqualTo("templateModel.nodes.stencil.props.parameterBindings.recipientName")
     }
 
+    @Test
+    fun `two address blocks are accepted on save and reported as a quality finding instead`() {
+        // #1028: one can arrive inside an included stencil, which the author cannot fix from the
+        // template, so the epistola-quality "layout" source reports it rather than the save refusing.
+        val addressBlock = { id: String ->
+            Node(id = id, type = "addressblock", slots = listOf("$id-address", "$id-aside"))
+        }
+        val document = TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+                "own" to addressBlock("own"),
+                "from-stencil" to addressBlock("from-stencil"),
+            ),
+            slots = mapOf(
+                "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("own", "from-stencil")),
+            ) + listOf("own", "from-stencil").flatMap { id ->
+                listOf("address", "aside").map { name -> "$id-$name" to Slot(id = "$id-$name", nodeId = id, name = name, children = emptyList()) }
+            },
+        )
+
+        assertThatCode { validator.validateTemplate(document) }.doesNotThrowAnyException()
+    }
+
     private fun documentWithMissingRoot() = TemplateDocument(
         root = "missing",
         nodes = mapOf("root" to Node(id = "root", type = "root")),

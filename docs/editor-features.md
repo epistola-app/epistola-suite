@@ -205,7 +205,7 @@ A two-part layout for envelope window positioning. Consists of an **address** sl
 
 **Constraints:**
 
-- One per document (`maxInstancesPerDocument: 1`)
+- One per document (`maxInstancesPerDocument: 1`). The editor blocks inserting a second one, but one can still arrive inside an included stencil, over REST or MCP, or by import. Such a document is saved and renders with one address block; the quality checks report it (`layout.too-many-instances`).
 - Can be nested in containers/stencils (found by type scan)
 - The address block should be the first content element (after header). Content before it may overlap the address area.
 
