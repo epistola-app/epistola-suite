@@ -87,9 +87,9 @@ class UpdateStencilInTemplateHandler(
             val templateModel = draft.templateModel
 
             // 2. Count stencil instances before upgrade
-            val owningCatalogKey = command.variantId.catalogKey.value
+            val templateCatalog = command.variantId.catalogKey
             val stencilNodes = templateModel.nodes.values.filter { node ->
-                StencilReferences.refersTo(node, command.stencilId, owningCatalogKey)
+                StencilReferences.refersTo(node, command.stencilId, templateCatalog)
             }
 
             if (stencilNodes.isEmpty()) return@inTransaction UpdateStencilInTemplateResult(upgradedCount = 0)
@@ -132,7 +132,7 @@ class UpdateStencilInTemplateHandler(
             val upgrade = StencilContentReplacer.upgradeStencilInstances(
                 document = templateModel,
                 stencil = command.stencilId,
-                owningCatalogKey = owningCatalogKey,
+                templateCatalog = templateCatalog,
                 newVersion = command.newVersion,
                 newContent = newContent,
                 newParameterSchema = newParameterSchema,

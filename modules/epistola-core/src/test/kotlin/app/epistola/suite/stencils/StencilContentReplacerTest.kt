@@ -43,7 +43,7 @@ class StencilContentReplacerTest {
         newVersion: Int,
         newContent: TemplateDocument,
         newParameterSchema: tools.jackson.databind.JsonNode? = null,
-    ) = StencilContentReplacer.upgradeStencilInstances(document, stencilIn("default", stencilId), "default", newVersion, newContent, newParameterSchema)
+    ) = StencilContentReplacer.upgradeStencilInstances(document, stencilIn("default", stencilId), CatalogKey.DEFAULT, newVersion, newContent, newParameterSchema)
 
     /** A template holding one `header` stencil instance per entry, `nodeId to catalogKey` (null = no catalogKey prop). */
     private fun templateWithHeaders(vararg instances: Pair<String, String?>): TemplateDocument = doc(
@@ -70,7 +70,7 @@ class StencilContentReplacerTest {
     fun `only instances of the stencil's own catalog are upgraded`() {
         val template = templateWithHeaders("acme-header" to "acme", "brand-b-header" to "brand-b")
 
-        val result = StencilContentReplacer.upgradeStencilInstances(template, stencilIn("acme"), "default", 2, stencilContent())
+        val result = StencilContentReplacer.upgradeStencilInstances(template, stencilIn("acme"), CatalogKey.of("default"), 2, stencilContent())
 
         assertThat(result.document.versionOf("acme-header")).isEqualTo(2)
         assertThat(result.document.versionOf("brand-b-header")).isEqualTo(1)
@@ -81,8 +81,8 @@ class StencilContentReplacerTest {
     fun `an instance without a catalogKey belongs to its template's catalog`() {
         val template = templateWithHeaders("local-header" to null)
 
-        val inOwnCatalog = StencilContentReplacer.upgradeStencilInstances(template, stencilIn("acme"), "acme", 2, stencilContent())
-        val inOtherCatalog = StencilContentReplacer.upgradeStencilInstances(template, stencilIn("brand-b"), "acme", 2, stencilContent())
+        val inOwnCatalog = StencilContentReplacer.upgradeStencilInstances(template, stencilIn("acme"), CatalogKey.of("acme"), 2, stencilContent())
+        val inOtherCatalog = StencilContentReplacer.upgradeStencilInstances(template, stencilIn("brand-b"), CatalogKey.of("acme"), 2, stencilContent())
 
         assertThat(inOwnCatalog.document.versionOf("local-header")).isEqualTo(2)
         assertThat(inOtherCatalog.document.versionOf("local-header")).isEqualTo(1)

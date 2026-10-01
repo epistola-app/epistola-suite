@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.template.model.Node
 
@@ -19,12 +20,16 @@ object StencilReferences {
     const val KEY_PARAM = "stencilRefKey"
     const val CATALOG_PARAM = "stencilRefCatalogKey"
 
-    /** True when [node] is an instance of [stencil], in a template owned by [owningCatalogKey]. */
-    fun refersTo(node: Node, stencil: StencilId, owningCatalogKey: String): Boolean {
+    /**
+     * True when [node] is an instance of [stencil]. [templateCatalog] is the catalog of the template
+     * the node sits in — not the stencil's, which [stencil] carries — and answers for a node that
+     * names no `catalogKey` of its own.
+     */
+    fun refersTo(node: Node, stencil: StencilId, templateCatalog: CatalogKey): Boolean {
         if (node.type != StencilNodeKeys.NODE_TYPE) return false
         val props = node.props ?: return false
         if (props[StencilNodeKeys.PROP_STENCIL_ID] as? String != stencil.key.value) return false
-        val refCatalog = (props[StencilNodeKeys.PROP_CATALOG_KEY] as? String)?.takeIf { it.isNotBlank() } ?: owningCatalogKey
+        val refCatalog = (props[StencilNodeKeys.PROP_CATALOG_KEY] as? String)?.takeIf { it.isNotBlank() } ?: templateCatalog.value
         return refCatalog == stencil.catalogKey.value
     }
 
