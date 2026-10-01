@@ -82,7 +82,6 @@ data class ImportTemplateInput(
     val dataExamples: List<DataExample>,
     val templateModel: TemplateDocument,
     val variants: List<ImportVariantInput>,
-    val publishTo: List<String>,
 )
 
 data class ImportVariantInput(
@@ -104,7 +103,6 @@ data class ImportTemplateResult(
     val slug: String,
     val status: ImportStatus,
     val version: String,
-    val publishedTo: List<String>,
     val errorMessage: String?,
 )
 
@@ -152,7 +150,6 @@ class ImportTemplatesHandler(
                 slug = input.slug,
                 status = ImportStatus.FAILED,
                 version = input.version,
-                publishedTo = emptyList(),
                 errorMessage = e.message ?: "Unknown error",
             )
         }
@@ -418,39 +415,10 @@ class ImportTemplatesHandler(
             .bindList("variantIds", importedVariantIds.toList())
             .execute()
 
-        // 6. Publish to environments (only imported variants)
-        val publishedTo = mutableListOf<String>()
-        for (envSlug in input.publishTo) {
-            val environmentId = EnvironmentKey.of(envSlug)
-
-            val environmentExists = handle.createQuery(
-                """
-                    SELECT COUNT(*) > 0
-                    FROM environments
-                    WHERE id = :environmentId AND tenant_key = :tenantId
-                    """,
-            )
-                .bind("environmentId", environmentId)
-                .bind("tenantId", tenantId.key)
-                .mapTo<Boolean>()
-                .one()
-
-            if (!environmentExists) {
-                logger.warn("Skipping publish for template '${input.slug}': environment '$envSlug' does not exist")
-                continue
-            }
-
-            for (variantId in importedVariantIds) {
-                activateLatestVersion(handle, tenantId, catalogKey, templateId, variantId, environmentId)
-            }
-            publishedTo.add(envSlug)
-        }
-
         ImportTemplateResult(
             slug = input.slug,
             status = status,
             version = input.version,
-            publishedTo = publishedTo,
             errorMessage = null,
         )
     }
@@ -505,50 +473,6 @@ class ImportTemplatesHandler(
             .bind("contractVersion", contractVersionId)
             .bind("referencedPaths", prepared.referencedPathsJson)
             .bind("createdBy", auditUser).bind("updatedBy", auditUser)
-            .execute()
-    }
-
-    /**
-     * Activates the latest published version of a variant in an environment.
-     * Since import always creates published versions, this simply finds the
-     * latest one and upserts the activation record.
-     */
-    private fun activateLatestVersion(handle: Handle, tenantId: TenantId, catalogKey: CatalogKey, templateId: TemplateKey, variantId: VariantKey, environmentId: EnvironmentKey) {
-        // Find the latest published version
-        val latestVersionId = handle.createQuery(
-            """
-            SELECT id
-            FROM template_versions
-            WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND variant_key = :variantId AND status = 'published'
-            ORDER BY id DESC
-            LIMIT 1
-            """,
-        )
-            .bind("tenantId", tenantId.key)
-            .bind("catalogKey", catalogKey)
-            .bind("templateId", templateId)
-            .bind("variantId", variantId)
-            .mapTo(Int::class.java)
-            .findOne()
-            .orElse(null) ?: return
-
-        val versionId = VersionKey.of(latestVersionId)
-
-        // Upsert activation
-        handle.createUpdate(
-            """
-            INSERT INTO environment_activations (tenant_key, environment_key, template_resource_id, variant_key, version_key, activated_at)
-            VALUES (:tenantId, :environmentId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :variantId, :versionId, NOW())
-            ON CONFLICT (tenant_key, environment_key, template_resource_id, variant_key)
-            DO UPDATE SET version_key = :versionId, activated_at = NOW()
-            """,
-        )
-            .bind("tenantId", tenantId.key)
-            .bind("catalogKey", catalogKey)
-            .bind("environmentId", environmentId)
-            .bind("templateId", templateId)
-            .bind("variantId", variantId)
-            .bind("versionId", versionId)
             .execute()
     }
 }

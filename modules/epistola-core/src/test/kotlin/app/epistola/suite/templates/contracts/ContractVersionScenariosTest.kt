@@ -18,7 +18,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.versions.CreateVersion
-import app.epistola.suite.templates.commands.versions.PublishToEnvironment
+import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.contracts.commands.CreateContractVersion
 import app.epistola.suite.templates.contracts.commands.PublishContractVersion
 import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
@@ -95,14 +95,11 @@ class ContractVersionScenariosTest : IntegrationTestBase() {
 
             // Deploy directly — empty contract auto-publishes
             val result = withMediator {
-                PublishToEnvironment(
-                    versionId = VersionId(draft.id, defaultVariantId),
-                    environmentId = envId,
-                ).execute()
+                PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute()!!
             }
 
             assertThat(result).isNotNull
-            assertThat(result.version.status).isEqualTo(VersionStatus.PUBLISHED)
+            assertThat(result.status).isEqualTo(VersionStatus.PUBLISHED)
 
             // Contract was auto-published (empty)
             val publishedContract = withMediator {
@@ -140,10 +137,7 @@ class ContractVersionScenariosTest : IntegrationTestBase() {
             val envId = createEnvironment("staging")
             val draft = withMediator { GetDraft(defaultVariantId).query()!! }
             val result = withMediator {
-                PublishToEnvironment(
-                    versionId = VersionId(draft.id, defaultVariantId),
-                    environmentId = envId,
-                ).execute()
+                PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute()!!
             }
 
             assertThat(result).isNotNull
@@ -176,10 +170,7 @@ class ContractVersionScenariosTest : IntegrationTestBase() {
             val envId = createEnvironment("production")
             val draft = withMediator { GetDraft(defaultVariantId).query()!! }
             withMediator {
-                PublishToEnvironment(
-                    versionId = VersionId(draft.id, defaultVariantId),
-                    environmentId = envId,
-                ).execute()
+                PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute()!!
             }
 
             // User adds an optional field
@@ -203,10 +194,7 @@ class ContractVersionScenariosTest : IntegrationTestBase() {
             // Create new version and deploy — contract auto-publishes
             val newDraft = withMediator { CreateVersion(defaultVariantId).execute()!! }
             val result = withMediator {
-                PublishToEnvironment(
-                    versionId = VersionId(newDraft.id, defaultVariantId),
-                    environmentId = envId,
-                ).execute()
+                PublishVersion(versionId = VersionId(newDraft.id, defaultVariantId)).execute()!!
             }
             assertThat(result).isNotNull
 
@@ -234,10 +222,7 @@ class ContractVersionScenariosTest : IntegrationTestBase() {
             val envId = createEnvironment("production")
             val v1 = withMediator { GetDraft(defaultVariantId).query()!! }
             withMediator {
-                PublishToEnvironment(
-                    versionId = VersionId(v1.id, defaultVariantId),
-                    environmentId = envId,
-                ).execute()
+                PublishVersion(versionId = VersionId(v1.id, defaultVariantId)).execute()!!
             }
 
             // Create a new template version draft (previous was consumed by publish)
@@ -259,10 +244,7 @@ class ContractVersionScenariosTest : IntegrationTestBase() {
             // Deploying is blocked because the contract draft has breaking changes
             assertThatThrownBy {
                 withMediator {
-                    PublishToEnvironment(
-                        versionId = VersionId(draft.id, defaultVariantId),
-                        environmentId = envId,
-                    ).execute()
+                    PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute()!!
                 }
             }.hasMessageContaining("breaking changes")
         }
@@ -279,10 +261,7 @@ class ContractVersionScenariosTest : IntegrationTestBase() {
             val envId = createEnvironment("production")
             val draft = withMediator { GetDraft(defaultVariantId).query()!! }
             withMediator {
-                PublishToEnvironment(
-                    versionId = VersionId(draft.id, defaultVariantId),
-                    environmentId = envId,
-                ).execute()
+                PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute()!!
             }
 
             // Make breaking change
@@ -313,10 +292,7 @@ class ContractVersionScenariosTest : IntegrationTestBase() {
             // Now deploying works
             val newDraft = withMediator { CreateVersion(defaultVariantId).execute()!! }
             val result = withMediator {
-                PublishToEnvironment(
-                    versionId = VersionId(newDraft.id, defaultVariantId),
-                    environmentId = envId,
-                ).execute()
+                PublishVersion(versionId = VersionId(newDraft.id, defaultVariantId)).execute()!!
             }
             assertThat(result).isNotNull
         }
@@ -340,10 +316,7 @@ class ContractVersionScenariosTest : IntegrationTestBase() {
             val envId = createEnvironment("production")
             val v1 = withMediator { GetDraft(defaultVariantId).query()!! }
             withMediator {
-                PublishToEnvironment(
-                    versionId = VersionId(v1.id, defaultVariantId),
-                    environmentId = envId,
-                ).execute()
+                PublishVersion(versionId = VersionId(v1.id, defaultVariantId)).execute()!!
             }
 
             // Make breaking change (remove age)
@@ -503,10 +476,7 @@ class ContractVersionScenariosTest : IntegrationTestBase() {
             val envId = createEnvironment("production")
             val v1 = withMediator { GetDraft(defaultVariantId).query()!! }
             withMediator {
-                PublishToEnvironment(
-                    versionId = VersionId(v1.id, defaultVariantId),
-                    environmentId = envId,
-                ).execute()
+                PublishVersion(versionId = VersionId(v1.id, defaultVariantId)).execute()!!
             }
 
             // Publish compatible v2 (add optional field)

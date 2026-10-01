@@ -28,12 +28,10 @@ import app.epistola.suite.templates.commands.versions.ArchiveVersion
 import app.epistola.suite.templates.commands.versions.CreateVersion
 import app.epistola.suite.templates.commands.versions.DiscardDraft
 import app.epistola.suite.templates.commands.versions.UpdateDraft
-import app.epistola.suite.templates.commands.versions.VersionStillActiveException
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.model.DataExamples
 import app.epistola.suite.templates.model.VariantSummary
 import app.epistola.suite.templates.queries.GetDocumentTemplate
-import app.epistola.suite.templates.queries.activations.ListActivations
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.validation.ValidationException
@@ -192,11 +190,7 @@ class VersionRouteHandler(
         val versionId = request.versionId(variantId)
             ?: return ServerResponse.badRequest().build()
 
-        try {
-            ArchiveVersion(versionId = versionId).execute()
-        } catch (_: VersionStillActiveException) {
-            return returnVersionsFragment(request, tenantId.key, catalogId, templateId.key, variantId, error = "Cannot archive: version is still active in one or more environments. Remove it from all environments first.")
-        }
+        ArchiveVersion(versionId = versionId).execute()
 
         return returnVersionsFragment(request, tenantId.key, catalogId, templateId.key, variantId)
     }
@@ -222,10 +216,6 @@ class VersionRouteHandler(
 
         val versions = ListVersions(variantId = variantId).query()
 
-        val activations = ListActivations(variantId = variantId).query()
-
-        val activationsByVersion = activations.groupBy { it.versionKey.value }
-
         val variantSummary = VariantSummary(
             id = variant.id,
             title = variant.title,
@@ -243,7 +233,6 @@ class VersionRouteHandler(
                 "variant" to variantSummary
                 "versions" to versions
                 "dataExamples" to dataExamples
-                "activationsByVersion" to activationsByVersion
                 if (error != null) {
                     "error" to error
                 }

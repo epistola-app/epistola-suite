@@ -713,7 +713,6 @@ class ImportCatalogZipHandler(
                         isDefault = variant.isDefault,
                     )
                 },
-                publishTo = emptyList(),
             )
             val results = ImportTemplates(
                 tenantId = tenantId,

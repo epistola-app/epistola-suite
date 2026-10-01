@@ -67,3 +67,15 @@ private fun Mediator.ensureDefaultVariantPublished(published: VariantId, model: 
     val draft = requireNotNull(query(GetDraft(defaultId)))
     send(PublishVersion(VersionId(draft.id, defaultId)))
 }
+
+/**
+ * Deploys the latest release of [catalogId] to [environmentId], cutting the catalog's first release
+ * when it has none. Environments serve catalog releases from 2.0; this replaces activating a version.
+ *
+ * @return the version deployed.
+ */
+fun Mediator.deployLatestRelease(environmentId: app.epistola.suite.common.ids.EnvironmentId, catalogId: CatalogId): String {
+    val version = query(GetLatestCatalogRelease(catalogId.tenantKey, catalogId.key)).latestVersion ?: releaseNext(catalogId)
+    send(app.epistola.suite.environments.commands.DeployRelease(environmentId, catalogId.key, version))
+    return version
+}

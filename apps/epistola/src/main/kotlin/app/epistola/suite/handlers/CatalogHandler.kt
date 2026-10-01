@@ -55,8 +55,17 @@ import app.epistola.suite.catalog.queries.ListRetainedReleases
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.catalog.queries.ResourceStatus
+import app.epistola.suite.catalog.revisions.ReleaseInUseException
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.documents.EnvironmentNotFoundException
+import app.epistola.suite.environments.ReleaseNotDeployableException
+import app.epistola.suite.environments.commands.DeployRelease
+import app.epistola.suite.environments.commands.UndeployRelease
+import app.epistola.suite.environments.queries.ListDeployments
+import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.exchange.CancelCatalogPublication
 import app.epistola.suite.exchange.CatalogPublicationState
 import app.epistola.suite.exchange.ExchangeSourceUri
@@ -482,9 +491,57 @@ class CatalogHandler {
             ServerResponse.status(303)
                 .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
                 .build()
+        } catch (failure: ReleaseInUseException) {
+            browse(request, error = failure.message)
         } catch (failure: ValidationException) {
             logger.warn("Forgetting the content of a release of '{}' was rejected: {}", catalogKey.value, failure.message)
             browse(request, error = failure.message)
+        }
+    }
+
+    /**
+     * Deploys a release of this catalog to an environment. Refusals -- the release kept no content,
+     * the environment is gone -- come back on the catalog page with the reason.
+     */
+    fun deploy(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        val environment = request.param("environmentId").orElse("").trim()
+        val version = request.param("version").orElse("").trim()
+        if (environment.isEmpty() || version.isEmpty()) return browse(request, error = "Choose an environment and a release to deploy.")
+        return try {
+            DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, version).execute()
+            ServerResponse.status(303)
+                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
+                .build()
+        } catch (failure: ReleaseNotDeployableException) {
+            browse(request, error = failure.message)
+        } catch (failure: EnvironmentNotFoundException) {
+            browse(request, error = failure.message)
+        }
+    }
+
+    /** Stops an environment serving this catalog. */
+    fun undeploy(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        UndeployRelease(EnvironmentId(EnvironmentKey.of(request.pathVariable("environmentId")), tenantId), catalogKey).execute()
+        return ServerResponse.status(303)
+            .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
+            .build()
+    }
+
+    /** One row per environment of the tenant, with the release of this catalog it serves, if any. */
+    private fun deploymentRows(tenantKey: TenantKey, catalogKey: CatalogKey): List<DeploymentRowView> {
+        val served = ListDeployments(tenantKey, catalogKey).query().associateBy { it.environmentKey }
+        return ListEnvironments(tenantId = app.epistola.suite.common.ids.TenantId(tenantKey)).query().map { environment ->
+            val deployment = served[environment.id]
+            DeploymentRowView(
+                environmentKey = environment.id.value,
+                environmentName = environment.name,
+                deployedVersion = deployment?.version,
+                deployedAt = deployment?.deployedAt,
+            )
         }
     }
 
@@ -497,6 +554,8 @@ class CatalogHandler {
             ServerResponse.status(303)
                 .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
                 .build()
+        } catch (failure: ReleaseInUseException) {
+            browse(request, error = failure.message)
         } catch (failure: ValidationException) {
             logger.warn("Deleting a release of '{}' was rejected: {}", catalogKey.value, failure.message)
             browse(request, error = failure.message)
@@ -641,13 +700,13 @@ class CatalogHandler {
             } else {
                 null
             }
-            // Only an authored catalog has releases of its own. A subscribed one records which
-            // release it installed, on the catalog row, and the version column already shows it.
-            val releases = if (result.catalog.type == CatalogType.AUTHORED) {
-                ListCatalogReleases(tenantId.key, catalogKey).query()
-            } else {
-                emptyList()
-            }
+            // An authored catalog's releases are the ones it cut; a subscribed catalog's are the ones
+            // it installed (each install records its release). Either can be deployed.
+            val releases = ListCatalogReleases(tenantId.key, catalogKey).query()
+            val deployments = deploymentRows(tenantId.key, catalogKey)
+            // Only a release that kept its content can be deployed; one cut before releases retained
+            // content has nothing to render from. Newest first, as the list is.
+            val deployableVersions = releases.filter { it.retained }.map { it.version }
             // Each release with its two affordances already decided. The template gates on one
             // name apiece rather than assembling the conjunction itself -- the catalog being able
             // to publish at all, this release having content to send, and it not having been sent
@@ -701,6 +760,8 @@ class CatalogHandler {
                 "exchangeCatalogUrl" to exchangeCatalogUrl
                 "publication" to publication
                 "releases" to releaseViews
+                "deployments" to deployments
+                "deployableVersions" to deployableVersions
                 "publicationError" to error
                 "resources" to result.resources
                 "hasUninstalledResources" to hasUninstalledResources
@@ -1302,6 +1363,14 @@ class CatalogHandler {
                 .body(mapOf("error" to (e.message ?: "Failed to export catalog")))
         }
     }
+
+    /** An environment, and the release of the catalog on screen it serves (null when none). */
+    data class DeploymentRowView(
+        val environmentKey: String,
+        val environmentName: String,
+        val deployedVersion: String?,
+        val deployedAt: java.time.OffsetDateTime?,
+    )
 
     /** One release as the catalog page shows it: the release, and what may be done with it. */
     data class CatalogReleaseView(

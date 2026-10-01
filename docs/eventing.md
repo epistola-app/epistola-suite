@@ -85,9 +85,9 @@ class CreateDefaultThemeOnTenantCreate : EventHandler<CreateTenant> {
 
 ```kotlin
 @Component
-class InvalidatePdfCache : EventHandler<PublishToEnvironment> {
+class InvalidatePdfCache : EventHandler<DeployRelease> {
     override val phase = EventPhase.AFTER_COMMIT  // default
-    override fun on(event: PublishToEnvironment, result: Any?) {
+    override fun on(event: DeployRelease, result: Any?) {
         cache.invalidate(event.templateId, event.environmentId)
     }
 }
@@ -215,7 +215,7 @@ data class CommandCompleted<C : Command<*>>(
 -- (default 6) — the payload is PII-bearing, so it ages out structurally.
 CREATE TABLE event_log (
     id UUID NOT NULL,                          -- UUIDv7, generated app-side (matches audit_log/application_log)
-    event_type VARCHAR(255) NOT NULL,          -- e.g., "CreateTheme", "PublishToEnvironment"
+    event_type VARCHAR(255) NOT NULL,          -- e.g., "CreateTheme", "DeployRelease"
     tenant_key TENANT_KEY,                      -- extracted from TenantScoped commands
     entity_id VARCHAR(255),                    -- optional: primary entity affected
     payload JSONB NOT NULL,                    -- serialized command (PII-bearing)
@@ -400,10 +400,10 @@ To react to a command, create an `EventHandler`:
 
 ```kotlin
 @Component
-class OnEnvironmentPublished : EventHandler<PublishToEnvironment> {
+class OnEnvironmentPublished : EventHandler<DeployRelease> {
     override val phase = EventPhase.AFTER_COMMIT  // run after commit
 
-    override fun on(event: PublishToEnvironment, result: Any?) {
+    override fun on(event: DeployRelease, result: Any?) {
         invalidatePdfCache(event.templateId, event.environmentId)
         metrics.increment("templates.published")
     }

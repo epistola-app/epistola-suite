@@ -68,7 +68,6 @@ class ImportNameLengthValidationTest {
         dataExamples = emptyList(),
         templateModel = content(),
         variants = variants,
-        publishTo = emptyList(),
     )
 
     /** Commands whose name/title column is VARCHAR(255). label -> builder taking the field value. */

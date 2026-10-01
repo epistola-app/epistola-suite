@@ -47,10 +47,12 @@ it can connect as a limited role with **no** `CREATE`/`ALTER`/`DROP` privileges.
 - `INSERT`/`UPDATE`: `document_generation_requests`, `documents`, `document_content`,
   `generation_results` (+ its sequence), `document_generation_batches`, and the cluster
   coordination tables (`cluster_nodes`, `cluster_tasks_scheduled`, `cluster_timers`).
-- `SELECT`: the render read-set — `template_versions`/`template_variants`, `document_templates`,
-  `catalogs`, `tenants`, `environments`/`environment_activations`, `contract_versions`, `assets`/
-  `asset_content` (+ legacy `content_store`), `fonts`/`font_variants`, plus `flyway_schema_history`
-  for the validate check.
+- `SELECT`: the render read-set — a request renders a catalog release, so `catalog_releases`,
+  `release_entries`, `release_dependencies`, `resource_revisions`, `revision_binaries` and
+  `asset_content`; `tenants` and `font_variants` (for bundled faces); plus
+  `flyway_schema_history` for the validate check. Requests accepted before 2.0 still read
+  `template_versions`/`template_variants`, `document_templates`, `catalogs`, `contract_versions`,
+  `assets` (+ legacy `content_store`) and `fonts`.
 
 (A hardened `GRANT` script and Helm wiring are tracked as follow-ups.)
 

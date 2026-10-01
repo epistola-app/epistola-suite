@@ -83,8 +83,7 @@
                                       hx-swap="innerHTML"
                                       hx-confirm="Are you sure you want to archive this version?">
                                     <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
-                                            th:disabled="${activationsByVersion.containsKey(version.id)}"
-                                            th:title="${activationsByVersion.containsKey(version.id)} ? 'Cannot archive: version is active in one or more environments' : 'Archive version'">
+                                            title="Archive version">
                                         <th:block th:replace="~{epistola-web/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
                                     </button>
                                 </form>

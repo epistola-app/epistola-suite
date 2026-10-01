@@ -109,11 +109,14 @@ Supports both SaaS multi-tenant deployment and self-hosted single-tenant deploym
 
 ### Environment Management
 
-Environments represent deployment stages (e.g. `staging`, `production`). Each environment can have one active version per variant, enabling:
+Environments represent deployment stages (e.g. `staging`, `production`). Each environment serves one release per catalog, enabling:
 
-- Testing a new version in staging before promoting to production.
-- Rolling back to a previous version by re-activating it.
-- Running different versions in different environments simultaneously.
+- Testing a new release in staging before promoting it to production.
+- Rolling back by deploying an earlier release.
+- Running different releases in different environments simultaneously.
+
+Generation that names an environment renders the release it serves for the template's catalog, bound
+when the request is accepted.
 
 ### REST API
 
@@ -188,7 +191,7 @@ modules/
 
 Business logic is organised around **commands** (mutations) and **queries** (reads), dispatched through a central `Mediator` interface. Each domain (templates, themes, environments, documents) defines its own command/query handlers. This decouples the UI/API layer from business logic and makes operations independently testable.
 
-Examples: `CreateDocumentTemplate`, `PublishVersion`, `SetActivation`, `GenerateDocument`, `GetActiveVersion`, `ListVersions`.
+Examples: `CreateDocumentTemplate`, `PublishVersion`, `DeployRelease`, `GenerateDocument`, `ListDeployments`, `ListVersions`.
 
 ### UI Handlers vs REST API
 

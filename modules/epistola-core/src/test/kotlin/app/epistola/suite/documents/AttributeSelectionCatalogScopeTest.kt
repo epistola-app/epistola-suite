@@ -21,7 +21,7 @@ import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.commands.BatchGenerationItem
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.documents.commands.GenerateDocumentBatch
-import app.epistola.suite.documents.preview.PreviewTargetResolver
+import app.epistola.suite.generation.release.ReleaseTargetResolver
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -48,7 +48,7 @@ import tools.jackson.databind.ObjectMapper
 class AttributeSelectionCatalogScopeTest : IntegrationTestBase() {
 
     @Autowired
-    private lateinit var previewTargetResolver: PreviewTargetResolver
+    private lateinit var releaseTargetResolver: ReleaseTargetResolver
 
     @Autowired
     private lateinit var jdbi: Jdbi
@@ -148,17 +148,10 @@ class AttributeSelectionCatalogScopeTest : IntegrationTestBase() {
         val tenantKey = setUp(withDecoyInDefault = true)
 
         val target = withMediator {
-            previewTargetResolver.resolve(
-                tenantKey = tenantKey,
-                catalogKey = acme,
-                templateKey = letter,
-                data = objectMapper.createObjectNode(),
-                variantSelectionCriteria = englishCriteria,
-                versionKey = VersionKey.of(1),
-            )
+            releaseTargetResolver.resolveLatest(tenantKey, acme, letter, variantKey = null, criteria = englishCriteria)
         }
 
-        assertThat(target.variantId.key).isEqualTo(VariantKey.of("eng"))
-        assertThat(target.variantId.catalogKey).isEqualTo(acme)
+        assertThat(target.variantKey).isEqualTo(VariantKey.of("eng"))
+        assertThat(target.release.catalogKey).isEqualTo(acme)
     }
 }

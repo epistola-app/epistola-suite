@@ -387,10 +387,10 @@
             </div>
         </div>
 
-        <!--/* Releases of an authored catalog. A subscribed one has none of its own -- it records
-               which release it installed, and the Version column already shows that. */-->
-        <div class="card" th:if="${catalog.type.name() == 'AUTHORED'}"
-             th:with="canRelease=${auth.has('TEMPLATE_PUBLISH')}, canForget=${auth.has('CATALOG_MANAGE')}">
+        <!--/* Releases: the ones an authored catalog cut, or the ones a subscribed catalog installed
+               (each install records its release). Only an authored catalog can cut a new one. */-->
+        <div class="card"
+             th:with="canRelease=${auth.has('TEMPLATE_PUBLISH') and catalog.type.name() == 'AUTHORED'}, canForget=${auth.has('CATALOG_MANAGE')}">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h2>Releases</h2>
                 <!--/* Cutting a release belongs here, beside what has been released, rather than
@@ -502,6 +502,82 @@
                     </tbody>
                 </table>
                 </div>
+            </div>
+        </div>
+
+        <!--/* What each environment serves of this catalog. One release per environment; deploying
+               replaces it, so promoting is deploying what another environment runs and rolling back
+               is deploying an earlier release. */-->
+        <div class="card" data-testid="catalog-deployments"
+             th:with="canDeploy=${auth.has('TEMPLATE_PUBLISH')}">
+            <div class="card-header">
+                <h2>Deployments</h2>
+            </div>
+            <div class="card-body">
+                <p th:if="${deployments.isEmpty()}" class="text-muted">
+                    There are no environments to deploy to yet.
+                    <a th:href="@{/tenants/{tenantId}/environments(tenantId=${tenantId})}">Add an environment</a>
+                    first.
+                </p>
+                <th:block th:if="${!deployments.isEmpty()}">
+                    <p th:if="${deployableVersions.isEmpty()}" class="text-muted">
+                        Nothing can be deployed yet: an environment serves a release, and this catalog has
+                        none that kept its content.
+                        <th:block th:if="${catalog.type.name() == 'AUTHORED'}">Release it first.</th:block>
+                    </p>
+                    <p th:if="${!canDeploy and !deployableVersions.isEmpty()}" class="text-muted">
+                        Deploying needs the permission to publish templates.
+                    </p>
+                    <div class="ep-table-scroll" role="region" aria-label="Deployments table" tabindex="0">
+                    <table class="ep-table">
+                        <thead>
+                            <tr>
+                                <th>Environment</th>
+                                <th>Serves</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="row : ${deployments}" th:attr="data-environment=${row.environmentKey}">
+                                <td th:text="${row.environmentName}">Production</td>
+                                <td>
+                                    <th:block th:if="${row.deployedVersion != null}">
+                                        <span th:text="'v' + ${row.deployedVersion}">v1.0.0</span>
+                                        <span class="text-muted" style="font-size: var(--ep-text-xs);"
+                                              th:text="'since ' + ${#temporals.format(row.deployedAt, 'yyyy-MM-dd HH:mm')}"></span>
+                                    </th:block>
+                                    <span th:if="${row.deployedVersion == null}" class="text-muted">nothing</span>
+                                </td>
+                                <td class="actions">
+                                    <form th:if="${canDeploy and !deployableVersions.isEmpty()}"
+                                          method="post" style="display: inline-flex; gap: var(--ep-space-2);"
+                                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments(tenantId=${tenantId},catalogId=${catalog.id})}">
+                                        <input type="hidden" name="environmentId" th:value="${row.environmentKey}">
+                                        <select name="version" class="ep-select ep-select-sm" required
+                                                th:attr="aria-label='Release to deploy to ' + ${row.environmentName}">
+                                            <option th:each="version : ${deployableVersions}"
+                                                    th:value="${version}" th:text="'v' + ${version}"
+                                                    th:selected="${version == row.deployedVersion}">v1.0.0</option>
+                                        </select>
+                                        <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Deploy</button>
+                                    </form>
+                                    <form th:if="${canDeploy and row.deployedVersion != null}"
+                                          method="post" style="display: inline;"
+                                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments/{environmentId}/undeploy(tenantId=${tenantId},catalogId=${catalog.id},environmentId=${row.environmentKey})}">
+                                        <button type="button"
+                                                class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
+                                                data-confirm-submit
+                                                data-confirm-submit-title="Undeploy this catalog"
+                                                th:attr="data-confirm-submit-message=${row.environmentName} + ' stops serving this catalog. Generation there fails for its templates until a release is deployed again.'"
+                                                data-confirm-submit-label="Undeploy"
+                                                data-confirm-submit-class="ep-btn-destructive">Undeploy</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    </div>
+                </th:block>
             </div>
         </div>
 

@@ -135,7 +135,6 @@ data class GenerateDocumentBatch(
 @Component
 class GenerateDocumentBatchHandler(
     private val jdbi: Jdbi,
-    private val variantResolver: VariantResolver,
     private val releaseTargetResolver: ReleaseTargetResolver,
     private val dependencyStore: ReleaseDependencyStore,
 ) : CommandHandler<GenerateDocumentBatch, BatchKey> {
@@ -146,73 +145,31 @@ class GenerateDocumentBatchHandler(
         logger.info("Generating batch of {} documents for tenant {}", command.items.size, command.tenantId)
         if (command.items.any { it.versionId != null }) throw versionGenerationRemoved()
 
-        // Items without an environment render their catalog's latest release. Resolved once per
-        // catalog, so every item of one catalog in this batch renders the same release even if
-        // another is cut while the batch is being accepted.
-        val latestByCatalog = command.items
-            .filter { it.environmentId == null }
-            .map { it.catalogKey }
+        // Every item renders a release, resolved once per (environment, catalog) for the whole batch:
+        // the release the item's environment serves, or the catalog's latest without one. A release
+        // cut or deployed while the batch is being accepted does not split it across releases.
+        val releases = command.items
+            .map { it.environmentId to it.catalogKey }
             .distinct()
-            .associateWith { catalog ->
-                jdbi.withHandle<String?, Exception> { handle -> dependencyStore.latestRetainedRelease(handle, command.tenantId, catalog) }
-                    ?: throw CatalogNotReleasedException(command.tenantId, catalog)
+            .associateWith { (environment, catalog) ->
+                if (environment != null) {
+                    releaseTargetResolver.deployedRelease(command.tenantId, environment, catalog)
+                } else {
+                    jdbi.withHandle<String?, Exception> { handle -> dependencyStore.latestRetainedRelease(handle, command.tenantId, catalog) }
+                        ?: throw CatalogNotReleasedException(command.tenantId, catalog)
+                }
             }
         val targets = command.items.map { item ->
-            latestByCatalog[item.catalogKey]?.takeIf { item.environmentId == null }?.let { version ->
-                releaseTargetResolver.resolveIn(
-                    command.tenantId,
-                    ReleaseRef(item.catalogKey, version),
-                    item.templateId,
-                    item.variantId,
-                    item.variantSelectionCriteria,
-                )
-            }
+            releaseTargetResolver.resolveIn(
+                command.tenantId,
+                ReleaseRef(item.catalogKey, releases.getValue(item.environmentId to item.catalogKey)),
+                item.templateId,
+                item.variantId,
+                item.variantSelectionCriteria,
+            )
         }
 
-        // Environment items still resolve their variant in the working copy until environments
-        // deploy releases.
-        val resolvedVariantIds = command.items.mapIndexed { index, item ->
-            targets[index]?.variantKey
-                ?: item.variantId
-                ?: item.variantSelectionCriteria?.let { variantResolver.resolve(TemplateId(item.templateId, CatalogId(item.catalogKey, TenantId(command.tenantId))), it) }
-                ?: resolveDefaultVariant(command.tenantId, item.catalogKey, item.templateId)
-        }
-
-        val batchId = jdbi.inTransaction<BatchKey, Exception> { handle ->
-            for ((index, item) in command.items.withIndex()) {
-                if (item.environmentId == null) continue
-                val resolvedVariantId = resolvedVariantIds[index]
-                val templateExists = handle.createQuery(
-                    """
-                    SELECT EXISTS (
-                        SELECT 1
-                        FROM template_variants
-                        WHERE tenant_key = :tenantId AND id = :variantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
-                    )
-                    """,
-                )
-                    .bind("templateId", item.templateId)
-                    .bind("catalogKey", item.catalogKey)
-                    .bind("variantId", resolvedVariantId)
-                    .bind("tenantId", command.tenantId)
-                    .mapTo<Boolean>()
-                    .one()
-                if (!templateExists) {
-                    throw TemplateVariantNotFoundException(command.tenantId, item.templateId, resolvedVariantId)
-                }
-
-                val environmentExists = handle.createQuery(
-                    "SELECT EXISTS (SELECT 1 FROM environments WHERE id = :environmentId AND tenant_key = :tenantId)",
-                )
-                    .bind("environmentId", item.environmentId)
-                    .bind("tenantId", command.tenantId)
-                    .mapTo<Boolean>()
-                    .one()
-                if (!environmentExists) {
-                    throw EnvironmentNotFoundException(command.tenantId, item.environmentId)
-                }
-            }
-
+        return jdbi.inTransaction<BatchKey, Exception> { handle ->
             val batchId = BatchKey.generate()
             handle.createUpdate(
                 """
@@ -239,18 +196,17 @@ class GenerateDocumentBatchHandler(
             )
 
             for ((index, item) in command.items.withIndex()) {
-                val requestId = GenerationRequestKey.generate()
                 // Routing-key precedence: item-level wins, then batch-level default,
                 // then null (emitter falls back to request id at terminal state).
                 val effectiveRoutingKey = item.routingKey ?: command.batchRoutingKey
-                batch.bind("id", requestId)
+                batch.bind("id", GenerationRequestKey.generate())
                     .bind("batchId", batchId)
                     .bind("tenantId", command.tenantId)
                     .bind("catalogKey", item.catalogKey)
                     .bind("templateId", item.templateId)
-                    .bind("variantId", resolvedVariantIds[index])
+                    .bind("variantId", targets[index].variantKey)
                     .bind("environmentId", item.environmentId)
-                    .bind("releaseVersion", targets[index]?.release?.version)
+                    .bind("releaseVersion", targets[index].release.version)
                     .bind("data", item.data.toString())
                     .bind("filename", item.filename)
                     .bind("correlationId", item.correlationId)
@@ -265,27 +221,5 @@ class GenerateDocumentBatchHandler(
             // Requests stay in PENDING status - the JobPoller drains them on its next poll.
             batchId
         }
-
-        return batchId
-    }
-
-    private fun resolveDefaultVariant(tenantId: TenantKey, catalogKey: CatalogKey, templateId: TemplateKey): VariantKey {
-        val variantId = jdbi.withHandle<String?, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT id FROM template_variants
-                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND is_default = TRUE
-                """,
-            )
-                .bind("tenantId", tenantId)
-                .bind("catalogKey", catalogKey)
-                .bind("templateId", templateId)
-                .mapTo<String>()
-                .findOne()
-                .orElse(null)
-        }
-        return VariantKey.of(
-            variantId ?: throw DefaultVariantNotFoundException(tenantId, templateId),
-        )
     }
 }

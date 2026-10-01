@@ -67,7 +67,6 @@ object ApiProblemTypes {
     val THEME_NOT_FOUND = problem("THEME_NOT_FOUND", "Theme Not Found", HttpStatus.NOT_FOUND, "The requested theme does not exist or is not visible to the caller.", listOf("themeId"))
     val THEME_IN_USE = problem("THEME_IN_USE", "Theme In Use", HttpStatus.CONFLICT, "The theme cannot be deleted because other resources still reference it.", listOf("themeId"))
     val DEFAULT_VARIANT_DELETION = problem("DEFAULT_VARIANT_DELETION", "Default Variant Deletion", HttpStatus.CONFLICT, "The default variant cannot be deleted.", listOf("variantId"))
-    val VERSION_STILL_ACTIVE = problem("VERSION_STILL_ACTIVE", "Version Still Active", HttpStatus.CONFLICT, "The version cannot be archived while it is active in one or more environments.", listOf("versionId", "variantId", "activeEnvironments"))
     val NO_MATCHING_VARIANT = problem("NO_MATCHING_VARIANT", "No Matching Variant", HttpStatus.NOT_FOUND, "No template variant matches the requested criteria.", listOf("templateId", "requiredAttributes"))
     val AMBIGUOUS_VARIANT = problem("AMBIGUOUS_VARIANT", "Ambiguous Variant", HttpStatus.CONFLICT, "Multiple variants match equally well and the API cannot choose one deterministically.", listOf("templateId", "tiedVariants"))
     val ATTRIBUTE_IN_USE = problem("ATTRIBUTE_IN_USE", "Attribute In Use", HttpStatus.CONFLICT, "The attribute cannot be deleted because variants still reference it.", listOf("attributeId", "variantCount"))
@@ -76,6 +75,9 @@ object ApiProblemTypes {
     val VERSION_NOT_FOUND = problem("VERSION_NOT_FOUND", "Version Not Found", HttpStatus.NOT_FOUND, "The requested version does not exist or is not visible to the caller.", listOf("templateId", "variantId", "versionId"))
     val ENVIRONMENT_NOT_FOUND = problem("ENVIRONMENT_NOT_FOUND", "Environment Not Found", HttpStatus.NOT_FOUND, "The requested environment does not exist or is not visible to the caller.", listOf("tenantId", "environmentId"))
     val NO_PUBLISHED_VERSION = problem("NO_PUBLISHED_VERSION", "No Published Version", HttpStatus.NOT_FOUND, "No published version is available for the requested template and variant.", listOf("tenantId", "templateId", "variantId"))
+    val NO_RELEASE_DEPLOYED = problem("NO_RELEASE_DEPLOYED", "No Release Deployed", HttpStatus.NOT_FOUND, "The environment serves no release of the template's catalog; deploy one first.", listOf("environmentId", "catalogId"))
+    val RELEASE_NOT_DEPLOYABLE = problem("RELEASE_NOT_DEPLOYABLE", "Release Not Deployable", HttpStatus.CONFLICT, "The release does not exist or kept no content to render from.", listOf("catalogId", "releaseVersion"))
+    val RELEASE_IN_USE = problem("RELEASE_IN_USE", "Release In Use", HttpStatus.CONFLICT, "The release is deployed to an environment or recorded as a dependency of another release.", listOf("catalogId", "releaseVersion", "environments", "dependentReleases"))
     val CATALOG_NOT_RELEASED = problem("CATALOG_NOT_RELEASED", "Catalog Not Released", HttpStatus.NOT_FOUND, "The catalog has no release to generate from; release it first.", listOf("tenantId", "catalogId"))
     val TEMPLATE_NOT_IN_RELEASE = problem("TEMPLATE_NOT_IN_RELEASE", "Template Not In Release", HttpStatus.NOT_FOUND, "The release being generated from does not contain the requested template or variant.", listOf("tenantId", "catalogId", "releaseVersion", "templateId", "variantId"))
     val DEFAULT_VARIANT_NOT_FOUND = problem("DEFAULT_VARIANT_NOT_FOUND", "Default Variant Not Found", HttpStatus.NOT_FOUND, "The requested template has no default variant.", listOf("tenantId", "templateId"))
@@ -83,7 +85,7 @@ object ApiProblemTypes {
     val ASSET_TOO_LARGE = problem("ASSET_TOO_LARGE", "Asset Too Large", HttpStatus.CONTENT_TOO_LARGE, "The uploaded asset exceeds the maximum allowed size.", emptyList())
     val UNSUPPORTED_ASSET_TYPE = problem("UNSUPPORTED_ASSET_TYPE", "Unsupported Asset Type", HttpStatus.BAD_REQUEST, "The asset media type is not supported.", emptyList())
     val ASSET_IN_USE = problem("ASSET_IN_USE", "Asset In Use", HttpStatus.CONFLICT, "The asset cannot be deleted because template versions still reference it.", listOf("assetId", "usages"))
-    val ENVIRONMENT_IN_USE = problem("ENVIRONMENT_IN_USE", "Environment In Use", HttpStatus.CONFLICT, "The environment cannot be deleted because active version activations still reference it.", listOf("environmentId", "activationCount"))
+    val ENVIRONMENT_IN_USE = problem("ENVIRONMENT_IN_USE", "Environment In Use", HttpStatus.CONFLICT, "The environment cannot be deleted while it serves catalog releases.", listOf("environmentId", "deploymentCount"))
     val CATALOG_READ_ONLY = problem("CATALOG_READ_ONLY", "Catalog Read Only", HttpStatus.CONFLICT, "The catalog is subscribed/read-only and cannot be modified through this API.", emptyList())
     val CATALOG_NOT_FOUND = problem("CATALOG_NOT_FOUND", "Catalog Not Found", HttpStatus.NOT_FOUND, "The requested catalog does not exist or is not visible to the caller.", listOf("catalogId"))
     val CATALOG_NOT_UPGRADEABLE = problem("CATALOG_NOT_UPGRADEABLE", "Catalog Not Upgradeable", HttpStatus.CONFLICT, "The requested catalog is not in a state that supports upgrade operations.", listOf("catalogId"))
@@ -111,8 +113,6 @@ object ApiProblemTypes {
     val VERSION_NOT_DRAFT = problem("VERSION_NOT_DRAFT", "Version Not Draft", HttpStatus.CONFLICT, "The version is not a draft and cannot be modified.", listOf("tenantId", "versionId"))
     val VERSION_NOT_PUBLISHED = problem("VERSION_NOT_PUBLISHED", "Version Not Published", HttpStatus.CONFLICT, "The version is not published and cannot be archived.", listOf("tenantId", "versionId"))
     val VERSION_ARCHIVED = problem("VERSION_ARCHIVED", "Version Archived", HttpStatus.CONFLICT, "The version is archived and cannot be published.", listOf("tenantId", "versionId"))
-    val ACTIVATION_NOT_FOUND = problem("ACTIVATION_NOT_FOUND", "Activation Not Found", HttpStatus.NOT_FOUND, "No activation exists for the requested variant and environment.", listOf("tenantId", "variantId", "environmentId"))
-    val NO_ACTIVE_VERSION = problem("NO_ACTIVE_VERSION", "No Active Version", HttpStatus.NOT_FOUND, "No active version is available for the requested variant and environment.", listOf("tenantId", "variantId", "environmentId"))
     val CONTRACT_PUBLISH_CONFLICT = problem("CONTRACT_PUBLISH_CONFLICT", "Contract Publish Conflict", HttpStatus.CONFLICT, "The data-model change is backwards-incompatible and was not confirmed; retry with forceUpdate=true to publish it.", listOf("breakingChanges"))
 
     val all: List<ApiProblemType> = listOf(
@@ -140,7 +140,6 @@ object ApiProblemTypes {
         THEME_NOT_FOUND,
         THEME_IN_USE,
         DEFAULT_VARIANT_DELETION,
-        VERSION_STILL_ACTIVE,
         NO_MATCHING_VARIANT,
         AMBIGUOUS_VARIANT,
         ATTRIBUTE_IN_USE,
@@ -150,6 +149,9 @@ object ApiProblemTypes {
         ENVIRONMENT_NOT_FOUND,
         NO_PUBLISHED_VERSION,
         CATALOG_NOT_RELEASED,
+        NO_RELEASE_DEPLOYED,
+        RELEASE_NOT_DEPLOYABLE,
+        RELEASE_IN_USE,
         TEMPLATE_NOT_IN_RELEASE,
         DEFAULT_VARIANT_NOT_FOUND,
         ASSET_NOT_FOUND,
@@ -184,8 +186,6 @@ object ApiProblemTypes {
         VERSION_NOT_DRAFT,
         VERSION_NOT_PUBLISHED,
         VERSION_ARCHIVED,
-        ACTIVATION_NOT_FOUND,
-        NO_ACTIVE_VERSION,
         CONTRACT_PUBLISH_CONFLICT,
     ) + ValidationCode.entries.map { validationProblemType(it) }
 

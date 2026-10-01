@@ -81,15 +81,15 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `a subscribed catalog shows no release history of its own`() {
+    fun `a subscribed catalog lists the release it installed, and offers no way to cut one`() {
         lateinit var tenant: Tenant
         fixture { given { tenant = tenant("Release History Subscribed") } }
 
         val body = browse(tenant.id.value, "system")
 
         assertThat(body)
-            .`as`("a subscribed catalog records the release it installed, not releases it cut")
-            .doesNotContain("<h2>Releases</h2>")
+            .`as`("installing records the publisher's release, which can be deployed")
+            .contains("<h2>Releases</h2>")
         assertThat(body)
             .`as`("and nothing can be released from a catalog this installation does not author")
             .doesNotContain("Release new version")
