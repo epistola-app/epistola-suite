@@ -308,11 +308,11 @@ before another.
 Three different things reach a catalog resource, and they resolve differently. Only the third has a
 default, because only the third is free to choose.
 
-| What reaches it                                                                | Resolves to                                      |
-| ------------------------------------------------------------------------------ | ------------------------------------------------ |
-| **A reference inside one catalog** — a template's own theme, a stencil it uses | whatever release is already being resolved       |
-| **A pin** — a reference from one catalog into another                          | the release it names, while it names it          |
-| **A request** — generating, previewing, a REST call, opening the editor        | the release the environment is on, or the latest |
+| What reaches it                                                                | Resolves to                                                                          |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| **A reference inside one catalog** — a template's own theme, a stencil it uses | whatever release is already being resolved                                           |
+| **A pin** — a reference from one catalog into another                          | the release it names, while it names it                                              |
+| **A request** — generating, previewing, a REST call, opening the editor        | the release it names; failing that, the release the environment is on, or the latest |
 
 The first row is what makes a release self-contained, and it is the one that would be easy to get
 wrong. A same-catalog reference must **not** resolve to the latest release of its own catalog:
@@ -322,6 +322,19 @@ resolved already decides.
 
 The second is the pin from the plan (`A` depends on `B@1.2.0`), and the reason several releases have
 to resolve at once: two catalogs can pin different releases of a third, and both must work.
+
+The third has three answers in order, and the first of them is new: **a caller may name the release
+it wants to work with**, overriding whatever the environment serves. That is a contract addition
+rather than a detail — and it reaches further than it looks, because a template's data contract can
+differ between releases, so validating a request's payload means knowing which release it is being
+generated from. Without a named release, an environment's deployed release answers; outside an
+environment, the latest does.
+
+Note what the row replaces. Today an environment pins template _versions_
+(`environment_activations`, one row per template) into the working copy's own version rows.
+Deploying a catalog release is `(environment, catalog, release)`, and it **replaces** that table
+rather than sitting beside it: two pointers deciding what an environment serves is exactly the
+"two authorities for one decision" this ADR refuses elsewhere.
 
 Only the third is unversioned by nature — nobody asks to render "the 1.2.0 invoice", they ask to
 render the invoice — so it is the only one that needs a default.
