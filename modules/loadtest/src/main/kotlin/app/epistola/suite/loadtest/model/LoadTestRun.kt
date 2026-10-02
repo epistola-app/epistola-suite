@@ -31,8 +31,9 @@ import java.time.OffsetDateTime
  * @property tenantId Tenant that owns this load test
  * @property templateId Template to use for document generation
  * @property variantId Variant of the template to use
- * @property versionId Explicit version to use (mutually exclusive with environmentId)
- * @property environmentId Environment to determine version from (mutually exclusive with versionId)
+ * @property versionKey The template version a run before 2.0 rendered; null for every new run,
+ *   which renders a catalog release instead
+ * @property environmentKey Environment whose deployed release is rendered; null renders the latest release
  * @property targetCount Number of documents to generate (1-10000)
  * @property concurrencyLevel Legacy field (not used with batch submission, always set to 1)
  * @property testData JSON data to use for all document generation requests
@@ -89,8 +90,8 @@ data class LoadTestRun(
     val completedAt: OffsetDateTime?,
 ) {
     init {
-        require((versionKey != null) xor (environmentKey != null)) {
-            "Exactly one of versionKey or environmentKey must be set"
+        require(versionKey == null || environmentKey == null) {
+            "A run names a template version or an environment, never both"
         }
         require(targetCount in 1..10000) {
             "Target count must be between 1 and 10000, got $targetCount"
