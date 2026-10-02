@@ -539,7 +539,10 @@
                         </thead>
                         <tbody>
                             <tr th:each="row : ${deployments}" th:attr="data-environment=${row.environmentKey}">
-                                <td th:text="${row.environmentName}">Production</td>
+                                <td>
+                                    <a th:href="@{/tenants/{tenantId}/environments/{environmentId}(tenantId=${tenantId},environmentId=${row.environmentKey})}"
+                                       th:text="${row.environmentName}">Production</a>
+                                </td>
                                 <td>
                                     <th:block th:if="${row.deployedVersion != null}">
                                         <span th:text="'v' + ${row.deployedVersion}">v1.0.0</span>

@@ -6,6 +6,8 @@ package app.epistola.suite.environments.commands
 
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.environments.DeploymentAction
+import app.epistola.suite.environments.DeploymentLog
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
@@ -16,6 +18,8 @@ import org.springframework.stereotype.Component
 /**
  * Stops an environment serving a catalog. Generation naming that environment then fails for the
  * catalog's templates until a release is deployed again.
+ *
+ * Logged in `environment_deployment_log` with the release it stopped serving.
  *
  * @return whether the environment served the catalog.
  */
@@ -32,13 +36,26 @@ data class UndeployRelease(
 class UndeployReleaseHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<UndeployRelease, Boolean> {
-    override fun handle(command: UndeployRelease): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
-        handle.createUpdate(
-            "DELETE FROM environment_catalog_deployments WHERE tenant_key = :t AND environment_key = :e AND catalog_key = :c",
+    override fun handle(command: UndeployRelease): Boolean = jdbi.inTransaction<Boolean, Exception> { handle ->
+        val removed = handle.createQuery(
+            "DELETE FROM environment_catalog_deployments WHERE tenant_key = :t AND environment_key = :e AND catalog_key = :c RETURNING version",
         )
             .bind("t", command.environmentId.tenantKey)
             .bind("e", command.environmentId.key)
             .bind("c", command.catalogKey)
-            .execute() > 0
+            .mapTo(String::class.java)
+            .findOne()
+            .orElse(null)
+            ?: return@inTransaction false
+        DeploymentLog.record(
+            handle,
+            command.environmentId.tenantKey,
+            command.environmentId.key,
+            command.catalogKey,
+            DeploymentAction.UNDEPLOYED,
+            version = null,
+            previousVersion = removed,
+        )
+        true
     }
 }

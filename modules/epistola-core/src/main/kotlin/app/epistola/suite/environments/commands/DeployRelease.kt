@@ -8,6 +8,8 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.environments.CatalogDeployment
+import app.epistola.suite.environments.DeploymentAction
+import app.epistola.suite.environments.DeploymentLog
 import app.epistola.suite.environments.ReleaseNotDeployableException
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -28,6 +30,9 @@ import org.springframework.stereotype.Component
  *
  * Only a release that kept its content can be deployed: one cut before releases retained their
  * content has nothing to render from.
+ *
+ * Every change is logged in `environment_deployment_log`, in the same transaction, with the release
+ * it replaced. Deploying the release the environment already serves changes nothing and logs nothing.
  *
  * Permission: `TEMPLATE_PUBLISH`, the permission per-template activation needed. A dedicated deploy
  * permission is planned with the 2.0 permission changes (D13).
@@ -69,7 +74,24 @@ class DeployReleaseHandler(
             throw ReleaseNotDeployableException(command.catalogKey, command.version, "it kept no content to render from")
         }
 
-        handle.createQuery(
+        // Locked, so two deploys racing on one environment and catalog log the release each replaced.
+        val current = handle.createQuery(
+            """
+            SELECT environment_key, catalog_key, version, deployed_at, deployed_by
+            FROM environment_catalog_deployments
+            WHERE tenant_key = :t AND environment_key = :e AND catalog_key = :c
+            FOR UPDATE
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("e", command.environmentId.key)
+            .bind("c", command.catalogKey)
+            .mapTo<CatalogDeployment>()
+            .findOne()
+            .orElse(null)
+        if (current?.version == command.version) return@inTransaction current
+
+        val deployment = handle.createQuery(
             """
             INSERT INTO environment_catalog_deployments (tenant_key, environment_key, catalog_key, version, deployed_at, deployed_by)
             VALUES (:t, :e, :c, :v, NOW(), :by)
@@ -85,5 +107,7 @@ class DeployReleaseHandler(
             .bind("by", currentUserIdOrNull()?.value)
             .mapTo<CatalogDeployment>()
             .one()
+        DeploymentLog.record(handle, tenantKey, command.environmentId.key, command.catalogKey, DeploymentAction.DEPLOYED, command.version, current?.version)
+        deployment
     }
 }

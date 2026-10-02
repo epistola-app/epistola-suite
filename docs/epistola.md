@@ -118,6 +118,9 @@ Environments represent deployment stages (e.g. `staging`, `production`). Each en
 Generation that names an environment renders the release it serves for the template's catalog, bound
 when the request is accepted.
 
+Each environment has a page listing what it serves and its history: every deploy and undeploy, with
+the release it replaced and who made the change, recorded in the same transaction as the change.
+
 ### REST API
 
 - Versioned under `/api/v1/` — separate from internal UI endpoints.

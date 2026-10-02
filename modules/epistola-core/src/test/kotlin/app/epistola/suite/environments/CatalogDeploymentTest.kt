@@ -25,6 +25,8 @@ import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeployRelease
 import app.epistola.suite.environments.commands.UndeployRelease
+import app.epistola.suite.environments.queries.ListDeployableReleases
+import app.epistola.suite.environments.queries.ListDeploymentHistory
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -121,6 +123,64 @@ class CatalogDeploymentTest : IntegrationTestBase() {
             .hasMessageContaining("letters@1.0.0")
         assertThatThrownBy { withMediator { ForgetReleaseContent(tenant, shared.key, "1.0.0").execute() } }
             .isInstanceOf(ReleaseInUseException::class.java)
+    }
+
+    @Test
+    fun `every deploy and undeploy is logged, newest first, with the release it replaced`() {
+        val (_, letters, production) = releasedTwice("dep-history")
+
+        withMediator {
+            DeployRelease(production, letters.key, "1.0.0").execute()
+            DeployRelease(production, letters.key, "1.0.1").execute()
+            // Deploying what the environment already serves changes nothing, so it logs nothing.
+            DeployRelease(production, letters.key, "1.0.1").execute()
+            DeployRelease(production, letters.key, "1.0.0").execute()
+            UndeployRelease(production, letters.key).execute()
+        }
+
+        val history = withMediator { ListDeploymentHistory(production).query() }
+        assertThat(history.map { Triple(it.action, it.version, it.previousVersion) }).containsExactly(
+            Triple(DeploymentAction.UNDEPLOYED, null, "1.0.0"),
+            Triple(DeploymentAction.DEPLOYED, "1.0.0", "1.0.1"),
+            Triple(DeploymentAction.DEPLOYED, "1.0.1", "1.0.0"),
+            Triple(DeploymentAction.DEPLOYED, "1.0.0", null),
+        )
+        assertThat(history).allSatisfy { assertThat(it.catalogKey).isEqualTo(letters.key) }
+        assertThat(history.first().changedByName).`as`("names who made the change").isNotBlank()
+    }
+
+    @Test
+    fun `the history is limited in the database, keeping the newest`() {
+        val (_, letters, production) = releasedTwice("dep-history-limit")
+        withMediator {
+            DeployRelease(production, letters.key, "1.0.0").execute()
+            DeployRelease(production, letters.key, "1.0.1").execute()
+            DeployRelease(production, letters.key, "1.0.0").execute()
+        }
+
+        val newest = withMediator { ListDeploymentHistory(production, limit = 2).query() }
+
+        assertThat(newest.map { it.version to it.previousVersion }).containsExactly("1.0.0" to "1.0.1", "1.0.1" to "1.0.0")
+    }
+
+    @Test
+    fun `undeploying a catalog the environment does not serve logs nothing`() {
+        val (_, letters, production) = releasedTwice("dep-history-noop")
+
+        withMediator { UndeployRelease(production, letters.key).execute() }
+
+        assertThat(withMediator { ListDeploymentHistory(production).query() }).isEmpty()
+    }
+
+    @Test
+    fun `deployable releases are those that kept their content, newest first per catalog`() {
+        val (tenant, letters, _) = releasedTwice("dep-deployable")
+        withMediator { ForgetReleaseContent(tenant, letters.key, "1.0.0").execute() }
+
+        val deployable = withMediator { ListDeployableReleases(tenant).query() }.filter { it.catalogKey == letters.key }
+
+        assertThat(deployable.map { it.version }).containsExactly("1.0.1")
+        assertThat(deployable.single().catalogName).isEqualTo("letters")
     }
 
     /** A catalog `letters` with releases 1.0.0 and 1.0.1, and an environment `production`. */

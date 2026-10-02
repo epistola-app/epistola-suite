@@ -19,6 +19,9 @@ class EnvironmentRoutes(private val handler: EnvironmentHandler) {
             GET("/search", handler::search)
             GET("/new", handler::newForm)
             POST("", handler::create)
+            GET("/{environmentId}", handler::detail)
+            POST("/{environmentId}/deployments", handler::deploy)
+            POST("/{environmentId}/deployments/{catalogId}/undeploy", handler::undeploy)
             POST("/{environmentId}/delete", handler::delete)
         }
     }
