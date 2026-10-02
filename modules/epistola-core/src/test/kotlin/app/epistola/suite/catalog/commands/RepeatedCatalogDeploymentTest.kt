@@ -20,7 +20,6 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.contracts.commands.PublishContractVersion
 import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestPublishedContractVersion
@@ -54,7 +53,6 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
         slug: String,
         dataModel: ObjectNode?,
         dataExamples: List<DataExample> = emptyList(),
-        publishTo: List<String> = emptyList(),
     ) = ImportTemplateInput(
         slug = slug,
         name = "Test Template",
@@ -65,7 +63,6 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
         variants = listOf(
             ImportVariantInput(id = "$slug-default", title = "Default", attributes = emptyMap(), templateModel = null, isDefault = true),
         ),
-        publishTo = publishTo,
     )
 
     @Test
@@ -218,56 +215,6 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `repeated import with publish preserves schema and environment activation`() {
-        val tenant = createTenant("Deploy and Publish Test")
-        val tenantId = TenantId(tenant.id)
-        val slug = TestIdHelpers.nextTemplateId().value
-        val dataModel = schema("""{"type":"object","properties":{"total":{"type":"number"}}}""")
-        val envKey = TestIdHelpers.nextEnvironmentId()
-
-        withMediator {
-            CreateEnvironment(id = EnvironmentId(envKey, tenantId), name = "Production").execute()
-
-            // First import with publish
-            ImportTemplates(
-                tenantId = tenantId,
-                templates = listOf(buildImportInput(slug, dataModel, publishTo = listOf(envKey.value))),
-            ).execute()
-
-            val templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId))
-            val contract1 = GetLatestPublishedContractVersion(templateId).query()
-            assertThat(contract1!!.dataModel).isNotNull
-
-            // Second import with publish
-            ImportTemplates(
-                tenantId = tenantId,
-                templates = listOf(buildImportInput(slug, dataModel, publishTo = listOf(envKey.value))),
-            ).execute()
-
-            val contract2 = GetLatestPublishedContractVersion(templateId).query()
-            assertThat(contract2!!.dataModel).isNotNull
-            assertThat(contract2.dataModel.toString()).isEqualTo(dataModel.toString())
-
-            // Third import with publish
-            ImportTemplates(
-                tenantId = tenantId,
-                templates = listOf(buildImportInput(slug, dataModel, publishTo = listOf(envKey.value))),
-            ).execute()
-
-            val contract3 = GetLatestPublishedContractVersion(templateId).query()
-            assertThat(contract3!!.dataModel).isNotNull
-            assertThat(contract3.dataModel.toString()).isEqualTo(dataModel.toString())
-
-            // Verify version is still published and linked
-            val variants = ListVariants(templateId = templateId).query()
-            val variantId = VariantId(variants.first().id, templateId)
-            val versions = ListVersions(variantId = variantId).query()
-            val publishedVersions = versions.filter { it.status == VersionStatus.PUBLISHED }
-            assertThat(publishedVersions).isNotEmpty
-        }
-    }
-
-    @Test
     fun `full catalog install then upgrade preserves schema`() {
         val tenant = createTenant("Catalog Upgrade Schema Test")
         val tenantId = TenantId(tenant.id)
@@ -302,51 +249,6 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `publish to environment after repeated imports works`() {
-        val tenant = createTenant("Repeated Deploy Publish Test")
-        val tenantId = TenantId(tenant.id)
-        val slug = TestIdHelpers.nextTemplateId().value
-        val dataModel = schema("""{"type":"object","properties":{"city":{"type":"string"}}}""")
-
-        withMediator {
-            val envKey = TestIdHelpers.nextEnvironmentId()
-            CreateEnvironment(id = EnvironmentId(envKey, tenantId), name = "Staging").execute()
-
-            // Import 3 times (without publishTo)
-            repeat(3) {
-                ImportTemplates(
-                    tenantId = tenantId,
-                    templates = listOf(buildImportInput(slug, dataModel)),
-                ).execute()
-            }
-
-            val templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId))
-            val variants = ListVariants(templateId = templateId).query()
-            val variantId = VariantId(variants.first().id, templateId)
-
-            val versions = ListVersions(variantId = variantId).query()
-            val latestPublished = versions
-                .filter { it.status == VersionStatus.PUBLISHED }
-                .maxByOrNull { it.id.value }
-            assertThat(latestPublished).isNotNull
-
-            // Publish to environment
-            val result = PublishToEnvironment(
-                versionId = VersionId(latestPublished!!.id, variantId),
-                environmentId = EnvironmentId(envKey, tenantId),
-            ).execute()
-
-            assertThat(result).isNotNull
-            assertThat(result.activation.versionKey).isEqualTo(latestPublished.id)
-
-            // Contract should still be there
-            val contract = GetLatestPublishedContractVersion(templateId).query()
-            assertThat(contract).isNotNull
-            assertThat(contract!!.dataModel).isNotNull
-        }
-    }
-
-    @Test
     fun `import after upgrade creates contract for pre-existing template without contract versions`() {
         val tenant = createTenant("Post-Upgrade Import Test")
         val tenantId = TenantId(tenant.id)
@@ -369,7 +271,6 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
                         variants = listOf(
                             ImportVariantInput(id = "$slug-default", title = "Default", attributes = emptyMap(), templateModel = null, isDefault = true),
                         ),
-                        publishTo = emptyList(),
                     ),
                 ),
             ).execute()

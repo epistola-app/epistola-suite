@@ -24,6 +24,7 @@ import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
+import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.DocumentNotFoundException
@@ -31,25 +32,24 @@ import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.documents.GenerationJobNotCancellableException
 import app.epistola.suite.documents.GenerationJobNotFoundException
 import app.epistola.suite.documents.NoPublishedVersionException
+import app.epistola.suite.documents.NoReleaseDeployedException
 import app.epistola.suite.documents.TemplateNotInReleaseException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.environments.EnvironmentInUseException
+import app.epistola.suite.environments.ReleaseNotDeployableException
 import app.epistola.suite.fonts.FontNotFoundException
 import app.epistola.suite.stencils.StencilNotFoundException
 import app.epistola.suite.stencils.StencilVersionNotDraftException
 import app.epistola.suite.stencils.StencilVersionNotFoundException
 import app.epistola.suite.stencils.StencilVersionNotPublishedException
-import app.epistola.suite.templates.ActivationNotFoundException
 import app.epistola.suite.templates.DraftHasNoPublishedBaseException
 import app.epistola.suite.templates.DraftNotFoundException
-import app.epistola.suite.templates.NoActiveVersionException
 import app.epistola.suite.templates.TemplateNotFoundException
 import app.epistola.suite.templates.VersionArchivedException
 import app.epistola.suite.templates.VersionNotDraftException
 import app.epistola.suite.templates.VersionNotPublishedException
 import app.epistola.suite.templates.commands.variants.DefaultVariantDeletionException
-import app.epistola.suite.templates.commands.versions.VersionStillActiveException
 import app.epistola.suite.templates.contracts.ContractPublishConflictException
 import app.epistola.suite.templates.services.AmbiguousVariantResolutionException
 import app.epistola.suite.templates.services.NoMatchingVariantException
@@ -312,32 +312,6 @@ object ApiExceptionMappings {
             logMessage = { "Version archived: tenant=${it.tenantId} version=${it.versionId}" },
         )
 
-        builder.register<ActivationNotFoundException>(
-            problemType = ApiProblemTypes.ACTIVATION_NOT_FOUND,
-            defaultDetail = "Activation not found",
-            extensions = {
-                mapOf(
-                    "tenantId" to it.tenantId.value,
-                    "variantId" to it.variantId.value,
-                    "environmentId" to it.environmentId.value,
-                )
-            },
-            logMessage = { "Activation not found: tenant=${it.tenantId} variant=${it.variantId} environment=${it.environmentId}" },
-        )
-
-        builder.register<NoActiveVersionException>(
-            problemType = ApiProblemTypes.NO_ACTIVE_VERSION,
-            defaultDetail = "No active version found",
-            extensions = {
-                mapOf(
-                    "tenantId" to it.tenantId.value,
-                    "variantId" to it.variantId.value,
-                    "environmentId" to it.environmentId.value,
-                )
-            },
-            logMessage = { "No active version: tenant=${it.tenantId} variant=${it.variantId} environment=${it.environmentId}" },
-        )
-
         builder.register<ThemeInUseException>(
             problemType = ApiProblemTypes.THEME_IN_USE,
             defaultDetail = "Theme is in use and cannot be deleted",
@@ -350,19 +324,6 @@ object ApiExceptionMappings {
             defaultDetail = "Cannot delete the default variant",
             extensions = { mapOf("variantId" to it.variantId.value) },
             logMessage = { "Cannot delete default variant: ${it.variantId}" },
-        )
-
-        builder.register<VersionStillActiveException>(
-            problemType = ApiProblemTypes.VERSION_STILL_ACTIVE,
-            defaultDetail = "Version is still active in one or more environments",
-            extensions = {
-                mapOf(
-                    "versionId" to it.versionId.value,
-                    "variantId" to it.variantId.value,
-                    "activeEnvironments" to it.activeEnvironments.map { env -> env.value },
-                )
-            },
-            logMessage = { "Cannot archive version ${it.versionId}: still active in environments" },
         )
 
         builder.register<NoMatchingVariantException>(
@@ -542,10 +503,38 @@ object ApiExceptionMappings {
             extensions = {
                 mapOf(
                     "environmentId" to it.environmentId.value,
-                    "activationCount" to it.activationCount,
+                    "deploymentCount" to it.deploymentCount,
                 )
             },
-            logMessage = { "Cannot delete environment ${it.environmentId}: ${it.activationCount} active activation(s)" },
+            logMessage = { "Cannot delete environment ${it.environmentId}: it serves ${it.deploymentCount} release(s)" },
+        )
+
+        builder.register<NoReleaseDeployedException>(
+            problemType = ApiProblemTypes.NO_RELEASE_DEPLOYED,
+            defaultDetail = "No release of the catalog is deployed to the environment",
+            extensions = { mapOf("environmentId" to it.environmentKey.value, "catalogId" to it.catalogKey.value) },
+            logMessage = { "No release deployed: ${it.message}" },
+        )
+
+        builder.register<ReleaseNotDeployableException>(
+            problemType = ApiProblemTypes.RELEASE_NOT_DEPLOYABLE,
+            defaultDetail = "The release cannot be deployed",
+            extensions = { mapOf("catalogId" to it.catalogKey.value, "releaseVersion" to it.version) },
+            logMessage = { "Release not deployable: ${it.message}" },
+        )
+
+        builder.register<ReleaseInUseException>(
+            problemType = ApiProblemTypes.RELEASE_IN_USE,
+            defaultDetail = "The release is in use",
+            extensions = {
+                mapOf(
+                    "catalogId" to it.catalogKey.value,
+                    "releaseVersion" to it.version,
+                    "environments" to it.environments,
+                    "dependentReleases" to it.dependentReleases,
+                )
+            },
+            logMessage = { "Release in use: ${it.message}" },
         )
 
         builder.register<CatalogReadOnlyException>(

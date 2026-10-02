@@ -12,19 +12,19 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.documents.NoReleaseDeployedException
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.documents.queries.PreviewVariant
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.templates.NoActiveVersionException
-import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.validation.TemplateDataInvalidException
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.deployLatestRelease
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -639,7 +639,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
         }
 
         @Test
-        fun `preview reports no active version as a client-facing domain error`() = scenario {
+        fun `preview reports an environment serving no release as a client-facing domain error`() = scenario {
             given {
                 val tenant = tenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
@@ -649,13 +649,15 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val compositeVariantId = VariantId(variant.id, compositeTemplateId)
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
                 val version = released(compositeVariantId, templateModel)
+                // The environment exists but serves no release of the catalog.
+                CreateEnvironment(id = EnvironmentId(EnvironmentKey.of("production"), tenantId), name = "Production").execute()
                 DocumentSetup(tenant, template, variant, version)
             }.whenever { setup ->
                 setup
             }.then { setup, _ ->
                 val production = EnvironmentKey.of("production")
 
-                val error = assertThrows<NoActiveVersionException> {
+                val error = assertThrows<NoReleaseDeployedException> {
                     query(
                         PreviewDocument(
                             tenantId = setup.tenant.id,
@@ -668,9 +670,9 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                     )
                 }
 
-                assertThat(error.tenantId).isEqualTo(setup.tenant.id)
-                assertThat(error.variantId).isEqualTo(setup.variant.id)
-                assertThat(error.environmentId).isEqualTo(production)
+                assertThat(error.tenantKey).isEqualTo(setup.tenant.id)
+                assertThat(error.catalogKey).isEqualTo(CatalogKey.DEFAULT)
+                assertThat(error.environmentKey).isEqualTo(production)
             }
         }
 
@@ -752,7 +754,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val version = released(compositeVariantId, TestTemplateBuilder.buildMinimal(name = "Test Template"))
                 val environmentId = EnvironmentId(TestIdHelpers.nextEnvironmentId(), tenantId)
                 CreateEnvironment(id = environmentId, name = "Production").execute()
-                PublishToEnvironment(VersionId(version.id, compositeVariantId), environmentId).execute()
+                mediator.deployLatestRelease(environmentId, compositeTemplateId.catalogId)
                 DocumentSetup(tenant, template, variant, version) to environmentId.key
             }.whenever { it }
                 .then { (setup, environmentKey), _ ->

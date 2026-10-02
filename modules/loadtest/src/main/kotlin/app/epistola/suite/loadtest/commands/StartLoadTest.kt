@@ -9,7 +9,7 @@ import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.generation.release.ReleaseTargetResolver
 import app.epistola.suite.loadtest.batch.LoadTestCreatedEvent
 import app.epistola.suite.loadtest.model.LoadTestRun
 import app.epistola.suite.loadtest.model.LoadTestRunKey
@@ -33,8 +33,8 @@ import tools.jackson.databind.node.ObjectNode
  * @property tenantId Tenant that owns the template
  * @property templateId Template to use for load testing
  * @property variantId Variant of the template
- * @property versionId Explicit version ID (mutually exclusive with environmentId)
- * @property environmentId Environment to determine version from (mutually exclusive with versionId)
+ * @property environmentId Environment whose deployed release of the template's catalog is rendered;
+ *   without one, the catalog's latest release is rendered, exactly as for generation
  * @property targetCount Number of documents to generate (1-10000)
  * @property concurrencyLevel Legacy field (not used, kept for database compatibility)
  * @property testData JSON data to use for all document generation requests
@@ -44,8 +44,7 @@ data class StartLoadTest(
     val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val templateId: TemplateKey,
     val variantId: VariantKey,
-    val versionId: VersionKey?,
-    val environmentId: EnvironmentKey?,
+    val environmentId: EnvironmentKey? = null,
     val targetCount: Int,
     val concurrencyLevel: Int,
     val testData: ObjectNode,
@@ -57,10 +56,6 @@ data class StartLoadTest(
     override val tenantKey get() = tenantId
 
     init {
-        // Validate that exactly one of versionId or environmentId is set
-        require((versionId != null) xor (environmentId != null)) {
-            "Exactly one of versionId or environmentId must be set"
-        }
         require(targetCount in 1..10000) {
             "Target count must be between 1 and 10000, got $targetCount"
         }
@@ -71,6 +66,7 @@ data class StartLoadTest(
 class StartLoadTestHandler(
     private val jdbi: Jdbi,
     private val eventPublisher: ApplicationEventPublisher,
+    private val releaseTargetResolver: ReleaseTargetResolver,
 ) : CommandHandler<StartLoadTest, LoadTestRun> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -106,49 +102,13 @@ class StartLoadTestHandler(
                 "Template ${command.templateId} variant ${command.variantId} not found for tenant ${command.tenantId}"
             }
 
-            // 2. Verify version or environment exists
-            if (command.versionId != null) {
-                val versionExists = handle.createQuery(
-                    """
-                    SELECT EXISTS (
-                        SELECT 1
-                        FROM template_versions
-                        WHERE tenant_key = :tenantId
-                          AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
-                          AND variant_key = :variantId AND id = :versionId
-                    )
-                    """,
-                )
-                    .bind("versionId", command.versionId)
-                    .bind("catalogKey", command.catalogKey)
-                    .bind("templateId", command.templateId)
-                    .bind("variantId", command.variantId)
-                    .bind("tenantId", command.tenantId)
-                    .mapTo<Boolean>()
-                    .one()
-
-                require(versionExists) {
-                    "Version ${command.versionId} not found for template ${command.templateId} variant ${command.variantId}"
-                }
+            // 2. Resolve the release the run will render, as generation will: the release the
+            //    environment serves, or the catalog's latest. Failing here, with generation's own
+            //    error, beats a run that is accepted and then fails every one of its requests.
+            if (command.environmentId != null) {
+                releaseTargetResolver.resolveDeployed(command.tenantId, command.environmentId, command.catalogKey, command.templateId, command.variantId, null)
             } else {
-                val environmentExists = handle.createQuery(
-                    """
-                    SELECT EXISTS (
-                        SELECT 1
-                        FROM environments
-                        WHERE id = :environmentId
-                          AND tenant_key = :tenantId
-                    )
-                    """,
-                )
-                    .bind("environmentId", command.environmentId)
-                    .bind("tenantId", command.tenantId)
-                    .mapTo<Boolean>()
-                    .one()
-
-                require(environmentExists) {
-                    "Environment ${command.environmentId} not found for tenant ${command.tenantId}"
-                }
+                releaseTargetResolver.resolveLatest(command.tenantId, command.catalogKey, command.templateId, command.variantId, null)
             }
 
             // 3. Create load test run (stays in PENDING status for poller to pick up)
@@ -159,7 +119,7 @@ class StartLoadTestHandler(
                     id, tenant_key, template_resource_id, variant_key, version_key, environment_key,
                     target_count, concurrency_level, test_data, status
                 )
-                VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :variantId, :versionId, :environmentId,
+                VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :variantId, NULL, :environmentId,
                         :targetCount, :concurrencyLevel, :testData::jsonb, :status)
                 RETURNING id, tenant_key, CAST(:catalogKey AS TEXT) AS catalog_key,
                           CAST(:templateId AS TEXT) AS template_key,
@@ -176,7 +136,6 @@ class StartLoadTestHandler(
                 .bind("catalogKey", command.catalogKey)
                 .bind("templateId", command.templateId)
                 .bind("variantId", command.variantId)
-                .bind("versionId", command.versionId)
                 .bind("environmentId", command.environmentId)
                 .bind("targetCount", command.targetCount)
                 .bind("concurrencyLevel", command.concurrencyLevel)

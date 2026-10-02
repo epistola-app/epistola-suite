@@ -14,12 +14,10 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.DefaultVariantNotFoundException
-import app.epistola.suite.documents.preview.PreviewTargetResolver
+import app.epistola.suite.documents.preview.ReleasePreviewResolver
 import app.epistola.suite.documents.versionGenerationRemoved
 import app.epistola.suite.generation.DocumentPreviewRenderer
 import app.epistola.suite.generation.GenerationService
-import app.epistola.suite.generation.release.ReleaseRenderSource
-import app.epistola.suite.generation.release.ReleaseTargetResolver
 import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.Query
@@ -89,61 +87,49 @@ data class PreviewDocument(
 @Component
 class PreviewDocumentHandler(
     private val mediator: Mediator,
-    private val targetResolver: PreviewTargetResolver,
+    private val releasePreview: ReleasePreviewResolver,
     private val analyzer: TemplateDataAnalyzer,
     private val pathExtractor: TemplatePathExtractor,
-    private val renderer: DocumentPreviewRenderer,
     private val localeResolver: TenantLocaleResolver,
-    private val releaseTargetResolver: ReleaseTargetResolver,
-    private val releaseRenderSource: ReleaseRenderSource,
     private val generationService: GenerationService,
-    private val schemaValidator: JsonSchemaValidator,
     private val variantResolver: VariantResolver,
     private val objectMapper: ObjectMapper,
 ) : QueryHandler<PreviewDocument, ByteArray> {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
-
     override fun handle(query: PreviewDocument): ByteArray {
         if (query.versionId != null) throw versionGenerationRemoved()
-        return when {
-            query.environmentId != null -> previewEnvironment(query)
-            query.workingCopy -> previewWorkingCopy(query)
-            else -> previewLatestRelease(query)
-        }
+        return if (query.workingCopy) previewWorkingCopy(query) else previewRelease(query)
     }
 
-    /** The catalog's latest release, exactly as generation would render it, with the preview watermark. */
-    private fun previewLatestRelease(query: PreviewDocument): ByteArray {
-        val tenant = mediator.query(GetTenant(id = query.tenantId))
-            ?: throw TenantNotFoundException(query.tenantId)
-        val target = releaseTargetResolver.resolveLatest(
+    /**
+     * The release the environment serves, or the catalog's latest without one, exactly as generation
+     * would render it, with the preview watermark.
+     */
+    private fun previewRelease(query: PreviewDocument): ByteArray {
+        val preview = releasePreview.resolve(
             query.tenantId,
             query.catalogKey,
             query.templateId,
+            query.data,
             query.variantId,
             query.variantSelectionCriteria,
+            query.environmentId,
         )
-        val inputs = releaseRenderSource.resolve(tenant, target.release, query.templateId.value, target.variantKey.value)
-
-        // No data sent: the release's first example, with schema defaults filled in.
-        val requested = if (query.data.isEmpty) inputs.firstDataExample ?: query.data else query.data
-        val contract = inputs.dataModel
-        val data = if (contract != null) schemaValidator.applyDefaults(contract, requested) else requested
-        contract?.let {
-            val analysis = analyzer.analyze(it, data, pathExtractor.extractReferencedPaths(inputs.templateModel))
-            if (!analysis.valid) throw TemplateDataInvalidException(analysis, data)
+        val inputs = preview.inputs
+        inputs.dataModel?.let {
+            val analysis = analyzer.analyze(it, preview.data, pathExtractor.extractReferencedPaths(inputs.templateModel))
+            if (!analysis.valid) throw TemplateDataInvalidException(analysis, preview.data)
         }
 
         @Suppress("UNCHECKED_CAST")
-        val dataMap = objectMapper.convertValue(data, Map::class.java) as Map<String, Any?>
+        val dataMap = objectMapper.convertValue(preview.data, Map::class.java) as Map<String, Any?>
         val out = ByteArrayOutputStream()
         generationService.renderPdfFromRelease(
             inputs = inputs,
             data = dataMap,
             outputStream = out,
-            metadata = PdfMetadata(title = inputs.templateName, author = tenant.name),
-            culture = localeResolver.resolveCulture(tenant, inputs.variantAttributes),
+            metadata = PdfMetadata(title = inputs.templateName, author = preview.tenant.name),
+            culture = localeResolver.resolveCulture(preview.tenant, inputs.variantAttributes),
             watermarkText = DocumentPreviewRenderer.PREVIEW_WATERMARK,
         )
         return out.toByteArray()
@@ -164,58 +150,6 @@ class PreviewDocumentHandler(
                 variantId = variant,
                 data = query.data,
             ),
-        )
-    }
-
-    /** The version an environment activated. Replaced by the environment's deployed release next. */
-    private fun previewEnvironment(query: PreviewDocument): ByteArray {
-        // 1. Resolve variant, version, contract and data (the first example when none was sent,
-        //    with schema defaults filled in so a preview matches what generation would render)
-        val target = targetResolver.resolve(
-            tenantKey = query.tenantId,
-            catalogKey = query.catalogKey,
-            templateKey = query.templateId,
-            data = query.data,
-            variantKey = query.variantId,
-            variantSelectionCriteria = query.variantSelectionCriteria,
-            versionKey = query.versionId,
-            environmentKey = query.environmentId,
-        )
-        val version = target.version
-
-        logger.debug(
-            "Preview for tenant={} template={} variant={} version={} env={}",
-            query.tenantId,
-            query.templateId,
-            target.variantId.key,
-            version.id,
-            query.environmentId,
-        )
-
-        // 2. Validate data against the contract; the exception says which fields to fix
-        target.contract?.let { contract ->
-            val analysis = analyzer.analyze(contract, target.data, pathExtractor.extractReferencedPaths(version.templateModel))
-            if (!analysis.valid) throw TemplateDataInvalidException(analysis, target.data)
-        }
-
-        // 3. Fetch template and tenant for theme resolution
-        val template = mediator.query(GetDocumentTemplate(target.variantId.templateId))
-            ?: throw TemplateNotFoundException(query.tenantId, query.templateId)
-        val tenant = mediator.query(GetTenant(id = query.tenantId))
-            ?: throw TenantNotFoundException(query.tenantId)
-
-        // 4. Resolve formatting culture via variant attribute → tenant default → app default
-        val culture = localeResolver.resolveCulture(tenant, target.variantId)
-
-        // 5. Render
-        return renderer.render(
-            tenantId = query.tenantId,
-            templateModel = version.templateModel,
-            version = version,
-            template = template,
-            tenant = tenant,
-            data = target.data,
-            culture = culture,
         )
     }
 }

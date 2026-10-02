@@ -142,6 +142,7 @@ class DemoLoginMembershipResolver(
     private fun seedDemoCatalog(tenantKey: TenantKey) {
         try {
             val result = mediator.send(EnsureSubscribedCatalog(tenantKey = tenantKey, sourceUrl = DemoLoader.DEMO_CATALOG_URL))
+            mediator.deployDemoCatalog(tenantKey, result.catalogKey, result.newVersion)
             log.debug("Demo mode: catalog {} in {} is {}", result.catalogKey.value, tenantKey.value, result.status)
         } catch (e: Exception) {
             log.warn("Demo mode: could not seed the demo catalog into {}: {}", tenantKey.value, e.message)

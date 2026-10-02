@@ -68,7 +68,7 @@ class LoadTestPollerRecoveryIT : IntegrationTestBase() {
     }
 
     /**
-     * Builds a template/variant/version, starts a load test (PENDING) through the
+     * Builds a released template/variant, starts a load test (PENDING) through the
      * real command, then forces it to RUNNING with controlled claim/progress ages
      * (the historical-timestamp + non-default-lifecycle exception to the
      * seed-through-commands rule — no command produces a stale RUNNING row).
@@ -80,15 +80,14 @@ class LoadTestPollerRecoveryIT : IntegrationTestBase() {
         val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
         val variant = variant(compositeTemplateId, "Default")
         val compositeVariantId = VariantId(variant.id, compositeTemplateId)
-        val version = version(compositeVariantId, TestTemplateBuilder.buildMinimal(name = "LT Template"))
+        // A run starts only when there is a release to render.
+        released(compositeVariantId, TestTemplateBuilder.buildMinimal(name = "LT Template"))
 
         val run = execute(
             StartLoadTest(
                 tenantId = tenant.id,
                 templateId = template.id,
                 variantId = variant.id,
-                versionId = version.id,
-                environmentId = null,
                 targetCount = 100,
                 concurrencyLevel = 1,
                 testData = objectMapper.createObjectNode() as ObjectNode,

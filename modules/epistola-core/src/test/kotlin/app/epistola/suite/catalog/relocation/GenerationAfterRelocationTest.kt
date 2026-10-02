@@ -27,8 +27,8 @@ import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.storage.DocumentContentStore
-import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.validation.JsonSchemaValidator
+import app.epistola.suite.testing.deployLatestRelease
 import app.epistola.suite.testing.releaseNext
 import io.micrometer.core.instrument.MeterRegistry
 import org.assertj.core.api.Assertions.assertThat
@@ -71,15 +71,16 @@ class GenerationAfterRelocationTest : RelocationTestSupport() {
     fun `a moved template generates from its new catalog's release and through an environment`() {
         val tenant = tenantWith("Generate moved template")
         val staging = EnvironmentId(EnvironmentKey.of("staging"), TenantId(tenant))
-        val version = publishTemplate(tenant, letters, textModel())
-        withMediator {
-            CreateEnvironment(staging, "Staging").execute()
-            PublishToEnvironment(VersionId(version, templateVariant(tenant, letters)), staging).execute()
-        }
+        publishTemplate(tenant, letters, textModel())
+        withMediator { CreateEnvironment(staging, "Staging").execute() }
 
         move(tenant, address(CatalogResourceType.TEMPLATE, letters, "invoice").movedTo(shared))
-        // Generation renders a release, so the template's new catalog is released after the move.
-        withMediator { mediator.releaseNext(catalogId(tenant, shared)) }
+        // Generation renders a release, so the template's new catalog is released after the move,
+        // and staging serves that release.
+        withMediator {
+            mediator.releaseNext(catalogId(tenant, shared))
+            mediator.deployLatestRelease(staging, catalogId(tenant, shared))
+        }
 
         assertGenerates(tenant, withMediator { request(tenant, shared, environment = null) })
         assertGenerates(tenant, withMediator { request(tenant, shared, environment = staging.key) })

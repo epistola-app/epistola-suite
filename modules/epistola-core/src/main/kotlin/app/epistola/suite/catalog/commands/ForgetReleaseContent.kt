@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.catalog.revisions.ReleaseInUse
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -58,6 +59,8 @@ class ForgetReleaseContentHandler(
      *   reports honestly instead of claiming to have collected something.
      */
     override fun handle(command: ForgetReleaseContent): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        // Forgetting what an environment or another release renders from would break it.
+        ReleaseInUse.requireUnused(handle, command.tenantKey, command.catalogKey, command.version)
         val forgotten = handle.createUpdate(
             """
             UPDATE catalog_releases

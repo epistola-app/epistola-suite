@@ -91,3 +91,12 @@ fun versionGenerationRemoved(): app.epistola.suite.validation.ValidationExceptio
     "Generating a specific template version is no longer supported: generation renders the catalog's latest release, " +
         "or the release deployed to an environment. Leave versionId out.",
 )
+
+/** A request names an environment that serves no release of the template's catalog. */
+class NoReleaseDeployedException(
+    val tenantKey: TenantKey,
+    val environmentKey: EnvironmentKey,
+    val catalogKey: CatalogKey,
+) : RuntimeException(
+    "Environment '${environmentKey.value}' serves no release of catalog '${catalogKey.value}'. Deploy a release there first.",
+)

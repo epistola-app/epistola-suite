@@ -26,7 +26,7 @@
                     <th:block th:replace="~{epistola-web/icon :: icon(name='globe', class='ep-icon ep-icon-xl')}" />
                 </div>
                 <div class="empty-state-title">No environments yet</div>
-                <div class="empty-state-description">Create environments to control where template versions are deployed.</div>
+                <div class="empty-state-description">Create environments to control which catalog release each one serves.</div>
                 <button th:if="${auth.has('TENANT_SETTINGS')}" type="button"
                         class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
                         th:hx-get="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}"
@@ -72,7 +72,10 @@
                                 th:text="'No environments match your search.'"></td>
                         </tr>
                         <tr th:each="env : ${environments}">
-                            <td style="font-weight: 500;" th:text="${env.name}" th:title="${env.name}"></td>
+                            <td style="font-weight: 500;" th:title="${env.name}">
+                                <a th:href="@{/tenants/{tenantId}/environments/{environmentId}(tenantId=${tenantId},environmentId=${env.id})}"
+                                   th:text="${env.name}">Production</a>
+                            </td>
                             <td th:title="${env.id}"><code th:text="${env.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
                             <td th:text="${#temporals.format(env.createdAt, 'yyyy-MM-dd HH:mm')}" th:title="${#temporals.format(env.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                             <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
@@ -80,7 +83,7 @@
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete environment"
                                         data-confirm-title="Delete Environment"
-                                        th:attr="data-confirm-message='Delete environment &quot;' + ${env.name} + '&quot;? Any active template versions deployed to it will need to be redeployed elsewhere.',data-confirm-url=@{/tenants/{tenantId}/environments/{environmentId}/delete(tenantId=${tenantId},environmentId=${env.id})}"
+                                        th:attr="data-confirm-message='Delete environment &quot;' + ${env.name} + '&quot;? An environment that still serves a catalog release cannot be deleted; undeploy its catalogs first.',data-confirm-url=@{/tenants/{tenantId}/environments/{environmentId}/delete(tenantId=${tenantId},environmentId=${env.id})}"
                                         data-confirm-target="#environment-list" data-confirm-swap="outerHTML">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>

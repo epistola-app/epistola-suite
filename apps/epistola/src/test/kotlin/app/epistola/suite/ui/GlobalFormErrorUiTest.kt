@@ -65,13 +65,13 @@ class GlobalFormErrorUiTest : BasePlaywrightTest() {
 
         page.locator("#testData").fill("{}")
 
-        // Neither a version nor an environment selected → StartLoadTest
+        // The template's catalog was never released, so there is nothing to render → StartLoadTest
         // rejects → handler responds with globalFormError (shaped 422 + OOB).
         page.locator("button:has-text('Start Load Test')").click()
 
         val slot = page.locator("#start-load-test-error")
         assertThat(slot).isVisible()
-        assertThat(slot).containsText("Exactly one of versionId or environmentId must be set")
+        assertThat(slot).containsText("has no release to generate from")
     }
 
     @Test

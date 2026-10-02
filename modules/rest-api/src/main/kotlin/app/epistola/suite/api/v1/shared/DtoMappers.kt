@@ -4,7 +4,6 @@
 
 package app.epistola.suite.api.v1.shared
 
-import app.epistola.api.model.ActivationDto
 import app.epistola.api.model.AttributeDto
 import app.epistola.api.model.AttributeDtoCodeListBinding
 import app.epistola.api.model.DataExampleDto
@@ -20,7 +19,6 @@ import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.environments.Environment
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.contracts.model.ContractVersion
-import app.epistola.suite.templates.model.ActivationDetails
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.model.VariantSummary
@@ -145,10 +143,3 @@ internal fun VersionStatus.toSummaryDtoStatus() = when (this) {
     VersionStatus.PUBLISHED -> VersionSummaryDto.Status.PUBLISHED
     VersionStatus.ARCHIVED -> VersionSummaryDto.Status.ARCHIVED
 }
-
-internal fun ActivationDetails.toDto() = ActivationDto(
-    environmentId = environmentKey.value,
-    environmentName = environmentName,
-    versionId = versionKey.value,
-    activatedAt = activatedAt,
-)

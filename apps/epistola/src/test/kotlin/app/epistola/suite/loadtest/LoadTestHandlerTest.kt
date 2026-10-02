@@ -7,6 +7,7 @@ package app.epistola.suite.loadtest
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -115,7 +116,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
                 assertThat(response.body).contains("Select a template first")
-                assertThat(response.body).contains("Select a variant first")
+                assertThat(response.body).doesNotContain("versionId")
             }
         }
 
@@ -147,7 +148,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
         }
 
         @Test
-        fun `GET new (HTMX) with valid templateId returns variant, version and environment dropdowns`() = fixture {
+        fun `GET new (HTMX) with valid templateId returns variant and environment dropdowns, defaulting to the latest release`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var templateId: String
 
@@ -183,17 +184,17 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 // Should contain variant dropdown with the default (initial) variant selected
                 assertThat(response.body).contains("variantId")
                 assertThat(response.body).contains("initial")
-                // Should contain version dropdown with the draft version
-                assertThat(response.body).contains("versionId")
-                assertThat(response.body).contains("DRAFT")
-                // Should contain environment dropdown (no version selected yet)
+                // A run renders a release, never a template version, so there is no version choice.
+                assertThat(response.body).doesNotContain("versionId")
+                // The environment chooses the release; without one, the latest release is rendered.
                 assertThat(response.body).contains("environmentId")
                 assertThat(response.body).contains("Production")
+                assertThat(response.body).contains("None: the latest release")
             }
         }
 
         @Test
-        fun `GET new (HTMX) selecting a version hides environment dropdown`() = fixture {
+        fun `GET new (HTMX) keeps the chosen environment when the variant changes`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var templateId: String
             lateinit var defaultVariantKey: String
@@ -209,18 +210,17 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 CreateVersion(
                     variantId = VariantId(defaultVariantId, tplId),
                 ).execute()
-                val envKey = TestIdHelpers.nextEnvironmentId()
-                CreateEnvironment(id = EnvironmentId(envKey, tenantId), name = "Production").execute()
+                CreateEnvironment(id = EnvironmentId(EnvironmentKey.of("production"), tenantId), name = "Production").execute()
             }
 
             whenever {
                 val headers = HttpHeaders()
                 headers.set("HX-Request", "true")
-                headers.set("HX-Trigger-Name", "versionId")
+                headers.set("HX-Trigger-Name", "variantId")
                 val request = HttpEntity<Void>(headers)
                 restTemplate.exchange(
                     "/tenants/${testTenant.id}/load-tests/new" +
-                        "?templateId=$templateId&variantId=$defaultVariantKey&versionId=1",
+                        "?templateId=$templateId&variantId=$defaultVariantKey&environmentId=production",
                     HttpMethod.GET,
                     request,
                     String::class.java,
@@ -230,15 +230,12 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
             then {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-                // Version dropdown should be present with selection
-                assertThat(response.body).contains("versionId")
-                // Environment dropdown should NOT be present (version was selected)
-                assertThat(response.body).doesNotContain("environmentId")
+                assertThat(response.body).containsPattern("value=\"production\"\\s+selected")
             }
         }
 
         @Test
-        fun `GET new (HTMX) with variant change loads versions for that variant`() = fixture {
+        fun `GET new (HTMX) with variant change selects that variant`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var templateId: String
             lateinit var customVariantId: String
@@ -251,10 +248,6 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 templateId = "default/${template.id.value}"
                 val customVariant = variant(testTenant, template, title = "Dutch")
                 customVariantId = customVariant.id.value
-                // Create a draft version for the custom variant
-                CreateVersion(
-                    variantId = VariantId(customVariant.id, tplId),
-                ).execute()
             }
 
             whenever {
@@ -276,9 +269,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
                 // Should contain Dutch variant selected
                 assertThat(response.body).contains("Dutch")
-                // Should contain version for this variant
-                assertThat(response.body).contains("versionId")
-                assertThat(response.body).contains("DRAFT")
+                assertThat(response.body).containsPattern("value=\"$customVariantId\"\\s+selected")
             }
         }
 
@@ -426,8 +417,8 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("Enter JSON test data manually")
                 // Should NOT contain example selector
                 assertThat(response.body).doesNotContain("Data Example")
-                // Should still have version dropdown (even if empty)
-                assertThat(response.body).contains("versionId")
+                // The environment choice is offered whatever the data examples are
+                assertThat(response.body).contains("environmentId")
             }
         }
     }

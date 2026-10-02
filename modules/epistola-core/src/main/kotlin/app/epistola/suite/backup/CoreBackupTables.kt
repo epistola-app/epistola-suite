@@ -46,6 +46,10 @@ class CoreBackupTables : TenantBackupTableContributor {
         "variant_attribute_definitions",
         "environments",
         "environment_activations",
+        // What each environment serves: one catalog release per (environment, catalog).
+        "environment_catalog_deployments",
+        // What each environment served over time: the history its page shows.
+        "environment_deployment_log",
         "api_keys",
         "feature_toggles",
     )

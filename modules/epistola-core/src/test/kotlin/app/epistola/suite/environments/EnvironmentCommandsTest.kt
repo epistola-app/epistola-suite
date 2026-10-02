@@ -12,18 +12,19 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeleteEnvironment
+import app.epistola.suite.environments.commands.UndeployRelease
 import app.epistola.suite.environments.commands.UpdateEnvironment
 import app.epistola.suite.environments.queries.GetEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.activations.RemoveActivation
-import app.epistola.suite.templates.commands.versions.PublishToEnvironment
+import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.contracts.commands.PublishContractVersion
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.deployLatestRelease
 import app.epistola.suite.testing.withRequiredDataExample
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -59,8 +60,8 @@ class EnvironmentCommandsTest : IntegrationTestBase() {
         val tenant = createTenant("Env Delete In Use")
         val tenantId = TenantId(tenant.id)
 
-        // Compose the real publish flow to get an activation: template (auto-creates a variant
-        // with a draft version), environment, published contract, then publish to the environment.
+        // Compose the real flow to get a deployment: template (auto-creates a variant with a draft
+        // version), published contract and version, a release of the catalog, deployed to the environment.
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Invoice").execute().withRequiredDataExample()
         val variant = ListVariants(templateId = templateId).query().first()
@@ -72,17 +73,18 @@ class EnvironmentCommandsTest : IntegrationTestBase() {
         CreateEnvironment(id = envId, name = "Production").execute()
 
         PublishContractVersion(templateId = templateId).execute()
-        PublishToEnvironment(versionId = versionId, environmentId = envId).execute()
+        PublishVersion(versionId = versionId).execute()
+        mediator.deployLatestRelease(envId, templateId.catalogId)
 
         assertThatThrownBy { DeleteEnvironment(id = envId).execute() }
             .isInstanceOf(EnvironmentInUseException::class.java)
-            .hasMessageContaining("active template version")
+            .hasMessageContaining("serves 1 catalog release")
 
         // The environment survives the rejected delete.
         assertThat(GetEnvironment(id = envId).query()).isNotNull()
 
-        // Once the activation is removed the delete goes through.
-        val removed = RemoveActivation(variantId = variantId, environmentId = envId).execute()
+        // Once the catalog is undeployed the delete goes through.
+        val removed = UndeployRelease(environmentId = envId, catalogKey = templateId.catalogKey).execute()
         assertThat(removed).isTrue()
         assertThat(DeleteEnvironment(id = envId).execute()).isTrue()
     }

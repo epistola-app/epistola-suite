@@ -9,6 +9,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
@@ -240,6 +241,9 @@ class DemoLoginMembershipResolverTest {
             assertThat(mediator.query(GetCatalog(tenantKey, CatalogKey.of("epistola-demo")))).isNotNull()
             val environments = mediator.query(ListEnvironments(TenantId(tenantKey)))
             assertThat(environments.map { it.id.value }).containsExactlyInAnyOrder("staging", "production")
+            // Environments serve catalog releases, so both serve the installed demo catalog.
+            val deployments = mediator.query(ListDeployments(tenantKey, CatalogKey.of("epistola-demo")))
+            assertThat(deployments.map { it.environmentKey.value }).containsExactlyInAnyOrder("staging", "production")
         }
     }
 
