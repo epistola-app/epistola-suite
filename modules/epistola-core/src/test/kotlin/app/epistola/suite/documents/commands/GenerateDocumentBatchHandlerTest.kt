@@ -18,6 +18,7 @@ import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.publishAndRelease
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
@@ -42,18 +43,18 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
-        val version = mediator.send(
+        mediator.send(
             UpdateDraft(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
+        val version = mediator.publishAndRelease(variantId)
 
         val items = (1..3).map { i ->
             BatchGenerationItem(
                 templateId = template.id,
                 variantId = variant.id,
-                versionId = version.id,
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", i),
                 filename = "doc-$i.pdf",
@@ -68,7 +69,7 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
         val requests = jdbi.withHandle<List<app.epistola.suite.documents.model.DocumentGenerationRequest>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key,
+                SELECT id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key, release_version,
                        data, filename, correlation_id, document_key, status, claimed_by, claimed_at,
                        error_message, created_at, started_at, completed_at, expires_at
                 FROM document_generation_requests
@@ -96,18 +97,18 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
-        val version = mediator.send(
+        mediator.send(
             UpdateDraft(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
+        val version = mediator.publishAndRelease(variantId)
 
         val items = listOf(
             BatchGenerationItem(
                 templateId = template.id,
                 variantId = variant.id,
-                versionId = version.id,
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", 1),
                 filename = "doc-1.pdf",
@@ -115,7 +116,6 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
             BatchGenerationItem(
                 templateId = TestIdHelpers.nextTemplateId(), // Non-existent template
                 variantId = TestIdHelpers.nextVariantId(),
-                versionId = VersionKey.of(100), // Non-existent version for testing (valid range but doesn't exist)
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = "doc-2.pdf",
@@ -124,8 +124,8 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
 
         assertThatThrownBy {
             mediator.send(GenerateDocumentBatch(tenant.id, items))
-        }.isInstanceOf(TemplateVariantNotFoundException::class.java)
-            .hasMessageContaining("Template")
+        }.isInstanceOf(app.epistola.suite.documents.TemplateNotInReleaseException::class.java)
+            .hasMessageContaining("does not contain template")
     }
 
     @Test

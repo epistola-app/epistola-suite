@@ -8,6 +8,8 @@ import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.EnsureCatalogStatus
 import app.epistola.suite.catalog.commands.EnsureSubscribedCatalog
+import app.epistola.suite.catalog.commands.InstalledReleaseRecording
+import app.epistola.suite.catalog.commands.RecordInstalledRelease
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.commands.EnsureSystemFonts
 import app.epistola.suite.mediator.Command
@@ -88,20 +90,25 @@ private val SYSTEM_INSTALL_PRINCIPAL = EpistolaPrincipal(
 class InstallSystemCatalogHandler : CommandHandler<InstallSystemCatalog, InstallSystemCatalogResult> {
 
     override fun handle(command: InstallSystemCatalog): InstallSystemCatalogResult = SecurityContext.runWithPrincipal(SYSTEM_INSTALL_PRINCIPAL) {
-        val result = EnsureSubscribedCatalog(
-            tenantKey = command.tenantKey,
-            sourceUrl = SYSTEM_CATALOG_URL,
-            authType = AuthType.NONE,
-            // System fonts share the catalog namespace but are intentionally
-            // seeded by EnsureSystemFonts rather than declared in the manifest.
-            preserveResourceTypes = setOf("font"),
-        ).execute()
+        // The release is recorded after the fonts are seeded, not by the install steps: the manifest
+        // does not carry the fonts, and a release cut before them would render without them.
+        val result = InstalledReleaseRecording.deferred {
+            EnsureSubscribedCatalog(
+                tenantKey = command.tenantKey,
+                sourceUrl = SYSTEM_CATALOG_URL,
+                authType = AuthType.NONE,
+                // System fonts share the catalog namespace but are intentionally
+                // seeded by EnsureSystemFonts rather than declared in the manifest.
+                preserveResourceTypes = setOf("font"),
+            ).execute()
+        }
 
         // Bundled font families live next to the system catalog and are seeded
         // every pass (idempotent UPSERT) — inside the same elevated principal —
         // so a newly bundled font is picked up on the next boot even when the
         // catalog content didn't move, mirroring the asset/code-list payload.
         EnsureSystemFonts(tenantKey = command.tenantKey).execute()
+        RecordInstalledRelease(command.tenantKey, result.catalogKey).execute()
 
         InstallSystemCatalogResult(
             status = when (result.status) {

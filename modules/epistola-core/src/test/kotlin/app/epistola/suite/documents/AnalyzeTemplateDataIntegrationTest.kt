@@ -104,8 +104,8 @@ class AnalyzeTemplateDataIntegrationTest : IntegrationTestBase() {
                     DataExample("example-1", "Example 1", json("""{"customer": {"name": "Ada", "phone": "555"}, "invoiceDate": "2026-09-22"}""")),
                 ),
             ).let(::execute)
-            val draft = version(variantId, templateReadingNameAndPhone())
-            val published = execute(PublishVersion(VersionId(draft.id, variantId)))!!
+            // Preview renders the catalog's latest release, so the template is published and released.
+            val published = released(variantId, templateReadingNameAndPhone())
             DocumentSetup(tenant, template, variant, published)
         }.whenever { it }.then { setup, _ -> block(setup) }
     }

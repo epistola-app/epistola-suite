@@ -61,6 +61,12 @@ data class DocumentGenerationRequest(
     val variantKey: VariantKey,
     val versionKey: VersionKey?,
     val environmentKey: EnvironmentKey?,
+    /**
+     * The catalog release this request renders, bound when it was accepted. Null for requests
+     * accepted before 2.0, which name a [versionKey] or an [environmentKey] instead. Defaulted, like
+     * [routingKey], so a SELECT that does not ask for `release_version` still maps.
+     */
+    val releaseVersion: String? = null,
     @Json val data: ObjectNode,
     val filename: String?,
     val correlationId: String?,
@@ -81,9 +87,8 @@ data class DocumentGenerationRequest(
     val expiresAt: OffsetDateTime?,
 ) {
     init {
-        // Validate that exactly one of versionId or environmentId is set
-        require((versionKey != null) xor (environmentKey != null)) {
-            "Exactly one of versionKey or environmentKey must be set"
+        require(versionKey != null || environmentKey != null || releaseVersion != null) {
+            "A request renders a release, an environment's deployment, or (before 2.0) a version"
         }
     }
 

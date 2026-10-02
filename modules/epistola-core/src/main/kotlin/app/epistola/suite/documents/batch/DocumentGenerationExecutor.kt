@@ -27,6 +27,8 @@ import app.epistola.suite.fonts.fontFamilyResolver
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.generation.collect.commands.EmitGenerationResult
 import app.epistola.suite.generation.collect.domain.ResultStatus
+import app.epistola.suite.generation.release.ReleaseRef
+import app.epistola.suite.generation.release.ReleaseRenderSource
 import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.security.currentUserIdOrNull
@@ -70,6 +72,7 @@ class DocumentGenerationExecutor(
     private val fontSnapshotVerifier: app.epistola.suite.fonts.FontSnapshotVerifier,
     private val fontByteCache: app.epistola.suite.fonts.FontByteCache,
     private val localeResolver: TenantLocaleResolver,
+    private val releaseRenderSource: ReleaseRenderSource,
     @Value("\${epistola.generation.jobs.retention-days:7}")
     private val retentionDays: Int,
     @Value("\${epistola.generation.documents.max-size-mb:50}")
@@ -220,6 +223,8 @@ class DocumentGenerationExecutor(
             request.variantKey.value,
             request.versionKey?.value ?: request.environmentKey?.value,
         )
+
+        if (request.releaseVersion != null) return generateFromRelease(request, request.releaseVersion)
 
         // Build composite IDs
         val tenantId = TenantId(request.tenantKey)
@@ -387,6 +392,67 @@ class DocumentGenerationExecutor(
     }
 
     /**
+     * Renders a request bound to a catalog release: everything the document needs comes from that
+     * release and the releases it pinned, nothing from the working copy or a template version.
+     */
+    private fun generateFromRelease(request: DocumentGenerationRequest, releaseVersion: String): Triple<Document, ByteArray, String> {
+        val tenant = mediator.query(GetTenant(id = request.tenantKey))
+            ?: throw IllegalStateException("Tenant ${request.tenantKey} not found")
+        val inputs = releaseRenderSource.resolve(
+            tenant,
+            ReleaseRef(request.catalogKey, releaseVersion),
+            request.templateKey.value,
+            request.variantKey.value,
+        )
+
+        // The contract the release holds, not the working copy's: a caller generating from a release
+        // is validated against what that release promises.
+        val dataModel = inputs.dataModel
+        val effectiveData = if (dataModel != null) schemaValidator.applyDefaults(dataModel, request.data) else request.data
+        if (dataModel != null) {
+            val errors = schemaValidator.validate(dataModel, effectiveData)
+            if (errors.isNotEmpty()) {
+                throw IllegalArgumentException("Data validation failed: ${errors.joinToString("; ") { "${it.path}: ${it.message}" }}")
+            }
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        val dataMap = objectMapper.convertValue(effectiveData, Map::class.java) as Map<String, Any?>
+        val outputStream = ByteArrayOutputStream()
+        generationService.renderPdfFromRelease(
+            inputs = inputs,
+            data = dataMap,
+            outputStream = outputStream,
+            metadata = PdfMetadata(title = inputs.templateName, author = tenant.name),
+            culture = localeResolver.resolveCulture(tenant, inputs.variantAttributes),
+        )
+
+        val pdfBytes = outputStream.toByteArray()
+        val maxSizeBytes = maxDocumentSizeMb * 1024 * 1024
+        if (pdfBytes.size > maxSizeBytes) {
+            throw IllegalStateException("Generated document size (${pdfBytes.size} bytes) exceeds maximum ($maxSizeBytes bytes)")
+        }
+
+        val document = Document(
+            id = DocumentKey.generate(),
+            tenantKey = request.tenantKey,
+            catalogKey = request.catalogKey,
+            templateKey = request.templateKey,
+            variantKey = request.variantKey,
+            versionKey = null,
+            releaseVersion = releaseVersion,
+            templateResourceId = inputs.templateResourceId,
+            filename = request.filename ?: "document-${request.id.value}.pdf",
+            correlationId = request.correlationId,
+            contentType = "application/pdf",
+            sizeBytes = pdfBytes.size.toLong(),
+            createdAt = EpistolaClock.offsetDateTime(),
+            createdBy = currentUserIdOrNull(),
+        )
+        return Triple(document, pdfBytes, "release")
+    }
+
+    /**
      * Save the generated document and mark the request as completed.
      *
      * Marking `document_generation_requests.status='COMPLETED'` looks redundant
@@ -437,13 +503,13 @@ class DocumentGenerationExecutor(
             handle.createUpdate(
                 """
                 INSERT INTO documents (
-                    id, tenant_key, catalog_key, template_key, variant_key, version_key,
-                    filename, correlation_id, content_type, size_bytes,
+                    id, tenant_key, catalog_key, template_key, variant_key, version_key, release_version,
+                    template_resource_id, filename, correlation_id, content_type, size_bytes,
                     created_at, created_by
                 )
                 VALUES (
-                    :id, :tenantId, :catalogKey, :templateId, :variantId, :versionId,
-                    :filename, :correlationId, :contentType, :sizeBytes,
+                    :id, :tenantId, :catalogKey, :templateId, :variantId, :versionId, :releaseVersion,
+                    :templateResourceId, :filename, :correlationId, :contentType, :sizeBytes,
                     :createdAt, :createdBy
                 )
                 """,
@@ -454,6 +520,8 @@ class DocumentGenerationExecutor(
                 .bind("templateId", document.templateKey)
                 .bind("variantId", document.variantKey)
                 .bind("versionId", document.versionKey)
+                .bind("releaseVersion", document.releaseVersion)
+                .bind("templateResourceId", document.templateResourceId)
                 .bind("filename", document.filename)
                 .bind("correlationId", document.correlationId)
                 .bind("contentType", document.contentType)

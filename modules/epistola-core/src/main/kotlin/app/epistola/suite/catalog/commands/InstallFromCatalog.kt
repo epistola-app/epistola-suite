@@ -150,7 +150,7 @@ class InstallFromCatalogHandler(
         // Phase two: one transaction for the whole catalog. A resource that fails still reports
         // FAILED to the caller, but the transaction is rolled back, so the install leaves nothing
         // behind rather than a half-installed catalog nobody chose (#850).
-        installTransaction.execute { status ->
+        val results = installTransaction.execute { status ->
             val results = staged.map { item ->
                 if (item.fetchError != null) {
                     return@map InstallResult(type = item.entry.type, slug = item.entry.slug, status = InstallStatus.FAILED, errorMessage = item.fetchError)
@@ -168,6 +168,17 @@ class InstallFromCatalogHandler(
             }
             results
         }
+
+        // A fresh install records the publisher's release it just installed, so it can be rendered.
+        // Inside an upgrade the catalog still names the previous version here; the upgrade records
+        // the new release once it has moved the pointer.
+        if (results.none { it.status == InstallStatus.FAILED } &&
+            catalog.installedReleaseVersion == manifest.release.version &&
+            !InstalledReleaseRecording.isDeferred
+        ) {
+            RecordInstalledRelease(command.tenantKey, command.catalogKey).execute()
+        }
+        results
     }
 
     /**

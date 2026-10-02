@@ -320,9 +320,11 @@ class RevisionCollectionTest : IntegrationTestBase() {
             .one()
     }
 
+    // Every tenant installs the bundled system catalog, and installing records its release, so
+    // its revisions are in every tenant. The counts below are about this test's catalog.
     private fun revisionCount(tenantKey: TenantKey, kind: String? = null): Int = jdbi.withHandle<Int, Exception> { handle ->
         handle.createQuery(
-            "SELECT count(*) FROM resource_revisions WHERE tenant_key = :t AND (:kind IS NULL OR kind = :kind)",
+            "SELECT count(*) FROM resource_revisions WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_key = 'system') AND (:kind IS NULL OR kind = :kind)",
         )
             .bind("t", tenantKey)
             .bind("kind", kind)
@@ -331,12 +333,12 @@ class RevisionCollectionTest : IntegrationTestBase() {
     }
 
     private fun entryCount(tenantKey: TenantKey): Int = jdbi.withHandle<Int, Exception> { handle ->
-        handle.createQuery("SELECT count(*) FROM release_entries WHERE tenant_key = :t")
+        handle.createQuery("SELECT count(*) FROM release_entries WHERE tenant_key = :t AND catalog_key <> 'system'")
             .bind("t", tenantKey).mapTo(Int::class.java).one()
     }
 
     private fun binaryCount(tenantKey: TenantKey): Int = jdbi.withHandle<Int, Exception> { handle ->
-        handle.createQuery("SELECT count(*) FROM revision_binaries WHERE tenant_key = :t")
+        handle.createQuery("SELECT count(*) FROM revision_binaries WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_key = 'system')")
             .bind("t", tenantKey).mapTo(Int::class.java).one()
     }
 

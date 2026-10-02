@@ -76,17 +76,23 @@ internal data class FaceRow(
  *
  * @return the best-matching row, or `null` when [rows] is empty.
  */
-internal fun pickBestFace(rows: List<FaceRow>, weight: Int, italic: Boolean): FaceRow? {
-    if (rows.isEmpty()) return null
+internal fun pickBestFace(rows: List<FaceRow>, weight: Int, italic: Boolean): FaceRow? = pickNearestFace(rows, { it.weight }, { it.italic }, weight, italic)
+
+/**
+ * The selection rule behind [pickBestFace], for any face shape: a family stored in the database and
+ * a family read back from a catalog release must pick the same face for the same request.
+ */
+fun <T> pickNearestFace(faces: List<T>, weightOf: (T) -> Int, italicOf: (T) -> Boolean, weight: Int, italic: Boolean): T? {
+    if (faces.isEmpty()) return null
 
     // (a) Italic preference: same-italic set, else the other set.
-    val sameItalic = rows.filter { it.italic == italic }
-    val candidates = sameItalic.ifEmpty { rows }
+    val sameItalic = faces.filter { italicOf(it) == italic }
+    val candidates = sameItalic.ifEmpty { faces }
 
     // (b) Nearest weight: minimal |distance|; tie → heavier weight.
     return candidates.minWith(
-        compareBy<FaceRow> { abs(it.weight - weight) }
-            .thenByDescending { it.weight },
+        compareBy<T> { abs(weightOf(it) - weight) }
+            .thenByDescending { weightOf(it) },
     )
 }
 

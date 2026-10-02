@@ -111,6 +111,10 @@ class EnsureSubscribedCatalogHandler(
         val allResourcesInstalled = manifest.resources.all { InstalledResource(it.type, it.slug) in installedResources }
         val alreadyCurrent = contentCurrent && allResourcesInstalled
         if (alreadyCurrent) {
+            // Installed before releases were recorded for subscribed catalogs: record it now.
+            if (!InstalledReleaseRecording.isDeferred) {
+                RecordInstalledRelease(command.tenantKey, catalogKey).execute()
+            }
             return@runAsImport EnsureSubscribedCatalogResult(
                 EnsureCatalogStatus.ALREADY_CURRENT,
                 catalogKey,

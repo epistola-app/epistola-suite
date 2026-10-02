@@ -50,7 +50,7 @@ class GetGenerationJobHandler(
         // Get request with all data (in flattened structure, request IS the item)
         val request = handle.createQuery(
             """
-            SELECT id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key,
+            SELECT id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key, release_version,
                    data, filename, correlation_id, routing_key, document_key, status, claimed_by, claimed_at,
                    error_message, created_at, started_at, completed_at, expires_at
             FROM document_generation_requests

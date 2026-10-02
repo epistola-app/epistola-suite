@@ -16,16 +16,24 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.commands.BatchGenerationItem
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.documents.commands.GenerateDocumentBatch
 import app.epistola.suite.documents.preview.PreviewTargetResolver
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
+import app.epistola.suite.templates.commands.versions.PublishVersion
+import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.templates.services.VariantSelectionCriteria
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.ensureRequiredDataExample
+import app.epistola.suite.testing.publishAndRelease
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -66,6 +74,14 @@ class AttributeSelectionCatalogScopeTest : IntegrationTestBase() {
         CreateDocumentTemplate(id = acmeLetter, name = "Acme letter").execute()
         CreateVariant(VariantId(VariantKey.of("nld"), acmeLetter), "Dutch", null, mapOf("lang" to "dutch")).execute()
         CreateVariant(VariantId(VariantKey.of("eng"), acmeLetter), "English", null, english).execute()
+        // Generation renders acme's latest release, so both variants are published and acme released.
+        ensureRequiredDataExample(acmeLetter)
+        val dutch = VariantId(VariantKey.of("nld"), acmeLetter)
+        UpdateDraft(dutch, TestTemplateBuilder.buildMinimal(name = "Acme letter")).execute()
+        PublishVersion(VersionId(GetDraft(dutch).query()!!.id, dutch)).execute()
+        val englishVariant = VariantId(VariantKey.of("eng"), acmeLetter)
+        UpdateDraft(englishVariant, TestTemplateBuilder.buildMinimal(name = "Acme letter")).execute()
+        mediator.publishAndRelease(englishVariant)
 
         if (withDecoyInDefault) {
             // Same template key in `default`, whose English variant happens to be called `nld` —
@@ -83,7 +99,6 @@ class AttributeSelectionCatalogScopeTest : IntegrationTestBase() {
             catalogKey = acme,
             templateId = letter,
             variantSelectionCriteria = englishCriteria,
-            versionId = VersionKey.of(1),
             data = objectMapper.createObjectNode(),
             filename = null,
         ).execute()
@@ -111,7 +126,6 @@ class AttributeSelectionCatalogScopeTest : IntegrationTestBase() {
                         catalogKey = acme,
                         templateId = letter,
                         variantSelectionCriteria = englishCriteria,
-                        versionId = VersionKey.of(1),
                         data = objectMapper.createObjectNode(),
                         filename = null,
                     ),

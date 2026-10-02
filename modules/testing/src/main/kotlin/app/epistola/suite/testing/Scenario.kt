@@ -212,6 +212,20 @@ class ScenarioBuilder(private val namespace: String) {
                 templateModel = templateModel,
             ),
         )!!
+
+        /**
+         * Saves [templateModel] as the variant's draft, publishes it and releases its catalog, so
+         * generation can render it: from 2.0 generation renders a catalog release, never a draft.
+         *
+         * @return the published [TemplateVersion]
+         */
+        fun released(
+            variantId: VariantId,
+            templateModel: TemplateDocument,
+        ): TemplateVersion {
+            version(variantId, templateModel)
+            return capturedMediator.publishAndRelease(variantId)
+        }
     }
 }
 

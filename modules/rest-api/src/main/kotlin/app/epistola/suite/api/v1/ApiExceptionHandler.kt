@@ -25,12 +25,14 @@ import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
+import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.DocumentNotFoundException
 import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.documents.GenerationJobNotCancellableException
 import app.epistola.suite.documents.GenerationJobNotFoundException
 import app.epistola.suite.documents.NoPublishedVersionException
+import app.epistola.suite.documents.TemplateNotInReleaseException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.commands.BatchValidationException
@@ -274,6 +276,8 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         VersionNotFoundException::class,
         EnvironmentNotFoundException::class,
         NoPublishedVersionException::class,
+        CatalogNotReleasedException::class,
+        TemplateNotInReleaseException::class,
         DefaultVariantNotFoundException::class,
         AssetNotFoundException::class,
         AssetTooLargeException::class,
