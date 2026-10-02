@@ -9,9 +9,7 @@ import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.preview.ReleasePreviewResolver
-import app.epistola.suite.documents.versionGenerationRemoved
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
@@ -38,7 +36,7 @@ data class AnalyzeTemplateData(
     val data: ObjectNode,
     val variantId: VariantKey? = null,
     val variantSelectionCriteria: VariantSelectionCriteria? = null,
-    val versionId: VersionKey? = null,
+    val releaseVersion: String? = null,
     val environmentId: EnvironmentKey? = null,
 ) : Query<TemplateDataAnalysis>,
     RequiresPermission {
@@ -50,8 +48,8 @@ data class AnalyzeTemplateData(
         validate("variantSelectionCriteria", variantId == null || variantSelectionCriteria == null) {
             "Cannot specify both variantId and variantSelectionCriteria"
         }
-        validate("environmentId", versionId == null || environmentId == null) {
-            "Cannot specify both versionId and environmentId"
+        validate("environmentId", releaseVersion == null || environmentId == null) {
+            "Cannot specify both releaseVersion and environmentId"
         }
     }
 }
@@ -64,7 +62,6 @@ class AnalyzeTemplateDataHandler(
 ) : QueryHandler<AnalyzeTemplateData, TemplateDataAnalysis> {
 
     override fun handle(query: AnalyzeTemplateData): TemplateDataAnalysis {
-        if (query.versionId != null) throw versionGenerationRemoved()
         val preview = releasePreview.resolve(
             query.tenantKey,
             query.catalogKey,
@@ -73,6 +70,7 @@ class AnalyzeTemplateDataHandler(
             query.variantId,
             query.variantSelectionCriteria,
             query.environmentId,
+            query.releaseVersion,
         )
         val contract = preview.inputs.dataModel ?: return TemplateDataAnalysis.NO_CONTRACT
         return analyzer.analyze(contract, preview.data, pathExtractor.extractReferencedPaths(preview.inputs.templateModel))

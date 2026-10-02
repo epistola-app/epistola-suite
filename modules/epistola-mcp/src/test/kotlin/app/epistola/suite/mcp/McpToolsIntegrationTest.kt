@@ -184,7 +184,7 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
                 catalogId = "default",
                 templateId = templateKey.value,
                 variantId = null,
-                versionId = null,
+                releaseVersion = null,
                 environmentId = null,
                 data = """{"amount":"ten"}""",
             )

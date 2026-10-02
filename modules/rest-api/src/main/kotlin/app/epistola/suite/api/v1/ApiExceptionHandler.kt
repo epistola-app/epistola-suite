@@ -34,6 +34,7 @@ import app.epistola.suite.documents.GenerationJobNotCancellableException
 import app.epistola.suite.documents.GenerationJobNotFoundException
 import app.epistola.suite.documents.NoPublishedVersionException
 import app.epistola.suite.documents.NoReleaseDeployedException
+import app.epistola.suite.documents.ReleaseNotFoundException
 import app.epistola.suite.documents.TemplateNotInReleaseException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
@@ -275,6 +276,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         NoPublishedVersionException::class,
         CatalogNotReleasedException::class,
         NoReleaseDeployedException::class,
+        ReleaseNotFoundException::class,
         ReleaseNotDeployableException::class,
         ReleaseInUseException::class,
         TemplateNotInReleaseException::class,

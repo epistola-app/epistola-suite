@@ -9,8 +9,8 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.CatalogNotReleasedException
+import app.epistola.suite.documents.ReleaseNotFoundException
 import app.epistola.suite.documents.TemplateNotInReleaseException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
@@ -22,7 +22,6 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.publishAndRelease
-import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -120,7 +119,7 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `refuses an explicit template version`(): Unit = withAuthentication {
+    fun `refuses a release the catalog does not have`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
 
         assertThatThrownBy {
@@ -128,23 +127,23 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
                 GenerateDocument(
                     tenantId = tenant.id,
                     templateId = TestIdHelpers.nextTemplateId(),
-                    versionId = VersionKey.of(1),
+                    releaseVersion = "9.9.9",
                     data = objectMapper.createObjectNode(),
                     filename = "test.pdf",
                 ),
             )
-        }.isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("no longer supported")
+        }.isInstanceOf(ReleaseNotFoundException::class.java)
+            .hasMessageContaining("9.9.9")
     }
 
     @Test
-    fun `validates versionId and environmentId are mutually exclusive`() {
+    fun `validates releaseVersion and environmentId are mutually exclusive`() {
         assertThatThrownBy {
             GenerateDocument(
                 tenantId = TenantKey.of("dummy-tenant"),
                 templateId = TestIdHelpers.nextTemplateId(),
                 variantId = TestIdHelpers.nextVariantId(),
-                versionId = VersionKey.of(1),
+                releaseVersion = "1.0.0",
                 environmentId = TestIdHelpers.nextEnvironmentId(), // Both set - should fail
                 data = objectMapper.createObjectNode(),
                 filename = "test.pdf",

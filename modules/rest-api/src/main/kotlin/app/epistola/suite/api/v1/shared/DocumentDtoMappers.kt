@@ -19,7 +19,6 @@ import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.queries.DocumentMetadata
 import app.epistola.suite.documents.queries.GenerationJobResult
@@ -39,9 +38,7 @@ internal fun DocumentMetadata.toDto() = DocumentDto(
     tenantId = tenantId.value,
     templateId = templateId.value,
     variantId = variantId.value,
-    // Interim, until the 2.0 contract: a document rendered from a catalog release has no template
-    // version, but the 1.x DocumentDto requires one. 0 is never a real version (they start at 1).
-    versionId = versionId?.value ?: 0,
+    releaseVersion = releaseVersion,
     filename = filename,
     correlationId = correlationId,
     contentType = contentType,
@@ -89,7 +86,7 @@ internal fun DocumentGenerationRequest.toItemDto(objectMapper: ObjectMapper) = D
     id = id.value,
     templateId = templateKey.value,
     variantId = variantKey.value,
-    versionId = versionKey?.value,
+    releaseVersion = releaseVersion,
     environmentId = environmentKey?.value,
     data = objectMapper.valueToTree(data),
     filename = filename,
@@ -124,7 +121,7 @@ internal fun GenerateDocumentRequest.toCommand(
         templateId = TemplateKey.of(templateId),
         variantId = variantId?.let { VariantKey.of(it) },
         variantSelectionCriteria = attributes?.toSelectionCriteria(),
-        versionId = versionId?.let { VersionKey.of(it) },
+        releaseVersion = releaseVersion,
         environmentId = environmentId?.let { EnvironmentKey.of(it) },
         data = data,
         filename = filename,
@@ -144,7 +141,7 @@ internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
         templateId = TemplateKey.of(templateId),
         variantId = variantId?.let { VariantKey.of(it) },
         variantSelectionCriteria = attributes?.toSelectionCriteria(),
-        versionId = versionId?.let { VersionKey.of(it) },
+        releaseVersion = releaseVersion,
         environmentId = environmentId?.let { EnvironmentKey.of(it) },
         data = data,
         filename = filename,
@@ -209,6 +206,7 @@ internal fun PreviewDocumentRequest.toQuery(
     variantId = variantId?.let { VariantKey.of(it) },
     variantSelectionCriteria = attributes?.toSelectionCriteria(),
     data = data,
-    versionId = versionId?.let { VersionKey.of(it) },
+    releaseVersion = releaseVersion,
+    workingCopy = workingCopy ?: false,
     environmentId = environmentId?.let { EnvironmentKey.of(it) },
 )

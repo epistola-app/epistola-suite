@@ -75,6 +75,7 @@ object ApiProblemTypes {
     val VERSION_NOT_FOUND = problem("VERSION_NOT_FOUND", "Version Not Found", HttpStatus.NOT_FOUND, "The requested version does not exist or is not visible to the caller.", listOf("templateId", "variantId", "versionId"))
     val ENVIRONMENT_NOT_FOUND = problem("ENVIRONMENT_NOT_FOUND", "Environment Not Found", HttpStatus.NOT_FOUND, "The requested environment does not exist or is not visible to the caller.", listOf("tenantId", "environmentId"))
     val NO_PUBLISHED_VERSION = problem("NO_PUBLISHED_VERSION", "No Published Version", HttpStatus.NOT_FOUND, "No published version is available for the requested template and variant.", listOf("tenantId", "templateId", "variantId"))
+    val RELEASE_NOT_FOUND = problem("RELEASE_NOT_FOUND", "Release Not Found", HttpStatus.NOT_FOUND, "The catalog has no such release, or it kept no content to render.", listOf("catalogId", "releaseVersion"))
     val NO_RELEASE_DEPLOYED = problem("NO_RELEASE_DEPLOYED", "No Release Deployed", HttpStatus.NOT_FOUND, "The environment serves no release of the template's catalog; deploy one first.", listOf("environmentId", "catalogId"))
     val RELEASE_NOT_DEPLOYABLE = problem("RELEASE_NOT_DEPLOYABLE", "Release Not Deployable", HttpStatus.CONFLICT, "The release does not exist or kept no content to render from.", listOf("catalogId", "releaseVersion"))
     val RELEASE_IN_USE = problem("RELEASE_IN_USE", "Release In Use", HttpStatus.CONFLICT, "The release is deployed to an environment or recorded as a dependency of another release.", listOf("catalogId", "releaseVersion", "environments", "dependentReleases"))
@@ -150,6 +151,7 @@ object ApiProblemTypes {
         NO_PUBLISHED_VERSION,
         CATALOG_NOT_RELEASED,
         NO_RELEASE_DEPLOYED,
+        RELEASE_NOT_FOUND,
         RELEASE_NOT_DEPLOYABLE,
         RELEASE_IN_USE,
         TEMPLATE_NOT_IN_RELEASE,

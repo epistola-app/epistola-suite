@@ -17,7 +17,6 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.EnvironmentNotFoundException
@@ -25,7 +24,6 @@ import app.epistola.suite.documents.NoPublishedVersionException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.model.RequestStatus
-import app.epistola.suite.documents.versionGenerationRemoved
 import app.epistola.suite.generation.release.ReleaseRef
 import app.epistola.suite.generation.release.ReleaseTargetResolver
 import app.epistola.suite.mediator.Command
@@ -53,7 +51,7 @@ data class BatchGenerationItem(
     val templateId: TemplateKey,
     val variantId: VariantKey? = null,
     val variantSelectionCriteria: VariantSelectionCriteria? = null,
-    val versionId: VersionKey? = null,
+    val releaseVersion: String? = null,
     val environmentId: EnvironmentKey? = null,
     val data: ObjectNode,
     val filename: String?,
@@ -64,8 +62,8 @@ data class BatchGenerationItem(
         require(variantId == null || variantSelectionCriteria == null) {
             "Cannot specify both variantId and variantSelectionCriteria"
         }
-        require(!(versionId != null && environmentId != null)) {
-            "Cannot specify both versionId and environmentId"
+        require(!(releaseVersion != null && environmentId != null)) {
+            "Cannot specify both releaseVersion and environmentId"
         }
     }
 }
@@ -143,16 +141,16 @@ class GenerateDocumentBatchHandler(
 
     override fun handle(command: GenerateDocumentBatch): BatchKey {
         logger.info("Generating batch of {} documents for tenant {}", command.items.size, command.tenantId)
-        if (command.items.any { it.versionId != null }) throw versionGenerationRemoved()
-
-        // Every item renders a release, resolved once per (environment, catalog) for the whole batch:
-        // the release the item's environment serves, or the catalog's latest without one. A release
+        // Every item renders a release, resolved once per (named release, environment, catalog) for the
+        // whole batch: the release it names, the one its environment serves, or the catalog's latest. A release
         // cut or deployed while the batch is being accepted does not split it across releases.
         val releases = command.items
-            .map { it.environmentId to it.catalogKey }
+            .map { Triple(it.releaseVersion, it.environmentId, it.catalogKey) }
             .distinct()
-            .associateWith { (environment, catalog) ->
-                if (environment != null) {
+            .associateWith { (named, environment, catalog) ->
+                if (named != null) {
+                    releaseTargetResolver.namedRelease(command.tenantId, catalog, named)
+                } else if (environment != null) {
                     releaseTargetResolver.deployedRelease(command.tenantId, environment, catalog)
                 } else {
                     jdbi.withHandle<String?, Exception> { handle -> dependencyStore.latestRetainedRelease(handle, command.tenantId, catalog) }
@@ -162,7 +160,7 @@ class GenerateDocumentBatchHandler(
         val targets = command.items.map { item ->
             releaseTargetResolver.resolveIn(
                 command.tenantId,
-                ReleaseRef(item.catalogKey, releases.getValue(item.environmentId to item.catalogKey)),
+                ReleaseRef(item.catalogKey, releases.getValue(Triple(item.releaseVersion, item.environmentId, item.catalogKey))),
                 item.templateId,
                 item.variantId,
                 item.variantSelectionCriteria,

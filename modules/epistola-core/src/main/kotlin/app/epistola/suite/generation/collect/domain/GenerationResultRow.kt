@@ -43,6 +43,8 @@ data class GenerationResultRow(
     val templateId: TemplateKey?,
     val variantId: VariantKey?,
     val versionId: VersionKey?,
+    /** The catalog release rendered; null for results of requests accepted before 2.0. */
+    val releaseVersion: String? = null,
     val filename: String?,
     val contentType: String?,
     val sizeBytes: Long?,

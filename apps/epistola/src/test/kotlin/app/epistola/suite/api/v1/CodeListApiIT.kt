@@ -345,7 +345,7 @@ class CodeListApiIT : IntegrationTestBase() {
         )
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.key")).isEqualTo("locale")
+        assertThat(JsonPath.read<String>(body, "$.slug")).isEqualTo("locale")
         assertThat(JsonPath.read<String>(body, "$.catalog")).isEqualTo("system")
         assertThat(JsonPath.read<String>(body, "$.catalogType")).isEqualTo("SUBSCRIBED")
         assertThat(JsonPath.read<Boolean>(body, "$.readOnly")).isTrue
