@@ -12,6 +12,11 @@ import app.epistola.api.model.AttributeListResponse
 import app.epistola.api.model.CreateAttributeRequest
 import app.epistola.api.model.CreateEnvironmentRequest
 import app.epistola.api.model.CreateTenantRequest
+import app.epistola.api.model.DeployReleaseRequest
+import app.epistola.api.model.DeploymentDto
+import app.epistola.api.model.DeploymentEventDto
+import app.epistola.api.model.DeploymentHistoryResponse
+import app.epistola.api.model.DeploymentListResponse
 import app.epistola.api.model.EnvironmentDto
 import app.epistola.api.model.EnvironmentListResponse
 import app.epistola.api.model.TenantDto
@@ -39,10 +44,18 @@ import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.EnvironmentNotFoundException
+import app.epistola.suite.documents.NoReleaseDeployedException
+import app.epistola.suite.environments.CatalogDeployment
+import app.epistola.suite.environments.DeploymentAction
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeleteEnvironment
+import app.epistola.suite.environments.commands.DeployRelease
+import app.epistola.suite.environments.commands.UndeployRelease
 import app.epistola.suite.environments.commands.UpdateEnvironment
+import app.epistola.suite.environments.queries.CountDeploymentHistory
 import app.epistola.suite.environments.queries.GetEnvironment
+import app.epistola.suite.environments.queries.ListDeploymentHistory
+import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -308,4 +321,76 @@ class EpistolaTenantApi :
             throw EnvironmentNotFoundException(tenantIdComposite.key, environmentIdComposite.key)
         }
     }
+
+    // ================== Deployments ==================
+
+    override fun listEnvironmentDeployments(
+        tenantId: String,
+        environmentId: String,
+    ): ResponseEntity<DeploymentListResponse> {
+        val environment = existingEnvironment(tenantId, environmentId)
+        val deployments = ListDeployments(environment.tenantKey, environmentKey = environment.key).query()
+        return ResponseEntity.ok(DeploymentListResponse(items = deployments.map { it.toDto() }))
+    }
+
+    override fun deployRelease(
+        tenantId: String,
+        environmentId: String,
+        catalogId: String,
+        deployReleaseRequest: DeployReleaseRequest,
+    ): ResponseEntity<DeploymentDto> {
+        val environment = EnvironmentId(EnvironmentKey.of(environmentId), TenantId(TenantKey.of(tenantId)))
+        val deployment = DeployRelease(environment, CatalogKey.of(catalogId), deployReleaseRequest.releaseVersion).execute()
+        return ResponseEntity.ok(deployment.toDto())
+    }
+
+    override fun undeployRelease(
+        tenantId: String,
+        environmentId: String,
+        catalogId: String,
+    ): ResponseEntity<Unit> {
+        val environment = existingEnvironment(tenantId, environmentId)
+        val catalog = CatalogKey.of(catalogId)
+        if (!UndeployRelease(environment, catalog).execute()) {
+            throw NoReleaseDeployedException(environment.tenantKey, environment.key, catalog)
+        }
+        return ResponseEntity.noContent().build()
+    }
+
+    override fun listDeploymentHistory(
+        tenantId: String,
+        environmentId: String,
+        page: Int,
+        size: Int,
+    ): ResponseEntity<DeploymentHistoryResponse> {
+        val environment = existingEnvironment(tenantId, environmentId)
+        val history = ListDeploymentHistory(environment, limit = Pagination.limitOf(size), offset = Pagination.offsetOf(page, size)).query()
+        return ResponseEntity.ok(
+            DeploymentHistoryResponse(
+                items = history.map { entry ->
+                    DeploymentEventDto(
+                        catalogId = entry.catalogKey.value,
+                        action = if (entry.action == DeploymentAction.DEPLOYED) DeploymentEventDto.Action.DEPLOYED else DeploymentEventDto.Action.UNDEPLOYED,
+                        releaseVersion = entry.version,
+                        previousReleaseVersion = entry.previousVersion,
+                        changedAt = entry.changedAt,
+                        changedBy = entry.changedByName,
+                    )
+                },
+                page = Pagination.pageMeta(page, size, CountDeploymentHistory(environment).query()),
+            ),
+        )
+    }
+
+    private fun existingEnvironment(tenantId: String, environmentId: String): EnvironmentId {
+        val id = EnvironmentId(EnvironmentKey.of(environmentId), TenantId(TenantKey.of(tenantId)))
+        GetEnvironment(id = id).query() ?: throw EnvironmentNotFoundException(id.tenantKey, id.key)
+        return id
+    }
+
+    private fun CatalogDeployment.toDto() = DeploymentDto(
+        catalogId = catalogKey.value,
+        releaseVersion = version,
+        deployedAt = deployedAt,
+    )
 }

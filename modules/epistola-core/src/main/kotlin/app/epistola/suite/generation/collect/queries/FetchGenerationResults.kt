@@ -103,7 +103,7 @@ class FetchGenerationResultsHandler(
                 )
                 SELECT r.sequence, r.partition, r.created_at, r.request_id, r.batch_id,
                        r.tenant_key, r.routing_key, r.status, r.document_id,
-                       r.correlation_id, r.template_id, r.variant_id, r.version_id,
+                       r.correlation_id, r.template_id, r.variant_id, r.version_id, r.release_version,
                        r.filename, r.content_type, r.size_bytes, r.error, r.completed_at
                 FROM generation_results r
                 JOIN cursors c ON r.partition = c.p

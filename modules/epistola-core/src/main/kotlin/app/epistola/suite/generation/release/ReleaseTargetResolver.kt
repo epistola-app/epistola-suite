@@ -15,6 +15,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.documents.NoReleaseDeployedException
+import app.epistola.suite.documents.ReleaseNotFoundException
 import app.epistola.suite.documents.TemplateNotInReleaseException
 import app.epistola.suite.templates.services.VariantCandidate
 import app.epistola.suite.templates.services.VariantResolver
@@ -41,6 +42,43 @@ class ReleaseTargetResolver(
     private val dependencyStore: ReleaseDependencyStore,
     private val variantResolver: VariantResolver,
 ) {
+
+    /**
+     * The release a request renders: the one it names, else the one its environment serves, else the
+     * catalog's latest. Naming both a release and an environment is refused by the request itself.
+     *
+     * @throws ReleaseNotFoundException when the named release does not exist or kept no content
+     * @throws NoReleaseDeployedException when the environment serves no release of the catalog
+     * @throws CatalogNotReleasedException when neither is given and the catalog was never released
+     */
+    fun resolve(
+        tenantKey: TenantKey,
+        catalogKey: CatalogKey,
+        templateKey: TemplateKey,
+        variantKey: VariantKey?,
+        criteria: VariantSelectionCriteria?,
+        environmentKey: EnvironmentKey?,
+        releaseVersion: String?,
+    ): ReleaseTarget = when {
+        releaseVersion != null -> resolveIn(tenantKey, ReleaseRef(catalogKey, namedRelease(tenantKey, catalogKey, releaseVersion)), templateKey, variantKey, criteria)
+        environmentKey != null -> resolveDeployed(tenantKey, environmentKey, catalogKey, templateKey, variantKey, criteria)
+        else -> resolveLatest(tenantKey, catalogKey, templateKey, variantKey, criteria)
+    }
+
+    /** [releaseVersion], when the catalog has that release and it kept its content. */
+    fun namedRelease(tenantKey: TenantKey, catalogKey: CatalogKey, releaseVersion: String): String {
+        val retained = jdbi.withHandle<Boolean?, Exception> { handle ->
+            handle.createQuery("SELECT content_retained FROM catalog_releases WHERE tenant_key = :t AND catalog_key = :c AND version = :v")
+                .bind("t", tenantKey)
+                .bind("c", catalogKey)
+                .bind("v", releaseVersion)
+                .mapTo(Boolean::class.java)
+                .findOne()
+                .orElse(null)
+        }
+        if (retained != true) throw ReleaseNotFoundException(tenantKey, catalogKey, releaseVersion)
+        return releaseVersion
+    }
 
     /**
      * @throws CatalogNotReleasedException when the catalog has no release that kept its content

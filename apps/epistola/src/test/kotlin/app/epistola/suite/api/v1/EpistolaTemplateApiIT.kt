@@ -18,10 +18,14 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.model.VersionStatus
+import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestcontainersConfiguration
@@ -85,13 +89,13 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED)
         val json = response.body!!
-        assertThat(JsonPath.read<String>(json, "$.id")).isEqualTo(slug)
+        assertThat(JsonPath.read<String>(json, "$.slug")).isEqualTo(slug)
         assertThat(JsonPath.read<String>(json, "$.name")).isEqualTo("Test Template")
         assertThat(JsonPath.read<String>(json, "$.tenantId")).isEqualTo(tenantKey.value)
         val variants: List<Any> = JsonPath.read(json, "$.variants")
         assertThat(variants).hasSize(1)
         assertThat(JsonPath.read<Boolean>(json, "$.variants[0].isDefault")).isTrue
-        assertThat(JsonPath.read<Boolean>(json, "$.variants[0].hasDraft")).isTrue
+        assertThat(JsonPath.read<String>(json, "$.variants[0].status")).`as`("a new template is in no release yet").isEqualTo("new")
         assertThat(JsonPath.read<String>(json, "$.createdAt")).isNotBlank
         assertThat(JsonPath.read<String>(json, "$.lastModified")).isNotBlank
     }
@@ -141,7 +145,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         )
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED)
-        assertThat(JsonPath.read<String>(response.body!!, "$.id")).isEqualTo(slug)
+        assertThat(JsonPath.read<String>(response.body!!, "$.slug")).isEqualTo(slug)
     }
 
     @Test
@@ -190,7 +194,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val json = response.body!!
-        val ids: List<String> = JsonPath.read(json, "$.items[*].id")
+        val ids: List<String> = JsonPath.read(json, "$.items[*].slug")
         assertThat(ids).contains(slug)
         val names: List<String> = JsonPath.read(json, "$.items[*].name")
         assertThat(names).contains("List Test")
@@ -217,7 +221,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val json = response.body!!
-        assertThat(JsonPath.read<String>(json, "$.id")).isEqualTo(slug)
+        assertThat(JsonPath.read<String>(json, "$.slug")).isEqualTo(slug)
         assertThat(JsonPath.read<String>(json, "$.name")).isEqualTo("Get Test")
         assertThat(JsonPath.read<String>(json, "$.tenantId")).isEqualTo(tenantKey.value)
     }
@@ -483,8 +487,10 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         )
         assertThat(rejected.statusCode).isEqualTo(HttpStatus.CONFLICT)
 
-        // A string name is valid under the published model. If the rejected draft (name:integer)
-        // had leaked, validate-data would mark it invalid.
+        // Validation checks the release generation would render. Marking the template ready and
+        // releasing would carry a leaked draft (name:integer) into that release, and a string name
+        // would then be invalid.
+        markReadyAndRelease(tenantKey, key, slug)
         val validate = restTemplate.exchange(
             "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/validate",
             HttpMethod.POST,
@@ -518,6 +524,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             ),
             String::class.java,
         )
+        markReadyAndRelease(tenantKey, key, slug)
 
         val validate = restTemplate.exchange(
             "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/validate",
@@ -640,7 +647,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             String::class.java,
         )
         assertThat(listResponse.statusCode).isEqualTo(HttpStatus.OK)
-        val ids: List<String> = JsonPath.read(listResponse.body!!, "$.items[*].id")
+        val ids: List<String> = JsonPath.read(listResponse.body!!, "$.items[*].slug")
         assertThat(ids).doesNotContain(slug)
 
         // Tenant B should not be able to get tenant A's template (using B's key on A's URL)
@@ -703,7 +710,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             String::class.java,
         )
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        val ids: List<String> = JsonPath.read(response.body!!, "$.items[*].id")
+        val ids: List<String> = JsonPath.read(response.body!!, "$.items[*].slug")
         assertThat(ids).containsExactly("beta-$suffix")
     }
 
@@ -737,7 +744,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             String::class.java,
         )
         assertThat(defaultList.statusCode).isEqualTo(HttpStatus.OK)
-        val defaultIds: List<String> = JsonPath.read(defaultList.body!!, "$.items[*].id")
+        val defaultIds: List<String> = JsonPath.read(defaultList.body!!, "$.items[*].slug")
         assertThat(defaultIds).contains(defaultSlug).doesNotContain(secondSlug)
 
         val secondList = restTemplate.exchange(
@@ -747,7 +754,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             String::class.java,
         )
         assertThat(secondList.statusCode).isEqualTo(HttpStatus.OK)
-        val secondIds: List<String> = JsonPath.read(secondList.body!!, "$.items[*].id")
+        val secondIds: List<String> = JsonPath.read(secondList.body!!, "$.items[*].slug")
         assertThat(secondIds).contains(secondSlug).doesNotContain(defaultSlug)
     }
 
@@ -767,7 +774,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             String::class.java,
         )
         assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
-        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].id")
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].slug")
 
         val templateModel = """
             {
@@ -794,7 +801,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             }
         """.trimIndent()
         val draftUrl =
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/draft"
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/content"
 
         val upsert = restTemplate.exchange(
             draftUrl,
@@ -831,101 +838,66 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `variant draft lifecycle endpoints create publish and discard drafts`() {
+    fun `a variant's working copy is new, then ready when marked, released when released, modified when edited`() {
         val (tenantKey, key) = seedTenantAndKey()
-        val slug = "draft-life-${randomSuffix()}"
+        val slug = "wc-life-${randomSuffix()}"
 
         val create = restTemplate.exchange(
             "/api/tenants/${tenantKey.value}/catalogs/default/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Draft Lifecycle"}""", baseHeaders(key)),
+            HttpEntity("""{"id": "$slug", "name": "Working Copy Lifecycle"}""", baseHeaders(key)),
             String::class.java,
         )
         assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
-        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].id")
-        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/draft"
-
-        val contractUpdate = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/contract/draft",
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].slug")
+        val contentUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/content"
+        restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
             HttpMethod.PATCH,
-            HttpEntity(
-                """{"dataExamples":[{"id":"ex1","name":"Example 1","data":{}}]}""",
-                baseHeaders(key),
-            ),
+            HttpEntity("""{"dataExamples":[{"id":"ex1","name":"Example 1","data":{}}]}""", baseHeaders(key)),
             String::class.java,
         )
-        assertThat(contractUpdate.statusCode).isEqualTo(HttpStatus.OK)
+        fun status(): String = JsonPath.read(
+            restTemplate.exchange(contentUrl, HttpMethod.GET, HttpEntity<String>(null, baseHeaders(key)), String::class.java).body!!,
+            "$.status",
+        )
 
-        val publish = restTemplate.exchange(
-            "$draftUrl/publish",
+        assertThat(status()).`as`("never released, never marked ready").isEqualTo("new")
+
+        val ready = restTemplate.exchange(
+            contentUrl.removeSuffix("/content") + "/mark-ready",
             HttpMethod.POST,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
         )
-        assertThat(publish.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(publish.body!!, "$.status")).isEqualTo("published")
+        assertThat(ready.statusCode).`as`(ready.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(ready.body!!, "$.status")).isEqualTo("ready")
 
-        val createDraft = restTemplate.exchange(
-            draftUrl,
+        val release = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/release",
             HttpMethod.POST,
-            HttpEntity<String>(null, baseHeaders(key)),
+            HttpEntity("""{"releaseVersion": "1.0.0"}""", baseHeaders(key)),
             String::class.java,
         )
-        assertThat(createDraft.statusCode).isEqualTo(HttpStatus.CREATED)
-        assertThat(JsonPath.read<String>(createDraft.body!!, "$.status")).isEqualTo("draft")
+        assertThat(release.statusCode).`as`(release.body).isEqualTo(HttpStatus.OK)
+        assertThat(status()).isEqualTo("released")
 
-        val discard = restTemplate.exchange(
-            "$draftUrl/discard",
-            HttpMethod.POST,
-            HttpEntity<String>(null, baseHeaders(key)),
+        val edit = restTemplate.exchange(
+            contentUrl,
+            HttpMethod.PUT,
+            HttpEntity("""{"templateModel": ${validTemplateModel("body", "edited")}}""", baseHeaders(key)),
             String::class.java,
         )
-        assertThat(discard.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+        assertThat(edit.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(edit.body!!, "$.status")).isEqualTo("modified")
 
-        val getDraft = restTemplate.exchange(
-            draftUrl,
+        val variant = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
         )
-        assertThat(getDraft.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
-    }
-
-    @Test
-    fun `discarding a never-published draft returns conflict problem`() {
-        val (tenantKey, key) = seedTenantAndKey()
-        val slug = "discard-fresh-${randomSuffix()}"
-
-        val create = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
-            HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Fresh Draft"}""", baseHeaders(key)),
-            String::class.java,
-        )
-        assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
-        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].id")
-        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/draft"
-
-        val discard = restTemplate.exchange(
-            "$draftUrl/discard",
-            HttpMethod.POST,
-            HttpEntity<String>(null, baseHeaders(key)),
-            String::class.java,
-        )
-
-        assertThat(discard.statusCode).isEqualTo(HttpStatus.CONFLICT)
-        assertThat(discard.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
-        assertThat(JsonPath.read<String>(discard.body!!, "$.type"))
-            .isEqualTo("https://epistola.app/errors/draft-has-no-published-base")
-        assertThat(JsonPath.read<String>(discard.body!!, "$.variantId")).isEqualTo(variantId)
-
-        val getDraft = restTemplate.exchange(
-            draftUrl,
-            HttpMethod.GET,
-            HttpEntity<String>(null, baseHeaders(key)),
-            String::class.java,
-        )
-        assertThat(getDraft.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(variant.body!!, "$.status")).`as`("the variant reports the same status").isEqualTo("modified")
     }
 
     @Test
@@ -940,8 +912,8 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             String::class.java,
         )
         assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
-        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].id")
-        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/draft"
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].slug")
+        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/content"
 
         val validModel = """
             {
@@ -1037,8 +1009,8 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             String::class.java,
         )
         assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
-        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].id")
-        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/draft"
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].slug")
+        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/content"
 
         val valid = restTemplate.exchange(
             draftUrl,
@@ -1110,8 +1082,8 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             String::class.java,
         )
         assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
-        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].id")
-        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/draft"
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].slug")
+        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/content"
 
         val model = """
             {
@@ -1141,7 +1113,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `concurrent draft lifecycle operations do not return server errors or duplicate drafts`() {
+    fun `concurrent working-copy operations do not return server errors or duplicate drafts`() {
         val (tenantKey, key) = seedTenantAndKey()
         val slug = "race-${randomSuffix()}"
 
@@ -1152,8 +1124,8 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             String::class.java,
         )
         assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
-        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].id")
-        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/draft"
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].slug")
+        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/content"
 
         val executor = java.util.concurrent.Executors.newFixedThreadPool(6)
         val start = java.util.concurrent.CountDownLatch(1)
@@ -1171,14 +1143,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
                             )
 
                             1 -> restTemplate.exchange(
-                                "$draftUrl/publish",
-                                HttpMethod.POST,
-                                HttpEntity<String>(null, baseHeaders(key)),
-                                String::class.java,
-                            )
-
-                            2 -> restTemplate.exchange(
-                                "$draftUrl/discard",
+                                draftUrl.removeSuffix("/content") + "/mark-ready",
                                 HttpMethod.POST,
                                 HttpEntity<String>(null, baseHeaders(key)),
                                 String::class.java,
@@ -1186,7 +1151,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
 
                             else -> restTemplate.exchange(
                                 draftUrl,
-                                HttpMethod.POST,
+                                HttpMethod.GET,
                                 HttpEntity<String>(null, baseHeaders(key)),
                                 String::class.java,
                             )
@@ -1212,71 +1177,11 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             executor.shutdownNow()
         }
 
-        val versions = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/versions",
-            HttpMethod.GET,
-            HttpEntity<String>(null, baseHeaders(key)),
-            String::class.java,
-        )
-        assertThat(versions.statusCode).isEqualTo(HttpStatus.OK)
-        val statuses: List<String> = JsonPath.read(versions.body!!, "$.items[*].status")
-        assertThat(statuses.count { it == "draft" }).isLessThanOrEqualTo(1)
-        assertThat(statuses).anySatisfy { assertThat(it).isIn("draft", "published") }
-    }
-
-    @Test
-    fun `contract draft lifecycle endpoints update list and publish`() {
-        val (tenantKey, key) = seedTenantAndKey()
-        val slug = "contract-life-${randomSuffix()}"
-        restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
-            HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Contract Lifecycle"}""", baseHeaders(key)),
-            String::class.java,
-        )
-        val contractDraftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/contract/draft"
-
-        val createDraft = restTemplate.exchange(
-            contractDraftUrl,
-            HttpMethod.POST,
-            HttpEntity<String>(null, baseHeaders(key)),
-            String::class.java,
-        )
-        assertThat(createDraft.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(createDraft.body!!, "$.status")).isEqualTo("draft")
-
-        val dataModel = """{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}"""
-        val updateDraft = restTemplate.exchange(
-            contractDraftUrl,
-            HttpMethod.PATCH,
-            HttpEntity(
-                """{"dataModel": $dataModel, "dataExamples": [{"id":"ex1","name":"Example 1","data":{"name":"Ada"}}]}""",
-                baseHeaders(key),
-            ),
-            String::class.java,
-        )
-        assertThat(updateDraft.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<Boolean>(updateDraft.body!!, "$.success")).isTrue
-        assertThat(JsonPath.read<String>(updateDraft.body!!, "$.status")).isEqualTo("draft")
-
-        val versions = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/contract/versions",
-            HttpMethod.GET,
-            HttpEntity<String>(null, baseHeaders(key)),
-            String::class.java,
-        )
-        assertThat(versions.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<List<String>>(versions.body!!, "$.items[*].status")).contains("draft")
-
-        val publish = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/contract/publish",
-            HttpMethod.POST,
-            HttpEntity("""{"confirmed": true}""", baseHeaders(key)),
-            String::class.java,
-        )
-        assertThat(publish.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<Boolean>(publish.body!!, "$.published")).isTrue
-        assertThat(JsonPath.read<Boolean>(publish.body!!, "$.compatible")).isTrue
+        // Concurrent edits and marks never leave two drafts behind one working copy.
+        val statuses = withMediator {
+            ListVersions(variantId = VariantId(VariantKey.of(variantId), TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenantKey))))).query()
+        }.map { it.status }
+        assertThat(statuses.count { it == VersionStatus.DRAFT }).isLessThanOrEqualTo(1)
     }
 
     /**
@@ -1576,7 +1481,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             String::class.java,
         )
         // Pure creation order — differs from both name-asc and id-asc above.
-        assertThat(JsonPath.read<List<String>>(byCreated.body!!, "$.items[*].id"))
+        assertThat(JsonPath.read<List<String>>(byCreated.body!!, "$.items[*].slug"))
             .containsExactly("c-mango-$suffix", "a-apple-$suffix", "b-zebra-$suffix")
 
         val byUpdated = restTemplate.exchange(
@@ -1587,7 +1492,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         )
         // 'apple' was updated most recently, so ascending updated_at puts it last —
         // an order created_at could never produce, proving the two columns are distinct.
-        assertThat(JsonPath.read<List<String>>(byUpdated.body!!, "$.items[*].id"))
+        assertThat(JsonPath.read<List<String>>(byUpdated.body!!, "$.items[*].slug"))
             .containsExactly("c-mango-$suffix", "b-zebra-$suffix", "a-apple-$suffix")
     }
 
@@ -1614,7 +1519,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
                 HttpEntity<String>(null, baseHeaders(key)),
                 String::class.java,
             )
-            JsonPath.read<List<String>>(resp.body!!, "$.items[*].id")
+            JsonPath.read<List<String>>(resp.body!!, "$.items[*].slug")
         }
 
         // Every id appears exactly once, in the id-ascending order the tiebreaker guarantees.
@@ -1655,7 +1560,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         )
         assertThat(resp.statusCode).isEqualTo(HttpStatus.OK)
         // Newest-updated first: 'first' (just patched), then third, then second.
-        assertThat(JsonPath.read<List<String>>(resp.body!!, "$.items[*].id"))
+        assertThat(JsonPath.read<List<String>>(resp.body!!, "$.items[*].slug"))
             .containsExactly("first-$suffix", "third-$suffix", "second-$suffix")
     }
 
@@ -1716,6 +1621,24 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     }
 
     private fun randomSuffix(): String = UUID.randomUUID().toString().take(8)
+
+    /** Marks the template ready and releases the default catalog: what generation and validation read. */
+    private fun markReadyAndRelease(tenantKey: TenantKey, key: String, slug: String, version: String = "1.0.0") {
+        val ready = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/mark-ready",
+            HttpMethod.POST,
+            HttpEntity<Void>(baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(ready.statusCode).`as`(ready.body).isEqualTo(HttpStatus.OK)
+        val released = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/release",
+            HttpMethod.POST,
+            HttpEntity("""{"releaseVersion": "$version"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(released.statusCode).`as`(released.body).isEqualTo(HttpStatus.OK)
+    }
 
     private fun validTemplateModel(nodeId: String, text: String): String = """
         {

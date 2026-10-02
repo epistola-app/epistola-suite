@@ -14,7 +14,6 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.documents.NoPublishedVersionException
@@ -22,7 +21,6 @@ import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
-import app.epistola.suite.documents.versionGenerationRemoved
 import app.epistola.suite.generation.release.ReleaseTargetResolver
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -47,9 +45,9 @@ import tools.jackson.databind.node.ObjectNode
  * @property templateId Template to use for generation
  * @property variantId Explicit variant ID (mutually exclusive with variantSelectionCriteria)
  * @property variantSelectionCriteria Attribute criteria for auto-selecting a variant (mutually exclusive with variantId)
- * @property versionId Explicit version ID (mutually exclusive with environmentId)
- * @property environmentId Environment to determine version from (mutually exclusive with versionId).
- *   If neither versionId nor environmentId is provided, the latest published version is used.
+ * @property releaseVersion Release of the catalog to render (mutually exclusive with environmentId)
+ * @property environmentId Environment whose deployed release is rendered (mutually exclusive with
+ *   releaseVersion). With neither, the catalog's latest release is rendered.
  * @property data JSON data to populate the template
  * @property filename Optional filename for the generated document
  * @property correlationId Client-provided ID for tracking documents across systems
@@ -60,7 +58,7 @@ data class GenerateDocument(
     val templateId: TemplateKey,
     val variantId: VariantKey? = null,
     val variantSelectionCriteria: VariantSelectionCriteria? = null,
-    val versionId: VersionKey? = null,
+    val releaseVersion: String? = null,
     val environmentId: EnvironmentKey? = null,
     val data: ObjectNode,
     val filename: String?,
@@ -77,8 +75,8 @@ data class GenerateDocument(
         require(variantId == null || variantSelectionCriteria == null) {
             "Cannot specify both variantId and variantSelectionCriteria"
         }
-        require(!(versionId != null && environmentId != null)) {
-            "Cannot specify both versionId and environmentId"
+        require(!(releaseVersion != null && environmentId != null)) {
+            "Cannot specify both releaseVersion and environmentId"
         }
     }
 }
@@ -92,30 +90,19 @@ class GenerateDocumentHandler(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: GenerateDocument): DocumentGenerationRequest {
-        if (command.versionId != null) throw versionGenerationRemoved()
-
-        // Every request renders a release: the one its environment serves for the catalog, or,
-        // without an environment, the catalog's latest. The variant is chosen from the variants that
+        // Every request renders a release: the one it names, the one its environment serves for the
+        // catalog, or the catalog's latest. The variant is chosen from the variants that
         // release holds. Bound now, at acceptance: a release cut or deployed while the request waits
         // in the queue does not change what it renders.
-        val target = if (command.environmentId != null) {
-            releaseTargetResolver.resolveDeployed(
-                command.tenantId,
-                command.environmentId,
-                command.catalogKey,
-                command.templateId,
-                command.variantId,
-                command.variantSelectionCriteria,
-            )
-        } else {
-            releaseTargetResolver.resolveLatest(
-                command.tenantId,
-                command.catalogKey,
-                command.templateId,
-                command.variantId,
-                command.variantSelectionCriteria,
-            )
-        }
+        val target = releaseTargetResolver.resolve(
+            command.tenantId,
+            command.catalogKey,
+            command.templateId,
+            command.variantId,
+            command.variantSelectionCriteria,
+            command.environmentId,
+            command.releaseVersion,
+        )
 
         logger.info("Generating single document for tenant {} template {} variant {} from {}@{}", command.tenantId, command.templateId, target.variantKey, command.catalogKey, target.release.version)
 

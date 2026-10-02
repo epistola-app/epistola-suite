@@ -73,17 +73,17 @@ class EmitGenerationResultHandler(
                 """
                 INSERT INTO generation_results (
                     partition, request_id, batch_id, tenant_key, routing_key, status,
-                    document_id, correlation_id, template_id, variant_id, version_id,
+                    document_id, correlation_id, template_id, variant_id, version_id, release_version,
                     filename, content_type, size_bytes, error, completed_at
                 )
                 VALUES (
                     :partition, :requestId, :batchId, :tenantKey, :routingKey, :status,
-                    :documentId, :correlationId, :templateId, :variantId, :versionId,
+                    :documentId, :correlationId, :templateId, :variantId, :versionId, :releaseVersion,
                     :filename, :contentType, :sizeBytes, :error, :completedAt
                 )
                 RETURNING sequence, partition, created_at, request_id, batch_id, tenant_key,
                           routing_key, status, document_id, correlation_id, template_id,
-                          variant_id, version_id, filename, content_type, size_bytes,
+                          variant_id, version_id, release_version, filename, content_type, size_bytes,
                           error, completed_at
                 """,
             )
@@ -98,6 +98,7 @@ class EmitGenerationResultHandler(
                 .bind("templateId", req.templateKey)
                 .bind("variantId", req.variantKey)
                 .bind("versionId", req.versionKey)
+                .bind("releaseVersion", req.releaseVersion)
                 .bind("filename", req.filename)
                 .bind("contentType", command.contentType)
                 .bind("sizeBytes", command.sizeBytes)

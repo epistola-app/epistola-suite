@@ -4,97 +4,62 @@
 
 package app.epistola.suite.api.v1.shared
 
+import app.epistola.api.model.ResourceStatus
+import app.epistola.api.model.StencilContentDto
 import app.epistola.api.model.StencilDto
 import app.epistola.api.model.StencilSummaryDto
 import app.epistola.api.model.StencilUsageDto
-import app.epistola.api.model.StencilVersionDto
-import app.epistola.api.model.StencilVersionSummaryDto
 import app.epistola.suite.stencils.Stencil
 import app.epistola.suite.stencils.StencilSummaryWithVersionInfo
-import app.epistola.suite.stencils.model.StencilUsage
 import app.epistola.suite.stencils.model.StencilVersion
-import app.epistola.suite.stencils.model.StencilVersionStatus
-import app.epistola.suite.stencils.model.StencilVersionSummary
+import app.epistola.suite.stencils.queries.StencilInstance
 import tools.jackson.databind.node.ObjectNode
 
-internal fun Stencil.toDto(versions: List<StencilVersionSummary>) = StencilDto(
+internal fun Stencil.toDto(status: ResourceStatus) = StencilDto(
     slug = id.value,
-    id = id.value,
     tenantId = tenantKey.value,
     name = name,
     description = description,
     tags = tags.ifEmpty { null },
-    versions = versions.map { it.toDto() },
+    status = status,
     createdAt = createdAt,
     lastModified = updatedAt,
 )
 
-internal fun Stencil.toSummaryDto(latestPublishedVersion: Int?) = StencilSummaryDto(
+internal fun Stencil.toSummaryDto(status: ResourceStatus) = StencilSummaryDto(
     slug = id.value,
-    id = id.value,
     tenantId = tenantKey.value,
     name = name,
     description = description,
     tags = tags.ifEmpty { null },
-    latestPublishedVersion = latestPublishedVersion,
+    status = status,
     createdAt = createdAt,
     lastModified = updatedAt,
 )
 
-internal fun StencilSummaryWithVersionInfo.toSummaryDto() = StencilSummaryDto(
+internal fun StencilSummaryWithVersionInfo.toSummaryDto(status: ResourceStatus) = StencilSummaryDto(
     slug = id.value,
-    id = id.value,
     tenantId = tenantKey.value,
     name = name,
     description = description,
     tags = tags.ifEmpty { null },
-    latestPublishedVersion = latestPublishedVersion,
+    status = status,
     createdAt = createdAt,
     lastModified = updatedAt,
 )
 
-internal fun StencilVersion.toDto() = StencilVersionDto(
-    id = id.value,
+internal fun StencilVersion.toContentDto(status: ResourceStatus) = StencilContentDto(
     stencilId = stencilKey.value,
-    status = status.toApiStatus(),
     content = content,
     parameterSchema = parameterSchema as? ObjectNode,
-    createdAt = createdAt,
-    publishedAt = publishedAt,
-    archivedAt = archivedAt,
+    status = status,
+    lastModified = publishedAt ?: createdAt,
+    readyAt = if (status == ResourceStatus.READY) publishedAt else null,
 )
 
-internal fun StencilVersionSummary.toDto() = StencilVersionSummaryDto(
-    id = id.value,
-    status = status.toApiSummaryStatus(),
-    createdAt = createdAt,
-    publishedAt = publishedAt,
-    archivedAt = archivedAt,
-)
-
-internal fun StencilUsage.toDto() = StencilUsageDto(
-    templateId = templateId.value,
+internal fun StencilInstance.toUsageDto() = StencilUsageDto(
+    templateId = templateKey.value,
     templateName = templateName,
-    variantId = variantId.value,
-    versionId = versionId.value,
-    stencilVersion = stencilVersion,
+    variantId = variantKey.value,
+    heldBack = heldBack,
 )
-
-internal fun StencilVersionStatus.toApiStatus() = when (this) {
-    StencilVersionStatus.DRAFT -> StencilVersionDto.Status.DRAFT
-    StencilVersionStatus.PUBLISHED -> StencilVersionDto.Status.PUBLISHED
-    StencilVersionStatus.ARCHIVED -> StencilVersionDto.Status.ARCHIVED
-}
-
-internal fun StencilVersionStatus.toApiSummaryStatus() = when (this) {
-    StencilVersionStatus.DRAFT -> StencilVersionSummaryDto.Status.DRAFT
-    StencilVersionStatus.PUBLISHED -> StencilVersionSummaryDto.Status.PUBLISHED
-    StencilVersionStatus.ARCHIVED -> StencilVersionSummaryDto.Status.ARCHIVED
-}
-
-internal fun String.toStencilVersionStatus() = when (this.lowercase()) {
-    "draft" -> StencilVersionStatus.DRAFT
-    "published" -> StencilVersionStatus.PUBLISHED
-    "archived" -> StencilVersionStatus.ARCHIVED
-    else -> null
-}

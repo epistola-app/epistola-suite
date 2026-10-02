@@ -30,8 +30,8 @@ data class ReleasePreview(
 )
 
 /**
- * Resolves what a preview, or the analysis of preview data, renders: the release the environment
- * serves, or the catalog's latest, exactly as generation would choose it.
+ * Resolves what a preview, or the analysis of preview data, renders: the release it names, the one the
+ * environment serves, or the catalog's latest, exactly as generation would choose it.
  *
  * Shared by [app.epistola.suite.documents.queries.PreviewDocument] and
  * [app.epistola.suite.documents.queries.AnalyzeTemplateData], so the analysis is always about the
@@ -52,13 +52,10 @@ class ReleasePreviewResolver(
         variantKey: VariantKey?,
         criteria: VariantSelectionCriteria?,
         environmentKey: EnvironmentKey?,
+        releaseVersion: String? = null,
     ): ReleasePreview {
         val tenant = mediator.query(GetTenant(id = tenantKey)) ?: throw TenantNotFoundException(tenantKey)
-        val target = if (environmentKey != null) {
-            targetResolver.resolveDeployed(tenantKey, environmentKey, catalogKey, templateKey, variantKey, criteria)
-        } else {
-            targetResolver.resolveLatest(tenantKey, catalogKey, templateKey, variantKey, criteria)
-        }
+        val target = targetResolver.resolve(tenantKey, catalogKey, templateKey, variantKey, criteria, environmentKey, releaseVersion)
         val inputs = renderSource.resolve(tenant, target.release, templateKey.value, target.variantKey.value)
         val requested = if (data.isEmpty) inputs.firstDataExample ?: data else data
         val effective = inputs.dataModel?.let { schemaValidator.applyDefaults(it, requested) } ?: requested

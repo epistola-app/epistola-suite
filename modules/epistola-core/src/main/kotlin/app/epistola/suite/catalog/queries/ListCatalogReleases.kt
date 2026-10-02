@@ -29,6 +29,10 @@ import java.time.OffsetDateTime
 data class ListCatalogReleases(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
+    /** Releases to skip, newest first; with [limit], pages the history in the database. */
+    val offset: Int = 0,
+    /** At most this many releases; null for all of them. */
+    val limit: Int? = null,
 ) : Query<List<CatalogReleaseSummary>>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW
@@ -63,10 +67,13 @@ class ListCatalogReleasesHandler(
             FROM catalog_releases r
             WHERE r.tenant_key = :t AND r.catalog_key = :c
             $LATEST_RELEASE_ORDER
+            LIMIT :limit OFFSET :offset
             """,
         )
             .bind("t", query.tenantKey)
             .bind("c", query.catalogKey)
+            .bind("limit", query.limit)
+            .bind("offset", query.offset)
             .map { rs, _ ->
                 val retained = rs.getBoolean("content_retained")
                 val count = rs.getInt("resource_count")
@@ -82,5 +89,27 @@ class ListCatalogReleasesHandler(
                 )
             }
             .list()
+    }
+}
+
+/** How many releases a catalog has, to page [ListCatalogReleases]. */
+data class CountCatalogReleases(
+    override val tenantKey: TenantKey,
+    val catalogKey: CatalogKey,
+) : Query<Long>,
+    RequiresPermission {
+    override val permission get() = Permission.CATALOG_VIEW
+}
+
+@Component
+class CountCatalogReleasesHandler(
+    private val jdbi: Jdbi,
+) : QueryHandler<CountCatalogReleases, Long> {
+    override fun handle(query: CountCatalogReleases): Long = jdbi.withHandle<Long, Exception> { handle ->
+        handle.createQuery("SELECT count(*) FROM catalog_releases WHERE tenant_key = :t AND catalog_key = :c")
+            .bind("t", query.tenantKey)
+            .bind("c", query.catalogKey)
+            .mapTo(Long::class.java)
+            .one()
     }
 }
