@@ -47,7 +47,7 @@ jobs:
           fi
 
       - name: Setup tools with mise
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5
 
       - name: Get pnpm store directory
         shell: bash
@@ -117,7 +117,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Setup tools with mise
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5
 
       - name: Get pnpm store directory
         shell: bash
@@ -169,7 +169,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Setup tools with mise
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5
 
       - name: Get pnpm store directory
         shell: bash
@@ -305,7 +305,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup tools with mise
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5
 
       - name: Get pnpm store directory
         shell: bash
@@ -391,7 +391,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup tools with mise
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5
 
       - name: Get pnpm store directory
         shell: bash
@@ -631,7 +631,7 @@ jobs:
 
       - name: Setup tools with mise
         if: ${{ matrix.enabled }}
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5
 
       - name: Get pnpm store directory
         if: ${{ matrix.enabled }}
