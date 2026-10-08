@@ -70,7 +70,7 @@ jobs:
         run: pnpm build
 
       - name: Setup Gradle cache
-        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
 
       # One invocation, not two: the configuration cache is never reused on CI, so
       # every extra `gradle` call pays the full configuration phase again.
@@ -190,7 +190,7 @@ jobs:
         run: pnpm build
 
       - name: Setup Gradle cache
-        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
         with:
           cache-read-only: true
 
@@ -227,7 +227,7 @@ jobs:
         run: pnpm vulnerabilities:export-vex
 
       - name: Scan backend SBOM for vulnerabilities
-        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
+        uses: aquasecurity/trivy-action@c03d123cb480c08c69b054af418ea5e69fe6e57e # master
         env:
           TRIVY_VEX: build/vex/epistola.openvex.json
         with:
@@ -239,7 +239,7 @@ jobs:
           output: "backend-vulnerability-report.txt"
 
       - name: Scan frontend SBOM for vulnerabilities
-        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
+        uses: aquasecurity/trivy-action@c03d123cb480c08c69b054af418ea5e69fe6e57e # master
         env:
           TRIVY_VEX: build/vex/epistola.openvex.json
         with:
@@ -326,7 +326,7 @@ jobs:
         run: pnpm build
 
       - name: Setup Gradle cache
-        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
         with:
           cache-read-only: true
 
@@ -412,7 +412,7 @@ jobs:
         run: pnpm build
 
       - name: Setup Gradle cache
-        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
         with:
           cache-read-only: true
 
@@ -657,7 +657,7 @@ jobs:
 
       - name: Setup Gradle cache
         if: ${{ matrix.enabled }}
-        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
 
       - name: Log in to Container Registry
         if: ${{ matrix.enabled }}
