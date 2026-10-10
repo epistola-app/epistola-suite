@@ -56,7 +56,7 @@ dependencies {
     testImplementation(project(":modules:epistola-quality"))
     // DemoSectionedLetterIntegrationTest reads the rendered pages of the demo's sectioned letter;
     // same iText as modules:generation renders with.
-    testImplementation("com.itextpdf:kernel:9.7.1")
+    testImplementation("com.itextpdf:kernel:9.8.0")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.springframework.boot:spring-boot-resttestclient")
