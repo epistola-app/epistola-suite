@@ -124,8 +124,8 @@ autoscaling:
     # Heap retention makes memory a poor scale-down signal for JVM generation
     # workloads. Enable only after observing your own steady-state memory use.
     targetMemoryUtilizationPercentage: 0
-    # HPA scaling behavior (autoscaling/v2 `behavior`). A stopping pod gives
-    # in-flight renders only seconds to finish, then aborts and re-queues the rest
+    # HPA scaling behavior (autoscaling/v2 `behavior`). A stopping pod lets
+    # in-flight renders finish for up to the drain timeout, then re-queues the rest
     # (rendered again elsewhere; see docs/deployment.md "Pod shutdown"), so the
     # default scales in calmly: a 5-minute stabilisation window, then at most one
     # pod every 3 minutes. Scale-up keeps the Kubernetes defaults. Set `null` to use
@@ -180,6 +180,14 @@ volumeMounts:
 nodeSelector: {}
 
 tolerations: []
+
+# Seconds Kubernetes waits after SIGTERM before killing a pod. The application
+# needs it for a graceful stop: the web server finishes in-flight requests, then
+# running renders get up to epistola.generation.polling.shutdown-drain-timeout
+# (default 20s) before the rest are released back to the queue. Keep it above
+# that sum; a pod killed earlier holds its unfinished documents until stale-job
+# recovery frees them (10 minutes by default). See docs/deployment.md.
+terminationGracePeriodSeconds: 60
 
 # Spread application pods across nodes so one node failure or drain does not
 # take every replica at once. `soft` (default) prefers separate nodes but still

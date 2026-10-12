@@ -25,6 +25,8 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
+import org.springframework.context.event.ContextClosedEvent
+import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.net.InetAddress
 import java.time.Duration
@@ -150,13 +152,27 @@ class JobPoller(
         }
     }
 
+    /**
+     * Stops claiming the moment the application context starts closing (on `SIGTERM` in
+     * Kubernetes). Spring publishes [ContextClosedEvent] before it stops the web server
+     * gracefully and long before [shutdown] runs, so without this the poller would keep taking
+     * work it is about to abandon. In-flight renders keep running.
+     */
+    @EventListener(ContextClosedEvent::class)
+    fun onContextClosed() {
+        if (shuttingDown.compareAndSet(false, true)) {
+            logger.info("Shutdown started: no new generation jobs are claimed (active jobs: {})", activeJobs.get())
+        }
+    }
+
     @PreDestroy
     fun shutdown() {
         logger.info("Job poller shutting down... (active jobs: {})", activeJobs.get())
         shuttingDown.set(true)
 
-        // Wait briefly for in-flight jobs to finish
-        awaitIdle(Duration.ofSeconds(5))
+        // Let in-flight renders finish; whatever outlasts the drain timeout is interrupted and
+        // released back to PENDING below, to be rendered again on another instance.
+        awaitIdle(properties.shutdownDrainTimeout)
 
         drainExecutor.shutdownNow()
         jobThreadExecutor.shutdownNow()
@@ -257,8 +273,9 @@ class JobPoller(
             // Update pending count for metrics (lightweight query, piggybacks on poll cycle)
             updatePendingCount()
 
-            // Keep claiming until at capacity or no more work
+            // Keep claiming until at capacity, no more work, or shutdown has started
             while (true) {
+                if (shuttingDown.get()) break
                 val effectiveLimit = admissionController.effectiveLimit()
                 val availableSlots = effectiveLimit - activeJobs.get()
                 if (availableSlots <= 0) break
@@ -377,10 +394,17 @@ class JobPoller(
             jobExecutor.execute(request)
             jobsCompletedCounter.increment()
         } catch (e: Exception) {
-            outcome = "failure"
-            logger.error("Job execution failed for request {}: {}", request.id.value, e.message, e)
-            jobsFailedCounter.increment()
-            markRequestFailed(request.id, e.message)
+            if (shuttingDown.get() && isInterruption(e)) {
+                // Interrupted by shutdown, not a render failure: leave the row alone so
+                // releaseOwnInProgressClaims returns it to PENDING for another instance.
+                outcome = "interrupted"
+                logger.info("Job {} interrupted by shutdown; its claim is released to PENDING", request.id.value)
+            } else {
+                outcome = "failure"
+                logger.error("Job execution failed for request {}: {}", request.id.value, e.message, e)
+                jobsFailedCounter.increment()
+                markRequestFailed(request.id, e.message)
+            }
         }
         val durationMs = sample.stop(
             Timer.builder("epistola.jobs.duration").tag("outcome", outcome).register(meterRegistry),
@@ -388,6 +412,9 @@ class JobPoller(
         batchSizer.recordJobCompletion(durationMs)
         logger.info("Job completed: {} in {}ms (outcome={})", request.id.value, durationMs, outcome)
     }
+
+    private fun isInterruption(e: Exception): Boolean = Thread.currentThread().isInterrupted ||
+        generateSequence<Throwable>(e) { it.cause }.any { it is InterruptedException }
 
     /**
      * Records how long [request] waited in PENDING before this node claimed it

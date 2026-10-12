@@ -42,8 +42,8 @@
   `minReplicas`, `maxReplicas`, `targetCPUUtilizationPercentage` and
   `targetMemoryUtilizationPercentage` configure the HorizontalPodAutoscaler, alongside
   `autoscaling.vpa` for the VPA. The values schema validates both blocks.
-- **`autoscaling.hpa.behavior` — calm scale-down by default.** A stopping pod gives
-  in-flight renders only a few seconds to finish, then aborts and re-queues the rest, so the HPA now waits five
+- **`autoscaling.hpa.behavior` — calm scale-down by default.** A stopping pod drains its
+  in-flight renders before re-queuing the rest, which slows each stop and repeats long renders, so the HPA now waits five
   minutes after load drops and then removes at most one pod every three minutes. Scale-up keeps
   the Kubernetes defaults. Set `autoscaling.hpa.behavior: null` for the Kubernetes defaults in
   both directions.
@@ -60,6 +60,13 @@
   `autoscaling.vpa.controlledResources` or keep it in `Off`. The cluster must already provide the
   VPA CRD and components. VPA-controller behavior is not yet runtime-tested by Epistola; see
   `docs/deployment.md` for the recommended production setup and the staged rollout.
+
+- **`terminationGracePeriodSeconds` — room for a graceful stop (default `60`).** The application
+  now drains in-flight renders on shutdown for up to
+  `epistola.generation.polling.shutdown-drain-timeout` (default 20 s) before re-queuing the rest,
+  after the web server has finished its requests. The Kubernetes default of 30 s could cut that
+  short, leaving unfinished documents held until stale-job recovery (10 min). Keep the value above
+  web drain + render drain; raise both together. See `docs/deployment.md` → "Pod shutdown".
 
 - **`podDisruptionBudget` — keep a pod running through voluntary disruptions.** Off by default.
   When enabled, renders a `policy/v1` PodDisruptionBudget (`minAvailable: 1` by default, or

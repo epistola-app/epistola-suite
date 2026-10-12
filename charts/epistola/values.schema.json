@@ -153,6 +153,11 @@
         }
       }
     },
+    "terminationGracePeriodSeconds": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Seconds between SIGTERM and SIGKILL. Must exceed the web server's graceful shutdown plus epistola.generation.polling.shutdown-drain-timeout."
+    },
     "podAntiAffinity": {
       "description": "Spread application pods across nodes: soft (prefer), hard (require), or none. Ignored when affinity is set.",
       "enum": ["soft", "hard", "none"]

@@ -95,3 +95,10 @@ fi
 if render --set podAntiAffinity=sometimes >/dev/null 2>&1; then
   fail 'Schema must reject an unknown podAntiAffinity'
 fi
+
+# --- Termination grace period --------------------------------------------------
+
+grep -Fq 'terminationGracePeriodSeconds: 60' <<<"$(deployment)" \
+  || fail 'Deployment must default terminationGracePeriodSeconds to 60 (room for the render drain)'
+grep -Fq 'terminationGracePeriodSeconds: 120' <<<"$(deployment --set terminationGracePeriodSeconds=120)" \
+  || fail 'terminationGracePeriodSeconds must be configurable'

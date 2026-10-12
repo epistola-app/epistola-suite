@@ -49,8 +49,8 @@ expect_all 'enabled HPA render' "${enabled}" \
 if grep -Fq 'name: memory' <<<"${enabled}"; then
   fail 'Default HPA must not use retained JVM memory as a scaling metric'
 fi
-# Scale-down aborts renders still running after a short drain (they are
-# re-queued), so the default
+# Scale-down re-queues renders still running after the shutdown drain, so the
+# default
 # removes at most one pod per period after a stabilisation window.
 expect_all 'default HPA behavior' "${enabled}" \
   'behavior:' \
