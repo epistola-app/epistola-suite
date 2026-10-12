@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+    <div class="regular" th:with="o=${overview}">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Shared with Epistola',
+            pageDescription='What this installation shares with Epistola, and exactly what each daily check sends. Everything is shared by default; turn off what you do not want with epistola.sharing.* (Helm: sharing).'
+        )}"></div>
+
+        <p>
+            <a th:href="@{/}" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="sharing-back">&larr; Back to tenants</a>
+        </p>
+
+        <div class="alert alert-success" th:if="${param.checked}" data-testid="alert-success">
+            The enabled checks ran. Their results are below.
+        </div>
+
+        <section class="ep-panel form-section">
+            <h2>Settings</h2>
+            <table class="ep-table" data-testid="sharing-settings">
+                <tbody>
+                    <tr>
+                        <th scope="row">Installation id</th>
+                        <td><code th:text="${o.installationId}">0190…</code></td>
+                        <td><code>epistola.sharing.installation-id</code></td>
+                        <td th:text="${o.sharing.installationId} ? 'Shared' : 'Not shared'">Shared</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Suite version</th>
+                        <td><code th:text="${o.currentVersion}">1.4.0</code></td>
+                        <td><code>epistola.sharing.suite-version</code></td>
+                        <td th:text="${o.sharing.suiteVersion} ? 'Shared' : 'Not shared'">Shared</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Usage statistics</th>
+                        <td>Reserved: nothing is sent yet</td>
+                        <td><code>epistola.sharing.usage-statistics</code></td>
+                        <td th:text="${o.sharing.usageStatistics} ? 'Allowed' : 'Not allowed'">Allowed</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Version check</th>
+                        <td>Releases and security advisories; sends nothing that identifies this installation</td>
+                        <td><code>epistola.version-check.enabled</code></td>
+                        <td th:text="${o.versionCheckEnabled} ? 'On' : 'Off'">On</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p class="text-muted">
+                Never shared: hostnames, tenant names or ids, users, document or template contents, configuration.
+                The address your requests come from is visible to Epistola; it is used only to look up the country and is
+                not stored.
+            </p>
+        </section>
+
+        <section class="ep-panel form-section">
+            <h2>Support badge</h2>
+            <p>
+                Shown in the footer of every page; it cannot be hidden. Currently:
+                <a th:href="${o.badge.href}" target="_blank" rel="noopener noreferrer" th:text="${o.badge.text}"
+                   data-testid="sharing-badge">Support could not be checked</a>
+            </p>
+        </section>
+
+        <section class="ep-panel form-section">
+            <h2>Version check</h2>
+            <th:block th:if="${o.versionCheckEnabled}">
+                <p>Sends, once a day:</p>
+                <pre data-testid="sharing-version-request" th:text="${o.versionCheckRequest}">GET …</pre>
+                <p class="text-muted"
+                   th:text="${o.versionCheckLastRun != null} ? 'Last run: ' + ${o.versionCheckLastRun} + (${o.versionCheckLastError != null} ? ' (failed: ' + ${o.versionCheckLastError} + ')' : '') : 'Not run yet.'">
+                    Not run yet.
+                </p>
+            </th:block>
+            <p th:unless="${o.versionCheckEnabled}">Off: no release or advisory notices, and nothing is sent.</p>
+        </section>
+
+        <section class="ep-panel form-section">
+            <h2>Installation check</h2>
+            <th:block th:if="${o.installationCheckRequest != null}">
+                <p>Sends, once a day:</p>
+                <pre data-testid="sharing-installation-request" th:text="${o.installationCheckRequest}">GET …</pre>
+                <th:block th:with="last=${o.installationCheck != null ? o.installationCheck.lastRequest : null}">
+                    <p class="text-muted" th:if="${last == null}">Not run yet.</p>
+                    <th:block th:if="${last != null}">
+                        <p class="text-muted" th:text="'Last run: ' + ${last.at} + ', result: ' + ${last.outcome}">Last run: …</p>
+                        <pre th:text="${o.installationCheckLastRequest}">GET …</pre>
+                    </th:block>
+                </th:block>
+            </th:block>
+            <p th:if="${o.installationCheckRequest == null}">
+                Off: the installation id is not shared, so nothing is sent and the support badge says that support
+                cannot be verified.
+            </p>
+        </section>
+
+        <form th:action="@{/platform/sharing/check}" method="post">
+            <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="sharing-check-now">Run the checks now</button>
+        </form>
+    </div>
+    </th:block>
+</body>
+</html>

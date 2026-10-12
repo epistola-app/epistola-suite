@@ -39,12 +39,15 @@ class InstallationCheckService(
         null
     }
 
+    /** The URL and headers a check sends right now, given the sharing settings. */
+    fun request(installationId: java.util.UUID = installationService.get().id): Pair<String, Map<String, String>> = client.request(installationId, currentVersion.takeIf { sharing.suiteVersion })
+
     /** Does nothing (returns null) when the installation id is not shared. */
     fun checkNow(): InstallationCheckStatus? {
         if (!sharing.installationId) return null
         val previous = status() ?: InstallationCheckStatus()
         val now = EpistolaClock.instant()
-        val (url, headers) = client.request(installationService.get().id, currentVersion.takeIf { sharing.suiteVersion })
+        val (url, headers) = request()
 
         val next = try {
             val (code, result) = client.fetch(url, headers)
