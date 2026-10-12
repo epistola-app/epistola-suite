@@ -37,6 +37,10 @@ spring:
 epistola:
   demo:
     enabled: true
+  # Local runs must not call epistola.app: they would be counted as real installations. Turn these
+  # on to try the version check or the support badge against the live endpoints.
+  version-check:
+    enabled: false
 
   # Embedding basis for the training-facility site (docs/embedding.md, ADR
   # 0015), enabled here so it can be developed against a local Epistola

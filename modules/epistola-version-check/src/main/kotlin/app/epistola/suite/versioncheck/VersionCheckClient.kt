@@ -10,19 +10,21 @@ import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
 import org.springframework.web.client.RestClientResponseException
-import java.util.UUID
 
 @Component
 class VersionCheckClient(
     @Qualifier(VersionCheckConfiguration.VERSION_CHECK_REST_CLIENT)
     private val restClient: RestClient,
 ) {
-    fun fetch(url: String, currentVersion: String, installationId: UUID): EpistolaReleasesDocument = try {
+    /**
+     * Fetches the releases document anonymously: no installation id, no version (not even in the
+     * User-Agent). The document is the same for everyone and the Suite evaluates it locally, so
+     * security notices never depend on identifying the installation. See docs/outbound-traffic.md.
+     */
+    fun fetch(url: String): EpistolaReleasesDocument = try {
         restClient.get()
             .uri(url)
-            .header("User-Agent", "epistola-suite/$currentVersion")
-            .header("X-Epistola-Suite-Version", currentVersion)
-            .header("X-Epistola-Installation-Id", installationId.toString())
+            .header("User-Agent", USER_AGENT)
             .retrieve()
             .body(EpistolaReleasesDocument::class.java)
             ?: throw VersionCheckException("Empty response from $url")
@@ -35,6 +37,9 @@ class VersionCheckClient(
         throw VersionCheckException("Fetch failed for $url: ${e.message}", e)
     }
 }
+
+/** Sent by every call to Epistola: the product, never its version. */
+const val USER_AGENT = "epistola-suite"
 
 class VersionCheckException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
 
