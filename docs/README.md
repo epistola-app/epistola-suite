@@ -128,6 +128,7 @@ that implement it live in [`modules/rest-api`](../modules/rest-api).
 | [Audit log](audit-log.md)                                  | Current  | The PII-free, append-only record of who did and read what.               |
 | [Tenant backup & restore](tenant-backup.md)                | Current  | Full-fidelity per-tenant backups and merge-not-cascade restore.          |
 | [Version check](version-check.md)                          | Current  | The default-on daily release and support check, and how to disable it.   |
+| [Data shared with Epistola](outbound-traffic.md)           | Current  | What an installation shares, every outbound call, the support badge.     |
 | [SBOM](sbom.md)                                            | Current  | CycloneDX SBOM generation for backend and frontend, and scanning it.     |
 | [Load testing](loadtesting.md)                             | Current  | The embedded load-test feature for measuring installation capacity.      |
 | [Collect performance](collect-performance.md)              | Record   | Measured limits of the v0.3 collect mechanism.                           |
