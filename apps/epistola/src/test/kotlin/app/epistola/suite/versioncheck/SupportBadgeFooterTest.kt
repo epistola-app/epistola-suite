@@ -48,6 +48,7 @@ class SupportBadgeFooterTest : BaseIntegrationTest() {
             assertThat(response.body).contains("data-testid=\"support-badge\"")
             assertThat(response.body).contains("Support could not be checked")
             assertThat(response.body).contains("https://epistola.app/help/support-check-unavailable")
+            assertThat(badgeIcons(response.body!!)).containsExactly("shield-question")
         }
     }
 
@@ -76,5 +77,35 @@ class SupportBadgeFooterTest : BaseIntegrationTest() {
         assertThat(body).contains("Supported by Acme &lt;Hosting&gt; until 31 Dec 2099")
         assertThat(body).contains("https://epistola.app/installation/${installationService.get().id}")
         assertThat(body).contains("rel=\"noopener noreferrer\"")
+        assertThat(badgeIcons(body!!)).containsExactly("shield-check")
+    }
+
+    @Test
+    fun `the icon follows the badge state, so it does not rest on colour alone`() {
+        val tenant = createTenant("Support Badge Icons")
+        val now = Instant.now()
+        val cases = mapOf(
+            InstallationCheckResult(registered = true, status = "revoked") to "shield-alert",
+            InstallationCheckResult(registered = false) to "shield",
+        )
+
+        for ((result, icon) in cases) {
+            metadata.setAs(
+                InstallationCheckService.STATUS_KEY,
+                InstallationCheckStatus(lastAttemptAt = now, lastSuccessAt = now, result = result),
+            )
+            badgeService.invalidate()
+
+            val body = restTemplate.getForEntity("/tenants/${tenant.id.value}", String::class.java).body!!
+
+            assertThat(badgeIcons(body)).describedAs(result.toString()).containsExactly(icon)
+        }
+    }
+
+    /** The sprite icons inside the support badge link, in order. */
+    private fun badgeIcons(body: String): List<String> {
+        val badge = Regex("""<a[^>]*data-testid="support-badge"[^>]*>(.*?)</a>""", RegexOption.DOT_MATCHES_ALL)
+            .find(body)?.groupValues?.get(1) ?: error("support badge not rendered")
+        return Regex("""\.svg#icon-([a-z0-9-]+)""").findAll(badge).map { it.groupValues[1] }.toList()
     }
 }

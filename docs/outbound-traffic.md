@@ -83,6 +83,10 @@ depend on what the installation shares. It is never shown in generated documents
 - The installation page link is `https://epistola.app/installation/{id}`, with `?version=` only when
   the version is shared. The `/help/` links carry no data.
 - Every link uses `rel="noreferrer"`, so the installation's hostname never reaches epistola.app.
+- An icon shows the state, so it does not rest on colour alone: a shield with a check when
+  supported; with an exclamation mark when the version is out of support, or support ended or was
+  revoked; a plain shield when not registered; and with a question mark when support could not be
+  checked or verified.
 - A network failure or a choice not to share never reads as "not supported". The last good answer
   keeps showing for three days (`epistola.installation-check.stale-after`), so one failed day does
   not flip the badge.
