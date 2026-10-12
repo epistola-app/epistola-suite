@@ -90,6 +90,13 @@ main.regular .empty-message {
   gap: var(--ep-space-1);
 }
 
+/* An inline-flex box takes its baseline from its first item, and the leading icon has none, so the
+   badge text would sit above the rest of the footer. Baseline-aligning the text makes it the badge's
+   baseline; the icon stays centred. */
+.app-footer .support-badge > span {
+  align-self: baseline;
+}
+
 .app-footer .support-badge[data-tone='ok'] {
   color: var(--ep-green-700);
 }
