@@ -86,7 +86,8 @@ temporary [Kind](https://kind.sigs.k8s.io/) cluster, starts one ephemeral
 `postgres:18` container inside it, runs the chart's migration hook, waits for
 the application, verifies the Service through `helm test`, and confirms that the
 native HPA resource can be created. It does **not** install a database operator,
-VPA components, or Grafana Operator, and it is not part of CI yet.
+VPA components, a metrics server, or Grafana Operator. Pull requests that touch
+the chart run it in CI (`epistola-chart-smoke.yml`).
 
 Docker must be running. Install the repository's pinned tools once, then run:
 
@@ -471,27 +472,29 @@ responsiveness is a priority.
 
 ## Pod autoscaling
 
-The chart can optionally render either a `HorizontalPodAutoscaler` (HPA) or a
-`VerticalPodAutoscaler` (VPA) for the application Deployment. HPA is built into
-Kubernetes; VPA is not. Before enabling VPA, install its CRD and the VPA
+The chart can optionally render a `HorizontalPodAutoscaler` (HPA,
+`autoscaling.hpa`) or a `VerticalPodAutoscaler` (VPA, `autoscaling.vpa`) for the
+application Deployment. HPA is built into Kubernetes (it needs a metrics
+server); VPA is not. Before enabling VPA, install its CRD and the VPA
 recommender, updater, and admission-controller components in the cluster.
 
 VPA is disabled by default. Start with `updateMode: Off`, which records
 recommendations without changing any pods:
 
 ```yaml
-vpa:
-  enabled: true
-  updateMode: "Off"
-  minReplicas: 1
-  controlledValues: RequestsOnly
-  resourcePolicy:
-    minAllowed:
-      cpu: 750m
-      memory: 1536Mi
-    maxAllowed:
-      cpu: "3"
-      memory: 4Gi
+autoscaling:
+  vpa:
+    enabled: true
+    updateMode: "Off"
+    minReplicas: 1
+    controlledValues: RequestsOnly
+    resourcePolicy:
+      minAllowed:
+        cpu: 750m
+        memory: 1536Mi
+      maxAllowed:
+        cpu: "3"
+        memory: 4Gi
 ```
 
 ### VPA rollout recommendation
@@ -530,6 +533,28 @@ Memory scaling is disabled by default: after a generation burst the JVM retains
 heap (the measured process settled at 1,252 MB), which would otherwise keep an
 HPA above its intended threshold. Enable a memory target only after measuring
 your own steady-state workload.
+
+```yaml
+autoscaling:
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 0 # 0 = no memory metric
+```
+
+### Deprecated flat HPA keys
+
+Chart 1.0.0 configured the HPA directly under `autoscaling`
+(`autoscaling.enabled`, `minReplicas`, `maxReplicas`,
+`targetCPUUtilizationPercentage`, `targetMemoryUtilizationPercentage`). Those
+keys are deprecated since chart 1.1.0 and will be removed in the next major
+chart release. Until then each one is still honoured and wins over its
+`autoscaling.hpa.*` counterpart, and the install notes print a deprecation
+warning. Move them under `autoscaling.hpa` in one step: enabling
+`autoscaling.hpa.enabled` while any flat key is still set fails the render, so a
+leftover `autoscaling.enabled: false` cannot silently switch the HPA off.
 
 ## Connection pool (HikariCP)
 

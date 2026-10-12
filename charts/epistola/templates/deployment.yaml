@@ -5,7 +5,7 @@ metadata:
   labels:
     {{- include "epistola.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
+  {{- if not (include "epistola.hpa" . | fromJson).enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   selector:

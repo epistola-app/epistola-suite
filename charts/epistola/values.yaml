@@ -105,33 +105,44 @@ readinessProbe:
   failureThreshold: 3
   timeoutSeconds: 5
 
+# Pod autoscaling for the application Deployment. Use at most one controller
+# per resource: the HPA scales on CPU, so keep the VPA in "Off" mode (or
+# disabled) whenever the HPA is enabled. See docs/deployment.md.
+#
+# DEPRECATED: the flat keys autoscaling.enabled, autoscaling.minReplicas,
+# autoscaling.maxReplicas, autoscaling.targetCPUUtilizationPercentage and
+# autoscaling.targetMemoryUtilizationPercentage are still honoured for the HPA
+# (each one wins over its autoscaling.hpa.* counterpart) but will be removed in
+# the next major chart release. Move them under autoscaling.hpa.
 autoscaling:
-  enabled: false
-  minReplicas: 1
-  maxReplicas: 10
-  targetCPUUtilizationPercentage: 80
-  # Heap retention makes memory a poor scale-down signal for JVM generation
-  # workloads. Enable only after observing your own steady-state memory use.
-  targetMemoryUtilizationPercentage: 0
+  # HorizontalPodAutoscaler. Built into Kubernetes; needs a metrics server.
+  hpa:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    # Heap retention makes memory a poor scale-down signal for JVM generation
+    # workloads. Enable only after observing your own steady-state memory use.
+    targetMemoryUtilizationPercentage: 0
 
-# Optional Vertical Pod Autoscaler (VPA) for the application Deployment. Requires
-# the VPA CRD and recommender/updater/admission-controller components to be
-# installed in the cluster. `Off` only publishes recommendations; review those
-# before using `Initial` or `Recreate`.
-vpa:
-  enabled: false
-  updateMode: "Off"
-  minReplicas: 1
-  # Keep limits operator-managed. With RequestsOnly, maxAllowed must not exceed
-  # the matching value in resources.limits.
-  controlledValues: RequestsOnly
-  resourcePolicy:
-    minAllowed:
-      cpu: 750m
-      memory: 1536Mi
-    maxAllowed:
-      cpu: "3"
-      memory: 4Gi
+  # Optional Vertical Pod Autoscaler (VPA). Requires the VPA CRD and
+  # recommender/updater/admission-controller components to be installed in the
+  # cluster. `Off` only publishes recommendations; review those before using
+  # `Initial` or `Recreate`.
+  vpa:
+    enabled: false
+    updateMode: "Off"
+    minReplicas: 1
+    # Keep limits operator-managed. With RequestsOnly, maxAllowed must not
+    # exceed the matching value in resources.limits.
+    controlledValues: RequestsOnly
+    resourcePolicy:
+      minAllowed:
+        cpu: 750m
+        memory: 1536Mi
+      maxAllowed:
+        cpu: "3"
+        memory: 4Gi
 
 # Additional volumes on the output Deployment definition.
 # Note: tmp-dir is required for readOnlyRootFilesystem since Java needs a writable /tmp

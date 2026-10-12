@@ -123,7 +123,7 @@ fi
 
 "${kubectl_bin}" --context "kind-${cluster_name}" -n "${namespace}" rollout status deployment/epistola --timeout "${timeout}"
 
-helm_args+=(--set autoscaling.enabled=true)
+helm_args+=(--set autoscaling.hpa.enabled=true)
 "${helm_bin}" "${helm_args[@]}"
 test "$("${kubectl_bin}" --context "kind-${cluster_name}" -n "${namespace}" get hpa epistola -o jsonpath='{.spec.scaleTargetRef.kind}')" = Deployment
 test "$("${kubectl_bin}" --context "kind-${cluster_name}" -n "${namespace}" get hpa epistola -o jsonpath='{.spec.scaleTargetRef.name}')" = epistola

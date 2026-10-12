@@ -307,3 +307,37 @@ Rendered as a container list item.
     {{- toYaml . | nindent 4 }}
   {{- end }}
 {{- end }}
+
+{{/*
+Deprecated flat HPA keys under `autoscaling` (chart 1.0.0), in the order they
+are reported. Each maps to the same key under `autoscaling.hpa`.
+*/}}
+{{- define "epistola.hpa.deprecatedKeys" -}}
+{{- $set := list }}
+{{- range $key := list "enabled" "minReplicas" "maxReplicas" "targetCPUUtilizationPercentage" "targetMemoryUtilizationPercentage" }}
+{{- if hasKey $.Values.autoscaling $key }}
+{{- $set = append $set $key }}
+{{- end }}
+{{- end }}
+{{- join "," $set }}
+{{- end }}
+
+{{/*
+Effective HPA settings as JSON: autoscaling.hpa.*, with each deprecated flat
+autoscaling.* key winning over its counterpart. Enabling the HPA through
+autoscaling.hpa while any flat key is still set fails the render, so a leftover
+1.0.0 `autoscaling.enabled: false` cannot silently switch the HPA off.
+*/}}
+{{- define "epistola.hpa" -}}
+{{- $hpa := deepCopy .Values.autoscaling.hpa }}
+{{- $deprecated := include "epistola.hpa.deprecatedKeys" . }}
+{{- if $deprecated }}
+{{- if .Values.autoscaling.hpa.enabled }}
+{{- fail (printf "autoscaling.hpa.enabled is set together with the deprecated flat key(s) autoscaling.{%s}. Move them under autoscaling.hpa and remove the flat keys." $deprecated) }}
+{{- end }}
+{{- range $key := splitList "," $deprecated }}
+{{- $_ := set $hpa $key (get $.Values.autoscaling $key) }}
+{{- end }}
+{{- end }}
+{{- toJson $hpa }}
+{{- end }}

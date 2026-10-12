@@ -69,21 +69,76 @@
         }
       }
     },
-    "vpa": {
+    "autoscaling": {
       "type": "object",
       "properties": {
-        "updateMode": {
-          "description": "How the Vertical Pod Autoscaler applies recommendations.",
-          "enum": ["Off", "Initial", "Recreate", "Auto"]
+        "hpa": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Render a HorizontalPodAutoscaler for the application Deployment."
+            },
+            "minReplicas": { "type": "integer", "minimum": 1 },
+            "maxReplicas": { "type": "integer", "minimum": 1 },
+            "targetCPUUtilizationPercentage": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Average CPU target as a percentage of the request; 0 disables the CPU metric."
+            },
+            "targetMemoryUtilizationPercentage": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Average memory target as a percentage of the request; 0 (default) disables the memory metric."
+            }
+          }
+        },
+        "vpa": {
+          "type": "object",
+          "properties": {
+            "updateMode": {
+              "description": "How the Vertical Pod Autoscaler applies recommendations.",
+              "enum": ["Off", "Initial", "Recreate", "Auto"]
+            },
+            "minReplicas": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Minimum number of replicas required before VPA may evict pods."
+            },
+            "controlledValues": {
+              "description": "Whether VPA controls resource requests only or requests and limits.",
+              "enum": ["RequestsOnly", "RequestsAndLimits"]
+            }
+          }
+        },
+        "enabled": {
+          "type": "boolean",
+          "deprecated": true,
+          "description": "Deprecated since chart 1.1.0: use autoscaling.hpa.enabled. Still honoured and wins over autoscaling.hpa.enabled; cannot be combined with autoscaling.hpa.enabled=true."
         },
         "minReplicas": {
           "type": "integer",
-          "minimum": 0,
-          "description": "Minimum number of replicas required before VPA may evict pods."
+          "minimum": 1,
+          "deprecated": true,
+          "description": "Deprecated since chart 1.1.0: use autoscaling.hpa.minReplicas. Still honoured and wins over autoscaling.hpa.minReplicas; cannot be combined with autoscaling.hpa.enabled=true."
         },
-        "controlledValues": {
-          "description": "Whether VPA controls resource requests only or requests and limits.",
-          "enum": ["RequestsOnly", "RequestsAndLimits"]
+        "maxReplicas": {
+          "type": "integer",
+          "minimum": 1,
+          "deprecated": true,
+          "description": "Deprecated since chart 1.1.0: use autoscaling.hpa.maxReplicas. Still honoured and wins over autoscaling.hpa.maxReplicas; cannot be combined with autoscaling.hpa.enabled=true."
+        },
+        "targetCPUUtilizationPercentage": {
+          "type": "integer",
+          "minimum": 0,
+          "deprecated": true,
+          "description": "Deprecated since chart 1.1.0: use autoscaling.hpa.targetCPUUtilizationPercentage. Still honoured and wins over autoscaling.hpa.targetCPUUtilizationPercentage; cannot be combined with autoscaling.hpa.enabled=true."
+        },
+        "targetMemoryUtilizationPercentage": {
+          "type": "integer",
+          "minimum": 0,
+          "deprecated": true,
+          "description": "Deprecated since chart 1.1.0: use autoscaling.hpa.targetMemoryUtilizationPercentage. Still honoured and wins over autoscaling.hpa.targetMemoryUtilizationPercentage; cannot be combined with autoscaling.hpa.enabled=true."
         }
       }
     },

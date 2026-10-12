@@ -10,11 +10,11 @@ render_args=(--set encryption.enabled=false)
 
 disabled="$(helm template vpa-test "${chart_dir}" "${render_args[@]}")"
 if grep -q 'kind: VerticalPodAutoscaler' <<<"${disabled}"; then
-  echo 'VPA must not render when vpa.enabled is false' >&2
+  echo 'VPA must not render when autoscaling.vpa.enabled is false' >&2
   exit 1
 fi
 
-enabled="$(helm template vpa-test "${chart_dir}" "${render_args[@]}" --set vpa.enabled=true)"
+enabled="$(helm template vpa-test "${chart_dir}" "${render_args[@]}" --set autoscaling.vpa.enabled=true)"
 for expected in \
   'apiVersion: autoscaling.k8s.io/v1' \
   'kind: VerticalPodAutoscaler' \
@@ -34,14 +34,21 @@ for expected in \
   fi
 done
 
+# The VPA lives under autoscaling, but autoscaling.enabled still means the HPA:
+# enabling the VPA alone must not render an HPA.
+if grep -q 'kind: HorizontalPodAutoscaler' <<<"${enabled}"; then
+  echo 'Enabling autoscaling.vpa must not render an HPA' >&2
+  exit 1
+fi
+
 custom="$(helm template vpa-test "${chart_dir}" \
   "${render_args[@]}" \
-  --set vpa.enabled=true \
-  --set vpa.updateMode=Initial \
-  --set vpa.minReplicas=3 \
-  --set vpa.controlledValues=RequestsAndLimits \
-  --set vpa.resourcePolicy.minAllowed.cpu=250m \
-  --set vpa.resourcePolicy.maxAllowed.memory=2Gi)"
+  --set autoscaling.vpa.enabled=true \
+  --set autoscaling.vpa.updateMode=Initial \
+  --set autoscaling.vpa.minReplicas=3 \
+  --set autoscaling.vpa.controlledValues=RequestsAndLimits \
+  --set autoscaling.vpa.resourcePolicy.minAllowed.cpu=250m \
+  --set autoscaling.vpa.resourcePolicy.maxAllowed.memory=2Gi)"
 for expected in \
   'updateMode: "Initial"' \
   'minReplicas: 3' \
@@ -53,3 +60,10 @@ for expected in \
     exit 1
   fi
 done
+
+# values.schema.json validates the VPA block at its autoscaling.vpa location.
+if helm template vpa-test "${chart_dir}" "${render_args[@]}" \
+  --set autoscaling.vpa.updateMode=Sometimes >/dev/null 2>&1; then
+  echo 'Schema must reject an unknown autoscaling.vpa.updateMode' >&2
+  exit 1
+fi

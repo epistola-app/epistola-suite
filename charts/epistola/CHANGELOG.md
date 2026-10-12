@@ -38,7 +38,12 @@
   remains covered by render/schema tests because the lightweight cluster does
   not install VPA components.
 
-- **Optional Vertical Pod Autoscaler (VPA) support.** Set `vpa.enabled=true` to
+- **`autoscaling.hpa` — the HPA settings get their own block.** `autoscaling.hpa.enabled`,
+  `minReplicas`, `maxReplicas`, `targetCPUUtilizationPercentage` and
+  `targetMemoryUtilizationPercentage` configure the HorizontalPodAutoscaler, alongside
+  `autoscaling.vpa` for the VPA. The values schema validates both blocks.
+
+- **Optional Vertical Pod Autoscaler (VPA) support.** Set `autoscaling.vpa.enabled=true` to
   render a VPA targeting this release's application Deployment, without a
   separately maintained manifest or hard-coded Deployment name. It starts in
   recommendation-only `Off` mode and defaults to `RequestsOnly`, so VPA changes
@@ -65,6 +70,20 @@
   This production profile supports about 5,000 documents per minute per node.
   The Kind fixture explicitly uses the smaller test/preview profile instead,
   which supports about 1,000 documents in two minutes.
+
+  **Upgrade note:** the HPA memory target default moved from `80` to `0` (off). If you
+  enabled the HPA in 1.0.0 and relied on the default memory target, set
+  `autoscaling.hpa.targetMemoryUtilizationPercentage: 80` to keep scaling on memory.
+
+### Deprecated
+
+- **Flat HPA keys under `autoscaling`.** `autoscaling.enabled`, `minReplicas`, `maxReplicas`,
+  `targetCPUUtilizationPercentage` and `targetMemoryUtilizationPercentage` are deprecated in
+  favour of the same keys under `autoscaling.hpa`, and will be removed in the next major chart
+  release. Until then each flat key is still honoured and wins over its `autoscaling.hpa.*`
+  counterpart, and the install notes print a deprecation warning. Move them in one step:
+  setting `autoscaling.hpa.enabled=true` while any flat key is still present fails the render,
+  so a leftover `autoscaling.enabled: false` cannot silently switch the HPA off.
 
 ### Fixed
 
