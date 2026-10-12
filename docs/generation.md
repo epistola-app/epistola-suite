@@ -133,6 +133,21 @@ Content-Disposition: inline; filename="preview.pdf"
 | `conditional` | Render matching branch or nothing       |
 | `loop`        | Repeat child elements for each item     |
 
+### SVG images
+
+An SVG image asset is converted by iText's SVG module, always through `SafeSvgConversion`
+(`modules/generation`); a guard (`SvgConversionUsageTest`) keeps `SvgConverter` out of any other
+production file. An SVG renders from its own bytes only: the resource retriever refuses every URL,
+so `<image href>`, `<link rel="stylesheet">`, `xml-stylesheet` and `@font-face` sources are never
+fetched or read from disk, and `@import` rules are removed before iText's CSS parser sees them.
+Inline base64 `data:` images, `#fragment` references, shapes and text keep working; text uses the
+standard PDF fonts, as before. An SVG that referenced something external renders without it.
+
+Uploads are checked as well (`SvgContentPolicy` in `modules/epistola-core`): every write path —
+the web UI, REST, MCP and catalog import — refuses an SVG with a DOCTYPE, scripts, event-handler
+attributes, external `href`s, or CSS that imports or points at anything but a fragment or a
+`data:` URI. SVGs stored before that check are covered by the render-time rules above.
+
 ### Expression Evaluation
 
 Epistola evaluates two expression languages, with the language stored per expression in the
