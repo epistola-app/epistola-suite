@@ -141,14 +141,7 @@ Higher-level design tokens that reference the palette above. Use these in compon
 Loaded via [Google Fonts](https://fonts.google.com/specimen/Inter) (weights 400, 500, 600, 700).
 
 ```css
-font-family:
-  "Inter",
-  system-ui,
-  -apple-system,
-  BlinkMacSystemFont,
-  "Segoe UI",
-  Roboto,
-  sans-serif;
+font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 /* CSS custom property: var(--ep-font-sans) */
 ```
 

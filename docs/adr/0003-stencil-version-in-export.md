@@ -201,10 +201,10 @@ and badge text are now `pinned vX (latest vY)`.
   retry with `RENUMBER` if appropriate.
 - `RENUMBER`: install the conflicting source version at `MAX(target.version)
   - 1`instead of the requested number.`ImportStencil`returns the assigned
-number;`ImportCatalogZip`collects a`Map<StencilKey, StencilRenumber>`during the install loop and passes it to`ImportTemplates`.
-`ImportTemplates`walks every imported template model's`nodes`and
-rewrites`props.version`for any stencil node whose`stencilId`is in the
-map AND whose source pin equals`sourceVersion`. Pre-existing templates in
+    number;`ImportCatalogZip`collects a`Map<StencilKey, StencilRenumber>`during the install loop and passes it to`ImportTemplates`.
+    `ImportTemplates`walks every imported template model's`nodes`and
+    rewrites`props.version`for any stencil node whose`stencilId`is in the
+    map AND whose source pin equals`sourceVersion`. Pre-existing templates in
     the target are not touched — they continue to resolve their own
     pre-renumber version.
 

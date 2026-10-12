@@ -21,7 +21,7 @@ That has failed in four distinct ways, all observed:
   cannot help.
 - **Structure gets flattened and then re-split by eye.** Publications store
   `"CATALOG_PUBLICATION_REJECTED: Tenant connection is not authoritative for
-this catalog"` — a remote code and a remote detail, concatenated into prose,
+  this catalog"` — a remote code and a remote detail, concatenated into prose,
   after which neither can be read back reliably.
 - **Presentation leaked into the write path.** Deciding what a person should be
   told is now the job of a `SKIP LOCKED` poller, which is the wrong place to make
