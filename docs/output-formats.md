@@ -47,7 +47,7 @@ not faint praise:
 - Styles are CSS-derived (`fontFamily`, `fontSize`, `color`, `padding`, `margin`,
   `border`…), and the theme cascade (theme docStyles → template docStyles → preset →
   inline) maps cleanly onto CSS specificity.
-- Data contracts, variants, expression evaluation (JSONata/GraalJS) and
+- Data contracts, variants, expression evaluation (JSONata) and
   `RenderCulture` are all medium-independent.
 
 **There is no seam.** No `OutputFormat` enum, no `Renderer` interface. Nothing to

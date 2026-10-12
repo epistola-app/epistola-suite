@@ -135,19 +135,12 @@ Content-Disposition: inline; filename="preview.pdf"
 
 ### Expression Evaluation
 
-Epistola supports two expression languages, with the language stored in the `Expression` model:
+Epistola evaluates two expression languages, with the language stored per expression in the
+`Expression` model (`{"raw": "...", "language": "jsonata"}`): **JSONata**, the default and the only
+one the editor writes, and **simple path**, a plain dot-path lookup.
 
-```kotlin
-enum class ExpressionLanguage {
-    Jsonata,    // Default, more ergonomic for designers
-    JavaScript, // Full JS power for advanced users
-}
-
-data class Expression(
-    val raw: String,
-    val language: ExpressionLanguage = ExpressionLanguage.Jsonata,
-)
-```
+The model, generated from `epistola-contract`, also lists `javascript`. **JavaScript expressions are
+no longer supported** (see [JavaScript expressions](#javascript-expressions-removed) below).
 
 #### JSONata (Recommended)
 
@@ -165,20 +158,43 @@ active ? "Yes" : "No"                   // Conditional
 
 Implementation: [Dashjoin JSONata](https://github.com/dashjoin/jsonata-java) (Java)
 
-#### JavaScript
+#### JavaScript expressions (removed)
 
-Full JavaScript for power users:
+Earlier releases also evaluated `language: "javascript"` with GraalJS. The editor never offered it,
+and the engine could not bound an expression's running time or memory, so one expression could
+occupy a shared render worker indefinitely. It has been removed, together with the GraalVM
+polyglot dependencies. A JavaScript expression is never evaluated as another language:
 
-```javascript
-customer.name; // Property access
-items.filter((x) => x.active); // Filter
-items.map((x) => x.price); // Map
-items.reduce((sum, x) => sum + x.price, 0); // Aggregation
-first + " " + last; // String concatenation
-price.toFixed(2); // Number formatting
+- **On write** — saving a draft in the editor, the REST API, catalog and ZIP import, and the MCP
+  authoring tools all run the template validator, which rejects a template or stencil containing
+  one with `TEMPLATE_EXPRESSION_INVALID` ("JavaScript expressions are no longer supported. Rewrite
+  the expression in JSONata.").
+- **On render** — a template stored by an earlier release still loads and can be opened and fixed
+  in the editor, but previewing or generating it fails with the same message.
+
+Nothing is migrated or deleted. To find stored versions that still contain one, run this against
+the suite database (PostgreSQL), then rewrite each expression in JSONata and publish a new version:
+
+```sql
+-- Template versions
+SELECT t.tenant_key, t.catalog_key, t.id AS template, v.variant_key AS variant, v.id AS version, v.status
+FROM template_versions v
+JOIN document_templates t
+  ON t.tenant_key = v.tenant_key AND t.resource_id = v.template_resource_id
+WHERE jsonb_path_exists(v.template_model, '$.** ? (@.language like_regex "^\\s*javascript\\s*$" flag "i")')
+ORDER BY 1, 2, 3, 4, 5;
+
+-- Stencil versions
+SELECT s.tenant_key, s.catalog_key, s.id AS stencil, sv.id AS version, sv.status
+FROM stencil_versions sv
+JOIN stencils s
+  ON s.tenant_key = sv.tenant_key AND s.resource_id = sv.stencil_resource_id
+WHERE jsonb_path_exists(sv.content, '$.** ? (@.language like_regex "^\\s*javascript\\s*$" flag "i")')
+ORDER BY 1, 2, 3, 4;
 ```
 
-Implementation: GraalJS with sandbox (no file/network access, execution limits)
+The template query is exercised by `JavaScriptExpressionRejectionIntegrationTest`; keep the two in
+step.
 
 #### System Parameters
 
@@ -203,15 +219,15 @@ $formatDate(sys.render.time, "dd-MM-yyyy HH:mm") // "03-04-2026 10:30"
 ┌─────────────────────────────────────────────────────────┐
 │ CompositeExpressionEvaluator                            │
 │                                                         │
-│   expression.language == Jsonata?                       │
+│   expression.language                                   │
 │           │                                             │
-│     ┌─────┴─────┐                                       │
-│     ▼           ▼                                       │
-│ ┌─────────┐ ┌──────────────┐                            │
-│ │ Jsonata │ │ GraalJS      │                            │
-│ │Evaluator│ │ Evaluator    │                            │
-│ │         │ │ (sandboxed)  │                            │
-│ └─────────┘ └──────────────┘                            │
+│     ┌─────┴───────┬──────────────────┐                  │
+│     ▼             ▼                  ▼                  │
+│ ┌─────────┐ ┌────────────┐ ┌─────────────────────────┐  │
+│ │ Jsonata │ │ SimplePath │ │ javascript: rejected    │  │
+│ │Evaluator│ │ Evaluator  │ │ (UnsupportedExpression- │  │
+│ │         │ │            │ │  LanguageException)     │  │
+│ └─────────┘ └────────────┘ └─────────────────────────┘  │
 └─────────────────────────────────────────────────────────┘
 ```
 

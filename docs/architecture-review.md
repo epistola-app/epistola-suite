@@ -22,7 +22,7 @@ The main risks are:
 
 - Module boundaries are implemented mostly by Gradle dependencies and Spring component scanning, not by strict package/API contracts.
 - Some modules are still broad "vertical slices" that mix domain, persistence, routes, templates, schedulers, static assets, and hub adapters.
-- Security is generally centralized, but several high-trust escape hatches exist: `SystemInternal`, default-on MCP, broad API key roles, local file/URL fetching, and JavaScript expression evaluation.
+- Security is generally centralized, but several high-trust escape hatches exist: `SystemInternal`, default-on MCP, broad API key roles, and local file/URL fetching. (JavaScript expression evaluation, listed here originally, has since been removed — see finding 9.)
 - Operational defaults are developer-friendly in places where production should probably be opt-in and fail-closed.
 - Maintainability will degrade if module-contributed UI and background jobs keep growing without a small set of explicit extension contracts and architectural tests.
 
@@ -187,7 +187,12 @@ The no-op fallback pattern is good because the OSS/default runtime remains funct
 - Add outbound HTTP allowlists or block private/link-local/metadata IP ranges after DNS resolution.
 - Apply response size and timeout limits for remote catalog/code-list fetches.
 
-### 9. JavaScript Expression Evaluation Lacks An Enforced Time Limit
+### 9. JavaScript Expression Evaluation Lacks An Enforced Time Limit — resolved by removal
+
+**Status:** Resolved. The JavaScript engine and its GraalVM polyglot dependencies were removed
+rather than bounded: JavaScript expressions are rejected on every write path and fail to render if
+an older release stored one ([`generation.md`](generation.md#javascript-expressions-removed)). The
+original finding is kept below for the record.
 
 **Finding:** `JavaScriptEvaluator` documents execution time limits, but the GraalJS context creation only disables host/native/process/thread/environment access. No obvious execution timeout is enforced in that class. JSONata does set runtime bounds.
 
@@ -247,7 +252,7 @@ The areas needing the most attention are exposure control and least privilege:
 - API keys should be scoped.
 - `SystemInternal` should be narrowed or context-bound.
 - Local file and remote URL fetching should have environment-specific restrictions.
-- JavaScript expression execution should have an enforced timeout.
+- ~~JavaScript expression execution should have an enforced timeout.~~ Resolved: the engine was removed (finding 9).
 - CSP should move away from inline allowances.
 
 ## Maintainability Assessment
@@ -263,7 +268,7 @@ The codebase is maintainable today, but the architecture is at the point where i
 ## Recommended Priority Order
 
 1. Make MCP opt-in for production and introduce API-key scopes.
-2. Add enforced timeout tests/fixes for JavaScript expressions.
+2. ~~Add enforced timeout tests/fixes for JavaScript expressions.~~ Resolved by removing the engine (finding 9).
 3. Restrict `file:` and outbound URL fetching by environment and allowlist.
 4. Inventory and narrow `SystemInternal` usage.
 5. Add architecture tests for module dependencies, route collisions, and UI contribution uniqueness.

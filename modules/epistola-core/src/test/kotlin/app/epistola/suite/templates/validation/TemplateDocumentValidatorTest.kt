@@ -193,6 +193,74 @@ class TemplateDocumentValidatorTest {
         assertThatCode { validator.validateTemplate(document) }.doesNotThrowAnyException()
     }
 
+    @Test
+    fun `a javascript expression is rejected on every validation entry point`() {
+        val document = documentWithNode(
+            Node(id = "cond", type = "conditional", props = mapOf("condition" to mapOf("raw" to "while(true){}", "language" to "javascript"))),
+        )
+
+        val entryPoints: List<Pair<String, (TemplateDocument) -> Unit>> = listOf(
+            "templateModel" to validator::validateTemplate,
+            "templateModel" to validator::validateTemplateDraft,
+            "templateModel" to validator::validateTemplatePublishable,
+            "templateModel" to validator::validateTemplateGraphForRendering,
+            "content" to validator::validateStencil,
+            "content" to validator::validateStencilPublishable,
+        )
+        for ((prefix, validate) in entryPoints) {
+            val exception = assertThrows<ValidationException> { validate(document) }
+            assertThat(exception.field).isEqualTo("$prefix.nodes.cond.props.condition.language")
+            assertThat(exception.code).isEqualTo(ValidationCode.TEMPLATE_EXPRESSION_INVALID)
+            assertThat(exception.message).contains("JavaScript expressions are no longer supported").contains("JSONata")
+        }
+    }
+
+    @Test
+    fun `javascript is found in inline rich-text expressions and rich-text variable bindings`() {
+        val inline = documentWithNode(
+            Node(
+                id = "text",
+                type = "text",
+                props = mapOf(
+                    "content" to mapOf(
+                        "type" to "doc",
+                        "content" to listOf(
+                            mapOf(
+                                "type" to "paragraph",
+                                "content" to listOf(
+                                    mapOf("type" to "expression", "attrs" to mapOf("expression" to "name", "language" to "JavaScript")),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        assertThat(assertThrows<ValidationException> { validator.validateTemplateDraft(inline) }.field)
+            .isEqualTo("templateModel.nodes.text.props.content.content[0].content[0].attrs.language")
+
+        val binding = documentWithNode(
+            Node(id = "rt", type = "richTextVariable", props = mapOf("binding" to "body", "language" to "javascript")),
+        )
+        assertThat(assertThrows<ValidationException> { validator.validateTemplateDraft(binding) }.field)
+            .isEqualTo("templateModel.nodes.rt.props.language")
+    }
+
+    @Test
+    fun `jsonata and simple path expressions are not affected`() {
+        val document = documentWithNode(
+            Node(id = "cond", type = "conditional", props = mapOf("condition" to mapOf("raw" to "paid", "language" to "jsonata"))),
+        )
+        assertThatCode { validator.validateTemplateDraft(document) }.doesNotThrowAnyException()
+        assertThat(JavaScriptExpressionScanner.javaScriptExpressionPaths(document)).isEmpty()
+    }
+
+    private fun documentWithNode(node: Node) = TemplateDocument(
+        root = "root",
+        nodes = mapOf("root" to Node(id = "root", type = "root", slots = listOf("root-slot")), node.id to node),
+        slots = mapOf("root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf(node.id))),
+    )
+
     private fun documentWithMissingRoot() = TemplateDocument(
         root = "missing",
         nodes = mapOf("root" to Node(id = "root", type = "root")),
