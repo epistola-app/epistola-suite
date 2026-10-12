@@ -56,10 +56,6 @@ class JobPollerShutdownIntegrationTest : IntegrationTestBase() {
 
     @Autowired private lateinit var properties: JobPollingProperties
 
-    @Autowired private lateinit var batchSizer: AdaptiveBatchSizer
-
-    @Autowired private lateinit var admissionController: DatabasePressureAdmissionController
-
     /** The context's (fake) executor; [GatedExecutor] delegates to it once released. */
     @Autowired private lateinit var executor: DocumentGenerationExecutor
 
@@ -188,19 +184,31 @@ class JobPollerShutdownIntegrationTest : IntegrationTestBase() {
         tenants.forEach { drainGenerationJobs(TenantKey(it)) }
     }
 
-    private fun poller(gate: GatedExecutor.Gate, drainTimeout: Duration) = JobPoller(
-        jdbi = jdbi,
-        jobExecutor = GatedExecutor(
-            gate, executor, jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore,
-            meterRegistry, fontSnapshotVerifier, fontByteCache, localeResolver,
-        ),
-        properties = properties.copy(maxConcurrentJobs = 2, shutdownDrainTimeout = drainTimeout),
-        batchSizer = batchSizer,
-        admissionController = admissionController,
-        // Own registry: the poller registers gauges the context's poller already owns.
-        meterRegistry = SimpleMeterRegistry(),
-        mediator = mediator,
-    )
+    /**
+     * A poller of its own: own properties, batch sizer, admission controller and registry. The
+     * shared admission controller can be left PAUSED by an earlier test's database-pressure
+     * signal (and never recovers under the frozen test clock), so pressure gating is off here.
+     */
+    private fun poller(gate: GatedExecutor.Gate, drainTimeout: Duration): JobPoller {
+        val pollerProperties = properties.copy(
+            maxConcurrentJobs = 2,
+            shutdownDrainTimeout = drainTimeout,
+            databasePressure = properties.databasePressure.copy(enabled = false),
+        )
+        val registry = SimpleMeterRegistry()
+        return JobPoller(
+            jdbi = jdbi,
+            jobExecutor = GatedExecutor(
+                gate, executor, jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore,
+                meterRegistry, fontSnapshotVerifier, fontByteCache, localeResolver,
+            ),
+            properties = pollerProperties,
+            batchSizer = AdaptiveBatchSizer(pollerProperties, registry),
+            admissionController = DatabasePressureAdmissionController(pollerProperties, { error("pressure gating is off") }, registry),
+            meterRegistry = registry,
+            mediator = mediator,
+        )
+    }
 
     private fun statusOf(requestId: GenerationRequestKey): String = jdbi.withHandle<String, Exception> { handle ->
         handle.createQuery("SELECT status FROM document_generation_requests WHERE id = :id")
