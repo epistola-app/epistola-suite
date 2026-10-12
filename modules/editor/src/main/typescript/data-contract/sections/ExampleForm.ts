@@ -159,7 +159,9 @@ export function getNestedValue(obj: JsonObject, path: string): JsonValue | undef
 /**
  * Immutably set a nested value in an object using a dot-separated path.
  * Creates intermediate objects/arrays as needed. `undefined` leaves the property
- * out instead, without creating a missing parent for it.
+ * out instead, without creating a missing parent for it. Only own properties are
+ * followed, and a path naming `__proto__` is ignored, so no path — field names
+ * come from the data contract — can reach `Object.prototype`.
  */
 export function setNestedValue(
   obj: JsonObject,
@@ -169,6 +171,7 @@ export function setNestedValue(
   if (!path) return obj;
 
   const segments = path.split('.');
+  if (segments.includes('__proto__')) return obj;
   const result = structuredClone(obj);
   let current: Record<string, unknown> = result;
 
@@ -177,7 +180,11 @@ export function setNestedValue(
     const nextSegment = segments[i + 1];
     const isNextIndex = /^\d+$/.test(nextSegment);
 
-    if (!(segment in current) || current[segment] === null || current[segment] === undefined) {
+    if (
+      !Object.hasOwn(current, segment) ||
+      current[segment] === null ||
+      current[segment] === undefined
+    ) {
       if (value === undefined) return result;
       current[segment] = isNextIndex ? [] : {};
     }

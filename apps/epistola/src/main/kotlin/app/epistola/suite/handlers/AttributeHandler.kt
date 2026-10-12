@@ -194,7 +194,6 @@ class AttributeHandler {
 
     fun editForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
         val attributeId = request.attributeId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -214,7 +213,6 @@ class AttributeHandler {
 
     fun update(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
         val attributeId = request.attributeId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -288,7 +286,6 @@ class AttributeHandler {
 
     fun delete(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
         val attributeId = request.attributeId(tenantId)
             ?: return ServerResponse.badRequest().build()
 

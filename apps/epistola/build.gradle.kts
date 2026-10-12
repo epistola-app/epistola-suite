@@ -30,6 +30,17 @@ if (buildNativeImage) {
 // Read by io.spring.dependency-management to override the managed version.
 extra["tomcat.version"] = "11.0.25"
 
+// Security override: Spring Boot 4.1.1 manages Jackson 3.1.5 (tools.jackson) and 2.21.5
+// (com.fasterxml, pulled in by transitive dependencies), and even pulls dependencies that ask for
+// 3.2.x down to 3.1.5. Trivy flags both lines: CVE-2026-68497, CVE-2026-89407, CVE-2026-89425,
+// CVE-2026-91776 and CVE-2026-91777 (denial of service while parsing) and CVE-2026-19032,
+// CVE-2026-83557 (Path deserialization). The REST API and catalog import parse untrusted JSON, so
+// take the patch releases. Drop these pins once the Spring Boot BOM manages 3.1.7 / 2.21.7 or later
+// — a stale pin here would hold a newer BOM back. The versions live in libs.versions.toml so Renovate
+// keeps them current. See vulnerabilities/2026-10-12-epis-dep-2026-002.md.
+extra["jackson-bom.version"] = libs.versions.jackson.get()
+extra["jackson-2-bom.version"] = libs.versions.jackson2.get()
+
 dependencies {
     // Core business logic module (includes template-model, generation transitively)
     implementation(project(":modules:epistola-core"))

@@ -223,6 +223,25 @@ describe('example form defaults', () => {
     // Nothing to remove under a missing parent, and no parent is created for it.
     expect(setNestedValue({ a: 1 }, 'x.y', undefined)).toEqual({ a: 1 });
   });
+
+  it.each(['__proto__.polluted', 'constructor.prototype.polluted', 'a.__proto__.polluted'])(
+    'setNestedValue never writes through the prototype chain for %s',
+    (path) => {
+      try {
+        const result = setNestedValue({ a: {} }, path, 'yes');
+        expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+        expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+      } finally {
+        delete (Object.prototype as Record<string, unknown>).polluted;
+      }
+    },
+  );
+
+  it('setNestedValue treats an inherited name as a plain own key', () => {
+    expect(setNestedValue({}, 'constructor.prototype.polluted', 'yes')).toEqual({
+      constructor: { prototype: { polluted: 'yes' } },
+    });
+  });
 });
 
 describe('example property disclosure', () => {

@@ -50,6 +50,7 @@ import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.core.io.ByteArrayResource
@@ -59,6 +60,8 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
+import java.nio.file.Path
+import kotlin.io.path.writeText
 
 /**
  * The catalog list mutates through a single always-present `#catalog-list`
@@ -258,8 +261,8 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
 
         whenever {
             val payload = LinkedMultiValueMap<String, String>()
-            // A classpath manifest that does not exist → RegisterCatalog throws.
-            payload.add("sourceUrl", "classpath:epistola/catalogs/does-not-exist/catalog.json")
+            // A classpath: URL outside the bundled catalogs is refused before anything is fetched.
+            payload.add("sourceUrl", "classpath:application.json")
             restTemplate.postForEntity(
                 "/tenants/${t.id}/catalogs/subscribe",
                 HttpEntity(payload, htmxForm()),
@@ -277,6 +280,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             val body = response.body!!
             assertThat(body).contains("id=\"subscribe-catalog-error\"")
             assertThat(body).contains("Failed to register catalog")
+            assertThat(body).contains("Only catalogs bundled with Epistola may be read from the classpath")
         }
     }
 
@@ -291,7 +295,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
 
         whenever {
             val payload = LinkedMultiValueMap<String, String>()
-            payload.add("sourceUrl", "classpath:epistola/catalogs/does-not-exist/catalog.json")
+            payload.add("sourceUrl", "classpath:application.json")
             restTemplate.postForEntity(
                 "/tenants/${t.id}/catalogs/subscribe",
                 HttpEntity(payload, plainForm()),
@@ -314,13 +318,26 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `HTMX POST register valid closes the dialog and OOB-refreshes the list`() = fixture {
+    fun `HTMX POST register valid closes the dialog and OOB-refreshes the list`(@TempDir dir: Path) = fixture {
         lateinit var t: Tenant
         given { t = tenant("Catalog Subscribe Valid") }
 
         whenever {
+            // A file: source inside the configured file root (java.io.tmpdir in the test profile).
+            val manifest = dir.resolve("catalog.json")
+            manifest.writeText(
+                """
+                {
+                  "schemaVersion": 7,
+                  "catalog": { "slug": "epistola-demo", "name": "Epistola Demo Catalog" },
+                  "publisher": { "name": "Test" },
+                  "release": { "version": "1.0.0", "fingerprint": "${"0".repeat(64)}" },
+                  "resources": []
+                }
+                """.trimIndent(),
+            )
             val payload = LinkedMultiValueMap<String, String>()
-            payload.add("sourceUrl", "classpath:epistola/catalogs/fixture/catalog.json")
+            payload.add("sourceUrl", manifest.toUri().toString())
             restTemplate.postForEntity(
                 "/tenants/${t.id}/catalogs/subscribe",
                 HttpEntity(payload, htmxForm()),

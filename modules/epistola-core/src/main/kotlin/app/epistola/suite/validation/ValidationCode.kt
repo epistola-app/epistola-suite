@@ -104,6 +104,12 @@ enum class ValidationCode(val wire: String) {
     EXCHANGE_RELEASE_UNAVAILABLE("EXCHANGE_RELEASE_UNAVAILABLE"),
     EXCHANGE_ARCHIVE_REJECTED("EXCHANGE_ARCHIVE_REJECTED"),
 
+    /**
+     * A catalog or code-list source URL Epistola will not read: a `classpath:` URL, a `file:` path
+     * outside `epistola.catalog.file-roots`, a non-public address, or a scheme that is not allowed.
+     */
+    SOURCE_URL_NOT_ALLOWED("SOURCE_URL_NOT_ALLOWED"),
+
     // Cluster operations.
     CLUSTER_NODE_NOT_FOUND("CLUSTER_NODE_NOT_FOUND"),
     CLUSTER_NODE_NOT_FORGETTABLE("CLUSTER_NODE_NOT_FORGETTABLE"),

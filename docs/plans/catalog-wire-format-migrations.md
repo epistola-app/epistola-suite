@@ -171,7 +171,7 @@ end-to-end). Steps for bumping the catalog version `N → N+1`:
    `migrateAndBindResourceDetail`, and the manifest path through
    `migrateAndBindManifest`, so a migration needs no extra wiring.
 5. Capture a **golden fixture**: a real exported catalog at version `N`, committed
-   under `modules/epistola-core/src/test/resources/test-catalogs/wire-vN/`.
+   under `modules/epistola-core/src/test/resources/epistola/catalogs/test/wire-vN/`.
 6. **Tests:**
    - `V{N}ToV{N+1}MigrationTest` (unit): exact JSON in → JSON out for each changed
      tree, including edge cases (absent optional field, empty arrays, polymorphic-tag).

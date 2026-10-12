@@ -26,6 +26,15 @@ epistola:
   # rule itself is covered by CatalogClientTest, a unit test with its own configuration.
   catalog:
     allow-http: true
+    # Tests write file: catalogs to @TempDir directories, which live under java.io.tmpdir. Naming it
+    # as the root keeps the containment rule itself in force: a path elsewhere is still refused.
+    file-roots:
+      - ${java.io.tmpdir}
+    outbound:
+      # The loopback fakes above are on 127.0.0.1. Link-local, unspecified and multicast addresses
+      # stay refused even with this on, and the private-address rule itself is covered by
+      # OutboundUrlGuardTest and the fetcher tests, which run without this configuration.
+      allow-private-networks: true
     upstream-check:
       # Off across the suite. It is a background task that reaches out to every subscribed
       # catalog's source, so leaving it on would have unrelated tests making network calls and

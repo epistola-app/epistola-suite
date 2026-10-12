@@ -322,7 +322,7 @@ describe('Insert stencil with content (re-keying)', () => {
     const { engine, registry, rootSlotId } = setupEngine();
     const content = createSampleStencilContent();
 
-    const stencilId = insertStencil(engine, registry, rootSlotId, {
+    insertStencil(engine, registry, rootSlotId, {
       stencilId: 'test-stencil',
       version: 1,
       _content: content,
@@ -944,7 +944,7 @@ describe('Delete stencil after modifying content', () => {
     const { engine, registry, rootSlotId } = setupEngine();
     const content = createSampleStencilContent();
 
-    const stencilNodeId = insertStencil(engine, registry, rootSlotId, {
+    insertStencil(engine, registry, rootSlotId, {
       stencilId: 'header',
       version: 1,
       _content: content,
@@ -1051,34 +1051,7 @@ describe('Multiple instances of the same stencil version', () => {
       _content: contentV1,
     });
 
-    // Simulate v2 content (different structure)
     resetCounter();
-    const contentV2: TemplateDocument = {
-      modelVersion: 1,
-      root: nodeId('v2-root'),
-      nodes: {
-        [nodeId('v2-root')]: {
-          id: nodeId('v2-root-dup'),
-          type: 'root',
-          slots: [slotId('v2-slot')],
-        },
-        [nodeId('v2-text')]: {
-          id: nodeId('v2-text-dup'),
-          type: 'text',
-          slots: [],
-          props: { content: richText('Version 2') },
-        },
-      },
-      slots: {
-        [slotId('v2-slot-dup')]: {
-          id: slotId('v2-slot-dup2'),
-          nodeId: nodeId('v2-root-dup2'),
-          name: 'children',
-          children: [nodeId('v2-text-dup2')],
-        },
-      },
-      themeRef: { type: 'inherit' },
-    };
 
     // This is a simplified test — in practice the content would come from the backend.
     // Just verify different props can coexist.

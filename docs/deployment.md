@@ -354,6 +354,26 @@ equivalent grants by hand as the owner.
 > Validate the role/grant setup against your CNPG and Postgres versions —
 > public-schema ownership and default-privilege semantics are version-sensitive.
 
+## Catalog and code-list sources
+
+Catalog subscriptions and URL code lists are fetched by the server, so what they may reach is
+restricted, and the defaults are closed: network sources must resolve to public addresses, and
+`file:` sources are off. The full rules are in [Allowed sources](exchange/README.md).
+
+```yaml
+catalog:
+  # Directories file:/// sources may be read from; mount each one into the pod.
+  fileRoots: ["/srv/catalogs"]
+  outbound:
+    # Every private address (RFC 1918, CGNAT, unique-local) — coarse, for an intranet.
+    allowPrivateNetworks: false
+    # Or only these hosts may resolve to a private address. Exact names, no wildcards.
+    allowedHosts: ["catalogs.intranet.example"]
+```
+
+Link-local addresses (cloud metadata) stay refused whatever is set. A file root is only useful
+when the directory exists in the pod, so add it through `volumes` and `volumeMounts`.
+
 ## Trusting a client root CA: `extraCaCerts`
 
 Some environments route the suite's **outbound HTTPS** through endpoints signed

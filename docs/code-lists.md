@@ -115,9 +115,15 @@ Atomic from any reader's perspective. If the HTTP fetch fails the existing
 entries are kept and `last_refresh_error` is recorded — the picker keeps
 working while you investigate.
 
-`URL` schemes accepted by default: `classpath:`, `file:`, `https:`. `http:`
-can be enabled with `epistola.codelists.allow-http=true` (dev only). URLs
-must point at `.json` files; `file:` URLs are rejected if they contain `..`.
+Source URLs must point at `.json` files and follow the same rules as catalog
+sources ([Catalog and code-list sources](exchange/README.md#catalog-and-code-list-sources)):
+`https:` to a public address; `file:` only inside `epistola.catalog.file-roots`
+(off by default); `http:` only with `epistola.codelists.allow-http=true` (dev
+only); `classpath:` only under `epistola/catalogs/`, where Epistola ships its own
+catalogs. A URL that breaks these rules is
+refused when the code list is created or its URL changed (`SOURCE_URL_NOT_ALLOWED`
+on `sourceUrl`), and again on every refresh. A failed refresh stores a generic
+`last_refresh_error`; the cause is in the server log.
 
 ## UI surface
 
@@ -172,8 +178,8 @@ Tracked separately; not part of this iteration. Issues raised while
 building this feature:
 
 - **[#391](https://github.com/epistola-app/epistola-suite/issues/391)** —
-  harden `CodeListClient` URL fetches (Accept header, max response size,
-  content-type validation).
+  harden `CodeListClient` URL fetches (content-type validation; the Accept
+  header and a response size cap are in place).
 - **[#393](https://github.com/epistola-app/epistola-suite/issues/393)** —
   rework the variant create/edit dialogs so the list of attributes can
   grow without flooding the form with empty rows.
@@ -240,8 +246,11 @@ Backend tests live under
 - `CodeListCommandsTest` — full CRUD (create, update, delete, hide entry),
   tenant scoping, deletion blocked by bound attributes, cascade-delete of
   entries.
-- `CodeListClientTest` — classpath fetch, URL scheme allowlist, malformed-URL
-  rejection, path-traversal rejection.
+- `CodeListClientTest` — file fetch inside the configured root, refusal of `classpath:`
+  outside the bundled catalogs and of files outside the roots, URL scheme allowlist, malformed-URL and path-traversal
+  rejection, input validation code.
+- `OutboundUrlGuardTest` / `OutboundHttpFetcherTest` — the shared source rules
+  (addresses, schemes, file roots, redirects, size cap, DNS rebinding).
 - `RefreshCodeListTest` — `RefreshCodeList` end-to-end against a real
   `com.sun.net.httpserver.HttpServer`: happy path (entries fetched,
   `last_refreshed_at` advances), failure path (server 500 leaves entries

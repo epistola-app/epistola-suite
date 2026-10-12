@@ -6,9 +6,11 @@ package app.epistola.suite.assets
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.assets.commands.UploadAsset
+import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -109,6 +111,50 @@ class AssetRoutesTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.headers.contentType).isEqualTo(MediaType.parseMediaType("image/svg+xml"))
             assertThat(response.body).isEqualTo(SVG)
+            // Opened directly, the SVG is a document in our origin; it must stay a picture.
+            assertThat(response.headers["X-Content-Type-Options"]).containsExactly("nosniff")
+            assertThat(response.headers["Content-Security-Policy"]).containsExactly(SvgContentPolicy.SERVING_CONTENT_SECURITY_POLICY)
+        }
+    }
+
+    @Test
+    fun `POST assets refuses an SVG that references an external resource`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Unsafe SVG Tenant")
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.contentType = MediaType.MULTIPART_FORM_DATA
+            headers.accept = listOf(MediaType.APPLICATION_JSON)
+
+            val payload = LinkedMultiValueMap<String, Any>()
+            payload.add(
+                "file",
+                HttpEntity(
+                    object : ByteArrayResource(UNSAFE_SVG) {
+                        override fun getFilename(): String = "logo.svg"
+                    },
+                    HttpHeaders().apply { contentType = MediaType.parseMediaType("image/svg+xml") },
+                ),
+            )
+            payload.add("catalog", "default")
+
+            restTemplate.postForEntity(
+                "/tenants/${testTenant.id}/images",
+                HttpEntity(payload, headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            assertThat(response.body).contains("SVG not accepted")
+            val stored = withMediator { ListAssets(tenantId = testTenant.id, catalogKey = CatalogKey.DEFAULT).query() }
+            assertThat(stored).isEmpty()
         }
     }
 
@@ -156,5 +202,6 @@ class AssetRoutesTest : BaseIntegrationTest() {
 
     private companion object {
         val SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"></svg>""".toByteArray()
+        val UNSAFE_SVG = """<svg xmlns="http://www.w3.org/2000/svg"><image href="file:///etc/hosts.png"/></svg>""".toByteArray()
     }
 }

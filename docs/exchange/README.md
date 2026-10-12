@@ -310,18 +310,66 @@ Asset resources reference their binary content via `contentUrl`:
 
 From wire v7 a binary is placed by its hash, at `bin/<contentHash>`, and `contentUrl` is deprecated and optional. An archive migrated from v6 still carries the `contentUrl` it was written with, because a migration rewrites documents and cannot move files; when the field is present it is resolved relative to the manifest URL.
 
-### URL Schemes
+### Catalog and code-list sources
 
-`CatalogClient` supports multiple URL schemes for fetching catalogs:
+Every read behind a catalog or code list — the manifest, each resource detail, each image and font
+binary, a code list's entries, and every redirect in between — goes through `OutboundUrlGuard`
+(`catalog/outbound/`). The rules hold at input time (registering a catalog, creating or changing a
+code list's URL is a `SOURCE_URL_NOT_ALLOWED` validation error on `sourceUrl`) and again at every
+fetch, because a stored URL, or one a fetched manifest names, was never typed by anyone the
+installation trusts.
 
-| Scheme       | Usage                                                        |
-| ------------ | ------------------------------------------------------------ |
-| `https://`   | Remote catalogs (production)                                 |
-| `http://`    | Remote catalogs (only if `epistola.catalog.allow-http=true`) |
-| `file://`    | Local filesystem                                             |
-| `classpath:` | Bundled demo catalogs                                        |
+| Scheme       | Allowed                                                                                                        |
+| ------------ | -------------------------------------------------------------------------------------------------------------- |
+| `https://`   | Always, to a host whose every address is public                                                                |
+| `http://`    | Only with `epistola.catalog.allow-http=true` (code lists: `epistola.codelists.allow-http`) — local development |
+| `file:///`   | Only for a regular file inside a directory listed in `epistola.catalog.file-roots` (off by default)            |
+| `classpath:` | Only Epistola's bundled catalogs, under `classpath:epistola/catalogs/`                                         |
 
-Relative `detailUrl` and `contentUrl` values are resolved against the manifest URL. Path traversal (`..`) is rejected.
+- **Addresses.** A network source is refused when any address its host resolves to is loopback,
+  private (RFC 1918), carrier-grade NAT, benchmarking, unique-local or site-local IPv6 — unless
+  `epistola.catalog.outbound.allow-private-networks=true` or the host is listed in
+  `epistola.catalog.outbound.allowed-hosts`. Link-local (including `169.254.169.254` and
+  `fd00:ec2::254`), unspecified (`0.0.0.0`, `::`), multicast, broadcast and documentation addresses
+  are refused regardless. IPv4 addresses carried inside IPv6 (mapped, compatible, 6to4, NAT64) are
+  judged by the IPv4 address, and numeric hosts in any form other than a dotted quad
+  (`2130706433`, `0x7f.1`, `0177.0.0.1`) are refused.
+- **Pinned connections.** The HTTP client resolves host names through the guard, so the addresses
+  that were checked are the ones that are dialled; a host that changes its answer between the check
+  and the connection (DNS rebinding) is refused at connect. TLS verification and SNI still use the
+  host name. With a JVM proxy configured (`https.proxyHost`), the proxy resolves the target, so only
+  the pre-flight check applies to it.
+- **Redirects** are followed by hand, at most `epistola.catalog.outbound.max-redirects` (3), each
+  checked as a fresh request; never from `https` to `http` or to another scheme, and
+  `Authorization` / `X-API-Key` are dropped when a redirect leaves the original origin.
+- **Manifests name resources by relative path only.** A `detailUrl` or `contentUrl` must be a path
+  below the manifest's own directory (`./resources/…`, `bin/<hash>`). An absolute URL, a
+  protocol-relative `//host/…`, a root-relative `/…`, a `..` segment (also encoded) or a backslash
+  is refused, so a manifest cannot send a fetch — or the catalog's credentials — to another host,
+  another scheme or outside its own tree.
+- **Limits.** Every response and file is capped at `epistola.catalog.max-decompressed-size`
+  (20 MB), the same budget a ZIP import has; connect and read time out after 5 and 15 seconds.
+- **Errors.** Status failures never carry the response body, and a failed code-list refresh stores a
+  generic `last_refresh_error`; the cause is in the server log.
+
+```yaml
+epistola:
+  catalog:
+    allow-http: false
+    # Directories file: sources may be read from. Empty: file: sources are off.
+    file-roots: []
+    outbound:
+      allow-private-networks: false
+      allowed-hosts: []
+      max-redirects: 3
+```
+
+The Helm chart exposes these as `catalog.fileRoots`, `catalog.outbound.allowPrivateNetworks` and
+`catalog.outbound.allowedHosts` (see [deployment](../deployment.md#catalog-and-code-list-sources)).
+Outside the chart, a list can be one comma-separated environment variable, e.g.
+`EPISTOLA_CATALOG_FILEROOTS=/srv/catalogs,/mnt/shared`.
+
+`detailUrl` and `contentUrl` are resolved against the manifest URL and must stay below it.
 
 ### Authentication
 

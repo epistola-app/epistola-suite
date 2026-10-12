@@ -238,6 +238,9 @@ class CatalogHandler {
                 }
                 onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs?saved=true") }
             }
+        } catch (e: ValidationException) {
+            // The URL itself was refused (scheme, file roots, address): say why, it is the user's input.
+            registerError(request, "Failed to register catalog: ${e.message}")
         } catch (e: Exception) {
             logger.warn("Failed to register catalog: ${e.message}", e)
             registerError(request, "Failed to register catalog. Check that the URL points to a valid catalog manifest.")
@@ -993,20 +996,6 @@ class CatalogHandler {
                 onStencilConflict = onStencilConflict,
                 confirmMigration = confirmMigration,
             ).execute()
-
-            val failed = result.results.count { it.status == InstallStatus.FAILED }
-            val installed = result.results.count { it.status == InstallStatus.INSTALLED }
-            val updated = result.results.count { it.status == InstallStatus.UPDATED }
-
-            val message = if (failed > 0) {
-                "Imported catalog '${result.catalogName}' with $failed failures."
-            } else {
-                val parts = listOfNotNull(
-                    if (installed > 0) "$installed installed" else null,
-                    if (updated > 0) "$updated updated" else null,
-                )
-                "Imported catalog '${result.catalogName}': ${parts.joinToString(", ")}."
-            }
 
             if (request.isHtmx) {
                 ServerResponse.ok()

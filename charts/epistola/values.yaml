@@ -405,6 +405,25 @@ demo:
     # Key within that Secret.
     secretKey: shared-secret
 
+# Where catalog and code-list sources may be read from. Every outbound fetch is
+# checked against these rules; the defaults are closed. See docs/exchange/README.md
+# ("Allowed sources").
+catalog:
+  # Directories a file:/// catalog or code-list source may be read from. Empty
+  # turns file: sources off. Mount each directory into the pod yourself via
+  # `volumes` / `volumeMounts`; a path is accepted only when its canonical form
+  # (symbolic links resolved) lies inside one of these.
+  fileRoots: []
+  outbound:
+    # Allow sources on loopback, private (RFC 1918), CGNAT and unique-local
+    # addresses, for an installation whose catalogs live on an intranet.
+    # Link-local (cloud metadata), unspecified, multicast and broadcast
+    # addresses stay refused regardless.
+    allowPrivateNetworks: false
+    # Host names allowed to resolve to a private address without opening it for
+    # every host. Matched exactly (case-insensitive); no wildcards.
+    allowedHosts: []
+
 # Application configuration
 exchange:
   # Hard deployment gate for Suite-to-Exchange catalog publication.

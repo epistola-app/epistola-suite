@@ -58,6 +58,12 @@
       "automerge": false
     },
     {
+      "description": "Jackson BOM overrides (libs.versions.toml): patch updates only. They pin the Spring Boot BOM's own Jackson line for security fixes; moving to a newer minor than the BOM manages is a Spring Boot upgrade, not a pin bump.",
+      "matchPackageNames": ["tools.jackson:jackson-bom", "com.fasterxml.jackson:jackson-bom"],
+      "matchUpdateTypes": ["minor", "major"],
+      "enabled": false
+    },
+    {
       "description": "Group all GitHub Actions updates (minor, major, digests) into a single PR",
       "matchManagers": ["github-actions"],
       "groupName": "github-actions",
