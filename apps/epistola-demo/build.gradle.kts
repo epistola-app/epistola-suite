@@ -10,9 +10,9 @@ plugins {
 // resolves its own Tomcat. Keep the two in step.
 extra["tomcat.version"] = "11.0.25"
 
-// Jackson security override — same pins and rationale as apps/epistola. Keep the two in step.
-extra["jackson-bom.version"] = "3.1.7"
-extra["jackson-2-bom.version"] = "2.21.7"
+// Jackson security override — same pins and rationale as apps/epistola.
+extra["jackson-bom.version"] = libs.versions.jackson.get()
+extra["jackson-2-bom.version"] = libs.versions.jackson2.get()
 
 dependencies {
     // The whole suite, as a library. This app adds demo mode on top and changes nothing else.
