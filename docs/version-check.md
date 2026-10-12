@@ -5,9 +5,11 @@ running version is still supported, and for published security advisories that a
 reads a single public JSON document, anonymously, and surfaces the result as notices on tenant-home
 pages. What every outbound call sends is in [Data shared with Epistola](outbound-traffic.md).
 
-- **Source:** `epistola.version-check.well-known-url` (Helm `versionCheck.wellKnownUrl`), default
-  `https://epistola.app/.well-known/epistola/releases.json`. While the check is enabled, the
-  application refuses to start unless it is an absolute `http(s)` URL.
+- **Source:** the release metadata document named by
+  [product discovery](outbound-traffic.md#product-discovery) on `epistola.product-domain`, or
+  `epistola.version-check.endpoint` (Helm `versionCheck.endpoint`) for a mirror. While the check is
+  enabled, a configured endpoint must be an absolute `http(s)` URL or the application does not
+  start.
 - **Schedule:** a clustered `SINGLE_OWNER` task at a stable per-installation minute inside an
   08:00–08:59 UTC window (the minute is derived from the installation id, so each install keeps a
   fixed time while load is spread across the hour). Configurable via `daily-window-start-hour` /
@@ -19,9 +21,9 @@ pages. What every outbound call sends is in [Data shared with Epistola](outbound
   id is shared.)
 - **Disable:** `epistola.version-check.enabled=false` (Helm `versionCheck.enabled: false`). It is
   off in the `local` profile, so development runs are not counted as installations.
-- **Independent** of the commercial support-hub discovery (`hub.json`), which is a separate document.
-  [ADR 0030](adr/0030-product-domain-and-discovery.md) proposes one discovery document and one
-  `endpoint` setting for every Epistola-operated integration.
+- **Discovery:** the release document's address, like every Epistola-operated endpoint, comes from
+  one discovery document ([ADR 0030](adr/0030-product-domain-and-discovery.md)); without it the
+  check uses `https://{product-domain}/.well-known/epistola/releases.json`.
 
 The check result is cached in global `app_metadata` (`version-check.status`); every instance reads
 the cached value, and the scheduled task refreshes it.
