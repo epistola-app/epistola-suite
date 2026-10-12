@@ -36,6 +36,23 @@ class DiscoveredEndpointsTest {
         assertThat(endpoints.supportHub).isEqualTo(ProductEndpoints.HubAddress("hub.epistola.app", 443))
     }
 
+    /** Pins the contract against what the website actually builds (website `src/lib/server/discovery/document.ts`). */
+    @Test
+    fun `the document epistola_app publishes is taken whole, and the hub keeps its default`() {
+        val published = """{"schemaVersion":1,"versionCheck":{"endpoint":"https://epistola.app/releases.json"},""" +
+            """"installationCheck":{"endpoint":"https://epistola.app/installation/{id}.json"},""" +
+            """"exchange":{"issuer":"https://exchange.epistola.app","endpoint":"https://exchange.epistola.app"}}"""
+
+        val discovered = parse(published)
+        val endpoints = discovered.over(ProductEndpoints.defaults(domain))
+
+        assertThat(discovered.rejected).isEmpty()
+        assertThat(endpoints.versionCheck).isEqualTo("https://epistola.app/releases.json")
+        assertThat(endpoints.installationCheck).isEqualTo("https://epistola.app/installation/{id}.json")
+        assertThat(endpoints.exchange.endpoint).isEqualTo("https://exchange.epistola.app")
+        assertThat(endpoints.supportHub).isEqualTo(ProductEndpoints.defaults(domain).supportHub)
+    }
+
     @Test
     fun `an integration the document leaves out keeps its built-in default`() {
         val defaults = ProductEndpoints.defaults(domain)
