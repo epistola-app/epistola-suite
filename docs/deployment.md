@@ -300,7 +300,7 @@ Provision the restricted role on the CNPG cluster. Two subtleties:
   `ALTER DEFAULT PRIVILEGES` must be qualified **`FOR ROLE <owner>`**, or the
   defaults apply to the superuser's objects and the app gets no grants on the
   migration-created tables (you'll see `permission denied for table
-flyway_schema_history` at boot).
+  flyway_schema_history` at boot).
 
 ```yaml
 # in your CNPG Cluster manifest
@@ -438,7 +438,7 @@ Notes:
 - This covers the app's outbound HTTPS only. Database TLS is configured
   separately via the datasource/JDBC settings.
 - At startup the buildpack logs `Added N additional CA certificate(s) to system
-truststore` — a quick confirmation your certs were picked up.
+  truststore` — a quick confirmation your certs were picked up.
 - A TLS failure against a CA-signed endpoint shows up as
   `PKIX path building failed` / `unable to find valid certification path` in the
   app log — if you see that, the CA is not (yet) trusted.
@@ -632,7 +632,7 @@ manage CPU.
   replica the PDB would refuse every eviction and node drains would hang; the
   install notes warn about that combination.
 - **Node failures** are not voluntary, so a PDB does not help. `podAntiAffinity:
-soft` (the default) prefers separate nodes for the replicas but still
+  soft` (the default) prefers separate nodes for the replicas but still
   schedules when it cannot; `hard` requires separate nodes (at least as many
   nodes as replicas); `none` turns the preset off. Setting `affinity` replaces
   the preset entirely.

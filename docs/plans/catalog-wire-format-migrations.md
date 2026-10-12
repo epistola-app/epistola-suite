@@ -119,7 +119,7 @@ Catalog import/export integration tests stay green.
      orders the steps into one chain.
    - init **chain-integrity check**: the steps are validated contiguous
      `baseline … current-1` against `[CATALOG_BASELINE_SCHEMA_VERSION,
-CATALOG_SCHEMA_VERSION]`; a malformed chain fails application start.
+     CATALOG_SCHEMA_VERSION]`; a malformed chain fails application start.
      Unit-tested directly.
    - `migrateAndBindManifest(raw): MigratedManifest` — gate the catalog version,
      run each step's `migrateManifest`, bind, and return the manifest plus a

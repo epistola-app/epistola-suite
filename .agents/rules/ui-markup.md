@@ -25,7 +25,7 @@ build, and a CSP violation in the browser console fails a UI test.
   before inventing. Note `data-open-dialog` is a _click_ trigger; a dialog arriving by HTMX swap is
   opened by `data-dialog-mount` on the container.
 - **Server data reaches JS as inert JSON**, never as code: `<script type="application/json"
-id="…" th:inline="javascript">` parsed from static JS, with initialization driven by `htmx:load`
+  id="…" th:inline="javascript">` parsed from static JS, with initialization driven by `htmx:load`
   (it fires for the first page and every swap — guard with a `data-…-mounted` attribute). Small
   values can ride `data-*` attributes.
 - `style-src` still allows `'unsafe-inline'`, deliberately, so inline `style=` is fine.
