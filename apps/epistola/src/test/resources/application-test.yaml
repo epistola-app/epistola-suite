@@ -38,6 +38,9 @@ epistola:
   demo:
     enabled: false # Disable demo loading in tests
   catalog:
+    # Tests write file: catalogs to temp directories under java.io.tmpdir; anywhere else is refused.
+    file-roots:
+      - ${java.io.tmpdir}
     upstream-check:
       # Off across the suite. It is a background task that reaches out to every subscribed
       # catalog's source, so leaving it on would have unrelated tests making network calls and

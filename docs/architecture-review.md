@@ -187,6 +187,8 @@ The no-op fallback pattern is good because the OSS/default runtime remains funct
 - Add outbound HTTP allowlists or block private/link-local/metadata IP ranges after DNS resolution.
 - Apply response size and timeout limits for remote catalog/code-list fetches.
 
+**Since resolved:** all four, in `catalog/outbound/` — see [Catalog and code-list sources](exchange/README.md#catalog-and-code-list-sources).
+
 ### 9. JavaScript Expression Evaluation Lacks An Enforced Time Limit — resolved by removal
 
 **Status:** Resolved. The JavaScript engine and its GraalVM polyglot dependencies were removed

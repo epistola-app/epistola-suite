@@ -238,6 +238,9 @@ class CatalogHandler {
                 }
                 onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs?saved=true") }
             }
+        } catch (e: ValidationException) {
+            // The URL itself was refused (scheme, file roots, address): say why, it is the user's input.
+            registerError(request, "Failed to register catalog: ${e.message}")
         } catch (e: Exception) {
             logger.warn("Failed to register catalog: ${e.message}", e)
             registerError(request, "Failed to register catalog. Check that the URL points to a valid catalog manifest.")

@@ -285,7 +285,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
     fun `upgrade aborts on failed install — version not bumped, stale not removed`(@TempDir tmp: Path) {
         // Mutable file:// copy of a self-contained fixture so we can break a
         // resource between install and upgrade.
-        val src = javaClass.classLoader.getResource("test-catalogs/dependency-test/catalog.json")!!.toURI().toPath().parent
+        val src = javaClass.classLoader.getResource("epistola/catalogs/test/dependency-test/catalog.json")!!.toURI().toPath().parent
         Files.walk(src).use { stream ->
             stream.forEach { p ->
                 val target = tmp.resolve(src.relativize(p).toString())

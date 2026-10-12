@@ -4,6 +4,15 @@
 
 ### Added
 
+- **`catalog.*` — where catalog and code-list sources may be read from.** Renders
+  `EPISTOLA_CATALOG_OUTBOUND_ALLOWPRIVATENETWORKS` (default `false`) and, when set,
+  `EPISTOLA_CATALOG_FILEROOTS` and `EPISTOLA_CATALOG_OUTBOUND_ALLOWEDHOSTS` as comma-separated
+  lists. The application now refuses `file:` sources outside `catalog.fileRoots` (empty by default,
+  so `file:` is off) and network sources on private addresses unless `allowPrivateNetworks` is on or
+  the host is in `allowedHosts` (exact names, no wildcards). An installation that reads catalogs from
+  a mounted directory or from an intranet server must set these on upgrade; mount each file root
+  through `volumes` / `volumeMounts`. The schema rejects relative roots and wildcard hosts.
+
 - **`oidc.silentLogin` — sign in without a click when the SSO session is live.** Renders
   `EPISTOLA_AUTH_OIDC_SILENTLOGIN` (default `true`): the login page first tries a silent OIDC
   sign-in (`prompt=none`), so a user already signed in at the identity provider goes straight to

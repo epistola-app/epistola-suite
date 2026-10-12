@@ -5,21 +5,45 @@
 package app.epistola.suite.catalog
 
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
+import app.epistola.suite.catalog.outbound.CatalogSourceProperties
+import app.epistola.suite.catalog.outbound.HostResolver
+import app.epistola.suite.catalog.outbound.OutboundFetchException
+import app.epistola.suite.catalog.outbound.OutboundHttpFetcher
+import app.epistola.suite.catalog.outbound.OutboundSourceReader
+import app.epistola.suite.catalog.outbound.OutboundUrlGuard
+import app.epistola.suite.catalog.outbound.OutboundUrlRejectedException
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.core.io.DefaultResourceLoader
 import org.springframework.core.io.Resource
 import org.springframework.core.io.ResourceLoader
-import org.springframework.web.client.RestClient
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.writeBytes
 
 private const val FIXTURE_MANIFEST = "classpath:epistola/catalogs/fixture/catalog.json"
+
+/** A [CatalogClient] wired the way Spring wires it, for tests that run without a context. */
+internal fun catalogClient(
+    properties: CatalogSourceProperties = CatalogSourceProperties(),
+    resourceLoader: ResourceLoader = DefaultResourceLoader(),
+    resolver: HostResolver = HostResolver.SYSTEM,
+    maxBytes: Long = 20L * 1024 * 1024,
+): CatalogClient {
+    val guard = OutboundUrlGuard(properties, resolver)
+    return CatalogClient(
+        sourceReader = OutboundSourceReader(guard, OutboundHttpFetcher(guard), resourceLoader, maxBytes),
+        schemaMigrator = CatalogSchemaMigrator(),
+        properties = properties,
+    )
+}
 
 class CatalogClientTest {
     /**
@@ -40,10 +64,11 @@ class CatalogClientTest {
 
             override fun getClassLoader(): ClassLoader? = delegate.classLoader
         }
-        private val client = CatalogClient(
-            catalogRestClient = RestClient.create(),
-            resourceLoader = countingLoader,
-            schemaMigrator = CatalogSchemaMigrator(),
+
+        // The temp directories @TempDir creates live under java.io.tmpdir, so that is the file root.
+        private val client = catalogClient(
+            CatalogSourceProperties(fileRoots = listOf(System.getProperty("java.io.tmpdir"))),
+            countingLoader,
         )
 
         @Test
@@ -86,7 +111,7 @@ class CatalogClientTest {
         @Test
         fun `a missing classpath resource fails every time and caches nothing`() {
             repeat(2) {
-                assertThrows<CatalogFetchException> {
+                assertThrows<OutboundFetchException> {
                     client.fetchManifest("classpath:epistola/catalogs/nowhere/catalog.json", AuthType.NONE, null)
                 }
             }
@@ -158,13 +183,37 @@ class CatalogClientTest {
     @Nested
     inner class ResolveDetailUrl {
 
-        @Test
-        fun `absolute https URL is returned as-is`() {
-            val result = CatalogClient.resolveDetailUrl(
+        @ParameterizedTest
+        @ValueSource(
+            strings = [
                 "https://cdn.example.com/template.json",
-                "https://example.com/catalog.json",
-            )
-            assert(result == "https://cdn.example.com/template.json")
+                "HTTPS://example.com/catalog/template.json",
+                "http://169.254.169.254/latest/meta-data/x.json",
+                "file:///etc/passwd",
+                "classpath:application.json",
+                "jar:file:///x.jar!/t.json",
+                "//other.example/template.json",
+                "/catalog/resources/template.json",
+                "../other/template.json",
+                "./resources/../../other/template.json",
+                "resources/%2e%2e/%2E%2E/other.json",
+                "resources\\template.json",
+                "",
+            ],
+        )
+        fun `anything but a path relative to the manifest is refused`(path: String) {
+            assertThatThrownBy { CatalogClient.resolveDetailUrl(path, "https://example.com/catalog/catalog.json") }
+                .isInstanceOf(OutboundUrlRejectedException::class.java)
+            assertThatThrownBy { CatalogClient.resolveContentUrl(path, "https://example.com/catalog/catalog.json") }
+                .isInstanceOf(OutboundUrlRejectedException::class.java)
+        }
+
+        @Test
+        fun `classpath manifests resolve only below their own directory`() {
+            assertThat(CatalogClient.resolveContentUrl("bin/abc123", "classpath:epistola/catalogs/fixture/catalog.json"))
+                .isEqualTo("classpath:epistola/catalogs/fixture/bin/abc123")
+            assertThatThrownBy { CatalogClient.resolveContentUrl("../system/catalog.json", "classpath:epistola/catalogs/fixture/catalog.json") }
+                .isInstanceOf(OutboundUrlRejectedException::class.java)
         }
 
         @Test
@@ -183,24 +232,6 @@ class CatalogClientTest {
                 "classpath:epistola/catalogs/fixture/catalog.json",
             )
             assert(result == "classpath:epistola/catalogs/fixture/resources/templates/invoice.json")
-        }
-
-        @Test
-        fun `absolute classpath URL is returned as-is`() {
-            val result = CatalogClient.resolveDetailUrl(
-                "classpath:other/template.json",
-                "classpath:epistola/catalogs/fixture/catalog.json",
-            )
-            assert(result == "classpath:other/template.json")
-        }
-
-        @Test
-        fun `absolute file URL is returned as-is`() {
-            val result = CatalogClient.resolveDetailUrl(
-                "file:///tmp/template.json",
-                "https://example.com/catalog.json",
-            )
-            assert(result == "file:///tmp/template.json")
         }
 
         @Test

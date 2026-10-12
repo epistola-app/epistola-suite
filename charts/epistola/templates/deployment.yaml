@@ -209,6 +209,18 @@ spec:
                    pod a distinct id automatically. */}}
             {{- end }}
 
+            {{- /* Catalog and code-list source rules (closed by default) */}}
+            {{- with .Values.catalog.fileRoots }}
+            - name: EPISTOLA_CATALOG_FILEROOTS
+              value: {{ join "," . | quote }}
+            {{- end }}
+            - name: EPISTOLA_CATALOG_OUTBOUND_ALLOWPRIVATENETWORKS
+              value: {{ .Values.catalog.outbound.allowPrivateNetworks | quote }}
+            {{- with .Values.catalog.outbound.allowedHosts }}
+            - name: EPISTOLA_CATALOG_OUTBOUND_ALLOWEDHOSTS
+              value: {{ join "," . | quote }}
+            {{- end }}
+
             {{- /* Suite-to-Exchange publication (hard deployment gate) */}}
             - name: EPISTOLA_EXCHANGE_ENABLED
               value: {{ .Values.exchange.enabled | quote }}

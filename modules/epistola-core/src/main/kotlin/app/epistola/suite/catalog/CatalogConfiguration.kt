@@ -4,29 +4,36 @@
 
 package app.epistola.suite.catalog
 
+import app.epistola.suite.catalog.outbound.CatalogSourceProperties
+import app.epistola.suite.catalog.outbound.OutboundHttpFetcher
+import app.epistola.suite.catalog.outbound.OutboundSourceReader
+import app.epistola.suite.catalog.outbound.OutboundUrlGuard
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.http.client.SimpleClientHttpRequestFactory
+import org.springframework.core.io.ResourceLoader
 import org.springframework.util.unit.DataSize
-import org.springframework.web.client.RestClient
 import java.time.Duration
 
 @Configuration
-@EnableConfigurationProperties(CatalogSizeLimits::class, CatalogUpstreamCheckProperties::class)
+@EnableConfigurationProperties(CatalogSizeLimits::class, CatalogUpstreamCheckProperties::class, CatalogSourceProperties::class)
 class CatalogConfiguration {
 
+    /**
+     * The one HTTP client for catalog and code-list sources. Deliberately not a `RestClient` bean:
+     * anything that could inject a general-purpose client could also fetch around the guard.
+     */
     @Bean
-    fun catalogRestClient(): RestClient = RestClient.builder()
-        .requestFactory(
-            SimpleClientHttpRequestFactory().apply {
-                setConnectTimeout(Duration.ofSeconds(5))
-                setReadTimeout(Duration.ofSeconds(15))
-            },
-        )
-        .defaultHeader("Accept", "application/json")
-        .build()
+    fun outboundHttpFetcher(guard: OutboundUrlGuard): OutboundHttpFetcher = OutboundHttpFetcher(guard)
+
+    @Bean
+    fun outboundSourceReader(
+        guard: OutboundUrlGuard,
+        fetcher: OutboundHttpFetcher,
+        resourceLoader: ResourceLoader,
+        sizeLimits: CatalogSizeLimits,
+    ): OutboundSourceReader = OutboundSourceReader(guard, fetcher, resourceLoader, sizeLimits.maxDecompressedSize.toBytes())
 }
 
 /**

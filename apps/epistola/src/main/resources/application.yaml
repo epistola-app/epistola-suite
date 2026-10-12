@@ -202,6 +202,21 @@ epistola:
     # Refuse a plaintext Exchange. Only a local checkout should ever turn this on.
     allow-http: false
   catalog:
+    # Where catalog and code-list sources may be read from (docs/exchange/README.md, "Catalog and
+    # code-list sources"). Plaintext http:// sources are refused; only a local setup should allow them.
+    allow-http: false
+    # Directories a file:/// catalog or code-list source may be read from. Empty turns file: sources
+    # off. A file is accepted only when its canonical path (symbolic links resolved) is inside one.
+    file-roots: []
+    outbound:
+      # Network sources must resolve to public addresses only. Set true for an installation whose
+      # catalogs live on an intranet; link-local (cloud metadata), unspecified, multicast and
+      # broadcast addresses stay refused regardless.
+      allow-private-networks: false
+      # Host names allowed to resolve to a private address without opening it for every host.
+      allowed-hosts: []
+      # Redirects one fetch follows; each is checked as if it were the first request.
+      max-redirects: 3
     upstream-check:
       # Ask each subscribed catalog's source, on a schedule, whether it has published anything
       # newer, so a release can be noticed without anyone opening the catalogs page. On by

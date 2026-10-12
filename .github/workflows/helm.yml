@@ -52,6 +52,10 @@ jobs:
         if: matrix.chart == 'epistola'
         run: charts/epistola/tests/availability-render.sh
 
+      - name: Test catalog source settings rendering
+        if: matrix.chart == 'epistola'
+        run: charts/epistola/tests/catalog-render.sh
+
       - name: Scan Helm chart for misconfigurations
         uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
         with:

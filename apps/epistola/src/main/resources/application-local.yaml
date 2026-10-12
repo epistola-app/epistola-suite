@@ -106,6 +106,9 @@ epistola:
           - CONTENT_PUBLISHER
   catalog:
     allow-http: true
+    outbound:
+      # A catalog or code list served from this machine during development.
+      allow-private-networks: true
   # Keep the deployment gate inherited as false, but make opting in locally
   # target the sibling epistola-exchange checkout without contacting public
   # product discovery. OAuth metadata is still discovered and issuer-checked.

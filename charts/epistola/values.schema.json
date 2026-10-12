@@ -4,6 +4,27 @@
   "description": "Partial schema: constrains operational values that have hard render-time requirements. Other values are validated by the templates.",
   "type": "object",
   "properties": {
+    "catalog": {
+      "type": "object",
+      "properties": {
+        "fileRoots": {
+          "description": "Directories file: catalog and code-list sources may be read from. Empty turns file: sources off.",
+          "type": "array",
+          "items": { "type": "string", "pattern": "^/[^,]*$" }
+        },
+        "outbound": {
+          "type": "object",
+          "properties": {
+            "allowPrivateNetworks": { "type": "boolean" },
+            "allowedHosts": {
+              "description": "Host names allowed to resolve to a private address. Exact match, no wildcards.",
+              "type": "array",
+              "items": { "type": "string", "pattern": "^[A-Za-z0-9.-]+$" }
+            }
+          }
+        }
+      }
+    },
     "exchange": {
       "type": "object",
       "required": ["enabled", "discoveryUrl"],
