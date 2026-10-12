@@ -27,7 +27,7 @@ detail belongs in the area guide, the rule card (`.agents/rules/`), or the doc t
 - `modules/epistola-core` — domains, commands/queries, mediator, JDBI, catalog + exchange
 - `modules/epistola-web` — shared web toolkit: HTMX DSL, UI SPIs, shared fragments
 - `modules/rest-api` — REST controllers implementing the external `epistola-contract`
-- `modules/generation` — pure PDF rendering, no business logic
+- `modules/generation` — pure PDF rendering, no business logic; SVG converts only through `SafeSvgConversion` (`SvgConversionUsageTest`)
 - `modules/editor` — Lit + ProseMirror editors (TypeScript)
 - `modules/epistola-mcp` — MCP server at `/api/mcp`: read, author and publish (`docs/mcp.md`)
 - `modules/epistola-quality` — quality-findings ledger — OSS, alpha (`docs/quality.md`)
