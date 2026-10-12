@@ -4,6 +4,18 @@
 
 ### Added
 
+- **`sharing.*`, `versionCheck.enabled`, `versionCheck.wellKnownUrl` and `installationCheck.url` — what the installation shares with
+  Epistola.** Render `EPISTOLA_SHARING_INSTALLATIONID`, `EPISTOLA_SHARING_SUITEVERSION`,
+  `EPISTOLA_SHARING_USAGESTATISTICS`, `EPISTOLA_VERSIONCHECK_ENABLED`,
+  `EPISTOLA_VERSIONCHECK_WELLKNOWNURL` and `EPISTOLA_INSTALLATIONCHECK_URL`. **Everything is shared by
+  default** (installation id, version, and the reserved usage statistics, which send nothing yet); set a
+  value to `false` to stop sharing it. Until now the version check could only be switched off through
+  `config.env`; that keeps working, because `config.env` is rendered after these and wins. All three
+  blocks are in `values.schema.json`, which requires both URLs to be absolute `http(s)` URLs and
+  `installationCheck.url` to contain `{id}`. The new `examples/no-data-to-epistola.yaml` turns everything
+  off, so the installation sends no data to Epistola; its support badge then says "Support cannot be
+  verified". See `docs/outbound-traffic.md`.
+
 - **`catalog.*` — where catalog and code-list sources may be read from.** Renders
   `EPISTOLA_CATALOG_OUTBOUND_ALLOWPRIVATENETWORKS` (default `false`) and, when set,
   `EPISTOLA_CATALOG_FILEROOTS` and `EPISTOLA_CATALOG_OUTBOUND_ALLOWEDHOSTS` as comma-separated

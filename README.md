@@ -329,11 +329,16 @@ versions are published separately (website / release metadata), not hardcoded
 in the policy. See also [docs/version-check.md](docs/version-check.md) and
 [docs/migrations.md](docs/migrations.md).
 
-The installation-wide version check is enabled by default. Once per day, one
-node retrieves the public release metadata and sends the running suite version
-plus the stable installation id; Epistola Nederland B.V. uses that request to
-understand how many active installations run each version. Disable it with
-`epistola.version-check.enabled=false`.
+**Shared with Epistola by default.** A Suite installation shares its
+installation id and version with Epistola Nederland B.V. by default (and, once
+introduced, anonymous usage counters), so it can show whether the installation
+is supported and see which versions are in use. No hostnames, tenant, user or
+document data is ever shared. The daily release and security-advisory check
+sends nothing that identifies the installation. Turn sharing off with
+`epistola.sharing.*` (Helm: `sharing`), and the release check with
+`epistola.version-check.enabled=false`; with everything off the installation
+sends no data to Epistola. See
+[Data shared with Epistola](docs/outbound-traffic.md).
 
 ## License
 

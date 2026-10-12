@@ -4,7 +4,6 @@
 
 package app.epistola.suite.versioncheck
 
-import app.epistola.suite.installation.InstallationService
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.metadata.getAs
 import app.epistola.suite.time.EpistolaClock
@@ -16,7 +15,6 @@ import org.springframework.stereotype.Service
 class VersionCheckService(
     private val client: VersionCheckClient,
     private val metadata: AppMetadataService,
-    private val installationService: InstallationService,
     private val properties: VersionCheckProperties,
     private val buildProperties: BuildProperties?,
 ) {
@@ -41,6 +39,18 @@ class VersionCheckService(
         null
     }
 
+    /** This check for the "Shared with Epistola" page. It sends the same request every day. */
+    fun summary(): CheckSummary {
+        val status = readStatus()
+        return CheckSummary(
+            enabled = properties.enabled,
+            request = if (properties.enabled) VersionCheckClient.request(properties.wellKnownUrl) else null,
+            lastRunAt = status?.checkedAt,
+            lastResult = status?.let { it.lastError ?: if (it.metadataAvailable) "OK" else "release metadata unavailable" },
+            lastRequest = null,
+        )
+    }
+
     fun checkNow(): VersionCheckStatus {
         val previous = readStatus()
         val now = EpistolaClock.instant()
@@ -49,7 +59,7 @@ class VersionCheckService(
         }
 
         val status = try {
-            val document = client.fetch(properties.wellKnownUrl, currentVersion, installationService.get().id)
+            val document = client.fetch(properties.wellKnownUrl)
             VersionCheckEvaluator.evaluate(document, currentVersion, now, properties.deprecationWarningWindow)
         } catch (e: VersionMetadataUnavailableException) {
             // Metadata temporarily absent (404) — keep any previously known update, like the

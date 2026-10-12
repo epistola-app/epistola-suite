@@ -433,6 +433,30 @@ exchange:
   # Optional browser-reachable HTTPS callback; useful when proxy headers do not expose the public origin.
   callbackUrl: ""
 
+# What this installation shares with Epistola ("Data shared with Epistola", docs/outbound-traffic.md).
+# Everything is shared by default; set a value to false to stop sharing it. Exchange and the
+# support hub (support.*) are separate integrations with their own settings.
+sharing:
+  # Share the installation id (a random UUID): enables the daily installation check behind the
+  # support badge, and lets Epistola count installations. Off: nothing is sent, and the badge says
+  # "Support cannot be verified".
+  installationId: true
+  # Send the running version along with the installation check.
+  suiteVersion: true
+  # Reserved for anonymous usage counters. Nothing is sent yet.
+  usageStatistics: true
+
+# Daily release check: new releases and published security advisories, matched against the running
+# version locally. Sends nothing that identifies the installation. Off: no update or security notices.
+versionCheck:
+  enabled: true
+  wellKnownUrl: https://epistola.app/.well-known/epistola/releases.json
+
+# Daily installation check; runs only when sharing.installationId is true. {id} is replaced by the
+# installation id.
+installationCheck:
+  url: https://epistola.app/installation/{id}.json
+
 config:
   # Spring profiles to activate. OIDC login is configured via oidc.* (env vars), not a profile.
   # Production:    "prod"

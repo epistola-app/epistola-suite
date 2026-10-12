@@ -17,6 +17,9 @@
             <a th:href="@{/platform/banner}" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="platform-banner-link">
                 Site banner
             </a>
+            <a th:href="@{/platform/sharing}" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="platform-sharing-link">
+                Shared with Epistola
+            </a>
         </p>
 
         <div id="create-form" th:fragment="create-form" th:if="${auth.has('TENANT_MANAGER')}">

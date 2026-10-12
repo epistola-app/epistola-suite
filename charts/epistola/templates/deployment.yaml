@@ -250,6 +250,20 @@ spec:
             - name: EPISTOLA_MIGRATION_MODE
               value: "validate"
             {{- end }}
+            {{- /* Data shared with Epistola (docs/outbound-traffic.md). config.env comes after, so it can override. */}}
+            - name: EPISTOLA_SHARING_INSTALLATIONID
+              value: {{ .Values.sharing.installationId | quote }}
+            - name: EPISTOLA_SHARING_SUITEVERSION
+              value: {{ .Values.sharing.suiteVersion | quote }}
+            - name: EPISTOLA_SHARING_USAGESTATISTICS
+              value: {{ .Values.sharing.usageStatistics | quote }}
+            - name: EPISTOLA_VERSIONCHECK_ENABLED
+              value: {{ .Values.versionCheck.enabled | quote }}
+            - name: EPISTOLA_VERSIONCHECK_WELLKNOWNURL
+              value: {{ .Values.versionCheck.wellKnownUrl | quote }}
+            - name: EPISTOLA_INSTALLATIONCHECK_URL
+              value: {{ .Values.installationCheck.url | quote }}
+
             {{- range $key, $value := .Values.config.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}

@@ -194,10 +194,56 @@ class VersionCheckEvaluatorTest {
         assertThat(status.supportedUntil).isNull()
     }
 
+    @Test
+    fun `advisories apply by range, most severe first, and unknown stays unknown`() {
+        val advisories = listOf(
+            Advisory(id = "EPIS-2026-001", severity = "MEDIUM", summary = "Stored HTML injection", affected = listOf(AffectedRange("0.0.0", lastAffected = "1.0.1")), url = "https://example.test/1"),
+            Advisory(id = "EPIS-2026-002", severity = "critical", affected = listOf(AffectedRange("1.0.0", fixed = "1.0.3")), fixedIn = "1.0.3"),
+            Advisory(id = "EPIS-2026-003", severity = "low", affected = listOf(AffectedRange("2.0.0"))),
+        )
+        fun evaluate(version: String, list: List<Advisory>?) = VersionCheckEvaluator.evaluate(
+            document(stable = ReleaseRef(version = "1.0.3"), advisories = list),
+            currentVersion = version,
+            checkedAt = checkedAt,
+        ).advisories
+
+        assertThat(evaluate("1.0.1", advisories)?.map { it.id }).containsExactly("EPIS-2026-002", "EPIS-2026-001")
+        assertThat(evaluate("1.0.1", advisories)?.first()?.fixedIn).isEqualTo("1.0.3")
+        assertThat(evaluate("1.0.1", advisories)?.last()?.severity).isEqualTo("medium")
+        assertThat(evaluate("1.0.2-RC1", advisories)?.map { it.id }).containsExactly("EPIS-2026-002")
+        assertThat(evaluate("1.0.3", advisories)).isEmpty()
+        assertThat(evaluate("1.0.1", null)).isNull()
+    }
+
+    @Test
+    fun `advisory and release links render only when https, and text is cleaned`() {
+        val status = VersionCheckEvaluator.evaluate(
+            document(
+                stable = ReleaseRef(version = "1.1.0", releaseUrl = "javascript:alert(1)", changelogUrl = "http://example.test/changelog"),
+                advisories = listOf(
+                    Advisory(id = "EPIS-2026-009", summary = "line\u0000one\nline two", affected = listOf(AffectedRange("0")), url = "data:text/html,x"),
+                    Advisory(id = "<script>", affected = listOf(AffectedRange("0.0.0"))),
+                    Advisory(id = "EPIS-2026-010", affected = listOf(AffectedRange("not-a-version"))),
+                ),
+            ),
+            currentVersion = "1.0.0",
+            checkedAt = checkedAt,
+        )
+
+        assertThat(status.releaseUrl).isNull()
+        assertThat(status.changelogUrl).isNull()
+        val advisory = status.advisories!!.single()
+        assertThat(advisory.id).isEqualTo("EPIS-2026-009")
+        assertThat(advisory.url).isNull()
+        assertThat(advisory.summary).isEqualTo("lineoneline two")
+        assertThat(advisory.severity).isEqualTo("unknown")
+    }
+
     private fun document(
         stable: ReleaseRef? = null,
         prerelease: ReleaseRef? = null,
         support: SupportPolicy? = null,
+        advisories: List<Advisory>? = null,
     ) = EpistolaReleasesDocument(
         schemaVersion = 1,
         products = mapOf(
@@ -205,6 +251,7 @@ class VersionCheckEvaluatorTest {
                 stable = stable,
                 prerelease = prerelease,
                 support = support,
+                advisories = advisories,
             ),
         ),
     )

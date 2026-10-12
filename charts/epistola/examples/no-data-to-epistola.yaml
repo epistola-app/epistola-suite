@@ -1,0 +1,22 @@
+# Values for an installation that sends no data to Epistola at all.
+#
+#   helm upgrade --install epistola oci://ghcr.io/epistola-app/charts/epistola -f no-data-to-epistola.yaml
+#
+# Nothing in these settings leaves the cluster: no version check, no installation check, no usage
+# statistics. The application keeps working fully. The support badge in the footer then permanently
+# says "Support cannot be verified", with a link to an explanation on epistola.app that receives no
+# data. Release and security-advisory notices are off too; follow releases another way, for example
+# the GitHub releases of epistola-app/epistola-suite.
+#
+# The support hub (support.enabled) and Exchange (exchange.enabled) are separate integrations and are
+# off by default; keep them off as well. See docs/outbound-traffic.md for every outbound call.
+sharing:
+  installationId: false
+  suiteVersion: false
+  usageStatistics: false
+versionCheck:
+  enabled: false
+support:
+  enabled: false
+exchange:
+  enabled: false
