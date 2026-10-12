@@ -260,7 +260,7 @@ spec:
             - name: EPISTOLA_VERSIONCHECK_ENABLED
               value: {{ .Values.versionCheck.enabled | quote }}
             - name: EPISTOLA_VERSIONCHECK_WELLKNOWNURL
-              value: {{ .Values.versionCheck.url | quote }}
+              value: {{ .Values.versionCheck.wellKnownUrl | quote }}
             - name: EPISTOLA_INSTALLATIONCHECK_URL
               value: {{ .Values.installationCheck.url | quote }}
 

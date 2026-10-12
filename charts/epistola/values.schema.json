@@ -339,17 +339,17 @@
       "description": "Daily anonymous release and security-advisory check.",
       "required": [
         "enabled",
-        "url"
+        "wellKnownUrl"
       ],
       "additionalProperties": false,
       "properties": {
         "enabled": {
           "type": "boolean"
         },
-        "url": {
+        "wellKnownUrl": {
           "type": "string",
-          "format": "uri",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^https?://[^/]+"
         }
       }
     },
@@ -364,7 +364,7 @@
         "url": {
           "type": "string",
           "minLength": 1,
-          "pattern": "^https?://.*\\{id\\}"
+          "pattern": "^https?://[^/]+.*\\{id\\}"
         }
       }
     }

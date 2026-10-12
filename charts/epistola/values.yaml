@@ -450,7 +450,7 @@ sharing:
 # version locally. Sends nothing that identifies the installation. Off: no update or security notices.
 versionCheck:
   enabled: true
-  url: https://epistola.app/.well-known/epistola/releases.json
+  wellKnownUrl: https://epistola.app/.well-known/epistola/releases.json
 
 # Daily installation check; runs only when sharing.installationId is true. {id} is replaced by the
 # installation id.

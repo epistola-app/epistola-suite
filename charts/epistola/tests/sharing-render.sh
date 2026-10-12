@@ -36,9 +36,24 @@ expect "${none}" EPISTOLA_SHARING_SUITEVERSION false
 expect "${none}" EPISTOLA_SHARING_USAGESTATISTICS false
 expect "${none}" EPISTOLA_VERSIONCHECK_ENABLED false
 
-if helm template sharing-test "${chart_dir}" --set encryption.enabled=false --set sharing.installationId=maybe >/dev/null 2>&1; then
-  echo "Expected the schema to reject a non-boolean sharing.installationId" >&2
-  exit 1
-fi
+mirror="$(helm template sharing-test "${chart_dir}" --set encryption.enabled=false \
+  --set versionCheck.wellKnownUrl=https://mirror.example/releases.json \
+  --set 'installationCheck.url=https://mirror.example/installation/{id}.json')"
+expect "${mirror}" EPISTOLA_VERSIONCHECK_WELLKNOWNURL "https://mirror.example/releases.json"
+expect "${mirror}" EPISTOLA_INSTALLATIONCHECK_URL "https://mirror.example/installation/{id}.json"
+
+reject() {
+  local why="$1"
+  shift
+  if helm template sharing-test "${chart_dir}" --set encryption.enabled=false "$@" >/dev/null 2>&1; then
+    echo "Expected the schema to reject ${why}" >&2
+    exit 1
+  fi
+}
+
+reject "a non-boolean sharing.installationId" --set sharing.installationId=maybe
+reject "an installation check URL without {id}" --set installationCheck.url=https://mirror.example/installation.json
+reject "a relative release metadata URL" --set versionCheck.wellKnownUrl=mirror.example/releases.json
+reject "the old versionCheck.url key" --set versionCheck.url=https://mirror.example/releases.json
 
 echo "sharing render: ok"
