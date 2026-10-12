@@ -85,10 +85,14 @@ class SvgContentPolicyTest {
     fun `every bundled catalog SVG passes`(): List<DynamicTest> {
         val repoRoot = generateSequence(Path.of("").toAbsolutePath()) { it.parent }
             .first { Files.exists(it.resolve("settings.gradle.kts")) }
-        val svgs = listOf("apps", "modules").map(repoRoot::resolve).flatMap { base ->
-            Files.walk(base).use { paths ->
-                paths.filter { "/catalogs/" in it.toString() && "/build/" !in it.toString() && it.extension == "svg" }.toList()
-            }
+        // Only each module's src/: bundled catalogs live there, and nothing writes there during a
+        // build. Walking the whole module raced with files other tasks create and delete beside it
+        // (build output, the JVM's .attach_pid files) and failed with NoSuchFileException.
+        val sources = listOf("apps", "modules").map(repoRoot::resolve).flatMap { base ->
+            Files.list(base).use { modules -> modules.map { it.resolve("src") }.filter(Files::isDirectory).toList() }
+        }
+        val svgs = sources.flatMap { src ->
+            Files.walk(src).use { paths -> paths.filter { "/catalogs/" in it.toString() && it.extension == "svg" }.toList() }
         }
         check(svgs.isNotEmpty()) { "no bundled catalog SVGs found — the scan would pass vacuously" }
         return svgs.map { path ->
