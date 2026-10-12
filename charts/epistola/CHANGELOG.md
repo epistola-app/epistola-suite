@@ -42,8 +42,8 @@
   `minReplicas`, `maxReplicas`, `targetCPUUtilizationPercentage` and
   `targetMemoryUtilizationPercentage` configure the HorizontalPodAutoscaler, alongside
   `autoscaling.vpa` for the VPA. The values schema validates both blocks.
-- **`autoscaling.hpa.behavior` — calm scale-down by default.** Stopping a pod aborts its
-  in-flight renders (they are re-queued and rendered again elsewhere), so the HPA now waits five
+- **`autoscaling.hpa.behavior` — calm scale-down by default.** A stopping pod gives
+  in-flight renders only a few seconds to finish, then aborts and re-queues the rest, so the HPA now waits five
   minutes after load drops and then removes at most one pod every three minutes. Scale-up keeps
   the Kubernetes defaults. Set `autoscaling.hpa.behavior: null` for the Kubernetes defaults in
   both directions.

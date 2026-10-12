@@ -512,9 +512,10 @@ measured process settled at 1,252 MB), which would otherwise keep an HPA above
 its intended threshold. Enable a memory target only after measuring your own
 steady-state workload.
 
-Scale-down is deliberately calm. Stopping a pod aborts its in-flight renders;
-they are released back to the queue and rendered again on another pod, so
-nothing is lost, but rapid scale-in/scale-out wastes renders. The default
+Scale-down is deliberately calm. A stopping pod gives its in-flight renders
+only a few seconds to finish, then aborts the rest and releases them back to
+the queue to be rendered again on another pod (see [Pod shutdown](#pod-shutdown)),
+so nothing is lost, but rapid scale-in/scale-out wastes renders. The default
 `autoscaling.hpa.behavior` waits five minutes after load drops, then removes at
 most one pod every three minutes; scale-up keeps the Kubernetes defaults. Set
 `behavior: null` for the Kubernetes defaults in both directions.
@@ -616,6 +617,41 @@ soft` (the default) prefers separate nodes for the replicas but still
   schedules when it cannot; `hard` requires separate nodes (at least as many
   nodes as replicas); `none` turns the preset off. Setting `affinity` replaces
   the preset entirely.
+
+### Pod shutdown
+
+Every voluntary stop — HPA scale-in, a rolling update, a node drain, a VPA
+eviction, `kubectl delete pod` — reaches the pod the same way. Kubernetes
+removes it from the Service endpoints, runs any `preStop` hook, and sends the
+JVM `SIGTERM`. After `terminationGracePeriodSeconds` (the chart leaves the
+Kubernetes default of 30 seconds) it sends `SIGKILL`.
+
+On `SIGTERM` the application shuts down in this order:
+
+1. The web server stops accepting requests and lets in-flight requests finish.
+   The generation poller keeps claiming new jobs during this phase.
+2. The generation poller stops claiming, waits up to **5 seconds** for
+   in-flight renders to finish, then interrupts the rest.
+3. Every render this pod still holds is released back to `PENDING`, so another
+   pod picks it up and renders it from the start.
+
+Nothing is lost on an orderly stop, but a render that needs more than about
+five seconds is rendered twice. If the pod is killed before step 3 — `SIGKILL`
+after the grace period, an OOM kill, or a node failure — its claims stay held
+until stale-job recovery frees them after
+`epistola.generation.polling.stale-timeout-minutes` (default 10 minutes), which
+delays those documents rather than losing them.
+
+What this means for operators:
+
+- Stops that happen often or in bulk cost duplicate renders. Keep the HPA's
+  calm scale-down `behavior`, and prefer `Initial` over evicting VPA modes.
+- Batch work queued while pods are stopping still completes; expect its
+  latency to rise by the length of the restart rather than errors.
+- The chart does not set `terminationGracePeriodSeconds`, so the Kubernetes
+  default of 30 seconds applies. The sequence above normally finishes well
+  within it; only a long-running HTTP request in step 1 stretches it. A pod
+  killed before step 3 holds its documents for the full stale timeout.
 
 ### Deprecated flat HPA keys
 

@@ -124,8 +124,9 @@ autoscaling:
     # Heap retention makes memory a poor scale-down signal for JVM generation
     # workloads. Enable only after observing your own steady-state memory use.
     targetMemoryUtilizationPercentage: 0
-    # HPA scaling behavior (autoscaling/v2 `behavior`). Removing a pod aborts its
-    # in-flight renders, which are re-queued and rendered again elsewhere, so the
+    # HPA scaling behavior (autoscaling/v2 `behavior`). A stopping pod gives
+    # in-flight renders only seconds to finish, then aborts and re-queues the rest
+    # (rendered again elsewhere; see docs/deployment.md "Pod shutdown"), so the
     # default scales in calmly: a 5-minute stabilisation window, then at most one
     # pod every 3 minutes. Scale-up keeps the Kubernetes defaults. Set `null` to use
     # the Kubernetes defaults for both directions.
