@@ -51,8 +51,7 @@ document (below).
 | Setting  | `epistola.product-domain` (Helm `productDomain`), default `epistola.app`: a host name, optionally with a port |
 
 The copy is kept in the database and shared by every node, and refreshed after the document's
-`refreshAfter` (a day by default; never more often than every 15 minutes or less often than every 7
-days). A failed fetch keeps the last good copy and is retried after an hour. Every endpoint in it must be `https:` on the product domain or one of
+`refreshAfter`: at least daily, never more often than every 15 minutes, and daily when it says nothing. A failed fetch keeps the last good copy and is retried after an hour. Every endpoint in it must be `https:` on the product domain or one of
 its subdomains, and the installation check must contain `{id}`; anything else is ignored and logged.
 When no copy is available, each integration uses its built-in address on the product domain: the
 version check `/.well-known/epistola/releases.json`, the installation check

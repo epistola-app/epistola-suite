@@ -85,8 +85,8 @@ data class DiscoveredEndpoints(
         /** Nothing in the document can make installations ask more often than this, */
         val MIN_REFRESH: Duration = Duration.ofMinutes(15)
 
-        /** or stop asking for longer than this. */
-        val MAX_REFRESH: Duration = Duration.ofDays(7)
+        /** or ask less often than this: every installation looks again at least daily. */
+        val MAX_REFRESH: Duration = Duration.ofDays(1)
 
         /**
          * Reads the discovery document, which arrives over the network: an endpoint is taken only

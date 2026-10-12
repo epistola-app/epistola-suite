@@ -125,7 +125,7 @@ class DiscoveredEndpointsTest {
     }
 
     @Test
-    fun `refreshAfter sets how long a copy stays valid, within 15 minutes and 7 days`() {
+    fun `refreshAfter sets how long a copy stays valid, within 15 minutes and a day`() {
         fun refresh(value: String) = parse("""{ "schemaVersion": 1, "refreshAfter": $value }""").refreshAfter
 
         assertThat(parse("""{ "schemaVersion": 1 }""").refreshAfter).isNull()
@@ -137,8 +137,9 @@ class DiscoveredEndpointsTest {
         assertThat(refresh("\"-PT1H\"")).isEqualTo(DiscoveredEndpoints.MIN_REFRESH)
         assertThat(refresh("\"soon\"")).isEqualTo(DiscoveredEndpoints.MIN_REFRESH)
         assertThat(refresh("900")).isEqualTo(DiscoveredEndpoints.MIN_REFRESH)
-        // Too long: capped, so a document cannot stop installations from ever looking again.
-        assertThat(refresh("\"P365D\"")).isEqualTo(DiscoveredEndpoints.MAX_REFRESH)
+        // Too long: capped at a day, so every installation looks again at least daily.
+        assertThat(refresh("\"P2D\"")).isEqualTo(Duration.ofDays(1))
+        assertThat(refresh("\"P365D\"")).isEqualTo(Duration.ofDays(1))
     }
 
     @Test
