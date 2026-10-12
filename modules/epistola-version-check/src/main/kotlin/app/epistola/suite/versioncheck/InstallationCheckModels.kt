@@ -34,12 +34,10 @@ data class InstallationCheckResult(
     val page: String? = null,
 )
 
-/** A request this installation made to Epistola: what left the building, exactly. */
+/** A request this installation made to Epistola, when, and how it went. */
 data class SentRequest(
     val at: Instant,
-    val url: String,
-    /** The headers set by the Suite (not the HTTP client's own, such as Host). */
-    val headers: Map<String, String>,
+    val request: OutgoingRequest,
     /** `200`, `503`, … or the error when there was no response. */
     val outcome: String,
 )

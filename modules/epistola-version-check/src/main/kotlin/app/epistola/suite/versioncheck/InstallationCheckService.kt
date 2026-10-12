@@ -39,19 +39,31 @@ class InstallationCheckService(
         null
     }
 
-    /** The URL and headers a check sends right now, given the sharing settings. */
-    fun request(installationId: java.util.UUID = installationService.get().id): Pair<String, Map<String, String>> = client.request(installationId, currentVersion.takeIf { sharing.suiteVersion })
+    /** What a check sends right now, given the sharing settings. */
+    fun request(): OutgoingRequest = client.request(installationService.get().id, currentVersion.takeIf { sharing.suiteVersion })
+
+    /** This check for the "Shared with Epistola" page. */
+    fun summary(): CheckSummary {
+        val status = status()
+        return CheckSummary(
+            enabled = sharing.installationId,
+            request = if (sharing.installationId) request() else null,
+            lastRunAt = status?.lastAttemptAt,
+            lastResult = status?.lastRequest?.outcome,
+            lastRequest = status?.lastRequest?.request,
+        )
+    }
 
     /** Does nothing (returns null) when the installation id is not shared. */
     fun checkNow(): InstallationCheckStatus? {
         if (!sharing.installationId) return null
         val previous = status() ?: InstallationCheckStatus()
         val now = EpistolaClock.instant()
-        val (url, headers) = request()
+        val request = request()
 
         val next = try {
-            val (code, result) = client.fetch(url, headers)
-            val sent = SentRequest(at = now, url = url, headers = headers, outcome = code.toString())
+            val (code, result) = client.fetch(request)
+            val sent = SentRequest(at = now, request = request, outcome = code.toString())
             if (result != null) {
                 previous.copy(lastAttemptAt = now, lastSuccessAt = now, lastError = null, result = result, lastRequest = sent)
             } else {
@@ -64,7 +76,7 @@ class InstallationCheckService(
             previous.copy(
                 lastAttemptAt = now,
                 lastError = message,
-                lastRequest = SentRequest(at = now, url = url, headers = headers, outcome = message.take(200)),
+                lastRequest = SentRequest(at = now, request = request, outcome = message.take(200)),
             )
         }
         metadata.setAs(STATUS_KEY, next)

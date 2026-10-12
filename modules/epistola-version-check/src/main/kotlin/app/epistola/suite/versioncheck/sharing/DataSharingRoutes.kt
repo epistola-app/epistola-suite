@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-package app.epistola.suite.versioncheck
+package app.epistola.suite.versioncheck.sharing
 
 import app.epistola.suite.htmx.page
 import app.epistola.suite.mediator.execute

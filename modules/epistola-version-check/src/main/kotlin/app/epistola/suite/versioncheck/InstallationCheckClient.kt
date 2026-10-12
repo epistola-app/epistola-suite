@@ -28,21 +28,21 @@ class InstallationCheckClient(private val properties: InstallationCheckPropertie
         .build()
     private val mapper = JsonMapper.builder().build()
 
-    /** The URL and headers a check for [installationId] sends; [suiteVersion] only when shared. */
-    fun request(installationId: UUID, suiteVersion: String?): Pair<String, Map<String, String>> {
-        val headers = buildMap {
+    /** What a check for [installationId] sends; [suiteVersion] only when it is shared. */
+    fun request(installationId: UUID, suiteVersion: String?): OutgoingRequest = OutgoingRequest(
+        url = properties.url.replace("{id}", installationId.toString()),
+        headers = buildMap {
             put("Accept", "application/json")
             put("User-Agent", USER_AGENT)
             if (suiteVersion != null) put("X-Epistola-Suite-Version", suiteVersion)
-        }
-        return properties.url.replace("{id}", installationId.toString()) to headers
-    }
+        },
+    )
 
-    /** Performs the request; returns the HTTP status and the parsed result for a 200. */
-    fun fetch(url: String, headers: Map<String, String>): Pair<Int, InstallationCheckResult?> = try {
+    /** Sends [request]; returns the HTTP status and the parsed result for a 200. */
+    fun fetch(request: OutgoingRequest): Pair<Int, InstallationCheckResult?> = try {
         restClient.get()
-            .uri(url)
-            .headers { http -> headers.forEach { (name, value) -> http.set(name, value) } }
+            .uri(request.url)
+            .headers { http -> request.headers.forEach { (name, value) -> http.set(name, value) } }
             .exchange { _, response ->
                 val status = response.statusCode.value()
                 if (status != 200) return@exchange status to null

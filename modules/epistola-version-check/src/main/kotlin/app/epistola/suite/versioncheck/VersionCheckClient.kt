@@ -22,9 +22,10 @@ class VersionCheckClient(
      * security notices never depend on identifying the installation. See docs/outbound-traffic.md.
      */
     fun fetch(url: String): EpistolaReleasesDocument = try {
+        val request = request(url)
         restClient.get()
-            .uri(url)
-            .header("User-Agent", USER_AGENT)
+            .uri(request.url)
+            .headers { http -> request.headers.forEach { (name, value) -> http.set(name, value) } }
             .retrieve()
             .body(EpistolaReleasesDocument::class.java)
             ?: throw VersionCheckException("Empty response from $url")
@@ -35,6 +36,11 @@ class VersionCheckClient(
         throw VersionCheckException("Fetch failed for $url: ${e.message}", e)
     } catch (e: RestClientException) {
         throw VersionCheckException("Fetch failed for $url: ${e.message}", e)
+    }
+
+    companion object {
+        /** What the version check sends to [url]: nothing that identifies the installation. */
+        fun request(url: String) = OutgoingRequest(url, mapOf("Accept" to "application/json", "User-Agent" to USER_AGENT))
     }
 }
 

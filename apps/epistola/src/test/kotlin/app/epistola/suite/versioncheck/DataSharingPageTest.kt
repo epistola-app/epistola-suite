@@ -73,11 +73,13 @@ class DataSharingPageTest : BaseIntegrationTest() {
         val status = metadata.getAs(InstallationCheckService.STATUS_KEY, InstallationCheckStatus::class.java)!!
         assertThat(status.lastAttemptAt).isNotNull()
         assertThat(status.lastSuccessAt).isNull()
-        assertThat(status.lastRequest?.url).endsWith("/installation/${installationService.get().id}.json")
+        assertThat(status.lastRequest?.request?.url).endsWith("/installation/${installationService.get().id}.json")
 
         val body = restTemplate.getForEntity("/platform/sharing", String::class.java).body!!
         assertThat(body).contains("Support could not be checked")
         assertThat(body).contains("Last run:")
+        // The version check reports its own last run too (it failed on the discard port).
+        assertThat(body.substringAfter("<h2>Version check</h2>").substringBefore("</section>")).contains("Last run:")
     }
 
     @Test

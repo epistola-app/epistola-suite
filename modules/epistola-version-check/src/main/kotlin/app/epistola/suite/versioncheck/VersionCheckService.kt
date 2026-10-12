@@ -39,6 +39,18 @@ class VersionCheckService(
         null
     }
 
+    /** This check for the "Shared with Epistola" page. It sends the same request every day. */
+    fun summary(): CheckSummary {
+        val status = readStatus()
+        return CheckSummary(
+            enabled = properties.enabled,
+            request = if (properties.enabled) VersionCheckClient.request(properties.wellKnownUrl) else null,
+            lastRunAt = status?.checkedAt,
+            lastResult = status?.let { it.lastError ?: if (it.metadataAvailable) "OK" else "release metadata unavailable" },
+            lastRequest = null,
+        )
+    }
+
     fun checkNow(): VersionCheckStatus {
         val previous = readStatus()
         val now = EpistolaClock.instant()

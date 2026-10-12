@@ -42,7 +42,7 @@
                         <th scope="row">Version check</th>
                         <td>Releases and security advisories; sends nothing that identifies this installation</td>
                         <td><code>epistola.version-check.enabled</code></td>
-                        <td th:text="${o.versionCheckEnabled} ? 'On' : 'Off'">On</td>
+                        <td th:text="${o.versionCheck.enabled} ? 'On' : 'Off'">On</td>
                     </tr>
                 </tbody>
             </table>
@@ -62,42 +62,32 @@
             </p>
         </section>
 
-        <section class="ep-panel form-section">
-            <h2>Version check</h2>
-            <th:block th:if="${o.versionCheckEnabled}">
-                <p>Sends, once a day:</p>
-                <pre data-testid="sharing-version-request" th:text="${o.versionCheckRequest}">GET …</pre>
-                <p class="text-muted"
-                   th:text="${o.versionCheckLastRun != null} ? 'Last run: ' + ${o.versionCheckLastRun} + (${o.versionCheckLastError != null} ? ' (failed: ' + ${o.versionCheckLastError} + ')' : '') : 'Not run yet.'">
-                    Not run yet.
-                </p>
-            </th:block>
-            <p th:unless="${o.versionCheckEnabled}">Off: no release or advisory notices, and nothing is sent.</p>
-        </section>
-
-        <section class="ep-panel form-section">
-            <h2>Installation check</h2>
-            <th:block th:if="${o.installationCheckRequest != null}">
-                <p>Sends, once a day:</p>
-                <pre data-testid="sharing-installation-request" th:text="${o.installationCheckRequest}">GET …</pre>
-                <th:block th:with="last=${o.installationCheck != null ? o.installationCheck.lastRequest : null}">
-                    <p class="text-muted" th:if="${last == null}">Not run yet.</p>
-                    <th:block th:if="${last != null}">
-                        <p class="text-muted" th:text="'Last run: ' + ${last.at} + ', result: ' + ${last.outcome}">Last run: …</p>
-                        <pre th:text="${o.installationCheckLastRequest}">GET …</pre>
-                    </th:block>
-                </th:block>
-            </th:block>
-            <p th:if="${o.installationCheckRequest == null}">
-                Off: the installation id is not shared, so nothing is sent and the support badge says that support
-                cannot be verified.
-            </p>
-        </section>
+        <section th:replace="~{versioncheck/sharing :: check(title='Version check', summary=${o.versionCheck}, testId='sharing-version-request',
+                 off='Off: no release or advisory notices, and nothing is sent.')}"></section>
+        <section th:replace="~{versioncheck/sharing :: check(title='Installation check', summary=${o.installationCheck}, testId='sharing-installation-request',
+                 off='Off: the installation id is not shared, so nothing is sent and the support badge says that support cannot be verified.')}"></section>
 
         <form th:action="@{/platform/sharing/check}" method="post">
             <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="sharing-check-now">Run the checks now</button>
         </form>
     </div>
     </th:block>
+
+    <!-- One daily check, rendered from its CheckSummary: what it sends now, and how it last went. -->
+    <section th:fragment="check(title, summary, testId, off)" class="ep-panel form-section">
+        <h2 th:text="${title}">Version check</h2>
+        <th:block th:if="${summary.enabled}">
+            <p>Sends, once a day:</p>
+            <pre th:attr="data-testid=${testId}" th:text="${summary.request.toText()}">GET …</pre>
+            <p class="text-muted" th:if="${summary.lastRunAt == null}">Not run yet.</p>
+            <p class="text-muted" th:if="${summary.lastRunAt != null}"
+               th:text="'Last run: ' + ${summary.lastRunAt} + ', result: ' + ${summary.lastResult}">Last run: …</p>
+            <th:block th:if="${summary.lastRequest != null and summary.lastRequest != summary.request}">
+                <p class="text-muted">The last run sent:</p>
+                <pre th:text="${summary.lastRequest.toText()}">GET …</pre>
+            </th:block>
+        </th:block>
+        <p th:unless="${summary.enabled}" th:text="${off}">Off.</p>
+    </section>
 </body>
 </html>

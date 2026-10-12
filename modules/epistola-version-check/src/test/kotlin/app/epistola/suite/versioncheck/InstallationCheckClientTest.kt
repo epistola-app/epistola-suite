@@ -55,17 +55,16 @@ class InstallationCheckClientTest {
         val seen = AtomicReference<Map<String, String?>>()
         respond(200, """{"schemaVersion":1,"installation":{"id":"x","registered":false}}""", seen)
 
-        val (withVersionUrl, withVersion) = client.request(id, "1.4.0")
-        client.fetch(withVersionUrl, withVersion)
+        client.fetch(client.request(id, "1.4.0"))
         assertThat(seen.get()["path"]).isEqualTo("/installation/$id.json")
         assertThat(seen.get()["version"]).isEqualTo("1.4.0")
         assertThat(seen.get()["installationHeader"]).isNull()
         assertThat(seen.get()["userAgent"]).isEqualTo("epistola-suite")
 
-        val (url, headers) = client.request(id, null)
-        client.fetch(url, headers)
+        val withoutVersion = client.request(id, null)
+        client.fetch(withoutVersion)
         assertThat(seen.get()["version"]).isNull()
-        assertThat(headers).doesNotContainKey("X-Epistola-Suite-Version")
+        assertThat(withoutVersion.headers).doesNotContainKey("X-Epistola-Suite-Version")
     }
 
     @Test
@@ -78,8 +77,7 @@ class InstallationCheckClientTest {
              "versionPolicy":{"minVersion":"1.0.0"},"page":"https://epistola.app/nl/installation/$id","futureField":true}}
             """.trimIndent(),
         )
-        val (url, headers) = client.request(id, "1.4.0")
-        val (code, result) = client.fetch(url, headers)
+        val (code, result) = client.fetch(client.request(id, "1.4.0"))
 
         assertThat(code).isEqualTo(200)
         assertThat(result).isEqualTo(
@@ -122,17 +120,25 @@ class InstallationCheckClientTest {
     @Test
     fun `reports non-200 answers without a result`() {
         respond(503, """{"error":"installation register unavailable"}""")
-        val (url, headers) = client.request(id, null)
-        assertThat(client.fetch(url, headers)).isEqualTo(503 to null)
+        assertThat(client.fetch(client.request(id, null))).isEqualTo(503 to null)
     }
 
     @Test
     fun `refuses oversized or malformed responses`() {
         respond(200, "{\"installation\":{\"page\":\"${"x".repeat(InstallationCheckClient.MAX_BYTES)}\"}}")
-        val (url, headers) = client.request(id, null)
-        assertThatThrownBy { client.fetch(url, headers) }.isInstanceOf(InstallationCheckException::class.java)
+        assertThatThrownBy { client.fetch(client.request(id, null)) }.isInstanceOf(InstallationCheckException::class.java)
 
         assertThatThrownBy { InstallationCheckClient.parse(JsonMapper.builder().build().readTree("""{"schemaVersion":1}""")) }
             .isInstanceOf(InstallationCheckException::class.java)
+    }
+
+    @Test
+    fun `describes a request the way an operator reads it`() {
+        assertThat(client.request(id, "1.4.0").toText()).isEqualTo(
+            "GET http://127.0.0.1:${server.address.port}/installation/$id.json\n" +
+                "Accept: application/json\nUser-Agent: epistola-suite\nX-Epistola-Suite-Version: 1.4.0",
+        )
+        assertThat(VersionCheckClient.request("https://epistola.app/.well-known/epistola/releases.json").headers)
+            .containsOnlyKeys("Accept", "User-Agent")
     }
 }
