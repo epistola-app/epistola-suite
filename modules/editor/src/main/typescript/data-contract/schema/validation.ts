@@ -225,8 +225,7 @@ export function validateProperty(
 /**
  * Get the JSON Schema type of a value.
  */
-function getValueType(value: JsonValue): string {
-  if (value === null) return 'null';
+function getValueType(value: NonNullable<JsonValue>): string {
   if (Array.isArray(value)) return 'array';
   if (typeof value === 'boolean') return 'boolean';
   if (typeof value === 'number') {

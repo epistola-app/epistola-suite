@@ -994,20 +994,6 @@ class CatalogHandler {
                 confirmMigration = confirmMigration,
             ).execute()
 
-            val failed = result.results.count { it.status == InstallStatus.FAILED }
-            val installed = result.results.count { it.status == InstallStatus.INSTALLED }
-            val updated = result.results.count { it.status == InstallStatus.UPDATED }
-
-            val message = if (failed > 0) {
-                "Imported catalog '${result.catalogName}' with $failed failures."
-            } else {
-                val parts = listOfNotNull(
-                    if (installed > 0) "$installed installed" else null,
-                    if (updated > 0) "$updated updated" else null,
-                )
-                "Imported catalog '${result.catalogName}': ${parts.joinToString(", ")}."
-            }
-
             if (request.isHtmx) {
                 ServerResponse.ok()
                     .header("HX-Redirect", "/tenants/${tenantId.key}/catalogs/${result.catalogKey}/browse")
