@@ -124,15 +124,35 @@ autoscaling:
     # Heap retention makes memory a poor scale-down signal for JVM generation
     # workloads. Enable only after observing your own steady-state memory use.
     targetMemoryUtilizationPercentage: 0
+    # HPA scaling behavior (autoscaling/v2 `behavior`). Removing a pod aborts its
+    # in-flight renders, which are re-queued and rendered again elsewhere, so the
+    # default scales in calmly: a 5-minute stabilisation window, then at most one
+    # pod every 3 minutes. Scale-up keeps the Kubernetes defaults. Set `null` to use
+    # the Kubernetes defaults for both directions.
+    behavior:
+      scaleDown:
+        stabilizationWindowSeconds: 300
+        policies:
+          - type: Pods
+            value: 1
+            periodSeconds: 180
 
   # Optional Vertical Pod Autoscaler (VPA). Requires the VPA CRD and
   # recommender/updater/admission-controller components to be installed in the
   # cluster. `Off` only publishes recommendations; review those before using
-  # `Initial` or `Recreate`.
+  # `Initial`, `InPlaceOrRecreate` (Kubernetes >= 1.33) or `Recreate`.
   vpa:
     enabled: false
     updateMode: "Off"
-    minReplicas: 1
+    # Fewest live replicas before the VPA updater may evict a pod. 2 (the VPA's
+    # own default) means it never evicts the last running pod.
+    minReplicas: 2
+    # Resources the VPA manages. An acting VPA (any mode but Off) must not
+    # manage a resource the HPA scales on — the render fails if it does. With
+    # the CPU HPA, use [memory] or keep the VPA in Off.
+    controlledResources:
+      - cpu
+      - memory
     # Keep limits operator-managed. With RequestsOnly, maxAllowed must not
     # exceed the matching value in resources.limits.
     controlledValues: RequestsOnly
@@ -160,7 +180,24 @@ nodeSelector: {}
 
 tolerations: []
 
+# Spread application pods across nodes so one node failure or drain does not
+# take every replica at once. `soft` (default) prefers separate nodes but still
+# schedules when it cannot; `hard` refuses to co-locate replicas (needs at least
+# as many nodes as replicas); `none` renders nothing. Ignored when `affinity`
+# below is set — that replaces the preset entirely.
+podAntiAffinity: soft
+
 affinity: {}
+
+# PodDisruptionBudget for the application pods. Voluntary disruptions (node
+# drains, cluster-autoscaler scale-down, VPA evictions) then keep at least
+# `minAvailable` pods running. Set exactly one of minAvailable/maxUnavailable.
+# Needs at least 2 replicas: with 1, minAvailable: 1 blocks every eviction and
+# node drains hang.
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  maxUnavailable:
 
 # JVM configuration
 jvm:

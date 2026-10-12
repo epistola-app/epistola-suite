@@ -58,3 +58,9 @@ DEPRECATED: autoscaling.{{ "{" }}{{ . }}{{ "}" }} configure the HPA through the
    Move them under autoscaling.hpa (e.g. autoscaling.enabled ->
    autoscaling.hpa.enabled).
 {{- end }}
+{{- if and .Values.podDisruptionBudget.enabled (lt (int (include "epistola.minReplicas" .)) 2) }}
+
+WARNING: podDisruptionBudget is enabled with a single replica. Every voluntary
+   eviction is refused, so node drains and cluster-autoscaler scale-down hang.
+   Run at least 2 replicas (replicaCount, or autoscaling.hpa.minReplicas).
+{{- end }}

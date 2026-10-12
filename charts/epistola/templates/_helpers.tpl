@@ -341,3 +341,32 @@ autoscaling.hpa while any flat key is still set fails the render, so a leftover
 {{- end }}
 {{- toJson $hpa }}
 {{- end }}
+
+{{/*
+Refuse an acting VPA (any updateMode but Off) that manages a resource the HPA
+scales on. A VPA-raised request lowers the HPA's utilisation, the HPA scales in,
+per-pod usage rises, the VPA raises the request again — a feedback loop.
+*/}}
+{{- define "epistola.autoscaling.assertNoConflict" -}}
+{{- $hpa := include "epistola.hpa" . | fromJson }}
+{{- $vpa := .Values.autoscaling.vpa }}
+{{- if and $hpa.enabled $vpa.enabled (ne (toString $vpa.updateMode) "Off") }}
+{{- $hpaResources := list }}
+{{- if $hpa.targetCPUUtilizationPercentage }}{{ $hpaResources = append $hpaResources "cpu" }}{{ end }}
+{{- if $hpa.targetMemoryUtilizationPercentage }}{{ $hpaResources = append $hpaResources "memory" }}{{ end }}
+{{- range $resource := $hpaResources }}
+{{- if has $resource $vpa.controlledResources }}
+{{- fail (printf "autoscaling: the HPA scales on %s, and the VPA (updateMode %s) also manages %s. Remove %s from autoscaling.vpa.controlledResources, or set autoscaling.vpa.updateMode to Off." $resource $vpa.updateMode $resource $resource) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Fewest replicas the Deployment runs: the HPA's minimum when it owns replicas,
+otherwise replicaCount.
+*/}}
+{{- define "epistola.minReplicas" -}}
+{{- $hpa := include "epistola.hpa" . | fromJson }}
+{{- if $hpa.enabled }}{{ int $hpa.minReplicas }}{{ else }}{{ int .Values.replicaCount }}{{ end }}
+{{- end }}

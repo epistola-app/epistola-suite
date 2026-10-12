@@ -42,18 +42,30 @@
   `minReplicas`, `maxReplicas`, `targetCPUUtilizationPercentage` and
   `targetMemoryUtilizationPercentage` configure the HorizontalPodAutoscaler, alongside
   `autoscaling.vpa` for the VPA. The values schema validates both blocks.
+- **`autoscaling.hpa.behavior` — calm scale-down by default.** Stopping a pod aborts its
+  in-flight renders (they are re-queued and rendered again elsewhere), so the HPA now waits five
+  minutes after load drops and then removes at most one pod every three minutes. Scale-up keeps
+  the Kubernetes defaults. Set `autoscaling.hpa.behavior: null` for the Kubernetes defaults in
+  both directions.
 
 - **Optional Vertical Pod Autoscaler (VPA) support.** Set `autoscaling.vpa.enabled=true` to
-  render a VPA targeting this release's application Deployment, without a
-  separately maintained manifest or hard-coded Deployment name. It starts in
-  recommendation-only `Off` mode and defaults to `RequestsOnly`, so VPA changes
-  requests without taking ownership of the operator-set limits once an update
-  mode is selected. The update mode, minimum replica count, and CPU/memory
-  `minAllowed` / `maxAllowed` policy are configurable. The cluster must already
-  provide the VPA CRD and components. VPA-controller behavior is not yet
-  runtime-tested by Epistola; see `docs/deployment.md` for the recommendation-
-  only rollout, built-in load-test recommendation, and current HPA
-  incompatibility guidance.
+  render a VPA targeting this release's application Deployment, without a separately maintained
+  manifest or hard-coded Deployment name. It starts in recommendation-only `Off` mode and
+  defaults to `RequestsOnly`, so VPA changes requests without taking ownership of the
+  operator-set limits (and so the JVM heap size). `minReplicas` defaults to `2`, so the VPA never
+  evicts the last running pod. The update mode (including `InPlaceOrRecreate` on Kubernetes ≥
+  1.33), `controlledResources`, and the CPU/memory `minAllowed` / `maxAllowed` policy are
+  configurable. An acting VPA (any mode but `Off`) that manages a resource the HPA scales on
+  fails the render, because the two controllers would feed back into each other; narrow it with
+  `autoscaling.vpa.controlledResources` or keep it in `Off`. The cluster must already provide the
+  VPA CRD and components. VPA-controller behavior is not yet runtime-tested by Epistola; see
+  `docs/deployment.md` for the recommended production setup and the staged rollout.
+
+- **`podDisruptionBudget` — keep a pod running through voluntary disruptions.** Off by default.
+  When enabled, renders a `policy/v1` PodDisruptionBudget (`minAvailable: 1` by default, or
+  `maxUnavailable`) so node drains, cluster-autoscaler scale-down and VPA evictions always leave
+  a pod serving. It needs at least two replicas; with one, every eviction is refused and node
+  drains hang, and the install notes warn about that combination.
 
 - **`logging.format` — first-class console format selection.** Select `plain`, `logstash`, `ecs`,
   or `gelf`; `plain` is the chart default in every environment, including production. The chart
@@ -74,6 +86,13 @@
   **Upgrade note:** the HPA memory target default moved from `80` to `0` (off). If you
   enabled the HPA in 1.0.0 and relied on the default memory target, set
   `autoscaling.hpa.targetMemoryUtilizationPercentage: 80` to keep scaling on memory.
+
+- **Application pods prefer separate nodes (`podAntiAffinity: soft`).** The Deployment now carries
+  a preferred pod anti-affinity on `kubernetes.io/hostname`, so replicas spread across nodes when
+  they can and one node failure does not take them all. It never blocks scheduling. Set
+  `podAntiAffinity: hard` to require separate nodes, or `none` to turn it off; an explicit
+  `affinity` value replaces the preset as before. Upgrading rolls the pods once for the changed
+  pod spec.
 
 ### Deprecated
 

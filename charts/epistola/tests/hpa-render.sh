@@ -49,6 +49,19 @@ expect_all 'enabled HPA render' "${enabled}" \
 if grep -Fq 'name: memory' <<<"${enabled}"; then
   fail 'Default HPA must not use retained JVM memory as a scaling metric'
 fi
+# Scale-down aborts in-flight renders (they are re-queued), so the default
+# removes at most one pod per period after a stabilisation window.
+expect_all 'default HPA behavior' "${enabled}" \
+  'behavior:' \
+  'scaleDown:' \
+  'stabilizationWindowSeconds: 300' \
+  'type: Pods' \
+  'periodSeconds: 180'
+no_behavior="$(helm template hpa-test "${chart_dir}" "${render_args[@]}" \
+  --set autoscaling.hpa.enabled=true --set autoscaling.hpa.behavior=null)"
+if grep -Fq 'behavior:' <<<"${no_behavior}"; then
+  fail 'autoscaling.hpa.behavior=null must leave the Kubernetes defaults'
+fi
 if grep -Eq '^  replicas:' <<<"$(deployment --set autoscaling.hpa.enabled=true)"; then
   fail 'Deployment must leave replicas to the HPA when autoscaling.hpa.enabled is true'
 fi

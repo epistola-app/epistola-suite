@@ -1,4 +1,5 @@
 {{- if .Values.autoscaling.vpa.enabled }}
+{{- include "epistola.autoscaling.assertNoConflict" . }}
 apiVersion: autoscaling.k8s.io/v1
 kind: VerticalPodAutoscaler
 metadata:
@@ -17,6 +18,8 @@ spec:
     containerPolicies:
       - containerName: {{ .Chart.Name }}
         controlledValues: {{ .Values.autoscaling.vpa.controlledValues | quote }}
+        controlledResources:
+          {{- toYaml .Values.autoscaling.vpa.controlledResources | nindent 10 }}
         minAllowed:
           {{- toYaml .Values.autoscaling.vpa.resourcePolicy.minAllowed | nindent 10 }}
         maxAllowed:
