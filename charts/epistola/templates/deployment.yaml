@@ -193,9 +193,9 @@ spec:
             - name: EPISTOLA_INSTALLATION_DESCRIPTION
               value: {{ .Values.support.installation.description | quote }}
             {{- end }}
-            {{- if .Values.support.hub.discoveryUrl }}
-            - name: EPISTOLA_SUPPORT_HUB_DISCOVERYURL
-              value: {{ .Values.support.hub.discoveryUrl | quote }}
+            {{- with .Values.support.hub.endpoint }}
+            - name: EPISTOLA_SUPPORT_HUB_ENDPOINT
+              value: {{ . | quote }}
             {{- end }}
             {{- /* Forward application logs + metrics to the hub over OTLP-over-gRPC. On by
                    default with the support tier; the hub's `support-telemetry` entitlement
@@ -224,8 +224,10 @@ spec:
             {{- /* Suite-to-Exchange publication (hard deployment gate) */}}
             - name: EPISTOLA_EXCHANGE_ENABLED
               value: {{ .Values.exchange.enabled | quote }}
-            - name: EPISTOLA_EXCHANGE_DISCOVERYURL
-              value: {{ .Values.exchange.discoveryUrl | quote }}
+            {{- with .Values.exchange.endpoint }}
+            - name: EPISTOLA_EXCHANGE_ENDPOINT
+              value: {{ . | quote }}
+            {{- end }}
             {{- with .Values.exchange.callbackUrl }}
             - name: EPISTOLA_EXCHANGE_CALLBACKURL
               value: {{ . | quote }}
@@ -259,10 +261,18 @@ spec:
               value: {{ .Values.sharing.usageStatistics | quote }}
             - name: EPISTOLA_VERSIONCHECK_ENABLED
               value: {{ .Values.versionCheck.enabled | quote }}
-            - name: EPISTOLA_VERSIONCHECK_WELLKNOWNURL
-              value: {{ .Values.versionCheck.wellKnownUrl | quote }}
-            - name: EPISTOLA_INSTALLATIONCHECK_URL
-              value: {{ .Values.installationCheck.url | quote }}
+            {{- /* Where Epistola-operated services are found (ADR 0030). Each endpoint below is
+                   rendered only when set; blank means "found through the product domain". */}}
+            - name: EPISTOLA_PRODUCTDOMAIN
+              value: {{ .Values.productDomain | quote }}
+            {{- with .Values.versionCheck.endpoint }}
+            - name: EPISTOLA_VERSIONCHECK_ENDPOINT
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.installationCheck.endpoint }}
+            - name: EPISTOLA_INSTALLATIONCHECK_ENDPOINT
+              value: {{ . | quote }}
+            {{- end }}
 
             {{- range $key, $value := .Values.config.env }}
             - name: {{ $key }}
