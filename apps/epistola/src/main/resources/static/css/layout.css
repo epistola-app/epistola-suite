@@ -84,6 +84,20 @@ main.regular .empty-message {
   text-decoration: underline;
 }
 
+.app-footer .support-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ep-space-1);
+}
+
+.app-footer .support-badge[data-tone='ok'] {
+  color: var(--ep-green-700);
+}
+
+.app-footer .support-badge[data-tone='warning'] {
+  color: var(--ep-amber-800);
+}
+
 .app-footer .link-button {
   background: none;
   border: none;

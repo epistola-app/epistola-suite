@@ -12,7 +12,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.web.client.RestClient
 
 @Configuration
-@EnableConfigurationProperties(VersionCheckProperties::class)
+@EnableConfigurationProperties(VersionCheckProperties::class, SharingProperties::class, InstallationCheckProperties::class)
 class VersionCheckConfiguration {
     @Bean
     @Qualifier(VERSION_CHECK_REST_CLIENT)

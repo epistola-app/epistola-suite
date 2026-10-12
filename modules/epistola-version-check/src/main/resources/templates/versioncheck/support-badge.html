@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!-- The support badge, inside the footer bar on every authenticated page (FooterStatusContributor).
+         Always shown; no setting hides it. The link goes to epistola.app: the installation page, or an
+         explanation that receives no data. noreferrer keeps this installation's hostname out of it. -->
+    <a th:fragment="badge"
+       th:with="badge=${@supportBadgeService.badge()}"
+       class="support-badge"
+       th:href="${badge.href}"
+       th:attr="data-tone=${badge.tone.attribute},data-kind=${badge.kind}"
+       data-testid="support-badge"
+       target="_blank"
+       rel="noopener noreferrer"
+       th:text="${badge.text}">Support could not be checked</a>
+</body>
+</html>

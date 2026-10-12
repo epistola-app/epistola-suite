@@ -40,6 +40,8 @@ class CommonViewModel(
      *   already in [model], so a handler that set its own `auth` keeps it).
      * - `isManager` — derived from the effective `auth`.
      * - `footerFragments` — only when `tenantId` is present.
+     * - `footerStatusFragments` — installation-wide status in the footer bar (the support badge),
+     *   on every view.
      *
      * Callers must apply these WITHOUT overriding keys already set in [model]
      * (the returned map already skips `tenantName`/`auth` when the caller set
@@ -77,6 +79,7 @@ class CommonViewModel(
         } else {
             result["footerFragments"] = emptyList<Any>()
         }
+        result["footerStatusFragments"] = footerFragmentResolver.resolveStatus()
         return result
     }
 }

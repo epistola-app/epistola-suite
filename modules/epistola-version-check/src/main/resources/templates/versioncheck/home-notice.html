@@ -21,7 +21,7 @@
             </div>
             <ul class="version-advisory-list">
                 <li th:each="advisory : ${notice.data.advisories}">
-                    <span class="ep-badge" th:text="${advisory.severity}">medium</span>
+                    <span class="badge badge-outline" th:text="${advisory.severity}">medium</span>
                     <a th:if="${advisory.url != null}"
                        th:href="${advisory.url}"
                        target="_blank"

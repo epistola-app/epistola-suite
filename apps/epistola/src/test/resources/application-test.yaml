@@ -37,6 +37,12 @@ epistola:
     auto-provision: false # Not needed for in-memory test users
   demo:
     enabled: false # Disable demo loading in tests
+  # Tests never reach epistola.app: should a daily check fire during a run, it fails fast on the
+  # discard port instead. Tests that exercise the checks drive them directly.
+  version-check:
+    well-known-url: "http://127.0.0.1:9/.well-known/epistola/releases.json"
+  installation-check:
+    url: "http://127.0.0.1:9/installation/{id}.json"
   catalog:
     upstream-check:
       # Off across the suite. It is a background task that reaches out to every subscribed
