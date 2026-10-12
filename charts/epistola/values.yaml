@@ -373,12 +373,9 @@ support:
 
   # Hub connection (only used when support.enabled is true).
   hub:
-    # Override the hub discovery URL for self-hosted deployments.
-    # Blank → use the SaaS default baked into the hub client.
-    # Kubernetes deployments resolve the hub via `.well-known` discovery;
-    # the direct host/port mode is a local-dev / debug convenience and is
-    # intentionally NOT exposed here.
-    discoveryUrl: ""
+    # The hub's gRPC endpoint as host:port, for a self-hosted hub (always TLS). Empty: found
+    # through productDomain. Plaintext stays a local-development setting and is not exposed here.
+    endpoint: ""
     # NOTE: node id is intentionally NOT a chart value. It must differ per pod,
     # but a Deployment value is identical for every replica — so it can't give
     # per-pod identity. Node identity is resolved at runtime from the pod's
@@ -428,8 +425,8 @@ catalog:
 exchange:
   # Hard deployment gate for Suite-to-Exchange catalog publication.
   enabled: false
-  # Stable Epistola discovery document. Override only for a private Exchange deployment.
-  discoveryUrl: https://epistola.app/.well-known/epistola/exchange.json
+  # Exchange's base URL, for a private Exchange. Empty: found through productDomain.
+  endpoint: ""
   # Optional browser-reachable HTTPS callback; useful when proxy headers do not expose the public origin.
   callbackUrl: ""
 
@@ -446,16 +443,22 @@ sharing:
   # Reserved for anonymous usage counters. Nothing is sent yet.
   usageStatistics: true
 
+# Where Epistola-operated services are found (ADR 0030): a host name, never a URL. The version check,
+# the installation check, Exchange and the support hub read their endpoints from
+# https://{productDomain}/.well-known/epistola.json, unless their own `endpoint` below names one.
+productDomain: epistola.app
+
 # Daily release check: new releases and published security advisories, matched against the running
 # version locally. Sends nothing that identifies the installation. Off: no update or security notices.
 versionCheck:
   enabled: true
-  wellKnownUrl: https://epistola.app/.well-known/epistola/releases.json
+  # The release metadata document, for a mirror. Empty: found through productDomain.
+  endpoint: ""
 
-# Daily installation check; runs only when sharing.installationId is true. {id} is replaced by the
-# installation id.
+# Daily installation check; runs only when sharing.installationId is true.
 installationCheck:
-  url: https://epistola.app/installation/{id}.json
+  # For a mirror; {id} is replaced by the installation id. Empty: found through productDomain.
+  endpoint: ""
 
 config:
   # Spring profiles to activate. OIDC login is configured via oidc.* (env vars), not a profile.

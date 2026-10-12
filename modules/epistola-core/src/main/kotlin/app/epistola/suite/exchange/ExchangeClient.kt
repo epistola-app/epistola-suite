@@ -10,6 +10,7 @@ import app.epistola.exchange.client.api.PublicationsApi
 import app.epistola.exchange.client.model.CatalogRelease
 import app.epistola.exchange.client.model.CatalogSummary
 import app.epistola.exchange.client.model.PublicationSubmission
+import app.epistola.suite.productdomain.ProductDiscovery
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.core.io.ByteArrayResource
 import org.springframework.http.HttpHeaders
@@ -93,19 +94,14 @@ data class ExchangePublicationResponse(
 @Component
 class ExchangeClient(
     private val properties: ExchangeProperties,
+    private val productDiscovery: ProductDiscovery,
     @Qualifier("exchangeRestClient") private val http: RestClient,
     @Qualifier("exchangeArchiveRestClient") private val archiveHttp: RestClient,
 ) {
 
     fun endpoints(): ExchangeEndpoints {
-        val configuredBase = properties.configuredBaseUrl?.trimEnd('/')
-        val discovery = configuredBase?.let { DiscoveryDocument(1, it, it) } ?: run {
-            val node = http.get().uri(properties.discoveryUrl).retrieve().body(JsonNode::class.java)
-                ?: throw ExchangeProtocolException("Exchange discovery returned an empty response")
-            val version = node.path("version").asInt()
-            if (version != 1) throw ExchangeProtocolException("Unsupported Exchange discovery version: $version")
-            DiscoveryDocument(1, node.requiredText("issuer"), node.requiredText("baseUrl"))
-        }
+        val discovery = properties.configuredEndpoint?.trimEnd('/')?.let { DiscoveryDocument(it, it) }
+            ?: productDiscovery.endpoints().exchange.let { DiscoveryDocument(it.issuer, it.endpoint) }
         val issuer = requireSecure(discovery.issuer.trimEnd('/'), "issuer")
         val baseUrl = requireSecure(discovery.baseUrl.trimEnd('/'), "base URL")
         val metadata = http.get().uri("$issuer/.well-known/oauth-authorization-server").retrieve().body(JsonNode::class.java)
@@ -428,7 +424,7 @@ class ExchangeClient(
         )
     }
 
-    private data class DiscoveryDocument(val version: Int, val issuer: String, val baseUrl: String)
+    private data class DiscoveryDocument(val issuer: String, val baseUrl: String)
 
     /**
      * A [RestClient] aimed at one Exchange and carrying one tenant's bearer token, built by mutating

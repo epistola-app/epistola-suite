@@ -107,6 +107,11 @@ spring:
 # Tests use permit-all (see application-test.yaml)
 
 epistola:
+  # Where Epistola-operated services are found (ADR 0030, docs/outbound-traffic.md): a host name,
+  # never a URL. The version check, the installation check, Exchange and the support hub read their
+  # endpoints from https://{product-domain}/.well-known/epistola.json unless their own `endpoint`
+  # names one; without that document they fall back to their built-in addresses on this domain.
+  product-domain: epistola.app
   migration:
     # Single migration knob (env: EPISTOLA_MIGRATION_MODE). One name, three
     # meanings — no overloaded tokens:
@@ -174,10 +179,9 @@ epistola:
   exchange:
     # Hard deployment gate. Tenant/catalog settings are inert while disabled.
     enabled: false
-    discovery-url: https://epistola.app/.well-known/epistola/exchange.json
-    # Optional direct base URL for local development only; production discovers the issuer above.
-    # Leave blank to use discovery — a blank value is treated as unset.
-    base-url:
+    # Exchange's base URL, for local development only; production finds it through the product
+    # domain. Leave blank to use discovery — a blank value is treated as unset.
+    endpoint:
     # Optional browser-reachable callback. If absent, Suite derives it from the setup request.
     callback-url:
     # How often the publication worker looks for due work.
@@ -341,12 +345,11 @@ epistola:
   i18n:
     default-locale: "en-US"
 
-  # Public release metadata check. Independent from epistola.support.hub discovery:
-  # support uses /.well-known/epistola/hub.json for commercial gRPC endpoints,
-  # while this reads public OSS release channels from releases.json.
+  # Public release metadata check: anonymous, matched against the running version locally.
   version-check:
     enabled: true
-    well-known-url: "https://epistola.app/.well-known/epistola/releases.json"
+    # The release metadata document. Blank: found through the product domain.
+    endpoint: ""
     # Daily check window in UTC. Epistola deterministically picks one minute
     # inside this window from the stable installation id, so each installation
     # checks at the same time every day while load is spread across the hour.
@@ -376,9 +379,9 @@ epistola:
   support:
     enabled: false
     hub:
-      # Override the hub discovery URL for self-hosted deployments.
-      # Blank → use the SaaS default baked into the hub client.
-      discovery-url: ""
+      # The hub's gRPC endpoint as host:port, for a self-hosted or local hub. Blank: found
+      # through the product domain.
+      endpoint: ""
       # Override the per-pod node id. Blank → auto-detect from
       # EPISTOLA_NODE_ID / HOSTNAME / POD_NAME / local hostname.
       node-id: ""

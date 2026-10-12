@@ -28,17 +28,17 @@
     "exchange": {
       "type": "object",
       "required": [
-        "enabled",
-        "discoveryUrl"
+        "enabled"
       ],
+      "additionalProperties": false,
       "properties": {
         "enabled": {
           "type": "boolean"
         },
-        "discoveryUrl": {
+        "endpoint": {
           "type": "string",
-          "format": "uri",
-          "minLength": 1
+          "description": "Exchange base URL; empty means found through productDomain.",
+          "pattern": "^$|^https://[^/]+"
         },
         "callbackUrl": {
           "type": "string"
@@ -339,17 +339,17 @@
       "description": "Daily anonymous release and security-advisory check.",
       "required": [
         "enabled",
-        "wellKnownUrl"
+        "endpoint"
       ],
       "additionalProperties": false,
       "properties": {
         "enabled": {
           "type": "boolean"
         },
-        "wellKnownUrl": {
+        "endpoint": {
           "type": "string",
-          "minLength": 1,
-          "pattern": "^https?://[^/]+"
+          "description": "Release metadata URL; empty means found through productDomain.",
+          "pattern": "^$|^https?://[^/]+"
         }
       }
     },
@@ -357,14 +357,36 @@
       "type": "object",
       "description": "Daily installation check; runs only when sharing.installationId is true.",
       "required": [
-        "url"
+        "endpoint"
       ],
       "additionalProperties": false,
       "properties": {
-        "url": {
+        "endpoint": {
           "type": "string",
-          "minLength": 1,
-          "pattern": "^https?://[^/]+.*\\{id\\}"
+          "description": "Installation check URL with {id}; empty means found through productDomain.",
+          "pattern": "^$|^https?://[^/]+.*\\{id\\}"
+        }
+      }
+    },
+    "productDomain": {
+      "type": "string",
+      "description": "Where Epistola-operated services are found (ADR 0030): a host name, optionally with a port; never a URL.",
+      "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*(:[0-9]{1,5})?$"
+    },
+    "support": {
+      "type": "object",
+      "properties": {
+        "hub": {
+          "type": "object",
+          "description": "Hub connection; only used when support.enabled is true.",
+          "additionalProperties": false,
+          "properties": {
+            "endpoint": {
+              "type": "string",
+              "description": "The hub's gRPC endpoint as host:port; empty means found through productDomain.",
+              "pattern": "^$|^[A-Za-z0-9.-]+:[0-9]{1,5}$"
+            }
+          }
         }
       }
     }

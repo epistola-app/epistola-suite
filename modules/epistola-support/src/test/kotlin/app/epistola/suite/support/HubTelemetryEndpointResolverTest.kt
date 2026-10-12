@@ -10,7 +10,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 class HubTelemetryEndpointResolverTest {
-    private fun resolverFor(endpoint: HubEndpoint) = HubTelemetryEndpointResolver(HubDiscovery.static(endpoint), SupportProperties())
+    private fun resolverFor(endpoint: HubEndpoint) = HubTelemetryEndpointResolver(HubDiscovery.static(endpoint))
 
     @Test
     fun `a plaintext hub resolves to an http endpoint`() {

@@ -47,7 +47,7 @@ class SupportBadgeFooterTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("data-testid=\"support-badge\"")
             assertThat(response.body).contains("Support could not be checked")
-            assertThat(response.body).contains("https://epistola.app/help/support-check-unavailable")
+            assertThat(response.body).contains("https://epistola.invalid/help/support-check-unavailable")
             assertThat(badgeIcons(response.body!!)).containsExactly("shield-question")
         }
     }
@@ -75,7 +75,7 @@ class SupportBadgeFooterTest : BaseIntegrationTest() {
         val body = restTemplate.getForEntity("/tenants/${tenant.id.value}", String::class.java).body
 
         assertThat(body).contains("Supported by Acme &lt;Hosting&gt; until 31 Dec 2099")
-        assertThat(body).contains("https://epistola.app/installation/${installationService.get().id}")
+        assertThat(body).contains("https://epistola.invalid/installation/${installationService.get().id}")
         assertThat(body).contains("rel=\"noopener noreferrer\"")
         assertThat(badgeIcons(body!!)).containsExactly("shield-check")
     }

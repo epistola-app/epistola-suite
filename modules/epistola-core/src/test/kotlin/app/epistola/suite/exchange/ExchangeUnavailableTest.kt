@@ -102,7 +102,7 @@ class ExchangeUnavailableTest : IntegrationTestBase() {
         @DynamicPropertySource
         fun exchangeProperties(registry: DynamicPropertyRegistry) {
             registry.add("epistola.exchange.enabled") { "true" }
-            registry.add("epistola.exchange.base-url") { exchange.baseUrl }
+            registry.add("epistola.exchange.endpoint") { exchange.baseUrl }
             registry.add("epistola.exchange.allow-http") { "true" }
             // A dead host must be discovered quickly, not waited out.
             registry.add("epistola.exchange.connect-timeout") { "1s" }

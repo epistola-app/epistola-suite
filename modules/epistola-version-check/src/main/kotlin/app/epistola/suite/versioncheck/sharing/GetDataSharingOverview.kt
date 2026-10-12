@@ -11,6 +11,7 @@ import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.RequiresPlatformRole
 import app.epistola.suite.versioncheck.CheckSummary
 import app.epistola.suite.versioncheck.InstallationCheckService
+import app.epistola.suite.versioncheck.ProductDiscoverySummary
 import app.epistola.suite.versioncheck.SharingProperties
 import app.epistola.suite.versioncheck.SupportBadge
 import app.epistola.suite.versioncheck.SupportBadgeService
@@ -28,6 +29,8 @@ data class DataSharingOverview(
     val sharing: SharingProperties,
     val versionCheck: CheckSummary,
     val installationCheck: CheckSummary,
+    /** The discovery document both checks find their endpoints in (ADR 0030). */
+    val discovery: CheckSummary,
     val badge: SupportBadge,
 )
 
@@ -45,6 +48,7 @@ class GetDataSharingOverviewHandler(
     private val versionCheck: VersionCheckService,
     private val installationCheck: InstallationCheckService,
     private val badge: SupportBadgeService,
+    private val discovery: ProductDiscoverySummary,
 ) : QueryHandler<GetDataSharingOverview, DataSharingOverview> {
     override fun handle(query: GetDataSharingOverview) = DataSharingOverview(
         installationId = installationService.get().id,
@@ -52,6 +56,7 @@ class GetDataSharingOverviewHandler(
         sharing = sharing,
         versionCheck = versionCheck.summary(),
         installationCheck = installationCheck.summary(),
+        discovery = discovery.summary(),
         badge = badge.badge(),
     )
 }

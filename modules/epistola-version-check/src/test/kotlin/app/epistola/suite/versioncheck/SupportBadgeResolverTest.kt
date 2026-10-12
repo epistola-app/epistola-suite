@@ -30,7 +30,9 @@ class SupportBadgeResolverTest {
         sharesId: Boolean = true,
         sharesVersion: Boolean = true,
         version: String = "1.4.0",
+        site: String = "https://epistola.app",
     ) = SupportBadgeResolver.resolve(
+        site = site,
         sharesInstallationId = sharesId,
         sharesVersion = sharesVersion,
         installationId = id,
@@ -100,5 +102,14 @@ class SupportBadgeResolverTest {
             assertThat(badge.href).isEqualTo("https://epistola.app/help/support-check-unavailable")
         }
         assertThat(resolve(lastSuccessAt = now.minus(Duration.ofDays(2))).kind).isEqualTo(Kind.SUPPORTED)
+    }
+
+    @Test
+    fun `every link follows the product domain`() {
+        val site = "https://staging.epistola.app"
+
+        assertThat(resolve(site = site).href).isEqualTo("$site/installation/$id?version=1.4.0")
+        assertThat(resolve(site = site, sharesId = false).href).isEqualTo("$site/help/support-not-verifiable")
+        assertThat(resolve(site = site, result = null).href).isEqualTo("$site/help/support-check-unavailable")
     }
 }

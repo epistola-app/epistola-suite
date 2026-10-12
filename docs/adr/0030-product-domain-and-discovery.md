@@ -1,6 +1,6 @@
 # ADR 0030: One product domain, one discovery document
 
-- **Status:** Proposed
+- **Status:** Accepted — implemented
 - **Date:** 2026-10-12
 - **Deciders:** Epistola team
 - **Tags:** configuration, outbound-traffic, discovery, version-check, exchange, support
@@ -61,6 +61,7 @@ so a staging suite links to the staging site.
 ```json
 {
   "schemaVersion": 1,
+  "refreshAfter": "PT1H",
   "versionCheck": { "endpoint": "https://epistola.app/releases.json" },
   "installationCheck": { "endpoint": "https://epistola.app/installation/{id}.json" },
   "exchange": {
@@ -76,13 +77,22 @@ so a staging suite links to the staging site.
 - **Fetched only when something needs it.** When the version check, the installation check,
   Exchange and the support hub are all off or all have an explicit endpoint, it is never fetched;
   the no-data configuration stays at zero outbound calls.
-- **Cached and shared.** Refreshed once a day in the existing check window by a clustered
-  `SINGLE_OWNER` task, stored in `app_metadata`, read by every node. A failed refresh keeps the last
-  good copy. A component that needs an endpoint before any copy exists — the hub at first start —
-  fetches once on demand.
+- **Cached and shared.** Fetched on demand by whichever integration first needs an endpoint, stored
+  in `app_metadata` and read by every node; refreshed when a request finds the copy older than the
+  document's `refreshAfter` (an ISO-8601 duration, default a day). A failed fetch keeps the last good
+  copy and is retried after an hour, or sooner when `refreshAfter` is shorter. On-demand rather than
+  a scheduled task, so that an installation that needs no discovery never fetches it.
+- **The document sets its own lifetime, within bounds.** `refreshAfter` is clamped to 15 minutes – 1
+  day, so every installation looks again at least daily; a value below the minimum or unreadable
+  means 15 minutes. epistola.app publishes an hour, so a moved endpoint reaches installations at
+  their next check, and can go down to 15 minutes ahead of a move — like a DNS TTL. There is no
+  operator setting for it: only Epistola knows when an address is about to change.
 - **Never a new failure.** Unreachable, malformed, or an unknown `schemaVersion`: the suite uses
-  built-in defaults, which are today's paths on the product domain. A failed discovery is therefore
-  never worse than the current behaviour, and the checks stay independent of each other.
+  built-in defaults, which are the addresses it used before discovery, on the product domain — the
+  release document at `/.well-known/epistola/releases.json`, the installation check at
+  `/installation/{id}.json`, Exchange at `https://exchange.{product-domain}` and the hub at
+  `hub.{product-domain}:443`. A failed discovery is therefore never worse than the current
+  behaviour, and the checks stay independent of each other.
 - **Stricter than operator configuration.** A discovered endpoint must be `https:`, on the product
   domain or one of its subdomains, and the installation-check template must contain `{id}`. Anything
   else is ignored in favour of the built-in default for that integration, and logged. Operator
@@ -147,3 +157,11 @@ than being ignored.
 - [OpenID Connect Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html), the model
   for a single discovery document
 - PR #1067 — installation check and support badge, which add the second check and the badge links
+
+## Addendum — implementation notes (2026-10-12)
+
+- The support hub has no public deployment yet, so epistola.app's document leaves `supportHub` out;
+  an installation with the support tier on and no `support.hub.endpoint` falls back to
+  `hub.{product-domain}:443`, as unreachable as the old `hub.json` was.
+- The test profiles set `epistola.product-domain: epistola.invalid`, a name that never resolves, so
+  no test can reach epistola.app by forgetting to stub discovery.

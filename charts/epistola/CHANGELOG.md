@@ -4,17 +4,23 @@
 
 ### Added
 
-- **`sharing.*`, `versionCheck.enabled`, `versionCheck.wellKnownUrl` and `installationCheck.url` — what the installation shares with
-  Epistola.** Render `EPISTOLA_SHARING_INSTALLATIONID`, `EPISTOLA_SHARING_SUITEVERSION`,
-  `EPISTOLA_SHARING_USAGESTATISTICS`, `EPISTOLA_VERSIONCHECK_ENABLED`,
-  `EPISTOLA_VERSIONCHECK_WELLKNOWNURL` and `EPISTOLA_INSTALLATIONCHECK_URL`. **Everything is shared by
+- **`sharing.*` and `versionCheck.enabled` — what the installation shares with Epistola.** Render
+  `EPISTOLA_SHARING_INSTALLATIONID`, `EPISTOLA_SHARING_SUITEVERSION`,
+  `EPISTOLA_SHARING_USAGESTATISTICS` and `EPISTOLA_VERSIONCHECK_ENABLED`. **Everything is shared by
   default** (installation id, version, and the reserved usage statistics, which send nothing yet); set a
   value to `false` to stop sharing it. Until now the version check could only be switched off through
-  `config.env`; that keeps working, because `config.env` is rendered after these and wins. All three
-  blocks are in `values.schema.json`, which requires both URLs to be absolute `http(s)` URLs and
-  `installationCheck.url` to contain `{id}`. The new `examples/no-data-to-epistola.yaml` turns everything
+  `config.env`; that keeps working, because `config.env` is rendered after these and wins. Both
+  blocks are in `values.schema.json`. The new `examples/no-data-to-epistola.yaml` turns everything
   off, so the installation sends no data to Epistola; its support badge then says "Support cannot be
   verified". See `docs/outbound-traffic.md`.
+
+- **`productDomain` and one `endpoint` per integration (ADR 0030).** `productDomain` (default
+  `epistola.app`, rendered as `EPISTOLA_PRODUCTDOMAIN`) is where the version check, the installation
+  check, Exchange and the support hub are found; point it at another site, such as staging, and
+  every one follows. Each also takes its own `endpoint`, rendered only when set:
+  `versionCheck.endpoint`, `installationCheck.endpoint` (must contain `{id}`), `exchange.endpoint`
+  and `support.hub.endpoint` (`host:port`, always TLS). The schema requires a host name for
+  `productDomain` and absolute URLs for the endpoints.
 
 - **`catalog.*` — where catalog and code-list sources may be read from.** Renders
   `EPISTOLA_CATALOG_OUTBOUND_ALLOWPRIVATENETWORKS` (default `false`) and, when set,
@@ -101,6 +107,12 @@
   its minimal plain-text output.
 
 ### Changed
+
+- **Breaking: `exchange.discoveryUrl` and `support.hub.discoveryUrl` are removed.** Exchange and the
+  hub are now found through `productDomain`; to name one directly, use `exchange.endpoint` or
+  `support.hub.endpoint`. The schema rejects the old keys, and the application refuses to start
+  while an old setting is still passed through `config.env`, naming its replacement. Installations
+  on the defaults need no action.
 
 - **Resource defaults now cover the documented document-generation load
   profile.** Application pods request `750m` CPU and `1536Mi` memory and may

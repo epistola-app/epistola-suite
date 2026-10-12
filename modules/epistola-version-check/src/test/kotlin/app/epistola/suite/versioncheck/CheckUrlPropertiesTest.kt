@@ -11,48 +11,48 @@ import org.springframework.boot.context.properties.bind.BindException
 import org.springframework.boot.context.properties.bind.Binder
 import org.springframework.boot.context.properties.source.MapConfigurationPropertySource
 
-/** A mistyped check URL fails startup instead of failing quietly every day after it. */
+/** A mistyped check endpoint fails startup instead of failing quietly every day after it. */
 class CheckUrlPropertiesTest {
     @Test
-    fun `the defaults are valid`() {
-        assertThat(VersionCheckProperties().wellKnownUrl).startsWith("https://")
-        assertThat(InstallationCheckProperties().url).contains("{id}")
+    fun `by default both endpoints are blank, so they are found through the product domain`() {
+        assertThat(VersionCheckProperties().endpoint).isBlank()
+        assertThat(InstallationCheckProperties().endpoint).isBlank()
     }
 
     @Test
-    fun `an installation check url without the id placeholder is refused`() {
+    fun `an installation check endpoint without the id placeholder is refused`() {
         // Every installation would ask for the same URL, and the badge would show someone else's status.
-        assertThatThrownBy { InstallationCheckProperties(url = "https://mirror.example/installation.json") }
-            .hasMessageContaining("epistola.installation-check.url")
+        assertThatThrownBy { InstallationCheckProperties(endpoint = "https://mirror.example/installation.json") }
+            .hasMessageContaining("epistola.installation-check.endpoint")
             .hasMessageContaining("{id}")
     }
 
     @Test
-    fun `check urls must be absolute http or https urls`() {
-        for (url in listOf("", "epistola.app/installation/{id}.json", "file:///etc/{id}", "ftp://epistola.app/{id}")) {
-            assertThatThrownBy { InstallationCheckProperties(url = url) }.describedAs(url)
-                .hasMessageContaining("epistola.installation-check.url")
+    fun `check endpoints must be absolute http or https urls`() {
+        for (url in listOf("epistola.app/installation/{id}.json", "file:///etc/{id}", "ftp://epistola.app/{id}")) {
+            assertThatThrownBy { InstallationCheckProperties(endpoint = url) }.describedAs(url)
+                .hasMessageContaining("epistola.installation-check.endpoint")
         }
-        for (url in listOf("", "epistola.app/releases.json", "file:///etc/releases.json")) {
-            assertThatThrownBy { VersionCheckProperties(wellKnownUrl = url) }.describedAs(url)
-                .hasMessageContaining("epistola.version-check.well-known-url")
+        for (url in listOf("epistola.app/releases.json", "file:///etc/releases.json")) {
+            assertThatThrownBy { VersionCheckProperties(endpoint = url) }.describedAs(url)
+                .hasMessageContaining("epistola.version-check.endpoint")
         }
     }
 
     @Test
-    fun `plain http stays accepted, as it was before`() {
-        assertThat(InstallationCheckProperties(url = "http://127.0.0.1:9/installation/{id}.json").url).startsWith("http:")
-        assertThat(VersionCheckProperties(wellKnownUrl = "http://127.0.0.1:9/releases.json").wellKnownUrl).startsWith("http:")
+    fun `an operator may point either check at plain http`() {
+        assertThat(InstallationCheckProperties(endpoint = "http://127.0.0.1:9/installation/{id}.json").endpoint).startsWith("http:")
+        assertThat(VersionCheckProperties(endpoint = "http://127.0.0.1:9/releases.json").endpoint).startsWith("http:")
     }
 
     @Test
-    fun `a disabled version check does not validate its url`() {
-        assertThat(VersionCheckProperties(enabled = false, wellKnownUrl = "").enabled).isFalse()
+    fun `a disabled version check does not validate its endpoint`() {
+        assertThat(VersionCheckProperties(enabled = false, endpoint = "not a url").enabled).isFalse()
     }
 
     @Test
-    fun `binding a bad url fails, so the application does not start`() {
-        val binder = Binder(MapConfigurationPropertySource(mapOf("epistola.installation-check.url" to "https://mirror.example/installation.json")))
+    fun `binding a bad endpoint fails, so the application does not start`() {
+        val binder = Binder(MapConfigurationPropertySource(mapOf("epistola.installation-check.endpoint" to "https://mirror.example/installation.json")))
 
         assertThatThrownBy { binder.bindOrCreate("epistola.installation-check", InstallationCheckProperties::class.java) }
             .isInstanceOf(BindException::class.java)

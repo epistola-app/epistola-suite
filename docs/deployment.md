@@ -16,7 +16,6 @@ Enable it explicitly in Helm:
 ```yaml
 exchange:
   enabled: true
-  discoveryUrl: https://epistola.app/.well-known/epistola/exchange.json
 ```
 
 The tenant Alpha feature remains off independently; enabling the deployment
