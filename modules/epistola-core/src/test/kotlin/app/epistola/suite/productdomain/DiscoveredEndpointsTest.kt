@@ -40,7 +40,7 @@ class DiscoveredEndpointsTest {
     /** Pins the contract against what the website actually builds (website `src/lib/server/discovery/document.ts`). */
     @Test
     fun `the document epistola_app publishes is taken whole, and the hub keeps its default`() {
-        val published = """{"schemaVersion":1,"refreshAfter":"PT24H","versionCheck":{"endpoint":"https://epistola.app/releases.json"},""" +
+        val published = """{"schemaVersion":1,"refreshAfter":"PT1H","versionCheck":{"endpoint":"https://epistola.app/releases.json"},""" +
             """"installationCheck":{"endpoint":"https://epistola.app/installation/{id}.json"},""" +
             """"exchange":{"issuer":"https://exchange.epistola.app","endpoint":"https://exchange.epistola.app"}}"""
 
@@ -48,7 +48,7 @@ class DiscoveredEndpointsTest {
         val endpoints = discovered.over(ProductEndpoints.defaults(domain))
 
         assertThat(discovered.rejected).isEmpty()
-        assertThat(discovered.refreshAfter).isEqualTo(Duration.ofHours(24))
+        assertThat(discovered.refreshAfter).isEqualTo(Duration.ofHours(1))
         assertThat(endpoints.versionCheck).isEqualTo("https://epistola.app/releases.json")
         assertThat(endpoints.installationCheck).isEqualTo("https://epistola.app/installation/{id}.json")
         assertThat(endpoints.exchange.endpoint).isEqualTo("https://exchange.epistola.app")

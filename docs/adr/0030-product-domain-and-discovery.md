@@ -61,7 +61,7 @@ so a staging suite links to the staging site.
 ```json
 {
   "schemaVersion": 1,
-  "refreshAfter": "PT24H",
+  "refreshAfter": "PT1H",
   "versionCheck": { "endpoint": "https://epistola.app/releases.json" },
   "installationCheck": { "endpoint": "https://epistola.app/installation/{id}.json" },
   "exchange": {
@@ -81,8 +81,7 @@ so a staging suite links to the staging site.
   in `app_metadata` and read by every node; refreshed when a request finds the copy older than the
   document's `refreshAfter` (an ISO-8601 duration, default a day). A failed fetch keeps the last good
   copy and is retried after an hour, or sooner when `refreshAfter` is shorter.
-- **The document sets its own lifetime, within bounds.** `refreshAfter` is clamped to 15 minutes – 1 day, so every installation looks again at least daily; a value below the minimum or unreadable means 15 minutes. epistola.app shortens it ahead of
-  a planned move and restores it afterwards, like a DNS TTL. There is no operator setting for it:
+- **The document sets its own lifetime, within bounds.** `refreshAfter` is clamped to 15 minutes – 1 day, so every installation looks again at least daily; a value below the minimum or unreadable means 15 minutes. epistola.app publishes an hour, so a moved endpoint reaches installations at their next check, and can go down to 15 minutes ahead of a move — like a DNS TTL. There is no operator setting for it:
   only Epistola knows when an address is about to change. On-demand rather than a
   scheduled task, so that an installation that needs no discovery never fetches it.
 - **Never a new failure.** Unreachable, malformed, or an unknown `schemaVersion`: the suite uses
