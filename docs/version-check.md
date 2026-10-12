@@ -5,8 +5,9 @@ running version is still supported, and for published security advisories that a
 reads a single public JSON document, anonymously, and surfaces the result as notices on tenant-home
 pages. What every outbound call sends is in [Data shared with Epistola](outbound-traffic.md).
 
-- **Source:** `epistola.version-check.well-known-url`, default
-  `https://epistola.app/.well-known/epistola/releases.json`.
+- **Source:** `epistola.version-check.well-known-url` (Helm `versionCheck.wellKnownUrl`), default
+  `https://epistola.app/.well-known/epistola/releases.json`. While the check is enabled, the
+  application refuses to start unless it is an absolute `http(s)` URL.
 - **Schedule:** a clustered `SINGLE_OWNER` task at a stable per-installation minute inside an
   08:00–08:59 UTC window (the minute is derived from the installation id, so each install keeps a
   fixed time while load is spread across the hour). Configurable via `daily-window-start-hour` /

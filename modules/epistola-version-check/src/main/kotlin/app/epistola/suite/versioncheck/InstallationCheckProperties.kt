@@ -23,4 +23,9 @@ data class InstallationCheckProperties(
      * be checked.
      */
     val staleAfter: Duration = Duration.ofDays(3),
-)
+) {
+    init {
+        // Without {id} every installation asks for the same URL, and the badge shows someone else's status.
+        requireCheckUrl("epistola.installation-check.url", url, placeholder = "{id}")
+    }
+}

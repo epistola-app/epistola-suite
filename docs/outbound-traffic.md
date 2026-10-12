@@ -47,6 +47,7 @@ a failure waits for the next day.
 | Returns  | releases, the support policy and the published security advisories, the same for everyone                 |
 | Shows    | update, support and security-advisory notices on the tenant home page ([version check](version-check.md)) |
 | Turn off | `epistola.version-check.enabled=false` (Helm `versionCheck.enabled: false`)                               |
+| URL      | `epistola.version-check.well-known-url` (Helm `versionCheck.wellKnownUrl`)                                |
 
 The Suite matches the advisories against its own version locally, so security notices never depend
 on sharing anything. Keep it on.
@@ -64,6 +65,10 @@ on sharing anything. Keep it on.
 
 The response is treated as untrusted input: it is read up to 64 KiB, only the documented fields are
 used, text is cleaned and capped, and links are kept only when they are `https:`.
+
+Both URLs can point at a mirror. The application refuses to start when either is not an absolute
+`http(s)` URL, or when the installation check URL has no `{id}`: without it every installation would
+ask for the same URL, and the badge would show another installation's status.
 
 ## The support badge
 

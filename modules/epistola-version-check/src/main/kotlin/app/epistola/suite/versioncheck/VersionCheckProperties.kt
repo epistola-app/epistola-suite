@@ -27,4 +27,8 @@ data class VersionCheckProperties(
     val deprecationWarningWindow: Duration = Duration.ofDays(90),
     val connectTimeout: Duration = Duration.ofSeconds(3),
     val readTimeout: Duration = Duration.ofSeconds(5),
-)
+) {
+    init {
+        if (enabled) requireCheckUrl("epistola.version-check.well-known-url", wellKnownUrl)
+    }
+}
