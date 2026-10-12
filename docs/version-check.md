@@ -20,6 +20,8 @@ pages. What every outbound call sends is in [Data shared with Epistola](outbound
 - **Disable:** `epistola.version-check.enabled=false` (Helm `versionCheck.enabled: false`). It is
   off in the `local` profile, so development runs are not counted as installations.
 - **Independent** of the commercial support-hub discovery (`hub.json`), which is a separate document.
+  [ADR 0030](adr/0030-product-domain-and-discovery.md) proposes one discovery document and one
+  `endpoint` setting for every Epistola-operated integration.
 
 The check result is cached in global `app_metadata` (`version-check.status`); every instance reads
 the cached value, and the scheduled task refreshes it.
