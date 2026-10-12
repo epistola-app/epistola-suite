@@ -4,6 +4,11 @@
 
 package app.epistola.suite.exchange
 
+import app.epistola.suite.metadata.AppMetadataService
+import app.epistola.suite.productdomain.ProductDiscovery
+import app.epistola.suite.productdomain.ProductDiscoveryClient
+import app.epistola.suite.productdomain.ProductDomainProperties
+import app.epistola.suite.productdomain.ProductEndpoints
 import app.epistola.suite.testing.FakeExchangeServer
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.SharedFakeExchange
@@ -11,14 +16,21 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.parallel.ResourceLock
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.TestConfiguration
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Import
+import org.springframework.context.annotation.Primary
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 
 /**
- * The discovery-path counterpart of [ExchangeIntegrationTestBase]: Exchange is configured through
- * its discovery document rather than a base URL. Same shared fake, same lock, its own context.
+ * The discovery-path counterpart of [ExchangeIntegrationTestBase]: no `epistola.exchange.endpoint`,
+ * so Exchange is found through product discovery (ADR 0030). The product domain only takes
+ * `https:` endpoints on itself, which a local fake cannot be, so discovery is stubbed to name the
+ * fake; reading and validating the real document is covered by `DiscoveredEndpointsTest`.
  */
 @ResourceLock(SharedFakeExchange.RESOURCE_LOCK)
+@Import(ExchangeDiscoveryIntegrationTestBase.FakeExchangeDiscovery::class)
 abstract class ExchangeDiscoveryIntegrationTestBase : IntegrationTestBase() {
     protected val exchange: FakeExchangeServer
         get() = SharedFakeExchange.server
@@ -44,9 +56,20 @@ abstract class ExchangeDiscoveryIntegrationTestBase : IntegrationTestBase() {
         @DynamicPropertySource
         fun exchangeProperties(registry: DynamicPropertyRegistry) {
             registry.add("epistola.exchange.enabled") { "true" }
-            // Deliberately no base-url: this is the discovery path.
-            registry.add("epistola.exchange.discovery-url") { "${SharedFakeExchange.server.baseUrl}/.well-known/epistola/exchange.json" }
+            // Deliberately no endpoint: this is the discovery path.
             registry.add("epistola.exchange.allow-http") { "true" }
+        }
+    }
+
+    /** Product discovery that names the shared fake as Exchange. */
+    @TestConfiguration
+    class FakeExchangeDiscovery {
+        @Bean
+        @Primary
+        fun fakeExchangeDiscovery(domain: ProductDomainProperties, metadata: AppMetadataService, client: ProductDiscoveryClient): ProductDiscovery = object : ProductDiscovery(domain, metadata, client) {
+            override fun endpoints(): ProductEndpoints = ProductEndpoints.defaults(domain).copy(
+                exchange = SharedFakeExchange.server.baseUrl.let { ProductEndpoints.ExchangeEndpoint(issuer = it, endpoint = it) },
+            )
         }
     }
 }

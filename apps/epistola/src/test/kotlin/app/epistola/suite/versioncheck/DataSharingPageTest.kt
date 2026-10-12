@@ -59,6 +59,9 @@ class DataSharingPageTest : BaseIntegrationTest() {
         val installationRequest = body.substringAfter("data-testid=\"sharing-installation-request\"").substringBefore("</pre>")
         assertThat(installationRequest).contains("/installation/$id.json").contains("X-Epistola-Suite-Version")
         assertThat(body).contains("data-testid=\"sharing-badge\"")
+        // The test profile names both endpoints and leaves Exchange off, so discovery is never fetched.
+        assertThat(body).contains("Product discovery").doesNotContain("data-testid=\"sharing-discovery-request\"")
+        assertThat(body).contains("the discovery document is never fetched")
     }
 
     @Test

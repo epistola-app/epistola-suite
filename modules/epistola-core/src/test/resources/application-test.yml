@@ -12,6 +12,9 @@ spring:
       idle-timeout: 10000
 
 epistola:
+  # Tests never reach the real product domain: `.invalid` never resolves (RFC 2606), so a test that
+  # forgets to stub discovery fails fast onto the built-in fallbacks instead of calling epistola.app.
+  product-domain: epistola.invalid
   logs:
     # Don't attach the DB log appender across the whole suite — capture/retention
     # tests opt in per-class with properties = ["epistola.logs.enabled=true"].

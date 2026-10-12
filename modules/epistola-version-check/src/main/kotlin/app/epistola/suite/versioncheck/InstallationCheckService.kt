@@ -7,6 +7,7 @@ package app.epistola.suite.versioncheck
 import app.epistola.suite.installation.InstallationService
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.metadata.getAs
+import app.epistola.suite.productdomain.ProductDiscovery
 import app.epistola.suite.time.EpistolaClock
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
@@ -23,7 +24,8 @@ class InstallationCheckService(
     private val metadata: AppMetadataService,
     private val installationService: InstallationService,
     private val sharing: SharingProperties,
-    properties: InstallationCheckProperties,
+    private val properties: InstallationCheckProperties,
+    private val productDiscovery: ProductDiscovery,
     private val buildProperties: BuildProperties?,
     private val badge: ObjectProvider<SupportBadgeService>,
 ) {
@@ -39,8 +41,16 @@ class InstallationCheckService(
         null
     }
 
-    /** What a check sends right now, given the sharing settings. */
-    fun request(): OutgoingRequest = client.request(installationService.get().id, currentVersion.takeIf { sharing.suiteVersion })
+    /**
+     * What a check sends, given the sharing settings. [discover] fetches the discovery document when
+     * it is due; a page that only shows the request reads the cached copy and never calls out.
+     */
+    fun request(discover: Boolean = false): OutgoingRequest {
+        val endpoint = properties.endpoint.ifBlank {
+            (if (discover) productDiscovery.endpoints() else productDiscovery.cachedEndpoints()).installationCheck
+        }
+        return client.request(endpoint, installationService.get().id, currentVersion.takeIf { sharing.suiteVersion })
+    }
 
     /** This check for the "Shared with Epistola" page. */
     fun summary(): CheckSummary {
@@ -59,7 +69,7 @@ class InstallationCheckService(
         if (!sharing.installationId) return null
         val previous = status() ?: InstallationCheckStatus()
         val now = EpistolaClock.instant()
-        val request = request()
+        val request = request(discover = true)
 
         val next = try {
             val (code, result) = client.fetch(request)

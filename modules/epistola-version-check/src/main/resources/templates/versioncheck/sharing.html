@@ -67,6 +67,9 @@
         <section th:replace="~{versioncheck/sharing :: check(title='Installation check', summary=${o.installationCheck}, testId='sharing-installation-request',
                  off='Off: the installation id is not shared, so nothing is sent and the support badge says that support cannot be verified.')}"></section>
 
+        <section th:replace="~{versioncheck/sharing :: check(title='Product discovery', summary=${o.discovery}, testId='sharing-discovery-request',
+                 off='Not used: every check that is on has its own endpoint configured, so the discovery document is never fetched.')}"></section>
+
         <form th:action="@{/platform/sharing/check}" method="post">
             <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="sharing-check-now">Run the checks now</button>
         </form>
@@ -77,7 +80,7 @@
     <section th:fragment="check(title, summary, testId, off)" class="ep-panel form-section">
         <h2 th:text="${title}">Version check</h2>
         <th:block th:if="${summary.enabled}">
-            <p>Sends, once a day:</p>
+            <p>Sends, at most once a day:</p>
             <pre th:attr="data-testid=${testId}" th:text="${summary.request.toText()}">GET …</pre>
             <p class="text-muted" th:if="${summary.lastRunAt == null}">Not run yet.</p>
             <p class="text-muted" th:if="${summary.lastRunAt != null}"

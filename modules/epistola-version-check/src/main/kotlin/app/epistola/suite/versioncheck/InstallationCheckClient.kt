@@ -28,9 +28,9 @@ class InstallationCheckClient(private val properties: InstallationCheckPropertie
         .build()
     private val mapper = JsonMapper.builder().build()
 
-    /** What a check for [installationId] sends; [suiteVersion] only when it is shared. */
-    fun request(installationId: UUID, suiteVersion: String?): OutgoingRequest = OutgoingRequest(
-        url = properties.url.replace("{id}", installationId.toString()),
+    /** What a check for [installationId] sends to [endpoint]; [suiteVersion] only when it is shared. */
+    fun request(endpoint: String, installationId: UUID, suiteVersion: String?): OutgoingRequest = OutgoingRequest(
+        url = endpoint.replace("{id}", installationId.toString()),
         headers = buildMap {
             put("Accept", "application/json")
             put("User-Agent", USER_AGENT)

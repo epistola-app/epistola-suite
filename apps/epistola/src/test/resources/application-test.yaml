@@ -27,6 +27,9 @@ logging:
 # No OAuth2 configuration needed
 
 epistola:
+  # Tests never reach the real product domain: `.invalid` never resolves (RFC 2606), so a test that
+  # forgets to stub discovery fails fast onto the built-in fallbacks instead of calling epistola.app.
+  product-domain: epistola.invalid
   logs:
     # Don't attach the DB log appender across the whole suite — capture/retention
     # tests opt in per-class with properties = ["epistola.logs.enabled=true"].
@@ -40,9 +43,9 @@ epistola:
   # Tests never reach epistola.app: should a daily check fire during a run, it fails fast on the
   # discard port instead. Tests that exercise the checks drive them directly.
   version-check:
-    well-known-url: "http://127.0.0.1:9/.well-known/epistola/releases.json"
+    endpoint: "http://127.0.0.1:9/.well-known/epistola/releases.json"
   installation-check:
-    url: "http://127.0.0.1:9/installation/{id}.json"
+    endpoint: "http://127.0.0.1:9/installation/{id}.json"
   catalog:
     # Tests write file: catalogs to temp directories under java.io.tmpdir; anywhere else is refused.
     file-roots:

@@ -13,8 +13,11 @@ import java.time.Duration
  */
 @ConfigurationProperties(prefix = "epistola.installation-check")
 data class InstallationCheckProperties(
-    /** `{id}` is replaced by the installation id. */
-    val url: String = "https://epistola.app/installation/{id}.json",
+    /**
+     * The installation check; `{id}` is replaced by the installation id. Blank: found through the
+     * product domain (ADR 0030).
+     */
+    val endpoint: String = "",
     val connectTimeout: Duration = Duration.ofSeconds(3),
     val readTimeout: Duration = Duration.ofSeconds(5),
     /**
@@ -26,6 +29,6 @@ data class InstallationCheckProperties(
 ) {
     init {
         // Without {id} every installation asks for the same URL, and the badge shows someone else's status.
-        requireCheckUrl("epistola.installation-check.url", url, placeholder = "{id}")
+        if (endpoint.isNotBlank()) requireCheckUrl("epistola.installation-check.endpoint", endpoint, placeholder = "{id}")
     }
 }
