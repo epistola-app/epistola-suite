@@ -105,33 +105,65 @@ readinessProbe:
   failureThreshold: 3
   timeoutSeconds: 5
 
+# Pod autoscaling for the application Deployment. Use at most one controller
+# per resource: the HPA scales on CPU, so keep the VPA in "Off" mode (or
+# disabled) whenever the HPA is enabled. See docs/deployment.md.
+#
+# DEPRECATED: the flat keys autoscaling.enabled, autoscaling.minReplicas,
+# autoscaling.maxReplicas, autoscaling.targetCPUUtilizationPercentage and
+# autoscaling.targetMemoryUtilizationPercentage are still honoured for the HPA
+# (each one wins over its autoscaling.hpa.* counterpart) but will be removed in
+# the next major chart release. Move them under autoscaling.hpa.
 autoscaling:
-  enabled: false
-  minReplicas: 1
-  maxReplicas: 10
-  targetCPUUtilizationPercentage: 80
-  # Heap retention makes memory a poor scale-down signal for JVM generation
-  # workloads. Enable only after observing your own steady-state memory use.
-  targetMemoryUtilizationPercentage: 0
+  # HorizontalPodAutoscaler. Built into Kubernetes; needs a metrics server.
+  hpa:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    # Heap retention makes memory a poor scale-down signal for JVM generation
+    # workloads. Enable only after observing your own steady-state memory use.
+    targetMemoryUtilizationPercentage: 0
+    # HPA scaling behavior (autoscaling/v2 `behavior`). A stopping pod lets
+    # in-flight renders finish for up to the drain timeout, then re-queues the rest
+    # (rendered again elsewhere; see docs/deployment.md "Pod shutdown"), so the
+    # default scales in calmly: a 5-minute stabilisation window, then at most one
+    # pod every 3 minutes. Scale-up keeps the Kubernetes defaults. Set `null` to use
+    # the Kubernetes defaults for both directions.
+    behavior:
+      scaleDown:
+        stabilizationWindowSeconds: 300
+        policies:
+          - type: Pods
+            value: 1
+            periodSeconds: 180
 
-# Optional Vertical Pod Autoscaler (VPA) for the application Deployment. Requires
-# the VPA CRD and recommender/updater/admission-controller components to be
-# installed in the cluster. `Off` only publishes recommendations; review those
-# before using `Initial` or `Recreate`.
-vpa:
-  enabled: false
-  updateMode: "Off"
-  minReplicas: 1
-  # Keep limits operator-managed. With RequestsOnly, maxAllowed must not exceed
-  # the matching value in resources.limits.
-  controlledValues: RequestsOnly
-  resourcePolicy:
-    minAllowed:
-      cpu: 750m
-      memory: 1536Mi
-    maxAllowed:
-      cpu: "3"
-      memory: 4Gi
+  # Optional Vertical Pod Autoscaler (VPA). Requires the VPA CRD and
+  # recommender/updater/admission-controller components to be installed in the
+  # cluster. `Off` only publishes recommendations; review those before using
+  # `Initial`, `InPlaceOrRecreate` (Kubernetes >= 1.33) or `Recreate`.
+  vpa:
+    enabled: false
+    updateMode: "Off"
+    # Fewest live replicas before the VPA updater may evict a pod. 2 (the VPA's
+    # own default) means it never evicts the last running pod.
+    minReplicas: 2
+    # Resources the VPA manages. An acting VPA (any mode but Off) must not
+    # manage a resource the HPA scales on — the render fails if it does. With
+    # the CPU HPA, use [memory] or keep the VPA in Off.
+    controlledResources:
+      - cpu
+      - memory
+    # Keep limits operator-managed. With RequestsOnly, maxAllowed must not
+    # exceed the matching value in resources.limits.
+    controlledValues: RequestsOnly
+    resourcePolicy:
+      minAllowed:
+        cpu: 750m
+        memory: 1536Mi
+      maxAllowed:
+        cpu: "3"
+        memory: 4Gi
 
 # Additional volumes on the output Deployment definition.
 # Note: tmp-dir is required for readOnlyRootFilesystem since Java needs a writable /tmp
@@ -149,7 +181,32 @@ nodeSelector: {}
 
 tolerations: []
 
+# Seconds Kubernetes waits after SIGTERM before killing a pod. The application
+# needs it for a graceful stop: the web server finishes in-flight requests, then
+# running renders get up to epistola.generation.polling.shutdown-drain-timeout
+# (default 20s) before the rest are released back to the queue. Keep it above
+# that sum; a pod killed earlier holds its unfinished documents until stale-job
+# recovery frees them (10 minutes by default). See docs/deployment.md.
+terminationGracePeriodSeconds: 60
+
+# Spread application pods across nodes so one node failure or drain does not
+# take every replica at once. `soft` (default) prefers separate nodes but still
+# schedules when it cannot; `hard` refuses to co-locate replicas (needs at least
+# as many nodes as replicas); `none` renders nothing. Ignored when `affinity`
+# below is set — that replaces the preset entirely.
+podAntiAffinity: soft
+
 affinity: {}
+
+# PodDisruptionBudget for the application pods. Voluntary disruptions (node
+# drains, cluster-autoscaler scale-down, VPA evictions) then keep at least
+# `minAvailable` pods running. Set exactly one of minAvailable/maxUnavailable.
+# Needs at least 2 replicas: with 1, minAvailable: 1 blocks every eviction and
+# node drains hang.
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  maxUnavailable:
 
 # JVM configuration
 jvm:

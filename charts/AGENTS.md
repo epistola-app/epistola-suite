@@ -22,6 +22,7 @@ helm lint charts/epistola
 charts/epistola/tests/vpa-render.sh
 charts/epistola/tests/hpa-render.sh
 charts/epistola/tests/migration-render.sh
+charts/epistola/tests/availability-render.sh
 scripts/test-helm-chart.sh          # kind smoke test, needs Docker
 ```
 

@@ -50,3 +50,17 @@
    The app runs Flyway at boot (embedded). Suitable for single-replica / dev;
    for multi-replica use migration.mode=job.
 {{- end }}
+
+{{- with include "epistola.hpa.deprecatedKeys" . }}
+
+DEPRECATED: autoscaling.{{ "{" }}{{ . }}{{ "}" }} configure the HPA through the
+   flat chart 1.0.0 keys, which will be removed in the next major chart release.
+   Move them under autoscaling.hpa (e.g. autoscaling.enabled ->
+   autoscaling.hpa.enabled).
+{{- end }}
+{{- if and .Values.podDisruptionBudget.enabled (lt (int (include "epistola.minReplicas" .)) 2) }}
+
+WARNING: podDisruptionBudget is enabled with a single replica. Every voluntary
+   eviction is refused, so node drains and cluster-autoscaler scale-down hang.
+   Run at least 2 replicas (replicaCount, or autoscaling.hpa.minReplicas).
+{{- end }}

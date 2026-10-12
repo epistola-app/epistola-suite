@@ -5,7 +5,7 @@ metadata:
   labels:
     {{- include "epistola.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
+  {{- if not (include "epistola.hpa" . | fromJson).enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   selector:
@@ -281,13 +281,32 @@ spec:
                   name: {{ .Values.extraCaCerts.existingSecret | default (printf "%s-ca-certs" (include "epistola.fullname" .)) }}
         {{- end }}
       {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
+      {{- if .Values.affinity }}
       affinity:
-        {{- toYaml . | nindent 8 }}
+        {{- toYaml .Values.affinity | nindent 8 }}
+      {{- else if eq .Values.podAntiAffinity "soft" }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    {{- include "epistola.selectorLabels" . | nindent 20 }}
+      {{- else if eq .Values.podAntiAffinity "hard" }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  {{- include "epistola.selectorLabels" . | nindent 18 }}
       {{- end }}
       {{- with .Values.tolerations }}
       tolerations:

@@ -235,6 +235,10 @@ epistola:
       interval-ms: 5000 # Fallback poll interval (drain loop handles active work)
       max-concurrent-jobs: 20 # Max jobs per instance (10x parallelism)
       stale-timeout-minutes: 10 # Reclaim jobs after 10 min of no progress
+      # On shutdown, how long in-flight renders may finish before they are interrupted and
+      # released to PENDING. Must fit, with the web server's graceful shutdown, in the pod's
+      # termination grace period (the Helm chart's terminationGracePeriodSeconds).
+      shutdown-drain-timeout: 20s
       adaptive-batch:
         min-batch-size: 1 # Never go below 1 (backward compatible)
         max-batch-size: 50 # Claim more per poll for efficient draining

@@ -123,10 +123,13 @@ fi
 
 "${kubectl_bin}" --context "kind-${cluster_name}" -n "${namespace}" rollout status deployment/epistola --timeout "${timeout}"
 
-helm_args+=(--set autoscaling.enabled=true)
+helm_args+=(--set autoscaling.hpa.enabled=true --set podDisruptionBudget.enabled=true)
 "${helm_bin}" "${helm_args[@]}"
 test "$("${kubectl_bin}" --context "kind-${cluster_name}" -n "${namespace}" get hpa epistola -o jsonpath='{.spec.scaleTargetRef.kind}')" = Deployment
 test "$("${kubectl_bin}" --context "kind-${cluster_name}" -n "${namespace}" get hpa epistola -o jsonpath='{.spec.scaleTargetRef.name}')" = epistola
+test "$("${kubectl_bin}" --context "kind-${cluster_name}" -n "${namespace}" get hpa epistola -o jsonpath='{.spec.behavior.scaleDown.stabilizationWindowSeconds}')" = 300
+# The PDB must select the running application pod (expectedPods counts matches).
+test "$("${kubectl_bin}" --context "kind-${cluster_name}" -n "${namespace}" get pdb epistola -o jsonpath='{.status.expectedPods}')" -ge 1
 
 "${helm_bin}" test epistola --namespace "${namespace}" --kube-context "kind-${cluster_name}" --logs --timeout "${timeout}"
 

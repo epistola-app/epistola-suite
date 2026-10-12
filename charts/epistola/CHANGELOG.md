@@ -38,17 +38,41 @@
   remains covered by render/schema tests because the lightweight cluster does
   not install VPA components.
 
-- **Optional Vertical Pod Autoscaler (VPA) support.** Set `vpa.enabled=true` to
-  render a VPA targeting this release's application Deployment, without a
-  separately maintained manifest or hard-coded Deployment name. It starts in
-  recommendation-only `Off` mode and defaults to `RequestsOnly`, so VPA changes
-  requests without taking ownership of the operator-set limits once an update
-  mode is selected. The update mode, minimum replica count, and CPU/memory
-  `minAllowed` / `maxAllowed` policy are configurable. The cluster must already
-  provide the VPA CRD and components. VPA-controller behavior is not yet
-  runtime-tested by Epistola; see `docs/deployment.md` for the recommendation-
-  only rollout, built-in load-test recommendation, and current HPA
-  incompatibility guidance.
+- **`autoscaling.hpa` — the HPA settings get their own block.** `autoscaling.hpa.enabled`,
+  `minReplicas`, `maxReplicas`, `targetCPUUtilizationPercentage` and
+  `targetMemoryUtilizationPercentage` configure the HorizontalPodAutoscaler, alongside
+  `autoscaling.vpa` for the VPA. The values schema validates both blocks.
+- **`autoscaling.hpa.behavior` — calm scale-down by default.** A stopping pod drains its
+  in-flight renders before re-queuing the rest, which slows each stop and repeats long renders, so the HPA now waits five
+  minutes after load drops and then removes at most one pod every three minutes. Scale-up keeps
+  the Kubernetes defaults. Set `autoscaling.hpa.behavior: null` for the Kubernetes defaults in
+  both directions.
+
+- **Optional Vertical Pod Autoscaler (VPA) support.** Set `autoscaling.vpa.enabled=true` to
+  render a VPA targeting this release's application Deployment, without a separately maintained
+  manifest or hard-coded Deployment name. It starts in recommendation-only `Off` mode and
+  defaults to `RequestsOnly`, so VPA changes requests without taking ownership of the
+  operator-set limits (and so the JVM heap size). `minReplicas` defaults to `2`, so the VPA never
+  evicts the last running pod. The update mode (including `InPlaceOrRecreate` on Kubernetes ≥
+  1.33), `controlledResources`, and the CPU/memory `minAllowed` / `maxAllowed` policy are
+  configurable. An acting VPA (any mode but `Off`) that manages a resource the HPA scales on
+  fails the render, because the two controllers would feed back into each other; narrow it with
+  `autoscaling.vpa.controlledResources` or keep it in `Off`. The cluster must already provide the
+  VPA CRD and components. VPA-controller behavior is not yet runtime-tested by Epistola; see
+  `docs/deployment.md` for the recommended production setup and the staged rollout.
+
+- **`terminationGracePeriodSeconds` — room for a graceful stop (default `60`).** The application
+  now drains in-flight renders on shutdown for up to
+  `epistola.generation.polling.shutdown-drain-timeout` (default 20 s) before re-queuing the rest,
+  after the web server has finished its requests. The Kubernetes default of 30 s could cut that
+  short, leaving unfinished documents held until stale-job recovery (10 min). Keep the value above
+  web drain + render drain; raise both together. See `docs/deployment.md` → "Pod shutdown".
+
+- **`podDisruptionBudget` — keep a pod running through voluntary disruptions.** Off by default.
+  When enabled, renders a `policy/v1` PodDisruptionBudget (`minAvailable: 1` by default, or
+  `maxUnavailable`) so node drains, cluster-autoscaler scale-down and VPA evictions always leave
+  a pod serving. It needs at least two replicas; with one, every eviction is refused and node
+  drains hang, and the install notes warn about that combination.
 
 - **`logging.format` — first-class console format selection.** Select `plain`, `logstash`, `ecs`,
   or `gelf`; `plain` is the chart default in every environment, including production. The chart
@@ -65,6 +89,27 @@
   This production profile supports about 5,000 documents per minute per node.
   The Kind fixture explicitly uses the smaller test/preview profile instead,
   which supports about 1,000 documents in two minutes.
+
+  **Upgrade note:** the HPA memory target default moved from `80` to `0` (off). If you
+  enabled the HPA in 1.0.0 and relied on the default memory target, set
+  `autoscaling.hpa.targetMemoryUtilizationPercentage: 80` to keep scaling on memory.
+
+- **Application pods prefer separate nodes (`podAntiAffinity: soft`).** The Deployment now carries
+  a preferred pod anti-affinity on `kubernetes.io/hostname`, so replicas spread across nodes when
+  they can and one node failure does not take them all. It never blocks scheduling. Set
+  `podAntiAffinity: hard` to require separate nodes, or `none` to turn it off; an explicit
+  `affinity` value replaces the preset as before. Upgrading rolls the pods once for the changed
+  pod spec.
+
+### Deprecated
+
+- **Flat HPA keys under `autoscaling`.** `autoscaling.enabled`, `minReplicas`, `maxReplicas`,
+  `targetCPUUtilizationPercentage` and `targetMemoryUtilizationPercentage` are deprecated in
+  favour of the same keys under `autoscaling.hpa`, and will be removed in the next major chart
+  release. Until then each flat key is still honoured and wins over its `autoscaling.hpa.*`
+  counterpart, and the install notes print a deprecation warning. Move them in one step:
+  setting `autoscaling.hpa.enabled=true` while any flat key is still present fails the render,
+  so a leftover `autoscaling.enabled: false` cannot silently switch the HPA off.
 
 ### Fixed
 
