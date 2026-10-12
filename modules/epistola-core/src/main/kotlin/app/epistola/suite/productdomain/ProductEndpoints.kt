@@ -6,6 +6,7 @@ package app.epistola.suite.productdomain
 
 import tools.jackson.databind.JsonNode
 import java.net.URI
+import java.time.Duration
 
 /** Where each Epistola-operated service is, after discovery and fallbacks (ADR 0030). */
 data class ProductEndpoints(
@@ -58,6 +59,11 @@ data class DiscoveredEndpoints(
     val exchangeIssuer: String? = null,
     val exchangeEndpoint: String? = null,
     val supportHub: String? = null,
+    /**
+     * How long this copy stays valid, as the document says, clamped to [MIN_REFRESH]..[MAX_REFRESH];
+     * null when it does not say, and the Suite's own default applies.
+     */
+    val refreshAfter: Duration? = null,
     /** What was refused, for the operator; never shown to end users. */
     val rejected: List<String> = emptyList(),
 ) {
@@ -76,10 +82,18 @@ data class DiscoveredEndpoints(
     companion object {
         const val SCHEMA_VERSION = 1
 
+        /** Nothing in the document can make installations ask more often than this, */
+        val MIN_REFRESH: Duration = Duration.ofMinutes(15)
+
+        /** or stop asking for longer than this. */
+        val MAX_REFRESH: Duration = Duration.ofDays(7)
+
         /**
          * Reads the discovery document, which arrives over the network: an endpoint is taken only
          * when it is `https:` on the product domain or one of its subdomains, and the installation
          * check only with its `{id}`. Unknown fields are ignored, so version 1 can gain optional ones.
+         * `refreshAfter` (an ISO-8601 duration) is clamped rather than refused, so the copy is always
+         * refreshed at some point.
          */
         fun parse(root: JsonNode, domain: ProductDomainProperties): DiscoveredEndpoints {
             val version = root.path("schemaVersion")
@@ -109,12 +123,21 @@ data class DiscoveredEndpoints(
                     null
                 }
             }
+            val refreshAfter = root.path("refreshAfter").takeUnless { it.isMissingNode || it.isNull }?.let { node ->
+                val parsed = node.takeIf { it.isString }?.stringValue()?.let { runCatching { Duration.parse(it) }.getOrNull() }
+                when {
+                    parsed == null || parsed < MIN_REFRESH -> MIN_REFRESH.also { rejected += "refreshAfter: '$node' is not a duration of at least $MIN_REFRESH, using $MIN_REFRESH" }
+                    parsed > MAX_REFRESH -> MAX_REFRESH.also { rejected += "refreshAfter: '$node' is longer than $MAX_REFRESH, using $MAX_REFRESH" }
+                    else -> parsed
+                }
+            }
             return DiscoveredEndpoints(
                 versionCheck = url("versionCheck", "endpoint"),
                 installationCheck = url("installationCheck", "endpoint", needsId = true),
                 exchangeIssuer = url("exchange", "issuer"),
                 exchangeEndpoint = url("exchange", "endpoint"),
                 supportHub = hub,
+                refreshAfter = refreshAfter,
                 rejected = rejected,
             )
         }

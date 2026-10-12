@@ -8,6 +8,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.json.JsonMapper
+import java.time.Duration
 
 class DiscoveredEndpointsTest {
     private val domain = ProductDomainProperties()
@@ -120,5 +121,28 @@ class DiscoveredEndpointsTest {
         assertThat(defaults.installationCheck).isEqualTo("https://staging.epistola.app/installation/{id}.json")
         assertThat(defaults.exchange.endpoint).isEqualTo("https://exchange.staging.epistola.app")
         assertThat(defaults.supportHub.toString()).isEqualTo("hub.staging.epistola.app:443")
+    }
+
+    @Test
+    fun `refreshAfter sets how long a copy stays valid, within 15 minutes and 7 days`() {
+        fun refresh(value: String) = parse("""{ "schemaVersion": 1, "refreshAfter": $value }""").refreshAfter
+
+        assertThat(parse("""{ "schemaVersion": 1 }""").refreshAfter).isNull()
+        assertThat(refresh("\"PT24H\"")).isEqualTo(Duration.ofHours(24))
+        assertThat(refresh("\"PT15M\"")).isEqualTo(Duration.ofMinutes(15))
+        // Too short, unreadable or not a string: the shortest allowed, so a mistyped value during a
+        // planned move still refreshes soon, and nothing can make installations hammer the site.
+        assertThat(refresh("\"PT1M\"")).isEqualTo(DiscoveredEndpoints.MIN_REFRESH)
+        assertThat(refresh("\"-PT1H\"")).isEqualTo(DiscoveredEndpoints.MIN_REFRESH)
+        assertThat(refresh("\"soon\"")).isEqualTo(DiscoveredEndpoints.MIN_REFRESH)
+        assertThat(refresh("900")).isEqualTo(DiscoveredEndpoints.MIN_REFRESH)
+        // Too long: capped, so a document cannot stop installations from ever looking again.
+        assertThat(refresh("\"P365D\"")).isEqualTo(DiscoveredEndpoints.MAX_REFRESH)
+    }
+
+    @Test
+    fun `an out-of-range refreshAfter is reported to the operator`() {
+        assertThat(parse("""{ "schemaVersion": 1, "refreshAfter": "soon" }""").rejected).anyMatch { it.startsWith("refreshAfter") }
+        assertThat(parse("""{ "schemaVersion": 1, "refreshAfter": "PT1H" }""").rejected).isEmpty()
     }
 }

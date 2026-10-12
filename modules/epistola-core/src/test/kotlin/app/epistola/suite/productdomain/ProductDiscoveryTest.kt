@@ -123,4 +123,30 @@ class ProductDiscoveryTest : IntegrationTestBase() {
         assertThat(client.calls).isZero()
         assertThat(endpoints).isEqualTo(defaults)
     }
+
+    @Test
+    fun `a shorter refreshAfter from the document is honoured, so a planned move is picked up sooner`() {
+        val client = FakeClient("""{ "schemaVersion": 1, "refreshAfter": "PT15M" }""")
+        val discovery = ProductDiscovery(domain, metadata, client)
+
+        at(start) { discovery.endpoints() }
+        at(start.plus(Duration.ofMinutes(14))) { discovery.endpoints() }
+        assertThat(client.calls).isEqualTo(1)
+
+        at(start.plus(Duration.ofMinutes(15))) { discovery.endpoints() }
+        assertThat(client.calls).isEqualTo(2)
+    }
+
+    @Test
+    fun `after a failure the retry waits no longer than refreshAfter`() {
+        val client = FakeClient("""{ "schemaVersion": 1, "refreshAfter": "PT15M" }""")
+        val discovery = ProductDiscovery(domain, metadata, client)
+        at(start) { discovery.endpoints() }
+
+        client.document = null
+        at(start.plus(Duration.ofMinutes(15))) { discovery.endpoints() }
+        at(start.plus(Duration.ofMinutes(30))) { discovery.endpoints() }
+
+        assertThat(client.calls).isEqualTo(3)
+    }
 }

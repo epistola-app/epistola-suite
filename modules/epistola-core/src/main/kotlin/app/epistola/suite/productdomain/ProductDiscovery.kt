@@ -35,8 +35,9 @@ data class ProductDiscoveryStatus(
  *
  * The document is fetched only when an integration asks for an endpoint, so an installation that
  * uses none of them, or names every endpoint itself, never fetches it. A fetched copy is shared by
- * every node and refreshed at most daily; a failed attempt keeps the last good copy and is retried
- * after an hour. Without any copy each integration falls back to [ProductEndpoints.defaults], so
+ * every node and refreshed after the document's `refreshAfter`, daily when it gives none; a failed
+ * attempt keeps the last good copy and is retried after an hour, or sooner when `refreshAfter` is
+ * shorter. Without any copy each integration falls back to [ProductEndpoints.defaults], so
  * discovery never makes a check fail that would have worked without it.
  */
 @Service
@@ -83,7 +84,8 @@ class ProductDiscovery(
     private fun isDue(status: ProductDiscoveryStatus?): Boolean {
         if (status == null || status.domain != domain.productDomain) return true
         val last = status.lastAttemptAt ?: return true
-        val wait = if (status.lastError == null) REFRESH_AFTER else RETRY_AFTER
+        val refresh = status.discovered?.refreshAfter ?: REFRESH_AFTER
+        val wait = if (status.lastError == null) refresh else minOf(RETRY_AFTER, refresh)
         return Duration.between(last, EpistolaClock.instant()) >= wait
     }
 

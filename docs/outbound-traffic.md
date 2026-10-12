@@ -46,12 +46,13 @@ document (below).
 | Request  | `GET https://{product-domain}/.well-known/epistola.json`, by default `https://epistola.app/...`               |
 | Sends    | **Nothing that identifies the installation**: `Accept: application/json`, `User-Agent: epistola-suite`        |
 | Returns  | where the version check, the installation check, Exchange and the support hub are, the same for everyone      |
-| When     | only when an integration that is on needs an endpoint it does not have configured; at most once a day         |
+| When     | only when an integration that is on needs an endpoint it does not have configured; by default at most daily   |
 | Turn off | give every integration that is on its own `endpoint`, or turn them off; then the document is never fetched    |
 | Setting  | `epistola.product-domain` (Helm `productDomain`), default `epistola.app`: a host name, optionally with a port |
 
-The copy is kept in the database and shared by every node; a failed fetch keeps the last good copy
-and is retried after an hour. Every endpoint in it must be `https:` on the product domain or one of
+The copy is kept in the database and shared by every node, and refreshed after the document's
+`refreshAfter` (a day by default; never more often than every 15 minutes or less often than every 7
+days). A failed fetch keeps the last good copy and is retried after an hour. Every endpoint in it must be `https:` on the product domain or one of
 its subdomains, and the installation check must contain `{id}`; anything else is ignored and logged.
 When no copy is available, each integration uses its built-in address on the product domain: the
 version check `/.well-known/epistola/releases.json`, the installation check
