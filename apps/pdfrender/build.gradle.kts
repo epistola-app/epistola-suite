@@ -14,6 +14,10 @@ plugins {
 // 11.0.25 here too until the Spring Boot BOM catches up. Read by io.spring.dependency-management.
 extra["tomcat.version"] = "11.0.25"
 
+// Jackson security override — same pins and rationale as apps/epistola. Keep the two in step.
+extra["jackson-bom.version"] = "3.1.7"
+extra["jackson-2-bom.version"] = "2.21.7"
+
 dependencies {
     // The whole render/job pipeline (JobPoller, StaleJobRecovery, DocumentGenerationExecutor,
     // GenerationService) plus the pure PDF renderer, JDBI and Postgres come transitively from
