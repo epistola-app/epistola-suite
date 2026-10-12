@@ -123,9 +123,12 @@ than being ignored.
 
 ## Consequences
 
-- **A breaking configuration change.** Renamed and removed GA settings need a major release under
-  the stability contract, so this ships in 2.0. The CHANGELOG lists every rename, and the chart
-  changelog every Helm key.
+- **Renamed settings in a 1.x minor release.** This is a deliberate exception to the stability
+  contract, which would otherwise hold renamed GA settings for a major release. It is taken because
+  installations run on the defaults: only an installation that overrode one of these endpoints has
+  to act. The startup check on old names makes that installation fail loudly on upgrade rather than
+  quietly lose its override. The CHANGELOG fragment lists every rename and says the upgrade needs
+  action; the chart changelog lists every Helm key.
 - **epistola.app serves a new document and keeps the old ones.** `.well-known/epistola.json` is new;
   `/.well-known/epistola/releases.json`, `exchange.json` and `hub.json` stay for released suites.
   The hub's discovery document currently returns 404 there, and needs fixing either way.
