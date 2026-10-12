@@ -341,7 +341,6 @@ describe('canDropHere', () => {
     // text has allowedChildren: { mode: 'none' }, so nothing can go inside text
     // We need a text node with a slot to test — but text has no slots by default.
     // Instead, test with a custom registry where a type forbids children.
-    const indexes = buildIndexes(doc);
 
     // The text node doesn't have slots, so we can't drop into it.
     // But let's verify canContain logic by checking the registry directly:

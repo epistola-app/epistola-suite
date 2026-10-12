@@ -533,7 +533,7 @@ describe('MoveNode', () => {
 
   it('detects cycles (cannot move parent into child)', () => {
     const registry = testRegistry();
-    const { doc, containerNodeId, containerSlotId, rootSlotId } = createTestDocumentWithChildren();
+    const { doc, containerNodeId, containerSlotId } = createTestDocumentWithChildren();
 
     // Add a nested container inside the first container
     const innerContainerId = nodeId('inner-container');
