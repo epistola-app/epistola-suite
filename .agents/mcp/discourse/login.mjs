@@ -28,11 +28,19 @@ function openInBrowser(url) {
   execFile(cmd, args, () => {});
 }
 
-function notify(message) {
-  if (process.platform !== 'darwin') return;
-  execFile(
+/**
+ * Shows the code in a dialog that stays open until it is dismissed or the approval arrives: the
+ * agent does not show an MCP server's output, and a notification disappears too fast to read.
+ */
+function showCode(code) {
+  if (process.platform !== 'darwin') return null;
+  const message = `Approve access to the Epistola Community in your browser.\n\nIf the page asks for a code, enter:\n\n${code}`;
+  return execFile(
     'osascript',
-    ['-e', `display notification ${JSON.stringify(message)} with title "Epistola Community"`],
+    [
+      '-e',
+      `display dialog ${JSON.stringify(message)} with title "Epistola Community" buttons {"OK"} default button "OK" giving up after 600`,
+    ],
     () => {},
   );
 }
@@ -82,9 +90,14 @@ export async function login(log = console.error) {
   const url = authorization.verificationUriWithRequest ?? authorization.verificationUri;
   log(`Approve access to ${SITE} in your browser: ${url} (code ${authorization.userCode})`);
   openInBrowser(url);
-  notify(`Approve access in your browser. Code: ${authorization.userCode}`);
+  const dialog = showCode(authorization.userCode);
 
-  const payload = await gen.pollDeviceAuthorization(SITE, authorization);
+  let payload;
+  try {
+    payload = await gen.pollDeviceAuthorization(SITE, authorization);
+  } finally {
+    dialog?.kill();
+  }
   const result = gen.decryptPayload(payload, privateKey, 'oaep');
   if (result.nonce !== nonce) throw new Error('The approval did not match this request');
 

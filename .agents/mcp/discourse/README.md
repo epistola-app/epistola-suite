@@ -7,7 +7,7 @@ acts as you: it can do exactly what your forum account can.
 ## Signing in
 
 Nothing to set up. The first time the agent starts the server, your browser opens on the forum's
-approval page; approve it and the server starts. A macOS notification shows the code, should the
+approval page; approve it and the server starts. On macOS a dialog shows the code, should the
 page ask for it. The account is whichever one your browser is signed in with, and the server logs
 it (`Signed in to … as <username>`).
 
