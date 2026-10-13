@@ -32,7 +32,7 @@ detail belongs in the area guide, the rule card (`.agents/rules/`), or the doc t
 - `modules/epistola-mcp` — MCP server at `/api/mcp`: read, author and publish (`docs/mcp.md`)
 - `modules/epistola-quality` — quality-findings ledger — OSS, alpha (`docs/quality.md`)
 - `modules/epistola-audit`, `-crypto`, `-version-check`, `loadtest` — audit log, credential encryption, release check, load tests
-- `modules/epistola-support*` — commercial tier: hub client plus feedback, snapshots, backups, upgrading, telemetry
+- `modules/epistola-support*` — commercial tier: hub client plus feedback, snapshots, upgrading, telemetry
 - `modules/testing` — shared test infrastructure, not production code
 
 Each module owns its Flyway migrations and may ship its own handlers and templates.
@@ -72,7 +72,7 @@ Read the guide for the area you are touching first.
 - **REST endpoints, contract bumps** — [`modules/rest-api/AGENTS.md`](modules/rest-api/AGENTS.md) — enforced by `checkContractVersionAlignment`, `ApiExceptionMappingsConsistencyTest`
 - **Feature toggles** — [`docs/feature-toggles.md`](docs/feature-toggles.md) — enforced by `KnownFeaturesTest`
 - **Quality findings** — [`docs/quality.md`](docs/quality.md) — enforced by the `epistola-quality` tests
-- **Support-tier modules** — [`docs/tenant-backup.md`](docs/tenant-backup.md), [`docs/feedback.md`](docs/feedback.md) — enforced by `WireContractAlignmentTest`, `TenantTableTopologyDriftIntegrationTest`
+- **Support-tier modules** — [`docs/feedback.md`](docs/feedback.md) — enforced by `WireContractAlignmentTest`
 - **MCP tools** — [`docs/mcp.md`](docs/mcp.md) — enforced by `ComponentTypesIntegrationTest`
 - **Auth, demo mode, API keys** — [`docs/auth.md`](docs/auth.md) — enforced by review
 - **Helm charts** — [`charts/AGENTS.md`](charts/AGENTS.md) — enforced by `helm.yml`, the chart render tests

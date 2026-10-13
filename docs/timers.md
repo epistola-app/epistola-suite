@@ -233,7 +233,7 @@ orphans that never fire (see "Scheduled Task Lifecycle"). A handler that exists
 and throws still follows the failure policy.
 
 Use `single_owner` for installation-wide work that should run once per
-occurrence, such as feedback polling, backups, stale reapers, and cleanup. Use
+occurrence, such as feedback polling, stale reapers, and cleanup. Use
 `each_capable_node` for per-process work, such as local health probes and local
 queue drain triggers, where every capable node needs its own cadence and crash
 recovery state.

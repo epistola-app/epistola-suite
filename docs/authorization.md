@@ -23,13 +23,13 @@ of each held role's grant. There is no implicit hierarchy — `content-author` d
 
 `security/TenantRole.kt`. Held per-tenant (and/or globally across all tenants).
 
-| Role                   | Capability                                                                                      |
-| ---------------------- | ----------------------------------------------------------------------------------------------- |
-| `CONTENT_VIEWER`       | Read-only across the tenant.                                                                    |
-| `CONTENT_AUTHOR`       | Create/edit templates, themes, stencils, and reference data.                                    |
-| `DOCUMENT_GENERATOR`   | Generate documents.                                                                             |
-| `CONTENT_PUBLISHER`    | Publish/archive template & stencil versions. **Separate from admin.**                           |
-| `TENANT_ADMINISTRATOR` | Tenant settings, users/API keys, catalogs, diagnostics, backups, restore. **Does not publish.** |
+| Role                   | Capability                                                                             |
+| ---------------------- | -------------------------------------------------------------------------------------- |
+| `CONTENT_VIEWER`       | Read-only across the tenant.                                                           |
+| `CONTENT_AUTHOR`       | Create/edit templates, themes, stencils, and reference data.                           |
+| `DOCUMENT_GENERATOR`   | Generate documents.                                                                    |
+| `CONTENT_PUBLISHER`    | Publish/archive template & stencil versions. **Separate from admin.**                  |
+| `TENANT_ADMINISTRATOR` | Tenant settings, users/API keys, catalogs, diagnostics, restore. **Does not publish.** |
 
 The split of `CONTENT_PUBLISHER` from `TENANT_ADMINISTRATOR` is deliberate: approving content
 is a different duty from administering a tenant. An admin who also approves content holds both.
@@ -56,8 +56,7 @@ is a different duty from administering a tenant. An admin who also approves cont
 | Reference data (attributes, code lists, fonts)                        | `REFERENCE_VIEW` / `REFERENCE_EDIT`                    | viewer / author             |
 | Catalogs                                                              | `CATALOG_VIEW` / `CATALOG_MANAGE`                      | viewer / administrator      |
 | Diagnostics (logs, status)                                            | `DIAGNOSTICS_VIEW` / `DIAGNOSTICS_MANAGE`              | administrator               |
-| Backups                                                               | `BACKUP_VIEW` / `BACKUP_CREATE`                        | viewer / administrator      |
-| **Destructive** (restore backup/snapshot, purge catalogs)             | `TENANT_RESTORE`                                       | administrator               |
+| **Destructive** (restore snapshot, purge catalogs)                    | `TENANT_RESTORE`                                       | administrator               |
 | Tenant config (feature toggles, defaults, environments, entitlements) | `TENANT_SETTINGS`                                      | administrator               |
 | Users & API keys                                                      | `TENANT_USERS`                                         | administrator               |
 
