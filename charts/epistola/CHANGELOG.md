@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-13
+
+Deploys Epistola 1.4.0. Adds `productDomain` and one `endpoint` per Epistola integration, `sharing`, catalog source rules, autoscaling (HPA and VPA), a pod disruption budget and a graceful render drain.
+
+**Upgrade notes:**
+
+- Pods now request `750m` CPU and `1536Mi` memory (was `100m` / `256Mi`); check your nodes have room.
+- If catalogs or code lists are read from a mounted directory or an intranet server, set `catalog.fileRoots` or `catalog.outbound.*`.
+- `support.hub.discoveryUrl` is replaced by `productDomain` / `support.hub.endpoint`.
+- With the HPA enabled, the memory target now defaults to off; set `autoscaling.hpa.targetMemoryUtilizationPercentage: 80` to keep it.
+- Pods roll once for the new anti-affinity and termination grace period.
+
 ### Added
 
 - **`sharing.*` and `versionCheck.enabled` — what the installation shares with Epistola.** Render
@@ -37,10 +49,10 @@
   the application, and one who is not sees the normal login page. Set it to `false` for a provider
   that mishandles `prompt=none`.
 
-- **`exchange.*` — opt-in catalog publication configuration.** The chart exposes the hard
-  deployment gate (off by default), the stable epistola.app discovery URL, and an optional
-  browser-reachable OAuth callback URL to application pods; tenant-level feature and publication
-  settings remain inert until the gate is enabled.
+- **`exchange.*` — opt-in catalog publication.** `exchange.enabled` is the deployment gate (off by
+  default); `exchange.endpoint` names a private Exchange (empty: found through `productDomain`), and
+  `exchange.callbackUrl` sets a browser-reachable OAuth callback. Tenant-level publication settings
+  stay inert until the gate is enabled.
 - **Optional demo API shared secret (`demo.sharedSecret`).** Renders
   `EPISTOLA_DEMO_SHAREDSECRET` from an existing Kubernetes Secret, for demo
   deployments whose website calls the REST API on a visitor's behalf. As with
@@ -53,17 +65,8 @@
   startup deliberately rather than being ignored. See
   `docs/adr/0019-demo-api-shared-secret.md`.
 
-- **GitHub Kind smoke test for Epistola chart changes.** Pull requests run the
-  local chart installation harness only when this chart, its test harness, or
-  its workflow changes. Other charts do not create a Kubernetes cluster.
-
-- **Local Kind chart smoke test.** `scripts/test-helm-chart.sh` creates a
-  disposable Kind cluster with one ephemeral PostgreSQL container, installs the
-  application chart using its production database/migration wiring, verifies
-  readiness through the release Service, and confirms the native HPA resource is
-  accepted. It is deliberately developer-run rather than a CI requirement; VPA
-  remains covered by render/schema tests because the lightweight cluster does
-  not install VPA components.
+- **Kind smoke test.** `scripts/test-helm-chart.sh` installs the chart in a disposable Kind cluster
+  with PostgreSQL and checks readiness and the HPA; pull requests that touch this chart run it.
 
 - **`autoscaling.hpa` — the HPA settings get their own block.** `autoscaling.hpa.enabled`,
   `minReplicas`, `maxReplicas`, `targetCPUUtilizationPercentage` and
@@ -108,11 +111,10 @@
 
 ### Changed
 
-- **Breaking: `exchange.discoveryUrl` and `support.hub.discoveryUrl` are removed.** Exchange and the
-  hub are now found through `productDomain`; to name one directly, use `exchange.endpoint` or
-  `support.hub.endpoint`. The schema rejects the old keys, and the application refuses to start
-  while an old setting is still passed through `config.env`, naming its replacement. Installations
-  on the defaults need no action.
+- **Breaking: `support.hub.discoveryUrl` is removed.** The hub is now found through
+  `productDomain`; to name it directly, use `support.hub.endpoint` (`host:port`). The schema rejects
+  the old key, and the application refuses to start while the old setting is still passed through
+  `config.env`, naming its replacement. Installations on the defaults need no action.
 
 - **Resource defaults now cover the documented document-generation load
   profile.** Application pods request `750m` CPU and `1536Mi` memory and may
@@ -145,11 +147,6 @@
   so a leftover `autoscaling.enabled: false` cannot silently switch the HPA off.
 
 ### Fixed
-
-- **Local Kind smoke-test fixture supplies an authentication mechanism.** The
-  disposable staging/test installation enables its self-contained form-login
-  profile, allowing the application to start without needing an OIDC provider
-  in the lightweight test cluster.
 
 - **Migration hooks no longer wait forever for a missing ServiceAccount.** The
   pre-install migration Job now uses the namespace's built-in `default` service
