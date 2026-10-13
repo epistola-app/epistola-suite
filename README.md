@@ -293,6 +293,23 @@ This will:
 
 The configuration is in `.mcp.json` (safe to commit - no secrets stored).
 
+### Discourse MCP (community.epistola.app)
+
+A second MCP server reads and posts on the [community forum](https://community.epistola.app), for
+example to announce a release. It uses the official `@discourse/mcp`, pinned in
+`scripts/discourse-mcp/package.json`, and acts as you: it can do exactly what your forum account can.
+
+**Setup:**
+
+```bash
+pnpm run setup:discourse-mcp
+```
+
+This prints an activation URL and a code. Open the URL, sign in, enter the code and approve the
+request; the generated User API Key is stored in your OS credential manager. The key reaches the
+server through a pipe, never through a file or a command-line argument. Revoke it under your
+profile on the forum → Preferences → Apps.
+
 ## CI/CD
 
 The project uses GitHub Actions for CI/CD:

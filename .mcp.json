@@ -3,6 +3,10 @@
     "github": {
       "command": "node",
       "args": ["./scripts/gh-mcp/wrapper.mjs"]
+    },
+    "discourse": {
+      "command": "node",
+      "args": ["./scripts/discourse-mcp/wrapper.mjs"]
     }
   }
 }

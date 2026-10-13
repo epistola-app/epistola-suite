@@ -22,6 +22,7 @@
     "vulnerabilities:render": "python3 scripts/vulnerability_advisories.py render",
     "vulnerabilities:export": "python3 scripts/vulnerability_advisories.py export-osv build/osv",
     "vulnerabilities:export-vex": "python3 scripts/vulnerability_advisories.py export-vex build/vex",
+    "setup:discourse-mcp": "pnpm --filter @epistola/discourse-mcp run setup",
     "setup:github-mcp": "pnpm --filter @epistola/gh-mcp run setup"
   },
   "dependencies": {

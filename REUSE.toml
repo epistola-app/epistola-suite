@@ -59,6 +59,7 @@ path = [
   "modules/*/package.json",
   "modules/editor/tsconfig*.json",
   "scripts/gh-mcp/package.json",
+  "scripts/discourse-mcp/package.json",
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "Epistola Nederland B.V."

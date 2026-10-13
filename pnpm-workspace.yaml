@@ -1,6 +1,7 @@
 packages:
   - modules/*
   - scripts/gh-mcp
+  - scripts/discourse-mcp
   - .husky
 allowBuilds:
   core-js: true
