@@ -28,12 +28,9 @@ class FeatureTogglePageHtmxTest : BaseIntegrationTest() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!
-        // The Backups row renders its title and the Beta maturity badge.
-        assertThat(body).contains("Backups")
-        assertThat(body).contains("badge badge-beta")
-        assertThat(body).contains(">Beta<")
-        // The toggle checkbox still posts under the raw feature key.
-        assertThat(body).contains("name=\"support-backups\"")
+        // Backups was withdrawn (#1050): it is no longer offered as a toggle.
+        assertThat(body).doesNotContain("support-backups")
+        // Each row renders its title and maturity badge; the checkbox posts under the raw feature key.
         assertThat(body).contains("AI Chat")
         assertThat(body).contains("badge badge-alpha")
         assertThat(body).contains(">Alpha<")

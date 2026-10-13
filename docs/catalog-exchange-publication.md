@@ -12,7 +12,7 @@ Exchange availability.
 
 This document is the canonical description of configuration, tenant enrollment,
 setting resolution, namespace binding, publication processing, credentials,
-failure handling, backup behavior, and the currently deferred API work. The
+failure handling, and the currently deferred API work. The
 architectural rationale is recorded in
 [ADR 0018](adr/0018-durable-catalog-publication-to-exchange.md).
 
@@ -476,28 +476,6 @@ the explicit local-only recovery action instead.
 Disabling the deployment gate stops all Exchange network activity, including
 credential maintenance. It does not delete encrypted credentials or queued
 archives, so re-enabling resumes safely.
-
-## Backup and restore boundary
-
-Portable tenant backups include the tenant publish default and each catalog's
-publication policy, because those columns belong to the normal `tenants` and
-`catalogs` authoring rows. The namespace binding is not among them: it names a
-coordinate in an organization the restoring installation may not be.
-
-They deliberately exclude:
-
-- `exchange_tenant_connections` and OAuth credentials;
-- pending redirect authorization state and PKCE verifiers;
-- immutable namespace bindings;
-- publication outbox rows, retained ZIPs, retry state, and remote identifiers.
-
-Those records describe an installation-specific trust relationship and remote
-side effects. Restoring them elsewhere could duplicate a remote identity,
-replay a publication, or bind a restored catalog to a namespace the new
-installation does not control. After restore, an administrator enrolls the
-tenant again and new releases follow the restored policy settings. Existing
-releases remain local until explicitly published while their working copy still
-matches.
 
 ## Operational checks
 

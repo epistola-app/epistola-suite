@@ -44,21 +44,21 @@ class DriftRatchetTest {
         Counter("val tenantId: TenantKey", 73, "val tenantKey: TenantKey") {
             mainLines(Regex("""\bval tenantId: TenantKey\b"""))
         },
-        Counter("handler files using require(", 28, "validate(...) with a ValidationCode") {
+        Counter("handler files using require(", 27, "validate(...) with a ValidationCode") {
             handlerFiles(Regex("""\brequire\("""))
         },
-        Counter("handler files annotated @Transactional", 11, "the mediator's transaction") {
+        Counter("handler files annotated @Transactional", 9, "the mediator's transaction") {
             handlerFiles(Regex("""@Transactional"""))
         },
         Counter("mediator.send/query in epistola-mcp", 26, "execute() / query() extensions") {
             mainLines(Regex("""\bmediator\.(send|query)\(""")) { it.startsWith("modules/epistola-mcp/") }
         },
-        Counter("INSERT INTO in test sources", 71, "commands or the fixture DSL") {
+        Counter("INSERT INTO in test sources", 68, "commands or the fixture DSL") {
             RepoSources.testKotlinFiles().sumOf { path ->
                 Files.readString(path).lineSequence().count { "INSERT INTO" in it }
             }
         },
-        Counter("UUID.randomUUID() in main", 10, "UUIDv7.generate()") {
+        Counter("UUID.randomUUID() in main", 9, "UUIDv7.generate()") {
             mainLines(Regex("""UUID\.randomUUID\(\)"""))
         },
         Counter("files importing the catalog.CatalogKey typealias", 39, "common.ids.CatalogKey") {

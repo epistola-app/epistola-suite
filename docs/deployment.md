@@ -25,8 +25,7 @@ operations are documented in
 [`catalog-exchange-publication.md`](catalog-exchange-publication.md).
 
 > **Upgrading an existing installation?** See [`upgrades.md`](upgrades.md) — some releases require
-> a maintenance window, and tenant backups taken before a breaking migration cannot be restored
-> after it.
+> a maintenance window, and a database-level backup is the only way back from a breaking one.
 
 ## Database migrations: `migration.mode`
 

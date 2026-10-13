@@ -67,17 +67,13 @@ dependencies {
     implementation(project(":modules:epistola-support-feedback"))
 
     // Shared snapshot sync — the SnapshotSyncPort + TenantSnapshotSyncService both support features
-    // ride. Pulled in transitively by backups/upgrading; listed explicitly so its beans (no-op
+    // ride. Pulled in transitively by upgrading; listed explicitly so its beans (no-op
     // fallback, hub adapter, sync service) are unambiguously component-scanned.
     implementation(project(":modules:epistola-support-snapshots"))
 
-    // Catalog backups — the daily retained-snapshot scheduler, restore, and the Backups UI. Gated
-    // by the `support-backups` feature toggle and (for hub calls) epistola.support.enabled.
-    implementation(project(":modules:epistola-support-backups"))
-
     // Upgrading (compatibility checks) — reads the company-side compatibility results for the
-    // tenant's catalogs, shows the Upgrading UI, and owns a snapshot-freshness sweep. Separate
-    // feature from Backups (gated by `support-upgrading`); both ride the shared snapshot sync.
+    // tenant's catalogs, shows the Upgrading UI, and owns a snapshot-freshness sweep. Gated by
+    // `support-upgrading`; rides the shared snapshot sync.
     implementation(project(":modules:epistola-support-upgrading"))
 
     // Telemetry — the dedicated OTLP leg that forwards application logs + metrics to epistola-hub

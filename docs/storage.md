@@ -135,7 +135,3 @@ During the mixed-version window of a rolling upgrade, old (pre-#738) nodes still
   at the old CAS blob, so a new reader briefly serves the previous bytes (it only falls back
   when `content_hash IS NULL`). This resolves once the old nodes drain; avoid catalog
   re-imports mid-upgrade.
-
-Backups skip a tenant while it still has un-migrated assets (`content_hash IS NULL`), rather
-than write an archive missing those bytes; they resume automatically once the backfill drains
-the tenant.
