@@ -142,7 +142,6 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
                         variants = listOf(
                             ImportVariantInput(id = "default", title = "Default", attributes = emptyMap(), templateModel = null, isDefault = true),
                         ),
-                        publishTo = emptyList(),
                     ),
                 ),
             ).execute()
