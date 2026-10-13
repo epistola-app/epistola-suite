@@ -269,29 +269,11 @@ gradle test
 
 Tests use [Testcontainers](https://testcontainers.org/) which requires Docker to be running.
 
-### GitHub MCP (AI-Assisted Development)
+### MCP servers
 
-This project includes a GitHub MCP server for AI-assisted issue and project management. It enables AI assistants (like Claude Code) to interact with GitHub Issues and Projects.
-
-**Setup:**
-
-```bash
-pnpm run setup:github-mcp
-```
-
-This will:
-
-1. Open GitHub to create a fine-grained Personal Access Token with minimal permissions
-2. Validate the token
-3. Store it securely in your OS credential manager (macOS Keychain or Windows Credential Vault)
-
-**Features:**
-
-- Create and manage GitHub Issues
-- Work with Pull Requests
-- Track backlog in GitHub Projects
-
-The configuration is in `.mcp.json` (safe to commit - no secrets stored).
+`.mcp.json` registers MCP servers for coding agents: GitHub (issues, pull requests, projects) and
+the community forum. Each lives in [`.agents/mcp/`](.agents/mcp/) with a README covering its
+one-time setup; no secrets are committed.
 
 ## CI/CD
 
