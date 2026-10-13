@@ -48,8 +48,8 @@ description:
       Rendering is server-side and direct-to-PDF, with no intermediate HTML
       step, and the same rendering path feeds both the editor's live preview and
       the produced document, so what the designer sees is what the API returns.
-      Data binding uses JSONata by default, with sandboxed JavaScript and a
-      simple dot-path evaluator as alternatives.
+      Data binding uses JSONata, with a simple dot-path evaluator as an
+      alternative.
 
       The suite is multi-tenant by construction — all data is isolated per
       tenant — and runs equally as a shared SaaS deployment or a single-tenant
@@ -62,7 +62,7 @@ description:
       - Immutable template versions with draft/published/archived lifecycle
       - Environment-scoped version activation for staged rollout and rollback
       - Reusable themes with a document, template and block style cascade
-      - Expression binding via JSONata, sandboxed JavaScript or dot paths
+      - Expression binding via JSONata or dot paths
       - Server-side PDF rendering, including PDF/A output
       - Per-document locale resolution for dates, numbers and formatting
       - Bundled and custom fonts with deterministic resolution

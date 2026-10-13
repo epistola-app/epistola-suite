@@ -310,7 +310,6 @@ class ThemeHandler(
 
     fun update(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
         val themeId = request.themeId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -350,7 +349,6 @@ class ThemeHandler(
 
     fun delete(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
         val themeId = request.themeId(tenantId)
             ?: return ServerResponse.badRequest().build()
 

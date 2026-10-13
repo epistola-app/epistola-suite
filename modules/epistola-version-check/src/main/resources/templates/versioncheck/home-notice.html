@@ -4,6 +4,38 @@
     <!-- Rendered by the host tenant-home page via the HomeNotice SPI. `notice.data` is the cached
          VersionCheckStatus. Banner precedence (mutually exclusive): unsupported → support ending →
          pre-release info → update available. Styling lives in the host's tenant-home page CSS. -->
+    <!-- Published security advisories that apply to the running version, most severe first.
+         Text and links come from epistola.app and were cleaned by the evaluator (https only);
+         th:text escapes them again. -->
+    <th:block th:fragment="advisories">
+        <div class="version-update-card version-unsupported-card" role="alert" data-testid="version-check-advisories">
+            <div class="version-update-row">
+                <div class="version-update-info">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-sm')}" />
+                    <span>
+                        <strong th:text="${#lists.size(notice.data.advisories) == 1}
+                                ? 'A security advisory applies to Epistola v' + ${notice.data.currentVersion}
+                                : ${#lists.size(notice.data.advisories)} + ' security advisories apply to Epistola v' + ${notice.data.currentVersion}">A security advisory applies to Epistola v1.0.1</strong>
+                    </span>
+                </div>
+            </div>
+            <ul class="version-advisory-list">
+                <li th:each="advisory : ${notice.data.advisories}">
+                    <span class="badge badge-outline" th:text="${advisory.severity}">medium</span>
+                    <a th:if="${advisory.url != null}"
+                       th:href="${advisory.url}"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       th:text="${advisory.id}">EPIS-2026-001</a>
+                    <span th:unless="${advisory.url != null}" th:text="${advisory.id}">EPIS-2026-001</span>
+                    <span th:if="${advisory.summary != null}" th:text="'— ' + ${advisory.summary}">— Summary</span>
+                    <span class="version-update-summary"
+                          th:text="${advisory.fixedIn != null} ? 'Fixed in v' + ${advisory.fixedIn} + '.' : 'No fixed release yet.'">Fixed in v1.0.2.</span>
+                </li>
+            </ul>
+        </div>
+    </th:block>
+
     <th:block th:fragment="banner">
         <div th:if="${!notice.data.supported}"
              class="version-update-card version-unsupported-card"

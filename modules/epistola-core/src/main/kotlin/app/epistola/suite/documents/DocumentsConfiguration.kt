@@ -7,6 +7,7 @@ package app.epistola.suite.documents
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Configuration
+import java.time.Duration
 
 /**
  * Configuration for document generation and job polling.
@@ -26,6 +27,9 @@ class DocumentsConfiguration
  * @property maxConcurrentJobs Maximum number of jobs running concurrently per instance (default: 2)
  * @property staleTimeoutMinutes Timeout for reclaiming stale jobs (default: 10 minutes)
  * @property adaptiveBatch Adaptive batch sizing configuration
+ * @property shutdownDrainTimeout How long a stopping instance lets in-flight renders finish
+ *   before interrupting them and releasing their claims back to PENDING (default: 20 seconds).
+ *   Must fit, with the web server's graceful shutdown, inside the pod's termination grace period.
  */
 @ConfigurationProperties(prefix = "epistola.generation.polling")
 data class JobPollingProperties(
@@ -35,6 +39,7 @@ data class JobPollingProperties(
     val staleTimeoutMinutes: Long = 10,
     val adaptiveBatch: AdaptiveBatchProperties = AdaptiveBatchProperties(),
     val databasePressure: DatabasePressureProperties = DatabasePressureProperties(),
+    val shutdownDrainTimeout: Duration = Duration.ofSeconds(20),
 )
 
 /**

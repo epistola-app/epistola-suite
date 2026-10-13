@@ -43,6 +43,9 @@
 
 - The binary's bytes fold into the catalog **fingerprint** via their own SHA-256, so a changed image changes the catalog identity even though the metadata file is unchanged.
 - Path traversal in `contentUrl` is rejected (`CatalogClient`).
+- An `image/svg+xml` binary must be self-contained: an SVG with a DOCTYPE, scripts, event
+  handlers, external `href`s or CSS that loads other resources fails to install, like any upload
+  (see [SVG images](../../generation.md#svg-images)).
 
 ## Shape history
 

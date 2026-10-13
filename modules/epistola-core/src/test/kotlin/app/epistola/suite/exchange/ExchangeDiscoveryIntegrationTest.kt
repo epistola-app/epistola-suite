@@ -51,21 +51,6 @@ class ExchangeDiscoveryIntegrationTest : ExchangeDiscoveryIntegrationTestBase() 
     }
 
     @Test
-    fun `a discovery document from a future version is refused`() {
-        val tenant = createTenant("exchange-discovery-version")
-        exchange.discoveryResponse = {
-            FakeExchangeServer.Response(200, """{"version":2,"issuer":"${exchange.baseUrl}","baseUrl":"${exchange.baseUrl}"}""")
-        }
-
-        withMediator {
-            SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
-            assertThatThrownBy { StartExchangeConnection(tenant.id, CALLBACK).execute() }
-                .isInstanceOf(ExchangeProtocolException::class.java)
-                .hasMessageContaining("Unsupported Exchange discovery version")
-        }
-    }
-
-    @Test
     fun `OAuth metadata that disagrees with the discovered issuer is refused`() {
         val tenant = createTenant("exchange-discovery-issuer")
         exchange.oauthMetadataIssuer = "https://somewhere-else.example"

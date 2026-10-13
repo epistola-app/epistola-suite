@@ -619,14 +619,15 @@ export class CatalogOrganise extends LitElement {
                 >
               </p>
               ${plans.map(
-                (plan) => html`<p>
-                  ${plan.source.catalogKey}/${plan.source.key} →
-                  <strong>${plan.target.catalogKey}/${plan.target.key}</strong> —
-                  ${plan.mutableRewriteCount} reference(s) rewritten,
-                  ${plan.immutableReferenceCount} published reference(s) keep the old address and
-                  will stop resolving; their catalog cannot be exported or released until those
-                  templates are republished
-                </p>`,
+                (plan) =>
+                  html`<p>
+                    ${plan.source.catalogKey}/${plan.source.key} →
+                    <strong>${plan.target.catalogKey}/${plan.target.key}</strong> —
+                    ${plan.mutableRewriteCount} reference(s) rewritten,
+                    ${plan.immutableReferenceCount} published reference(s) keep the old address and
+                    will stop resolving; their catalog cannot be exported or released until those
+                    templates are republished
+                  </p>`,
               )}
               ${this.batchBlockers.map(
                 (blocker) => html`<p class="alert alert-error">${blocker.message}</p>`,

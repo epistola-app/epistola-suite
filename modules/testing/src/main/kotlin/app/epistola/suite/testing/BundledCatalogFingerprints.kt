@@ -8,9 +8,12 @@ import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
+import app.epistola.suite.catalog.outbound.CatalogSourceProperties
+import app.epistola.suite.catalog.outbound.OutboundHttpFetcher
+import app.epistola.suite.catalog.outbound.OutboundSourceReader
+import app.epistola.suite.catalog.outbound.OutboundUrlGuard
 import org.assertj.core.api.Assertions.assertThat
 import org.springframework.core.io.DefaultResourceLoader
-import org.springframework.web.client.RestClient
 import tools.jackson.module.kotlin.jsonMapper
 import tools.jackson.module.kotlin.kotlinModule
 
@@ -32,11 +35,17 @@ object BundledCatalogFingerprints {
 
     private val objectMapper = jsonMapper { addModule(kotlinModule()) }
 
-    private val catalogClient = CatalogClient(
-        catalogRestClient = RestClient.create(),
-        resourceLoader = DefaultResourceLoader(),
-        schemaMigrator = CatalogSchemaMigrator(),
-    )
+    private val catalogClient = run {
+        val properties = CatalogSourceProperties()
+        val guard = OutboundUrlGuard(properties)
+        CatalogClient(
+            sourceReader = OutboundSourceReader(guard, OutboundHttpFetcher(guard), DefaultResourceLoader(), MAX_SOURCE_BYTES),
+            schemaMigrator = CatalogSchemaMigrator(),
+            properties = properties,
+        )
+    }
+
+    private const val MAX_SOURCE_BYTES = 20L * 1024 * 1024
 
     private val canonicalizer = CatalogCanonicalizer(objectMapper)
 

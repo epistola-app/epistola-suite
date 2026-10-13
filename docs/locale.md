@@ -89,7 +89,7 @@ DocumentGenerationExecutor / preview handlers
 ```
 
 `forLocale(locale, timeZone)` builds a render-scoped evaluator: it re-creates
-only the `JsonataEvaluator` (the GraalJS/JavaScript engine is reused) and
+only the `JsonataEvaluator` (the simple-path evaluator is reused) and
 returns `this` unchanged for the default English / `Europe/Amsterdam` path, so
 the untouched case allocates nothing.
 

@@ -19,13 +19,14 @@ import org.springframework.test.context.DynamicPropertySource
  * The HTTPS requirement, with `allow-http` left at its default.
  *
  * The application secret, refresh token and full catalog archive travel over these URLs, so a
- * plaintext Exchange must be refused rather than merely discouraged — including one advertised by
- * a discovery document, which is not under the operator's control.
+ * plaintext Exchange must be refused rather than merely discouraged, even when an operator names it.
+ * One advertised by discovery never gets this far: discovery takes only `https:` endpoints
+ * (`DiscoveredEndpointsTest`).
  */
 class ExchangePlaintextRefusalTest : IntegrationTestBase() {
 
     @Test
-    fun `a plaintext Exchange advertised by discovery is refused`() {
+    fun `a plaintext Exchange endpoint is refused without allow-http`() {
         val tenant = createTenant("exchange-plaintext")
 
         withMediator {
@@ -43,7 +44,7 @@ class ExchangePlaintextRefusalTest : IntegrationTestBase() {
         @DynamicPropertySource
         fun exchangeProperties(registry: DynamicPropertyRegistry) {
             registry.add("epistola.exchange.enabled") { "true" }
-            registry.add("epistola.exchange.discovery-url") { "${exchange.baseUrl}/.well-known/epistola/exchange.json" }
+            registry.add("epistola.exchange.endpoint") { exchange.baseUrl }
             // allow-http deliberately left at its default of false.
         }
 

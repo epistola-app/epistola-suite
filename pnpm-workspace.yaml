@@ -1,6 +1,6 @@
 packages:
   - modules/*
-  - scripts/gh-mcp
+  - .agents/mcp/*
   - .husky
 allowBuilds:
   core-js: true

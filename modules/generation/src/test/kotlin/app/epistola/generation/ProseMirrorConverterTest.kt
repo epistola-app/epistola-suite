@@ -6,6 +6,8 @@ package app.epistola.generation
 
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.generation.expression.JsonataEvaluator
+import app.epistola.generation.expression.UnsupportedExpressionLanguageException
+import app.epistola.generation.expression.UnsupportedExpressionLanguages
 import app.epistola.generation.pdf.BookmarkEntry
 import app.epistola.generation.pdf.FontCache
 import app.epistola.generation.pdf.RenderingDefaults
@@ -18,6 +20,7 @@ import com.itextpdf.layout.properties.Property
 import com.itextpdf.layout.properties.UnitValue
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
@@ -510,7 +513,7 @@ class ProseMirrorConverterTest {
     }
 
     @Test
-    fun `converts expression node with javascript language`() {
+    fun `rejects an expression node in javascript instead of evaluating it as JSONata`() {
         val content = mapOf(
             "type" to "doc",
             "content" to listOf(
@@ -529,10 +532,33 @@ class ProseMirrorConverterTest {
             ),
         )
 
-        val data = mapOf("name" to "Test")
-        val result = converter.convert(content, data, fontCache = fontCache)
+        val error = assertFailsWith<UnsupportedExpressionLanguageException> {
+            converter.convert(content, mapOf("name" to "Test"), fontCache = fontCache)
+        }
+        assertEquals(UnsupportedExpressionLanguages.JAVASCRIPT_MESSAGE, error.message)
+    }
 
-        assertEquals(1, result.size)
+    @Test
+    fun `rejects a javascript expression in a heading bookmark title`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "heading",
+                    "attrs" to mapOf("level" to 1),
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "expression",
+                            "attrs" to mapOf("expression" to "name", "language" to "javascript"),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        assertFailsWith<UnsupportedExpressionLanguageException> {
+            converter.convert(content, mapOf("name" to "Acme"), fontCache = fontCache, bookmarkCollector = mutableListOf())
+        }
     }
 
     @Test

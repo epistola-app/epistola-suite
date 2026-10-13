@@ -10,6 +10,7 @@ import app.epistola.catalog.validation.TemplateValidationContext
 import app.epistola.catalog.validation.TemplateValidationFinding
 import app.epistola.catalog.validation.TemplateValidator
 import app.epistola.catalog.validation.ValidationSeverity
+import app.epistola.generation.expression.UnsupportedExpressionLanguages
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.Node
@@ -83,6 +84,7 @@ class TemplateDocumentValidator(
      * receive a malformed graph that can recurse or exhaust resources.
      */
     fun validateTemplateGraphForRendering(doc: TemplateDocument) {
+        rejectJavaScriptExpressions(TEMPLATE_FIELD, doc)
         val finding = validate(doc, TemplateDocumentKind.TEMPLATE)
             .firstOrNull {
                 it.code == TemplateValidationCodes.TEMPLATE_GRAPH_INVALID ||
@@ -98,10 +100,26 @@ class TemplateDocumentValidator(
         ignoredCodes: Set<String> = emptySet(),
         allowDraftStencilReferences: Boolean = true,
     ) {
+        rejectJavaScriptExpressions(requestField, document)
         validate(document, kind, allowDraftStencilReferences)
             .filterNot { it.code in ignoredCodes }
             .minWithOrNull(compareBy({ LEGACY_CODE_PRIORITY.indexOf(it.code).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }, { it.path }))
             ?.let { throw it.asSuiteException(requestField, document) }
+    }
+
+    /**
+     * JavaScript expressions are no longer evaluated (the engine could not bound execution time or
+     * memory). The template model still lists `javascript` as a language, so every write path —
+     * editor saves, the REST API, catalog import and MCP authoring, all of which validate here —
+     * rejects it explicitly instead of storing an expression that can never render.
+     */
+    private fun rejectJavaScriptExpressions(requestField: String, document: TemplateDocument) {
+        val path = JavaScriptExpressionScanner.firstJavaScriptExpression(document) ?: return
+        throw ValidationException(
+            field = "$requestField.$path",
+            message = UnsupportedExpressionLanguages.JAVASCRIPT_MESSAGE,
+            code = ValidationCode.TEMPLATE_EXPRESSION_INVALID,
+        )
     }
 
     private fun validate(

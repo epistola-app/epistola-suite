@@ -323,6 +323,13 @@ class AssetHandler(
         return ServerResponse.ok()
             .contentType(MediaType.parseMediaType(assetContent.mediaType.mimeType))
             .header(HttpHeaders.CACHE_CONTROL, "public, max-age=31536000, immutable")
+            .headers { headers ->
+                // Opened directly, an SVG is a document in our origin: keep it inert.
+                if (SvgContentPolicy.isSvg(assetContent.mediaType)) {
+                    headers.set("X-Content-Type-Options", "nosniff")
+                    headers.set("Content-Security-Policy", SvgContentPolicy.SERVING_CONTENT_SECURITY_POLICY)
+                }
+            }
             .body(assetContent.content)
     }
 

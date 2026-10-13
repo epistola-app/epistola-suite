@@ -10,6 +10,9 @@ import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogMetadata
+import app.epistola.suite.catalog.outbound.CatalogSourceProperties
+import app.epistola.suite.catalog.outbound.OutboundUrlGuard
+import app.epistola.suite.catalog.outbound.OutboundUrlRejectedException
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.config.findByTenantAndId
 import app.epistola.suite.crypto.Secret
@@ -18,10 +21,20 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.SelfManagedTransaction
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.validation.ValidationCode
+import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
+/**
+ * Subscribes a tenant to the catalog whose manifest is at [sourceUrl].
+ *
+ * The URL is checked against the outbound source rules before anything is fetched
+ * ([OutboundUrlGuard.checkSource]): `classpath:` only for catalogs Epistola ships, `file:` only
+ * inside the configured roots, network sources only on public addresses. User input and the
+ * bundled system and demo catalogs take the same path and the same rules.
+ */
 data class RegisterCatalog(
     override val tenantKey: TenantKey,
     val sourceUrl: String,
@@ -40,9 +53,19 @@ class RegisterCatalogHandler(
     private val catalogClient: CatalogClient,
     private val fingerprintService: CatalogFingerprintService,
     private val objectMapper: ObjectMapper,
+    private val guard: OutboundUrlGuard,
+    private val properties: CatalogSourceProperties,
 ) : CommandHandler<RegisterCatalog, Catalog> {
 
     override fun handle(command: RegisterCatalog): Catalog {
+        try {
+            CatalogClient.validateUrl(command.sourceUrl, setOf("https", "http", "file", "classpath"))
+            guard.checkSource(command.sourceUrl, properties.allowHttp)
+        } catch (e: OutboundUrlRejectedException) {
+            throw ValidationException("sourceUrl", e.message, ValidationCode.SOURCE_URL_NOT_ALLOWED)
+        } catch (e: IllegalArgumentException) {
+            throw ValidationException("sourceUrl", e.message ?: "The catalog URL is not valid", ValidationCode.SOURCE_URL_NOT_ALLOWED)
+        }
         val manifest = catalogClient.fetchManifest(
             command.sourceUrl,
             command.authType,

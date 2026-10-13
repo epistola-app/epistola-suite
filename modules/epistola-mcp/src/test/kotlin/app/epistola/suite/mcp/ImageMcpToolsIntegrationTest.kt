@@ -17,9 +17,12 @@ import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import java.util.Base64
 import java.util.UUID
 
 class ImageMcpToolsIntegrationTest : IntegrationTestBase() {
@@ -86,6 +89,26 @@ class ImageMcpToolsIntegrationTest : IntegrationTestBase() {
             imageMcpTools.getImage(catalogId = "system", imageId = image.id.value)
         }
         assertThat(wrongCatalog).isNull()
+    }
+
+    @Test
+    fun `upload_image refuses an SVG that references an external resource`() {
+        val tenant = createTenant("MCP Unsafe SVG Tenant")
+        val tenantId = TenantId(tenant.id)
+        val svg = """<svg xmlns="http://www.w3.org/2000/svg"><image href="http://example.com/a.png"/></svg>"""
+
+        assertThatThrownBy {
+            runAsApiKey(tenantId) {
+                imageMcpTools.uploadImage(
+                    catalogId = "default",
+                    name = "logo.svg",
+                    content = Base64.getEncoder().encodeToString(svg.toByteArray()),
+                    mediaType = "image/svg+xml",
+                    imageId = null,
+                )
+            }
+        }.isInstanceOf(ValidationException::class.java).hasMessageContaining("SVG not accepted")
+        assertThat(runAsApiKey(tenantId) { imageMcpTools.listImages(catalogId = "default", search = null) }).isEmpty()
     }
 
     @Test

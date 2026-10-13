@@ -19,6 +19,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 /**
@@ -43,11 +44,16 @@ data class RefreshCodeList(
 
 class CodeListNotRefreshableException(message: String) : RuntimeException(message)
 
+/** What `last_refresh_error` says when the source could not be read; the cause is logged, not stored. */
+const val REFRESH_FAILED_MESSAGE = "The code list could not be fetched from its source. Check the URL and credentials; the server log has the details."
+
 @Component
 class RefreshCodeListHandler(
     private val jdbi: Jdbi,
     private val codeListClient: CodeListClient,
 ) : CommandHandler<RefreshCodeList, CodeList?> {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
     override fun handle(command: RefreshCodeList): CodeList? {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
 
@@ -83,7 +89,11 @@ class RefreshCodeListHandler(
         val fetched = try {
             codeListClient.fetchEntries(sourceUrl, current.authType, current.credential?.value)
         } catch (e: CodeListFetchException) {
-            recordRefreshError(command.id, e.message ?: "fetch failed")
+            // The detail stays in the server log. What is stored is shown to everyone who can see the
+            // code list, and a fetch error can carry whatever the source answered, or reveal what a
+            // URL reached — so the stored text says only that the fetch failed.
+            logger.warn("Refreshing code list {} from {} failed: {}", command.id, sourceUrl, e.message, e)
+            recordRefreshError(command.id, REFRESH_FAILED_MESSAGE)
             return load(command.id)
         }
 

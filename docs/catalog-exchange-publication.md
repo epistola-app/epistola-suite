@@ -81,9 +81,9 @@ Application configuration:
 epistola:
   exchange:
     enabled: true
-    discovery-url: https://epistola.app/.well-known/epistola/exchange.json
-    # Optional local/private deployment escape hatch. Production normally omits it.
-    base-url:
+    # Optional base URL for a local or private Exchange. Production omits it and finds
+    # Exchange through the product domain (epistola.product-domain, ADR 0030).
+    endpoint:
     # Optional browser-reachable redirect. Otherwise derived from the setup request.
     callback-url:
     # Worker cadence and remote-call bounds.
@@ -102,12 +102,12 @@ epistola:
     allow-http: false
 ```
 
-`base-url` and `callback-url` are optional: leave them blank (or omit them) to use
-the discovery document and a request-derived callback. A blank value is treated
-as unset.
+`endpoint` and `callback-url` are optional: leave them blank (or omit them) to use
+product discovery and a request-derived callback. A blank value is treated as
+unset.
 
 Exchange must be reachable over HTTPS. The discovered issuer and base URL, the
-OAuth endpoints, and the configured escape hatch are all checked, because the
+OAuth endpoints, and a configured endpoint are all checked, because the
 application secret, refresh token and full catalog archive travel over them.
 `allow-http: true` lifts that for a local Exchange checkout only — the `local`
 profile sets it, and no other profile does.
@@ -121,29 +121,35 @@ Helm values:
 ```yaml
 exchange:
   enabled: true
-  discoveryUrl: https://epistola.app/.well-known/epistola/exchange.json
+  # Optional; empty finds Exchange through productDomain.
+  endpoint: ""
   # Optional; otherwise derived from the initiating browser request.
   callbackUrl: https://suite.example.org/oauth/exchange/callback
 ```
 
-The chart maps these to `EPISTOLA_EXCHANGE_ENABLED`,
-`EPISTOLA_EXCHANGE_DISCOVERYURL`, and (when set)
-`EPISTOLA_EXCHANGE_CALLBACKURL`. The default remains off after an upgrade, so
+The chart maps these to `EPISTOLA_EXCHANGE_ENABLED`, and (when set)
+`EPISTOLA_EXCHANGE_ENDPOINT` and `EPISTOLA_EXCHANGE_CALLBACKURL`. The default remains off after an upgrade, so
 installing a Suite release cannot unexpectedly create outbound traffic.
 
-When `base-url` is absent, Suite reads the public discovery document — the path a
-real deployment takes. It is published by the Epistola website (an Astro route at
-`src/pages/.well-known/epistola/exchange.json.ts`), and `ExchangeDiscoveryIntegrationTest`
-serves that exact shape so the parser is pinned against the published contract
-rather than against our own reading of it. Version 1 has this shape:
+When `endpoint` is absent, Suite takes Exchange's issuer and base URL from the
+`exchange` section of the product discovery document
+(`https://{product-domain}/.well-known/epistola.json`, see
+[Data shared with Epistola](outbound-traffic.md#product-discovery) and
+[ADR 0030](adr/0030-product-domain-and-discovery.md)):
 
 ```json
 {
-  "version": 1,
-  "issuer": "https://exchange.epistola.app",
-  "baseUrl": "https://exchange.epistola.app"
+  "schemaVersion": 1,
+  "exchange": {
+    "issuer": "https://exchange.epistola.app",
+    "endpoint": "https://exchange.epistola.app"
+  }
 }
 ```
+
+Both must be `https:` on the product domain or a subdomain; without them Suite
+uses `https://exchange.{product-domain}`. The older
+`/.well-known/epistola/exchange.json` stays published for released Suites.
 
 Suite then reads `<issuer>/.well-known/oauth-authorization-server`, verifies
 that the returned issuer matches, and uses the advertised authorization-request

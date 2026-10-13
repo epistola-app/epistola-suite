@@ -10,6 +10,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.stencils.StencilReferences
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -36,17 +37,18 @@ class CountStencilUsageByVersionHandler(
             """
             SELECT (n.value -> 'props' ->> 'version')::int AS version, COUNT(*) AS uses
             FROM template_versions tv
+            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
             WHERE tv.tenant_key = :tenantId
               AND tv.status IN ('draft', 'published')
-              AND n.value ->> 'type' = 'stencil'
-              AND n.value -> 'props' ->> 'stencilId' = :stencilId
+              AND ${StencilReferences.usedBy("n", "dt")}
               AND n.value -> 'props' ->> 'version' ~ '^[0-9]+$'
             GROUP BY (n.value -> 'props' ->> 'version')::int
             """,
         )
             .bind("tenantId", query.stencilId.tenantKey)
-            .bind("stencilId", query.stencilId.key.value)
+            .bind(StencilReferences.KEY_PARAM, query.stencilId.key.value)
+            .bind(StencilReferences.CATALOG_PARAM, query.stencilId.catalogKey.value)
             .map { rs, _ -> rs.getInt("version") to rs.getInt("uses") }
             .list()
             .toMap()

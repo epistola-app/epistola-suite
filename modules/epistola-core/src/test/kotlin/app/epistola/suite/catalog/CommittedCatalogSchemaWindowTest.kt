@@ -15,7 +15,7 @@ import tools.jackson.module.kotlin.kotlinModule
  * Guard against out-of-window committed catalog fixtures.
  *
  * Every committed catalog wire file we ship or test with — the bundled
- * demo/system catalogs and the `test-catalogs` fixtures, manifest and resource
+ * demo/system catalogs and the `epistola/catalogs/test` fixtures, manifest and resource
  * details alike — must carry the one currently supported `schemaVersion`.
  * Older versions are accepted only after the portable contract gains an
  * explicit migration.
@@ -29,7 +29,6 @@ class CommittedCatalogSchemaWindowTest {
     fun `every committed catalog wire file is within the catalog schema-version window`() {
         val patterns = listOf(
             "classpath*:epistola/catalogs/**/*.json",
-            "classpath*:test-catalogs/**/*.json",
         )
         val files = patterns.flatMap { resolver.getResources(it).toList() }
             .filter { it.isReadable }

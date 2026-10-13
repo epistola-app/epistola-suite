@@ -12,6 +12,7 @@ import app.epistola.suite.api.v1.shared.toImageDto
 import app.epistola.suite.assets.AssetMediaCategory
 import app.epistola.suite.assets.AssetNotFoundException
 import app.epistola.suite.assets.AssetTypeCatalog
+import app.epistola.suite.assets.SvgContentPolicy
 import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.assets.queries.GetAsset
@@ -127,6 +128,13 @@ class EpistolaImagesApi(
         return ResponseEntity.ok()
             .contentType(MediaType.parseMediaType(content.mediaType.mimeType))
             .header(HttpHeaders.CONTENT_LENGTH, content.content.size.toString())
+            .headers { headers ->
+                // Opened directly, an SVG is a document in our origin: keep it inert.
+                if (SvgContentPolicy.isSvg(content.mediaType)) {
+                    headers.set("X-Content-Type-Options", "nosniff")
+                    headers.set("Content-Security-Policy", SvgContentPolicy.SERVING_CONTENT_SECURITY_POLICY)
+                }
+            }
             .body(ByteArrayResource(content.content))
     }
 
