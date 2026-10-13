@@ -831,6 +831,55 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `upserting a variant draft with a javascript expression is rejected`() {
+        // JavaScript expressions are no longer evaluated; the contract still lists the enum value,
+        // so the API must refuse it rather than store a template that can never render.
+        val (tenantKey, key) = seedTenantAndKey()
+        val slug = "js-${randomSuffix()}"
+
+        val create = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            HttpMethod.POST,
+            HttpEntity("""{"id": "$slug", "name": "JavaScript Model"}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].id")
+
+        val templateModel = """
+            {
+              "modelVersion": 1,
+              "root": "root",
+              "nodes": {
+                "root": {"id": "root", "type": "root", "slots": ["slot-root"]},
+                "cond": {
+                  "id": "cond",
+                  "type": "conditional",
+                  "slots": ["slot-cond"],
+                  "props": {"condition": {"raw": "while(true){}", "language": "javascript"}}
+                }
+              },
+              "slots": {
+                "slot-root": {"id": "slot-root", "nodeId": "root", "name": "children", "children": ["cond"]},
+                "slot-cond": {"id": "slot-cond", "nodeId": "cond", "name": "body", "children": []}
+              },
+              "themeRef": {"type": "inherit"}
+            }
+        """.trimIndent()
+
+        val rejected = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/draft",
+            HttpMethod.PUT,
+            HttpEntity("""{"templateModel": $templateModel}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(rejected.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(JsonPath.read<String>(rejected.body!!, "$.type"))
+            .isEqualTo("https://epistola.app/errors/template-expression-invalid")
+        assertThat(rejected.body!!).contains("JavaScript expressions are no longer supported")
+    }
+
+    @Test
     fun `variant draft lifecycle endpoints create publish and discard drafts`() {
         val (tenantKey, key) = seedTenantAndKey()
         val slug = "draft-life-${randomSuffix()}"

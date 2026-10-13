@@ -1,8 +1,3 @@
--- backup-restore-compatibility: backward=true forward=false
--- reason: Adds a table and nullable columns. A backup taken before this migration restores with no
--- release dependencies, no rendering-defaults version on its releases and no release on its
--- generation history, which is the state every release and document cut before it is in. Forward is
--- not safe: a newer backup carries a table an older schema cannot classify.
 -- SPDX-FileCopyrightText: Epistola Nederland B.V.
 --
 -- SPDX-License-Identifier: AGPL-3.0-only

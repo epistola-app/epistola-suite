@@ -262,7 +262,7 @@ describe('LeaderModeController', () => {
 
   describe('state transitions', () => {
     it('new showAwaiting resets previous timers', () => {
-      const { controller, stateChanges, cancelActiveChord } = createTestController();
+      const { controller, cancelActiveChord } = createTestController();
 
       controller.showAwaiting(['editor.preview.toggle'] as CommandId[]);
       vi.advanceTimersByTime(800); // halfway through idle timeout

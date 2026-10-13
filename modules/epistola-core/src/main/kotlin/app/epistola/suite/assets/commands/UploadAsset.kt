@@ -8,6 +8,7 @@ import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.AssetTooLargeException
 import app.epistola.suite.assets.MAX_ASSET_SIZE_BYTES
+import app.epistola.suite.assets.SvgContentPolicy
 import app.epistola.suite.assets.assetContentScope
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AssetKey
@@ -63,6 +64,8 @@ data class UploadAsset(
         validate("name", name.none { it == '<' || it == '>' || it.isISOControl() }) {
             "Name must not contain '<', '>', or control characters"
         }
+        // An SVG must be self-contained and inert before it is stored (see SvgContentPolicy).
+        SvgContentPolicy.requireSafe(mediaType, content)
     }
 
     override fun equals(other: Any?): Boolean {

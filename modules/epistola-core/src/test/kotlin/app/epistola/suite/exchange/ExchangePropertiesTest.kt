@@ -8,29 +8,29 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 /**
- * `application.yaml` ships `base-url:` and `callback-url:` with no value so that discovery and
+ * `application.yaml` ships `endpoint:` and `callback-url:` with no value so that discovery and
  * request-derived callbacks are the defaults. Spring binds a valueless YAML key to an empty
  * string, not null, so reading the raw property would treat "unset" as "configured" — and an
- * empty base URL silently disables discovery, which is exactly the shape a production
+ * empty endpoint silently disables discovery, which is exactly the shape a production
  * deployment has.
  */
 class ExchangePropertiesTest {
     @Test
     fun `a blank optional URL reads as unset`() {
-        val properties = ExchangeProperties(baseUrl = "", callbackUrl = "   ")
+        val properties = ExchangeProperties(endpoint = "", callbackUrl = "   ")
 
-        assertThat(properties.configuredBaseUrl).isNull()
+        assertThat(properties.configuredEndpoint).isNull()
         assertThat(properties.configuredCallbackUrl).isNull()
     }
 
     @Test
     fun `a configured URL is preserved and trimmed`() {
         val properties = ExchangeProperties(
-            baseUrl = " https://exchange.example ",
+            endpoint = " https://exchange.example ",
             callbackUrl = "https://suite.example/oauth/exchange/callback",
         )
 
-        assertThat(properties.configuredBaseUrl).isEqualTo("https://exchange.example")
+        assertThat(properties.configuredEndpoint).isEqualTo("https://exchange.example")
         assertThat(properties.configuredCallbackUrl).isEqualTo("https://suite.example/oauth/exchange/callback")
     }
 

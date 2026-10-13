@@ -39,7 +39,9 @@ class AuthoringSchemaMcpTools(
             "arguments of `create_theme` and `update_theme`), `shared` (the definitions both refer to as " +
             "`template-shared.schema.json`), and `styleRegistry` (every style key, its type and allowed " +
             "units, e.g. `fontSize` in `pt` or `sp`). Use it with `list_component_types`, which describes " +
-            "the node types and their props.",
+            "the node types and their props. Write every expression in `jsonata`: the shared schema still " +
+            "lists `javascript` as an expression language, but JavaScript expressions are no longer " +
+            "supported and a document containing one is rejected.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun getAuthoringSchemas(): AuthoringSchemasInfo = schemas

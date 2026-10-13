@@ -36,7 +36,24 @@ data class VersionCheckStatus(
     val minSupportedVersion: String? = null,
     /** ISO date (`YYYY-MM-DD`) until which the minimum supported version is supported, if declared. */
     val supportedUntil: String? = null,
+    /**
+     * Published security advisories that apply to [currentVersion], most severe first. Null when
+     * they are unknown (not published by the endpoint yet, or never fetched); empty when none apply.
+     */
+    val advisories: List<ApplicableAdvisory>? = null,
     val lastError: String? = null,
+)
+
+/** A published advisory that applies to the running version, already cleaned for display. */
+data class ApplicableAdvisory(
+    val id: String,
+    /** `critical`, `high`, `medium`, `low` or `unknown`. */
+    val severity: String,
+    val summary: String? = null,
+    /** The first release with the fix; null while none is released. */
+    val fixedIn: String? = null,
+    /** Always an `https:` URL, or null. */
+    val url: String? = null,
 )
 
 data class EpistolaReleasesDocument(
@@ -48,6 +65,31 @@ data class ProductReleases(
     val stable: ReleaseRef? = null,
     val prerelease: ReleaseRef? = null,
     val support: SupportPolicy? = null,
+    /** Published security advisories. Null (absent) means unknown; an empty list means none. */
+    val advisories: List<Advisory>? = null,
+)
+
+/** A published security advisory, as epistola.app serves it (taken from the OSV records). */
+data class Advisory(
+    val id: String? = null,
+    val aliases: List<String> = emptyList(),
+    val severity: String? = null,
+    val summary: String? = null,
+    val published: String? = null,
+    /** SemVer ranges; the running version is affected when it falls in any of them. */
+    val affected: List<AffectedRange> = emptyList(),
+    val fixedIn: String? = null,
+    val url: String? = null,
+)
+
+/**
+ * An OSV SEMVER range: affected from [introduced] (inclusive) to [fixed] (exclusive) or
+ * [lastAffected] (inclusive); open-ended when neither is set.
+ */
+data class AffectedRange(
+    val introduced: String? = null,
+    val fixed: String? = null,
+    val lastAffected: String? = null,
 )
 
 /**

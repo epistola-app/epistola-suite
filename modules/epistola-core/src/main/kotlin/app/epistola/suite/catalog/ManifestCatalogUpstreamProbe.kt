@@ -6,6 +6,7 @@ package app.epistola.suite.catalog
 
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
+import app.epistola.suite.catalog.outbound.OutboundFetchException
 import org.springframework.stereotype.Component
 import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.ResourceAccessException
@@ -47,6 +48,10 @@ class ManifestCatalogUpstreamProbe(
             throw CatalogUpstreamCheckException(CatalogUpstreamCheckFailure.UNAUTHORIZED, e.message, e)
         } catch (e: HttpClientErrorException.Forbidden) {
             throw CatalogUpstreamCheckException(CatalogUpstreamCheckFailure.UNAUTHORIZED, e.message, e)
+        } catch (e: OutboundFetchException) {
+            // Refused by the outbound source rules, or an over-long redirect chain or response: the
+            // source cannot be read from here, whichever it was.
+            throw CatalogUpstreamCheckException(CatalogUpstreamCheckFailure.UNREACHABLE, e.message, e)
         }
 
         return CatalogUpstreamState(

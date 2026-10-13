@@ -77,6 +77,8 @@ epistola:
       interval-ms: 5000
       max-concurrent-jobs: 20
       stale-timeout-minutes: 10
+      # How long in-flight renders may finish on shutdown before being released to PENDING.
+      shutdown-drain-timeout: 20s
 
   # Defense-in-depth: these epistola-core schedulers require the `suite` capability and so can
   # never run on a render-only node anyway, but disabling them keeps the beans from being

@@ -93,7 +93,7 @@ All Epistola groups live under a single root group:
 - `content-author` — create/edit templates, themes, stencils, reference data (attributes, code lists, fonts)
 - `document-generator` — generate documents
 - `content-publisher` — publish/archive template and stencil versions
-- `tenant-administrator` — tenant settings, users/API keys, catalog management, diagnostics, backups, and destructive restore (does **not** include publish)
+- `tenant-administrator` — tenant settings, users/API keys, catalog management, diagnostics, and destructive restore (does **not** include publish)
 
 **Platform roles**:
 
@@ -104,13 +104,13 @@ All Epistola groups live under a single root group:
 
 Tenant roles map to fine-grained permissions in application code (not in Keycloak). See [`authorization.md`](authorization.md) for the full permission catalog.
 
-| Role                   | Permissions                                                                                                     |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `content-viewer`       | `TEMPLATE_VIEW`, `DOCUMENT_VIEW`, `THEME_VIEW`, `STENCIL_VIEW`, `REFERENCE_VIEW`, `CATALOG_VIEW`, `BACKUP_VIEW` |
-| `content-author`       | `TEMPLATE_EDIT`, `THEME_EDIT`, `STENCIL_EDIT`, `REFERENCE_EDIT`                                                 |
-| `document-generator`   | `DOCUMENT_GENERATE`                                                                                             |
-| `content-publisher`    | `TEMPLATE_PUBLISH`, `STENCIL_PUBLISH`                                                                           |
-| `tenant-administrator` | `TENANT_SETTINGS`, `TENANT_USERS`, `CATALOG_MANAGE`, `BACKUP_CREATE`, `DIAGNOSTICS_VIEW`, `TENANT_RESTORE`      |
+| Role                   | Permissions                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------ |
+| `content-viewer`       | `TEMPLATE_VIEW`, `DOCUMENT_VIEW`, `THEME_VIEW`, `STENCIL_VIEW`, `REFERENCE_VIEW`, `CATALOG_VIEW` |
+| `content-author`       | `TEMPLATE_EDIT`, `THEME_EDIT`, `STENCIL_EDIT`, `REFERENCE_EDIT`                                  |
+| `document-generator`   | `DOCUMENT_GENERATE`                                                                              |
+| `content-publisher`    | `TEMPLATE_PUBLISH`, `STENCIL_PUBLISH`                                                            |
+| `tenant-administrator` | `TENANT_SETTINGS`, `TENANT_USERS`, `CATALOG_MANAGE`, `DIAGNOSTICS_VIEW`, `TENANT_RESTORE`        |
 
 Roles are **composable** — a user's effective permissions are the union of all their roles. For example, a user with `content-viewer` + `content-author` can view and edit templates and themes. Note that publishing is its own role (`content-publisher`), separate from administration.
 

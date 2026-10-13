@@ -5,7 +5,7 @@ metadata:
   labels:
     {{- include "epistola.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
+  {{- if not (include "epistola.hpa" . | fromJson).enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   selector:
@@ -193,9 +193,9 @@ spec:
             - name: EPISTOLA_INSTALLATION_DESCRIPTION
               value: {{ .Values.support.installation.description | quote }}
             {{- end }}
-            {{- if .Values.support.hub.discoveryUrl }}
-            - name: EPISTOLA_SUPPORT_HUB_DISCOVERYURL
-              value: {{ .Values.support.hub.discoveryUrl | quote }}
+            {{- with .Values.support.hub.endpoint }}
+            - name: EPISTOLA_SUPPORT_HUB_ENDPOINT
+              value: {{ . | quote }}
             {{- end }}
             {{- /* Forward application logs + metrics to the hub over OTLP-over-gRPC. On by
                    default with the support tier; the hub's `support-telemetry` entitlement
@@ -209,11 +209,25 @@ spec:
                    pod a distinct id automatically. */}}
             {{- end }}
 
+            {{- /* Catalog and code-list source rules (closed by default) */}}
+            {{- with .Values.catalog.fileRoots }}
+            - name: EPISTOLA_CATALOG_FILEROOTS
+              value: {{ join "," . | quote }}
+            {{- end }}
+            - name: EPISTOLA_CATALOG_OUTBOUND_ALLOWPRIVATENETWORKS
+              value: {{ .Values.catalog.outbound.allowPrivateNetworks | quote }}
+            {{- with .Values.catalog.outbound.allowedHosts }}
+            - name: EPISTOLA_CATALOG_OUTBOUND_ALLOWEDHOSTS
+              value: {{ join "," . | quote }}
+            {{- end }}
+
             {{- /* Suite-to-Exchange publication (hard deployment gate) */}}
             - name: EPISTOLA_EXCHANGE_ENABLED
               value: {{ .Values.exchange.enabled | quote }}
-            - name: EPISTOLA_EXCHANGE_DISCOVERYURL
-              value: {{ .Values.exchange.discoveryUrl | quote }}
+            {{- with .Values.exchange.endpoint }}
+            - name: EPISTOLA_EXCHANGE_ENDPOINT
+              value: {{ . | quote }}
+            {{- end }}
             {{- with .Values.exchange.callbackUrl }}
             - name: EPISTOLA_EXCHANGE_CALLBACKURL
               value: {{ . | quote }}
@@ -238,6 +252,28 @@ spec:
             - name: EPISTOLA_MIGRATION_MODE
               value: "validate"
             {{- end }}
+            {{- /* Data shared with Epistola (docs/outbound-traffic.md). config.env comes after, so it can override. */}}
+            - name: EPISTOLA_SHARING_INSTALLATIONID
+              value: {{ .Values.sharing.installationId | quote }}
+            - name: EPISTOLA_SHARING_SUITEVERSION
+              value: {{ .Values.sharing.suiteVersion | quote }}
+            - name: EPISTOLA_SHARING_USAGESTATISTICS
+              value: {{ .Values.sharing.usageStatistics | quote }}
+            - name: EPISTOLA_VERSIONCHECK_ENABLED
+              value: {{ .Values.versionCheck.enabled | quote }}
+            {{- /* Where Epistola-operated services are found (ADR 0030). Each endpoint below is
+                   rendered only when set; blank means "found through the product domain". */}}
+            - name: EPISTOLA_PRODUCTDOMAIN
+              value: {{ .Values.productDomain | quote }}
+            {{- with .Values.versionCheck.endpoint }}
+            - name: EPISTOLA_VERSIONCHECK_ENDPOINT
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.installationCheck.endpoint }}
+            - name: EPISTOLA_INSTALLATIONCHECK_ENDPOINT
+              value: {{ . | quote }}
+            {{- end }}
+
             {{- range $key, $value := .Values.config.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
@@ -281,13 +317,32 @@ spec:
                   name: {{ .Values.extraCaCerts.existingSecret | default (printf "%s-ca-certs" (include "epistola.fullname" .)) }}
         {{- end }}
       {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
+      {{- if .Values.affinity }}
       affinity:
-        {{- toYaml . | nindent 8 }}
+        {{- toYaml .Values.affinity | nindent 8 }}
+      {{- else if eq .Values.podAntiAffinity "soft" }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    {{- include "epistola.selectorLabels" . | nindent 20 }}
+      {{- else if eq .Values.podAntiAffinity "hard" }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  {{- include "epistola.selectorLabels" . | nindent 18 }}
       {{- end }}
       {{- with .Values.tolerations }}
       tolerations:

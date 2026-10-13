@@ -26,8 +26,7 @@ import org.springframework.test.context.TestPropertySource
         "epistola.installation.company-name=Test Co",
         "epistola.installation.admin-email=test@example.com",
         "epistola.installation.environment=test",
-        "epistola.support.hub.host=localhost",
-        "epistola.support.hub.port=9090",
+        "epistola.support.hub.endpoint=localhost:9090",
         "epistola.support.hub.plaintext=true",
     ],
 )

@@ -13,6 +13,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.stencils.StencilReferences
 import app.epistola.suite.stencils.model.StencilUsage
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -45,13 +46,13 @@ class GetStencilUsageHandler(
             JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS node(key, value)
             WHERE tv.tenant_key = :tenantId
-              AND node.value ->> 'type' = 'stencil'
-              AND node.value -> 'props' ->> 'stencilId' = :stencilId
+              AND ${StencilReferences.usedBy("node", "dt")}
             ORDER BY dt.name, tv.variant_key, tv.id
             """,
         )
             .bind("tenantId", query.versionId.tenantKey)
-            .bind("stencilId", query.versionId.stencilKey.value)
+            .bind(StencilReferences.KEY_PARAM, query.versionId.stencilId.key.value)
+            .bind(StencilReferences.CATALOG_PARAM, query.versionId.stencilId.catalogKey.value)
             .map { rs, _ ->
                 StencilUsage(
                     templateId = TemplateKey.of(rs.getString("template_key")),

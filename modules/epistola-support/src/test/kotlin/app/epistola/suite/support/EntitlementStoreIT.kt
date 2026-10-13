@@ -46,7 +46,7 @@ class EntitlementStoreIT : IntegrationTestBase() {
             StoredEntitlements(
                 entries =
                 listOf(
-                    StoredEntitlement("support-backups", tenant = null, effect = EntitlementEffect.ALLOW, expiresAt = null),
+                    StoredEntitlement("support-compatibility-check", tenant = null, effect = EntitlementEffect.ALLOW, expiresAt = null),
                     StoredEntitlement("support-feedback", tenant = "acme", effect = EntitlementEffect.DENY, expiresAt = expiresAt),
                 ),
                 revision = 7,
@@ -61,7 +61,7 @@ class EntitlementStoreIT : IntegrationTestBase() {
 
     @Test
     fun `save twice overwrites the previous set (last-known-good replacement)`() {
-        val first = StoredEntitlements(listOf(StoredEntitlement("support-backups", null, EntitlementEffect.ALLOW, null)), revision = 1, fetchedAt = Instant.parse("2026-06-08T01:00:00Z"))
+        val first = StoredEntitlements(listOf(StoredEntitlement("support-compatibility-check", null, EntitlementEffect.ALLOW, null)), revision = 1, fetchedAt = Instant.parse("2026-06-08T01:00:00Z"))
         val second = StoredEntitlements(emptyList(), revision = 2, fetchedAt = Instant.parse("2026-06-08T02:00:00Z"))
 
         store.save(first)

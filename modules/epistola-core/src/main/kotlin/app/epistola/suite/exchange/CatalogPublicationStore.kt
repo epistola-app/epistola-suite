@@ -74,7 +74,7 @@ data class OldestActivePublication(val since: OffsetDateTime, val age: Duration)
  *
  * The worker above it holds the state machine and the remote conversation; everything that reads
  * or writes an outbox row goes through here, so lease handling, backoff arithmetic, and the
- * archive-retention rule each exist once. Mirrors how `TenantBackupStore` fronts backup storage.
+ * archive-retention rule each exist once.
  */
 @Component
 class CatalogPublicationStore(private val jdbi: Jdbi) {

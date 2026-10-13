@@ -26,6 +26,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -274,6 +275,51 @@ class CodeListCommandsTest : IntegrationTestBase() {
             assertThat(
                 CodeListEntryExists(tenant.id, catalogId.key, id.key, "unknown").query(),
             ).isFalse()
+        }
+    }
+
+    @Test
+    fun `URL code list refuses a source Epistola will not read`() {
+        val tenant = createTenant("Test Tenant")
+        val tenantId = TenantId(tenant.id)
+
+        listOf(
+            "classpath:code-lists/test-fixture.json",
+            "file:///etc/passwd.json",
+            "https://169.254.169.254/latest/meta-data/iam.json",
+            "https://[::ffff:a9fe:a9fe]/codes.json",
+            "https://0.0.0.0/codes.json",
+        ).forEachIndexed { i, url ->
+            val id = CodeListId(CodeListKey.of("refused-$i"), CatalogId.default(tenantId))
+            withMediator {
+                assertThatThrownBy {
+                    CreateCodeList(id = id, displayName = "Refused", sourceType = CodeListSource.URL, sourceUrl = url).execute()
+                }.describedAs(url)
+                    .isInstanceOfSatisfying(ValidationException::class.java) {
+                        assertThat(it.field).isEqualTo("sourceUrl")
+                        assertThat(it.code).isEqualTo(ValidationCode.SOURCE_URL_NOT_ALLOWED)
+                    }
+                assertThat(GetCodeList(id).query()).isNull()
+            }
+        }
+    }
+
+    @Test
+    fun `updating a code list checks a changed source URL but not a replayed one`() {
+        val tenant = createTenant("Test Tenant")
+        val tenantId = TenantId(tenant.id)
+        val id = CodeListId(CodeListKey.of("regions-update"), CatalogId.default(tenantId))
+
+        withMediator {
+            CreateCodeList(id = id, displayName = "Regions", sourceType = CodeListSource.URL, sourceUrl = "https://example.com/regions.json").execute()
+
+            assertThatThrownBy {
+                UpdateCodeList(id = id, displayName = "Regions", sourceUrl = "file:///etc/passwd.json").execute()
+            }.isInstanceOf(ValidationException::class.java)
+            assertThat(GetCodeList(id).query()!!.sourceUrl).isEqualTo("https://example.com/regions.json")
+
+            val renamed = UpdateCodeList(id = id, displayName = "Renamed", sourceUrl = "https://example.com/regions.json").execute()
+            assertThat(renamed!!.displayName).isEqualTo("Renamed")
         }
     }
 }

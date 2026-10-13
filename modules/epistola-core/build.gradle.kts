@@ -30,6 +30,11 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 
+    // HTTP client for catalog and code-list sources: a per-client DNS resolver is what lets every
+    // dialled address be checked (OutboundHttpFetcher). Already on the runtime classpath through the
+    // AWS SDK; version managed by the Spring Boot BOM.
+    implementation("org.apache.httpcomponents.client5:httpclient5")
+
     // Jackson for JSON handling (required by JDBI Jackson3 plugin)
     implementation("tools.jackson.module:jackson-module-kotlin")
 

@@ -8,6 +8,7 @@ import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
 import app.epistola.suite.attributes.codelists.model.CodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
+import app.epistola.suite.attributes.codelists.service.CodeListClient
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CodeListId
@@ -60,9 +61,15 @@ data class UpdateCodeList(
 @Component
 class UpdateCodeListHandler(
     private val jdbi: Jdbi,
+    private val codeListClient: CodeListClient,
 ) : CommandHandler<UpdateCodeList, CodeList?> {
     override fun handle(command: UpdateCodeList): CodeList? {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        command.sourceUrl?.let { newUrl ->
+            // Only a changed URL is checked: a PATCH that replays the stored one (the REST API does)
+            // must not fail because of an unrelated field. The stored URL is checked again on refresh.
+            if (newUrl != currentSourceUrl(command)) codeListClient.requireAllowedSourceUrl(newUrl)
+        }
         return jdbi.inTransaction<CodeList?, Exception> { handle ->
             val updated = handle.createQuery(
                 """
@@ -111,5 +118,20 @@ class UpdateCodeListHandler(
             }
             updated
         }
+    }
+
+    private fun currentSourceUrl(command: UpdateCodeList): String? = jdbi.withHandle<String?, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT source_url FROM code_lists
+            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
+            """,
+        )
+            .bind("tenantKey", command.id.tenantKey)
+            .bind("catalogKey", command.id.catalogKey)
+            .bind("slug", command.id.key)
+            .mapTo(String::class.java)
+            .findOne()
+            .orElse(null)
     }
 }

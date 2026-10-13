@@ -13,23 +13,23 @@ import app.epistola.template.model.ExpressionLanguage
  * Dispatches expression evaluation to the appropriate evaluator based on the expression language.
  *
  * This is the main entry point for expression evaluation in the generation module.
- * It delegates to JSONata, JavaScript, or SimplePath evaluators based on the Expression model.
+ * It delegates to the JSONata or SimplePath evaluator based on the Expression model.
+ *
+ * The template model still names `javascript` as a language, but JavaScript expressions are
+ * no longer evaluated: they fail with [UnsupportedExpressionLanguageException] rather than
+ * falling back to another language.
  *
  * Fields are intentionally public `val` so a renderer can build a culture-scoped
- * variant via [forCulture] without paying the price of constructing a fresh
- * GraalJS engine for every PDF.
+ * variant via [forCulture] that reuses the evaluators which do not depend on culture.
  */
 class CompositeExpressionEvaluator(
     val jsonataEvaluator: ExpressionEvaluator = JsonataEvaluator(),
-    val javaScriptEvaluator: ExpressionEvaluator = JavaScriptEvaluator(),
     val simplePathEvaluator: ExpressionEvaluator = SimplePathEvaluator(),
 ) {
     /**
      * Render-scoped copy with a fresh [JsonataEvaluator] bound to [culture]'s
      * locale and timezone. The other evaluators are reused — only JSONata cares
-     * about culture today (via `$formatDate` / `$formatLocaleNumber`), and
-     * re-creating [JavaScriptEvaluator] would re-init the GraalJS engine on
-     * every render.
+     * about culture today (via `$formatDate` / `$formatLocaleNumber`).
      *
      * Returns `this` when [culture] is [RenderCulture.DEFAULT] — no allocation
      * for the untouched default install.
@@ -38,7 +38,6 @@ class CompositeExpressionEvaluator(
         if (culture == RenderCulture.DEFAULT) return this
         return CompositeExpressionEvaluator(
             jsonataEvaluator = JsonataEvaluator(locale = culture.locale, timeZone = culture.timeZone),
-            javaScriptEvaluator = this.javaScriptEvaluator,
             simplePathEvaluator = this.simplePathEvaluator,
         )
     }
@@ -123,7 +122,7 @@ class CompositeExpressionEvaluator(
 
     private fun getEvaluator(language: ExpressionLanguage): ExpressionEvaluator = when (language) {
         ExpressionLanguage.jsonata -> jsonataEvaluator
-        ExpressionLanguage.javascript -> javaScriptEvaluator
+        ExpressionLanguage.javascript -> throw UnsupportedExpressionLanguageException(UnsupportedExpressionLanguages.JAVASCRIPT)
         ExpressionLanguage.simple_path -> simplePathEvaluator
     }
 }

@@ -155,7 +155,7 @@ with `[]` markers, for example `subjects[].name` or `deliveryRoutes[][].city`; i
 fields are exposed through the loop's scoped alias. Discovery is intentionally bounded to five
 nested property levels, and recursive or unresolved references stop at a safe leaf.
 
-Field suggestions are an authoring aid. Expressions can still perform JSONata or JavaScript logic
+Field suggestions are an authoring aid. Expressions can still perform JSONata logic
 that is more complex than the Builder can represent.
 
 ## Default values

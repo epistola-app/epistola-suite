@@ -150,7 +150,7 @@ Epistola Nederland B.V. may expose richer **machine-readable release metadata**
 - where to find the upgrade guide
 
 An initial form of this already exists via public release metadata consumed by
-the [version check](docs/version-check.md)
-(`https://epistola.app/.well-known/epistola/releases.json`). Further fields and
+the [version check](docs/version-check.md), which finds it through
+`https://epistola.app/.well-known/epistola.json`. Further fields and
 operator tooling may expand over time; they are not required for this policy to
 apply.

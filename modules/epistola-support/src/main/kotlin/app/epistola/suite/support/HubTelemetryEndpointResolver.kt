@@ -4,7 +4,6 @@
 
 package app.epistola.suite.support
 
-import app.epistola.hub.client.discovery.DEFAULT_DISCOVERY_URL
 import app.epistola.hub.client.discovery.HubDiscovery
 
 /**
@@ -15,15 +14,15 @@ import app.epistola.hub.client.discovery.HubDiscovery
  * support module owns this derivation so the telemetry feature never needs the hub address configured
  * separately.
  *
- * Resolution may hit the network (`.well-known` discovery), so callers resolve lazily (at startup),
- * not at bean construction.
+ * Resolution may hit the network (product discovery), so callers resolve lazily (at startup), not
+ * at bean construction.
  */
 class HubTelemetryEndpointResolver(
     private val discovery: HubDiscovery,
-    private val props: SupportProperties,
 ) {
     fun resolve(): String {
-        val endpoint = discovery.resolve(props.hub.discoveryUrl.ifBlank { DEFAULT_DISCOVERY_URL })
+        // Both implementations the support module wires ignore the URL argument (SupportConfiguration).
+        val endpoint = discovery.resolve()
         val scheme = if (endpoint.plaintext) "http" else "https"
         return "$scheme://${endpoint.host}:${endpoint.port}"
     }

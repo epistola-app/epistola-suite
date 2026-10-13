@@ -22,6 +22,7 @@
     "vulnerabilities:render": "python3 scripts/vulnerability_advisories.py render",
     "vulnerabilities:export": "python3 scripts/vulnerability_advisories.py export-osv build/osv",
     "vulnerabilities:export-vex": "python3 scripts/vulnerability_advisories.py export-vex build/vex",
+    "setup:discourse-mcp": "pnpm --filter @epistola/discourse-mcp run setup",
     "setup:github-mcp": "pnpm --filter @epistola/gh-mcp run setup"
   },
   "dependencies": {
@@ -30,7 +31,7 @@
     "htmx.org": "2.0.11"
   },
   "devDependencies": {
-    "oxfmt": "^0.70.0",
+    "oxfmt": "^0.72.0",
     "oxlint": "^1.83.0",
     "oxlint-tsgolint": "^7.0.2002",
     "stylelint": "^17.15.0",
@@ -40,5 +41,5 @@
   "engines": {
     "node": ">=24.0.0"
   },
-  "packageManager": "pnpm@12.5.1"
+  "packageManager": "pnpm@12.10.0"
 }

@@ -91,7 +91,7 @@ class EnsureSubscribedCatalogTest : IntegrationTestBase() {
         // dependency-test's manifest has release.version "1.0" and NO
         // release.fingerprint — the legacy/hand-rolled case.
         val tenant = createTenant("Ensure NoFp")
-        val noFpUrl = "classpath:test-catalogs/dependency-test/catalog.json"
+        val noFpUrl = "classpath:epistola/catalogs/test/dependency-test/catalog.json"
 
         withMediator {
             val first = EnsureSubscribedCatalog(tenantKey = tenant.id, sourceUrl = noFpUrl).execute()

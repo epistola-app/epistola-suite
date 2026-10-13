@@ -4,7 +4,7 @@
 
 package app.epistola.generation.pdf
 
-import app.epistola.template.model.ExpressionLanguage
+import app.epistola.generation.expression.UnsupportedExpressionLanguages
 import app.epistola.template.model.Node
 import app.epistola.template.model.TemplateDocument
 import com.itextpdf.layout.element.Div
@@ -19,7 +19,8 @@ import org.slf4j.LoggerFactory
  *
  * Props:
  *   - `binding` — expression resolving to a rich-text doc (`{ type: 'doc', content: [...] }`)
- *   - `language` — optional, defaults to the context's default expression language
+ *   - `language` — ignored except that `javascript` fails the render: the binding is always
+ *     evaluated in the context's default expression language (JSONata)
  *
  * If the binding resolves to a non-doc value (null, plain string, primitive),
  * the renderer emits an empty Div and logs at debug. This is intentionally
@@ -57,10 +58,9 @@ class RichTextVariableRenderer : NodeRenderer {
             return listOf(div)
         }
 
-        val language = when (node.props?.get("language") as? String) {
-            "javascript" -> ExpressionLanguage.javascript
-            else -> context.defaultExpressionLanguage
-        }
+        // A JavaScript binding fails the render; it is never evaluated as JSONata.
+        UnsupportedExpressionLanguages.rejectJavaScript(node.props?.get("language") as? String)
+        val language = context.defaultExpressionLanguage
 
         val value = context.expressionEvaluator.evaluate(
             binding,

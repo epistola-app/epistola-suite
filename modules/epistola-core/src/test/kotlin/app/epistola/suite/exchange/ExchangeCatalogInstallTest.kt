@@ -10,6 +10,8 @@ import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.CatalogUpstreamCheckStore
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
+import app.epistola.suite.catalog.commands.ImportCatalogZip
+import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogId
@@ -31,6 +33,7 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import java.io.ByteArrayOutputStream
+import java.security.MessageDigest
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -373,10 +376,44 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
      */
     private fun brokenArchive(): ByteArray = readableImageSlugArchive(mediaType = "image/x-unknown")
 
-    /** sha-256 of [svg] below: what the archive actually carries. */
-    private val svgContentHash = "57708796a75e2cd15c4f68b6ee2a40fd412b2237a8482d22ea4163db7c40afcd"
+    /**
+     * An SVG that would make the renderer fetch a URL is refused on every write path, and catalog
+     * install is one: the image fails, and with it the install.
+     */
+    @Test
+    fun `an archive whose SVG references an external resource does not install it`() {
+        val consumer = connectedTenant("install-unsafe-svg")
+        exchange.publish("acme", "broken", readableImageSlugArchive(svg = UNSAFE_SVG), version = "1.0.0")
 
-    private fun readableImageSlugArchive(mediaType: String = "image/svg+xml"): ByteArray {
+        withMediator {
+            val result = InstallExchangeCatalog(consumer, "acme", "broken").execute()
+
+            assertThat(result.aborted).isTrue()
+            assertThat(GetCatalog(consumer, CatalogKey.of("broken")).query()).isNull()
+        }
+    }
+
+    @Test
+    fun `a catalog ZIP whose SVG references an external resource does not install it`() {
+        val tenant = connectedTenant("zip-unsafe-svg")
+
+        val result = withMediator {
+            ImportCatalogZip(tenantKey = tenant, zipBytes = readableImageSlugArchive(svg = UNSAFE_SVG), catalogType = CatalogType.AUTHORED).execute()
+        }
+
+        val image = result.results.single { it.type == "image" }
+        assertThat(image.status).isEqualTo(InstallStatus.FAILED)
+        assertThat(image.errorMessage).contains("SVG not accepted")
+        withMediator {
+            assertThat(ListAssets(tenant, catalogKey = CatalogKey.of("broken")).query()).isEmpty()
+        }
+    }
+
+    private fun readableImageSlugArchive(
+        mediaType: String = "image/svg+xml",
+        svg: String = """<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"></svg>""",
+    ): ByteArray {
+        val svgContentHash = MessageDigest.getInstance("SHA-256").digest(svg.toByteArray()).joinToString("") { "%02x".format(it) }
         val manifest = """
             {"schemaVersion":7,
              "catalog":{"slug":"broken","name":"Broken","description":null,"attributes":[],"keywords":[],"presentation":null,"license":null},
@@ -392,7 +429,6 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
              "mediaType":"$mediaType","width":96,"height":96,
              "contentHash":"$svgContentHash","type":"image"}}
         """.trimIndent()
-        val svg = """<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"></svg>"""
 
         val out = ByteArrayOutputStream()
         ZipOutputStream(out).use { zip ->
@@ -407,5 +443,9 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             }
         }
         return out.toByteArray()
+    }
+
+    private companion object {
+        const val UNSAFE_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><image href="http://169.254.169.254/latest/meta-data" width="96" height="96"/></svg>"""
     }
 }

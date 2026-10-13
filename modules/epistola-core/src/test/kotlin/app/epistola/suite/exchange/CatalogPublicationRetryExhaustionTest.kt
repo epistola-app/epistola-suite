@@ -83,7 +83,7 @@ class CatalogPublicationRetryExhaustionTest : IntegrationTestBase() {
         @DynamicPropertySource
         fun exchangeProperties(registry: DynamicPropertyRegistry) {
             registry.add("epistola.exchange.enabled") { "true" }
-            registry.add("epistola.exchange.base-url") { exchange.baseUrl }
+            registry.add("epistola.exchange.endpoint") { exchange.baseUrl }
             // The loopback stand-in is plaintext.
             registry.add("epistola.exchange.allow-http") { "true" }
             registry.add("epistola.exchange.max-attempts") { "1" }

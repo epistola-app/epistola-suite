@@ -2,7 +2,46 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-13
+
+Deploys Epistola 1.4.0. Adds `productDomain` and one `endpoint` per Epistola integration, `sharing`, catalog source rules, autoscaling (HPA and VPA), a pod disruption budget and a graceful render drain.
+
+**Upgrade notes:**
+
+- Pods now request `750m` CPU and `1536Mi` memory (was `100m` / `256Mi`); check your nodes have room.
+- If catalogs or code lists are read from a mounted directory or an intranet server, set `catalog.fileRoots` or `catalog.outbound.*`.
+- `support.hub.discoveryUrl` is replaced by `productDomain` / `support.hub.endpoint`.
+- With the HPA enabled, the memory target now defaults to off; set `autoscaling.hpa.targetMemoryUtilizationPercentage: 80` to keep it.
+- Pods roll once for the new anti-affinity and termination grace period.
+
 ### Added
+
+- **`sharing.*` and `versionCheck.enabled` — what the installation shares with Epistola.** Render
+  `EPISTOLA_SHARING_INSTALLATIONID`, `EPISTOLA_SHARING_SUITEVERSION`,
+  `EPISTOLA_SHARING_USAGESTATISTICS` and `EPISTOLA_VERSIONCHECK_ENABLED`. **Everything is shared by
+  default** (installation id, version, and the reserved usage statistics, which send nothing yet); set a
+  value to `false` to stop sharing it. Until now the version check could only be switched off through
+  `config.env`; that keeps working, because `config.env` is rendered after these and wins. Both
+  blocks are in `values.schema.json`. The new `examples/no-data-to-epistola.yaml` turns everything
+  off, so the installation sends no data to Epistola; its support badge then says "Support cannot be
+  verified". See `docs/outbound-traffic.md`.
+
+- **`productDomain` and one `endpoint` per integration (ADR 0030).** `productDomain` (default
+  `epistola.app`, rendered as `EPISTOLA_PRODUCTDOMAIN`) is where the version check, the installation
+  check, Exchange and the support hub are found; point it at another site, such as staging, and
+  every one follows. Each also takes its own `endpoint`, rendered only when set:
+  `versionCheck.endpoint`, `installationCheck.endpoint` (must contain `{id}`), `exchange.endpoint`
+  and `support.hub.endpoint` (`host:port`, always TLS). The schema requires a host name for
+  `productDomain` and absolute URLs for the endpoints.
+
+- **`catalog.*` — where catalog and code-list sources may be read from.** Renders
+  `EPISTOLA_CATALOG_OUTBOUND_ALLOWPRIVATENETWORKS` (default `false`) and, when set,
+  `EPISTOLA_CATALOG_FILEROOTS` and `EPISTOLA_CATALOG_OUTBOUND_ALLOWEDHOSTS` as comma-separated
+  lists. The application now refuses `file:` sources outside `catalog.fileRoots` (empty by default,
+  so `file:` is off) and network sources on private addresses unless `allowPrivateNetworks` is on or
+  the host is in `allowedHosts` (exact names, no wildcards). An installation that reads catalogs from
+  a mounted directory or from an intranet server must set these on upgrade; mount each file root
+  through `volumes` / `volumeMounts`. The schema rejects relative roots and wildcard hosts.
 
 - **`oidc.silentLogin` — sign in without a click when the SSO session is live.** Renders
   `EPISTOLA_AUTH_OIDC_SILENTLOGIN` (default `true`): the login page first tries a silent OIDC
@@ -10,10 +49,10 @@
   the application, and one who is not sees the normal login page. Set it to `false` for a provider
   that mishandles `prompt=none`.
 
-- **`exchange.*` — opt-in catalog publication configuration.** The chart exposes the hard
-  deployment gate (off by default), the stable epistola.app discovery URL, and an optional
-  browser-reachable OAuth callback URL to application pods; tenant-level feature and publication
-  settings remain inert until the gate is enabled.
+- **`exchange.*` — opt-in catalog publication.** `exchange.enabled` is the deployment gate (off by
+  default); `exchange.endpoint` names a private Exchange (empty: found through `productDomain`), and
+  `exchange.callbackUrl` sets a browser-reachable OAuth callback. Tenant-level publication settings
+  stay inert until the gate is enabled.
 - **Optional demo API shared secret (`demo.sharedSecret`).** Renders
   `EPISTOLA_DEMO_SHAREDSECRET` from an existing Kubernetes Secret, for demo
   deployments whose website calls the REST API on a visitor's behalf. As with
@@ -26,29 +65,44 @@
   startup deliberately rather than being ignored. See
   `docs/adr/0019-demo-api-shared-secret.md`.
 
-- **GitHub Kind smoke test for Epistola chart changes.** Pull requests run the
-  local chart installation harness only when this chart, its test harness, or
-  its workflow changes. Other charts do not create a Kubernetes cluster.
+- **Kind smoke test.** `scripts/test-helm-chart.sh` installs the chart in a disposable Kind cluster
+  with PostgreSQL and checks readiness and the HPA; pull requests that touch this chart run it.
 
-- **Local Kind chart smoke test.** `scripts/test-helm-chart.sh` creates a
-  disposable Kind cluster with one ephemeral PostgreSQL container, installs the
-  application chart using its production database/migration wiring, verifies
-  readiness through the release Service, and confirms the native HPA resource is
-  accepted. It is deliberately developer-run rather than a CI requirement; VPA
-  remains covered by render/schema tests because the lightweight cluster does
-  not install VPA components.
+- **`autoscaling.hpa` — the HPA settings get their own block.** `autoscaling.hpa.enabled`,
+  `minReplicas`, `maxReplicas`, `targetCPUUtilizationPercentage` and
+  `targetMemoryUtilizationPercentage` configure the HorizontalPodAutoscaler, alongside
+  `autoscaling.vpa` for the VPA. The values schema validates both blocks.
+- **`autoscaling.hpa.behavior` — calm scale-down by default.** A stopping pod drains its
+  in-flight renders before re-queuing the rest, which slows each stop and repeats long renders, so the HPA now waits five
+  minutes after load drops and then removes at most one pod every three minutes. Scale-up keeps
+  the Kubernetes defaults. Set `autoscaling.hpa.behavior: null` for the Kubernetes defaults in
+  both directions.
 
-- **Optional Vertical Pod Autoscaler (VPA) support.** Set `vpa.enabled=true` to
-  render a VPA targeting this release's application Deployment, without a
-  separately maintained manifest or hard-coded Deployment name. It starts in
-  recommendation-only `Off` mode and defaults to `RequestsOnly`, so VPA changes
-  requests without taking ownership of the operator-set limits once an update
-  mode is selected. The update mode, minimum replica count, and CPU/memory
-  `minAllowed` / `maxAllowed` policy are configurable. The cluster must already
-  provide the VPA CRD and components. VPA-controller behavior is not yet
-  runtime-tested by Epistola; see `docs/deployment.md` for the recommendation-
-  only rollout, built-in load-test recommendation, and current HPA
-  incompatibility guidance.
+- **Optional Vertical Pod Autoscaler (VPA) support.** Set `autoscaling.vpa.enabled=true` to
+  render a VPA targeting this release's application Deployment, without a separately maintained
+  manifest or hard-coded Deployment name. It starts in recommendation-only `Off` mode and
+  defaults to `RequestsOnly`, so VPA changes requests without taking ownership of the
+  operator-set limits (and so the JVM heap size). `minReplicas` defaults to `2`, so the VPA never
+  evicts the last running pod. The update mode (including `InPlaceOrRecreate` on Kubernetes ≥
+  1.33), `controlledResources`, and the CPU/memory `minAllowed` / `maxAllowed` policy are
+  configurable. An acting VPA (any mode but `Off`) that manages a resource the HPA scales on
+  fails the render, because the two controllers would feed back into each other; narrow it with
+  `autoscaling.vpa.controlledResources` or keep it in `Off`. The cluster must already provide the
+  VPA CRD and components. VPA-controller behavior is not yet runtime-tested by Epistola; see
+  `docs/deployment.md` for the recommended production setup and the staged rollout.
+
+- **`terminationGracePeriodSeconds` — room for a graceful stop (default `60`).** The application
+  now drains in-flight renders on shutdown for up to
+  `epistola.generation.polling.shutdown-drain-timeout` (default 20 s) before re-queuing the rest,
+  after the web server has finished its requests. The Kubernetes default of 30 s could cut that
+  short, leaving unfinished documents held until stale-job recovery (10 min). Keep the value above
+  web drain + render drain; raise both together. See `docs/deployment.md` → "Pod shutdown".
+
+- **`podDisruptionBudget` — keep a pod running through voluntary disruptions.** Off by default.
+  When enabled, renders a `policy/v1` PodDisruptionBudget (`minAvailable: 1` by default, or
+  `maxUnavailable`) so node drains, cluster-autoscaler scale-down and VPA evictions always leave
+  a pod serving. It needs at least two replicas; with one, every eviction is refused and node
+  drains hang, and the install notes warn about that combination.
 
 - **`logging.format` — first-class console format selection.** Select `plain`, `logstash`, `ecs`,
   or `gelf`; `plain` is the chart default in every environment, including production. The chart
@@ -56,6 +110,11 @@
   its minimal plain-text output.
 
 ### Changed
+
+- **Breaking: `support.hub.discoveryUrl` is removed.** The hub is now found through
+  `productDomain`; to name it directly, use `support.hub.endpoint` (`host:port`). The schema rejects
+  the old key, and the application refuses to start while the old setting is still passed through
+  `config.env`, naming its replacement. Installations on the defaults need no action.
 
 - **Resource defaults now cover the documented document-generation load
   profile.** Application pods request `750m` CPU and `1536Mi` memory and may
@@ -66,12 +125,28 @@
   The Kind fixture explicitly uses the smaller test/preview profile instead,
   which supports about 1,000 documents in two minutes.
 
-### Fixed
+  **Upgrade note:** the HPA memory target default moved from `80` to `0` (off). If you
+  enabled the HPA in 1.0.0 and relied on the default memory target, set
+  `autoscaling.hpa.targetMemoryUtilizationPercentage: 80` to keep scaling on memory.
 
-- **Local Kind smoke-test fixture supplies an authentication mechanism.** The
-  disposable staging/test installation enables its self-contained form-login
-  profile, allowing the application to start without needing an OIDC provider
-  in the lightweight test cluster.
+- **Application pods prefer separate nodes (`podAntiAffinity: soft`).** The Deployment now carries
+  a preferred pod anti-affinity on `kubernetes.io/hostname`, so replicas spread across nodes when
+  they can and one node failure does not take them all. It never blocks scheduling. Set
+  `podAntiAffinity: hard` to require separate nodes, or `none` to turn it off; an explicit
+  `affinity` value replaces the preset as before. Upgrading rolls the pods once for the changed
+  pod spec.
+
+### Deprecated
+
+- **Flat HPA keys under `autoscaling`.** `autoscaling.enabled`, `minReplicas`, `maxReplicas`,
+  `targetCPUUtilizationPercentage` and `targetMemoryUtilizationPercentage` are deprecated in
+  favour of the same keys under `autoscaling.hpa`, and will be removed in the next major chart
+  release. Until then each flat key is still honoured and wins over its `autoscaling.hpa.*`
+  counterpart, and the install notes print a deprecation warning. Move them in one step:
+  setting `autoscaling.hpa.enabled=true` while any flat key is still present fails the render,
+  so a leftover `autoscaling.enabled: false` cannot silently switch the HPA off.
+
+### Fixed
 
 - **Migration hooks no longer wait forever for a missing ServiceAccount.** The
   pre-install migration Job now uses the namespace's built-in `default` service

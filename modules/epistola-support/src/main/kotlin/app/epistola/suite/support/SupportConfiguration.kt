@@ -7,7 +7,6 @@ package app.epistola.suite.support
 import app.epistola.hub.client.EpistolaHubClient
 import app.epistola.hub.client.HubRegistrationRetryLoop
 import app.epistola.hub.client.InstallationMetadata
-import app.epistola.hub.client.discovery.DEFAULT_DISCOVERY_URL
 import app.epistola.hub.client.discovery.HubDiscovery
 import app.epistola.hub.client.discovery.HubEndpoint
 import app.epistola.hub.client.port.InstallationStore
@@ -15,6 +14,8 @@ import app.epistola.suite.installation.InstallationProperties
 import app.epistola.suite.installation.InstallationService
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.observability.NodeIdentity
+import app.epistola.suite.productdomain.ProductDiscovery
+import app.epistola.suite.productdomain.ProductDomainProperties
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -80,22 +81,16 @@ class SupportConfiguration {
     }
 
     /**
-     * Endpoint resolution. When `epistola.support.hub.host` is set, the
-     * static discovery skips `.well-known` entirely and goes straight to
-     * the configured host/port (use for local dev or cluster-internal
-     * deployments). Otherwise, fall back to fetching `.well-known` from
-     * the configured discovery URL (or the SaaS default).
+     * Endpoint resolution. `epistola.support.hub.endpoint` goes straight to that host:port (local dev
+     * or a cluster-internal hub); otherwise the hub is found through product discovery (ADR 0030).
+     * The hub client's own discovery URL is never consulted.
      */
     @Bean
-    fun hubDiscovery(props: SupportProperties): HubDiscovery {
-        val hub = props.hub
-        if (hub.host.isNotBlank()) {
-            require(hub.port > 0) {
-                "epistola.support.hub.port must be a positive integer when epistola.support.hub.host is set"
-            }
-            return HubDiscovery.static(HubEndpoint(host = hub.host, port = hub.port, plaintext = hub.plaintext))
+    fun hubDiscovery(props: SupportProperties, productDiscovery: ProductDiscovery): HubDiscovery {
+        props.hub.configuredEndpoint?.let { configured ->
+            return HubDiscovery.static(HubEndpoint(host = configured.host, port = configured.port, plaintext = props.hub.plaintext))
         }
-        return HubDiscovery()
+        return ProductHubDiscovery { productDiscovery.endpoints().supportHub }
     }
 
     /**
@@ -107,7 +102,7 @@ class SupportConfiguration {
     fun hubTelemetryEndpointResolver(
         discovery: HubDiscovery,
         props: SupportProperties,
-    ): HubTelemetryEndpointResolver = HubTelemetryEndpointResolver(discovery, props)
+    ): HubTelemetryEndpointResolver = HubTelemetryEndpointResolver(discovery)
 
     @Bean(destroyMethod = "close")
     fun epistolaHubClient(
@@ -115,6 +110,7 @@ class SupportConfiguration {
         props: SupportProperties,
         discovery: HubDiscovery,
         nodeIdentity: NodeIdentity,
+        productDomain: ProductDomainProperties,
     ): EpistolaHubClient {
         val resolvedNodeId = props.hub.nodeId?.takeIf { it.isNotBlank() } ?: nodeIdentity.nodeId
         return EpistolaHubClient(
@@ -122,7 +118,8 @@ class SupportConfiguration {
             // override (epistola.support.hub.node-id) still wins when explicitly set.
             store = store,
             nodeId = resolvedNodeId,
-            discoveryUrl = props.hub.discoveryUrl.ifBlank { DEFAULT_DISCOVERY_URL },
+            // Only passed back to [discovery], which resolves through product discovery instead.
+            discoveryUrl = productDomain.discoveryUrl,
             discovery = discovery,
         ).also { client ->
             // React to connectivity transitions. For now we just log; this is the seam where the

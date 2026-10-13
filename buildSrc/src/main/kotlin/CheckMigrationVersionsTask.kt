@@ -116,10 +116,12 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
                 .mapNotNull { migrationVersion(it) }
                 .maxOrNull()
 
+        val movedMigrationPaths = movedBetweenModules(baseRef, currentMigrationPaths, targetMigrationPaths)
+
         val failures = mutableListOf<String>()
         if (targetMaxVersion != null) {
             currentMigrationPaths
-                .filterNot { it in targetMigrationPaths }
+                .filterNot { it in targetMigrationPaths || it in movedMigrationPaths }
                 .forEach { path ->
                     val version = requireNotNull(migrationVersion(path))
                     if (version <= targetMaxVersion) {
@@ -157,6 +159,8 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
                     failures += "Merged runtime migration was modified: $oldPath"
                 status == 'D' && oldIsMigration ->
                     failures += "Merged runtime migration was deleted: $oldPath"
+                status == 'R' && newPath in movedMigrationPaths ->
+                    logger.lifecycle("Runtime migration moved to another module unchanged: $oldPath -> $newPath")
                 status == 'R' && (oldIsMigration || newVersion != null) ->
                     failures += "Runtime migrations must not be renamed: $oldPath -> $newPath"
             }
@@ -171,6 +175,30 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
             )
         }
     }
+
+    /**
+     * Migrations that left a module unchanged for the same classpath path in another, as when a module
+     * is removed but its applied migrations must stay. Flyway scans `classpath:db/migration` and
+     * records the path below it plus a checksum of the content, so to an installation that already
+     * applied the file such a move is invisible. Any change to the bytes or the path below
+     * `src/main/resources` is still a rename.
+     */
+    private fun movedBetweenModules(
+        baseRef: String,
+        currentMigrationPaths: List<String>,
+        targetMigrationPaths: Set<String>,
+    ): Set<String> {
+        val targetByResourcePath = targetMigrationPaths.associateBy { resourcePath(it) }
+        return currentMigrationPaths
+            .filter { path ->
+                if (path in targetMigrationPaths) return@filter false
+                val targetPath = targetByResourcePath[resourcePath(path)] ?: return@filter false
+                targetPath !in currentMigrationPaths &&
+                    runGit("rev-parse", "$baseRef:$targetPath") == runGit("hash-object", path)
+            }.toSet()
+    }
+
+    private fun resourcePath(path: String): String = path.substringAfter("/src/main/resources/")
 
     private fun findBaseRef(): String? {
         val candidateBaseRefs =

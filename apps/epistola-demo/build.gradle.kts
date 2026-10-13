@@ -10,6 +10,10 @@ plugins {
 // resolves its own Tomcat. Keep the two in step.
 extra["tomcat.version"] = "11.0.25"
 
+// Jackson security override — same pins and rationale as apps/epistola.
+extra["jackson-bom.version"] = libs.versions.jackson.get()
+extra["jackson-2-bom.version"] = libs.versions.jackson2.get()
+
 dependencies {
     // The whole suite, as a library. This app adds demo mode on top and changes nothing else.
     //
@@ -56,7 +60,7 @@ dependencies {
     testImplementation(project(":modules:epistola-quality"))
     // DemoSectionedLetterIntegrationTest reads the rendered pages of the demo's sectioned letter;
     // same iText as modules:generation renders with.
-    testImplementation("com.itextpdf:kernel:9.7.1")
+    testImplementation("com.itextpdf:kernel:9.8.0")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.springframework.boot:spring-boot-resttestclient")

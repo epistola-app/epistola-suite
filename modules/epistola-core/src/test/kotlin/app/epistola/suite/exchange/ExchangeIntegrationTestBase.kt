@@ -49,7 +49,7 @@ abstract class ExchangeIntegrationTestBase : IntegrationTestBase() {
         @DynamicPropertySource
         fun exchangeProperties(registry: DynamicPropertyRegistry) {
             registry.add("epistola.exchange.enabled") { "true" }
-            registry.add("epistola.exchange.base-url") { SharedFakeExchange.server.baseUrl }
+            registry.add("epistola.exchange.endpoint") { SharedFakeExchange.server.baseUrl }
             // The loopback stand-in is plaintext.
             registry.add("epistola.exchange.allow-http") { "true" }
         }

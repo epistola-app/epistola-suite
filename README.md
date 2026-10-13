@@ -269,29 +269,11 @@ gradle test
 
 Tests use [Testcontainers](https://testcontainers.org/) which requires Docker to be running.
 
-### GitHub MCP (AI-Assisted Development)
+### MCP servers
 
-This project includes a GitHub MCP server for AI-assisted issue and project management. It enables AI assistants (like Claude Code) to interact with GitHub Issues and Projects.
-
-**Setup:**
-
-```bash
-pnpm run setup:github-mcp
-```
-
-This will:
-
-1. Open GitHub to create a fine-grained Personal Access Token with minimal permissions
-2. Validate the token
-3. Store it securely in your OS credential manager (macOS Keychain or Windows Credential Vault)
-
-**Features:**
-
-- Create and manage GitHub Issues
-- Work with Pull Requests
-- Track backlog in GitHub Projects
-
-The configuration is in `.mcp.json` (safe to commit - no secrets stored).
+`.mcp.json` registers MCP servers for coding agents: GitHub (issues, pull requests, projects) and
+the community forum. Each lives in [`.agents/mcp/`](.agents/mcp/) with a README covering its
+one-time setup; no secrets are committed.
 
 ## CI/CD
 
@@ -329,11 +311,16 @@ versions are published separately (website / release metadata), not hardcoded
 in the policy. See also [docs/version-check.md](docs/version-check.md) and
 [docs/migrations.md](docs/migrations.md).
 
-The installation-wide version check is enabled by default. Once per day, one
-node retrieves the public release metadata and sends the running suite version
-plus the stable installation id; Epistola Nederland B.V. uses that request to
-understand how many active installations run each version. Disable it with
-`epistola.version-check.enabled=false`.
+**Shared with Epistola by default.** A Suite installation shares its
+installation id and version with Epistola Nederland B.V. by default (and, once
+introduced, anonymous usage counters), so it can show whether the installation
+is supported and see which versions are in use. No hostnames, tenant, user or
+document data is ever shared. The daily release and security-advisory check
+sends nothing that identifies the installation. Turn sharing off with
+`epistola.sharing.*` (Helm: `sharing`), and the release check with
+`epistola.version-check.enabled=false`; with everything off the installation
+sends no data to Epistola. See
+[Data shared with Epistola](docs/outbound-traffic.md).
 
 ## License
 

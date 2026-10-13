@@ -7,6 +7,7 @@ package app.epistola.suite.api.v1
 import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.assets.SvgContentPolicy
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -184,6 +185,65 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         assertThat(response.body).contains("is not an image")
+    }
+
+    /** An SVG that reaches outside itself is refused before it is stored, not when it renders. */
+    @Test
+    fun `uploading an SVG that references an external resource is refused`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val parts = LinkedMultiValueMap<String, Any>().apply {
+            add(
+                "file",
+                object : ByteArrayResource(
+                    """<svg xmlns="http://www.w3.org/2000/svg"><style>@import url(http://example.com/a.css);</style></svg>""".toByteArray(),
+                ) {
+                    override fun getFilename() = "logo.svg"
+                },
+            )
+            add("mediaType", "image/svg+xml")
+        }
+        val headers = baseHeaders(key).apply { contentType = MediaType.MULTIPART_FORM_DATA }
+
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/images",
+            HttpMethod.POST,
+            HttpEntity(parts, headers),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(response.body).contains("SVG not accepted")
+    }
+
+    /** Opened directly, an SVG is a document in our origin; the download keeps it a picture. */
+    @Test
+    fun `an SVG is served inert`() {
+        val (tenantKey, key) = seedTenantAndKey()
+        val svg = """<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"/>""".toByteArray()
+        withMediator {
+            UploadAsset(
+                tenantId = tenantKey,
+                name = "Mark",
+                mediaType = AssetMediaType.SVG,
+                content = svg,
+                width = null,
+                height = null,
+                catalogKey = CatalogKey.DEFAULT,
+                id = app.epistola.suite.common.ids.AssetKey.of("svg-mark"),
+            ).execute()
+        }
+
+        val response = restTemplate.exchange(
+            "/api/tenants/${tenantKey.value}/catalogs/default/images/svg-mark/content",
+            HttpMethod.GET,
+            HttpEntity<String>(null, baseHeaders(key).apply { accept = listOf(MediaType.ALL) }),
+            ByteArray::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).isEqualTo(svg)
+        assertThat(response.headers["X-Content-Type-Options"]).containsExactly("nosniff")
+        assertThat(response.headers["Content-Security-Policy"]).containsExactly(SvgContentPolicy.SERVING_CONTENT_SECURITY_POLICY)
     }
 
     /** Deleting an image that is not in the named catalog is a 404, not someone else's image. */

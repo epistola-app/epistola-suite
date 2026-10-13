@@ -283,7 +283,7 @@ export function parseSpacingValue(raw: unknown): SpacingValue {
     return { top: undefined, right: undefined, bottom: undefined, left: undefined };
   }
 
-  if (typeof raw === 'object' && raw !== null) {
+  if (typeof raw === 'object') {
     const obj = raw as Record<string, unknown>;
     return {
       top: obj.top != null ? String(obj.top) : undefined,

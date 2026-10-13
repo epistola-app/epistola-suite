@@ -478,20 +478,3 @@ cannot "just fix it".
 - **Comments are local-only.** A disposition has an obvious meaning to a remote checker
   ("stop reporting this"); a comment does not, and inventing an answer would bake it in. The
   finding id is stable, so a future sync has something to hang off.
-
-## Backup
-
-All three tables are **included** in tenant backup/restore (`QualityBackupTables`, the module's own contributor). Machine
-findings ride along, but the human half — a stated ignore reason, a manual finding, a
-comment — is authoring intent and must survive a restore.
-
-The migration declares `forward=false`: these tables are backed up, so a backup taken after
-it lists tables an older app lacks, and `RestoreTenantBackup.validateColumns` rejects a
-manifest table absent from the live topology. (Contrast `audit_log`, which declares
-`forward=true` only because it is _excluded_ from backup.)
-
-Restore **order** is derived from the foreign keys rather than declared, so the FKs to
-`document_templates` / `template_variants` (see [Deletion](#deletion-the-database-does-it))
-place these tables after the resources they describe automatically —
-`TenantTableTopologyDriftIntegrationTest` resolves the topology and fails if that ever stops
-being satisfiable.
