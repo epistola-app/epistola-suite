@@ -269,46 +269,11 @@ gradle test
 
 Tests use [Testcontainers](https://testcontainers.org/) which requires Docker to be running.
 
-### GitHub MCP (AI-Assisted Development)
+### MCP servers
 
-This project includes a GitHub MCP server for AI-assisted issue and project management. It enables AI assistants (like Claude Code) to interact with GitHub Issues and Projects.
-
-**Setup:**
-
-```bash
-pnpm run setup:github-mcp
-```
-
-This will:
-
-1. Open GitHub to create a fine-grained Personal Access Token with minimal permissions
-2. Validate the token
-3. Store it securely in your OS credential manager (macOS Keychain or Windows Credential Vault)
-
-**Features:**
-
-- Create and manage GitHub Issues
-- Work with Pull Requests
-- Track backlog in GitHub Projects
-
-The configuration is in `.mcp.json` (safe to commit - no secrets stored).
-
-### Discourse MCP (community.epistola.app)
-
-A second MCP server reads and posts on the [community forum](https://community.epistola.app), for
-example to announce a release. It uses the official `@discourse/mcp`, pinned in
-`scripts/discourse-mcp/package.json`, and acts as you: it can do exactly what your forum account can.
-
-**Setup:**
-
-```bash
-pnpm run setup:discourse-mcp
-```
-
-This prints an activation URL and a code. Open the URL, sign in, enter the code and approve the
-request; the generated User API Key is stored in your OS credential manager. The key reaches the
-server through a pipe, never through a file or a command-line argument. Revoke it under your
-profile on the forum → Preferences → Apps.
+`.mcp.json` registers MCP servers for coding agents: GitHub (issues, pull requests, projects) and
+the community forum. Each lives in [`.agents/mcp/`](.agents/mcp/) with a README covering its
+one-time setup; no secrets are committed.
 
 ## CI/CD
 

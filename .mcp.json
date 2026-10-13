@@ -2,11 +2,11 @@
   "mcpServers": {
     "github": {
       "command": "node",
-      "args": ["./scripts/gh-mcp/wrapper.mjs"]
+      "args": ["./.agents/mcp/github/wrapper.mjs"]
     },
     "discourse": {
       "command": "node",
-      "args": ["./scripts/discourse-mcp/wrapper.mjs"]
+      "args": ["./.agents/mcp/discourse/wrapper.mjs"]
     }
   }
 }
