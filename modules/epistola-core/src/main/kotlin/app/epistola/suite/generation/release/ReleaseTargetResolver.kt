@@ -5,7 +5,6 @@
 package app.epistola.suite.generation.release
 
 import app.epistola.catalog.protocol.TemplateResource
-import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.catalog.revisions.ReleaseDependencyStore
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -33,7 +32,7 @@ data class ReleaseTarget(val release: ReleaseRef, val variantKey: VariantKey)
 @Component
 class ReleaseTargetResolver(
     private val jdbi: Jdbi,
-    private val assembler: ReleaseContentAssembler,
+    private val renderSource: ReleaseRenderSource,
     private val dependencyStore: ReleaseDependencyStore,
     private val variantResolver: VariantResolver,
 ) {
@@ -63,7 +62,7 @@ class ReleaseTargetResolver(
         variantKey: VariantKey?,
         criteria: VariantSelectionCriteria?,
     ): ReleaseTarget {
-        val template = assembler.readResource(tenantKey, release.catalogKey, release.version, "template", templateKey.value) as? TemplateResource
+        val template = renderSource.template(tenantKey, release, templateKey.value)
             ?: throw TemplateNotInReleaseException(tenantKey, release.catalogKey, release.version, templateKey, variantId = null)
         val candidates = template.variants.map { VariantCandidate(VariantKey.of(it.slug), it.attributes.orEmpty(), it.isDefault) }
 

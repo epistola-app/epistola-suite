@@ -192,26 +192,47 @@ class ReleaseContentAssembler(
         return objectMapper.treeToValue(envelope, ResourceDetail::class.java)
     }
 
-    /** Replaces every [REVISION_REF_FIELD] object with the payload it names, recursively. */
-    private fun resolveRefs(handle: Handle, tenantKey: TenantKey, node: JsonNode): JsonNode = when {
-        node is ObjectNode && node.size() == 1 && node.has(REVISION_REF_FIELD) -> {
-            val digest = node.get(REVISION_REF_FIELD).asString()
-            val child = requireNotNull(loadPayloads(handle, tenantKey, listOf(digest))[digest]) {
-                "A retained payload references revision $digest, which is not stored"
+    /**
+     * Replaces every revision reference in [node] with the payload it names, recursively. Payloads
+     * are loaded a level at a time — every reference found at one depth in one query — so a template
+     * costs one query for its variants however many it has, not one per variant.
+     */
+    private fun resolveRefs(handle: Handle, tenantKey: TenantKey, node: JsonNode): JsonNode {
+        val payloads = mutableMapOf<String, JsonNode>()
+        var pending = refsIn(node)
+        while (pending.isNotEmpty()) {
+            val loaded = loadPayloads(handle, tenantKey, pending)
+            pending.firstOrNull { it !in loaded }?.let { digest ->
+                error("A retained payload references revision $digest, which is not stored")
             }
-            resolveRefs(handle, tenantKey, child)
+            payloads += loaded
+            pending = loaded.values.flatMap { refsIn(it) }.filterNot { it in payloads }.distinct()
         }
+        return substitute(node, payloads)
+    }
+
+    private fun refsIn(node: JsonNode): List<String> = when {
+        node.isRevisionRef() -> listOf(node.get(REVISION_REF_FIELD).asString())
+        node is ObjectNode -> node.propertyNames().flatMap { refsIn(node.get(it)) }
+        node is ArrayNode -> node.flatMap { refsIn(it) }
+        else -> emptyList()
+    }.distinct()
+
+    private fun substitute(node: JsonNode, payloads: Map<String, JsonNode>): JsonNode = when {
+        node.isRevisionRef() -> substitute(payloads.getValue(node.get(REVISION_REF_FIELD).asString()), payloads)
 
         node is ObjectNode -> objectMapper.createObjectNode().also { copy ->
-            node.propertyNames().forEach { name -> copy.set(name, resolveRefs(handle, tenantKey, node.get(name))) }
+            node.propertyNames().forEach { name -> copy.set(name, substitute(node.get(name), payloads)) }
         }
 
         node is ArrayNode -> objectMapper.createArrayNode().also { copy ->
-            node.forEach { copy.add(resolveRefs(handle, tenantKey, it)) }
+            node.forEach { copy.add(substitute(it, payloads)) }
         }
 
         else -> node
     }
+
+    private fun JsonNode.isRevisionRef(): Boolean = this is ObjectNode && size() == 1 && has(REVISION_REF_FIELD)
 
     /**
      * The binaries the rebuilt content needs, keyed by the archive path each takes — the same keys

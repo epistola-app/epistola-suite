@@ -223,6 +223,9 @@ class ReleaseRenderSource(
         binary(scope.tenantKey, face.contentHash)
     }
 
+    /** [templateKey] as [release] holds it, from the same cache rendering reads, or null when it holds none. */
+    fun template(tenantKey: TenantKey, release: ReleaseRef, templateKey: String): TemplateResource? = read(tenantKey, release, "template", templateKey) as? TemplateResource
+
     private fun read(tenantKey: TenantKey, release: ReleaseRef, type: String, key: String): CatalogResource? = resources.get(
         "${tenantKey.value}|${release.catalogKey.value}|${release.version}|$type|$key",
     ) {
