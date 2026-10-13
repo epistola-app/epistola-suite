@@ -7,7 +7,8 @@ package app.epistola.generation.expression
 /**
  * Interface for evaluating expressions against input data.
  *
- * Implementations provide different expression languages (JSONata, JavaScript).
+ * Implementations provide different expression languages (JSONata, simple paths).
+ * JavaScript is no longer evaluated — see [UnsupportedExpressionLanguages].
  */
 interface ExpressionEvaluator {
     /**

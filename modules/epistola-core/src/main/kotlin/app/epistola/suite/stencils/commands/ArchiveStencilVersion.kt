@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -37,7 +38,12 @@ data class ArchiveStencilVersion(
 class ArchiveStencilVersionHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<ArchiveStencilVersion, StencilVersion> {
-    override fun handle(command: ArchiveStencilVersion): StencilVersion = jdbi.inTransaction<StencilVersion, Exception> { handle ->
+    override fun handle(command: ArchiveStencilVersion): StencilVersion {
+        requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
+        return archive(command)
+    }
+
+    private fun archive(command: ArchiveStencilVersion): StencilVersion = jdbi.inTransaction<StencilVersion, Exception> { handle ->
         // Check version exists and its status
         val currentStatus = handle.createQuery(
             """

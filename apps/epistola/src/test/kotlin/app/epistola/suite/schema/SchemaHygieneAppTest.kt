@@ -15,8 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired
  * migrations that produced it.
  *
  * Runs at the **app** level, where every module's migrations are merged onto the one global Flyway
- * namespace — the same reason `TenantBackupClassificationAppTest` lives here. A core-module context
- * never sees `quality_findings` or `load_test_runs`, so it cannot check them.
+ * namespace. A core-module context never sees `quality_findings` or `load_test_runs`, so it cannot check them.
  *
  * Two kinds of assertion, and the split matters:
  *

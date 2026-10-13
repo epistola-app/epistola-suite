@@ -12,7 +12,7 @@ Exchange availability.
 
 This document is the canonical description of configuration, tenant enrollment,
 setting resolution, namespace binding, publication processing, credentials,
-failure handling, backup behavior, and the currently deferred API work. The
+failure handling, and the currently deferred API work. The
 architectural rationale is recorded in
 [ADR 0018](adr/0018-durable-catalog-publication-to-exchange.md).
 
@@ -81,9 +81,9 @@ Application configuration:
 epistola:
   exchange:
     enabled: true
-    discovery-url: https://epistola.app/.well-known/epistola/exchange.json
-    # Optional local/private deployment escape hatch. Production normally omits it.
-    base-url:
+    # Optional base URL for a local or private Exchange. Production omits it and finds
+    # Exchange through the product domain (epistola.product-domain, ADR 0030).
+    endpoint:
     # Optional browser-reachable redirect. Otherwise derived from the setup request.
     callback-url:
     # Worker cadence and remote-call bounds.
@@ -102,12 +102,12 @@ epistola:
     allow-http: false
 ```
 
-`base-url` and `callback-url` are optional: leave them blank (or omit them) to use
-the discovery document and a request-derived callback. A blank value is treated
-as unset.
+`endpoint` and `callback-url` are optional: leave them blank (or omit them) to use
+product discovery and a request-derived callback. A blank value is treated as
+unset.
 
 Exchange must be reachable over HTTPS. The discovered issuer and base URL, the
-OAuth endpoints, and the configured escape hatch are all checked, because the
+OAuth endpoints, and a configured endpoint are all checked, because the
 application secret, refresh token and full catalog archive travel over them.
 `allow-http: true` lifts that for a local Exchange checkout only — the `local`
 profile sets it, and no other profile does.
@@ -121,29 +121,35 @@ Helm values:
 ```yaml
 exchange:
   enabled: true
-  discoveryUrl: https://epistola.app/.well-known/epistola/exchange.json
+  # Optional; empty finds Exchange through productDomain.
+  endpoint: ""
   # Optional; otherwise derived from the initiating browser request.
   callbackUrl: https://suite.example.org/oauth/exchange/callback
 ```
 
-The chart maps these to `EPISTOLA_EXCHANGE_ENABLED`,
-`EPISTOLA_EXCHANGE_DISCOVERYURL`, and (when set)
-`EPISTOLA_EXCHANGE_CALLBACKURL`. The default remains off after an upgrade, so
+The chart maps these to `EPISTOLA_EXCHANGE_ENABLED`, and (when set)
+`EPISTOLA_EXCHANGE_ENDPOINT` and `EPISTOLA_EXCHANGE_CALLBACKURL`. The default remains off after an upgrade, so
 installing a Suite release cannot unexpectedly create outbound traffic.
 
-When `base-url` is absent, Suite reads the public discovery document — the path a
-real deployment takes. It is published by the Epistola website (an Astro route at
-`src/pages/.well-known/epistola/exchange.json.ts`), and `ExchangeDiscoveryIntegrationTest`
-serves that exact shape so the parser is pinned against the published contract
-rather than against our own reading of it. Version 1 has this shape:
+When `endpoint` is absent, Suite takes Exchange's issuer and base URL from the
+`exchange` section of the product discovery document
+(`https://{product-domain}/.well-known/epistola.json`, see
+[Data shared with Epistola](outbound-traffic.md#product-discovery) and
+[ADR 0030](adr/0030-product-domain-and-discovery.md)):
 
 ```json
 {
-  "version": 1,
-  "issuer": "https://exchange.epistola.app",
-  "baseUrl": "https://exchange.epistola.app"
+  "schemaVersion": 1,
+  "exchange": {
+    "issuer": "https://exchange.epistola.app",
+    "endpoint": "https://exchange.epistola.app"
+  }
 }
 ```
+
+Both must be `https:` on the product domain or a subdomain; without them Suite
+uses `https://exchange.{product-domain}`. The older
+`/.well-known/epistola/exchange.json` stays published for released Suites.
 
 Suite then reads `<issuer>/.well-known/oauth-authorization-server`, verifies
 that the returned issuer matches, and uses the advertised authorization-request
@@ -470,28 +476,6 @@ the explicit local-only recovery action instead.
 Disabling the deployment gate stops all Exchange network activity, including
 credential maintenance. It does not delete encrypted credentials or queued
 archives, so re-enabling resumes safely.
-
-## Backup and restore boundary
-
-Portable tenant backups include the tenant publish default and each catalog's
-publication policy, because those columns belong to the normal `tenants` and
-`catalogs` authoring rows. The namespace binding is not among them: it names a
-coordinate in an organization the restoring installation may not be.
-
-They deliberately exclude:
-
-- `exchange_tenant_connections` and OAuth credentials;
-- pending redirect authorization state and PKCE verifiers;
-- immutable namespace bindings;
-- publication outbox rows, retained ZIPs, retry state, and remote identifiers.
-
-Those records describe an installation-specific trust relationship and remote
-side effects. Restoring them elsewhere could duplicate a remote identity,
-replay a publication, or bind a restored catalog to a namespace the new
-installation does not control. After restore, an administrator enrolls the
-tenant again and new releases follow the restored policy settings. Existing
-releases remain local until explicitly published while their working copy still
-matches.
 
 ## Operational checks
 

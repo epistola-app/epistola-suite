@@ -287,7 +287,8 @@ The eventual shape:
   shape templates already use).
 - Embedding stencil node gains an optional `props.parameterBindings`
   map: `{ paramName → Expression | LiteralValue }`. Expressions reuse the
-  existing vocabulary (`jsonata`, `simple_path`, `javascript`).
+  existing vocabulary (`jsonata`, `simple_path`; `javascript` is no longer
+  supported).
 - At render time, the renderer's `RenderContext` data scope is pushed when
   entering a stencil; bindings are evaluated against the parent scope to
   build the child scope; the stencil's expressions resolve against it;

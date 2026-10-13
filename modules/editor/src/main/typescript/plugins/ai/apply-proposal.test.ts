@@ -6,13 +6,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { applyProposal } from './apply-proposal.js';
 import type { AiProposal } from './types.js';
 import { EditorEngine } from '../../engine/EditorEngine.js';
-import {
-  createTestDocument,
-  testRegistry,
-  resetCounter,
-  nodeId,
-  slotId,
-} from '../../engine/test-helpers.js';
+import { createTestDocument, testRegistry, resetCounter } from '../../engine/test-helpers.js';
 import type { NodeId, SlotId } from '../../types/index.js';
 
 beforeEach(() => {

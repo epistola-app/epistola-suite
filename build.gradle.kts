@@ -25,7 +25,6 @@ dependencies {
     kover(project(":modules:epistola-support"))
     kover(project(":modules:epistola-support-feedback"))
     kover(project(":modules:epistola-support-snapshots"))
-    kover(project(":modules:epistola-support-backups"))
     kover(project(":modules:epistola-support-upgrading"))
     kover(project(":modules:epistola-mcp"))
 }

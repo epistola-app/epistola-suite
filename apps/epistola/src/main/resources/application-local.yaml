@@ -37,6 +37,12 @@ spring:
 epistola:
   demo:
     enabled: true
+  # Local runs must not call epistola.app: they would be counted as real installations. Turn these
+  # on to try the version check or the support badge against the live endpoints.
+  version-check:
+    enabled: false
+  sharing:
+    installation-id: false # the support badge then says "Support cannot be verified"
 
   # Embedding basis for the training-facility site (docs/embedding.md, ADR
   # 0015), enabled here so it can be developed against a local Epistola
@@ -106,6 +112,9 @@ epistola:
           - CONTENT_PUBLISHER
   catalog:
     allow-http: true
+    outbound:
+      # A catalog or code list served from this machine during development.
+      allow-private-networks: true
   # Keep the deployment gate inherited as false, but make opting in locally
   # target the sibling epistola-exchange checkout without contacting public
   # product discovery. OAuth metadata is still discovered and issuer-checked.
@@ -114,7 +123,7 @@ epistola:
     # epistola-exchange checkout, so leaving the deployment gate off made all of it
     # dead config and hid the Exchange UI even with the catalog-publishing feature on.
     enabled: true
-    base-url: http://exchange.localhost:4075
+    endpoint: http://exchange.localhost:4075
     callback-url: http://localhost:4000/oauth/exchange/callback
     # The sibling checkout is plaintext; every other profile refuses http:// so credentials
     # and catalog archives are never sent in the clear.
@@ -144,12 +153,11 @@ epistola:
   # Turn it on when working on Backups, Upgrading or the Support → Overview page:
   # start epistola-hub, then run with `--epistola.support.enabled=true`. The
   # settings below already point at the local hub gRPC port (9090, plaintext) and
-  # skip the .well-known discovery dance, so that one flag is all it takes.
+  # skip product discovery, so that one flag is all it takes.
   support:
     enabled: false
     hub:
-      host: localhost
-      port: 9090
+      endpoint: localhost:9090
       plaintext: true
 
 # ---------------------------------------------------------------------------

@@ -49,7 +49,6 @@ class VariantRouteHandler {
 
     fun createVariant(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -179,7 +178,6 @@ class VariantRouteHandler {
 
     fun setDefaultVariant(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
@@ -192,7 +190,6 @@ class VariantRouteHandler {
 
     fun deleteVariant(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)

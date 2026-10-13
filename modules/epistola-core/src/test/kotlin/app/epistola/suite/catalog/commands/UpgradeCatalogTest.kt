@@ -143,7 +143,8 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
             InstallFromCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
             ImportCodeList(tenantId, catalogKey, "stale-list", "Stale List").execute()
-            ImportFont(tenantId, catalogKey, "stale-font", "Stale Font", "sans").execute()
+            // Fonts reach an installed catalog only through a catalog import (#1023).
+            CatalogImportContext.runAsImport { ImportFont(tenantId, catalogKey, "stale-font", "Stale Font", "sans").execute() }
 
             val result = UpgradeCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
 
@@ -173,7 +174,8 @@ class UpgradeCatalogTest : IntegrationTestBase() {
                 displayName = "Uses List",
                 codeListId = CodeListId(CodeListKey.of("used-list"), subscribedCatalog),
             ).execute()
-            ImportFont(tenantId, catalogKey, "used-font", "Used Font", "sans").execute()
+            // Fonts reach an installed catalog only through a catalog import (#1023).
+            CatalogImportContext.runAsImport { ImportFont(tenantId, catalogKey, "used-font", "Used Font", "sans").execute() }
             CreateTheme(
                 id = ThemeId(ThemeKey.of("uses-font"), CatalogId.default(tenantId)),
                 name = "Uses Font",
@@ -209,7 +211,8 @@ class UpgradeCatalogTest : IntegrationTestBase() {
                 codeListCatalogKey = catalogKey,
                 codeListSlug = CodeListKey.of("obsolete-list"),
             ).execute()
-            ImportFont(tenantId, catalogKey, "obsolete-font", "Obsolete Font", "sans").execute()
+            // Fonts reach an installed catalog only through a catalog import (#1023).
+            CatalogImportContext.runAsImport { ImportFont(tenantId, catalogKey, "obsolete-font", "Obsolete Font", "sans").execute() }
             ImportTheme(
                 tenantId = tenantId,
                 catalogKey = catalogKey,
@@ -282,7 +285,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
     fun `upgrade aborts on failed install — version not bumped, stale not removed`(@TempDir tmp: Path) {
         // Mutable file:// copy of a self-contained fixture so we can break a
         // resource between install and upgrade.
-        val src = javaClass.classLoader.getResource("test-catalogs/dependency-test/catalog.json")!!.toURI().toPath().parent
+        val src = javaClass.classLoader.getResource("epistola/catalogs/test/dependency-test/catalog.json")!!.toURI().toPath().parent
         Files.walk(src).use { stream ->
             stream.forEach { p ->
                 val target = tmp.resolve(src.relativize(p).toString())

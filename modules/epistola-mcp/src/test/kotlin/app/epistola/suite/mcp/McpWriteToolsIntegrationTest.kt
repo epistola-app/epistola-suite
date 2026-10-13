@@ -152,6 +152,32 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `update_template_draft refuses a javascript expression`() {
+        val tenantId = newTenant()
+        runAsApiKey(tenantId) { templateTools.createTemplate("default", "scripted", "Scripted", null, null, null) }
+        val variant = runAsApiKey(tenantId) { templateTools.listVariants("default", "scripted") }.single()
+        val document = """
+            {
+              "modelVersion": 1,
+              "root": "root",
+              "nodes": {
+                "root": {"id": "root", "type": "root", "slots": ["slot-root"]},
+                "text1": {"id": "text1", "type": "text", "slots": [], "props": {"content":
+                  {"type": "doc", "content": [{"type": "paragraph", "content": [
+                    {"type": "expression", "attrs": {"expression": "while(true){}", "language": "javascript"}}
+                  ]}]}}}
+              },
+              "slots": {"slot-root": {"id": "slot-root", "nodeId": "root", "name": "children", "children": ["text1"]}},
+              "themeRef": {"type": "inherit"}
+            }
+        """.trimIndent()
+
+        assertThatThrownBy {
+            runAsApiKey(tenantId) { versionTools.updateTemplateDraft("default", "scripted", variant.id, document) }
+        }.hasMessageContaining("JavaScript expressions are no longer supported")
+    }
+
+    @Test
     fun `create_variant and update_variant manage attributes`() {
         val tenantId = newTenant()
         runAsApiKey(tenantId) { templateTools.createTemplate("default", "letter", "Letter", null, null, null) }

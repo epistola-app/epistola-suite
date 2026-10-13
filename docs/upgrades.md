@@ -79,22 +79,9 @@ anything substantial.
 
 ## Backups and upgrades
 
-**A tenant backup can only be restored by a build whose schema is compatible with the one the backup
-was taken on.** Each migration declares this in a
-[`backup-restore-compatibility` header](tenant-backup.md#schema-compatibility); a migration that
-changes a backed-up table's columns declares `backward=false`, and every backup taken before it
-becomes unrestorable the moment it commits. There is no override.
-
-Practically:
-
-- **Take and verify a backup before upgrading** — a database-level one, not a tenant backup. Tenant
-  backups from before a breaking upgrade will not restore into the new build, so they are not a
-  rollback path.
-- **After upgrading, run a fresh tenant backup** rather than waiting for the daily schedule.
-  Until it completes, the Backups page shows every existing backup as `Older version` with restore
-  disabled.
-- Rolling the application back does not help: `forward=false` means backups taken on the new schema
-  cannot be restored into the old build either.
+**Take a database-level backup before upgrading, and verify it restores.** It is the only rollback
+path for a breaking upgrade (see below). Epistola keeps no per-tenant backups of its own: tenant
+backups were withdrawn in 2.0.0, and released catalog content is kept by the releases themselves.
 
 ## Rollback
 
@@ -113,4 +100,3 @@ the step above, then redeploy the old image. Which is why that step is not optio
 - [ ] Raise `migration.job.activeDeadlineSeconds` past the measured time if needed.
 - [ ] Scale to zero and confirm `cluster_nodes` shows no recent heartbeat.
 - [ ] Upgrade.
-- [ ] Run a fresh tenant backup once pods are healthy.

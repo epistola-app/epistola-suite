@@ -107,8 +107,8 @@ tenant and is propagated across executor / virtual-thread handoffs by
 
 - **Request logs** attribute to the request's tenant (the `SecurityFilter` binds the principal).
 - **Background work** attributes when it binds a system principal for its tenant —
-  `SystemUser.principalForTenant(tenantKey)` (the job poller, snapshot backup/upgrading
-  schedulers, feedback sync, and tenant-scoped cluster scheduled tasks/timers).
+  `SystemUser.principalForTenant(tenantKey)` (the job poller, the upgrading snapshot
+  scheduler, feedback sync, and tenant-scoped cluster scheduled tasks/timers).
 - **System/background work with no principal** (system-wide cluster tasks like partition
   maintenance and log retention) → `tenant_key = NULL`, shown as **system**.
 

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.support
 
+import app.epistola.suite.productdomain.ProductEndpoints
 import org.springframework.boot.context.properties.ConfigurationProperties
 
 /**
@@ -16,29 +17,29 @@ data class SupportProperties(
     val hub: HubProperties = HubProperties(),
 ) {
     /**
-     * Connection details for the epistola-hub server. Two resolution modes:
+     * Connection details for the epistola-hub server.
      *
-     * 1. **Direct endpoint** (set [host] + [port]): skip `.well-known`
-     *    discovery entirely. Use for local development (`localhost:9090`
-     *    plaintext) or cluster-internal hub deployments.
-     * 2. **`.well-known` discovery** (leave [host] blank): fetch the
-     *    discovery JSON from [discoveryUrl] (or the SaaS default).
-     *
-     * @property discoveryUrl `.well-known` URL used when [host] is blank.
-     *   Blank → the hub client's `DEFAULT_DISCOVERY_URL` (the SaaS endpoint).
-     * @property host Direct hub gRPC host. Blank → use discovery.
-     * @property port Direct hub gRPC port. Ignored when [host] is blank.
-     * @property plaintext Disable TLS on the direct gRPC connection.
-     *   Local dev only — never set in production.
+     * @property endpoint The hub's gRPC endpoint as `host:port`, for local development
+     *   (`localhost:9090`, plaintext) or a cluster-internal hub. Blank → found through the product
+     *   domain's discovery document (ADR 0030), always over TLS.
+     * @property plaintext Disable TLS on a configured [endpoint]. Local dev only — never set in
+     *   production; a discovered hub is always TLS.
      * @property nodeId Per-pod node identifier reported to the hub.
      *   Blank/null → auto-detect from EPISTOLA_NODE_ID / HOSTNAME / POD_NAME
      *   / local hostname.
      */
     data class HubProperties(
-        val discoveryUrl: String = "",
-        val host: String = "",
-        val port: Int = 0,
+        val endpoint: String = "",
         val plaintext: Boolean = false,
         val nodeId: String? = null,
-    )
+    ) {
+        init {
+            require(endpoint.isBlank() || ProductEndpoints.HubAddress.parse(endpoint) != null) {
+                "epistola.support.hub.endpoint must be host:port, such as localhost:9090; got '$endpoint'"
+            }
+        }
+
+        /** The configured endpoint; null when the hub is to be discovered. */
+        val configuredEndpoint: ProductEndpoints.HubAddress? get() = endpoint.takeIf { it.isNotBlank() }?.let { ProductEndpoints.HubAddress.parse(it) }
+    }
 }

@@ -23,26 +23,26 @@ names, …) into a JSONB payload. The audit log stores none of that.
 `audit_log` (see the migration `audit/V20260622102813__audit_audit_log.sql` in the
 `epistola-audit` module):
 
-| Column          | Meaning                                                                                           |
-| --------------- | ------------------------------------------------------------------------------------------------- |
-| `id`            | UUIDv7 (time-ordered; stable id for future hub forwarding)                                        |
-| `occurred_at`   | when the command was dispatched (`EpistolaClock`) — the partition key                             |
-| `tenant_key`    | tenant slug, or `NULL` for system/root commands. **Not a foreign key.**                           |
-| `actor_user_id` | opaque surrogate id of the actor. **Not a foreign key.** `NULL` if unauthenticated                |
-| `action`        | command/query class simple name, e.g. `CreateTheme`, `GetDocument`                                |
-| `operation`     | `WRITE` (an audited command) or `READ` (an audited data-access query)                             |
-| `entity_type`   | entity kind, e.g. `template`, `variant`, `environment` (from the typed id's `path()`)             |
-| `entity_id`     | reference to the entity acted on (the typed id's path segments, or `EntityIdentifiable.entityId`) |
-| `outcome`       | `SUCCESS` or `FAILURE`                                                                            |
-| `error_code`    | on failure: `ValidationCode` name or exception class — **never the message**                      |
-| `details`       | optional, author-supplied PII-free key/values (`AuditDetailed`), e.g. `{"backupId": "…"}` (JSONB) |
-| `instance_id`   | `NodeIdentity.nodeId` that recorded the entry                                                     |
+| Column          | Meaning                                                                                                        |
+| --------------- | -------------------------------------------------------------------------------------------------------------- |
+| `id`            | UUIDv7 (time-ordered; stable id for future hub forwarding)                                                     |
+| `occurred_at`   | when the command was dispatched (`EpistolaClock`) — the partition key                                          |
+| `tenant_key`    | tenant slug, or `NULL` for system/root commands. **Not a foreign key.**                                        |
+| `actor_user_id` | opaque surrogate id of the actor. **Not a foreign key.** `NULL` if unauthenticated                             |
+| `action`        | command/query class simple name, e.g. `CreateTheme`, `GetDocument`                                             |
+| `operation`     | `WRITE` (an audited command) or `READ` (an audited data-access query)                                          |
+| `entity_type`   | entity kind, e.g. `template`, `variant`, `environment` (from the typed id's `path()`)                          |
+| `entity_id`     | reference to the entity acted on (the typed id's path segments, or `EntityIdentifiable.entityId`)              |
+| `outcome`       | `SUCCESS` or `FAILURE`                                                                                         |
+| `error_code`    | on failure: `ValidationCode` name or exception class — **never the message**                                   |
+| `details`       | optional, author-supplied PII-free key/values (`AuditDetailed`), e.g. `{"<source id>": "<target id>"}` (JSONB) |
+| `instance_id`   | `NodeIdentity.nodeId` that recorded the entry                                                                  |
 
 There is **no payload dump**, so a command field value can never auto-leak into
 the table (enforced by a test). `error_code` is a machine code (not the message,
 which can echo user input). The only author-supplied field is `details` — an
 opt-in key/value map a command provides via [`AuditDetailed`] (e.g.
-`RestoreTenantBackup` → `{"backupId": "…"}`), with the **same PII-free contract as
+a resource move → `{"<source id>": "<target id>"}`), with the **same PII-free contract as
 `error_code`**: keys/values must be identifiers, counts and fixed phrasing, never
 names/emails/free user input. It renders as chips in the viewer.
 
@@ -143,12 +143,6 @@ Cold archival (detaching very old partitions and moving them to cheap storage,
 optionally batched — never deleted) is a deliberate **future tier**;
 partitioning is what makes detaching clean.
 
-The audit module also declares `audit_log` **excluded** from tenant backup/restore
-via an `AuditBackupTables` (`TenantBackupTableContributor`) bean, so a restore never
-reads or rewrites audit history. Its migration carries a
-`backup-restore-compatibility` header (backward+forward — additive, touches no
-backed-up table) so restores cross it cleanly.
-
 ## Surfaces
 
 The audit log is **UI-only** for now: a permission-gated viewer at
@@ -171,7 +165,7 @@ the host app and feature modules supply links for their own entity types).
 
 The feature lives in its own module, **`epistola-audit`** (recorder, read model +
 `ListAuditEntries`, the `audit_log` migration, the UI handler/routes/templates +
-nav contributor, and the partition/backup table contributors). Only the **contract**
+nav contributor, and the partition table contributor). Only the **contract**
 stays in `epistola-core`, because core domain types depend on it:
 
 - the `CommandListener` / `QueryListener` SPIs (the mediator owns them),

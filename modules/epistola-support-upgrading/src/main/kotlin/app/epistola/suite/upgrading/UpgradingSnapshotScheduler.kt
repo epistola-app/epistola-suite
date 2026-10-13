@@ -32,8 +32,7 @@ import java.time.Duration
 /**
  * Keeps a current snapshot available for the compatibility ("Upgrading") check. For every tenant
  * with the `support-upgrading` toggle on, it makes a snapshot **only when none was made in the last
- * [UpgradingSnapshotProperties.maxAge]** — backup-made snapshots count too, so when a tenant also
- * has backups on this sweep does nothing and the daily backup carries the freshness.
+ * [UpgradingSnapshotProperties.maxAge]**.
  *
  * Runs hourly by default; only active when `epistola.support.upgrading.snapshot.scheduled.enabled=true`.
  * The native scheduled-task lease ensures only one node runs each cycle. Each tenant is processed

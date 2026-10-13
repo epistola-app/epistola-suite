@@ -6,6 +6,7 @@ package app.epistola.suite.fonts.commands
 
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.catalog.commands.InstallStatus
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -68,7 +69,14 @@ class ImportFontHandler(
     private val fontCatalogWriter: FontCatalogWriter,
 ) : CommandHandler<ImportFont, InstallStatus> {
 
-    override fun handle(command: ImportFont): InstallStatus = jdbi.inTransaction<InstallStatus, Exception> { handle ->
+    override fun handle(command: ImportFont): InstallStatus {
+        // Catalog install and upgrade write fonts into SUBSCRIBED catalogs inside
+        // CatalogImportContext, which the guard lets through; a user upload must not.
+        requireCatalogEditable(command.tenantId.key, command.catalogKey)
+        return import(command)
+    }
+
+    private fun import(command: ImportFont): InstallStatus = jdbi.inTransaction<InstallStatus, Exception> { handle ->
         fontCatalogWriter.writeFont(
             handle = handle,
             tenantId = command.tenantId,

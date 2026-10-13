@@ -19,8 +19,8 @@ class KnownFeaturesTest {
     }
 
     @Test
-    fun `backups is marked beta and other features are stable by default`() {
-        assertThat(KnownFeatures.stageOf(KnownFeatures.SUPPORT_BACKUPS)).isEqualTo(KnownFeatures.FeatureStage.BETA)
+    fun `a feature carries its declared stage and is stable by default`() {
+        assertThat(KnownFeatures.stageOf(KnownFeatures.RESOURCE_GRAPH)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
         assertThat(KnownFeatures.stageOf(KnownFeatures.SUPPORT_FEEDBACK)).isEqualTo(KnownFeatures.FeatureStage.STABLE)
     }
 

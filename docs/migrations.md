@@ -18,7 +18,6 @@ their migrations, under:
 | `modules/epistola-core`             | `db/migration/core/`     | Everything except the tables below (tenants, templates, documents, …) |
 | `modules/epistola-audit`            | `db/migration/audit/`    | `audit_log`                                                           |
 | `modules/epistola-support-feedback` | `db/migration/feedback/` | `feedback`, `feedback_comments`, `feedback_assets`                    |
-| `modules/epistola-support-backups`  | `db/migration/backups/`  | `tenant_backups`                                                      |
 | `modules/loadtest`                  | `db/migration/loadtest/` | `load_test_runs`                                                      |
 
 There is one **global Flyway namespace**: at application runtime every module's
@@ -129,11 +128,6 @@ integration-test coverage — `InstallationServiceIT` and
    retry.
 5. Ensure the normal integration suite passes — a new migration is just appended
    to the history; there is no special gate to satisfy.
-6. **If the new table is tenant-scoped** (has a `tenant_key` column, or is keyed
-   by the tenant itself), classify it in your module's `TenantBackupTableContributor`
-   bean — `includedTables()` to back it up or `excludedTables()` to exclude it.
-   `TenantTableTopologyDriftIntegrationTest` (and `TenantBackupClassificationAppTest`
-   for feature modules) fails the build until you do. See [`tenant-backup.md`](tenant-backup.md).
 
 ## Running migrations: embedded vs separated
 

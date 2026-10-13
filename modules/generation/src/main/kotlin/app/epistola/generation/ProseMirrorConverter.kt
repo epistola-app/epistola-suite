@@ -6,6 +6,7 @@ package app.epistola.generation
 
 import app.epistola.catalog.protocol.FontRef
 import app.epistola.generation.expression.CompositeExpressionEvaluator
+import app.epistola.generation.expression.UnsupportedExpressionLanguages
 import app.epistola.generation.pdf.BookmarkEntry
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.generation.pdf.StyleApplicator
@@ -275,10 +276,9 @@ class ProseMirrorConverter(
                     @Suppress("UNCHECKED_CAST")
                     val exprAttrs = child["attrs"] as? Map<String, Any>
                     val expressionRaw = exprAttrs?.get("expression") as? String ?: ""
-                    val language = when (exprAttrs?.get("language") as? String) {
-                        "javascript" -> ExpressionLanguage.javascript
-                        else -> defaultLanguage
-                    }
+                    // A JavaScript expression fails the render; it is never evaluated as JSONata.
+                    UnsupportedExpressionLanguages.rejectJavaScript(exprAttrs?.get("language") as? String)
+                    val language = defaultLanguage
                     val value = expressionEvaluator.evaluate(expressionRaw, language, data, loopContext)
                     append(app.epistola.generation.expression.ExpressionEvaluator.valueToString(value))
                 }
@@ -464,12 +464,10 @@ class ProseMirrorConverter(
                     @Suppress("UNCHECKED_CAST")
                     val attrs = child["attrs"] as? Map<String, Any>
                     val expressionRaw = attrs?.get("expression") as? String ?: ""
-                    // Get language from attrs, default to the converter's default
-                    val languageStr = attrs?.get("language") as? String
-                    val language = when (languageStr) {
-                        "javascript" -> ExpressionLanguage.javascript
-                        else -> defaultLanguage
-                    }
+                    // Inline expressions use the converter's default language. A JavaScript
+                    // expression fails the render; it is never evaluated as JSONata.
+                    UnsupportedExpressionLanguages.rejectJavaScript(attrs?.get("language") as? String)
+                    val language = defaultLanguage
                     val value = expressionEvaluator.evaluate(
                         expressionRaw,
                         language,

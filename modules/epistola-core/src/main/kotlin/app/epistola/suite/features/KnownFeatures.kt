@@ -8,7 +8,6 @@ import app.epistola.suite.common.ids.FeatureKey
 
 object KnownFeatures {
     val SUPPORT_FEEDBACK = FeatureKey.of("support-feedback")
-    val SUPPORT_BACKUPS = FeatureKey.of("support-backups")
 
     /**
      * The compatibility-check feature (Support → Upgrading). The toggle/entitlement key is
@@ -78,7 +77,6 @@ object KnownFeatures {
 
     val all: List<FeatureKey> = listOf(
         SUPPORT_FEEDBACK,
-        SUPPORT_BACKUPS,
         SUPPORT_COMPATIBILITY_CHECK,
         QUALITY,
         AI_CHAT,
@@ -93,16 +91,16 @@ object KnownFeatures {
     /**
      * Features whose availability is gated by a hub **entitlement** when the support tier is enabled
      * (the [FeatureEntitlementGate.gatedFeatures] set). With no tier present (OSS) they fall through to
-     * their plain toggle — feedback is freely usable, backups/compatibility-check are simply off by default.
+     * their plain toggle — feedback is freely usable, compatibility-check is simply off by default.
      */
-    val SUPPORT_TIER: Set<FeatureKey> = setOf(SUPPORT_FEEDBACK, SUPPORT_BACKUPS, SUPPORT_COMPATIBILITY_CHECK)
+    val SUPPORT_TIER: Set<FeatureKey> = setOf(SUPPORT_FEEDBACK, SUPPORT_COMPATIBILITY_CHECK)
 
     /**
      * Support features that are **inert without a live hub** (unlike feedback, which is freely usable
      * locally). Their toggle default follows `epistola.support.enabled`: on with the tier, off in OSS.
      * Resolved in [FeatureToggleService.defaultFor].
      */
-    val HUB_ONLY: Set<FeatureKey> = setOf(SUPPORT_BACKUPS, SUPPORT_COMPATIBILITY_CHECK)
+    val HUB_ONLY: Set<FeatureKey> = setOf(SUPPORT_COMPATIBILITY_CHECK)
 
     /**
      * Release maturity of a feature. [STABLE] shows no marker; [BETA]/[ALPHA] render a badge in the
@@ -130,11 +128,6 @@ object KnownFeatures {
         SUPPORT_FEEDBACK to FeatureMetadata(
             "Feedback",
             "Enables the Support → Feedback feature (sync to epistola-hub).",
-        ),
-        SUPPORT_BACKUPS to FeatureMetadata(
-            "Backups",
-            "Enables the Support → Backups feature (faithful full-fidelity tenant backups + restore).",
-            stage = FeatureStage.BETA,
         ),
         SUPPORT_COMPATIBILITY_CHECK to FeatureMetadata(
             "Upgrading",

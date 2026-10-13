@@ -107,6 +107,11 @@ spring:
 # Tests use permit-all (see application-test.yaml)
 
 epistola:
+  # Where Epistola-operated services are found (ADR 0030, docs/outbound-traffic.md): a host name,
+  # never a URL. The version check, the installation check, Exchange and the support hub read their
+  # endpoints from https://{product-domain}/.well-known/epistola.json unless their own `endpoint`
+  # names one; without that document they fall back to their built-in addresses on this domain.
+  product-domain: epistola.app
   migration:
     # Single migration knob (env: EPISTOLA_MIGRATION_MODE). One name, three
     # meanings — no overloaded tokens:
@@ -174,10 +179,9 @@ epistola:
   exchange:
     # Hard deployment gate. Tenant/catalog settings are inert while disabled.
     enabled: false
-    discovery-url: https://epistola.app/.well-known/epistola/exchange.json
-    # Optional direct base URL for local development only; production discovers the issuer above.
-    # Leave blank to use discovery — a blank value is treated as unset.
-    base-url:
+    # Exchange's base URL, for local development only; production finds it through the product
+    # domain. Leave blank to use discovery — a blank value is treated as unset.
+    endpoint:
     # Optional browser-reachable callback. If absent, Suite derives it from the setup request.
     callback-url:
     # How often the publication worker looks for due work.
@@ -202,6 +206,21 @@ epistola:
     # Refuse a plaintext Exchange. Only a local checkout should ever turn this on.
     allow-http: false
   catalog:
+    # Where catalog and code-list sources may be read from (docs/exchange/README.md, "Catalog and
+    # code-list sources"). Plaintext http:// sources are refused; only a local setup should allow them.
+    allow-http: false
+    # Directories a file:/// catalog or code-list source may be read from. Empty turns file: sources
+    # off. A file is accepted only when its canonical path (symbolic links resolved) is inside one.
+    file-roots: []
+    outbound:
+      # Network sources must resolve to public addresses only. Set true for an installation whose
+      # catalogs live on an intranet; link-local (cloud metadata), unspecified, multicast and
+      # broadcast addresses stay refused regardless.
+      allow-private-networks: false
+      # Host names allowed to resolve to a private address without opening it for every host.
+      allowed-hosts: []
+      # Redirects one fetch follows; each is checked as if it were the first request.
+      max-redirects: 3
     upstream-check:
       # Ask each subscribed catalog's source, on a schedule, whether it has published anything
       # newer, so a release can be noticed without anyone opening the catalogs page. On by
@@ -236,6 +255,10 @@ epistola:
       interval-ms: 5000 # Fallback poll interval (drain loop handles active work)
       max-concurrent-jobs: 20 # Max jobs per instance (10x parallelism)
       stale-timeout-minutes: 10 # Reclaim jobs after 10 min of no progress
+      # On shutdown, how long in-flight renders may finish before they are interrupted and
+      # released to PENDING. Must fit, with the web server's graceful shutdown, in the pod's
+      # termination grace period (the Helm chart's terminationGracePeriodSeconds).
+      shutdown-drain-timeout: 20s
       adaptive-batch:
         min-batch-size: 1 # Never go below 1 (backward compatible)
         max-batch-size: 50 # Claim more per poll for efficient draining
@@ -323,12 +346,11 @@ epistola:
   i18n:
     default-locale: "en-US"
 
-  # Public release metadata check. Independent from epistola.support.hub discovery:
-  # support uses /.well-known/epistola/hub.json for commercial gRPC endpoints,
-  # while this reads public OSS release channels from releases.json.
+  # Public release metadata check: anonymous, matched against the running version locally.
   version-check:
     enabled: true
-    well-known-url: "https://epistola.app/.well-known/epistola/releases.json"
+    # The release metadata document. Blank: found through the product domain.
+    endpoint: ""
     # Daily check window in UTC. Epistola deterministically picks one minute
     # inside this window from the stable installation id, so each installation
     # checks at the same time every day while load is spread across the hour.
@@ -358,21 +380,14 @@ epistola:
   support:
     enabled: false
     hub:
-      # Override the hub discovery URL for self-hosted deployments.
-      # Blank → use the SaaS default baked into the hub client.
-      discovery-url: ""
+      # The hub's gRPC endpoint as host:port, for a self-hosted or local hub. Blank: found
+      # through the product domain.
+      endpoint: ""
       # Override the per-pod node id. Blank → auto-detect from
       # EPISTOLA_NODE_ID / HOSTNAME / POD_NAME / local hostname.
       node-id: ""
-    # Catalog backups — the daily retained-snapshot run. Per tenant, gated by the
-    # `support-backups` feature toggle; snapshots reach the hub only when enabled above.
-    backups:
-      scheduled:
-        enabled: false # Run the daily backup sweep
-      cron: "0 0 2 * * *" # Daily at 02:00
     # Compatibility ("Upgrading") — keep a recent snapshot for the company-side check.
-    # The sweep makes a snapshot only when none was synced (by backups or itself) within
-    # max-age, so it stays dormant when the daily backup already keeps one fresh.
+    # The sweep makes a snapshot only when none was synced within max-age.
     upgrading:
       snapshot:
         scheduled:

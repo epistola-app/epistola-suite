@@ -10,7 +10,8 @@ import java.time.Duration
 @ConfigurationProperties(prefix = "epistola.version-check")
 data class VersionCheckProperties(
     val enabled: Boolean = true,
-    val wellKnownUrl: String = "https://epistola.app/.well-known/epistola/releases.json",
+    /** The release metadata document. Blank: found through the product domain (ADR 0030). */
+    val endpoint: String = "",
     /** UTC hour at which the daily version-check spread window starts. */
     val dailyWindowStartHour: Int = 8,
     /**
@@ -27,4 +28,8 @@ data class VersionCheckProperties(
     val deprecationWarningWindow: Duration = Duration.ofDays(90),
     val connectTimeout: Duration = Duration.ofSeconds(3),
     val readTimeout: Duration = Duration.ofSeconds(5),
-)
+) {
+    init {
+        if (enabled && endpoint.isNotBlank()) requireCheckUrl("epistola.version-check.endpoint", endpoint)
+    }
+}

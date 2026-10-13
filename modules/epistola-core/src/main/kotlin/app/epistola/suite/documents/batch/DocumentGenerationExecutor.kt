@@ -95,7 +95,6 @@ class DocumentGenerationExecutor(
         }
 
         val templateName = request.templateKey.value
-        val path = "unknown" // will be determined during generation
 
         logger.info(
             "Processing request {} for template {}/{}/{}",
