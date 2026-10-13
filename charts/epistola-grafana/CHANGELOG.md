@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-13
+
 ### Added
 
 - Database statement latency p95 on the Infrastructure dashboard and the
