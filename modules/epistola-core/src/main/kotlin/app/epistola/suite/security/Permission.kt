@@ -59,12 +59,8 @@ enum class Permission {
     /** Audit trail: view the PII-free "who did what, when" command log. */
     AUDIT_VIEW,
 
-    /** Non-destructive backup operations: list backups, back up now. */
-    BACKUP_VIEW,
-    BACKUP_CREATE,
-
     /**
-     * Irreversible, data-destroying operations: restore a backup or snapshot,
+     * Irreversible, data-destroying operations: restore a snapshot,
      * purge catalogs. Held only by MANAGER and deliberately withheld from
      * API keys by default — named to signal danger and to be granted/audited
      * independently of ordinary settings.
@@ -90,7 +86,6 @@ fun TenantRole.permissions(): Set<Permission> = when (this) {
         Permission.STENCIL_VIEW,
         Permission.REFERENCE_VIEW,
         Permission.CATALOG_VIEW,
-        Permission.BACKUP_VIEW,
     )
 
     TenantRole.CONTENT_AUTHOR -> setOf(
@@ -114,7 +109,6 @@ fun TenantRole.permissions(): Set<Permission> = when (this) {
         Permission.TENANT_SETTINGS,
         Permission.TENANT_USERS,
         Permission.CATALOG_MANAGE,
-        Permission.BACKUP_CREATE,
         Permission.DIAGNOSTICS_VIEW,
         Permission.DIAGNOSTICS_MANAGE,
         Permission.AUDIT_VIEW,

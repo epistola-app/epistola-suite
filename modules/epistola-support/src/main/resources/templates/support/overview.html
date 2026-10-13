@@ -73,7 +73,7 @@
                 <tbody>
                     <tr th:each="entitlement : ${entitlements}">
                         <td>
-                            <span th:text="${entitlement.feature}">support-backups</span>
+                            <span th:text="${entitlement.feature}">support-feedback</span>
                             <div class="text-muted" th:if="${!#strings.isEmpty(entitlement.description)}"
                                  th:text="${entitlement.description}">Feature description</div>
                         </td>

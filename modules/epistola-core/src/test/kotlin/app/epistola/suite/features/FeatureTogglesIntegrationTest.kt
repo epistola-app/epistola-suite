@@ -116,16 +116,16 @@ class FeatureTogglesIntegrationTest : IntegrationTestBase() {
         val tenant1 = createTenant("toggle-tenant1")
         val tenant2 = createTenant("toggle-tenant2")
         withMediator {
-            // Backups is hub-only, so with no override it defaults off in tests (support tier off) —
+            // The compatibility check is hub-only, so with no override it defaults off in tests (support tier off) —
             // a clean contrast against tenant1's explicit override.
-            SaveFeatureToggle(tenant1.id, KnownFeatures.SUPPORT_BACKUPS, enabled = true).execute()
+            SaveFeatureToggle(tenant1.id, KnownFeatures.SUPPORT_COMPATIBILITY_CHECK, enabled = true).execute()
 
             val features1 = featureToggleService.resolveAll(tenant1.id)
             val features2 = featureToggleService.resolveAll(tenant2.id)
 
             // tenant1 has override → true, tenant2 has no override → falls back to default (false)
-            assertThat(features1[KnownFeatures.SUPPORT_BACKUPS]).isTrue()
-            assertThat(features2[KnownFeatures.SUPPORT_BACKUPS]).isFalse()
+            assertThat(features1[KnownFeatures.SUPPORT_COMPATIBILITY_CHECK]).isTrue()
+            assertThat(features2[KnownFeatures.SUPPORT_COMPATIBILITY_CHECK]).isFalse()
         }
     }
 }

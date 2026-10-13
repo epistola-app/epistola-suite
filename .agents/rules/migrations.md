@@ -16,8 +16,9 @@ forward, data-preserving migration. This is not negotiable for any feature matur
 - **Never edit a merged migration.** Add a new timestamped file. Folding `ALTER`s back into the
   original `CREATE` is no longer permitted; the RC1 consolidation was the last one.
 - **No destructive migrations**: nothing that drops or resets user data.
-- A new tenant-scoped table must be classified for backup, or
-  `TenantTableTopologyDriftIntegrationTest` fails.
+- **Removing a module keeps its migrations**: move each file byte for byte to the same
+  `db/migration/<dir>/` path in another module. Flyway cannot tell, and `checkMigrationVersions`
+  accepts exactly that move.
 - Prefer a lookup table over a `CHECK` constraint for extensible value sets — asset and font media
   types are seeded `asset_types` rows, so adding one is an insert, not a constraint change.
 

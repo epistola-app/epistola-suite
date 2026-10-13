@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-package app.epistola.suite.backups
+package app.epistola.suite.upgrading
 
 import app.epistola.hub.client.error.HubInternalException
 import app.epistola.hub.client.error.HubUnavailableException
@@ -29,19 +29,15 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
-import org.springframework.http.HttpEntity
-import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
-import org.springframework.http.MediaType
-import org.springframework.util.LinkedMultiValueMap
 import java.time.Instant
 
 @SpringBootTest(
-    classes = [EpistolaSuiteApplication::class, BackupsUpgradingHandlerTest.TestConfig::class],
+    classes = [EpistolaSuiteApplication::class, UpgradingHandlerTest.TestConfig::class],
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
 )
 @AutoConfigureTestRestTemplate
-class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
+class UpgradingHandlerTest : BaseIntegrationTest() {
     @TestConfiguration
     class TestConfig {
         @Bean
@@ -74,27 +70,24 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
     }
 
     private fun enableSupport(tenantKey: TenantKey) = withMediator {
-        SaveFeatureToggle(tenantKey, KnownFeatures.SUPPORT_BACKUPS, enabled = true).execute()
         SaveFeatureToggle(tenantKey, KnownFeatures.SUPPORT_COMPATIBILITY_CHECK, enabled = true).execute()
     }
 
     @Test
-    fun `backups page renders and the Support nav shows the items`() {
-        val tenant = createTenant("Backups Page")
+    fun `the Support nav links the overview and upgrading, and backups is gone`() {
+        val tenant = createTenant("Support Nav")
         enableSupport(tenant.id)
 
-        val response = restTemplate.getForEntity("/tenants/${tenant.id.value}/backups", String::class.java)
+        val response = restTemplate.getForEntity("/tenants/${tenant.id.value}/upgrading", String::class.java)
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!
-        assertThat(body).contains("Backups")
-        assertThat(body).contains("Back up now")
-        // Backups is a Beta feature: the page header carries the maturity badge.
-        assertThat(body).contains("badge badge-beta")
-        // Support nav items (Overview + the toggled features) are linked.
         assertThat(body).contains("/tenants/${tenant.id.value}/support")
-        assertThat(body).contains("/tenants/${tenant.id.value}/backups")
         assertThat(body).contains("/tenants/${tenant.id.value}/upgrading")
+        // Backups was withdrawn (#1050): no nav item, and the page no longer exists.
+        assertThat(body).doesNotContain("/tenants/${tenant.id.value}/backups")
+        val backups = restTemplate.getForEntity("/tenants/${tenant.id.value}/backups", String::class.java)
+        assertThat(backups.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
     }
 
     @Test
@@ -136,28 +129,6 @@ class BackupsUpgradingHandlerTest : BaseIntegrationTest() {
         val body = response.body!!
         assertThat(body).contains("couldn't serve compatibility results")
         assertThat(body).doesNotContain("Not connected to the Epistola hub")
-    }
-
-    @Test
-    fun `back up now reports a fresh upload, then 'no changes' on an unchanged re-run (dedup)`() {
-        val tenant = createTenant("Backup Dedup")
-        enableSupport(tenant.id)
-        val body = HttpEntity(LinkedMultiValueMap<String, String>(), htmxForm())
-
-        val first = restTemplate.postForEntity("/tenants/${tenant.id.value}/backups", body, String::class.java)
-        assertThat(first.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(first.headers.getFirst("HX-Redirect")).contains("saved=backup")
-        assertThat(first.headers.getFirst("HX-Redirect")).doesNotContain("unchanged")
-
-        // Same catalogs ⇒ same fingerprint ⇒ dedup, no new snapshot.
-        val second = restTemplate.postForEntity("/tenants/${tenant.id.value}/backups", body, String::class.java)
-        assertThat(second.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(second.headers.getFirst("HX-Redirect")).contains("saved=backup-unchanged")
-    }
-
-    private fun htmxForm() = HttpHeaders().apply {
-        contentType = MediaType.APPLICATION_FORM_URLENCODED
-        add("HX-Request", "true")
     }
 
     @Test
