@@ -2,6 +2,38 @@
 
 > **Note:** Helm chart changes are tracked separately in [`charts/epistola/CHANGELOG.md`](charts/epistola/CHANGELOG.md).
 
+## [1.4.0] - 2026-10-13
+
+Page headers and footers can now go anywhere in a document, and an AI assistant can author and publish templates over MCP (beta). This release also fixes variant-attribute, stencil and catalog-scoping bugs, and closes security gaps: JavaScript expressions give way to JSONata, SVG images stay self-contained, and catalog sources are limited to what an operator allows. Read the **Action on upgrade** notes if you load catalogs from disk or an intranet, or set the old version-check, Exchange or support-hub URLs.
+
+- feat(product-domain,version-check,exchange,support)!: **Epistola services are found through one product domain, with one endpoint setting each.** `epistola.product-domain` (Helm `productDomain`, default `epistola.app`) is now the only setting needed to point an installation at another Epistola site; the version check, installation check, Exchange and support hub look up their addresses there and fall back to the previous ones. **Action on upgrade** only if you set one of the old URL settings: rename it to the new `endpoint` (`version-check.endpoint`, `exchange.endpoint`, `support.hub.endpoint`). The application refuses to start until you do, and names the replacement.
+
+- fix(generation,templates)!: **JavaScript expressions are no longer supported; use JSONata.** JavaScript expressions ran without limits on time or memory, so one expression could tie up a render worker. The editor never offered them; they could only arrive through the API, a catalog import or MCP. Saving or importing one is now refused, and a stored one fails to render with a clear error. Nothing is deleted: rewrite such expressions in JSONata. The generation guide has a query that finds them.
+
+- **[user]** feat(generation,editor,catalog): **Page headers and footers can go anywhere, in any number.** Headers and footers can now sit inside a stencil (a letterhead that carries them), a conditional or a loop, and page breaks start a new section. The editor labels each one with the pages it applies to. Existing documents and published versions keep their layout. Catalogs that use several footers need this version to import.
+
+- **[user]** feat(mcp): **An AI assistant can author and publish templates, stencils, themes, images and fonts over MCP (beta).** This lets an assistant convert an existing document, such as a Word template, into Epistola. Every write follows the same permissions and read-only-catalog rules as the UI and REST API, and activating a version in an environment stays in the UI. The tool arguments may still change in a minor release.
+
+- **[user]** feat(quality): **Quality checks report a document with more than one address block.** A second address block can still arrive through a stencil, the API or a catalog import; only one is rendered, and the new "Layout" check now points it out.
+
+- feat(version-check): **What an installation shares with Epistola is defined and switchable, and every page shows a support badge.** An installation shares its installation id and version by default; `epistola.sharing.*` (Helm `sharing`) turns that off. The version check is anonymous and warns when a published security advisory applies to the running version. **Shared with Epistola** (`/platform/sharing`) shows exactly what is sent. See [Data shared with Epistola](docs/outbound-traffic.md).
+
+- fix(catalog,codelists): **Catalog and code-list sources are limited to what an operator allows.** They could read any local file or internal address. **Action on upgrade:** if catalogs are read from disk, set `epistola.catalog.file-roots`; if catalogs or code lists live on an intranet, set `epistola.catalog.outbound.allow-private-networks` or `allowed-hosts` (Helm `catalog.fileRoots`, `catalog.outbound.*`).
+
+- **[user]** fix(editor): **Moving a block no longer blanks the text inside it.** The text was never lost, only hidden until the page was reloaded.
+
+- **[user]** fix(generation,theming,stencils): **Several styles and options now render as the editor promises.** Bold or italic set without a font keeps the theme's font. `letterSpacing`, a page background colour and "hide on first page" on a header now take effect. Inside a stencil, `$exists(params.x)` is false for a parameter without a value. These apply to versions published from this release, while earlier versions keep rendering as before; drafts and previews show them at once. The page format picker no longer offers `Custom`, which always rendered as A4.
+
+- fix(generation): **A stopping instance finishes its renders instead of abandoning them.** During a rolling update or scale-in an instance now stops claiming work, lets running renders finish for up to `epistola.generation.polling.shutdown-drain-timeout` (default 20 seconds), and returns the rest to the queue.
+
+- fix(generation,assets,catalog): **SVG images render from their own content only, and unsafe SVGs are refused on upload.** Rendering no longer fetches URLs or reads files an SVG references. Uploads and imports refuse SVGs with scripts, event handlers, external links or a DOCTYPE. SVGs already stored keep rendering, without their external references.
+
+- fix(security,editor,deps): **Jackson security updates, and editor paths can no longer touch the JavaScript object prototype.** Jackson is upgraded to 3.1.7 and 2.21.7 for seven upstream CVEs (`EPIS-DEP-2026-002`). A data-contract field name such as `__proto__` can no longer write to `Object.prototype` in the author's browser.
+
+- **[user]** fix(stencils,catalog): **Stencils are kept apart by catalog, and installed catalogs are fully read-only.** Stencils with the same key in different catalogs were mixed up when upgrading, deleting or listing usage. Five edits slipped past the read-only rule for installed catalogs; they are now refused. Upgrading a template's stencils from a draft to a published version now makes the template publishable.
+
+- **[user]** fix(templates,catalog): **Variant attributes are checked and matched correctly across catalogs.** Choosing a variant by attributes now looks in the template's own catalog rather than `default`, which could give a 404 or the wrong language. Two variants of one template can no longer share an attribute set. An attribute still used by a variant in any catalog can no longer be deleted or narrowed.
+
 ## [1.3.0] - 2026-09-28
 
 This release makes a preview that fails its data contract say exactly which fields are missing or wrong, and signs single-sign-on users in without a click inside an embedded Epistola too. It also fixes importing a catalog over a never-published template, and validates environment-based generation and preview against the data contract again — **integrations that sent incomplete data for an environment will now be rejected**.
