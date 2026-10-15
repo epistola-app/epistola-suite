@@ -55,7 +55,9 @@ class AddressBlockEventHandler(
         val rect = Rectangle(leftPt, pageSize.top - topPt - heightPt, widthPt, heightPt)
 
         val pdfCanvas = PdfCanvas(page.newContentStreamAfter(), page.resources, pdfDoc)
-        val canvas = Canvas(pdfCanvas, rect)
+        // A Canvas does not inherit the Document's default font: without it unstyled text
+        // falls back to non-embedded Helvetica, which breaks PDF/A on any non-ASCII glyph.
+        val canvas = Canvas(pdfCanvas, rect).setFont(context.fontCache.regular)
 
         val slotsByName = addressNode.slots.mapNotNull { slotId ->
             document.slots[slotId]?.let { slot -> slot.name to slot.id }
