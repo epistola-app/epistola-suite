@@ -191,9 +191,15 @@ class RenderingDefaultsTest {
     }
 
     @Test
-    fun `V6 expands style shorthands and changes nothing else`() {
-        assertEquals(listOf(false, false, false, false, false), listOf(RenderingDefaults.V1, RenderingDefaults.V2, RenderingDefaults.V3, RenderingDefaults.V4, RenderingDefaults.V5).map { it.expandStyleShorthands })
-        assertEquals(RenderingDefaults.V5.copy(version = 6, expandStyleShorthands = true), RenderingDefaults.V6)
+    fun `V6 expands style shorthands, makes lineHeight CSS-like and keeps band overflow, and changes nothing else`() {
+        val older = listOf(RenderingDefaults.V1, RenderingDefaults.V2, RenderingDefaults.V3, RenderingDefaults.V4, RenderingDefaults.V5)
+        assertEquals(List(5) { false }, older.map { it.expandStyleShorthands })
+        assertEquals(List(5) { false }, older.map { it.cssLineHeight })
+        assertEquals(List(5) { false }, older.map { it.bandOverflowRoom })
+        assertEquals(
+            RenderingDefaults.V5.copy(version = 6, expandStyleShorthands = true, cssLineHeight = true, bandOverflowRoom = true),
+            RenderingDefaults.V6,
+        )
     }
 
     @Test

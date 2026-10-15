@@ -113,6 +113,22 @@ internal fun measureBandContentHeight(wrapper: Div, iTextDocument: Document, wid
 }
 
 /**
+ * The rectangle a band's content is laid out in: [band] itself, or from rendering defaults V6
+ * ([RenderingDefaults.bandOverflowRoom]) [band] with the same unbounded room below it that
+ * [measureBandContentHeight] measured in.
+ *
+ * The band's height is the content's measured height, which counts each line by its leading. With
+ * a `lineHeight` below 1 the glyphs are taller than the leading, and iText then refuses to place
+ * the last line in exactly that height and drops it without an error. Content flows from the top,
+ * so the room below changes no position; it only lets that line be drawn.
+ */
+private fun layoutRect(band: Rectangle, context: RenderContext): Rectangle = if (context.renderingDefaults.bandOverflowRoom) {
+    Rectangle(band.x, band.y - BAND_MEASURE_HEIGHT, band.width, band.height + BAND_MEASURE_HEIGHT)
+} else {
+    band
+}
+
+/**
  * Paints [headerNode] into the top band of [page], [headerHeight] points tall, as an artifact
  * so screen readers skip running content (WCAG PDF14). [context] carries the data scope the
  * header content renders with.
@@ -142,11 +158,14 @@ internal fun paintHeaderBand(
 
     // Rectangle y is measured from the bottom of the page.
     // For a header we place it at: pageTop - topMargin - headerHeight.
-    val headerRect = Rectangle(
-        pageSize.left + leftMargin,
-        pageSize.top - topMargin - headerHeight,
-        pageSize.width - leftMargin - rightMargin,
-        headerHeight,
+    val headerRect = layoutRect(
+        Rectangle(
+            pageSize.left + leftMargin,
+            pageSize.top - topMargin - headerHeight,
+            pageSize.width - leftMargin - rightMargin,
+            headerHeight,
+        ),
+        context,
     )
 
     // Draw after normal page content (overlay)
@@ -202,11 +221,14 @@ internal fun paintFooterBand(
     val leftMargin = effectivePageMarginPt(footerNode, "marginLeft", context)
     val rightMargin = effectivePageMarginPt(footerNode, "marginRight", context)
 
-    val footerRect = Rectangle(
-        pageSize.left + leftMargin,
-        pageSize.bottom + bottomMargin,
-        pageSize.width - leftMargin - rightMargin,
-        footerHeight,
+    val footerRect = layoutRect(
+        Rectangle(
+            pageSize.left + leftMargin,
+            pageSize.bottom + bottomMargin,
+            pageSize.width - leftMargin - rightMargin,
+            footerHeight,
+        ),
+        context,
     )
 
     // Write after normal page content
