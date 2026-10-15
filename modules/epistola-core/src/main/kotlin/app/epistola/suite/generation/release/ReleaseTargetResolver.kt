@@ -5,7 +5,7 @@
 package app.epistola.suite.generation.release
 
 import app.epistola.catalog.protocol.TemplateResource
-import app.epistola.suite.catalog.revisions.ReleaseDependencyStore
+import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -33,7 +33,7 @@ data class ReleaseTarget(val release: ReleaseRef, val variantKey: VariantKey)
 class ReleaseTargetResolver(
     private val jdbi: Jdbi,
     private val renderSource: ReleaseRenderSource,
-    private val dependencyStore: ReleaseDependencyStore,
+    private val entryStore: ReleaseEntryStore,
     private val variantResolver: VariantResolver,
 ) {
 
@@ -49,7 +49,7 @@ class ReleaseTargetResolver(
         criteria: VariantSelectionCriteria?,
     ): ReleaseTarget {
         val version = jdbi.withHandle<String?, Exception> { handle ->
-            dependencyStore.latestRetainedRelease(handle, tenantKey, catalogKey)
+            entryStore.latestRetainedRelease(handle, tenantKey, catalogKey)
         } ?: throw CatalogNotReleasedException(tenantKey, catalogKey)
         return resolveIn(tenantKey, ReleaseRef(catalogKey, version), templateKey, variantKey, criteria)
     }

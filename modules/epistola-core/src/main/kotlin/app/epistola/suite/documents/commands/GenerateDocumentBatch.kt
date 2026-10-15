@@ -4,7 +4,7 @@
 
 package app.epistola.suite.documents.commands
 
-import app.epistola.suite.catalog.revisions.ReleaseDependencyStore
+import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.NotAudited
 import app.epistola.suite.common.NotEventLogged
 import app.epistola.suite.common.ids.BatchKey
@@ -137,7 +137,7 @@ class GenerateDocumentBatchHandler(
     private val jdbi: Jdbi,
     private val variantResolver: VariantResolver,
     private val releaseTargetResolver: ReleaseTargetResolver,
-    private val dependencyStore: ReleaseDependencyStore,
+    private val entryStore: ReleaseEntryStore,
 ) : CommandHandler<GenerateDocumentBatch, BatchKey> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -154,7 +154,7 @@ class GenerateDocumentBatchHandler(
             .map { it.catalogKey }
             .distinct()
             .associateWith { catalog ->
-                jdbi.withHandle<String?, Exception> { handle -> dependencyStore.latestRetainedRelease(handle, command.tenantId, catalog) }
+                jdbi.withHandle<String?, Exception> { handle -> entryStore.latestRetainedRelease(handle, command.tenantId, catalog) }
                     ?: throw CatalogNotReleasedException(command.tenantId, catalog)
             }
         val targets = command.items.map { item ->

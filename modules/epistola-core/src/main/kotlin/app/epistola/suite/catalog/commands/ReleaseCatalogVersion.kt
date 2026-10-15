@@ -18,8 +18,6 @@ import app.epistola.suite.catalog.CatalogReleasePublicationRequest
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.revisions.Pin
-import app.epistola.suite.catalog.revisions.ReleaseDependencyStore
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
 import app.epistola.suite.common.ids.TenantKey
@@ -88,7 +86,6 @@ class ReleaseCatalogVersionHandler(
     private val fingerprintService: CatalogFingerprintService,
     private val revisionStore: ResourceRevisionStore,
     private val releaseEntryStore: ReleaseEntryStore,
-    private val dependencyStore: ReleaseDependencyStore,
     private val objectMapper: ObjectMapper,
     private val publicationPort: ObjectProvider<CatalogReleasePublicationPort>,
 ) : CommandHandler<ReleaseCatalogVersion, ReleaseCatalogVersionResult> {
@@ -125,15 +122,6 @@ class ReleaseCatalogVersionHandler(
         val resourceFingerprints = fingerprintService.perResourceFingerprints(content)
         val unchanged = existing.any { fingerprintService.matchesFingerprint(content, it.fingerprint) }
 
-        // Every other catalog this one renders with is pinned at its latest release that kept its
-        // content. Resolved before anything is written, so a missing dependency release refuses the
-        // release rather than leaving one that cannot be rendered.
-        val tenantDefaultThemeCatalog = GetTenant(command.tenantKey).query()?.takeIf { it.defaultThemeKey != null }?.defaultThemeCatalogKey
-        val referencedCatalogs = dependencyStore.referencedCatalogs(content, command.catalogKey, tenantDefaultThemeCatalog)
-        val pins = jdbi.withHandle<List<Pin>, Exception> { handle ->
-            val direct = dependencyStore.resolveLatest(handle, command.tenantKey, referencedCatalogs)
-            dependencyStore.closure(handle, command.tenantKey, command.catalogKey, direct)
-        }
         if (unchanged) {
             logger.warn(
                 "Releasing catalog '{}' v{} with content identical to a previous release (fingerprint {})",
@@ -207,7 +195,6 @@ class ReleaseCatalogVersionHandler(
                 revisionDigests,
                 resourceFingerprints,
             )
-            dependencyStore.record(handle, command.tenantKey, command.catalogKey, newVersion.toString(), pins)
 
             if (port != null && archive != null) {
                 publicationId = port.recordReleasePublication(

@@ -16,7 +16,7 @@ import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.generation.pdf.SpacingScale
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
-import app.epistola.suite.catalog.revisions.ReleaseDependencyStore
+import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.queries.pickNearestFace
@@ -70,10 +70,8 @@ class ReleaseRenderException(message: String) : IllegalStateException(message)
  * Builds [ReleaseRenderInputs] from a catalog release's retained content.
  *
  * **Which release a resource comes from.** A reference inside the catalog resolves in the release
- * being rendered. A reference into another catalog resolves in the release this one pinned for that
- * catalog (`release_dependencies`), which holds every catalog it reaches, directly or not. Only a
- * release cut before dependencies were recorded may miss one, and that one alone falls back
- * to the other catalog's latest release that kept its content.
+ * being rendered. A reference into another catalog resolves in that catalog's latest release that
+ * kept its content, read once per render: a release does not lock the catalogs it borrows from.
  *
  * **Caching.** Revisions are immutable, so a resource read from a release never changes while that
  * release exists. Both caches are bounded, and expire on idle so content dropped by forgetting or
@@ -83,7 +81,7 @@ class ReleaseRenderException(message: String) : IllegalStateException(message)
 class ReleaseRenderSource(
     private val jdbi: Jdbi,
     private val assembler: ReleaseContentAssembler,
-    private val dependencyStore: ReleaseDependencyStore,
+    private val entryStore: ReleaseEntryStore,
     private val objectMapper: ObjectMapper,
 ) {
 
@@ -109,13 +107,7 @@ class ReleaseRenderSource(
     fun resolve(tenant: Tenant, release: ReleaseRef, templateKey: String, variantKey: String): ReleaseRenderInputs {
         val tenantKey = tenant.id
         val renderingDefaultsVersion = loadRenderingDefaultsVersion(tenantKey, release)
-        val pins = jdbi.withHandle<Map<CatalogKey, String>, Exception> { handle ->
-            dependencyStore.pinsOf(handle, tenantKey, release.catalogKey, release.version)
-        }
-        // A release cut before dependencies were recorded has no rendering defaults version either;
-        // only such a release may look a catalog up at render time. Any other release recorded every
-        // catalog it renders with, so one missing from its record is an error, not a guess.
-        val scope = Scope(tenantKey, release, pins, legacy = renderingDefaultsVersion == null)
+        val scope = Scope(tenantKey, release)
 
         val template = read(scope.tenantKey, release, "template", templateKey) as? TemplateResource
             ?: throw ReleaseRenderException("Release ${release.label()} does not contain template '$templateKey'")
@@ -196,15 +188,14 @@ class ReleaseRenderSource(
 
     /**
      * Images by key. A reference that names its catalog resolves in that catalog's release. One that
-     * does not resolves in this release first and then in the releases it pinned, in catalog order:
-     * an unqualified reference used to resolve tenant-wide, and a release can only offer what it and
-     * its pins hold.
+     * does not resolves in this release first and then in the other catalogs' latest releases, in
+     * catalog order: an unqualified reference used to resolve tenant-wide.
      */
     private fun assetResolver(scope: Scope): AssetResolver = AssetResolver { assetId, catalogKey ->
         val candidates = if (catalogKey != null) {
             listOf(scope.releaseOf(CatalogKey.of(catalogKey)))
         } else {
-            listOf(scope.release) + scope.pins.entries.sortedBy { it.key.value }.map { ReleaseRef(it.key, it.value) }
+            listOf(scope.release) + scope.otherCatalogs()
         }
         candidates.firstNotNullOfOrNull { release ->
             (read(scope.tenantKey, release, "image", assetId) as? ImageResource)?.let { image ->
@@ -257,29 +248,31 @@ class ReleaseRenderSource(
         row.second
     }
 
-    /** Where a catalog's resources come from while rendering one release. */
-    private inner class Scope(val tenantKey: TenantKey, val release: ReleaseRef, val pins: Map<CatalogKey, String>, val legacy: Boolean) {
-        fun releaseOf(catalog: CatalogKey): ReleaseRef = when {
-            catalog == release.catalogKey -> release
+    /**
+     * Where a catalog's resources come from while rendering one release: its own catalog from that
+     * release, every other catalog from its latest release that kept its content. Each catalog is
+     * looked up once, so one render reads one release of it however many references it follows.
+     */
+    private inner class Scope(val tenantKey: TenantKey, val release: ReleaseRef) {
+        private val latest = mutableMapOf<CatalogKey, ReleaseRef>()
 
-            pins[catalog] != null -> ReleaseRef(catalog, pins.getValue(catalog))
-
-            !legacy -> throw ReleaseRenderException(
-                "Release ${release.label()} renders with catalog '${catalog.value}', which it did not record as a dependency",
-            )
-
-            else -> ReleaseRef(
-                catalog,
-                latestRetained(tenantKey, catalog)
+        fun releaseOf(catalog: CatalogKey): ReleaseRef = if (catalog == release.catalogKey) {
+            release
+        } else {
+            latest.getOrPut(catalog) {
+                val version = jdbi.withHandle<String?, Exception> { handle -> entryStore.latestRetainedRelease(handle, tenantKey, catalog) }
                     ?: throw ReleaseRenderException(
                         "Release ${release.label()} uses catalog '${catalog.value}', which has no release that kept its content",
-                    ),
-            )
+                    )
+                ReleaseRef(catalog, version)
+            }
         }
-    }
 
-    private fun latestRetained(tenantKey: TenantKey, catalog: CatalogKey): String? = jdbi.withHandle<String?, Exception> { handle ->
-        dependencyStore.latestRetainedRelease(handle, tenantKey, catalog)
+        /** The latest release of every other catalog of the tenant, in catalog order. */
+        fun otherCatalogs(): List<ReleaseRef> = jdbi.withHandle<Map<CatalogKey, String>, Exception> { handle -> entryStore.latestRetainedReleases(handle, tenantKey) }
+            .filterKeys { it != release.catalogKey }
+            .entries.sortedBy { it.key.value }
+            .map { (catalog, version) -> ReleaseRef(catalog, version).also { latest.putIfAbsent(catalog, it) } }
     }
 
     private companion object {
