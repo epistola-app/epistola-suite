@@ -114,6 +114,25 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `update_template_draft returns the stored document on request, as get_template_content does`() {
+        val tenantId = newTenant()
+        runAsApiKey(tenantId) { templateTools.createTemplate("default", "echo", "Echo", null, null, null) }
+        val variant = runAsApiKey(tenantId) { templateTools.listVariants("default", "echo") }.single()
+        val sent = documentJson("Dear {{name}}")
+
+        val summary = runAsApiKey(tenantId) { versionTools.updateTemplateDraft("default", "echo", variant.id, sent) }
+        val echoed = runAsApiKey(tenantId) { versionTools.updateTemplateDraft("default", "echo", variant.id, sent, returnContent = true) }
+
+        assertThat(summary.templateModel).isNull()
+        val mapper = tools.jackson.databind.json.JsonMapper.builder().build()
+        val content = runAsApiKey(tenantId) { templateTools.getTemplateContent("default", "echo", variant.id) }!!
+        val echoedTree = mapper.valueToTree<tools.jackson.databind.JsonNode>(echoed.templateModel)
+        assertThat(echoedTree).isEqualTo(mapper.valueToTree<tools.jackson.databind.JsonNode>(content.templateModel))
+        // What the server stores differs from what was sent, which is why a client needs it back.
+        assertThat(echoedTree).isNotEqualTo(mapper.readTree(sent))
+    }
+
+    @Test
     fun `create_template sets the default variant's attributes`() {
         val tenantId = newTenant()
 
