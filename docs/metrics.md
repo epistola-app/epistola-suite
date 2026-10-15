@@ -66,17 +66,21 @@ tag — see [Per-tenant tagging](#per-tenant-tagging).
 
 The renderer's parsed-font cache, per node; see [fonts](fonts.md) for what it holds and why.
 
-| Meter                                       | Type            | Tags                      |
-| ------------------------------------------- | --------------- | ------------------------- |
-| `epistola.generation.font_cache.size.bytes` | Gauge           | —                         |
-| `epistola.generation.font_cache.faces`      | Gauge           | —                         |
-| `epistola.generation.font_cache.max.bytes`  | Gauge           | —                         |
-| `epistola.generation.font_cache.max.faces`  | Gauge           | —                         |
-| `epistola.generation.font_cache.requests`   | FunctionCounter | `result` (`hit`/`miss`)   |
-| `epistola.generation.font_cache.evictions`  | FunctionCounter | `limit` (`bytes`/`faces`) |
+| Meter                                            | Type            | Tags                      |
+| ------------------------------------------------ | --------------- | ------------------------- |
+| `epistola.generation.font_cache.size.bytes`      | Gauge           | —                         |
+| `epistola.generation.font_cache.faces`           | Gauge           | —                         |
+| `epistola.generation.font_cache.protected.bytes` | Gauge           | —                         |
+| `epistola.generation.font_cache.protected.faces` | Gauge           | —                         |
+| `epistola.generation.font_cache.max.bytes`       | Gauge           | —                         |
+| `epistola.generation.font_cache.max.faces`       | Gauge           | —                         |
+| `epistola.generation.font_cache.requests`        | FunctionCounter | `result` (`hit`/`miss`)   |
+| `epistola.generation.font_cache.promotions`      | FunctionCounter | —                         |
+| `epistola.generation.font_cache.evictions`       | FunctionCounter | `limit` (`bytes`/`faces`) |
 
 `size.bytes` is the estimated heap the cached faces hold (what parsing them allocated); compare it
-and `faces` with the configured `max.*` limits. A falling hit rate with evictions under
+and `faces` with the configured `max.*` limits. `protected.*` is the part more than one render has
+used, which eviction takes last; `promotions` counts faces moving there. A falling hit rate with evictions under
 `limit="bytes"` asks for a larger `epistola.generation.font-cache.max-size`; under `limit="faces"`,
 for a larger `max-faces`. With the cache turned off (`max-faces: 0`) nothing is counted.
 

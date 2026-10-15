@@ -33,6 +33,13 @@ class FontCacheMetrics(
         Gauge.builder("$PREFIX.faces", cache) { it.faces.toDouble() }
             .description("Parsed font faces held")
             .register(registry)
+        Gauge.builder("$PREFIX.protected.bytes", cache) { it.protectedBytes.toDouble() }
+            .description("Estimated heap held by faces more than one render has used, which eviction takes last")
+            .baseUnit("bytes")
+            .register(registry)
+        Gauge.builder("$PREFIX.protected.faces", cache) { it.protectedFaces.toDouble() }
+            .description("Faces more than one render has used, which eviction takes last")
+            .register(registry)
         Gauge.builder("$PREFIX.max.bytes", cache) { it.maxBytes.toDouble() }
             .description("Configured limit on the estimated heap (epistola.generation.font-cache.max-size)")
             .baseUnit("bytes")
@@ -48,6 +55,9 @@ class FontCacheMetrics(
         FunctionCounter.builder("$PREFIX.requests", cache) { it.stats().misses.toDouble() }
             .description("Font lookups, served from the cache (hit) or parsed (miss)")
             .tag("result", "miss")
+            .register(registry)
+        FunctionCounter.builder("$PREFIX.promotions", cache) { it.stats().promotions.toDouble() }
+            .description("Faces a second render used, moving them to the protected segment")
             .register(registry)
         FunctionCounter.builder("$PREFIX.evictions", cache) { it.stats().byteLimitEvictions.toDouble() }
             .description("Faces evicted, by the limit that evicted them")

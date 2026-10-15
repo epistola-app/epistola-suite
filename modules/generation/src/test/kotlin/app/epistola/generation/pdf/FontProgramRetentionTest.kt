@@ -82,8 +82,8 @@ class FontProgramRetentionTest {
     @Test
     fun `renders sharing a renderer reuse its parsed font`() {
         val programs = FontProgramCache()
-        val first = FontCache(pdfaCompliant = true, fontFamilyResolver = resolver, fontPrograms = programs)
-        val second = FontCache(pdfaCompliant = true, fontFamilyResolver = resolver, fontPrograms = programs)
+        val first = FontCache(pdfaCompliant = true, fontFamilyResolver = resolver, fontPrograms = programs.scope())
+        val second = FontCache(pdfaCompliant = true, fontFamilyResolver = resolver, fontPrograms = programs.scope())
         val ref = FontRef(slug = "unique", catalogKey = "system")
 
         val program = first.font(ref, 400, false).fontProgram
@@ -98,10 +98,10 @@ class FontProgramRetentionTest {
             override fun resolve(catalogKey: String?, slug: String, weight: Int, italic: Boolean) = uniqueFont
             override fun resolveFace(catalogKey: String?, slug: String, weight: Int, italic: Boolean) = FontFaceBytes(uniqueFont, "stored-hash")
         }
-        val rendered = FontCache(pdfaCompliant = true, fontFamilyResolver = hashing, fontPrograms = programs)
+        val rendered = FontCache(pdfaCompliant = true, fontFamilyResolver = hashing, fontPrograms = programs.scope())
             .font(FontRef(slug = "unique", catalogKey = "system"), 400, false).fontProgram
 
         // Other bytes under the same hash: only a lookup by that hash can return the rendered program.
-        assertSame(rendered, programs.program(ByteArray(1), "stored-hash"))
+        assertSame(rendered, programs.scope().program(ByteArray(1), "stored-hash"))
     }
 }

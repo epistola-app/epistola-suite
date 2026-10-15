@@ -36,8 +36,8 @@ import java.util.concurrent.ConcurrentHashMap
 class FontCache(
     private val pdfaCompliant: Boolean = false,
     private val fontFamilyResolver: FontFamilyResolver? = null,
-    /** Parsed fonts shared across renders; the renderer passes its own. */
-    internal val fontPrograms: FontProgramCache = FontProgramCache(),
+    /** This render's scope of the parsed fonts renders share; the renderer passes its own. */
+    internal val fontPrograms: FontProgramCache.Scope = FontProgramCache().scope(),
 ) {
     private val fonts = mutableMapOf<String, PdfFont>()
 

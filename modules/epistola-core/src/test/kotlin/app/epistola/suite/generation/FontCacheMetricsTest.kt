@@ -23,9 +23,11 @@ class FontCacheMetricsTest {
         val registry = SimpleMeterRegistry()
         FontCacheMetrics(DirectPdfRenderer(fontPrograms = cache)).bindTo(registry)
 
-        cache.program(face(1))
-        cache.program(face(1))
-        cache.program(face(2))
+        val render = cache.scope()
+        render.program(face(1))
+        render.program(face(1))
+        render.program(face(2))
+        cache.scope().program(face(2))
 
         fun gauge(name: String) = registry.get("epistola.generation.font_cache.$name").gauge().value()
         fun counter(name: String, tag: String, value: String) = registry.get("epistola.generation.font_cache.$name").tag(tag, value).functionCounter().count()
@@ -34,7 +36,10 @@ class FontCacheMetricsTest {
         assertThat(gauge("size.bytes")).isEqualTo(cache.bytes.toDouble()).isGreaterThan(liberation.size.toDouble())
         assertThat(gauge("max.faces")).isEqualTo(1.0)
         assertThat(gauge("max.bytes")).isEqualTo(512.0 * 1024 * 1024)
-        assertThat(counter("requests", "result", "hit")).isEqualTo(1.0)
+        assertThat(gauge("protected.faces")).isEqualTo(0.0) // one face may not be protected: 80% of 1 is 0
+        assertThat(gauge("protected.bytes")).isEqualTo(0.0)
+        assertThat(registry.get("epistola.generation.font_cache.promotions").functionCounter().count()).isEqualTo(1.0)
+        assertThat(counter("requests", "result", "hit")).isEqualTo(2.0)
         assertThat(counter("requests", "result", "miss")).isEqualTo(2.0)
         assertThat(counter("evictions", "limit", "faces")).isEqualTo(1.0)
         assertThat(counter("evictions", "limit", "bytes")).isEqualTo(0.0)
