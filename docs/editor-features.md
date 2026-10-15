@@ -76,7 +76,9 @@ These are style properties available on all block components (text, container, c
 
 Line height is a unitless multiplier (e.g., `1.5` = 150% of font size). It's an inheritable property — setting it at the document or theme level applies to all text blocks. The default tenant theme sets `lineHeight: 1.5`.
 
-**PDF rendering:** `TextNodeRenderer` resolves the style cascade and passes the value to `ProseMirrorConverter` via a pre-resolved styles map. `ProseMirrorConverter.applyTextStyles()` calls `paragraph.setMultipliedLeading(value)`.
+**PDF rendering:** `TextNodeRenderer` resolves the style cascade and passes the value to `ProseMirrorConverter` via a pre-resolved styles map. From rendering defaults V6 (`cssLineHeight`), `ProseMirrorConverter.applyTextStyles()` gives the paragraph a fixed leading of its font size × the multiplier (`CssLineHeight`), so the PDF matches the editor whatever the font. Before V6 it called `paragraph.setMultipliedLeading(value)`, which scales the font's own ascent-to-descent height instead: `1.0` spaced Liberation Sans 1.11× and Inter about 1.45× the font size.
+
+A value below 1 is allowed. From V6 a page header or footer keeps its last line at such a value (`bandOverflowRoom`); before V6 iText dropped it without an error when the band was sized to its content.
 
 ### Table Cell Styling
 

@@ -113,6 +113,22 @@ data class RenderingDefaults(
      * false, only per-side keys take effect and the shorthands are silently ignored.
      */
     val expandStyleShorthands: Boolean = false,
+
+    // -- Line height --
+    /**
+     * When true, a `lineHeight` multiplier means what it means in CSS and in the editor: lines sit
+     * `fontSize × lineHeight` apart, whatever the font (see [CssLineHeight]). When false, it scales
+     * iText's multiplied leading, which is relative to the font's own ascent and descent, so the
+     * same value spaces Liberation Sans 1.11× and Inter about 1.45× the font size at `1.0`.
+     */
+    val cssLineHeight: Boolean = false,
+
+    /**
+     * When true, a page header or footer is laid out with room below its band, so iText keeps the
+     * last line of content whose glyphs are taller than its leading (a `lineHeight` below 1). The
+     * band and the content's position are unchanged. When false, that line is silently dropped.
+     */
+    val bandOverflowRoom: Boolean = false,
 ) {
     /** Total vertical space reserved for the page header (padding + content height). */
     val pageHeaderReservedHeight: Float get() = pageHeaderPadding + pageHeaderHeight
@@ -226,10 +242,16 @@ data class RenderingDefaults(
             headerHideOnFirstPage = true,
         )
 
-        /** V6: the `padding`, `margin` and `border` shorthands take effect ([expandStyleShorthands]). */
+        /**
+         * V6: the `padding`, `margin` and `border` shorthands take effect ([expandStyleShorthands]),
+         * `lineHeight` is CSS-like ([cssLineHeight]), and a `lineHeight` below 1 no longer drops a
+         * header's or footer's last line ([bandOverflowRoom]).
+         */
         val V6 = V5.copy(
             version = 6,
             expandStyleShorthands = true,
+            cssLineHeight = true,
+            bandOverflowRoom = true,
         )
 
         /** The defaults version used for newly published template versions. */
