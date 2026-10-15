@@ -6,6 +6,7 @@ package app.epistola.suite.mcp.dto
 
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.model.VersionSummary
+import com.fasterxml.jackson.annotation.JsonInclude
 import java.time.OffsetDateTime
 
 /**
@@ -25,6 +26,13 @@ data class VersionInfo(
     val archivedAt: OffsetDateTime?,
     /** Contract version this template version was published against (if any). */
     val contractVersion: Int?,
+    /**
+     * The template document as the server stored it, only when a write tool was asked for it
+     * (`update_template_draft` with `returnContent`). It is the same form `get_template_content`
+     * returns, so a client can diff against it.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    val templateModel: Any? = null,
 ) {
     companion object {
         fun from(version: VersionSummary): VersionInfo = VersionInfo(
@@ -37,8 +45,11 @@ data class VersionInfo(
             contractVersion = version.contractVersion?.value,
         )
 
-        /** The summary of a version a write tool just stored, without echoing its content back. */
-        fun from(version: TemplateVersion): VersionInfo = VersionInfo(
+        /**
+         * The summary of a version a write tool just stored. Its content is echoed back only with
+         * [includeContent], since a document can run to tens of kilobytes.
+         */
+        fun from(version: TemplateVersion, includeContent: Boolean = false): VersionInfo = VersionInfo(
             id = version.id.value,
             variantId = version.variantKey.value,
             status = version.status.name.lowercase(),
@@ -46,6 +57,7 @@ data class VersionInfo(
             publishedAt = version.publishedAt,
             archivedAt = version.archivedAt,
             contractVersion = version.contractVersion?.value,
+            templateModel = version.templateModel.takeIf { includeContent },
         )
     }
 }
