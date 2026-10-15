@@ -7,8 +7,8 @@ dependencies {
     implementation(libs.epistola.catalog)
 
     // iText 9 for PDF generation
-    implementation("com.itextpdf:itext-core:9.8.0")
-    implementation("com.itextpdf:svg:9.8.0")
+    implementation(libs.itext.core)
+    implementation(libs.itext.svg)
 
     // WEBP decoding for PDF image rendering
     implementation("com.twelvemonkeys.imageio:imageio-webp:3.15.3")

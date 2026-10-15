@@ -23,6 +23,8 @@ aws-sdk = "2.55.12"
 guava = "33.7.2-jre"
 spring-ai = "2.0.1"
 archunit = "1.5.1"
+# One iText for the renderer and for every test that reads the PDFs it writes.
+itext = "9.8.0"
 # Security overrides of the Spring Boot BOM's Jackson versions, applied by the three apps (see
 # apps/epistola/build.gradle.kts). Drop both once the BOM manages these versions or later.
 jackson = "3.1.7"
@@ -49,6 +51,9 @@ aws-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws-sdk" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
 archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+itext-core = { module = "com.itextpdf:itext-core", version.ref = "itext" }
+itext-svg = { module = "com.itextpdf:svg", version.ref = "itext" }
+itext-kernel = { module = "com.itextpdf:kernel", version.ref = "itext" }
 # Not dependencies: listed so Renovate tracks the Jackson BOM overrides the apps apply.
 jackson-bom = { module = "tools.jackson:jackson-bom", version.ref = "jackson" }
 jackson2-bom = { module = "com.fasterxml.jackson:jackson-bom", version.ref = "jackson2" }

@@ -82,6 +82,9 @@ dependencies {
     // Test-only: cross-check the inline murmur3 helper in `generation/collect/domain/Partition.kt`
     // against Guava's implementation, which the contract docstring guarantees we must match.
     testImplementation(libs.guava)
+    // Test-only: the bundled-font tests read the TTFs and the PDFs rendered with them;
+    // same iText as modules:generation renders with.
+    testImplementation(libs.itext.kernel)
     testImplementation(libs.archunit.junit5)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
