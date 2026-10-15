@@ -25,6 +25,10 @@ import tools.jackson.databind.ObjectMapper
 
 /**
  * Updates a theme with partial updates (only provided fields are updated).
+ *
+ * [blockStylePresets] replaces the whole preset map. [mergeBlockStylePresets] and
+ * [removeBlockStylePresets] change it per preset name instead, in the same statement, so a
+ * client can add or drop one preset without resending the rest or racing another writer.
  */
 data class UpdateTheme(
     val id: ThemeId,
@@ -36,6 +40,8 @@ data class UpdateTheme(
     val clearPageSettings: Boolean = false,
     val blockStylePresets: BlockStylePresets? = null,
     val clearBlockStylePresets: Boolean = false,
+    val mergeBlockStylePresets: BlockStylePresets? = null,
+    val removeBlockStylePresets: Set<String> = emptySet(),
     val spacingUnit: Float? = null,
     val clearSpacingUnit: Boolean = false,
 ) : Command<Theme?>,
@@ -47,6 +53,13 @@ data class UpdateTheme(
         if (name != null) {
             validate("name", name.isNotBlank()) { "Name cannot be blank" }
             validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
+        }
+        val changesPerPreset = mergeBlockStylePresets != null || removeBlockStylePresets.isNotEmpty()
+        validate("blockStylePresets", !(changesPerPreset && (blockStylePresets != null || clearBlockStylePresets))) {
+            "Replace or clear the presets, or merge and remove individual presets, not both"
+        }
+        validate("removeBlockStylePresets", mergeBlockStylePresets?.keys.orEmpty().none { it in removeBlockStylePresets }) {
+            "A preset cannot be merged and removed in the same update"
         }
     }
 }
@@ -91,6 +104,13 @@ class UpdateThemeHandler(
         } else if (command.blockStylePresets != null) {
             updates.add("block_style_presets = :blockStylePresets::jsonb")
             bindings["blockStylePresets"] = objectMapper.writeValueAsString(command.blockStylePresets)
+        } else if (command.mergeBlockStylePresets != null || command.removeBlockStylePresets.isNotEmpty()) {
+            // jsonb `||` replaces top-level keys (whole presets); `-` drops the named ones.
+            updates.add(
+                "block_style_presets = (COALESCE(block_style_presets, '{}'::jsonb) || :mergePresets::jsonb) - :removePresets::text[]",
+            )
+            bindings["mergePresets"] = objectMapper.writeValueAsString(command.mergeBlockStylePresets ?: BlockStylePresets.EMPTY)
+            bindings["removePresets"] = command.removeBlockStylePresets.toTypedArray()
         }
 
         if (command.clearSpacingUnit) {

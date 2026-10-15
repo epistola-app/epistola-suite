@@ -105,6 +105,14 @@ data class RenderingDefaults(
 
     /** When true, a page header honours `hideOnFirstPage` the way a page footer always has. */
     val headerHideOnFirstPage: Boolean = false,
+
+    // -- Style shorthands --
+    /**
+     * When true, the CSS shorthands `padding`, `margin` and `border` in inline styles and theme
+     * presets expand to their per-side keys before rendering (see [StyleShorthands]). When
+     * false, only per-side keys take effect and the shorthands are silently ignored.
+     */
+    val expandStyleShorthands: Boolean = false,
 ) {
     /** Total vertical space reserved for the page header (padding + content height). */
     val pageHeaderReservedHeight: Float get() = pageHeaderPadding + pageHeaderHeight
@@ -218,8 +226,14 @@ data class RenderingDefaults(
             headerHideOnFirstPage = true,
         )
 
+        /** V6: the `padding`, `margin` and `border` shorthands take effect ([expandStyleShorthands]). */
+        val V6 = V5.copy(
+            version = 6,
+            expandStyleShorthands = true,
+        )
+
         /** The defaults version used for newly published template versions. */
-        val CURRENT = V5
+        val CURRENT = V6
 
         private val REGISTRY: Map<Int, RenderingDefaults> = mapOf(
             1 to V1,
@@ -227,6 +241,7 @@ data class RenderingDefaults(
             3 to V3,
             4 to V4,
             5 to V5,
+            6 to V6,
         )
 
         /**

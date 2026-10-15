@@ -10,6 +10,7 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mcp.dto.ThemeInfo
 import app.epistola.suite.mcp.dto.ThemeSummaryInfo
+import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
@@ -54,7 +55,7 @@ class ThemeMcpTools(
     ): List<ThemeSummaryInfo> = mediator.query(
         ListThemes(
             tenantId = mcpTenantId(),
-            catalogKey = catalogId?.let { CatalogKey.of(it) },
+            catalogKey = catalogFilter(catalogId),
             searchTerm = search,
         ),
     ).map { ThemeSummaryInfo.from(it) }
@@ -120,6 +121,8 @@ class ThemeMcpTools(
         name = "update_theme",
         description = "Update a theme. Omitted arguments are left unchanged; a given styling argument replaces " +
             "that whole field, so read the theme with `get_theme` first and send back the merged value. " +
+            "To add, change or drop single presets without resending the others, use `mergeBlockStylePresets` " +
+            "and `removeBlockStylePresets` instead of `blockStylePresets`. " +
             "Templates using the theme pick up the change in drafts and in versions published afterwards. " +
             "Requires the THEME_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
@@ -139,6 +142,18 @@ class ThemeMcpTools(
         pageSettings: String?,
         @McpToolParam(description = BLOCK_STYLE_PRESETS, required = false)
         blockStylePresets: String?,
+        @McpToolParam(
+            description = "JSON object string of presets to add or replace by name, same shape as `blockStylePresets`. " +
+                "Presets not named are kept. Cannot be combined with `blockStylePresets`.",
+            required = false,
+        )
+        mergeBlockStylePresets: String?,
+        @McpToolParam(
+            description = "JSON array string of preset names to remove, e.g. `[\"oud-kader\"]`. Names that do not exist " +
+                "are ignored. Cannot be combined with `blockStylePresets`.",
+            required = false,
+        )
+        removeBlockStylePresets: String?,
         @McpToolParam(description = SPACING_UNIT, required = false)
         spacingUnit: Float?,
     ): ThemeInfo = UpdateTheme(
@@ -152,6 +167,16 @@ class ThemeMcpTools(
             blockStylePresets,
             BlockStylePresets::class.java,
         ),
+        mergeBlockStylePresets = objectMapper.parseOptionalArgument(
+            "mergeBlockStylePresets",
+            mergeBlockStylePresets,
+            BlockStylePresets::class.java,
+        ),
+        removeBlockStylePresets = objectMapper.parseOptionalArgument(
+            "removeBlockStylePresets",
+            removeBlockStylePresets,
+            Array<String>::class.java,
+        )?.toSet().orEmpty(),
         spacingUnit = spacingUnit,
     ).execute()?.let { ThemeInfo.from(it) } ?: throw notFound("Theme", catalogId, themeId)
 

@@ -230,7 +230,7 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
         assertThat((theme.blockStylePresets as Map<*, *>).keys).containsExactly("heading")
 
         val updated = runAsApiKey(tenantId) {
-            themeTools.updateTheme("default", "corporate", "Corporate 2", null, """{"fontSize": "11pt"}""", null, null, null)
+            themeTools.updateTheme("default", "corporate", "Corporate 2", null, """{"fontSize": "11pt"}""", null, null, null, null, null)
         }
         assertThat(updated.name).isEqualTo("Corporate 2")
         assertThat(updated.documentStyles).isEqualTo(mapOf("fontSize" to "11pt"))
@@ -243,6 +243,54 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
             templateTools.updateTemplate("default", "invoice", null, null, null, true, null)
         }
         assertThat(cleared.themeId).isNull()
+    }
+
+    @Test
+    fun `update_theme merges and removes single presets, keeping the others`() {
+        val tenantId = newTenant()
+        runAsApiKey(tenantId) {
+            themeTools.createTheme(
+                catalogId = "default",
+                themeId = "kaarten",
+                name = "Kaarten",
+                description = null,
+                documentStyles = null,
+                pageSettings = null,
+                blockStylePresets = """{"kaart": {"label": "Kaart", "styles": {"paddingTop": "8pt"}}, "oud": {"label": "Oud", "styles": {}}}""",
+                spacingUnit = null,
+            )
+        }
+
+        val updated = runAsApiKey(tenantId) {
+            themeTools.updateTheme(
+                "default", "kaarten", null, null, null, null, null,
+                mergeBlockStylePresets = """{"badge": {"label": "Badge", "styles": {"color": "#c00000"}}}""",
+                removeBlockStylePresets = """["oud"]""",
+                spacingUnit = null,
+            )
+        }
+
+        val presets = updated.blockStylePresets as Map<*, *>
+        assertThat(presets.keys).containsExactlyInAnyOrder("kaart", "badge")
+        assertThat(presets["kaart"].toString()).contains("8pt")
+    }
+
+    @Test
+    fun `update_theme refuses replacing and merging presets in one call`() {
+        val tenantId = newTenant()
+        runAsApiKey(tenantId) { themeTools.createTheme("default", "kaarten", "Kaarten", null, null, null, null, null) }
+
+        assertThatThrownBy {
+            runAsApiKey(tenantId) {
+                themeTools.updateTheme(
+                    "default", "kaarten", null, null, null, null,
+                    blockStylePresets = """{"a": {"label": "A", "styles": {}}}""",
+                    mergeBlockStylePresets = """{"b": {"label": "B", "styles": {}}}""",
+                    removeBlockStylePresets = null,
+                    spacingUnit = null,
+                )
+            }
+        }.hasMessageContaining("not both")
     }
 
     @Test

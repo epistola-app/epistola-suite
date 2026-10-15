@@ -44,6 +44,11 @@ class RenderingDefaultsTest {
     }
 
     @Test
+    fun `forVersion returns V6 for version 6`() {
+        assertSame(RenderingDefaults.V6, RenderingDefaults.forVersion(6))
+    }
+
+    @Test
     fun `forVersion throws for unknown version`() {
         assertFailsWith<IllegalArgumentException> {
             RenderingDefaults.forVersion(999)
@@ -51,8 +56,8 @@ class RenderingDefaultsTest {
     }
 
     @Test
-    fun `CURRENT is V5`() {
-        assertSame(RenderingDefaults.V5, RenderingDefaults.CURRENT)
+    fun `CURRENT is V6`() {
+        assertSame(RenderingDefaults.V6, RenderingDefaults.CURRENT)
     }
 
     // -----------------------------------------------------------------------
@@ -183,6 +188,12 @@ class RenderingDefaultsTest {
     fun `V5 selects fonts from the merged cascade without changing older versions`() {
         assertEquals(listOf(false, false, false, false), listOf(RenderingDefaults.V1, RenderingDefaults.V2, RenderingDefaults.V3, RenderingDefaults.V4).map { it.mergedFontSelection })
         assertEquals(true, RenderingDefaults.V5.mergedFontSelection)
+    }
+
+    @Test
+    fun `V6 expands style shorthands and changes nothing else`() {
+        assertEquals(listOf(false, false, false, false, false), listOf(RenderingDefaults.V1, RenderingDefaults.V2, RenderingDefaults.V3, RenderingDefaults.V4, RenderingDefaults.V5).map { it.expandStyleShorthands })
+        assertEquals(RenderingDefaults.V5.copy(version = 6, expandStyleShorthands = true), RenderingDefaults.V6)
     }
 
     @Test
