@@ -118,7 +118,7 @@ class FontCache(
         val resolver = fontFamilyResolver ?: return null
         val cacheKey = "ref:${ref.catalogKey.orEmpty()}|${ref.slug}|$weight|$italic"
         fonts[cacheKey]?.let { return it }
-        val face = resolver.resolveFace(ref.catalogKey, ref.slug, weight, italic)
+        val face = resolver.resolve(ref.catalogKey, ref.slug, weight, italic)
         if (face == null) {
             val familyKey = "${ref.catalogKey.orEmpty()}|${ref.slug}"
             if (warnedUnresolved.add(familyKey)) {

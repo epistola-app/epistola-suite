@@ -4,7 +4,6 @@
 
 package app.epistola.suite.generation
 
-import app.epistola.suite.templates.validation.NodeParameterSchemaProviderRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.boot.context.properties.bind.Binder
@@ -18,24 +17,24 @@ class FontCachePropertiesTest {
     private fun bind(vararg properties: Pair<String, String>): FontCacheProperties = Binder(MapConfigurationPropertySource(properties.toMap()))
         .bindOrCreate("epistola.generation.font-cache", FontCacheProperties::class.java)
 
-    private fun rendererFor(properties: FontCacheProperties) = PdfRendererConfiguration().directPdfRenderer(NodeParameterSchemaProviderRegistry(emptyList()), properties)
+    private fun cacheFor(properties: FontCacheProperties) = PdfRendererConfiguration().fontProgramCache(properties)
 
     @Test
-    fun `the renderer's font cache defaults to 256 MB and 64 faces`() {
-        val programs = rendererFor(bind()).fontPrograms
+    fun `the font cache defaults to 256 MB and 64 faces`() {
+        val programs = cacheFor(bind())
 
         assertThat(programs.maxBytes).isEqualTo(256L * 1024 * 1024)
         assertThat(programs.maxFaces).isEqualTo(64)
     }
 
     @Test
-    fun `the renderer's font cache takes the configured limits`() {
-        val programs = rendererFor(
+    fun `the font cache takes the configured limits`() {
+        val programs = cacheFor(
             bind(
                 "epistola.generation.font-cache.max-size" to "64MB",
                 "epistola.generation.font-cache.max-faces" to "8",
             ),
-        ).fontPrograms
+        )
 
         assertThat(programs.maxBytes).isEqualTo(64L * 1024 * 1024)
         assertThat(programs.maxFaces).isEqualTo(8)

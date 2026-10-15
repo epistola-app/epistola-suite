@@ -17,14 +17,12 @@ package app.epistola.generation.pdf
  * built-in font.
  */
 fun interface FontFamilyResolver {
-    fun resolve(catalogKey: String?, slug: String, weight: Int, italic: Boolean): ByteArray?
-
     /**
-     * The face's bytes with their content hash, when the resolver already knows it (core stores one
-     * per face). Parsed fonts are cached by that hash, so a known hash spares hashing the bytes on
-     * every render. Defaults to [resolve] without a hash.
+     * The face's bytes, with their content hash when the resolver knows it (core stores one per
+     * face): parsed fonts are cached by that hash, so a known hash spares hashing the bytes on every
+     * render.
      */
-    fun resolveFace(catalogKey: String?, slug: String, weight: Int, italic: Boolean): FontFaceBytes? = resolve(catalogKey, slug, weight, italic)?.let { FontFaceBytes(it, contentHash = null) }
+    fun resolve(catalogKey: String?, slug: String, weight: Int, italic: Boolean): FontFaceBytes?
 }
 
 /**

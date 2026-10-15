@@ -4,7 +4,7 @@
 
 package app.epistola.suite.fonts
 
-import app.epistola.generation.pdf.FontFaceBytes
+import app.epistola.suite.fonts.queries.ResolvedFontFace
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -17,7 +17,7 @@ class FontByteCacheTest {
     fun `caches a non-null result so the loader runs once`() {
         val cache = FontByteCache()
         val calls = AtomicInteger(0)
-        val face = FontFaceBytes(byteArrayOf(1, 2, 3), contentHash = null)
+        val face = ResolvedFontFace(byteArrayOf(1, 2, 3), contentHash = null)
         val loader = {
             calls.incrementAndGet()
             face
@@ -37,7 +37,7 @@ class FontByteCacheTest {
         val calls = AtomicInteger(0)
         val loader = {
             calls.incrementAndGet()
-            null as FontFaceBytes?
+            null as ResolvedFontFace?
         }
 
         assertNull(cache.getOrResolve("missing", loader))
@@ -48,8 +48,8 @@ class FontByteCacheTest {
     @Test
     fun `distinct keys are isolated`() {
         val cache = FontByteCache()
-        val a = FontFaceBytes(byteArrayOf(10), contentHash = null)
-        val b = FontFaceBytes(byteArrayOf(20), contentHash = null)
+        val a = ResolvedFontFace(byteArrayOf(10), contentHash = null)
+        val b = ResolvedFontFace(byteArrayOf(20), contentHash = null)
 
         assertSame(a, cache.getOrResolve("a") { a })
         assertSame(b, cache.getOrResolve("b") { b })

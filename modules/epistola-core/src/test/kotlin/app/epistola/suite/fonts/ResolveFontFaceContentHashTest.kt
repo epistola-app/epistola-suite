@@ -42,7 +42,7 @@ class ResolveFontFaceContentHashTest : IntegrationTestBase() {
         val face = withMediator { ResolveFontFace(tenant.id, SYSTEM_CATALOG_KEY, FontKey.of("lora"), 700, italic = true).query() }
 
         assertThat(face).isNotNull()
-        assertThat(face!!.contentHash).isEqualTo(FontProgramCache.contentHash(face.bytes))
+        assertThat(face!!.contentHash).isEqualTo(FontProgramCache.contentHash(face.content))
     }
 
     @Test
@@ -75,7 +75,7 @@ class ResolveFontFaceContentHashTest : IntegrationTestBase() {
         val face = withMediator { ResolveFontFace(tenant.id, letters, FontKey.of("house-sans"), 700, italic = false).query() }
 
         assertThat(face).isNotNull()
-        assertThat(face!!.bytes).isEqualTo(upload)
+        assertThat(face!!.content).isEqualTo(upload)
         assertThat(face.contentHash).isEqualTo(FontProgramCache.contentHash(upload))
     }
 }

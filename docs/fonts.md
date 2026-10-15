@@ -88,7 +88,7 @@ threads, so a parse called from a render's virtual thread runs on one of two poo
 the weight is remembered per content, so each font is measured once per JVM, even if it is evicted
 and parsed again.
 
-Eviction is a segmented LRU. A newly parsed face enters a _probation_ segment and is always kept, so
+Eviction is a segmented LRU (`SegmentedLruCache`). A newly parsed face enters a _probation_ segment and is always kept, so
 the render that parsed it finds it again in its next pass. A face a _second render_ uses moves to a
 _protected_ segment, which may take 80% of each limit; past that its least recently used face drops
 back to probation. Eviction takes probation's least recently used face first, so a burst of one-off

@@ -172,7 +172,7 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
                 variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = face)),
             ).execute()
         }
-        val before = withMediator { ResolveFontFace(tenant.id, letters, slug, 400, italic = false).query()?.bytes }
+        val before = withMediator { ResolveFontFace(tenant.id, letters, slug, 400, italic = false).query()?.content }
         assertThat(before).isNotNull()
 
         val renamed = ResourceAddress(CatalogResourceType.FONT, letters.value, slug.value).renamedTo("acme-grotesk")
@@ -180,10 +180,10 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
         assertThat(preview.blockers).isEmpty()
         withMediator { MoveCatalogResources(tenant.id, listOf(renamed), preview.planFingerprint).execute() }
 
-        assertThat(withMediator { ResolveFontFace(tenant.id, letters, slug, 400, italic = false).query()?.bytes })
+        assertThat(withMediator { ResolveFontFace(tenant.id, letters, slug, 400, italic = false).query()?.content })
             .describedAs("a face referenced by the family's old slug")
             .isNull()
-        assertThat(withMediator { ResolveFontFace(tenant.id, letters, FontKey.of("acme-grotesk"), 400, italic = false).query()?.bytes })
+        assertThat(withMediator { ResolveFontFace(tenant.id, letters, FontKey.of("acme-grotesk"), 400, italic = false).query()?.content })
             .isEqualTo(before)
     }
 
@@ -260,7 +260,7 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
         }
         val address = ResourceAddress(CatalogResourceType.FONT, letters.value, slug.value)
 
-        val before = withMediator { ResolveFontFace(tenant.id, letters, slug, 400, italic = false).query()?.bytes }
+        val before = withMediator { ResolveFontFace(tenant.id, letters, slug, 400, italic = false).query()?.content }
         assertThat(before).isNotNull()
 
         val relocation = address.movedTo(shared)
@@ -270,12 +270,12 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
 
         // A miss here is not an error the caller sees: FontCache falls back to the built-in font,
         // so the document renders in the wrong typeface rather than failing.
-        assertThat(withMediator { ResolveFontFace(tenant.id, letters, slug, 400, italic = false).query()?.bytes })
+        assertThat(withMediator { ResolveFontFace(tenant.id, letters, slug, 400, italic = false).query()?.content })
             .describedAs("a face referenced by the family's old catalog")
             .isNull()
 
         // The faces followed the family, and the backing asset stayed where it was: since
         // V20260905090100 a face names both by identity, so neither move disturbs the other.
-        assertThat(withMediator { ResolveFontFace(tenant.id, shared, slug, 400, italic = false).query()?.bytes }).isEqualTo(before)
+        assertThat(withMediator { ResolveFontFace(tenant.id, shared, slug, 400, italic = false).query()?.content }).isEqualTo(before)
     }
 }

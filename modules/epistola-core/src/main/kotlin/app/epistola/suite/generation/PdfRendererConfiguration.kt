@@ -25,15 +25,19 @@ import org.springframework.context.annotation.Configuration
 @EnableConfigurationProperties(FontCacheProperties::class)
 class PdfRendererConfiguration {
 
+    /** Parsed fonts every render on this node shares; [FontCacheMetrics] publishes it. */
+    @Bean
+    fun fontProgramCache(fontCacheProperties: FontCacheProperties): FontProgramCache = FontProgramCache(
+        maxBytes = fontCacheProperties.maxSize.toBytes(),
+        maxFaces = fontCacheProperties.maxFaces,
+    )
+
     @Bean
     fun directPdfRenderer(
         schemaProviderRegistry: NodeParameterSchemaProviderRegistry,
-        fontCacheProperties: FontCacheProperties,
+        fontProgramCache: FontProgramCache,
     ): DirectPdfRenderer = DirectPdfRenderer(
         parameterSchemaProvider = { node, document -> schemaProviderRegistry.resolve(node, document) },
-        fontPrograms = FontProgramCache(
-            maxBytes = fontCacheProperties.maxSize.toBytes(),
-            maxFaces = fontCacheProperties.maxFaces,
-        ),
+        fontPrograms = fontProgramCache,
     )
 }

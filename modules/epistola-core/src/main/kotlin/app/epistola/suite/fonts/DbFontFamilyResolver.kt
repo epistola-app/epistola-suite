@@ -32,22 +32,17 @@ fun fontFamilyResolver(
     tenantKey: TenantKey,
     owningCatalogKey: CatalogKey,
     cache: FontByteCache,
-): FontFamilyResolver = object : FontFamilyResolver {
-    override fun resolve(catalogKey: String?, slug: String, weight: Int, italic: Boolean): ByteArray? = resolveFace(catalogKey, slug, weight, italic)?.bytes
-
-    /** Carries the face's stored content hash, so the parsed-font cache does not hash the bytes. */
-    override fun resolveFace(catalogKey: String?, slug: String, weight: Int, italic: Boolean): FontFaceBytes? {
-        val fontKey = FontKey.validateOrNull(slug) ?: return null
-        val effectiveCatalog = catalogKey?.let(CatalogKey::of) ?: owningCatalogKey
-        val key = "${tenantKey.value}|${effectiveCatalog.value}|${fontKey.value}|$weight|$italic"
-        return cache.getOrResolve(key) {
-            ResolveFontFace(
-                tenantId = tenantKey,
-                catalogKey = effectiveCatalog,
-                slug = fontKey,
-                weight = weight,
-                italic = italic,
-            ).query()
-        }
-    }
+): FontFamilyResolver = FontFamilyResolver { catalogKey, slug, weight, italic ->
+    val fontKey = FontKey.validateOrNull(slug) ?: return@FontFamilyResolver null
+    val effectiveCatalog = catalogKey?.let(CatalogKey::of) ?: owningCatalogKey
+    val key = "${tenantKey.value}|${effectiveCatalog.value}|${fontKey.value}|$weight|$italic"
+    cache.getOrResolve(key) {
+        ResolveFontFace(
+            tenantId = tenantKey,
+            catalogKey = effectiveCatalog,
+            slug = fontKey,
+            weight = weight,
+            italic = italic,
+        ).query()
+    }?.let { face -> FontFaceBytes(face.content, face.contentHash) }
 }

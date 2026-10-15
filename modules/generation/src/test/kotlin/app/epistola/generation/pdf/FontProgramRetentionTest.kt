@@ -28,7 +28,7 @@ class FontProgramRetentionTest {
     private val uniqueFont: ByteArray =
         javaClass.getResourceAsStream("/fonts/LiberationSans-Bold.ttf")!!.readBytes() + ByteArray(7) { 0x2A }
 
-    private val resolver = FontFamilyResolver { _, _, _, _ -> uniqueFont }
+    private val resolver = FontFamilyResolver { _, _, _, _ -> FontFaceBytes(uniqueFont, contentHash = null) }
 
     private fun keptByIText(bytes: ByteArray): FontProgram? {
         val getFont = FontCache::class.java.getDeclaredMethod("getFont", FontCacheKey::class.java)
@@ -94,10 +94,7 @@ class FontProgramRetentionTest {
     @Test
     fun `a render keys the parsed font by the hash its resolver supplies`() {
         val programs = FontProgramCache()
-        val hashing = object : FontFamilyResolver {
-            override fun resolve(catalogKey: String?, slug: String, weight: Int, italic: Boolean) = uniqueFont
-            override fun resolveFace(catalogKey: String?, slug: String, weight: Int, italic: Boolean) = FontFaceBytes(uniqueFont, "stored-hash")
-        }
+        val hashing = FontFamilyResolver { _, _, _, _ -> FontFaceBytes(uniqueFont, "stored-hash") }
         val rendered = FontCache(pdfaCompliant = true, fontFamilyResolver = hashing, fontPrograms = programs.scope())
             .font(FontRef(slug = "unique", catalogKey = "system"), 400, false).fontProgram
 

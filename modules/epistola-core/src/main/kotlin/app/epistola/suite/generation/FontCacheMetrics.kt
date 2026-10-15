@@ -4,7 +4,6 @@
 
 package app.epistola.suite.generation
 
-import app.epistola.generation.pdf.DirectPdfRenderer
 import app.epistola.generation.pdf.FontProgramCache
 import io.micrometer.core.instrument.FunctionCounter
 import io.micrometer.core.instrument.Gauge
@@ -20,10 +19,8 @@ import org.springframework.stereotype.Component
  */
 @Component
 class FontCacheMetrics(
-    renderer: DirectPdfRenderer,
+    private val cache: FontProgramCache,
 ) : MeterBinder {
-
-    private val cache: FontProgramCache = renderer.fontPrograms
 
     override fun bindTo(registry: MeterRegistry) {
         Gauge.builder("$PREFIX.size.bytes", cache) { it.bytes.toDouble() }

@@ -58,7 +58,7 @@ class DirectPdfRenderer(
      * Parsed fonts shared by every render of this renderer, bounded in heap and in faces.
      * Production binds one sized from configuration; see [FontProgramCache].
      */
-    val fontPrograms: FontProgramCache = FontProgramCache(),
+    private val fontPrograms: FontProgramCache = FontProgramCache(),
 ) {
 
     /**

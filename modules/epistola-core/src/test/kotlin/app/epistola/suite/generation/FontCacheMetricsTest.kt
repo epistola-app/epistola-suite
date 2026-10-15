@@ -4,7 +4,6 @@
 
 package app.epistola.suite.generation
 
-import app.epistola.generation.pdf.DirectPdfRenderer
 import app.epistola.generation.pdf.FontProgramCache
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
@@ -21,7 +20,7 @@ class FontCacheMetricsTest {
     fun `publishes occupancy, limits, hit rate and evictions per limit`() {
         val cache = FontProgramCache(maxBytes = 512L * 1024 * 1024, maxFaces = 1)
         val registry = SimpleMeterRegistry()
-        FontCacheMetrics(DirectPdfRenderer(fontPrograms = cache)).bindTo(registry)
+        FontCacheMetrics(cache).bindTo(registry)
 
         val render = cache.scope()
         render.program(face(1))

@@ -5,6 +5,7 @@
 package app.epistola.suite.fonts
 
 import app.epistola.generation.pdf.DirectPdfRenderer
+import app.epistola.generation.pdf.FontFaceBytes
 import app.epistola.generation.pdf.FontFamilyResolver
 import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
@@ -47,7 +48,7 @@ class SystemFontRenderingTest {
 
     private val resolver = FontFamilyResolver { _, slug, weight, italic ->
         faces.firstOrNull { it.slug == slug && it.weight == weight && it.italic == italic }
-            ?.let { face -> javaClass.classLoader.getResourceAsStream(face.classpathLocation)!!.use { it.readBytes() } }
+            ?.let { face -> FontFaceBytes(javaClass.classLoader.getResourceAsStream(face.classpathLocation)!!.use { it.readBytes() }, contentHash = null) }
     }
 
     @ParameterizedTest(name = "{0}")

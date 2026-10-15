@@ -163,7 +163,7 @@ class ListStyleParityTest {
         // render paths now set the marker font to the content family. Liberation Sans (bundled for
         // PDF/A) carries the glyphs; resolve any family ref to it to stand in for a real font.
         val liberation = javaClass.getResourceAsStream("/fonts/LiberationSans-Regular.ttf")!!.readBytes()
-        val resolver = FontFamilyResolver { _, _, _, _ -> liberation }
+        val resolver = FontFamilyResolver { _, _, _, _ -> FontFaceBytes(liberation, contentHash = null) }
         val fontFamily = mapOf<String, Any>("slug" to "liberation", "catalogKey" to "system")
 
         for ((style, glyph) in mapOf("circle" to "○", "square" to "■")) {

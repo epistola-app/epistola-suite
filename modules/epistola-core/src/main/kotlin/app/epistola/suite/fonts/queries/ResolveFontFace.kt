@@ -4,7 +4,6 @@
 
 package app.epistola.suite.fonts.queries
 
-import app.epistola.generation.pdf.FontFaceBytes
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -54,11 +53,20 @@ data class ResolveFontFace(
     val slug: FontKey,
     val weight: Int,
     val italic: Boolean,
-) : Query<FontFaceBytes?>,
+) : Query<ResolvedFontFace?>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_VIEW
     override val tenantKey get() = tenantId
 }
+
+/**
+ * A face's binary and the lowercase hex SHA-256 stored for it (`font_variants.content_hash`); the
+ * hash is null when the face is not yet hashed.
+ */
+class ResolvedFontFace(
+    val content: ByteArray,
+    val contentHash: String?,
+)
 
 internal data class FaceRow(
     val weight: Int,
@@ -99,9 +107,9 @@ internal fun pickBestFace(rows: List<FaceRow>, weight: Int, italic: Boolean): Fa
 @Component
 class ResolveFontFaceHandler(
     private val jdbi: Jdbi,
-) : QueryHandler<ResolveFontFace, FontFaceBytes?> {
+) : QueryHandler<ResolveFontFace, ResolvedFontFace?> {
 
-    override fun handle(query: ResolveFontFace): FontFaceBytes? {
+    override fun handle(query: ResolveFontFace): ResolvedFontFace? {
         val rows = jdbi.withHandle<List<FaceRow>, Exception> { handle ->
             handle.loadFaces(query.tenantId, query.catalogKey, query.slug)
         }
@@ -117,7 +125,7 @@ class ResolveFontFaceHandler(
                 GetAssetContent(query.tenantId, assetKey).query()?.content
             }
         } ?: return null
-        return FontFaceBytes(bytes, best.contentHash)
+        return ResolvedFontFace(bytes, best.contentHash)
     }
 }
 
