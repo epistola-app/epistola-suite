@@ -18,4 +18,21 @@ package app.epistola.generation.pdf
  */
 fun interface FontFamilyResolver {
     fun resolve(catalogKey: String?, slug: String, weight: Int, italic: Boolean): ByteArray?
+
+    /**
+     * The face's bytes with their content hash, when the resolver already knows it (core stores one
+     * per face). Parsed fonts are cached by that hash, so a known hash spares hashing the bytes on
+     * every render. Defaults to [resolve] without a hash.
+     */
+    fun resolveFace(catalogKey: String?, slug: String, weight: Int, italic: Boolean): FontFaceBytes? = resolve(catalogKey, slug, weight, italic)?.let { FontFaceBytes(it, contentHash = null) }
 }
+
+/**
+ * A font face's binary and, when known, the lowercase hex SHA-256 of exactly these [bytes]. A wrong
+ * [contentHash] would let one font's parsed program stand in for another's, so pass null rather than
+ * a hash that might not match.
+ */
+class FontFaceBytes(
+    val bytes: ByteArray,
+    val contentHash: String?,
+)

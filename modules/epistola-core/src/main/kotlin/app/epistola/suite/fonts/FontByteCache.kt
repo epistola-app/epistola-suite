@@ -4,6 +4,7 @@
 
 package app.epistola.suite.fonts
 
+import app.epistola.generation.pdf.FontFaceBytes
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.springframework.stereotype.Component
 import java.time.Duration
@@ -28,15 +29,15 @@ class FontByteCache {
 
     private val cache = Caffeine.newBuilder()
         .maximumWeight(MAX_TOTAL_BYTES)
-        .weigher<String, ByteArray> { _, value -> value.size }
+        .weigher<String, FontFaceBytes> { _, value -> value.bytes.size }
         .expireAfterWrite(Duration.ofMinutes(10))
-        .build<String, ByteArray>()
+        .build<String, FontFaceBytes>()
 
     /**
-     * Returns the cached bytes for [key], or invokes [loader]; a non-null
+     * Returns the cached face for [key], or invokes [loader]; a non-null
      * result is cached, a null (not found) is not.
      */
-    fun getOrResolve(key: String, loader: () -> ByteArray?): ByteArray? {
+    fun getOrResolve(key: String, loader: () -> FontFaceBytes?): FontFaceBytes? {
         cache.getIfPresent(key)?.let { return it }
         val resolved = loader() ?: return null
         cache.put(key, resolved)

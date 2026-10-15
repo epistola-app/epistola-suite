@@ -19,12 +19,15 @@ import com.itextpdf.kernel.font.PdfFontFactory.EmbeddingStrategy
  * One check covers both failure modes: `FORCE_EMBEDDED` throws on a
  * non-sfnt/corrupt binary AND on a font whose OS/2 `fsType` forbids
  * embedding.
+ *
+ * Parsed uncached: iText's own font cache never evicts, and validating an upload
+ * must not keep its parsed font in memory.
  */
 object FontBytesValidator {
 
     /** @return null when the bytes are an embeddable TTF/OTF, else a human-readable rejection reason. */
     fun rejectionReason(bytes: ByteArray): String? = try {
-        PdfFontFactory.createFont(bytes, PdfEncodings.IDENTITY_H, EmbeddingStrategy.FORCE_EMBEDDED)
+        PdfFontFactory.createFont(bytes, PdfEncodings.IDENTITY_H, EmbeddingStrategy.FORCE_EMBEDDED, false)
         null
     } catch (e: Exception) {
         "Not a valid embeddable font. Upload an unrestricted TTF or OTF file " +

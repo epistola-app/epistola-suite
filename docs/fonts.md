@@ -69,9 +69,35 @@ The face used for a run of text is **not** picked directly — it's derived:
 SPI → the core `ResolveFontFace` query, which does **nearest-weight matching**:
 prefer the requested italic set (else the other), then exact weight, else
 minimal absolute distance, ties → heavier. Misses fall back to the built-in
-Liberation/Helvetica and log a `WARN` (never silent). Resolved bytes are
-process-cached (`FontByteCache`, Caffeine, 64 MB / 10 min); `PdfFont` objects
-are additionally memoised per document by `FontCache`.
+Liberation/Helvetica and log a `WARN` (never silent).
+
+Three caches sit on this path:
+
+| Cache                           | Holds                                           | Bounds                                                            |
+| ------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------- |
+| `FontByteCache` (core)          | resolved font-file bytes and their content hash | Caffeine, 64 MB, 10 minutes after write                           |
+| `FontProgramCache` (generation) | parsed fonts, shared by renders                 | Caffeine, `epistola.generation.font-cache.max-size` / `max-faces` |
+| `FontCache` (generation)        | `PdfFont`s for one document                     | dropped with the document                                         |
+
+A parsed face takes far more heap than its file, and how much more depends on the font: iText
+expands the kerning tables, so a 400 KB Inter face holds about 25 MB while a 270 KB JetBrains Mono
+face holds about 1 MB. `FontProgramCache` therefore weighs each face by what parsing it allocated.
+Caffeine keeps the total under `max-size` (default `256MB`); the cache itself keeps the count under
+`max-faces` (default `64`; `0` turns it off) by evicting the faces Caffeine ranks coldest. Eviction
+is Caffeine's W-TinyLFU, which keeps faces used often as well as recently. The Helm chart sets both
+bounds through `generation.fontCache.*`.
+
+Parsed fonts are keyed by the SHA-256 of the face binary. `ResolveFontFace` returns the hash stored
+in `font_variants.content_hash` with the bytes, so a render does not hash them again; the bundled
+Liberation Sans faces are hashed once per JVM. Only bytes that arrive without a hash are hashed. A
+`PdfFont` cannot be shared the same way: iText ties it to the PDF it is first used in, so each
+document wraps the shared parsed font in its own, which costs about nothing.
+
+Nothing parses through iText's own font cache (`PdfFontFactory.createFont(bytes, …)` with caching
+on). That cache is static and never evicts, so until `FontProgramCache` replaced it every face a node ever rendered — or
+validated on upload, through `FontBytesValidator` — stayed in its heap until restart. Parsing on
+every render is no alternative: an Inter letter renders about three times slower and allocates ten
+times more.
 
 ## System fonts
 

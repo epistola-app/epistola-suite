@@ -10,6 +10,9 @@ dependencies {
     implementation(libs.itext.core)
     implementation(libs.itext.svg)
 
+    // Bounded cache of parsed fonts shared across renders (FontProgramCache)
+    implementation(libs.caffeine)
+
     // WEBP decoding for PDF image rendering
     implementation("com.twelvemonkeys.imageio:imageio-webp:3.15.3")
 

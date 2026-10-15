@@ -54,6 +54,11 @@ class DirectPdfRenderer(
      * returns null (no parameters) — production wiring binds a real provider.
      */
     private val parameterSchemaProvider: (Node, TemplateDocument) -> Map<String, Any?>? = { _, _ -> null },
+    /**
+     * Parsed fonts shared by every render of this renderer, bounded in heap and in faces.
+     * Production binds one sized from configuration; see [FontProgramCache].
+     */
+    val fontPrograms: FontProgramCache = FontProgramCache(),
 ) {
 
     /**
@@ -164,7 +169,7 @@ class DirectPdfRenderer(
         scopedEvaluator: CompositeExpressionEvaluator = expressionEvaluator,
         clock: Clock = Clock.systemUTC(),
     ): RenderContext {
-        val fontCache = FontCache(pdfaCompliant, fontFamilyResolver)
+        val fontCache = FontCache(pdfaCompliant, fontFamilyResolver, fontPrograms)
         val proseMirrorConverter = ProseMirrorConverter(scopedEvaluator, defaultExpressionLanguage, renderingDefaults)
         return RenderContext(
             data = data,

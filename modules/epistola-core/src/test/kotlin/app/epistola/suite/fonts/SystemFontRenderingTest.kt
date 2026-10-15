@@ -12,7 +12,6 @@ import app.epistola.suite.fonts.commands.EnsureSystemFontsHandler
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
-import com.itextpdf.io.font.FontCache
 import com.itextpdf.io.font.FontProgramFactory
 import com.itextpdf.kernel.pdf.PdfDocument
 import com.itextpdf.kernel.pdf.PdfName
@@ -23,7 +22,6 @@ import com.itextpdf.kernel.pdf.canvas.parser.data.IEventData
 import com.itextpdf.kernel.pdf.canvas.parser.data.TextRenderInfo
 import com.itextpdf.kernel.pdf.canvas.parser.listener.IEventListener
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.parallel.Execution
 import org.junit.jupiter.api.parallel.ExecutionMode
 import org.junit.jupiter.params.ParameterizedTest
@@ -38,10 +36,9 @@ import java.io.ByteArrayOutputStream
  * renderer was only ever tested with Liberation Sans, so a font that failed in one region (#1097)
  * or a file holding the wrong face went unnoticed.
  *
- * The renderer parses fonts through iText's static, never-evicting font cache, and a parsed face
- * holds its kerning tables: all 32 bundled faces retain about 280 MB, Inter alone about 100 MB. So
- * the families render one after another and each clears that cache when done, keeping this test
- * inside the 512 MB unit-test heap it shares with the module's ArchUnit scans.
+ * A parsed face holds its kerning tables (Inter about 25 MB a face), so the families render one
+ * after another, keeping this test inside the 512 MB unit-test heap it shares with the module's
+ * ArchUnit scans.
  */
 @Execution(ExecutionMode.SAME_THREAD)
 class SystemFontRenderingTest {
@@ -52,9 +49,6 @@ class SystemFontRenderingTest {
         faces.firstOrNull { it.slug == slug && it.weight == weight && it.italic == italic }
             ?.let { face -> javaClass.classLoader.getResourceAsStream(face.classpathLocation)!!.use { it.readBytes() } }
     }
-
-    @AfterEach
-    fun releaseParsedFonts() = FontCache.clearSavedFonts()
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("families")

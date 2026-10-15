@@ -97,7 +97,7 @@ class RelocationTypeMatrixTest : RelocationTestSupport() {
                     assertThat(GetAssetContent(tenant, AssetKey.of(target.key), CatalogKey.of(target.catalogKey)).query()).isNotNull()
 
                 MovableResource.FONT ->
-                    assertThat(ResolveFontFace(tenant, CatalogKey.of(target.catalogKey), FontKey.of(target.key), 400, italic = false).query())
+                    assertThat(ResolveFontFace(tenant, CatalogKey.of(target.catalogKey), FontKey.of(target.key), 400, italic = false).query()?.bytes)
                         .isEqualTo(ttfBytes())
 
                 MovableResource.THEME ->

@@ -25,6 +25,32 @@
         }
       }
     },
+    "generation": {
+      "type": "object",
+      "description": "PDF generation settings.",
+      "additionalProperties": false,
+      "properties": {
+        "fontCache": {
+          "type": "object",
+          "description": "Bounds of the parsed-font cache renders share; empty keeps the application default.",
+          "additionalProperties": false,
+          "properties": {
+            "maxSize": {
+              "type": "string",
+              "description": "Estimated heap the cached faces may hold, e.g. 256MB.",
+              "pattern": "^$|^[0-9]+(B|KB|MB|GB)$"
+            },
+            "maxFaces": {
+              "description": "Number of faces kept; 0 turns the cache off.",
+              "anyOf": [
+                { "type": "integer", "minimum": 0 },
+                { "type": "string", "pattern": "^$|^[0-9]+$" }
+              ]
+            }
+          }
+        }
+      }
+    },
     "exchange": {
       "type": "object",
       "required": [
