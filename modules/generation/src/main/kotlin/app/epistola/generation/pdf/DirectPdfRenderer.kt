@@ -103,18 +103,25 @@ class DirectPdfRenderer(
     ) {
         TwoPassAnalyzer.validate(document)
 
+        // Expanded once here so every reader of per-side keys sees them, not only StyleApplicator.
+        val (styledDocument, styledTheme) = if (renderingDefaults.expandStyleShorthands) {
+            StyleShorthands.expandIn(document) to StyleShorthands.expandIn(resolvedTheme)
+        } else {
+            document to resolvedTheme
+        }
+
         // Build a render-scoped evaluator chain bound to the effective culture.
         // `forCulture` is a no-op when `culture == RenderCulture.DEFAULT`, so the
         // untouched default path costs nothing — we only allocate when a
         // tenant/variant has actually opted into a different locale.
         val scopedEvaluator = expressionEvaluator.forCulture(culture)
 
-        if (TwoPassAnalyzer.requiresTwoPassRendering(document)) {
+        if (TwoPassAnalyzer.requiresTwoPassRendering(styledDocument)) {
             renderTwoPass(
-                document = document,
+                document = styledDocument,
                 data = data,
                 outputStream = outputStream,
-                resolvedTheme = resolvedTheme,
+                resolvedTheme = styledTheme,
                 metadata = metadata,
                 pdfaCompliant = pdfaCompliant,
                 assetResolver = assetResolver,
@@ -127,10 +134,10 @@ class DirectPdfRenderer(
             )
         } else {
             renderSinglePass(
-                document = document,
+                document = styledDocument,
                 data = data,
                 outputStream = outputStream,
-                resolvedTheme = resolvedTheme,
+                resolvedTheme = styledTheme,
                 metadata = metadata,
                 pdfaCompliant = pdfaCompliant,
                 assetResolver = assetResolver,
