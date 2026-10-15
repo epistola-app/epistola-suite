@@ -82,7 +82,7 @@ Three caches sit on this path:
 A parsed face takes far more heap than its file, and how much more depends on the font: iText
 expands the kerning tables, so a 400 KB Inter face holds about 25 MB while a 270 KB JetBrains Mono
 face holds about 1 MB. `FontProgramCache` therefore weighs each face by what parsing it allocated,
-within about 1.3× of what it keeps, and keeps the total under `max-size` (default `256MB`) and the
+within about 1.3× of what it keeps, and keeps the total under `max-size` (default `384MB`, room for every bundled face) and the
 count under `max-faces` (default `64`; `0` turns it off). The JVM reports allocation only for platform
 threads, so a parse called from a render's virtual thread runs on one of two pooled platform threads;
 the weight is remembered per content, so each font is measured once per JVM, even if it is evicted

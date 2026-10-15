@@ -37,7 +37,7 @@
           "properties": {
             "maxSize": {
               "type": "string",
-              "description": "Estimated heap the cached faces may hold, e.g. 256MB.",
+              "description": "Estimated heap the cached faces may hold, e.g. 384MB.",
               "pattern": "^$|^[0-9]+(B|KB|MB|GB)$"
             },
             "maxFaces": {

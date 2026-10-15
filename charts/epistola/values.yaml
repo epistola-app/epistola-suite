@@ -426,7 +426,7 @@ catalog:
 # for an Inter face, about 1 MB for JetBrains Mono. Empty: the app default.
 generation:
   fontCache:
-    # Estimated heap the cached faces may hold together, as a size such as "256MB". Default 256MB.
+    # Estimated heap the cached faces may hold together, as a size such as "384MB". Default 384MB.
     maxSize: ""
     # Number of faces kept. 0 turns the cache off, so every render parses its fonts. Default 64.
     maxFaces: ""

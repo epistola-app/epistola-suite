@@ -20,10 +20,10 @@ class FontCachePropertiesTest {
     private fun cacheFor(properties: FontCacheProperties) = PdfRendererConfiguration().fontProgramCache(properties)
 
     @Test
-    fun `the font cache defaults to 256 MB and 64 faces`() {
+    fun `the font cache defaults to 384 MB and 64 faces`() {
         val programs = cacheFor(bind())
 
-        assertThat(programs.maxBytes).isEqualTo(256L * 1024 * 1024)
+        assertThat(programs.maxBytes).isEqualTo(384L * 1024 * 1024)
         assertThat(programs.maxFaces).isEqualTo(64)
     }
 

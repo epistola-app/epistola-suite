@@ -141,7 +141,11 @@ class FontProgramCache(
     )
 
     companion object {
-        const val DEFAULT_MAX_BYTES: Long = 256L * 1024 * 1024
+        /**
+         * Room for every bundled face (~260 MB measured) with headroom: at 256 MB a node cycling through
+         * all bundled families evicted each face just before it was needed again, live.
+         */
+        const val DEFAULT_MAX_BYTES: Long = 384L * 1024 * 1024
         const val DEFAULT_MAX_FACES: Int = 64
 
         /** Measured weights remembered after eviction; ~100 bytes each. */

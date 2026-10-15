@@ -279,7 +279,7 @@ epistola:
     # A parsed face holds far more heap than its file (an Inter face about 25 MB); max-size is
     # measured as what parsing it allocated. See docs/fonts.md.
     font-cache:
-      max-size: 256MB
+      max-size: 384MB
       max-faces: 64 # 0 turns the cache off: every render parses its fonts
     async:
       concurrency: 10 # Items processed concurrently per job

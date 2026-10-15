@@ -6,7 +6,7 @@
 
 - **`generation.fontCache.maxSize` and `generation.fontCache.maxFaces` — bounds of the parsed-font
   cache.** Render `EPISTOLA_GENERATION_FONTCACHE_MAXSIZE` and `EPISTOLA_GENERATION_FONTCACHE_MAXFACES`
-  when set. Empty (the default) keeps the application defaults, `256MB` and `64` faces; `maxFaces: 0`
+  when set. Empty (the default) keeps the application defaults, `384MB` and `64` faces; `maxFaces: 0`
   turns the cache off. Raise them on pods that render many distinct fonts.
 
 ## [1.1.0] - 2026-10-13
