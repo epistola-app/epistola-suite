@@ -23,7 +23,7 @@ class FontRoutesTest : BaseIntegrationTest() {
     private lateinit var objectMapper: ObjectMapper
 
     @Test
-    fun `search returns the eight bundled system fonts for a fresh tenant`() = fixture {
+    fun `search returns the nine bundled system fonts for a fresh tenant`() = fixture {
         lateinit var testTenant: Tenant
 
         given {
@@ -49,6 +49,7 @@ class FontRoutesTest : BaseIntegrationTest() {
                 "source-sans-3",
                 "roboto",
                 "lato",
+                "liberation-sans",
                 "source-serif-4",
                 "merriweather",
                 "lora",

@@ -55,13 +55,13 @@ class FontMcpToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `list_fonts returns the eight bundled system families read-only`() {
+    fun `list_fonts returns the nine bundled system families read-only`() {
         val tenant = createTenant("MCP Font Tenant")
         val tenantId = TenantId(tenant.id)
 
         val systemFonts = runAsApiKey(tenantId) { fontMcpTools.listFonts(catalogId = "system") }
-        assertThat(systemFonts).hasSize(8)
-        assertThat(systemFonts.map { it.slug }).contains("inter", "roboto", "jetbrains-mono")
+        assertThat(systemFonts).hasSize(9)
+        assertThat(systemFonts.map { it.slug }).contains("inter", "roboto", "jetbrains-mono", "liberation-sans")
         assertThat(systemFonts).allMatch { it.readOnly && it.catalogType == "SUBSCRIBED" }
         val inter = systemFonts.single { it.slug == "inter" }
         assertThat(inter.name).isEqualTo("Inter")

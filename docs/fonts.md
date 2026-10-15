@@ -75,9 +75,13 @@ are additionally memoised per document by `FontCache`.
 
 ## System fonts
 
-Eight OFL families (Inter, Source Sans 3, Roboto, Lato, Source Serif 4,
-Merriweather, Lora, JetBrains Mono) ship under
-`modules/epistola-core/src/main/resources/epistola/fonts/<slug>/`. They are
+Nine OFL families ship with the suite. Eight (Inter, Source Sans 3, Roboto,
+Lato, Source Serif 4, Merriweather, Lora, JetBrains Mono) are under
+`modules/epistola-core/src/main/resources/epistola/fonts/<slug>/`. The ninth,
+Liberation Sans (`liberation-sans`), is metric-compatible with Helvetica and
+Arial, so a letter designed in either keeps its widths and line breaks; its
+faces are the renderer's own fallback files in
+`modules/generation/src/main/resources/fonts/`, registered from there. They are
 seeded per tenant into the `system` catalog by `EnsureSystemFonts` (idempotent,
 runs from `InstallSystemCatalog` on tenant create and every boot) as
 `CLASSPATH` faces at `(400,upright)`, `(700,upright)`, `(400,italic)`,
