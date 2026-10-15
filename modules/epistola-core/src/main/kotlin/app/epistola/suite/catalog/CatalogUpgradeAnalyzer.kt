@@ -94,10 +94,15 @@ class CatalogUpgradeAnalyzer(
         for (resource in staleResources) {
             when (resource.type) {
                 "theme" -> findThemeConflicts(handle, tenantKey, catalogKey, resource.slug, conflicts)
+
                 "stencil" -> findStencilConflicts(handle, tenantKey, catalogKey, resource.slug, conflicts)
-                "template" -> findTemplateConflicts(handle, tenantKey, catalogKey, resource.slug, conflicts)
+
+                // A template removed by an upgrade breaks nothing that renders: environments serve
+                // releases, which keep their content, not the working copy's templates.
                 "attribute" -> findAttributeConflicts(handle, tenantKey, catalogKey, resource.slug, conflicts)
+
                 "codeList" -> findCodeListConflicts(handle, tenantKey, catalogKey, resource.slug, conflicts)
+
                 "font" -> findFontConflicts(handle, tenantKey, catalogKey, resource.slug, conflicts)
             }
         }
@@ -143,20 +148,6 @@ class CatalogUpgradeAnalyzer(
         ).bind("t", tenantKey).bind("c", catalogKey).bind("cStr", catalogKey.value).bind("slug", slug)
             .map { rs, _ -> "Stencil '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
             .list().let { conflicts.addAll(it) }
-    }
-
-    private fun findTemplateConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {
-        val activationCount = handle.createQuery(
-            """
-            SELECT COUNT(*) FROM environment_activations
-            WHERE tenant_key = :t AND template_resource_id = ${templateAtAddress("t", "c", "slug")}
-            """,
-        ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
-            .mapTo(Long::class.java).one()
-
-        if (activationCount > 0) {
-            conflicts.add("Template '$slug' has $activationCount environment activation(s) — removing it would break document generation")
-        }
     }
 
     private fun findAttributeConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {

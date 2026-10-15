@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle=${environment.name},
+            backLinkHref=@{/tenants/{tenantId}/environments(tenantId=${tenantId})},
+            backLinkLabel='Environments',
+            pageDescription='The catalog releases this environment serves, and what it served before.'
+        )}"></div>
+
+        <div class="alert alert-error" th:if="${error != null}" th:text="${error}" data-testid="environment-error"></div>
+
+        <!--/* One release per catalog. Deploying replaces it, so promoting is deploying what another
+               environment runs and rolling back is deploying an earlier release. */-->
+        <div class="card" data-testid="environment-deployments"
+             th:with="canDeploy=${auth.has('TEMPLATE_PUBLISH')}">
+            <div class="card-header">
+                <h2>Serves</h2>
+            </div>
+            <div class="card-body">
+                <p th:if="${deployments.isEmpty()}" class="text-muted">
+                    This environment serves no catalog yet, so generation naming it fails.
+                    <th:block th:if="${canDeploy and !releaseGroups.isEmpty()}">Deploy a release below.</th:block>
+                </p>
+                <div th:if="${!deployments.isEmpty()}" class="ep-table-scroll" role="region" aria-label="Served releases" tabindex="0">
+                <table class="ep-table">
+                    <thead>
+                        <tr>
+                            <th>Catalog</th>
+                            <th>Release</th>
+                            <th>Since</th>
+                            <th th:if="${canDeploy}"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="row : ${deployments}" th:attr="data-catalog=${row.catalogKey}">
+                            <td>
+                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${row.catalogKey})}"
+                                   th:text="${row.catalogName}">Letters</a>
+                            </td>
+                            <td th:text="'v' + ${row.version}">v1.0.0</td>
+                            <td th:text="${#temporals.format(row.deployedAt, 'yyyy-MM-dd HH:mm')}"></td>
+                            <td class="actions" th:if="${canDeploy}">
+                                <form method="post" style="display: inline;"
+                                      th:action="@{/tenants/{tenantId}/environments/{environmentId}/deployments/{catalogId}/undeploy(tenantId=${tenantId},environmentId=${environment.id},catalogId=${row.catalogKey})}">
+                                    <button type="button"
+                                            class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
+                                            data-confirm-submit
+                                            data-confirm-submit-title="Undeploy this catalog"
+                                            th:attr="data-confirm-submit-message=${environment.name} + ' stops serving ' + ${row.catalogName} + '. Generation here fails for its templates until a release is deployed again.'"
+                                            data-confirm-submit-label="Undeploy"
+                                            data-confirm-submit-class="ep-btn-destructive">Undeploy</button>
+                                </form>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div>
+
+                <!--/* The select only renders when there is something in it (ui-affordances). */-->
+                <p th:if="${releaseGroups.isEmpty()}" class="text-muted" style="margin-top: var(--ep-space-4);">
+                    Nothing can be deployed yet: no catalog has a release that kept its content.
+                    <a th:href="@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})}">Release a catalog</a> first.
+                </p>
+                <p th:if="${!canDeploy and !releaseGroups.isEmpty()}" class="text-muted" style="margin-top: var(--ep-space-4);">
+                    Deploying needs the permission to publish templates.
+                </p>
+                <form th:if="${canDeploy and !releaseGroups.isEmpty()}" method="post" data-testid="environment-deploy-form"
+                      style="display: flex; gap: var(--ep-space-2); align-items: flex-end; margin-top: var(--ep-space-4);"
+                      th:action="@{/tenants/{tenantId}/environments/{environmentId}/deployments(tenantId=${tenantId},environmentId=${environment.id})}">
+                    <div class="form-group" style="margin: 0;">
+                        <label class="ep-label" for="release">Deploy a release</label>
+                        <select id="release" name="release" class="ep-select" required>
+                            <optgroup th:each="group : ${releaseGroups}" th:label="${group.catalogName}">
+                                <option th:each="version : ${group.versions}"
+                                        th:value="${group.catalogKey} + '@' + ${version}"
+                                        th:text="${group.catalogName} + ' v' + ${version} + (${version == group.servedVersion} ? ' (serving)' : '')">Letters v1.0.0</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <button type="submit" class="ep-btn ep-btn-primary">Deploy</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card" data-testid="environment-history"
+             th:with="canDeploy=${auth.has('TEMPLATE_PUBLISH')}">
+            <div class="card-header">
+                <h2>History</h2>
+            </div>
+            <div class="card-body">
+                <p th:if="${history.isEmpty()}" class="text-muted">Nothing has been deployed to this environment yet.</p>
+                <div th:if="${!history.isEmpty()}" class="ep-table-scroll" role="region" aria-label="Deployment history" tabindex="0">
+                <table class="ep-table">
+                    <thead>
+                        <tr>
+                            <th>When</th>
+                            <th>Change</th>
+                            <th>By</th>
+                            <th th:if="${canDeploy}"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="entry : ${history}">
+                            <td th:text="${#temporals.format(entry.changedAt, 'yyyy-MM-dd HH:mm')}"></td>
+                            <td>
+                                <th:block th:if="${entry.deployed}">
+                                    <span th:text="'Deployed ' + ${entry.catalogName} + ' v' + ${entry.version}">Deployed Letters v1.0.1</span>
+                                    <span th:if="${entry.previousVersion != null}" class="text-muted"
+                                          th:text="'replacing v' + ${entry.previousVersion}">replacing v1.0.0</span>
+                                </th:block>
+                                <span th:unless="${entry.deployed}"
+                                      th:text="'Undeployed ' + ${entry.catalogName} + ' v' + ${entry.previousVersion}">Undeployed Letters v1.0.0</span>
+                            </td>
+                            <td th:text="${entry.changedByName ?: 'System'}"></td>
+                            <td class="actions" th:if="${canDeploy}">
+                                <form th:if="${entry.redeployable}" method="post" style="display: inline;"
+                                      th:action="@{/tenants/{tenantId}/environments/{environmentId}/deployments(tenantId=${tenantId},environmentId=${environment.id})}">
+                                    <input type="hidden" name="release" th:value="${entry.catalogKey} + '@' + ${entry.version}">
+                                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm"
+                                            th:text="'Deploy v' + ${entry.version} + ' again'">Deploy v1.0.0 again</button>
+                                </form>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+
+        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+    </th:block>
+</body>
+</html>

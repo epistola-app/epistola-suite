@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.commands
 import app.epistola.suite.catalog.CatalogInUseException
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.queries.FindCatalogCrossReferences
+import app.epistola.suite.catalog.revisions.ReleaseInUse
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -45,6 +46,9 @@ class UnregisterCatalogHandler(
         }
 
         return jdbi.withHandle<Boolean, Exception> { handle ->
+            // Its releases go with it, so none of them may still be served or depended on. Not
+            // bypassed by force: force overrides references from authoring content, not rendering.
+            ReleaseInUse.requireCatalogUnused(handle, command.tenantKey, command.catalogKey)
             val deleted = handle.createUpdate(
                 """
                 DELETE FROM catalogs

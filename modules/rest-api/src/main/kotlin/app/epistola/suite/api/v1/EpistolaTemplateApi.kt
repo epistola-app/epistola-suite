@@ -47,12 +47,10 @@ import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.DraftNotFoundException
-import app.epistola.suite.templates.NoActiveVersionException
 import app.epistola.suite.templates.TemplateNotFoundException
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.DeleteDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.commands.activations.RemoveActivation
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.DeleteVariant
 import app.epistola.suite.templates.commands.variants.SetDefaultVariant
@@ -60,7 +58,6 @@ import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.commands.versions.ArchiveVersion
 import app.epistola.suite.templates.commands.versions.CreateVersion
 import app.epistola.suite.templates.commands.versions.DiscardDraft
-import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.commands.versions.UpdateVersion
@@ -78,8 +75,6 @@ import app.epistola.suite.templates.queries.CountDocumentTemplates
 import app.epistola.suite.templates.queries.DocumentTemplateSort
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
-import app.epistola.suite.templates.queries.activations.GetActiveVersion
-import app.epistola.suite.templates.queries.activations.ListActivations
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.templates.queries.variants.ListVariants
@@ -506,11 +501,8 @@ class EpistolaTemplateApi(
         templateId: String,
         variantId: String,
     ): ResponseEntity<ActivationListResponse> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
-        val activations = ListActivations(variantId = variantIdComposite).query()
-        return ResponseEntity.ok(ActivationListResponse(items = activations.map { it.toDto() }))
+        // Removed with environment activations; the operation stays until the 2.0 contract drops it.
+        throw ApiOperationNotImplementedException("listVariantActivations: Environments serve catalog releases since 2.0; per-variant activations no longer exist. Read a catalog's deployments instead.")
     }
 
     override fun removeVariantActivation(
@@ -520,16 +512,8 @@ class EpistolaTemplateApi(
         variantId: String,
         environmentId: String,
     ): ResponseEntity<Unit> {
-        val typedTenantId = TenantKey.of(tenantId)
-        val tenantIdComposite = TenantId(typedTenantId)
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
-        val environmentIdComposite = EnvironmentId(EnvironmentKey.of(environmentId), tenantIdComposite)
-        RemoveActivation(
-            variantId = variantIdComposite,
-            environmentId = environmentIdComposite,
-        ).execute()
-        return ResponseEntity.noContent().build()
+        // Removed with environment activations; the operation stays until the 2.0 contract drops it.
+        throw ApiOperationNotImplementedException("removeVariantActivation: Environments serve catalog releases since 2.0; undeploy the catalog's release from the environment instead.")
     }
 
     override fun getActiveVersion(
@@ -539,16 +523,8 @@ class EpistolaTemplateApi(
         templateId: String,
         variantId: String,
     ): ResponseEntity<VersionDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
-        val environmentIdComposite = EnvironmentId(EnvironmentKey.of(environment), tenantIdComposite)
-        // Verify variant exists before distinguishing "variant not found" from "no active version"
-        GetVariant(variantId = variantIdComposite).query()
-            ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
-        val version = GetActiveVersion(variantId = variantIdComposite, environmentId = environmentIdComposite).query()
-            ?: throw NoActiveVersionException(tenantIdComposite.key, variantIdComposite.key, environmentIdComposite.key)
-        return ResponseEntity.ok(version.toDto())
+        // Removed with environment activations; the operation stays until the 2.0 contract drops it.
+        throw ApiOperationNotImplementedException("getActiveVersion: Environments serve catalog releases since 2.0; there is no active template version. Read the environment's deployed release instead.")
     }
 
     // ================== Version operations ==================
@@ -631,16 +607,8 @@ class EpistolaTemplateApi(
         versionId: Int,
         publishVersionRequest: PublishVersionRequest,
     ): ResponseEntity<VersionDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
-        val versionIdComposite = VersionId(VersionKey.of(versionId), variantIdComposite)
-        val environmentIdComposite = EnvironmentId(EnvironmentKey.of(publishVersionRequest.environmentId), tenantIdComposite)
-        val result = PublishToEnvironment(
-            versionId = versionIdComposite,
-            environmentId = environmentIdComposite,
-        ).execute()
-        return ResponseEntity.ok(result.version.toDto())
+        // Removed with environment activations; the operation stays until the 2.0 contract drops it.
+        throw ApiOperationNotImplementedException("publishVersion: Publishing a version to an environment is replaced by releasing the catalog and deploying the release (2.0).")
     }
 
     override fun archiveVersion(

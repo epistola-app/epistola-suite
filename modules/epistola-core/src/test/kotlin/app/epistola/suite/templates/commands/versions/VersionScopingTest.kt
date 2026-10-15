@@ -55,17 +55,15 @@ class VersionScopingTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `archive version ignores active matching version in another template`(): Unit = withMediator {
-        val (tenantId, firstVariantId, secondVariantId) = createTemplatesWithSharedVariant()
+    fun `archive version ignores a published matching version in another template`(): Unit = withMediator {
+        val (_, firstVariantId, secondVariantId) = createTemplatesWithSharedVariant()
         val firstVersionId = VersionId(VersionKey.of(1), firstVariantId)
         val secondVersionId = VersionId(VersionKey.of(1), secondVariantId)
-        val environmentId = EnvironmentId(TestIdHelpers.nextEnvironmentId(), tenantId)
-        CreateEnvironment(id = environmentId, name = "Staging").execute()
 
         PublishContractVersion(firstVariantId.templateId).execute()
         PublishContractVersion(secondVariantId.templateId).execute()
         PublishVersion(firstVersionId).execute()
-        PublishToEnvironment(secondVersionId, environmentId).execute()
+        PublishVersion(secondVersionId).execute()
 
         val archived = ArchiveVersion(firstVersionId).execute()
         val stillPublished = GetVersion(secondVersionId).query()

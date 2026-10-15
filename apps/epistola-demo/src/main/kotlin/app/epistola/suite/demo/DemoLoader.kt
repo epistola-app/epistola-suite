@@ -120,6 +120,7 @@ class DemoLoader(
         val tenantKey = TenantKey.of(DEMO_TENANT_ID)
         transactionTemplate.executeWithoutResult {
             val result = mediator.send(EnsureSubscribedCatalog(tenantKey = tenantKey, sourceUrl = DEMO_CATALOG_URL))
+            mediator.deployDemoCatalog(tenantKey, result.catalogKey, result.newVersion)
             log.info(
                 "Demo catalog {} ({}): {} -> {}",
                 result.catalogKey.value,

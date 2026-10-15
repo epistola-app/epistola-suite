@@ -38,9 +38,6 @@ import org.junit.jupiter.api.Test
  * Browser coverage for the settings-page behaviors that only exist once the
  * page is live — each one is two mechanisms that have to line up:
  *
- * - the **compare trigger**: `hx-get` loads the comparison UI and the app-wide
- *   `data-open-dialog` hook opens the dialog — two independent behaviors that
- *   must both fire from one click;
  * - the **rename Escape-revert**: Escape restores the input's `defaultValue`,
  *   which must be the LATEST committed name — every successful hx-patch swap
  *   re-renders the input, so its value attribute tracks the server;
@@ -52,22 +49,6 @@ import org.junit.jupiter.api.Test
  * [app.epistola.suite.handlers.TemplateSettingsPatchHtmxTest].
  */
 class TemplateSettingsUiTest : BasePlaywrightTest() {
-
-    @Test
-    fun `compare trigger opens the dialog and loads the comparison UI in one click`() {
-        val (tenant, template) = withMediator { createPublishedTemplateWithDraft() }
-
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/deployments")
-
-        val trigger = page.locator("button[title='Compare versions']").first()
-        val dialog = page.openDialogByTrigger(trigger, "#version-comparison-dialog")
-
-        // The hx-get must have filled the dialog body with the comparison UI:
-        // both version selects populated from the seeded versions.
-        assertThat(dialog.locator("#compare-version-a option")).hasCount(2)
-        assertThat(dialog.locator("#compare-version-b option")).hasCount(2)
-        assertThat(dialog.locator("[data-compare-versions]")).isVisible()
-    }
 
     @Test
     fun `escape reverts the rename input to the latest committed name`() {

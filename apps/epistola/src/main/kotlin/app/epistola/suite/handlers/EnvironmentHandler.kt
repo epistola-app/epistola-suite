@@ -4,10 +4,17 @@
 
 package app.epistola.suite.environments
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeleteEnvironment
+import app.epistola.suite.environments.commands.DeployRelease
+import app.epistola.suite.environments.commands.UndeployRelease
+import app.epistola.suite.environments.queries.GetEnvironment
+import app.epistola.suite.environments.queries.ListDeployableReleases
+import app.epistola.suite.environments.queries.ListDeploymentHistory
+import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.environmentId
@@ -26,6 +33,7 @@ import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+import java.time.OffsetDateTime
 
 @Component
 class EnvironmentHandler {
@@ -167,6 +175,123 @@ class EnvironmentHandler {
             onNonHtmx { redirect("/tenants/${tenantId.key}/environments") }
         }
     }
+
+    /**
+     * An environment: the release of each catalog it serves, a way to deploy another, and what it
+     * served over time, with each earlier release offered again where it can still be deployed.
+     */
+    fun detail(request: ServerRequest): ServerResponse = detail(request, error = null)
+
+    private fun detail(request: ServerRequest, error: String?): ServerResponse {
+        val tenantId = request.tenantId()
+        val environmentId = request.environmentId(tenantId) ?: return ServerResponse.notFound().build()
+        val environment = GetEnvironment(environmentId).query() ?: return ServerResponse.notFound().build()
+
+        val deployable = ListDeployableReleases(tenantId.key).query()
+        val catalogNames = deployable.associate { it.catalogKey to it.catalogName }
+        val served = ListDeployments(tenantId.key, environmentKey = environmentId.key).query()
+        val servedVersions = served.associate { it.catalogKey to it.version }
+        val deployableSet = deployable.map { it.catalogKey to it.version }.toSet()
+
+        val history = ListDeploymentHistory(environmentId).query().map { entry ->
+            DeploymentHistoryView(
+                catalogKey = entry.catalogKey.value,
+                catalogName = catalogNames[entry.catalogKey] ?: entry.catalogKey.value,
+                deployed = entry.action == DeploymentAction.DEPLOYED,
+                version = entry.version,
+                previousVersion = entry.previousVersion,
+                changedAt = entry.changedAt,
+                changedByName = entry.changedByName,
+                // Offered again only when deploying it would change something and can succeed:
+                // the release still kept its content, and the environment serves another one now.
+                redeployable = entry.version != null &&
+                    (entry.catalogKey to entry.version) in deployableSet &&
+                    servedVersions[entry.catalogKey] != entry.version,
+            )
+        }
+
+        return ServerResponse.ok().page("environments/detail") {
+            "pageTitle" to "${environment.name} - Environments - Epistola"
+            "tenantId" to tenantId.key
+            "environment" to environment
+            "error" to error
+            "deployments" to served.map { deployment ->
+                ServedReleaseView(
+                    catalogKey = deployment.catalogKey.value,
+                    catalogName = catalogNames[deployment.catalogKey] ?: deployment.catalogKey.value,
+                    version = deployment.version,
+                    deployedAt = deployment.deployedAt,
+                )
+            }
+            "releaseGroups" to deployable.groupBy { it.catalogKey }.map { (catalogKey, releases) ->
+                ReleaseGroupView(
+                    catalogKey = catalogKey.value,
+                    catalogName = releases.first().catalogName,
+                    versions = releases.map { it.version },
+                    servedVersion = servedVersions[catalogKey],
+                )
+            }
+            "history" to history
+        }
+    }
+
+    /** Deploys the chosen release, given as `catalog@version`. Refusals stay on the page. */
+    fun deploy(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val environmentId = request.environmentId(tenantId) ?: return ServerResponse.notFound().build()
+        val release = request.param("release").orElse("").trim()
+        val catalog = release.substringBefore('@', missingDelimiterValue = "")
+        val version = release.substringAfter('@', missingDelimiterValue = "")
+        val catalogKey = CatalogKey.validateOrNull(catalog)
+        if (catalogKey == null || version.isEmpty()) return detail(request, error = "Choose a release to deploy.")
+        return try {
+            DeployRelease(environmentId, catalogKey, version).execute()
+            redirectTo(environmentId)
+        } catch (failure: ReleaseNotDeployableException) {
+            detail(request, error = failure.message)
+        }
+    }
+
+    /** Stops the environment serving a catalog. */
+    fun undeploy(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val environmentId = request.environmentId(tenantId) ?: return ServerResponse.notFound().build()
+        val catalogKey = CatalogKey.validateOrNull(request.pathVariable("catalogId")) ?: return ServerResponse.notFound().build()
+        UndeployRelease(environmentId, catalogKey).execute()
+        return redirectTo(environmentId)
+    }
+
+    private fun redirectTo(environmentId: EnvironmentId): ServerResponse = ServerResponse.status(303)
+        .header("Location", "/tenants/${environmentId.tenantKey.value}/environments/${environmentId.key.value}")
+        .build()
+
+    /** A catalog the environment serves, and the release. */
+    data class ServedReleaseView(
+        val catalogKey: String,
+        val catalogName: String,
+        val version: String,
+        val deployedAt: OffsetDateTime,
+    )
+
+    /** One catalog's deployable releases, newest first, and the one the environment serves. */
+    data class ReleaseGroupView(
+        val catalogKey: String,
+        val catalogName: String,
+        val versions: List<String>,
+        val servedVersion: String?,
+    )
+
+    /** One change in the environment's history, and whether its release can be deployed again. */
+    data class DeploymentHistoryView(
+        val catalogKey: String,
+        val catalogName: String,
+        val deployed: Boolean,
+        val version: String?,
+        val previousVersion: String?,
+        val changedAt: OffsetDateTime,
+        val changedByName: String?,
+        val redeployable: Boolean,
+    )
 
     /** The full-page list model (shared by the newForm / create non-HTMX branches). */
     private fun ModelBuilder.listModel(tenantId: TenantId) {

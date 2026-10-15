@@ -47,6 +47,26 @@ class LoadTestExecutor(
     )
 
     /**
+     * The batch a run submits: [LoadTestRun.targetCount] identical requests. Each renders the release
+     * the run's environment serves, or the catalog's latest release without one, exactly as any
+     * generation request does.
+     */
+    fun batchFor(run: LoadTestRun): GenerateDocumentBatch = GenerateDocumentBatch(
+        tenantId = run.tenantKey,
+        items = (1..run.targetCount).map { sequenceNumber ->
+            BatchGenerationItem(
+                catalogKey = run.catalogKey,
+                templateId = run.templateKey,
+                variantId = run.variantKey,
+                environmentId = run.environmentKey,
+                data = run.testData,
+                filename = "loadtest-${run.id}-$sequenceNumber.pdf",
+                correlationId = "loadtest-${run.id}-$sequenceNumber",
+            )
+        },
+    )
+
+    /**
      * Execute a load test run.
      *
      * Generates [targetCount] documents using batch submission for efficiency.
@@ -69,28 +89,9 @@ class LoadTestExecutor(
 
         logger.info("Submitting {} generation jobs in a single batch...", run.targetCount)
 
-        // Build batch items
-        val batchItems = (1..run.targetCount).map { sequenceNumber ->
-            BatchGenerationItem(
-                catalogKey = run.catalogKey,
-                templateId = run.templateKey,
-                variantId = run.variantKey,
-                versionId = run.versionKey,
-                environmentId = run.environmentKey,
-                data = run.testData,
-                filename = "loadtest-${run.id}-$sequenceNumber.pdf",
-                correlationId = "loadtest-${run.id}-$sequenceNumber",
-            )
-        }
-
         // Submit entire batch at once
         val batchId = try {
-            mediator.send(
-                GenerateDocumentBatch(
-                    tenantId = run.tenantKey,
-                    items = batchItems,
-                ),
-            )
+            mediator.send(batchFor(run))
         } catch (e: Exception) {
             logger.error("Failed to submit batch for load test run {}: {}", run.id, e.message)
             finalizeRun(run.id, null, createEmptyMetrics(), 0, run.targetCount, wasCancelled = true)

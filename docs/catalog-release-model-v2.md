@@ -48,10 +48,15 @@ per-template deployment matrix in the UI, and the permissions `TEMPLATE_PUBLISH`
 ### Progress
 
 - **Generation renders releases** (WP1, first slice): requests without an environment bind to the
-  catalog's latest release when accepted; a resource from another catalog renders from that
-  catalog's latest release (pins were dropped on 13 October 2026, see the revised order below);
-  preview renders the latest release or, on request, the working copy. Environment requests
-  still read activations until WP5.
+  catalog's latest release when accepted; a resource from another catalog renders from the release
+  of that catalog the environment deploys, else from its latest release (pins were dropped on 13
+  October 2026, see the revised order below); preview renders the latest release or, on request,
+  the working copy.
+- **Environments deploy catalog releases** (WP5): one release per environment and catalog, deployed
+  from the catalog page; generation and preview by environment bind the deployed release at
+  acceptance. Activations are removed from the code; their table stays unread (D1). Load tests render
+  the same way: the environment's release, or the latest without one; each request records the
+  release it bound, so `load_test_runs` gains no release column.
 
 ## 3. The target model
 

@@ -49,14 +49,7 @@ class GetContractUsageOverviewHandler(
             handle.createQuery(
                 """
                 SELECT tv.variant_key, tv.id as version_id, tv.status, tv.contract_version,
-                       COALESCE(
-                           (SELECT jsonb_agg(ea.environment_key ORDER BY ea.environment_key)
-                            FROM environment_activations ea
-                            WHERE ea.tenant_key = tv.tenant_key
-                 AND ea.template_resource_id = tv.template_resource_id AND ea.variant_key = tv.variant_key
-                              AND ea.version_key = tv.id),
-                           '[]'::jsonb
-                       )::text as active_environments
+                       '[]'::jsonb::text as active_environments
                 FROM template_versions tv
                 WHERE tv.tenant_key = :tenantKey
                   AND tv.template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}

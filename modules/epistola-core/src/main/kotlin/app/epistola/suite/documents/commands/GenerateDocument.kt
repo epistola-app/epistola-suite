@@ -86,7 +86,6 @@ data class GenerateDocument(
 @Component
 class GenerateDocumentHandler(
     private val jdbi: Jdbi,
-    private val variantResolver: VariantResolver,
     private val releaseTargetResolver: ReleaseTargetResolver,
 ) : CommandHandler<GenerateDocument, DocumentGenerationRequest> {
 
@@ -95,10 +94,20 @@ class GenerateDocumentHandler(
     override fun handle(command: GenerateDocument): DocumentGenerationRequest {
         if (command.versionId != null) throw versionGenerationRemoved()
 
-        // Without an environment, the request renders the catalog's latest release, and the variant
-        // is chosen from the ones that release holds. Bound now, at acceptance: a release cut while
-        // the request waits in the queue does not change what it renders.
-        val target = if (command.environmentId == null) {
+        // Every request renders a release: the one its environment serves for the catalog, or,
+        // without an environment, the catalog's latest. The variant is chosen from the variants that
+        // release holds. Bound now, at acceptance: a release cut or deployed while the request waits
+        // in the queue does not change what it renders.
+        val target = if (command.environmentId != null) {
+            releaseTargetResolver.resolveDeployed(
+                command.tenantId,
+                command.environmentId,
+                command.catalogKey,
+                command.templateId,
+                command.variantId,
+                command.variantSelectionCriteria,
+            )
+        } else {
             releaseTargetResolver.resolveLatest(
                 command.tenantId,
                 command.catalogKey,
@@ -106,52 +115,11 @@ class GenerateDocumentHandler(
                 command.variantId,
                 command.variantSelectionCriteria,
             )
-        } else {
-            null
         }
-        val resolvedVariantId = target?.variantKey
-            ?: command.variantId
-            ?: command.variantSelectionCriteria?.let { variantResolver.resolve(TemplateId(command.templateId, CatalogId(command.catalogKey, TenantId(command.tenantId))), it) }
-            ?: resolveDefaultVariant(command.tenantId, command.catalogKey, command.templateId)
 
-        logger.info("Generating single document for tenant {} template {} variant {}", command.tenantId, command.templateId, resolvedVariantId)
+        logger.info("Generating single document for tenant {} template {} variant {} from {}@{}", command.tenantId, command.templateId, target.variantKey, command.catalogKey, target.release.version)
 
-        val request = jdbi.inTransaction<DocumentGenerationRequest, Exception> { handle ->
-            if (target == null) {
-                // The environment path still reads the working copy's variants until environments
-                // deploy releases.
-                val templateExists = handle.createQuery(
-                    """
-                    SELECT EXISTS (
-                        SELECT 1
-                        FROM template_variants
-                        WHERE tenant_key = :tenantId AND id = :variantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
-                    )
-                    """,
-                )
-                    .bind("templateId", command.templateId)
-                    .bind("catalogKey", command.catalogKey)
-                    .bind("variantId", resolvedVariantId)
-                    .bind("tenantId", command.tenantId)
-                    .mapTo<Boolean>()
-                    .one()
-                if (!templateExists) {
-                    throw TemplateVariantNotFoundException(command.tenantId, command.templateId, resolvedVariantId)
-                }
-
-                val environmentExists = handle.createQuery(
-                    "SELECT EXISTS (SELECT 1 FROM environments WHERE id = :environmentId AND tenant_key = :tenantId)",
-                )
-                    .bind("environmentId", command.environmentId)
-                    .bind("tenantId", command.tenantId)
-                    .mapTo<Boolean>()
-                    .one()
-                if (!environmentExists) {
-                    throw EnvironmentNotFoundException(command.tenantId, command.environmentId!!)
-                }
-            }
-
-            // Create the request (stays PENDING for the poller to pick up)
+        return jdbi.inTransaction<DocumentGenerationRequest, Exception> { handle ->
             val requestId = GenerationRequestKey.generate()
             val request = handle.createQuery(
                 """
@@ -170,9 +138,9 @@ class GenerateDocumentHandler(
                 .bind("tenantId", command.tenantId)
                 .bind("catalogKey", command.catalogKey)
                 .bind("templateId", command.templateId)
-                .bind("variantId", resolvedVariantId)
+                .bind("variantId", target.variantKey)
                 .bind("environmentId", command.environmentId)
-                .bind("releaseVersion", target?.release?.version)
+                .bind("releaseVersion", target.release.version)
                 .bind("data", command.data.toString())
                 .bind("filename", command.filename)
                 .bind("correlationId", command.correlationId)
@@ -184,27 +152,5 @@ class GenerateDocumentHandler(
             logger.info("Created generation request {} for tenant {}", request.id, command.tenantId)
             request
         }
-
-        return request
-    }
-
-    private fun resolveDefaultVariant(tenantId: TenantKey, catalogKey: app.epistola.suite.common.ids.CatalogKey, templateId: TemplateKey): VariantKey {
-        val variantId = jdbi.withHandle<String?, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT id FROM template_variants
-                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND is_default = TRUE
-                """,
-            )
-                .bind("tenantId", tenantId)
-                .bind("catalogKey", catalogKey)
-                .bind("templateId", templateId)
-                .mapTo<String>()
-                .findOne()
-                .orElse(null)
-        }
-        return VariantKey.of(
-            variantId ?: throw DefaultVariantNotFoundException(tenantId, templateId),
-        )
     }
 }

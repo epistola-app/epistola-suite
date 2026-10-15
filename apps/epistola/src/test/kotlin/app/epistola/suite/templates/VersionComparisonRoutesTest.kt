@@ -16,7 +16,7 @@ import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.versions.CreateVersion
-import app.epistola.suite.templates.commands.versions.PublishToEnvironment
+import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.contracts.commands.PublishContractVersion
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TestIdHelpers
@@ -168,13 +168,7 @@ class VersionComparisonRoutesTest : BaseIntegrationTest() {
                 // Publish the contract first (required before publishing template version)
                 PublishContractVersion(templateId = tplId).execute()
 
-                // Publish to an environment to make it published
-                val envKey = TestIdHelpers.nextEnvironmentId()
-                CreateEnvironment(id = EnvironmentId(envKey, tenantId), name = "Production").execute()
-                PublishToEnvironment(
-                    versionId = VersionId(VersionKey.of(versionNumber), varId),
-                    environmentId = EnvironmentId(envKey, tenantId),
-                ).execute()
+                PublishVersion(VersionId(VersionKey.of(versionNumber), varId)).execute()
             }
 
             whenever {

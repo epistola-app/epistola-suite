@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.CatalogReleasePublicationPort
+import app.epistola.suite.catalog.revisions.ReleaseInUse
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -66,6 +67,7 @@ class DeleteCatalogReleaseHandler(
         // Refused only while Exchange is mid-send: the outbox row and the archive bytes a sender is
         // working from cascade away with the release. Having *been* published is no reason to refuse.
         requireNoSendInFlight(handle, command)
+        ReleaseInUse.requireUnused(handle, command.tenantKey, command.catalogKey, command.version)
 
         val deleted = handle.createUpdate(
             """

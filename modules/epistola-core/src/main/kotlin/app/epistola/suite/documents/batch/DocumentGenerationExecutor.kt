@@ -35,7 +35,6 @@ import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.DocumentContentStore
 import app.epistola.suite.templates.queries.GetDocumentTemplate
-import app.epistola.suite.templates.queries.activations.GetActiveVersion
 import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
 import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -238,10 +237,12 @@ class DocumentGenerationExecutor(
             mediator.query(GetVersion(versionId))
                 ?: throw IllegalStateException("Version ${request.versionKey} not found")
         } else if (request.environmentKey != null) {
-            // Use environment to determine active version
-            val environmentId = EnvironmentId(request.environmentKey, tenantId)
-            mediator.query(GetActiveVersion(variantId, environmentId))
-                ?: throw IllegalStateException("No active version for environment ${request.environmentKey}")
+            // Accepted before 2.0 against an environment activation. Environments now serve catalog
+            // releases and activations are not carried over, so there is nothing to render it from.
+            throw IllegalStateException(
+                "Request ${request.id.value} was accepted against environment '${request.environmentKey.value}' before " +
+                    "environments deployed catalog releases; resubmit it",
+            )
         } else {
             // Fallback: latest published version (safety net — handler should have resolved this)
             mediator.query(GetLatestPublishedVersion(variantId))
@@ -392,7 +393,8 @@ class DocumentGenerationExecutor(
 
     /**
      * Renders a request bound to a catalog release: everything the document needs comes from that
-     * release and the releases it pinned, nothing from the working copy or a template version.
+     * release (and, for other catalogs, the releases its environment deploys or else their latest),
+     * nothing from the working copy or a template version.
      */
     private fun generateFromRelease(request: DocumentGenerationRequest, releaseVersion: String): Triple<Document, ByteArray, String> {
         val tenant = mediator.query(GetTenant(id = request.tenantKey))
@@ -402,6 +404,7 @@ class DocumentGenerationExecutor(
             ReleaseRef(request.catalogKey, releaseVersion),
             request.templateKey.value,
             request.variantKey.value,
+            environment = request.environmentKey,
         )
 
         // The contract the release holds, not the working copy's: a caller generating from a release

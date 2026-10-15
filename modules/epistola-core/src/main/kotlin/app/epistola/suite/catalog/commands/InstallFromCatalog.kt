@@ -276,7 +276,6 @@ class InstallFromCatalogHandler(
                     isDefault = variant.isDefault,
                 )
             },
-            publishTo = emptyList(),
         )
 
         val results = ImportTemplates(

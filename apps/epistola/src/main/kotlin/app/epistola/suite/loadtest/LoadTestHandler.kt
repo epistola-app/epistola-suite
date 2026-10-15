@@ -12,7 +12,6 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -34,7 +33,6 @@ import app.epistola.suite.templates.model.DataExamples
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.variants.ListVariants
-import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.tenants.queries.GetTenant
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -67,7 +65,7 @@ class LoadTestHandler(
      *
      * Uses unified HTMX DSL pattern:
      * - Non-HTMX requests: renders the full page with template/environment dropdowns.
-     * - HTMX requests: returns partial fragments for variant, version, and data example
+     * - HTMX requests: returns partial fragments for variant, environment, and data example
      *   dropdowns based on the current form selection. Uses HX-Trigger-Name to determine
      *   which field triggered the request (templateId, variantId, or exampleId).
      */
@@ -121,28 +119,8 @@ class LoadTestHandler(
             request.param("exampleId").orElse("")
         }
 
-        // Load versions for the selected variant
-        val versions = if (selectedVariantId.isNotBlank()) {
-            val variantId = VariantId(VariantKey.of(selectedVariantId), templateId)
-            ListVersions(variantId = variantId).query()
-        } else {
-            emptyList()
-        }
-
-        // Version/environment mutual exclusion:
-        // - selecting a version clears the environment
-        // - selecting an environment clears the version
-        // - template/variant change resets both
-        val selectedVersionId = when {
-            resetsAll || triggerName == "variantId" -> ""
-            triggerName == "environmentId" -> ""
-            else -> request.param("versionId").orElse("")
-        }
-        val selectedEnvironmentId = when {
-            resetsAll || triggerName == "variantId" -> ""
-            triggerName == "versionId" -> ""
-            else -> request.param("environmentId").orElse("")
-        }
+        // A template change resets the environment to the default: the latest release.
+        val selectedEnvironmentId = if (resetsAll) "" else request.param("environmentId").orElse("")
 
         // If an example is selected, pretty-print its data as test data
         val testData = if (selectedExampleId.isNotBlank()) {
@@ -164,11 +142,9 @@ class LoadTestHandler(
             }
             fragment("loadtest/new", "template-options") {
                 "variants" to variants
-                "versions" to versions
                 "dataExamples" to dataExamples
                 "environments" to environments
                 "selectedVariantId" to selectedVariantId
-                "selectedVersionId" to selectedVersionId
                 "selectedExampleId" to selectedExampleId
                 "selectedEnvironmentId" to selectedEnvironmentId
                 "testData" to testData
@@ -221,12 +197,9 @@ class LoadTestHandler(
         val templateKey = TemplateKey.validateOrNull(templateKeyStr) ?: return ServerResponse.badRequest().build()
         val variantKey = form.getVariantId("variantId")!!
 
-        // Parse version or environment
+        // An environment renders the release it serves; none renders the latest release.
         val params = request.params()
-        val versionIdStr = params.getFirst("versionId")
         val environmentIdStr = params.getFirst("environmentId")
-
-        val versionId = if (!versionIdStr.isNullOrBlank()) VersionKey.of(versionIdStr.toInt()) else null
         val environmentId = if (!environmentIdStr.isNullOrBlank()) EnvironmentKey.of(environmentIdStr) else null
 
         val targetCount = request.queryParamInt("targetCount", 100)
@@ -241,7 +214,6 @@ class LoadTestHandler(
                 catalogKey = templateCatalogKey,
                 templateId = templateKey,
                 variantId = variantKey,
-                versionId = versionId,
                 environmentId = environmentId,
                 targetCount = targetCount,
                 concurrencyLevel = 1, // Legacy field, not used with batch submission

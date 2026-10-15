@@ -25,6 +25,7 @@ import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
+import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.DocumentNotFoundException
@@ -32,11 +33,13 @@ import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.documents.GenerationJobNotCancellableException
 import app.epistola.suite.documents.GenerationJobNotFoundException
 import app.epistola.suite.documents.NoPublishedVersionException
+import app.epistola.suite.documents.NoReleaseDeployedException
 import app.epistola.suite.documents.TemplateNotInReleaseException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.commands.BatchValidationException
 import app.epistola.suite.environments.EnvironmentInUseException
+import app.epistola.suite.environments.ReleaseNotDeployableException
 import app.epistola.suite.fonts.FontNotFoundException
 import app.epistola.suite.security.PermissionDeniedException
 import app.epistola.suite.security.PlatformAccessDeniedException
@@ -45,16 +48,13 @@ import app.epistola.suite.stencils.StencilNotFoundException
 import app.epistola.suite.stencils.StencilVersionNotDraftException
 import app.epistola.suite.stencils.StencilVersionNotFoundException
 import app.epistola.suite.stencils.StencilVersionNotPublishedException
-import app.epistola.suite.templates.ActivationNotFoundException
 import app.epistola.suite.templates.DraftHasNoPublishedBaseException
 import app.epistola.suite.templates.DraftNotFoundException
-import app.epistola.suite.templates.NoActiveVersionException
 import app.epistola.suite.templates.TemplateNotFoundException
 import app.epistola.suite.templates.VersionArchivedException
 import app.epistola.suite.templates.VersionNotDraftException
 import app.epistola.suite.templates.VersionNotPublishedException
 import app.epistola.suite.templates.commands.variants.DefaultVariantDeletionException
-import app.epistola.suite.templates.commands.versions.VersionStillActiveException
 import app.epistola.suite.templates.contracts.ContractPublishConflictException
 import app.epistola.suite.templates.services.AmbiguousVariantResolutionException
 import app.epistola.suite.templates.services.NoMatchingVariantException
@@ -263,11 +263,8 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         VersionNotDraftException::class,
         VersionNotPublishedException::class,
         VersionArchivedException::class,
-        ActivationNotFoundException::class,
-        NoActiveVersionException::class,
         ThemeInUseException::class,
         DefaultVariantDeletionException::class,
-        VersionStillActiveException::class,
         NoMatchingVariantException::class,
         AmbiguousVariantResolutionException::class,
         AttributeInUseException::class,
@@ -277,6 +274,9 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         EnvironmentNotFoundException::class,
         NoPublishedVersionException::class,
         CatalogNotReleasedException::class,
+        NoReleaseDeployedException::class,
+        ReleaseNotDeployableException::class,
+        ReleaseInUseException::class,
         TemplateNotInReleaseException::class,
         DefaultVariantNotFoundException::class,
         AssetNotFoundException::class,

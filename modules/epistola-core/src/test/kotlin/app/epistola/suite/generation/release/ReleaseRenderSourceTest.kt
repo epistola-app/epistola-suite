@@ -11,6 +11,8 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -20,6 +22,8 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.environments.commands.CreateEnvironment
+import app.epistola.suite.environments.commands.DeployRelease
 import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontKind
@@ -105,6 +109,34 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
         assertThat(inputs.resolvedTheme.documentStyles)
             .`as`("a release does not lock the catalogs it borrows from: shared@1.1.0, not 1.0.0 nor the unreleased edit")
             .containsEntry("color", "#0000ff")
+    }
+
+    @Test
+    fun `an environment chooses the release of a catalog the template borrows from`() {
+        val tenant = createTenant("rr-environment")
+        val shared = catalogIn(tenant.id, "shared")
+        val letters = catalogIn(tenant.id, "letters")
+        val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id))
+        withMediator {
+            CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand", documentStyles = mapOf("color" to "#ff0000")).execute()
+            release(shared, "1.0.0")
+            invoice(letters, theme = ThemeKey.of("brand"), themeCatalog = shared.key, nodeId = "body")
+            release(letters, "1.0.0")
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), shared), documentStyles = mapOf("color" to "#0000ff")).execute()
+            release(shared, "1.1.0")
+
+            CreateEnvironment(production, "Production").execute()
+            DeployRelease(production, letters.key, "1.0.0").execute()
+            DeployRelease(production, shared.key, "1.0.0").execute()
+        }
+
+        val inProduction = source.resolve(tenantOf(letters), ReleaseRef(letters.key, "1.0.0"), "invoice", VariantKey.INITIAL.value, production.key)
+        val outside = source.resolve(tenantOf(letters), ReleaseRef(letters.key, "1.0.0"), "invoice", VariantKey.INITIAL.value)
+
+        assertThat(inProduction.resolvedTheme.documentStyles)
+            .`as`("production deploys shared@1.0.0, so it renders that, not shared's latest")
+            .containsEntry("color", "#ff0000")
+        assertThat(outside.resolvedTheme.documentStyles).containsEntry("color", "#0000ff")
     }
 
     @Test

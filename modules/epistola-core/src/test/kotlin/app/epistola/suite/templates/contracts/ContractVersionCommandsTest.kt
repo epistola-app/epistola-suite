@@ -19,7 +19,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.versions.CreateVersion
-import app.epistola.suite.templates.commands.versions.PublishToEnvironment
+import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.contracts.commands.CreateContractVersion
 import app.epistola.suite.templates.contracts.commands.PublishContractVersion
 import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
@@ -353,10 +353,7 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
             }
             val draft = withMediator { GetDraft(defaultVariantId).query()!! }
             withMediator {
-                PublishToEnvironment(
-                    versionId = VersionId(draft.id, defaultVariantId),
-                    environmentId = EnvironmentId(env.id, tenantId),
-                ).execute()
+                PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute()!!
             }
 
             // Create a new draft template version on-demand (no auto-creation after publish)
@@ -399,7 +396,7 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
     @Nested
     inner class PublishGuardTest {
         @Test
-        fun `PublishToEnvironment auto-publishes compatible draft contract`() {
+        fun `publishing a version auto-publishes a compatible draft contract`() {
             // The draft v1 is compatible and has the required example, so it auto-publishes.
             val tenantId = TenantId(tenantKey)
             val env = withMediator {
@@ -416,14 +413,11 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
             val version = withMediator { CreateVersion(defaultVariantId).execute()!! }
 
             val result = withMediator {
-                PublishToEnvironment(
-                    versionId = VersionId(version.id, defaultVariantId),
-                    environmentId = EnvironmentId(env.id, tenantId),
-                ).execute()
+                PublishVersion(versionId = VersionId(version.id, defaultVariantId)).execute()!!
             }
 
             assertThat(result).isNotNull
-            assertThat(result.version.status.name).isEqualTo("PUBLISHED")
+            assertThat(result.status.name).isEqualTo("PUBLISHED")
         }
 
         @Test
@@ -462,10 +456,7 @@ class ContractVersionCommandsTest : IntegrationTestBase() {
 
             assertThatThrownBy {
                 withMediator {
-                    PublishToEnvironment(
-                        versionId = VersionId(version.id, defaultVariantId),
-                        environmentId = EnvironmentId(env.id, tenantId),
-                    ).execute()
+                    PublishVersion(versionId = VersionId(version.id, defaultVariantId)).execute()!!
                 }
             }.hasMessageContaining("breaking changes")
         }

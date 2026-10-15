@@ -27,10 +27,10 @@ class DeleteEnvironmentHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<DeleteEnvironment, Boolean> {
     override fun handle(command: DeleteEnvironment): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
-        // Check if environment has active deployments
-        val activationCount = handle.createQuery(
+        // An environment that serves releases is in use: deleting it would silently stop generation there.
+        val deploymentCount = handle.createQuery(
             """
-                SELECT COUNT(*) FROM environment_activations
+                SELECT COUNT(*) FROM environment_catalog_deployments
                 WHERE tenant_key = :tenantId AND environment_key = :environmentId
                 """,
         )
@@ -39,8 +39,8 @@ class DeleteEnvironmentHandler(
             .mapTo<Long>()
             .one()
 
-        if (activationCount > 0) {
-            throw EnvironmentInUseException(command.id.key, activationCount)
+        if (deploymentCount > 0) {
+            throw EnvironmentInUseException(command.id.key, deploymentCount)
         }
 
         val rowsAffected = handle.createUpdate(

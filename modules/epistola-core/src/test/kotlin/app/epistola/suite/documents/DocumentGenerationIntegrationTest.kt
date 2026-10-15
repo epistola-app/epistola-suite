@@ -36,13 +36,13 @@ import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.DocumentContentStore
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.deployLatestRelease
 import app.epistola.suite.testing.publishAndRelease
 import io.micrometer.core.instrument.MeterRegistry
 import org.assertj.core.api.Assertions.assertThat
@@ -233,7 +233,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             val version = released(compositeVariantId, TestTemplateBuilder.buildMinimal(name = "Invoice Template"))
             val environmentId = EnvironmentId(TestIdHelpers.nextEnvironmentId(), tenantId)
             CreateEnvironment(id = environmentId, name = "Production").execute()
-            PublishToEnvironment(VersionId(version.id, compositeVariantId), environmentId).execute()
+            mediator.deployLatestRelease(environmentId, compositeTemplateId.catalogId)
             DocumentSetup(tenant, template, variant, version) to environmentId.key
         }.whenever { (setup, environmentKey) ->
             // 'name' is required and has no default, so the job must fail rather than render without it.

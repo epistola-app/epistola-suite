@@ -40,7 +40,7 @@ templates/
 2. **At most one draft contract per template.** Enforced by unique partial index.
 3. **Every template version has a `contract_version` FK.** Set on creation by all code paths.
 4. **A draft only exists when there are unpublished changes.** On-demand pattern — publishing does NOT auto-create the next draft.
-5. **Compatible contract changes auto-publish transparently.** `PublishToEnvironment` auto-publishes the contract if it's backwards-compatible or the first version.
+5. **Compatible contract changes auto-publish transparently.** `PublishVersion` auto-publishes the contract if it's backwards-compatible or the first version.
 6. **Breaking contract changes require explicit publish.** The user must call `PublishContractVersion` with confirmation to accept breaking changes.
 7. **Incompatibility is derived, not stored.** A template version is incompatible when its `contract_version` doesn't match the latest published contract AND its `referenced_paths` include affected fields.
 8. **One "current" published contract.** The latest published contract is what downstream systems use. Template versions on older contracts are flagged in the UI.
@@ -61,7 +61,7 @@ Edit again → explicit CreateContractVersion copies from published → new draf
 ### Template version publish flow
 
 ```
-PublishToEnvironment:
+PublishVersion:
   1. If contract_version points to PUBLISHED contract:
      → just publish the template version
 

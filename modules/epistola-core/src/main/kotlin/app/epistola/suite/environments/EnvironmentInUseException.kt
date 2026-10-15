@@ -8,7 +8,7 @@ import app.epistola.suite.common.ids.EnvironmentKey
 
 class EnvironmentInUseException(
     val environmentId: EnvironmentKey,
-    val activationCount: Long,
+    val deploymentCount: Long,
 ) : RuntimeException(
-    "Cannot delete environment $environmentId: it has $activationCount active template version(s)",
+    "Cannot delete environment $environmentId: it serves $deploymentCount catalog release(s). Undeploy them first.",
 )

@@ -156,6 +156,67 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a request naming an environment renders the release that environment serves, not the latest`(): Unit = scenario {
+        given {
+            val tenant = tenant("Release by environment")
+            val templateId = TemplateId(template(tenant.id, "Letter").id, CatalogId.default(TenantId(tenant.id)))
+            val variant = VariantId(variant(templateId, "Default").id, templateId)
+            released(variant, TestTemplateBuilder.buildMinimal(name = "Letter"))
+            val production = app.epistola.suite.common.ids.EnvironmentId(app.epistola.suite.common.ids.EnvironmentKey.of("production"), TenantId(tenant.id))
+            execute(app.epistola.suite.environments.commands.CreateEnvironment(production, "Production"))
+            execute(app.epistola.suite.environments.commands.DeployRelease(production, CatalogKey.DEFAULT, "1.0.0"))
+            // A newer release exists, but production has not been moved to it.
+            released(variant, TestTemplateBuilder.buildMinimal(name = "Letter"))
+            Triple(tenant, templateId, variant)
+        }.whenever { (tenant, templateId, variant) ->
+            execute(
+                GenerateDocument(
+                    tenantId = tenant.id,
+                    templateId = templateId.key,
+                    variantId = variant.key,
+                    environmentId = app.epistola.suite.common.ids.EnvironmentKey.of("production"),
+                    data = objectMapper.createObjectNode(),
+                    filename = null,
+                ),
+            )
+        }.then { _, accepted ->
+            assertThat(accepted.releaseVersion).isEqualTo("1.0.0")
+            assertThat(accepted.environmentKey?.value).isEqualTo("production")
+        }
+    }
+
+    @Test
+    fun `a request naming an environment that serves nothing of the catalog is refused`(): Unit = scenario {
+        given {
+            val tenant = tenant("Release by environment, none")
+            val templateId = TemplateId(template(tenant.id, "Letter").id, CatalogId.default(TenantId(tenant.id)))
+            val variant = VariantId(variant(templateId, "Default").id, templateId)
+            released(variant, TestTemplateBuilder.buildMinimal(name = "Letter"))
+            execute(
+                app.epistola.suite.environments.commands.CreateEnvironment(
+                    app.epistola.suite.common.ids.EnvironmentId(app.epistola.suite.common.ids.EnvironmentKey.of("production"), TenantId(tenant.id)),
+                    "Production",
+                ),
+            )
+            Triple(tenant, templateId, variant)
+        }.whenever { it }
+            .then { (tenant, templateId, variant), _ ->
+                assertThatThrownBy {
+                    execute(
+                        GenerateDocument(
+                            tenantId = tenant.id,
+                            templateId = templateId.key,
+                            variantId = variant.key,
+                            environmentId = app.epistola.suite.common.ids.EnvironmentKey.of("production"),
+                            data = objectMapper.createObjectNode(),
+                            filename = null,
+                        ),
+                    )
+                }.isInstanceOf(NoReleaseDeployedException::class.java)
+            }
+    }
+
+    @Test
     fun `preview without a release is refused, unless it asks for the working copy`(): Unit = scenario {
         given {
             val tenant = tenant("Preview working copy")

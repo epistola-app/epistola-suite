@@ -18,12 +18,14 @@ import app.epistola.generation.pdf.SpacingScale
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.queries.pickNearestFace
 import app.epistola.suite.tenants.Tenant
 import app.epistola.template.model.TemplateDocument
 import app.epistola.template.model.ThemeRefOverride
 import com.github.benmanes.caffeine.cache.Caffeine
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -70,8 +72,10 @@ class ReleaseRenderException(message: String) : IllegalStateException(message)
  * Builds [ReleaseRenderInputs] from a catalog release's retained content.
  *
  * **Which release a resource comes from.** A reference inside the catalog resolves in the release
- * being rendered. A reference into another catalog resolves in that catalog's latest release that
- * kept its content, read once per render: a release does not lock the catalogs it borrows from.
+ * being rendered. A reference into another catalog resolves in the release of that catalog the
+ * request's environment deploys, or else in that catalog's latest release that kept its content,
+ * read once per render: a release does not lock the catalogs it borrows from, the environment
+ * chooses.
  *
  * **Caching.** Revisions are immutable, so a resource read from a release never changes while that
  * release exists. Both caches are bounded, and expire on idle so content dropped by forgetting or
@@ -101,13 +105,15 @@ class ReleaseRenderSource(
      *
      * @param tenant supplies the tenant default theme a template without a theme of its own falls
      *   back to. It is tenant configuration, not catalog content.
+     * @param environment the request's environment, which chooses the release of every other
+     *   catalog the template borrows from; null renders those from their latest release.
      * @throws ReleaseRenderException when the release does not contain the template or variant, or
      *   names a theme, catalog or binary it cannot supply.
      */
-    fun resolve(tenant: Tenant, release: ReleaseRef, templateKey: String, variantKey: String): ReleaseRenderInputs {
+    fun resolve(tenant: Tenant, release: ReleaseRef, templateKey: String, variantKey: String, environment: EnvironmentKey? = null): ReleaseRenderInputs {
         val tenantKey = tenant.id
         val renderingDefaultsVersion = loadRenderingDefaultsVersion(tenantKey, release)
-        val scope = Scope(tenantKey, release)
+        val scope = Scope(tenantKey, release, environment)
 
         val template = read(scope.tenantKey, release, "template", templateKey) as? TemplateResource
             ?: throw ReleaseRenderException("Release ${release.label()} does not contain template '$templateKey'")
@@ -250,23 +256,35 @@ class ReleaseRenderSource(
 
     /**
      * Where a catalog's resources come from while rendering one release: its own catalog from that
-     * release, every other catalog from its latest release that kept its content. Each catalog is
-     * looked up once, so one render reads one release of it however many references it follows.
+     * release, every other catalog from the release [environment] deploys of it, else from its latest
+     * release that kept its content. Each catalog is looked up once, so one render reads one release
+     * of it however many references it follows.
      */
-    private inner class Scope(val tenantKey: TenantKey, val release: ReleaseRef) {
+    private inner class Scope(val tenantKey: TenantKey, val release: ReleaseRef, val environment: EnvironmentKey?) {
         private val latest = mutableMapOf<CatalogKey, ReleaseRef>()
 
         fun releaseOf(catalog: CatalogKey): ReleaseRef = if (catalog == release.catalogKey) {
             release
         } else {
             latest.getOrPut(catalog) {
-                val version = jdbi.withHandle<String?, Exception> { handle -> entryStore.latestRetainedRelease(handle, tenantKey, catalog) }
+                val version = jdbi.withHandle<String?, Exception> { handle ->
+                    environment?.let { deployedRelease(handle, it, catalog) } ?: entryStore.latestRetainedRelease(handle, tenantKey, catalog)
+                }
                     ?: throw ReleaseRenderException(
                         "Release ${release.label()} uses catalog '${catalog.value}', which has no release that kept its content",
                     )
                 ReleaseRef(catalog, version)
             }
         }
+
+        private fun deployedRelease(handle: Handle, environment: EnvironmentKey, catalog: CatalogKey): String? = handle
+            .createQuery("SELECT version FROM environment_catalog_deployments WHERE tenant_key = :t AND environment_key = :e AND catalog_key = :c")
+            .bind("t", tenantKey)
+            .bind("e", environment)
+            .bind("c", catalog)
+            .mapTo(String::class.java)
+            .findOne()
+            .orElse(null)
 
         /** The latest release of every other catalog of the tenant, in catalog order. */
         fun otherCatalogs(): List<ReleaseRef> = jdbi.withHandle<Map<CatalogKey, String>, Exception> { handle -> entryStore.latestRetainedReleases(handle, tenantKey) }

@@ -37,6 +37,7 @@ import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.releaseNext
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
@@ -154,7 +155,7 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `analyze_template_data reports the missing and invalid fields of the published version`() {
+    fun `analyze_template_data reports the missing and invalid fields of the released template`() {
         val tenant = createTenant("MCP Analyze Tenant")
         val tenantId = TenantId(tenant.id)
 
@@ -173,6 +174,8 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
             val variantId = VariantId(VariantKey.INITIAL, templateId)
             val draft = UpdateDraft(variantId = variantId, templateModel = simpleTemplateDocument()).execute()!!
             PublishVersion(VersionId(draft.id, variantId)).execute()
+            // Analysis checks data against the release preview would render, so the catalog is released.
+            mediator.releaseNext(templateId.catalogId)
             templateId.key
         }
 
