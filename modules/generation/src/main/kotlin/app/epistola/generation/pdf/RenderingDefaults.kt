@@ -129,6 +129,14 @@ data class RenderingDefaults(
      * band and the content's position are unchanged. When false, that line is silently dropped.
      */
     val bandOverflowRoom: Boolean = false,
+
+    // -- Page flow --
+    /**
+     * When true, `keepWithNext` keeps a block with the first block that follows it, as in Word.
+     * When false, it keeps it with everything the following node emits, so a heading before a
+     * `loop` waits for the whole loop to fit and can leave most of a page empty.
+     */
+    val keepWithNextFirstBlock: Boolean = false,
 ) {
     /** Total vertical space reserved for the page header (padding + content height). */
     val pageHeaderReservedHeight: Float get() = pageHeaderPadding + pageHeaderHeight
@@ -245,13 +253,15 @@ data class RenderingDefaults(
         /**
          * V6: the `padding`, `margin` and `border` shorthands take effect ([expandStyleShorthands]),
          * `lineHeight` is CSS-like ([cssLineHeight]), and a `lineHeight` below 1 no longer drops a
-         * header's or footer's last line ([bandOverflowRoom]).
+         * header's or footer's last line ([bandOverflowRoom]). `keepWithNext` keeps a block with
+         * the first block after it, not with a whole loop ([keepWithNextFirstBlock]).
          */
         val V6 = V5.copy(
             version = 6,
             expandStyleShorthands = true,
             cssLineHeight = true,
             bandOverflowRoom = true,
+            keepWithNextFirstBlock = true,
         )
 
         /** The defaults version used for newly published template versions. */

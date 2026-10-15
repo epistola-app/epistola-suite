@@ -70,7 +70,7 @@ A **link toggle** switches between editing all sides at once (linked) or indepen
 
 These are style properties available on all block components (text, container, columns, table, datatable, conditional, loop). They appear as checkboxes in the inspector's "Page Flow" section.
 
-**PDF rendering:** Maps to iText's `setKeepTogether(true)` / `setKeepWithNext(true)` via `StyleApplicator`.
+**PDF rendering:** `keepTogether` maps to iText's `setKeepTogether(true)` via `StyleApplicator`. iText only honours keep-with-next at the document root, so `NodeRendererRegistry.renderSlot` wraps a `keepWithNext` block and what follows it in a keep-together group. From rendering defaults V6 (`keepWithNextFirstBlock`) the group holds only the first block that follows, as in Word: a heading before a loop keeps with the loop's first item. Before V6 it held everything the next node rendered, so the heading waited for the whole loop to fit.
 
 ### Line Height
 
