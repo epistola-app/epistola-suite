@@ -10,15 +10,15 @@ import java.time.Duration
 @ConfigurationProperties("epistola.exchange")
 data class ExchangeProperties(
     val enabled: Boolean = false,
-    val discoveryUrl: String = "https://epistola.app/.well-known/epistola/exchange.json",
     /**
-     * Local-development escape hatch; production should use the discovery document.
+     * Exchange's base URL, also used as its OAuth issuer. Blank: found through the product
+     * domain's discovery document (ADR 0030), which is what production uses.
      *
-     * Read through [configuredBaseUrl], never directly: a key present in YAML with no value
-     * (`base-url:`, as `application.yaml` ships it) binds as an empty string, not null, and an
-     * empty escape hatch that reads as "configured" silently disables discovery.
+     * Read through [configuredEndpoint], never directly: a key present in YAML with no value binds
+     * as an empty string, not null, and an empty override that reads as "configured" would
+     * silently disable discovery.
      */
-    val baseUrl: String? = null,
+    val endpoint: String? = null,
     /** Optional browser-reachable callback; otherwise derived from the initiating request. Read through [configuredCallbackUrl]. */
     val callbackUrl: String? = null,
     val pollIntervalMs: Long = 5000,
@@ -56,7 +56,7 @@ data class ExchangeProperties(
      */
     val allowHttp: Boolean = false,
 ) {
-    val configuredBaseUrl: String? get() = baseUrl.orNullIfBlank()
+    val configuredEndpoint: String? get() = endpoint.orNullIfBlank()
 
     val configuredCallbackUrl: String? get() = callbackUrl.orNullIfBlank()
 

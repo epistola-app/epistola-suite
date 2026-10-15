@@ -193,7 +193,7 @@ class LoadTestHandler(
         val rawTemplateId = form.formData["templateId"] ?: ""
         val templateSlashIdx = rawTemplateId.indexOf('/')
         val templateCatalogKey = if (templateSlashIdx > 0) app.epistola.suite.common.ids.CatalogKey.of(rawTemplateId.substring(0, templateSlashIdx)) else return ServerResponse.badRequest().build()
-        val templateKeyStr = if (templateSlashIdx > 0) rawTemplateId.substring(templateSlashIdx + 1) else rawTemplateId
+        val templateKeyStr = rawTemplateId.substring(templateSlashIdx + 1)
         val templateKey = TemplateKey.validateOrNull(templateKeyStr) ?: return ServerResponse.badRequest().build()
         val variantKey = form.getVariantId("variantId")!!
 

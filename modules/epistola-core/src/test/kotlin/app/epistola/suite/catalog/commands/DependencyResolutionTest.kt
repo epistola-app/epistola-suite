@@ -12,8 +12,8 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
-private const val DEP_TEST_CATALOG = "classpath:test-catalogs/dependency-test/catalog.json"
-private const val INVALID_DEPS_CATALOG = "classpath:test-catalogs/invalid-deps/catalog.json"
+private const val DEP_TEST_CATALOG = "classpath:epistola/catalogs/test/dependency-test/catalog.json"
+private const val INVALID_DEPS_CATALOG = "classpath:epistola/catalogs/test/invalid-deps/catalog.json"
 
 /**
  * Tests that installing individual resources from a catalog automatically

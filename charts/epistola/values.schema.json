@@ -4,13 +4,45 @@
   "description": "Partial schema: constrains operational values that have hard render-time requirements. Other values are validated by the templates.",
   "type": "object",
   "properties": {
+    "catalog": {
+      "type": "object",
+      "properties": {
+        "fileRoots": {
+          "description": "Directories file: catalog and code-list sources may be read from. Empty turns file: sources off.",
+          "type": "array",
+          "items": { "type": "string", "pattern": "^/[^,]*$" }
+        },
+        "outbound": {
+          "type": "object",
+          "properties": {
+            "allowPrivateNetworks": { "type": "boolean" },
+            "allowedHosts": {
+              "description": "Host names allowed to resolve to a private address. Exact match, no wildcards.",
+              "type": "array",
+              "items": { "type": "string", "pattern": "^[A-Za-z0-9.-]+$" }
+            }
+          }
+        }
+      }
+    },
     "exchange": {
       "type": "object",
-      "required": ["enabled", "discoveryUrl"],
+      "required": [
+        "enabled"
+      ],
+      "additionalProperties": false,
       "properties": {
-        "enabled": { "type": "boolean" },
-        "discoveryUrl": { "type": "string", "format": "uri", "minLength": 1 },
-        "callbackUrl": { "type": "string" }
+        "enabled": {
+          "type": "boolean"
+        },
+        "endpoint": {
+          "type": "string",
+          "description": "Exchange base URL; empty means found through productDomain.",
+          "pattern": "^$|^https://[^/]+"
+        },
+        "callbackUrl": {
+          "type": "string"
+        }
       }
     },
     "database": {
@@ -18,21 +50,36 @@
       "properties": {
         "type": {
           "description": "Which database the chart connects to. The chart never provisions one.",
-          "enum": ["none", "external", "cnpgExisting"]
+          "enum": [
+            "none",
+            "external",
+            "cnpgExisting"
+          ]
         }
       },
       "allOf": [
         {
           "if": {
-            "required": ["type"],
-            "properties": { "type": { "const": "external" } }
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "const": "external"
+              }
+            }
           },
           "then": {
-            "required": ["external"],
+            "required": [
+              "external"
+            ],
             "properties": {
               "external": {
                 "type": "object",
-                "required": ["host", "existingSecret"],
+                "required": [
+                  "host",
+                  "existingSecret"
+                ],
                 "properties": {
                   "host": {
                     "type": "string",
@@ -56,7 +103,12 @@
       "properties": {
         "format": {
           "description": "Console output format. Plain is the default; structured formats are opt-in.",
-          "enum": ["plain", "logstash", "ecs", "gelf"]
+          "enum": [
+            "plain",
+            "logstash",
+            "ecs",
+            "gelf"
+          ]
         }
       }
     },
@@ -65,25 +117,153 @@
       "properties": {
         "mode": {
           "description": "How schema migrations run.",
-          "enum": ["job", "initContainer", "embedded"]
+          "enum": [
+            "job",
+            "initContainer",
+            "embedded"
+          ]
         }
       }
     },
-    "vpa": {
+    "autoscaling": {
       "type": "object",
       "properties": {
-        "updateMode": {
-          "description": "How the Vertical Pod Autoscaler applies recommendations.",
-          "enum": ["Off", "Initial", "Recreate", "Auto"]
+        "hpa": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Render a HorizontalPodAutoscaler for the application Deployment."
+            },
+            "minReplicas": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxReplicas": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "targetCPUUtilizationPercentage": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Average CPU target as a percentage of the request; 0 disables the CPU metric."
+            },
+            "targetMemoryUtilizationPercentage": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Average memory target as a percentage of the request; 0 (default) disables the memory metric."
+            },
+            "behavior": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "description": "autoscaling/v2 HPA behavior. null leaves the Kubernetes defaults."
+            }
+          }
+        },
+        "vpa": {
+          "type": "object",
+          "properties": {
+            "updateMode": {
+              "description": "How the Vertical Pod Autoscaler applies recommendations.",
+              "enum": [
+                "Off",
+                "Initial",
+                "InPlaceOrRecreate",
+                "Recreate",
+                "Auto"
+              ]
+            },
+            "minReplicas": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Minimum number of replicas required before VPA may evict pods."
+            },
+            "controlledValues": {
+              "description": "Whether VPA controls resource requests only or requests and limits.",
+              "enum": [
+                "RequestsOnly",
+                "RequestsAndLimits"
+              ]
+            },
+            "controlledResources": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "cpu",
+                  "memory"
+                ]
+              },
+              "description": "Resources the VPA manages. An acting VPA must not manage a resource the HPA scales on."
+            }
+          }
+        },
+        "enabled": {
+          "type": "boolean",
+          "deprecated": true,
+          "description": "Deprecated since chart 1.1.0: use autoscaling.hpa.enabled. Still honoured and wins over autoscaling.hpa.enabled; cannot be combined with autoscaling.hpa.enabled=true."
         },
         "minReplicas": {
           "type": "integer",
-          "minimum": 0,
-          "description": "Minimum number of replicas required before VPA may evict pods."
+          "minimum": 1,
+          "deprecated": true,
+          "description": "Deprecated since chart 1.1.0: use autoscaling.hpa.minReplicas. Still honoured and wins over autoscaling.hpa.minReplicas; cannot be combined with autoscaling.hpa.enabled=true."
         },
-        "controlledValues": {
-          "description": "Whether VPA controls resource requests only or requests and limits.",
-          "enum": ["RequestsOnly", "RequestsAndLimits"]
+        "maxReplicas": {
+          "type": "integer",
+          "minimum": 1,
+          "deprecated": true,
+          "description": "Deprecated since chart 1.1.0: use autoscaling.hpa.maxReplicas. Still honoured and wins over autoscaling.hpa.maxReplicas; cannot be combined with autoscaling.hpa.enabled=true."
+        },
+        "targetCPUUtilizationPercentage": {
+          "type": "integer",
+          "minimum": 0,
+          "deprecated": true,
+          "description": "Deprecated since chart 1.1.0: use autoscaling.hpa.targetCPUUtilizationPercentage. Still honoured and wins over autoscaling.hpa.targetCPUUtilizationPercentage; cannot be combined with autoscaling.hpa.enabled=true."
+        },
+        "targetMemoryUtilizationPercentage": {
+          "type": "integer",
+          "minimum": 0,
+          "deprecated": true,
+          "description": "Deprecated since chart 1.1.0: use autoscaling.hpa.targetMemoryUtilizationPercentage. Still honoured and wins over autoscaling.hpa.targetMemoryUtilizationPercentage; cannot be combined with autoscaling.hpa.enabled=true."
+        }
+      }
+    },
+    "terminationGracePeriodSeconds": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Seconds between SIGTERM and SIGKILL. Must exceed the web server's graceful shutdown plus epistola.generation.polling.shutdown-drain-timeout."
+    },
+    "podAntiAffinity": {
+      "description": "Spread application pods across nodes: soft (prefer), hard (require), or none. Ignored when affinity is set.",
+      "enum": [
+        "soft",
+        "hard",
+        "none"
+      ]
+    },
+    "podDisruptionBudget": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "minAvailable": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ]
+        },
+        "maxUnavailable": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ]
         }
       }
     },
@@ -103,11 +283,20 @@
       "allOf": [
         {
           "if": {
-            "required": ["enabled"],
-            "properties": { "enabled": { "const": true } }
+            "required": [
+              "enabled"
+            ],
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
           },
           "then": {
-            "required": ["existingSecret", "issuerUri"],
+            "required": [
+              "existingSecret",
+              "issuerUri"
+            ],
             "properties": {
               "existingSecret": {
                 "type": "string",
@@ -123,6 +312,83 @@
           }
         }
       ]
+    },
+    "sharing": {
+      "type": "object",
+      "description": "What this installation shares with Epistola; everything is shared by default.",
+      "required": [
+        "installationId",
+        "suiteVersion",
+        "usageStatistics"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "installationId": {
+          "type": "boolean"
+        },
+        "suiteVersion": {
+          "type": "boolean"
+        },
+        "usageStatistics": {
+          "type": "boolean"
+        }
+      }
+    },
+    "versionCheck": {
+      "type": "object",
+      "description": "Daily anonymous release and security-advisory check.",
+      "required": [
+        "enabled",
+        "endpoint"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "endpoint": {
+          "type": "string",
+          "description": "Release metadata URL; empty means found through productDomain.",
+          "pattern": "^$|^https?://[^/]+"
+        }
+      }
+    },
+    "installationCheck": {
+      "type": "object",
+      "description": "Daily installation check; runs only when sharing.installationId is true.",
+      "required": [
+        "endpoint"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "description": "Installation check URL with {id}; empty means found through productDomain.",
+          "pattern": "^$|^https?://[^/]+.*\\{id\\}"
+        }
+      }
+    },
+    "productDomain": {
+      "type": "string",
+      "description": "Where Epistola-operated services are found (ADR 0030): a host name, optionally with a port; never a URL.",
+      "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*(:[0-9]{1,5})?$"
+    },
+    "support": {
+      "type": "object",
+      "properties": {
+        "hub": {
+          "type": "object",
+          "description": "Hub connection; only used when support.enabled is true.",
+          "additionalProperties": false,
+          "properties": {
+            "endpoint": {
+              "type": "string",
+              "description": "The hub's gRPC endpoint as host:port; empty means found through productDomain.",
+              "pattern": "^$|^[A-Za-z0-9.-]+:[0-9]{1,5}$"
+            }
+          }
+        }
+      }
     }
   }
 }

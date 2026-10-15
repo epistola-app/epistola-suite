@@ -33,11 +33,12 @@ class GetStencilHandler(
             SELECT s.id, s.tenant_key, s.catalog_key, c.type AS catalog_type, s.name, s.description, s.tags, s.created_at, s.updated_at, s.created_by, s.updated_by
             FROM stencils s
             JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.id = s.catalog_key
-            WHERE s.id = :id AND s.tenant_key = :tenantId
+            WHERE s.id = :id AND s.tenant_key = :tenantId AND s.catalog_key = :catalogKey
             """,
         )
             .bind("id", query.id.key)
             .bind("tenantId", query.id.tenantKey)
+            .bind("catalogKey", query.id.catalogKey)
             .mapTo<Stencil>()
             .findOne()
             .orElse(null)

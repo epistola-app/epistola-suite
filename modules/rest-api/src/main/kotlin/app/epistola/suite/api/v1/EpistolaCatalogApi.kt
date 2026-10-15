@@ -15,7 +15,6 @@ import app.epistola.api.model.CatalogUpgradeDiff
 import app.epistola.api.model.ImportCatalogResponse
 import app.epistola.api.model.ReleaseCatalogRequest
 import app.epistola.api.model.ReleaseCatalogResponse
-import app.epistola.api.model.ReleaseDependencyDto
 import app.epistola.api.model.RemovedCatalogResourceDto
 import app.epistola.api.model.ResourceChangeDto
 import app.epistola.api.model.UpgradeCatalogResponse
@@ -38,7 +37,6 @@ import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogDrafts
 import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.queries.ListCatalogs
-import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.UpgradeResourceChange
 import app.epistola.suite.common.ids.CatalogId
@@ -162,7 +160,9 @@ class EpistolaCatalogApi : CatalogsApi {
                 releasedAt = release.releasedAt,
                 notes = release.notes,
                 contentRetained = release.retained,
-                dependencies = dependenciesOf(tenant, catalog, release.version),
+                // Interim: releases record no dependencies since `release_dependencies` was dropped; the
+                // contract's declared catalog dependencies replace it.
+                dependencies = emptyList(),
                 deployedTo = deployedTo,
             ),
         )
@@ -232,17 +232,13 @@ class EpistolaCatalogApi : CatalogsApi {
         )
     }
 
-    private fun dependenciesOf(tenant: TenantKey, catalog: CatalogKey, version: String) = ListReleaseDependencies(tenant, catalog, version).query().map {
-        ReleaseDependencyDto(catalogId = it.catalogKey.value, releaseVersion = it.version, direct = it.direct)
-    }
-
     private fun CatalogReleaseSummary.toDto(tenant: TenantKey, catalog: CatalogKey, deployedTo: List<String>) = CatalogReleaseDto(
         releaseVersion = version,
         fingerprint = fingerprint,
         releasedAt = releasedAt,
         notes = notes,
         contentRetained = retained,
-        dependencies = dependenciesOf(tenant, catalog, version),
+        dependencies = emptyList(),
         deployedTo = deployedTo,
     )
 

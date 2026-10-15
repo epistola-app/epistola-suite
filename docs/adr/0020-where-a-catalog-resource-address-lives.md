@@ -101,7 +101,7 @@ The costs are concrete:
   asset media types in a seeded table rather than a Kotlin enum (CLAUDE.md item 15), and from the
   `catalog_resource_types` table added in this very migration.
 - **The import upserts lose their conflict target.** Seven `INSERT ... ON CONFLICT (tenant_key,
-catalog_key, <key>) DO UPDATE` statements carry the whole import path. A unique index on another
+  catalog_key, <key>) DO UPDATE` statements carry the whole import path. A unique index on another
   table cannot be a conflict target. Each becomes a writable CTE (`WITH r AS (INSERT INTO
   catalog_resources ... ON CONFLICT (address) DO UPDATE ... RETURNING resource_id) INSERT INTO
   <table> SELECT ... FROM r ON CONFLICT (tenant_key, resource_id) DO UPDATE`). Correct and still

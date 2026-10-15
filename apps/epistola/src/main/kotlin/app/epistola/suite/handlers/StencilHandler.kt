@@ -362,7 +362,6 @@ class StencilHandler(
 
     fun update(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
         val stencilId = request.stencilId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -399,7 +398,6 @@ class StencilHandler(
 
     fun delete(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
         val stencilId = request.stencilId(tenantId)
             ?: return ServerResponse.badRequest().build()
 

@@ -34,7 +34,6 @@ class FeatureDefaultsTest {
         // FeatureDefaults intentionally does not configure hub-only support features; FeatureToggleService
         // derives their default from epistola.support.enabled. isEnabled treats them as unknown → false.
         val defaults = FeatureDefaults()
-        assertFalse(defaults.isEnabled(KnownFeatures.SUPPORT_BACKUPS))
         assertFalse(defaults.isEnabled(KnownFeatures.SUPPORT_COMPATIBILITY_CHECK))
     }
 }

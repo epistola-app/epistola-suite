@@ -21,7 +21,6 @@ class PermissionTest {
             Permission.STENCIL_VIEW,
             Permission.REFERENCE_VIEW,
             Permission.CATALOG_VIEW,
-            Permission.BACKUP_VIEW,
         )
     }
 
@@ -61,7 +60,6 @@ class PermissionTest {
             Permission.TENANT_SETTINGS,
             Permission.TENANT_USERS,
             Permission.CATALOG_MANAGE,
-            Permission.BACKUP_CREATE,
             Permission.DIAGNOSTICS_VIEW,
             Permission.DIAGNOSTICS_MANAGE,
             Permission.AUDIT_VIEW,

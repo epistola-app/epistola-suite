@@ -18,12 +18,17 @@ export function getNestedValue(obj: Record<string, unknown>, path: string): unkn
   return current;
 }
 
+/**
+ * Writes only through own properties: an inherited name such as `constructor` becomes a plain own
+ * key, and a path naming `__proto__` is ignored, so no path can reach `Object.prototype`.
+ */
 export function setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): void {
   const keys = path.split('.');
+  if (keys.includes('__proto__')) return;
   let current: Record<string, unknown> = obj;
   for (let i = 0; i < keys.length - 1; i++) {
     const key = keys[i];
-    if (typeof current[key] !== 'object' || current[key] == null) {
+    if (!Object.hasOwn(current, key) || typeof current[key] !== 'object' || current[key] == null) {
       current[key] = {};
     }
     current = current[key] as Record<string, unknown>;

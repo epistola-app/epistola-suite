@@ -10,7 +10,6 @@ import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.revisions.ReleaseDependencyStore
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
 import app.epistola.suite.common.ids.CatalogKey
@@ -19,7 +18,6 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SystemInternal
-import app.epistola.suite.tenants.queries.GetTenant
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -68,7 +66,6 @@ class RecordInstalledReleaseHandler(
     private val fingerprintService: CatalogFingerprintService,
     private val revisionStore: ResourceRevisionStore,
     private val releaseEntryStore: ReleaseEntryStore,
-    private val dependencyStore: ReleaseDependencyStore,
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<RecordInstalledRelease, String?> {
 
@@ -95,17 +92,7 @@ class RecordInstalledReleaseHandler(
         // manifest does not carry (the system catalog's seeded fonts) gets its own.
         val resourceFingerprints = fingerprintService.perResourceFingerprints(content) + catalog.installedResourceFingerprints.orEmpty()
 
-        val tenantDefaultThemeCatalog = GetTenant(command.tenantKey).query()?.takeIf { it.defaultThemeKey != null }?.defaultThemeCatalogKey
-        val referenced = dependencyStore.referencedCatalogs(content, command.catalogKey, tenantDefaultThemeCatalog)
-
         jdbi.useTransaction<Exception> { handle ->
-            // A dependency without a release is not pinned rather than refused: refusing would fail
-            // the install of a publisher's release over a gap on this installation. Rendering falls
-            // back to the dependency's latest release for a catalog it did not pin.
-            val direct = referenced.mapNotNull { dependency ->
-                dependencyStore.latestRetainedRelease(handle, command.tenantKey, dependency)?.let { dependency to it }
-            }.toMap()
-            val pins = dependencyStore.closure(handle, command.tenantKey, command.catalogKey, direct)
             val releasedAt = handle.createQuery("SELECT NOW()").mapTo(OffsetDateTime::class.java).one()
             val manifest = content.toManifest(ReleaseInfo(version = version, releasedAt = releasedAt.toString(), fingerprint = fingerprint))
 
@@ -128,7 +115,6 @@ class RecordInstalledReleaseHandler(
 
             val revisionDigests = revisionStore.retain(handle, command.tenantKey, content)
             releaseEntryStore.record(handle, command.tenantKey, command.catalogKey, version, content, revisionDigests, resourceFingerprints)
-            dependencyStore.record(handle, command.tenantKey, command.catalogKey, version, pins)
         }
 
         logger.info("Recorded installed release {}@{} for tenant {}", command.catalogKey.value, version, command.tenantKey.value)

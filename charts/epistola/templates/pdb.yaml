@@ -1,0 +1,26 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+{{- $pdb := .Values.podDisruptionBudget }}
+{{- $hasMin := not (kindIs "invalid" $pdb.minAvailable) }}
+{{- $hasMax := and (not (kindIs "invalid" $pdb.maxUnavailable)) (ne (toString $pdb.maxUnavailable) "") }}
+{{- if and $hasMin $hasMax }}
+{{- fail "podDisruptionBudget: set either minAvailable or maxUnavailable, not both (set minAvailable to null to use maxUnavailable)." }}
+{{- end }}
+{{- if not (or $hasMin $hasMax) }}
+{{- fail "podDisruptionBudget: set minAvailable or maxUnavailable." }}
+{{- end }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "epistola.fullname" . }}
+  labels:
+    {{- include "epistola.labels" . | nindent 4 }}
+spec:
+  {{- if $hasMin }}
+  minAvailable: {{ $pdb.minAvailable }}
+  {{- else }}
+  maxUnavailable: {{ $pdb.maxUnavailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "epistola.selectorLabels" . | nindent 6 }}
+{{- end }}

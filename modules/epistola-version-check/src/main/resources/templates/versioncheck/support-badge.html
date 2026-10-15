@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!-- The support badge, inside the footer bar on every authenticated page (FooterStatusContributor).
+         Always shown; no setting hides it. The link goes to epistola.app: the installation page, or an
+         explanation that receives no data. noreferrer keeps this installation's hostname out of it.
+         The icon follows the tone, so the state does not rest on colour alone; the names stay literal
+         so IconUsageTest can check them against the sprite. -->
+    <a th:fragment="badge"
+       th:with="badge=${@supportBadgeService.badge()}"
+       class="support-badge"
+       th:href="${badge.href}"
+       th:attr="data-tone=${badge.tone.attribute},data-kind=${badge.kind}"
+       data-testid="support-badge"
+       target="_blank"
+       rel="noopener noreferrer">
+        <th:block th:switch="${badge.tone.attribute}">
+            <th:block th:case="'ok'"><th:block th:replace="~{epistola-web/icon :: icon(name='shield-check', class='ep-icon ep-icon-sm')}" /></th:block>
+            <th:block th:case="'warning'"><th:block th:replace="~{epistola-web/icon :: icon(name='shield-alert', class='ep-icon ep-icon-sm')}" /></th:block>
+            <th:block th:case="*">
+                <th:block th:if="${badge.kind.name() == 'NOT_REGISTERED'}"><th:block th:replace="~{epistola-web/icon :: icon(name='shield', class='ep-icon ep-icon-sm')}" /></th:block>
+                <th:block th:unless="${badge.kind.name() == 'NOT_REGISTERED'}"><th:block th:replace="~{epistola-web/icon :: icon(name='shield-question', class='ep-icon ep-icon-sm')}" /></th:block>
+            </th:block>
+        </th:block>
+        <span th:text="${badge.text}">Support could not be checked</span>
+    </a>
+</body>
+</html>

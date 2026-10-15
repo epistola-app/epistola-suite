@@ -53,7 +53,7 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
 
     /** Mutable `file://` copy of the self-contained fixture. */
     private fun copyFixture(tmp: Path): String {
-        val src = javaClass.classLoader.getResource("test-catalogs/dependency-test/catalog.json")!!.toURI().toPath().parent
+        val src = javaClass.classLoader.getResource("epistola/catalogs/test/dependency-test/catalog.json")!!.toURI().toPath().parent
         Files.walk(src).use { stream ->
             stream.forEach { p ->
                 val target = tmp.resolve(src.relativize(p).toString())

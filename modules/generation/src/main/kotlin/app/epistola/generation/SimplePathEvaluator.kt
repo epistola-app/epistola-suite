@@ -15,7 +15,7 @@ import app.epistola.generation.expression.ExpressionEvaluator as ExpressionEvalu
  * - Nested paths: `order.customer.address.city`
  *
  * Use this for simple variable substitution where you don't need
- * the full power of JSONata or JavaScript.
+ * the full power of JSONata.
  *
  * Advantages:
  * - Very fast (no parsing overhead)

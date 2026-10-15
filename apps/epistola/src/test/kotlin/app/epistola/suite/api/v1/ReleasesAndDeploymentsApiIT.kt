@@ -68,7 +68,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
     private lateinit var restTemplate: TestRestTemplate
 
     @Test
-    fun `releases list newest first with the environments serving them, and one reads with its dependencies`() {
+    fun `releases list newest first with the environments serving them, and one reads by version`() {
         val (tenant, key) = tenantWithTwoReleases()
         exchange(HttpMethod.PUT, "/api/tenants/${tenant.value}/environments/production/deployments/default", key, """{"releaseVersion":"1.0.0"}""")
 
@@ -84,7 +84,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         val one = exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/catalogs/default/releases/1.0.1", key)
         assertThat(one.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<Boolean>(one.body!!, "$.contentRetained")).isTrue()
-        assertThat(JsonPath.read<List<Any>>(one.body!!, "$.dependencies")).isNotNull()
+        assertThat(JsonPath.read<List<Any>>(one.body!!, "$.dependencies")).isEmpty()
 
         val missing = exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/catalogs/default/releases/9.9.9", key)
         assertThat(missing.statusCode).isEqualTo(HttpStatus.NOT_FOUND)

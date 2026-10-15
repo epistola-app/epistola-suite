@@ -9,32 +9,22 @@ import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
 
 /**
- * A release cannot be deleted, or have its content forgotten, while something renders from it: an
- * environment that has it deployed, or another release that recorded it as a dependency.
+ * A release cannot be deleted, or have its content forgotten, while an environment has it deployed.
  */
 class ReleaseInUseException(
     val catalogKey: CatalogKey,
     val version: String,
     val environments: List<String>,
-    val dependentReleases: List<String>,
 ) : RuntimeException(
-    buildString {
-        append("Release ${catalogKey.value}@$version is in use")
-        if (environments.isNotEmpty()) append(": deployed to ${environments.joinToString { "'$it'" }}")
-        if (dependentReleases.isNotEmpty()) {
-            append(if (environments.isNotEmpty()) ", and " else ": ")
-            append("recorded as a dependency of ${dependentReleases.joinToString()}")
-        }
-        append(".")
-    },
+    "Release ${catalogKey.value}@$version is in use: deployed to ${environments.joinToString { "'$it'" }}.",
 )
 
 /**
  * Refuses removing what a release renders from while something still renders from it.
  *
  * Checked by the commands that delete a release, forget its content and delete a catalog, inside
- * their transaction, so the refusal names the environments and releases instead of surfacing as a
- * foreign-key error at commit.
+ * their transaction, so the refusal names the environments instead of surfacing as a foreign-key
+ * error at commit.
  */
 object ReleaseInUse {
 
@@ -51,22 +41,7 @@ object ReleaseInUse {
             .bind("v", version)
             .mapTo(String::class.java)
             .list()
-        val dependents = handle.createQuery(
-            """
-            SELECT catalog_key || '@' || version FROM release_dependencies
-            WHERE tenant_key = :t AND dependency_catalog_key = :c AND dependency_version = :v
-              AND catalog_key <> :c
-            ORDER BY catalog_key, version
-            """,
-        )
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
-            .bind("v", version)
-            .mapTo(String::class.java)
-            .list()
-        if (environments.isNotEmpty() || dependents.isNotEmpty()) {
-            throw ReleaseInUseException(catalogKey, version, environments, dependents)
-        }
+        if (environments.isNotEmpty()) throw ReleaseInUseException(catalogKey, version, environments)
     }
 
     /** As [requireUnused], for every release of a catalog that is about to be deleted. */

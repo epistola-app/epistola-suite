@@ -57,13 +57,15 @@ A block-based WYSIWYG editor built with Lit 3 web components and ProseMirror for
 
 ### Dynamic Expressions
 
-Templates support three expression languages, stored per expression:
+Templates support two expression languages, stored per expression:
 
-| Language              | Implementation                              | Use case                                                               |
-| --------------------- | ------------------------------------------- | ---------------------------------------------------------------------- |
-| **JSONata** (default) | Dashjoin JSONata (Java)                     | Concise data transformation — paths, filters, aggregations, formatting |
-| **JavaScript**        | GraalJS (sandboxed, no file/network access) | Full JS for advanced calculations                                      |
-| **Simple path**       | Custom lightweight evaluator                | Fast, safe dot-path traversal only                                     |
+| Language              | Implementation               | Use case                                                               |
+| --------------------- | ---------------------------- | ---------------------------------------------------------------------- |
+| **JSONata** (default) | Dashjoin JSONata (Java)      | Concise data transformation — paths, filters, aggregations, formatting |
+| **Simple path**       | Custom lightweight evaluator | Fast, safe dot-path traversal only                                     |
+
+JavaScript expressions are no longer supported: they are rejected on save and fail to render
+(see [`generation.md`](generation.md#javascript-expressions-removed)).
 
 Expressions are used for data binding in text blocks, conditional visibility, loop iteration, and calculated values.
 
@@ -136,18 +138,17 @@ Batch generation is tracked as jobs with status progression: `PENDING` → `PROC
 
 ### Backend
 
-| Component          | Technology                          |
-| ------------------ | ----------------------------------- |
-| Framework          | Spring Boot 4.1                     |
-| Language           | Kotlin 2.4 on JDK 25                |
-| Database           | PostgreSQL                          |
-| SQL mapping        | JDBI 3                              |
-| Migrations         | Flyway                              |
-| JSON               | Jackson 3                           |
-| PDF engine         | iText Core 9.5.0 (direct rendering) |
-| Expression sandbox | GraalJS                             |
-| JSONata            | Dashjoin JSONata (Java)             |
-| JSON Schema        | Draft 2020-12 validation            |
+| Component   | Technology                          |
+| ----------- | ----------------------------------- |
+| Framework   | Spring Boot 4.1                     |
+| Language    | Kotlin 2.4 on JDK 25                |
+| Database    | PostgreSQL                          |
+| SQL mapping | JDBI 3                              |
+| Migrations  | Flyway                              |
+| JSON        | Jackson 3                           |
+| PDF engine  | iText Core 9.5.0 (direct rendering) |
+| JSONata     | Dashjoin JSONata (Java)             |
+| JSON Schema | Draft 2020-12 validation            |
 
 ### Frontend
 

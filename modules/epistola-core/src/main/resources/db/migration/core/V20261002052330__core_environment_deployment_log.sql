@@ -1,7 +1,3 @@
--- backup-restore-compatibility: backward=true forward=false
--- reason: Adds a table. A backup taken before this migration restores with no deployment history,
--- which is the history every environment has before deployments were logged. Forward is not safe:
--- a newer backup carries a table an older schema cannot classify.
 -- SPDX-FileCopyrightText: Epistola Nederland B.V.
 --
 -- SPDX-License-Identifier: AGPL-3.0-only

@@ -137,7 +137,6 @@ class VersionRouteHandler(
     fun updateDraft(request: ServerRequest): ServerResponse {
         val servletRequest = request.servletRequest()
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return uiProblem(servletRequest, ApiProblemTypes.BAD_REQUEST, "Unknown or invalid template in the request path.")
         val variantId = request.variantId(templateId)

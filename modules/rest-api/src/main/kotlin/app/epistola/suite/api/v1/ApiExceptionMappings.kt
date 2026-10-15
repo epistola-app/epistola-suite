@@ -539,7 +539,6 @@ object ApiExceptionMappings {
                     "catalogId" to it.catalogKey.value,
                     "releaseVersion" to it.version,
                     "environments" to it.environments,
-                    "dependentReleases" to it.dependentReleases,
                 )
             },
             logMessage = { "Release in use: ${it.message}" },

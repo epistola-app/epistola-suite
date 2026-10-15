@@ -9,24 +9,25 @@ import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.suite.catalog.migrations.CatalogMigrationContext
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
 import app.epistola.suite.catalog.migrations.MigratedManifest
+import app.epistola.suite.catalog.outbound.CatalogSourceProperties
+import app.epistola.suite.catalog.outbound.OutboundSourceReader
+import app.epistola.suite.catalog.outbound.OutboundUrlGuard
+import app.epistola.suite.catalog.outbound.OutboundUrlRejectedException
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
-import org.springframework.core.io.ResourceLoader
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
-import org.springframework.web.client.RestClient
 import java.net.URI
-import java.nio.file.Path
 
 @Component
 class CatalogClient(
-    private val catalogRestClient: RestClient,
-    private val resourceLoader: ResourceLoader,
+    private val sourceReader: OutboundSourceReader,
     private val schemaMigrator: CatalogSchemaMigrator,
-    @Value("\${epistola.catalog.allow-http:false}") private val allowHttp: Boolean = false,
+    private val properties: CatalogSourceProperties,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
+
+    private val allowHttp: Boolean get() = properties.allowHttp
 
     // Bundled catalogs live on the classpath, which cannot change while this JVM runs, yet the same
     // manifest, resource details and binaries were read, schema-migrated and hashed again for every
@@ -46,13 +47,6 @@ class CatalogClient(
 
     private inline fun <reified T : Any> cachedClasspath(key: String, crossinline load: () -> Pair<T, Int>): T = classpathCache.get(key) { load().let { (value, weight) -> CachedClasspathEntry(value, weight) } }.value as T
 
-    private val allowedSchemes = buildSet {
-        add("https")
-        add("file")
-        add("classpath")
-        if (allowHttp) add("http")
-    }
-
     /** The bound, current-shape manifest. Use [fetchMigratedManifest] when you also need to fetch details. */
     fun fetchManifest(url: String, authType: AuthType, credential: String?): CatalogManifest = fetchMigratedManifest(url, authType, credential).manifest
 
@@ -62,7 +56,7 @@ class CatalogClient(
      * catalog (the catalog's source version + migrated manifest tree).
      */
     fun fetchMigratedManifest(url: String, authType: AuthType, credential: String?): MigratedManifest {
-        validateUrl(url, allowedSchemes)
+        validateUrl(url, ALL_SCHEMES)
         if (url.startsWith("classpath:")) {
             return cachedClasspath("manifest:$url") { loadManifest(url, authType, credential) }
         }
@@ -76,7 +70,7 @@ class CatalogClient(
         // wire-format upgrade chain) before binding. This is the single remote
         // chokepoint, so every consumer — install, browse, upgrade-check,
         // fingerprint — sees a current-shape manifest.
-        val bytes = readLocalBinary(url) ?: fetchHttpBinary(url, authType, credential)
+        val bytes = sourceReader.readSource(url, authHeaders(authType, credential), allowHttp)
         return schemaMigrator.migrateAndBindManifest(bytes) to bytes.size
     }
 
@@ -96,80 +90,70 @@ class CatalogClient(
         catalog: CatalogMigrationContext,
     ): ResourceDetail {
         val resolvedUrl = resolveDetailUrl(detailUrl, manifestUrl)
-        validateUrl(resolvedUrl, allowedSchemes)
+        validateUrl(resolvedUrl, ALL_SCHEMES)
         if (resolvedUrl.startsWith("classpath:")) {
             // The migration context comes from the manifest, so the manifest URL is part of the key.
             return cachedClasspath("detail:$type\n$manifestUrl\n$resolvedUrl") {
-                loadResourceDetail(type, resolvedUrl, authType, credential, catalog)
+                loadResourceDetail(type, resolvedUrl, manifestUrl, authType, credential, catalog)
             }
         }
-        return loadResourceDetail(type, resolvedUrl, authType, credential, catalog).first
+        return loadResourceDetail(type, resolvedUrl, manifestUrl, authType, credential, catalog).first
     }
 
     private fun loadResourceDetail(
         type: String,
         resolvedUrl: String,
+        manifestUrl: String,
         authType: AuthType,
         credential: String?,
         catalog: CatalogMigrationContext,
     ): Pair<ResourceDetail, Int> {
         logger.debug("Fetching resource detail from {}", resolvedUrl)
-        val bytes = readLocalBinary(resolvedUrl) ?: fetchHttpBinary(resolvedUrl, authType, credential)
+        val bytes = sourceReader.readDerived(resolvedUrl, manifestUrl, authHeaders(authType, credential), allowHttp)
         return schemaMigrator.migrateAndBindResourceDetail(type, bytes, catalog) to bytes.size
     }
 
+    /**
+     * The bytes behind a content (or detail) URL the manifest at [manifestUrl] named. Checked like
+     * every other read: a manifest cannot name content on another scheme, outside the file roots or
+     * on a non-public address — that is what keeps an installed image from being a copy of a local
+     * file or an internal endpoint.
+     */
     fun fetchBinaryContent(contentUrl: String, manifestUrl: String, authType: AuthType, credential: String?): ByteArray {
         val resolvedUrl = resolveContentUrl(contentUrl, manifestUrl)
         if (resolvedUrl.startsWith("classpath:")) {
             // Copied out so a caller that keeps the array cannot alter what the next tenant reads.
-            return cachedClasspath<ByteArray>("binary:$resolvedUrl") {
-                loadBinary(resolvedUrl, authType, credential).let { it to it.size }
+            return cachedClasspath<ByteArray>("binary:$manifestUrl\n$resolvedUrl") {
+                loadBinary(resolvedUrl, manifestUrl, authType, credential).let { it to it.size }
             }.copyOf()
         }
-        return loadBinary(resolvedUrl, authType, credential)
+        return loadBinary(resolvedUrl, manifestUrl, authType, credential)
     }
 
-    private fun loadBinary(resolvedUrl: String, authType: AuthType, credential: String?): ByteArray {
+    private fun loadBinary(resolvedUrl: String, manifestUrl: String, authType: AuthType, credential: String?): ByteArray {
         logger.debug("Fetching binary content from {}", resolvedUrl)
-        return readLocalBinary(resolvedUrl)
-            ?: fetchHttpBinary(resolvedUrl, authType, credential)
+        return sourceReader.readDerived(resolvedUrl, manifestUrl, authHeaders(authType, credential), allowHttp)
     }
 
-    private fun readLocalBinary(url: String): ByteArray? = when {
-        url.startsWith("file:") -> {
-            val path = Path.of(URI.create(url))
-            if (!path.toFile().exists()) throw CatalogFetchException("File not found: $path")
-            path.toFile().readBytes()
-        }
-
-        url.startsWith("classpath:") -> {
-            val resource = resourceLoader.getResource(url)
-            if (!resource.exists()) throw CatalogFetchException("Classpath resource not found: $url")
-            resource.contentAsByteArray
-        }
-
-        else -> null
-    }
-
-    private fun fetchHttpBinary(url: String, authType: AuthType, credential: String?): ByteArray = catalogRestClient.get()
-        .uri(url)
-        .applyAuth(authType, credential)
-        .retrieve()
-        .body(ByteArray::class.java)
-        ?: throw CatalogFetchException("Empty response from: $url")
-
-    private fun RestClient.RequestHeadersSpec<*>.applyAuth(authType: AuthType, credential: String?): RestClient.RequestHeadersSpec<*> = apply {
-        when (authType) {
-            AuthType.NONE -> {}
-            AuthType.BEARER -> header(HttpHeaders.AUTHORIZATION, "Bearer $credential")
-            AuthType.API_KEY -> header("X-API-Key", credential ?: "")
-        }
+    private fun authHeaders(authType: AuthType, credential: String?): Map<String, String> = when (authType) {
+        AuthType.NONE -> emptyMap()
+        AuthType.BEARER -> mapOf(HttpHeaders.AUTHORIZATION to "Bearer $credential")
+        AuthType.API_KEY -> mapOf("X-API-Key" to (credential ?: ""))
     }
 
     companion object {
         /** Ceiling of the classpath cache, in bytes of source content. Every bundled catalog together is well under 1 MiB. */
         private const val MAX_CACHED_CLASSPATH_BYTES: Long = 32L * 1024 * 1024
 
+        /** A leading `scheme:` — anything that makes a path an absolute URL. */
+        private val SCHEME = Regex("^[A-Za-z][A-Za-z0-9+.-]*:")
+
+        private val ALL_SCHEMES = setOf("https", "http", "file", "classpath")
+
+        /**
+         * The shape of a catalog URL: a `.json` file on one of [allowedSchemes]. Whether that URL may
+         * actually be read — file roots, addresses, `classpath:` — is [OutboundUrlGuard]'s decision.
+         */
         fun validateUrl(url: String, allowedSchemes: Set<String> = setOf("https", "file", "classpath")) {
             require(url.substringAfterLast(".").equals("json", ignoreCase = true)) {
                 "Catalog URLs must point to .json files"
@@ -185,41 +169,40 @@ class CatalogClient(
             }
         }
 
-        fun resolveContentUrl(contentUrl: String, manifestUrl: String): String {
-            if (contentUrl.startsWith("http://") ||
-                contentUrl.startsWith("https://") ||
-                contentUrl.startsWith("file:") ||
-                contentUrl.startsWith("classpath:")
-            ) {
-                return contentUrl
-            }
-            if (manifestUrl.startsWith("classpath:")) {
-                val basePath = manifestUrl.substringAfter("classpath:").substringBeforeLast("/")
-                val resolved = "$basePath/$contentUrl".replace("/./", "/")
-                return "classpath:$resolved"
-            }
-            val manifestUri = URI.create(manifestUrl)
-            return manifestUri.resolve(contentUrl).toString()
-        }
+        /** A binary's [contentUrl], relative to the manifest at [manifestUrl]; see [resolveRelative]. */
+        fun resolveContentUrl(contentUrl: String, manifestUrl: String): String = resolveRelative(contentUrl, manifestUrl)
 
-        fun resolveDetailUrl(detailUrl: String, manifestUrl: String): String {
-            if (detailUrl.startsWith("http://") ||
-                detailUrl.startsWith("https://") ||
-                detailUrl.startsWith("file:") ||
-                detailUrl.startsWith("classpath:")
-            ) {
-                return detailUrl
+        /** A resource's [detailUrl], relative to the manifest at [manifestUrl]; see [resolveRelative]. */
+        fun resolveDetailUrl(detailUrl: String, manifestUrl: String): String = resolveRelative(detailUrl, manifestUrl)
+
+        /**
+         * Resolves a path a manifest names against the manifest's own location.
+         *
+         * Only a relative path below the manifest's directory is accepted, which is the only form a
+         * catalog is written in (`./resources/…`, `bin/<hash>`). An absolute URL, a protocol-relative
+         * `//host/…`, a root-relative `/…`, a `..` segment (encoded or not) or a backslash is
+         * refused: a manifest must never send a fetch — or the catalog's credentials — to another
+         * host, another scheme, or outside its own tree.
+         */
+        fun resolveRelative(path: String, manifestUrl: String): String {
+            val segments = path.split('/')
+            val refused = path.isBlank() ||
+                path.startsWith("/") ||
+                '\\' in path ||
+                SCHEME.containsMatchIn(path) ||
+                segments.any { it.replace("%2e", ".", ignoreCase = true) == ".." }
+            if (refused) {
+                throw OutboundUrlRejectedException("A catalog may only name paths relative to its manifest, not '$path'")
             }
-            // For classpath: URLs, resolve relative paths by replacing the last segment
-            if (manifestUrl.startsWith("classpath:")) {
-                val basePath = manifestUrl.substringAfter("classpath:").substringBeforeLast("/")
-                val resolved = "$basePath/$detailUrl".replace("/./", "/")
-                return "classpath:$resolved"
+            val resolved = if (manifestUrl.startsWith("classpath:")) {
+                val baseDir = manifestUrl.substringAfter("classpath:").substringBeforeLast("/")
+                val relative = segments.filter { it.isNotEmpty() && it != "." }.joinToString("/")
+                "classpath:$baseDir/$relative"
+            } else {
+                URI.create(manifestUrl).resolve(path).toString()
             }
-            val manifestUri = URI.create(manifestUrl)
-            return manifestUri.resolve(detailUrl).toString()
+            OutboundUrlGuard.requireBelowManifest(resolved, manifestUrl)
+            return resolved
         }
     }
 }
-
-class CatalogFetchException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)

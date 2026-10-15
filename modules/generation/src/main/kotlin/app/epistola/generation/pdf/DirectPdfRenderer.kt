@@ -577,9 +577,7 @@ class DirectPdfRenderer(
          */
         fun createDefaultRegistry(pdfDocument: PdfDocument): NodeRendererRegistry {
             val svgConverter = ImageNodeRenderer.SvgImageConverter { svgBytes ->
-                java.io.ByteArrayInputStream(svgBytes).use { svgStream ->
-                    com.itextpdf.svg.converter.SvgConverter.convertToImage(svgStream, pdfDocument)
-                }
+                SafeSvgConversion.convertToImage(svgBytes, pdfDocument)
             }
             return NodeRendererRegistry(
                 defaultRenderers(svgConverter),

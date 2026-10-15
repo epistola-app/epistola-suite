@@ -58,7 +58,8 @@ path = [
   "renovate.json",
   "modules/*/package.json",
   "modules/editor/tsconfig*.json",
-  "scripts/gh-mcp/package.json",
+  ".agents/mcp/github/package.json",
+  ".agents/mcp/discourse/package.json",
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "Epistola Nederland B.V."
@@ -154,7 +155,7 @@ SPDX-FileCopyrightText = "1998 Hewlett-Packard Company"
 SPDX-License-Identifier = "HPND"
 
 [[annotations]]
-path = "modules/epistola-core/src/test/resources/test-catalogs/dependency-test/binaries/test-logo.png"
+path = "modules/epistola-core/src/test/resources/epistola/catalogs/test/dependency-test/binaries/test-logo.png"
 precedence = "override"
 SPDX-FileCopyrightText = "Epistola Nederland B.V."
 SPDX-License-Identifier = "AGPL-3.0-only"

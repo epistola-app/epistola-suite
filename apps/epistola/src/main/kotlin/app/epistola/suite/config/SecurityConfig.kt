@@ -111,7 +111,9 @@ class SecurityConfig(
     /**
      * API security filter chain for paths under /api.
      *
-     * Stateless, no CSRF, no form login. Supports:
+     * Stateless, no CSRF, no form login. CSRF protection is safe to drop only because the chain
+     * never authenticates from the browser session; ApiChainIgnoresSessionIT holds it to that.
+     * Supports:
      * - API key authentication via Authorization: ApiKey, with legacy X-API-Key support
      * - JWT bearer tokens when OAuth2 is configured
      */

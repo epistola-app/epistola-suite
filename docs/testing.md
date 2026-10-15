@@ -368,7 +368,8 @@ What makes a configuration distinct, and what to do instead:
 
 - `@TestPropertySource` / `@SpringBootTest(properties = …)` with values that **equal the defaults**
   (the cluster lease and retry knobs were 30 000 ms, which is what production uses): drop them.
-- Properties that every test can live with (`allow-http` for loopback fakes, the Prometheus
+- Properties that every test can live with (`allow-http` and `outbound.allow-private-networks`
+  for loopback fakes, `file-roots` naming `java.io.tmpdir` for `@TempDir` catalogs, the Prometheus
   endpoint): put them in the module's `application-test.yml` and drop the per-class source.
 - A per-class fake server registered through `@DynamicPropertySource`: one shared server per JVM
   (`SharedFakeExchange`) behind a base class that owns the single `@DynamicPropertySource`, holds a

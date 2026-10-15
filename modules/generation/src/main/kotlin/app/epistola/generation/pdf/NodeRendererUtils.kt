@@ -4,6 +4,7 @@
 
 package app.epistola.generation.pdf
 
+import app.epistola.generation.expression.UnsupportedExpressionLanguages
 import app.epistola.template.model.BorderStyle
 import app.epistola.template.model.Expression
 import app.epistola.template.model.ExpressionLanguage
@@ -24,6 +25,8 @@ import com.itextpdf.layout.element.Cell
  * @param prop The raw prop value (expected to be a Map with "raw" and optional "language" keys)
  * @param defaultLanguage The default expression language to use when "language" is not specified
  * @return The extracted [Expression], or null if the prop is not a valid expression map
+ * @throws app.epistola.generation.expression.UnsupportedExpressionLanguageException when the
+ *   expression is written in JavaScript, which is no longer supported
  */
 internal fun extractExpression(prop: Any?, defaultLanguage: ExpressionLanguage): Expression? {
     if (prop == null) return null
@@ -32,6 +35,9 @@ internal fun extractExpression(prop: Any?, defaultLanguage: ExpressionLanguage):
     val expressionMap = prop as? Map<String, Any?> ?: return null
 
     val raw = expressionMap["raw"] as? String ?: return null
+    // JavaScript is a valid enum value in the template model but is no longer evaluated. Fail
+    // the render explicitly rather than letting it fall back to the default language.
+    UnsupportedExpressionLanguages.rejectJavaScript(expressionMap["language"] as? String)
     val language = (expressionMap["language"] as? String)?.let { langStr ->
         try {
             ExpressionLanguage.valueOf(langStr)

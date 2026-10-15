@@ -55,14 +55,15 @@ class VersionCheckScheduler(
 }
 
 object VersionCheckSchedule {
-    fun dailyWindowCron(properties: VersionCheckProperties, installationId: UUID): String {
+    /** [offsetMinutes] shifts another daily task inside the same window (wrapping around it). */
+    fun dailyWindowCron(properties: VersionCheckProperties, installationId: UUID, offsetMinutes: Int = 0): String {
         val startHour = properties.dailyWindowStartHour
         require(startHour in 0..23) { "epistola.version-check.daily-window-start-hour must be between 0 and 23" }
 
         val windowMinutes = properties.dailyWindowMinutes
         require(windowMinutes in 1..60) { "epistola.version-check.daily-window-minutes must be between 1 and 60" }
 
-        val minute = Math.floorMod(installationId.hashCode(), windowMinutes)
+        val minute = Math.floorMod(installationId.hashCode() + offsetMinutes, windowMinutes)
         return "0 $minute $startHour * * ?"
     }
 }

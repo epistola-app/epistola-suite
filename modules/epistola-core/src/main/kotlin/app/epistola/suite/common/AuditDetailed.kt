@@ -7,7 +7,7 @@ package app.epistola.suite.common
 /**
  * Opt-in marker for a command/query that supplies short, structured **audit details** — recorded as
  * a key/value map in the `audit_log.details` (JSONB) column so an entry can carry concrete context,
- * e.g. `RestoreTenantBackup` → `{"backupId": "0193ef00-…"}`. Structured (rather than free text) so the
+ * e.g. a resource move → `{"<source id>": "<target id>"}`. Structured (rather than free text) so the
  * values can be shown as chips and, later, filtered on.
  *
  * **Contract: the details MUST be PII-free.** The audit log is otherwise PII-free by construction (it

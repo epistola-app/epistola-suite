@@ -7,6 +7,7 @@ package app.epistola.suite.attributes.codelists.commands
 import app.epistola.suite.attributes.codelists.model.CodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
+import app.epistola.suite.attributes.codelists.service.CodeListClient
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CodeListId
@@ -27,8 +28,10 @@ import org.springframework.stereotype.Component
  *
  * For `INLINE` source the caller passes initial entries directly; for `URL`
  * the caller passes a URL plus optional auth and `entries` is empty (entries
- * are populated on first refresh via `RefreshCodeList`). `CLASSPATH` is for
- * future bundled-content imports — not exposed in the user-facing CRUD.
+ * are populated on first refresh via `RefreshCodeList`). The URL is checked against the
+ * outbound source rules before it is stored (`CodeListClient.requireAllowedSourceUrl`), so a
+ * `classpath:` URL, a `file:` path outside the configured roots or a non-public address is a
+ * validation error here rather than a refresh failure later.
  */
 data class CreateCodeList(
     val id: CodeListId,
@@ -64,9 +67,13 @@ data class CreateCodeList(
 @Component
 class CreateCodeListHandler(
     private val jdbi: Jdbi,
+    private val codeListClient: CodeListClient,
 ) : CommandHandler<CreateCodeList, CodeList> {
     override fun handle(command: CreateCodeList): CodeList {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        if (command.sourceType != CodeListSource.INLINE) {
+            command.sourceUrl?.let { codeListClient.requireAllowedSourceUrl(it) }
+        }
         return executeOrThrowDuplicate("code-list", command.id.key.value) {
             jdbi.inTransaction<CodeList, Exception> { handle ->
                 val inserted = handle.createQuery(

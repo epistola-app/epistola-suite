@@ -62,7 +62,6 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
         // leave the Support group empty.
         withMediator {
             SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK, enabled = false).execute()
-            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_BACKUPS, enabled = false).execute()
             SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_COMPATIBILITY_CHECK, enabled = false).execute()
         }
 
@@ -123,17 +122,17 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `beta feature renders a maturity badge on its nav item`() {
-        val tenant = createTenant("Nav Beta Badge")
+    fun `alpha feature renders a maturity badge on its nav item`() {
+        val tenant = createTenant("Nav Alpha Badge")
         withMediator {
-            SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_BACKUPS, enabled = true).execute()
+            SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_GRAPH, enabled = true).execute()
         }
 
-        // Render a page whose header is NOT Backups, so the only Beta badge in the markup is the one
+        // Render a page whose header is NOT the resource graph, so the badge in the markup is the one
         // the nav item emits — this isolates the nav-template rendering from the feature page header.
         val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/templates", String::class.java).body!!
 
-        assertThat(body).contains("/tenants/${tenant.id.value}/backups")
-        assertThat(body).contains("badge badge-beta")
+        assertThat(body).contains("/tenants/${tenant.id.value}/resource-graph")
+        assertThat(body).contains("badge badge-alpha")
     }
 }

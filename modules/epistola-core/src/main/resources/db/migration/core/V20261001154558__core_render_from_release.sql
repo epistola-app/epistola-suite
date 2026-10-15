@@ -1,8 +1,3 @@
--- backup-restore-compatibility: backward=true forward=false
--- reason: Adds a table and nullable columns. A backup taken before this migration restores with no
--- release dependencies, no rendering-defaults version on its releases and no release on its
--- generation history, which is the state every release and document cut before it is in. Forward is
--- not safe: a newer backup carries a table an older schema cannot classify.
 -- SPDX-FileCopyrightText: Epistola Nederland B.V.
 --
 -- SPDX-License-Identifier: AGPL-3.0-only
@@ -11,44 +6,9 @@
 --
 -- Generation stops reading template versions and reads a catalog release instead (the 2.0 release
 -- model, docs/catalog-release-model-v2.md). A release already holds its own resources' content
--- (resource_revisions, release_entries). Two things it did not record, both needed to render it the
--- same way every time:
---
---   1. Which release of ANOTHER catalog it uses. A template may use a theme, font or image from a
---      different catalog. Releasing records, per catalog it references, the release that was latest
---      at that moment, and rendering reads that one -- never the other catalog's working copy and
---      never whatever is latest now. A lockfile without a declaration.
---   2. Which rendering defaults it was cut against, so an engine upgrade does not silently change
---      what an existing release renders. Template versions recorded this per version; a release
---      records it once.
-
-CREATE TABLE release_dependencies (
-    tenant_key             TENANT_KEY  NOT NULL,
-    catalog_key            CATALOG_KEY NOT NULL,
-    version                VARCHAR(50) NOT NULL,
-    dependency_catalog_key CATALOG_KEY NOT NULL,
-    dependency_version     VARCHAR(50) NOT NULL,
-    -- TRUE when the release's own resources reference the catalog; FALSE when it is reached only
-    -- through another dependency. The record holds the whole closure, flattened, so rendering never
-    -- has to work out a catalog's release; the flag keeps the tree drawable.
-    direct                 BOOLEAN     NOT NULL DEFAULT TRUE,
-    CONSTRAINT pk_release_dependencies PRIMARY KEY (tenant_key, catalog_key, version, dependency_catalog_key),
-    CONSTRAINT fk_release_dependencies_release FOREIGN KEY (tenant_key, catalog_key, version)
-        REFERENCES catalog_releases (tenant_key, catalog_key, version) ON DELETE CASCADE,
-    -- Refuses deleting a release another release renders with. Deferred, for the same reason as
-    -- release_entries' revision key: deleting a tenant removes both sides, and Postgres may reach the
-    -- dependency's release first. Checking at commit keeps the refusal without breaking that cascade.
-    CONSTRAINT fk_release_dependencies_dependency FOREIGN KEY (tenant_key, dependency_catalog_key, dependency_version)
-        REFERENCES catalog_releases (tenant_key, catalog_key, version) DEFERRABLE INITIALLY DEFERRED,
-    CONSTRAINT chk_release_dependencies_not_self CHECK (dependency_catalog_key <> catalog_key)
-);
-
-COMMENT ON TABLE release_dependencies IS
-    'For each release, the release of every other catalog it renders with, directly or through another dependency: one release per catalog, the highest any dependency asked for. Immutable, like the release.';
-
--- "Which releases render with this one" -- the guard on deleting or forgetting a release.
-CREATE INDEX idx_release_dependencies_dependency
-    ON release_dependencies (tenant_key, dependency_catalog_key, dependency_version);
+-- (resource_revisions, release_entries). What it did not record is which rendering defaults it was
+-- cut against, so an engine upgrade does not silently change what an existing release renders.
+-- Template versions recorded this per version; a release records it once.
 
 ALTER TABLE catalog_releases
     ADD COLUMN rendering_defaults_version INT;

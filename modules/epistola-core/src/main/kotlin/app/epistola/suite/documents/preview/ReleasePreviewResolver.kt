@@ -56,7 +56,7 @@ class ReleasePreviewResolver(
     ): ReleasePreview {
         val tenant = mediator.query(GetTenant(id = tenantKey)) ?: throw TenantNotFoundException(tenantKey)
         val target = targetResolver.resolve(tenantKey, catalogKey, templateKey, variantKey, criteria, environmentKey, releaseVersion)
-        val inputs = renderSource.resolve(tenant, target.release, templateKey.value, target.variantKey.value)
+        val inputs = renderSource.resolve(tenant, target.release, templateKey.value, target.variantKey.value, environment = environmentKey)
         val requested = if (data.isEmpty) inputs.firstDataExample ?: data else data
         val effective = inputs.dataModel?.let { schemaValidator.applyDefaults(it, requested) } ?: requested
         return ReleasePreview(tenant, inputs, effective)

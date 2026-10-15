@@ -16,7 +16,6 @@ Enable it explicitly in Helm:
 ```yaml
 exchange:
   enabled: true
-  discoveryUrl: https://epistola.app/.well-known/epistola/exchange.json
 ```
 
 The tenant Alpha feature remains off independently; enabling the deployment
@@ -26,8 +25,7 @@ operations are documented in
 [`catalog-exchange-publication.md`](catalog-exchange-publication.md).
 
 > **Upgrading an existing installation?** See [`upgrades.md`](upgrades.md) — some releases require
-> a maintenance window, and tenant backups taken before a breaking migration cannot be restored
-> after it.
+> a maintenance window, and a database-level backup is the only way back from a breaking one.
 
 ## Database migrations: `migration.mode`
 
@@ -86,7 +84,8 @@ temporary [Kind](https://kind.sigs.k8s.io/) cluster, starts one ephemeral
 `postgres:18` container inside it, runs the chart's migration hook, waits for
 the application, verifies the Service through `helm test`, and confirms that the
 native HPA resource can be created. It does **not** install a database operator,
-VPA components, or Grafana Operator, and it is not part of CI yet.
+VPA components, a metrics server, or Grafana Operator. Pull requests that touch
+the chart run it in CI (`epistola-chart-smoke.yml`).
 
 Docker must be running. Install the repository's pinned tools once, then run:
 
@@ -300,7 +299,7 @@ Provision the restricted role on the CNPG cluster. Two subtleties:
   `ALTER DEFAULT PRIVILEGES` must be qualified **`FOR ROLE <owner>`**, or the
   defaults apply to the superuser's objects and the app gets no grants on the
   migration-created tables (you'll see `permission denied for table
-flyway_schema_history` at boot).
+  flyway_schema_history` at boot).
 
 ```yaml
 # in your CNPG Cluster manifest
@@ -352,6 +351,26 @@ equivalent grants by hand as the owner.
 
 > Validate the role/grant setup against your CNPG and Postgres versions —
 > public-schema ownership and default-privilege semantics are version-sensitive.
+
+## Catalog and code-list sources
+
+Catalog subscriptions and URL code lists are fetched by the server, so what they may reach is
+restricted, and the defaults are closed: network sources must resolve to public addresses, and
+`file:` sources are off. The full rules are in [Allowed sources](exchange/README.md).
+
+```yaml
+catalog:
+  # Directories file:/// sources may be read from; mount each one into the pod.
+  fileRoots: ["/srv/catalogs"]
+  outbound:
+    # Every private address (RFC 1918, CGNAT, unique-local) — coarse, for an intranet.
+    allowPrivateNetworks: false
+    # Or only these hosts may resolve to a private address. Exact names, no wildcards.
+    allowedHosts: ["catalogs.intranet.example"]
+```
+
+Link-local addresses (cloud metadata) stay refused whatever is set. A file root is only useful
+when the directory exists in the pod, so add it through `volumes` and `volumeMounts`.
 
 ## Trusting a client root CA: `extraCaCerts`
 
@@ -418,7 +437,7 @@ Notes:
 - This covers the app's outbound HTTPS only. Database TLS is configured
   separately via the datasource/JDBC settings.
 - At startup the buildpack logs `Added N additional CA certificate(s) to system
-truststore` — a quick confirmation your certs were picked up.
+  truststore` — a quick confirmation your certs were picked up.
 - A TLS failure against a CA-signed endpoint shows up as
   `PKIX path building failed` / `unable to find valid certification path` in the
   app log — if you see that, the CA is not (yet) trusted.
@@ -471,33 +490,101 @@ responsiveness is a priority.
 
 ## Pod autoscaling
 
-The chart can optionally render either a `HorizontalPodAutoscaler` (HPA) or a
-`VerticalPodAutoscaler` (VPA) for the application Deployment. HPA is built into
-Kubernetes; VPA is not. Before enabling VPA, install its CRD and the VPA
-recommender, updater, and admission-controller components in the cluster.
+The chart can render a `HorizontalPodAutoscaler` (HPA, `autoscaling.hpa`) and a
+`VerticalPodAutoscaler` (VPA, `autoscaling.vpa`) for the application Deployment,
+plus a `PodDisruptionBudget` (`podDisruptionBudget`). All three are off by
+default. The HPA is built into Kubernetes and needs a metrics server; the VPA is
+not — install its CRD and the recommender, updater and admission-controller
+components before enabling it.
 
-VPA is disabled by default. Start with `updateMode: Off`, which records
-recommendations without changing any pods:
+### Recommended production setup
+
+Let the HPA own the replica count on CPU, keep at least two replicas behind a
+PodDisruptionBudget, and use the VPA only as a sizing advisor:
 
 ```yaml
-vpa:
+autoscaling:
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+  vpa:
+    enabled: true
+    updateMode: "Off" # recommendations only; copy them into resources.requests
+podDisruptionBudget:
   enabled: true
-  updateMode: "Off"
-  minReplicas: 1
-  controlledValues: RequestsOnly
-  resourcePolicy:
-    minAllowed:
-      cpu: 750m
-      memory: 1536Mi
-    maxAllowed:
-      cpu: "3"
-      memory: 4Gi
+  minAvailable: 1
 ```
 
-### VPA rollout recommendation
+This avoids the HPA/VPA feedback loop and VPA evictions entirely. Review the
+VPA's CPU recommendation (`kubectl describe vpa <release>-epistola`) after
+representative load and carry it into `resources.requests` on the next upgrade.
+Test and preview environments normally need neither controller.
 
-VPA rendering is supported by this chart, but live VPA-controller behavior has
-not yet been tested by Epistola. Treat it as an operator-evaluated feature:
+### HPA: more pods
+
+The HPA changes the replica count. It scales on average CPU use at 80% of the
+`750m` request — about `600m` per pod — between one and ten replicas. Memory
+scaling is off by default: after a generation burst the JVM retains heap (the
+measured process settled at 1,252 MB), which would otherwise keep an HPA above
+its intended threshold. Enable a memory target only after measuring your own
+steady-state workload.
+
+Scale-down is deliberately calm. A stopping pod lets its in-flight renders
+finish for up to the drain timeout, then releases the rest back to the queue to
+be rendered again on another pod (see [Pod shutdown](#pod-shutdown)), so nothing
+is lost, but rapid scale-in/scale-out makes pods stop slowly and repeats work. The default
+`autoscaling.hpa.behavior` waits five minutes after load drops, then removes at
+most one pod every three minutes; scale-up keeps the Kubernetes defaults. Set
+`behavior: null` for the Kubernetes defaults in both directions.
+
+```yaml
+autoscaling:
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 0 # 0 = no memory metric
+    behavior:
+      scaleDown:
+        stabilizationWindowSeconds: 300
+        policies:
+          - type: Pods
+            value: 1
+            periodSeconds: 180
+```
+
+### VPA: bigger pods
+
+The VPA never changes the replica count; it changes each pod's CPU and memory
+**requests**. Its recommender watches the containers' actual usage over time,
+recommends a request near the top of that history plus a safety margin (recent
+usage weighs most; an OOM kill bumps memory), and clamps it to
+`resourcePolicy.minAllowed`/`maxAllowed`. How a recommendation is applied
+depends on `updateMode`:
+
+| Mode                | Effect                                                                                                                          |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `Off` (default)     | Publishes recommendations; changes nothing.                                                                                     |
+| `Initial`           | Applies them when a pod is created; never evicts.                                                                               |
+| `InPlaceOrRecreate` | Resizes running pods in place where the node has room, else evicts. Needs Kubernetes ≥ 1.33 and a VPA release that supports it. |
+| `Recreate` / `Auto` | Evicts pods whose requests are out of range; replacements get new ones.                                                         |
+
+For Epistola the CPU recommendation is the useful one. Memory is a weak signal:
+the JVM sizes its heap from the container **limit** (`-XX:MaxRAMPercentage=75`)
+and retains it after bursts, so the memory recommendation drifts towards what
+the JVM chose to keep rather than what the application needs.
+
+The default `controlledValues: RequestsOnly` leaves `resources.limits` — and so
+the heap size — under operator control, which also makes in-place resizes
+harmless to the JVM: only scheduling changes. Recommendations must stay at or
+below those limits, so raising a `maxAllowed` value also requires raising the
+matching resource limit. `minReplicas: 2` (the VPA's own default) stops the VPA
+updater from evicting the last running pod.
+
+VPA-controller behaviour has not yet been tested live by Epistola. Roll it out
+in steps:
 
 1. Enable it with `updateMode: Off` and observe recommendations over
    representative PDF-generation bursts, document complexity, and normal UI
@@ -508,28 +595,91 @@ not yet been tested by Epistola. Treat it as an operator-evaluated feature:
 2. If recommendations are stable, trial `Initial` in a non-critical
    environment. It applies the recommendation only when a pod is created, so
    it does not evict a running application pod.
-3. Evaluate `Recreate` or `Auto` only after confirming that pod evictions are
-   safe for active users and document-generation jobs.
+3. Evaluate `InPlaceOrRecreate`, `Recreate` or `Auto` only after confirming that
+   pod evictions are safe for active users and document-generation jobs.
 
-The default `RequestsOnly` leaves `resources.limits` under operator control.
-Its recommendations must stay at or below those limits, so increasing a VPA
-`maxAllowed` value also requires increasing the corresponding Helm resource
-limit.
+### Using the HPA and VPA together
 
-Do not enable VPA together with this chart's default CPU HPA configuration.
-The chart's VPA currently manages CPU and memory requests together; it does
-not yet expose VPA `controlledResources` to restrict VPA to memory while HPA
-controls CPU. In production, use the CPU HPA and leave VPA disabled. For a
-fixed-size or exploratory environment, disable HPA and use VPA `Off` first,
-then potentially `Initial`. Test and preview environments normally need
-neither controller.
+The HPA measures usage as a percentage of the request. If the VPA raises the
+CPU request, utilisation drops on paper, the HPA scales in, per-pod usage rises,
+and the VPA raises the request again — a feedback loop. So an acting VPA (any
+mode but `Off`) must never manage a resource the HPA scales on, and the chart
+refuses to render that combination. Narrow the VPA with
+`autoscaling.vpa.controlledResources`:
 
-The HPA is disabled by default. When enabled, it scales on average CPU use at
-80% of the `750m` request—about `600m` per pod—and keeps one to ten replicas.
-Memory scaling is disabled by default: after a generation burst the JVM retains
-heap (the measured process settled at 1,252 MB), which would otherwise keep an
-HPA above its intended threshold. Enable a memory target only after measuring
-your own steady-state workload.
+| HPA scales on | VPA `controlledResources`  | Renders                     |
+| ------------- | -------------------------- | --------------------------- |
+| anything      | anything, mode `Off`       | yes (recommended)           |
+| CPU (default) | `[memory]`                 | yes — see the memory caveat |
+| CPU (default) | `[cpu]` or `[cpu, memory]` | no                          |
+| memory only   | `[cpu]`                    | yes                         |
+
+A later option is to scale horizontally on queue depth
+(`epistola.generation.queue.depth`) instead of CPU, which would free the VPA to
+manage CPU.
+
+### Keeping a pod running
+
+- **Rolling updates** already keep a pod serving: with one replica, Kubernetes
+  starts the new pod before stopping the old one.
+- **Evictions** — a node drain, cluster-autoscaler scale-down, or a VPA in
+  `Recreate`/`Auto` — stop a pod first and replace it afterwards. With one
+  replica that is downtime for the whole JVM start (the startup probe allows up
+  to 150 s). Run at least two replicas (`replicaCount: 2`, or
+  `autoscaling.hpa.minReplicas: 2`) and enable `podDisruptionBudget`, so
+  voluntary evictions always leave `minAvailable` pods running. With a single
+  replica the PDB would refuse every eviction and node drains would hang; the
+  install notes warn about that combination.
+- **Node failures** are not voluntary, so a PDB does not help. `podAntiAffinity:
+  soft` (the default) prefers separate nodes for the replicas but still
+  schedules when it cannot; `hard` requires separate nodes (at least as many
+  nodes as replicas); `none` turns the preset off. Setting `affinity` replaces
+  the preset entirely.
+
+### Pod shutdown
+
+Every voluntary stop — HPA scale-in, a rolling update, a node drain, a VPA
+eviction, `kubectl delete pod` — reaches the pod the same way. Kubernetes
+removes it from the Service endpoints, runs any `preStop` hook, and sends the
+JVM `SIGTERM`. After `terminationGracePeriodSeconds` (chart default `60`) it
+sends `SIGKILL`.
+
+On `SIGTERM` the application shuts down in this order:
+
+1. The generation poller stops claiming new jobs immediately. Renders already
+   running carry on.
+2. The web server stops accepting requests and lets in-flight requests finish
+   (up to Spring's `spring.lifecycle.timeout-per-shutdown-phase`, 30 seconds by
+   default; normally much less).
+3. Running renders get up to
+   `epistola.generation.polling.shutdown-drain-timeout` (default `20s`) more to
+   finish. Renders that finish complete normally on this pod.
+4. Whatever is still running is interrupted and released back to `PENDING`, so
+   another pod picks it up and renders it from the start. An interrupted render
+   is never marked failed.
+
+Nothing is lost on an orderly stop. A render that outlasts the drain is rendered
+again elsewhere, and because a CPU-bound render may not stop on interrupt, it
+can occasionally finish on the stopping pod as well — a duplicate document, not
+a missing one. If the pod is killed before step 4 — `SIGKILL` after the grace
+period, an OOM kill, or a node failure — its claims stay held until stale-job
+recovery frees them after `epistola.generation.polling.stale-timeout-minutes`
+(default 10 minutes), which delays those documents rather than losing them.
+
+What this means for operators:
+
+- Keep `terminationGracePeriodSeconds` above the web drain plus the render
+  drain plus a few seconds to release claims. The chart's `60` covers the
+  defaults (`20s` drain, web drain usually short). If you raise
+  `shutdown-drain-timeout` (via `config.env`:
+  `EPISTOLA_GENERATION_POLLING_SHUTDOWNDRAINTIMEOUT`), raise the grace period
+  with it.
+- Size the drain to your renders: set it a little above your slow-render
+  duration (see the `epistola.jobs.duration` metric) so ordinary renders finish
+  rather than restart. A longer drain makes each pod stop take longer, which
+  slows rolling updates.
+- Stops that happen often or in bulk still cost time. Keep the HPA's calm
+  scale-down `behavior`, and prefer `Initial` over evicting VPA modes.
 
 ## Connection pool (HikariCP)
 

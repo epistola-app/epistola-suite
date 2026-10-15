@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AiChatService, type ChatState } from './ai-chat-service.js';
 import type { SendMessageFn, ChatChunk, ChatAttachment, ChatRequest } from './types.js';
 import { createTestDocument, resetCounter } from '../../engine/test-helpers.js';
@@ -30,12 +30,6 @@ function createMockSend(
     }
   };
   return { fn, calls };
-}
-
-function collectStates(service: AiChatService): ChatState[] {
-  const states: ChatState[] = [];
-  // Replace onChange via a wrapper — we observe via the constructor callback
-  return states;
 }
 
 // ---------------------------------------------------------------------------

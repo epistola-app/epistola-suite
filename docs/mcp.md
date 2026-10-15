@@ -119,7 +119,9 @@ Structured arguments — template documents, schemas, styles, attributes, exampl
 passed as JSON strings, like `preview_document`'s `data`. A malformed one fails with a message naming
 the argument. A template document is the node/slot graph `get_template_content` returns under
 `templateModel`; build it from `list_component_types` (its `examples` are fragments to copy) and
-check it against `get_authoring_schemas`.
+check it against `get_authoring_schemas`. Write expressions in `jsonata`: the shared schema still
+lists `javascript`, but JavaScript expressions are no longer supported and a document containing
+one is rejected.
 
 A typical conversion: `upload_font` and `upload_image` for the document's typeface and pictures,
 `create_theme` for its page setup and styles, `create_stencil` for repeated blocks such as a

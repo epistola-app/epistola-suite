@@ -19,6 +19,13 @@
                     hx-trigger="click once">
                 Changelog
             </button>
+            <!-- Installation-wide status (see FooterStatusContributor), e.g. the support badge. -->
+            <th:block sec:authorize="isAuthenticated()">
+                <th:block th:each="frag : ${footerStatusFragments}">
+                    <span class="separator">|</span>
+                    <th:block th:replace="~{__${frag.ref}__}" />
+                </th:block>
+            </th:block>
             <span sec:authorize="isAuthenticated()" class="user-info">
                 <span class="separator">|</span>
                 <a th:href="@{/profile}" th:text="${currentUserDisplayName}" title="Your profile">username</a>
