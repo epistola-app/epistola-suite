@@ -119,6 +119,28 @@ gh run list --workflow=build.yml --limit 1
 gh release view vX.Y.Z
 ```
 
+### 6. Announce on the community forum
+
+Once the image is published, post the release on
+[community.epistola.app](https://community.epistola.app) through the Discourse MCP
+(`.agents/mcp/discourse/`; it posts as the signed-in user). Draft the post, show it to the
+user and post only after they approve it: once posted, it is public.
+
+- **Category:** Aankondigingen (`aankondigingen`, id 5). Create a new topic, not a reply.
+- **Title:** `Epistola X.Y.Z: <headline in Dutch>`, e.g. `Epistola 1.4.0: kop- en voetteksten
+  overal, en templates bouwen via MCP`.
+- **Body:** Dutch first, then the same text in English inside `[details="English"]…[/details]`.
+  Write it for administrators and template authors, not as a copy of the changelog:
+  - Open with `⚠️ **Controleer dit vóór de upgrade:**` when there is an action on upgrade
+    or a breaking change; leave it out otherwise.
+  - `**Nieuw in deze versie:**`, a short bullet list of the headline `[user]` changes, each
+    bullet with a bold lead-in, and one closing "Verder: …" bullet for the smaller fixes.
+    Leave out `[dev]` internals.
+  - Name the Helm chart version that installs this release, if there is one.
+  - End with `[Volledige release notes op GitHub](…/releases/tag/vX.Y.Z)`.
+- Read the previous announcement first (`discourse_search` for `Epistola <previous version>`)
+  and match its tone and layout.
+
 ## Important
 
 - **Tag = `vX.Y.Z`**, disjoint from chart tags (`epistola-*`). CI reacts to the
