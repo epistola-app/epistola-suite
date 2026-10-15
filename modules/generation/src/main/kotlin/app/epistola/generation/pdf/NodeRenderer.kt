@@ -130,7 +130,26 @@ class NodeRendererRegistry(
                 continue
             }
 
-            if (pendingGroup.isNotEmpty()) {
+            if (pendingGroup.isNotEmpty() && context.renderingDefaults.keepWithNextFirstBlock) {
+                // Like Word, keep-with-next binds to the first block that follows, not to
+                // everything a follower such as a loop emits.
+                pendingHasFollower = true
+                val firstBlockEnd = elements.indexOfFirst { it !is PageBandAnchor } + 1
+                pendingGroup += elements.subList(0, firstBlockEnd)
+                val rest = elements.subList(firstBlockEnd, elements.size)
+                val lastBlock = rest.indexOfLast { it !is PageBandAnchor }
+                if (!keepsWithNext(node, context)) {
+                    flushPending(groupWithNext = true)
+                    result += rest
+                } else if (lastBlock >= 0) {
+                    // The follower keeps with next itself: its last block starts the next group.
+                    flushPending(groupWithNext = true)
+                    result += rest.subList(0, lastBlock)
+                    pendingGroup += rest.subList(lastBlock, rest.size)
+                } else {
+                    pendingGroup += rest
+                }
+            } else if (pendingGroup.isNotEmpty()) {
                 pendingHasFollower = true
                 pendingGroup += elements
                 if (!keepsWithNext(node, context)) {
