@@ -10,6 +10,7 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mcp.dto.ThemeInfo
 import app.epistola.suite.mcp.dto.ThemeSummaryInfo
+import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
@@ -54,7 +55,7 @@ class ThemeMcpTools(
     ): List<ThemeSummaryInfo> = mediator.query(
         ListThemes(
             tenantId = mcpTenantId(),
-            catalogKey = catalogId?.let { CatalogKey.of(it) },
+            catalogKey = catalogFilter(catalogId),
             searchTerm = search,
         ),
     ).map { ThemeSummaryInfo.from(it) }

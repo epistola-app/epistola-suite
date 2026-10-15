@@ -15,6 +15,7 @@ import app.epistola.suite.mcp.dto.TemplateContentInfo
 import app.epistola.suite.mcp.dto.TemplateInfo
 import app.epistola.suite.mcp.dto.TemplateSummaryInfo
 import app.epistola.suite.mcp.dto.VariantInfo
+import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
@@ -65,7 +66,7 @@ class TemplateMcpTools(
     ): List<TemplateSummaryInfo> = mediator.query(
         ListTemplateSummaries(
             tenantId = mcpTenantId(),
-            catalogKey = catalogId?.let { CatalogKey.of(it) },
+            catalogKey = catalogFilter(catalogId),
             searchTerm = search,
         ),
     ).items.map { TemplateSummaryInfo.from(it) }

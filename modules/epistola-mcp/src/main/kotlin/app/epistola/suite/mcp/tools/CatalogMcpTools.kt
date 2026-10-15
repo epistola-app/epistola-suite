@@ -5,12 +5,14 @@
 package app.epistola.suite.mcp.tools
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.mcp.dto.CatalogInfo
 import app.epistola.suite.mcp.dto.CatalogUpgradeDiffInfo
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.execute
 import org.springframework.ai.mcp.annotation.McpTool
 import org.springframework.ai.mcp.annotation.McpToolParam
 import org.springframework.stereotype.Component
@@ -30,6 +32,32 @@ class CatalogMcpTools(
     )
     fun listCatalogs(): List<CatalogInfo> = mediator.query(ListCatalogs(mcpTenantKey()))
         .map { CatalogInfo.from(it) }
+
+    @McpTool(
+        name = "create_catalog",
+        description = "Create an empty AUTHORED catalog in the current tenant, to hold the templates, themes, " +
+            "stencils and images you then create in it (pass its key as `catalogId`). Fails when a catalog " +
+            "with that key exists. Requires the CATALOG_MANAGE permission.",
+        annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
+    )
+    fun createCatalog(
+        @McpToolParam(
+            description = "Key for the new catalog: 3-50 lowercase letters, digits and single hyphens, " +
+                "starting with a letter, e.g. `sociaal-domein`.",
+        )
+        catalogId: String,
+        @McpToolParam(description = "Display name.")
+        name: String,
+        @McpToolParam(description = "Optional description.", required = false)
+        description: String?,
+    ): CatalogInfo = CatalogInfo.from(
+        CreateCatalog(
+            tenantKey = mcpTenantKey(),
+            id = CatalogKey.of(catalogId),
+            name = name,
+            description = description?.takeIf { it.isNotBlank() },
+        ).execute(),
+    )
 
     @McpTool(
         name = "preview_catalog_upgrade",

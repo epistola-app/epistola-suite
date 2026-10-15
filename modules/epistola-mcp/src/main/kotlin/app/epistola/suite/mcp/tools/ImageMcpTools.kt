@@ -11,6 +11,7 @@ import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mcp.dto.ImageInfo
+import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.decodeBase64Argument
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
@@ -49,7 +50,7 @@ class ImageMcpTools(
         ListAssets(
             tenantId = mcpTenantKey(),
             searchTerm = search?.takeIf { it.isNotBlank() },
-            catalogKey = catalogId?.takeIf { it.isNotBlank() }?.let { CatalogKey.of(it) },
+            catalogKey = catalogFilter(catalogId),
         ),
     )
         .asSequence()
