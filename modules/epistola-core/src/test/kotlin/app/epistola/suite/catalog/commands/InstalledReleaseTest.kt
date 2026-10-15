@@ -5,7 +5,6 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.revisions.ReleaseDependencyStore
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.system.InstallSystemCatalog
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
@@ -18,11 +17,14 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.generation.release.ReleaseRef
+import app.epistola.suite.generation.release.ReleaseRenderSource
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.publishAndRelease
@@ -45,7 +47,7 @@ class InstalledReleaseTest : IntegrationTestBase() {
     private lateinit var entries: ReleaseEntryStore
 
     @Autowired
-    private lateinit var dependencies: ReleaseDependencyStore
+    private lateinit var renderSource: ReleaseRenderSource
 
     @Test
     fun `installing the system catalog records its release, with the fonts seeded beside it`() {
@@ -74,8 +76,8 @@ class InstalledReleaseTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `an authored catalog using the system theme pins the installed system release`() {
-        val tenant = createTenant("Pins the system release").id
+    fun `an authored catalog using the system theme renders it from the installed system release`() {
+        val tenant = createTenant("Renders the system release").id
         val templateId = TemplateId(TemplateKey.of("letter"), CatalogId.default(TenantId(tenant)))
         val variant = VariantId(VariantKey.INITIAL, templateId)
         withMediator {
@@ -85,9 +87,11 @@ class InstalledReleaseTest : IntegrationTestBase() {
             mediator.publishAndRelease(variant)
         }
 
-        val systemVersion = withMediator { GetCatalog(tenant, SYSTEM_CATALOG_KEY).query()!!.installedReleaseVersion }
-        val pins = jdbi.withHandle<Map<CatalogKey, String>, Exception> { dependencies.pinsOf(it, tenant, CatalogKey.DEFAULT, "1.0.0") }
-        assertThat(pins).containsEntry(SYSTEM_CATALOG_KEY, systemVersion)
+        val tenantRow = withMediator { GetTenant(tenant).query()!! }
+        val inputs = renderSource.resolve(tenantRow, ReleaseRef(CatalogKey.DEFAULT, "1.0.0"), "letter", VariantKey.INITIAL.value)
+        assertThat(inputs.resolvedTheme.documentStyles)
+            .`as`("the system theme, read from the release the system catalog installed")
+            .isNotEmpty()
     }
 
     // Read-only: there is no query listing a catalog's releases with their fingerprint and flag together.

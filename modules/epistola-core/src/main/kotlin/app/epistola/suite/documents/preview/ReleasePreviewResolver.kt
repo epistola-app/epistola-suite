@@ -59,7 +59,7 @@ class ReleasePreviewResolver(
         } else {
             targetResolver.resolveLatest(tenantKey, catalogKey, templateKey, variantKey, criteria)
         }
-        val inputs = renderSource.resolve(tenant, target.release, templateKey.value, target.variantKey.value)
+        val inputs = renderSource.resolve(tenant, target.release, templateKey.value, target.variantKey.value, environment = environmentKey)
         val requested = if (data.isEmpty) inputs.firstDataExample ?: data else data
         val effective = inputs.dataModel?.let { schemaValidator.applyDefaults(it, requested) } ?: requested
         return ReleasePreview(tenant, inputs, effective)

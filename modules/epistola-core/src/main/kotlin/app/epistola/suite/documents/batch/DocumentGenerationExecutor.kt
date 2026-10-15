@@ -393,7 +393,8 @@ class DocumentGenerationExecutor(
 
     /**
      * Renders a request bound to a catalog release: everything the document needs comes from that
-     * release and the releases it pinned, nothing from the working copy or a template version.
+     * release (and, for other catalogs, the releases its environment deploys or else their latest),
+     * nothing from the working copy or a template version.
      */
     private fun generateFromRelease(request: DocumentGenerationRequest, releaseVersion: String): Triple<Document, ByteArray, String> {
         val tenant = mediator.query(GetTenant(id = request.tenantKey))
@@ -403,6 +404,7 @@ class DocumentGenerationExecutor(
             ReleaseRef(request.catalogKey, releaseVersion),
             request.templateKey.value,
             request.variantKey.value,
+            environment = request.environmentKey,
         )
 
         // The contract the release holds, not the working copy's: a caller generating from a release

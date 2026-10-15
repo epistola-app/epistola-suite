@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeleteCatalogRelease
 import app.epistola.suite.catalog.commands.ForgetReleaseContent
 import app.epistola.suite.catalog.commands.UnregisterCatalog
+import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -104,8 +105,8 @@ class CatalogDeploymentTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a release another release renders with cannot be deleted or forgotten`() {
-        val tenant = createTenant("dep-pinned").id
+    fun `a release another catalog borrows from may be forgotten and deleted when no environment deploys it`() {
+        val tenant = createTenant("dep-borrowed").id
         val shared = catalogIn(tenant, "shared")
         val letters = catalogIn(tenant, "letters")
         withMediator {
@@ -118,11 +119,13 @@ class CatalogDeploymentTest : IntegrationTestBase() {
             mediator.publishAndRelease(VariantId(VariantKey.INITIAL, templateId))
         }
 
-        assertThatThrownBy { withMediator { DeleteCatalogRelease(tenant, shared.key, "1.0.0").execute() } }
-            .isInstanceOf(ReleaseInUseException::class.java)
-            .hasMessageContaining("letters@1.0.0")
-        assertThatThrownBy { withMediator { ForgetReleaseContent(tenant, shared.key, "1.0.0").execute() } }
-            .isInstanceOf(ReleaseInUseException::class.java)
+        // A release no longer locks the catalogs it borrows from, so letters@1.0.0 holds nothing of
+        // shared's: only an environment deploying shared@1.0.0 keeps it.
+        withMediator {
+            ForgetReleaseContent(tenant, shared.key, "1.0.0").execute()
+            DeleteCatalogRelease(tenant, shared.key, "1.0.0").execute()
+        }
+        assertThat(withMediator { ListCatalogReleases(tenant, shared.key).query() }.map { it.version }).doesNotContain("1.0.0")
     }
 
     @Test
