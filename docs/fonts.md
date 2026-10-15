@@ -85,7 +85,8 @@ face holds about 1 MB. `FontProgramCache` therefore weighs each face by what par
 Caffeine keeps the total under `max-size` (default `256MB`); the cache itself keeps the count under
 `max-faces` (default `64`; `0` turns it off) by evicting the faces Caffeine ranks coldest. Eviction
 is Caffeine's W-TinyLFU, which keeps faces used often as well as recently. The Helm chart sets both
-bounds through `generation.fontCache.*`.
+bounds through `generation.fontCache.*`, and the `epistola.generation.font_cache.*` meters show
+occupancy, hit rate and which limit evicts ([metrics](metrics.md#font-cache)).
 
 Parsed fonts are keyed by the SHA-256 of the face binary. `ResolveFontFace` returns the hash stored
 in `font_variants.content_hash` with the bytes, so a render does not hash them again; the bundled

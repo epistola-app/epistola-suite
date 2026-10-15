@@ -139,6 +139,22 @@ class FontProgramCacheTest {
     }
 
     @Test
+    fun `stats count hits, misses and evictions per limit`() {
+        val byFaces = FontProgramCache(maxBytes = 1_000, maxFaces = 1, weigher = FixedWeigher(1))
+        byFaces.program(face(1))
+        byFaces.program(face(1))
+        byFaces.program(face(2))
+
+        assertEquals(FontProgramCache.Stats(hits = 1, misses = 2, byteLimitEvictions = 0, faceLimitEvictions = 1), byFaces.stats())
+
+        val byBytes = FontProgramCache(maxBytes = 100, maxFaces = 10, weigher = FixedWeigher(60))
+        byBytes.program(face(1))
+        byBytes.program(face(2))
+
+        assertEquals(FontProgramCache.Stats(hits = 0, misses = 2, byteLimitEvictions = 1, faceLimitEvictions = 0), byBytes.stats())
+    }
+
+    @Test
     fun `negative limits are refused`() {
         assertFailsWith<IllegalArgumentException> { FontProgramCache(maxBytes = -1) }
         assertFailsWith<IllegalArgumentException> { FontProgramCache(maxFaces = -1) }

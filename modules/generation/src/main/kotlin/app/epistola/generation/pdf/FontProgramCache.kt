@@ -11,6 +11,7 @@ import com.itextpdf.io.font.FontProgramFactory
 import java.lang.management.ManagementFactory
 import java.security.MessageDigest
 import java.util.HexFormat
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Parsed fonts shared across renders, bounded by both an estimated heap size ([maxBytes]) and a
@@ -56,7 +57,10 @@ class FontProgramCache(
         .weigher<String, Entry> { _, entry -> entry.weight.coerceIn(1L, Int.MAX_VALUE.toLong()).toInt() }
         // Evict on the calling thread, so the limits hold as soon as a render adds a face.
         .executor(Runnable::run)
+        .recordStats()
         .build()
+
+    private val faceLimitEvictions = AtomicLong()
 
     /**
      * The parsed font for [bytes], from the cache when the same content was parsed before.
@@ -84,9 +88,29 @@ class FontProgramCache(
         val excess = cache.estimatedSize() - maxFaces
         if (excess <= 0) return
         cache.policy().eviction().ifPresent { eviction ->
-            cache.invalidateAll(eviction.coldest(excess.toInt()).keys)
+            val coldest = eviction.coldest(excess.toInt()).keys
+            cache.invalidateAll(coldest)
+            faceLimitEvictions.addAndGet(coldest.size.toLong())
         }
     }
+
+    /** Lookups and evictions since this cache was created, for metrics. */
+    fun stats(): Stats = cache.stats().let { caffeine ->
+        Stats(
+            hits = caffeine.hitCount(),
+            misses = caffeine.missCount(),
+            byteLimitEvictions = caffeine.evictionCount(),
+            faceLimitEvictions = faceLimitEvictions.get(),
+        )
+    }
+
+    /** Cumulative counts: lookups served from the cache or parsed, and faces evicted per limit. */
+    data class Stats(
+        val hits: Long,
+        val misses: Long,
+        val byteLimitEvictions: Long,
+        val faceLimitEvictions: Long,
+    )
 
     companion object {
         const val DEFAULT_MAX_BYTES: Long = 256L * 1024 * 1024

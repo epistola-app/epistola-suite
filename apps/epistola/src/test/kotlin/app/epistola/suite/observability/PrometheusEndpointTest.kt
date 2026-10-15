@@ -27,6 +27,11 @@ class PrometheusEndpointTest : BaseIntegrationTest() {
         // Verify at least one custom Epistola metric is present (eagerly registered counter)
         assertThat(body).contains("epistola_eventlog_persist_failures")
 
+        // The renderer's parsed-font cache publishes its occupancy, limits and hit rate per node.
+        assertThat(body).contains("epistola_generation_font_cache_size_bytes")
+        assertThat(body).contains("epistola_generation_font_cache_max_faces")
+        assertThat(body).contains("epistola_generation_font_cache_requests_total")
+        assertThat(body).contains("epistola_generation_font_cache_evictions_total")
         // Verify JVM metrics are auto-configured
         assertThat(body).contains("jvm_memory_used_bytes")
 

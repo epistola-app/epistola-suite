@@ -12,4 +12,6 @@ cache bounded by `epistola.generation.font-cache.max-size` (default `256MB`,
 measured as what parsing a face allocated) and `epistola.generation.font-cache.max-faces` (default
 `64`; `0` turns it off). Upload validation no longer keeps the font. No action is needed on upgrade;
 raise the limits on a node that renders many distinct fonts. The Helm chart sets them through
-`generation.fontCache.maxSize` / `maxFaces`. See [docs/fonts.md](docs/fonts.md).
+`generation.fontCache.maxSize` / `maxFaces`, and `epistola.generation.font_cache.*` meters report
+occupancy, hit rate and evictions per limit to tune them by. See [docs/fonts.md](docs/fonts.md) and
+[docs/metrics.md](docs/metrics.md#font-cache).
