@@ -81,6 +81,14 @@ private val BUNDLED_FACES = listOf(
     BundledFace(weight = 700, italic = true, token = "BoldItalic"),
 )
 
+/** A bundled face as the seeder registers it: the CSS (weight, italic) it answers for. */
+internal data class DeclaredSystemFace(
+    val slug: String,
+    val weight: Int,
+    val italic: Boolean,
+    val classpathLocation: String,
+)
+
 @Component
 class EnsureSystemFontsHandler(
     private val jdbi: Jdbi,
@@ -94,16 +102,20 @@ class EnsureSystemFontsHandler(
         private fun classpathLocation(font: SystemFont, token: String): String = font.location?.invoke(token) ?: "epistola/fonts/${font.slug}/${font.slug}-$token.ttf"
 
         /**
-         * Every classpath resource the seeder will register, derived from the
-         * exact same `SYSTEM_FONTS` × `BUNDLED_FACES` cross-product the handler
-         * uses (via the shared [classpathLocation]). Exposed (`internal`) so a
-         * guard test can assert the hardcoded list stays in sync with the
-         * bundled resource tree without duplicating the list.
+         * Every face the seeder will register, from the exact same `SYSTEM_FONTS` ×
+         * `BUNDLED_FACES` cross-product the handler uses (via the shared
+         * [classpathLocation]). Exposed (`internal`) so guard tests can check the
+         * bundled files against what they are registered as, without duplicating the list.
          */
-        internal val DECLARED_CLASSPATH_LOCATIONS: List<String> =
+        internal val DECLARED_FACES: List<DeclaredSystemFace> =
             SYSTEM_FONTS.flatMap { font ->
-                BUNDLED_FACES.map { face -> classpathLocation(font, face.token) }
+                BUNDLED_FACES.map { face ->
+                    DeclaredSystemFace(font.slug, face.weight, face.italic, classpathLocation(font, face.token))
+                }
             }
+
+        /** Every classpath resource the seeder will register; see [DECLARED_FACES]. */
+        internal val DECLARED_CLASSPATH_LOCATIONS: List<String> = DECLARED_FACES.map { it.classpathLocation }
     }
 
     override fun handle(command: EnsureSystemFonts) {
