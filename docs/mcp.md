@@ -213,8 +213,9 @@ anything.
 ## Troubleshooting
 
 - **`401 Unauthorized`**: The `Authorization: ApiKey` header is missing, the key is malformed (must start with `epk_`), or the key has been revoked/disabled/expired. Legacy `X-API-Key` is still accepted.
-- **Tool errors mentioning permission**: The API key is missing `TEMPLATE_VIEW` (for read tools), `DOCUMENT_GENERATE` (for preview), or the edit or publish permission a [write tool](#write-tools-beta) needs (`STENCIL_PUBLISH` / `TEMPLATE_PUBLISH` come with the content publisher role).
+- **Tool errors mentioning permission**: The API key is missing `TEMPLATE_VIEW` (for read tools), `DOCUMENT_GENERATE` (for preview), or the edit or publish permission a [write tool](#write-tools-beta) needs (`STENCIL_PUBLISH` / `TEMPLATE_PUBLISH` come with the content publisher role, `CATALOG_MANAGE` for `create_catalog` with the tenant administrator role).
 - **Tool errors mentioning a read-only catalog**: Write tools only write to AUTHORED catalogs; SUBSCRIBED catalogs such as `system` are read-only.
+- **A tool this page lists is missing in the client**: MCP clients cache the tool list from when they connected. After upgrading Epistola, reconnect the server in the client (in Claude Code, `/mcp`) to pick up new tools and changed descriptions.
 - **`MCP request has no tenant scope`**: The principal has no `currentTenantId`. With API-key auth, this should not happen — the key is always tenant-scoped. If you see it, the key may have been provisioned without a tenant binding.
 
 ## Related
