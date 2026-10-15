@@ -155,8 +155,10 @@ internal fun paintHeaderBand(
     // Mark the running header as an artifact so screen readers skip it (WCAG PDF14)
     pdfCanvas.openTag(CanvasArtifact())
 
-    // Constrain layout to the header rectangle
-    val canvas = Canvas(pdfCanvas, headerRect)
+    // Constrain layout to the header rectangle. A Canvas does not inherit the Document's
+    // default font: without it unstyled text falls back to non-embedded Helvetica, which
+    // breaks PDF/A on any non-ASCII glyph.
+    val canvas = Canvas(pdfCanvas, headerRect).setFont(context.fontCache.regular)
     // Safety net: if a measurement edge case under-sizes the band, render the
     // overflow instead of silently dropping content.
     canvas.setProperty(Property.OVERFLOW_Y, OverflowPropertyValue.VISIBLE)
@@ -217,7 +219,8 @@ internal fun paintFooterBand(
     // canvas released even on the hideOnFirstPage early return.
     pdfCanvas.openTag(CanvasArtifact())
     try {
-        val canvas = Canvas(pdfCanvas, footerRect)
+        // The Document's default font is not inherited by a Canvas (see paintHeaderBand).
+        val canvas = Canvas(pdfCanvas, footerRect).setFont(context.fontCache.regular)
         // Safety net: render overflow rather than silently dropping content.
         canvas.setProperty(Property.OVERFLOW_Y, OverflowPropertyValue.VISIBLE)
         canvas.setProperty(Property.OVERFLOW_X, OverflowPropertyValue.VISIBLE)
