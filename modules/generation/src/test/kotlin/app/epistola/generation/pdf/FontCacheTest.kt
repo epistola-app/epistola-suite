@@ -90,7 +90,7 @@ class FontCacheTest {
         val cache = FontCache(
             pdfaCompliant = false,
             fontFamilyResolver = { _, _, weight, italic ->
-                if (weight == 400 && !italic) liberationRegularBytes else null
+                if (weight == 400 && !italic) FontFaceBytes(liberationRegularBytes, contentHash = null) else null
             },
         )
         val ref = FontRef(catalogKey = "system", slug = "inter")
@@ -108,7 +108,7 @@ class FontCacheTest {
         val cache = FontCache(
             pdfaCompliant = false,
             fontFamilyResolver = { _, _, _, italic ->
-                if (!italic) liberationRegularBytes else null
+                if (!italic) FontFaceBytes(liberationRegularBytes, contentHash = null) else null
             },
         )
         val ref = FontRef(catalogKey = "system", slug = "inter")

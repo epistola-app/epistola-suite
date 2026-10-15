@@ -316,7 +316,7 @@ private fun measureBandHeights(
 ): List<Float> {
     if (requests.isEmpty()) return emptyList()
 
-    val measureContext = context.copy(fontCache = FontCache(pdfaCompliant, fontFamilyResolver))
+    val measureContext = context.copy(fontCache = FontCache(pdfaCompliant, fontFamilyResolver, context.fontCache.fontPrograms))
     val renderingDefaults = context.renderingDefaults
     // The throwaway document is created before the try so it can be closed in the
     // finally; everything that could throw during setup is inside the try so a

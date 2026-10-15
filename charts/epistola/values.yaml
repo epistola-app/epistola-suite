@@ -421,6 +421,16 @@ catalog:
     # every host. Matched exactly (case-insensitive); no wildcards.
     allowedHosts: []
 
+# The parsed-font cache every render on a pod shares (epistola.generation.font-cache). Faces are
+# evicted to stay within both limits. A parsed face holds far more heap than its file: about 25 MB
+# for an Inter face, about 1 MB for JetBrains Mono. Empty: the app default.
+generation:
+  fontCache:
+    # Estimated heap the cached faces may hold together, as a size such as "384MB". Default 384MB.
+    maxSize: ""
+    # Number of faces kept. 0 turns the cache off, so every render parses its fonts. Default 64.
+    maxFaces: ""
+
 # Application configuration
 exchange:
   # Hard deployment gate for Suite-to-Exchange catalog publication.

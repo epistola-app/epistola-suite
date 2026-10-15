@@ -105,6 +105,38 @@ data class RenderingDefaults(
 
     /** When true, a page header honours `hideOnFirstPage` the way a page footer always has. */
     val headerHideOnFirstPage: Boolean = false,
+
+    // -- Style shorthands --
+    /**
+     * When true, the CSS shorthands `padding`, `margin` and `border` in inline styles and theme
+     * presets expand to their per-side keys before rendering (see [StyleShorthands]). When
+     * false, only per-side keys take effect and the shorthands are silently ignored.
+     */
+    val expandStyleShorthands: Boolean = false,
+
+    // -- Line height --
+    /**
+     * When true, a `lineHeight` multiplier means what it means in CSS and in the editor: lines sit
+     * `fontSize × lineHeight` apart, whatever the font (see [CssLineHeight]). When false, it scales
+     * iText's multiplied leading, which is relative to the font's own ascent and descent, so the
+     * same value spaces Liberation Sans 1.11× and Inter about 1.45× the font size at `1.0`.
+     */
+    val cssLineHeight: Boolean = false,
+
+    /**
+     * When true, a page header or footer is laid out with room below its band, so iText keeps the
+     * last line of content whose glyphs are taller than its leading (a `lineHeight` below 1). The
+     * band and the content's position are unchanged. When false, that line is silently dropped.
+     */
+    val bandOverflowRoom: Boolean = false,
+
+    // -- Page flow --
+    /**
+     * When true, `keepWithNext` keeps a block with the first block that follows it, as in Word.
+     * When false, it keeps it with everything the following node emits, so a heading before a
+     * `loop` waits for the whole loop to fit and can leave most of a page empty.
+     */
+    val keepWithNextFirstBlock: Boolean = false,
 ) {
     /** Total vertical space reserved for the page header (padding + content height). */
     val pageHeaderReservedHeight: Float get() = pageHeaderPadding + pageHeaderHeight
@@ -218,8 +250,22 @@ data class RenderingDefaults(
             headerHideOnFirstPage = true,
         )
 
+        /**
+         * V6: the `padding`, `margin` and `border` shorthands take effect ([expandStyleShorthands]),
+         * `lineHeight` is CSS-like ([cssLineHeight]), and a `lineHeight` below 1 no longer drops a
+         * header's or footer's last line ([bandOverflowRoom]). `keepWithNext` keeps a block with
+         * the first block after it, not with a whole loop ([keepWithNextFirstBlock]).
+         */
+        val V6 = V5.copy(
+            version = 6,
+            expandStyleShorthands = true,
+            cssLineHeight = true,
+            bandOverflowRoom = true,
+            keepWithNextFirstBlock = true,
+        )
+
         /** The defaults version used for newly published template versions. */
-        val CURRENT = V5
+        val CURRENT = V6
 
         private val REGISTRY: Map<Int, RenderingDefaults> = mapOf(
             1 to V1,
@@ -227,6 +273,7 @@ data class RenderingDefaults(
             3 to V3,
             4 to V4,
             5 to V5,
+            6 to V6,
         )
 
         /**

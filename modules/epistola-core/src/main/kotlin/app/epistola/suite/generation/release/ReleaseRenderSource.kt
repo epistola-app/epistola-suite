@@ -11,6 +11,7 @@ import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.generation.pdf.AssetResolution
 import app.epistola.generation.pdf.AssetResolver
+import app.epistola.generation.pdf.FontFaceBytes
 import app.epistola.generation.pdf.FontFamilyResolver
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.generation.pdf.ResolvedTheme
@@ -210,14 +211,18 @@ class ReleaseRenderSource(
         }
     }
 
-    /** Font faces by family, nearest weight first, bytes by content hash. */
+    /**
+     * Font faces by family, nearest weight first, bytes by content hash. The hash is the one the bytes
+     * were looked up by in the content-addressed store, so it is exact and spares the font cache
+     * hashing them again.
+     */
     private fun fontResolver(scope: Scope, owningCatalog: CatalogKey): FontFamilyResolver = FontFamilyResolver { catalogKey, slug, weight, italic ->
         val catalog = catalogKey?.let(CatalogKey::of) ?: owningCatalog
         val family = read(scope.tenantKey, scope.releaseOf(catalog), "font", slug) as? FontResource
             ?: return@FontFamilyResolver null
         val face = pickNearestFace(family.variants, { it.weight }, { it.italic }, weight, italic)
             ?: return@FontFamilyResolver null
-        binary(scope.tenantKey, face.contentHash)
+        binary(scope.tenantKey, face.contentHash)?.let { FontFaceBytes(it, face.contentHash) }
     }
 
     /** [templateKey] as [release] holds it, from the same cache rendering reads, or null when it holds none. */

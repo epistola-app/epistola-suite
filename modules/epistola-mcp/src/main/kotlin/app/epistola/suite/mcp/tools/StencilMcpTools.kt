@@ -13,6 +13,7 @@ import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mcp.dto.StencilInfo
 import app.epistola.suite.mcp.dto.StencilVersionFullInfo
 import app.epistola.suite.mcp.dto.StencilVersionSummaryInfo
+import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseArgument
@@ -68,7 +69,7 @@ class StencilMcpTools(
     ): List<StencilInfo> = mediator.query(
         ListStencils(
             tenantId = mcpTenantId(),
-            catalogKey = catalogId?.let { CatalogKey.of(it) },
+            catalogKey = catalogFilter(catalogId),
             searchTerm = search,
             tag = tag,
         ),

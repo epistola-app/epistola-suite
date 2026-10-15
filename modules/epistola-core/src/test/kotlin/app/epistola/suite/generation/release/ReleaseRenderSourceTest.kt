@@ -28,6 +28,7 @@ import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontKind
 import app.epistola.suite.fonts.model.FontVariantSource
+import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -165,9 +166,12 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
         }
 
         val inputs = source.resolve(tenantOf(letters), ReleaseRef(letters.key, "1.0.0"), "invoice", VariantKey.INITIAL.value)
-        assertThat(inputs.fontFamilyResolver.resolve("base", "brand-sans", 400, false))
+        val face = inputs.fontFamilyResolver.resolve("base", "brand-sans", 400, false)
+        assertThat(face?.bytes)
             .`as`("base's latest release, reached through shared's theme")
             .isEqualTo(bold)
+        // The parsed-font cache keys on this hash, so it must be the hash of exactly these bytes.
+        assertThat(face?.contentHash).isEqualTo(sha256Hex(bold))
     }
 
     @Test

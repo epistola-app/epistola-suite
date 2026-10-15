@@ -30,7 +30,7 @@ import tools.jackson.databind.node.ObjectNode
 
 /**
  * End-to-end coverage for the bundled system fonts: every tenant gets the
- * eight OFL families seeded into its `system` catalog on creation, the
+ * nine OFL families seeded into its `system` catalog on creation, the
  * classpath-backed binaries resolve to real TTF bytes, and the structured
  * `fontFamily` ref is honoured by the live render path (the `system/default`
  * theme points at `inter`/`system`).
@@ -48,6 +48,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
         "source-sans-3",
         "roboto",
         "lato",
+        "liberation-sans",
         "source-serif-4",
         "merriweather",
         "lora",
@@ -66,11 +67,11 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a new tenant has the eight system font families`() {
+    fun `a new tenant has the nine system font families`() {
         val tenant = createTenant("Fonts1")
         withMediator {
             val fonts = ListFonts(TenantId(tenant.id), SYSTEM_CATALOG_KEY).query()
-            assertThat(fonts).hasSize(8)
+            assertThat(fonts).hasSize(9)
             assertThat(fonts.map { it.slug.value }).containsExactlyInAnyOrderElementsOf(expectedSlugs)
         }
     }
@@ -116,7 +117,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
             // directly — ImportFont UPSERTs, so the family count must hold.
             app.epistola.suite.fonts.commands.EnsureSystemFonts(tenant.id).execute()
             val fonts = ListFonts(TenantId(tenant.id), SYSTEM_CATALOG_KEY).query()
-            assertThat(fonts).hasSize(8)
+            assertThat(fonts).hasSize(9)
         }
     }
 
@@ -140,8 +141,8 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
                 .mapTo(String::class.java)
                 .list()
         }
-        // 8 families × 4 bundled faces.
-        assertThat(hashes).hasSize(32)
+        // 9 families × 4 bundled faces.
+        assertThat(hashes).hasSize(36)
         assertThat(hashes).allSatisfy { h ->
             assertThat(h)
                 .withFailMessage("content_hash is not a 64-char lowercase hex SHA-256: %s", h)

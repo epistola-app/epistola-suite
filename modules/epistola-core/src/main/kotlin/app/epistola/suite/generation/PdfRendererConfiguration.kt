@@ -5,7 +5,9 @@
 package app.epistola.suite.generation
 
 import app.epistola.generation.pdf.DirectPdfRenderer
+import app.epistola.generation.pdf.FontProgramCache
 import app.epistola.suite.templates.validation.NodeParameterSchemaProviderRegistry
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -20,12 +22,22 @@ import org.springframework.context.annotation.Configuration
  * scopes.
  */
 @Configuration
+@EnableConfigurationProperties(FontCacheProperties::class)
 class PdfRendererConfiguration {
+
+    /** Parsed fonts every render on this node shares; [FontCacheMetrics] publishes it. */
+    @Bean
+    fun fontProgramCache(fontCacheProperties: FontCacheProperties): FontProgramCache = FontProgramCache(
+        maxBytes = fontCacheProperties.maxSize.toBytes(),
+        maxFaces = fontCacheProperties.maxFaces,
+    )
 
     @Bean
     fun directPdfRenderer(
         schemaProviderRegistry: NodeParameterSchemaProviderRegistry,
+        fontProgramCache: FontProgramCache,
     ): DirectPdfRenderer = DirectPdfRenderer(
         parameterSchemaProvider = { node, document -> schemaProviderRegistry.resolve(node, document) },
+        fontPrograms = fontProgramCache,
     )
 }

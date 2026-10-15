@@ -276,6 +276,12 @@ epistola:
         backoff-interval-ms: 1000
         recovery-period-ms: 30000
         recovery-step-interval-ms: 10000
+    # Parsed fonts every render on this node shares; faces are evicted to stay within both limits.
+    # A parsed face holds far more heap than its file (an Inter face about 25 MB); max-size is
+    # measured as what parsing it allocated. See docs/fonts.md.
+    font-cache:
+      max-size: 384MB
+      max-faces: 64 # 0 turns the cache off: every render parses its fonts
     async:
       concurrency: 10 # Items processed concurrently per job
     jobs:

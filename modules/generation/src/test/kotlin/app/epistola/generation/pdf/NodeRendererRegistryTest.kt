@@ -29,6 +29,15 @@ class NodeRendererRegistryTest {
             "root" to ContainerNodeRenderer(),
             "text" to TextNodeRenderer(),
             "pagebreak" to PageBreakNodeRenderer(),
+            // Emits three blocks, as a loop over three items does.
+            "multi" to object : NodeRenderer {
+                override fun render(
+                    node: Node,
+                    document: TemplateDocument,
+                    context: RenderContext,
+                    registry: NodeRendererRegistry,
+                ): List<IElement> = List(3) { Div() }
+            },
             "empty" to object : NodeRenderer {
                 override fun render(
                     node: Node,
@@ -46,6 +55,7 @@ class NodeRendererRegistryTest {
     private fun contextFor(
         doc: TemplateDocument,
         presets: Map<String, Map<String, Any>> = emptyMap(),
+        renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
     ) = RenderContext(
         data = emptyMap(),
         expressionEvaluator = evaluator,
@@ -53,6 +63,7 @@ class NodeRendererRegistryTest {
         fontCache = fontCache,
         document = doc,
         blockStylePresets = presets,
+        renderingDefaults = renderingDefaults,
     )
 
     private fun siblingDocument(vararg children: Node): TemplateDocument = TemplateDocument(
@@ -139,6 +150,55 @@ class NodeRendererRegistryTest {
 
         val group = assertIs<Div>(elements.single())
         assertEquals(2, group.children.size)
+    }
+
+    private fun isGroup(element: IElement) = element is Div && element.getProperty<Boolean>(Property.KEEP_TOGETHER) == true
+
+    @Test
+    fun `from V6 keepWithNext binds to the first block of a follower that emits several`() {
+        val doc = siblingDocument(
+            Node(id = "a", type = "text", slots = emptyList(), styles = mapOf("keepWithNext" to true)),
+            Node(id = "loop", type = "multi", slots = emptyList()),
+        )
+
+        val elements = registry.renderSlot("s-main", doc, contextFor(doc))
+
+        assertEquals(3, elements.size, "the group, then the follower's other two blocks")
+        assertEquals(2, (elements.first() as Div).children.size)
+        assertTrue(isGroup(elements.first()))
+        elements.drop(1).forEach { assertTrue(!isGroup(it)) }
+    }
+
+    @Test
+    fun `before V6 keepWithNext binds to everything the follower emits`() {
+        val doc = siblingDocument(
+            Node(id = "a", type = "text", slots = emptyList(), styles = mapOf("keepWithNext" to true)),
+            Node(id = "loop", type = "multi", slots = emptyList()),
+        )
+
+        val elements = registry.renderSlot("s-main", doc, contextFor(doc, renderingDefaults = RenderingDefaults.V5))
+
+        val group = assertIs<Div>(elements.single())
+        assertEquals(4, group.children.size)
+    }
+
+    @Test
+    fun `a multi-block follower that keeps with next binds its last block to the next sibling`() {
+        val doc = siblingDocument(
+            Node(id = "a", type = "text", slots = emptyList(), styles = mapOf("keepWithNext" to true)),
+            Node(id = "loop", type = "multi", slots = emptyList(), styles = mapOf("keepWithNext" to true)),
+            Node(id = "b", type = "text", slots = emptyList()),
+        )
+
+        val elements = registry.renderSlot("s-main", doc, contextFor(doc))
+
+        // [a + first block], the middle block, [last block + b]
+        assertEquals(3, elements.size)
+        assertTrue(isGroup(elements[0]))
+        assertEquals(2, (elements[0] as Div).children.size)
+        assertTrue(!isGroup(elements[1]))
+        assertTrue(isGroup(elements[2]))
+        assertEquals(2, (elements[2] as Div).children.size)
     }
 
     @Test

@@ -36,6 +36,13 @@ import {
   type CellSelection,
 } from './table-utils.js';
 
+/**
+ * Per-cell styles (`props.cellStyles`) are not declared by the `table` component in
+ * epistola-contract, so the server rejects a draft that contains them and the save fails. The
+ * controls stay hidden until the contract declares the property (epistola-contract#97, 2.0).
+ */
+const CELL_STYLES_SUPPORTED = false;
+
 @customElement('table-inspector')
 export class TableInspector extends LitElement {
   override createRenderRoot() {
@@ -337,6 +344,20 @@ export class TableInspector extends LitElement {
 
   private _renderCellStyles() {
     if (!this._cellSelection) return nothing;
+
+    if (!CELL_STYLES_SUPPORTED) {
+      return html`
+        <div class="inspector-section">
+          <div class="inspector-section-label">Cell Style</div>
+          <div
+            class="inspector-field-hint"
+            style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"
+          >
+            Cells can't be styled one by one yet. Style the table, or the block inside the cell.
+          </div>
+        </div>
+      `;
+    }
 
     const sel = normalizeSelection(this._cellSelection);
     const cellKey = `${sel.startRow}-${sel.startCol}`;

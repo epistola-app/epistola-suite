@@ -52,7 +52,8 @@ class FontMcpTools(
         description = "List font families in the current tenant. Optionally narrow by " +
             "catalog (e.g. `system` for the bundled open-source families: inter, " +
             "roboto, lato, source-sans-3, source-serif-4, merriweather, lora, " +
-            "jetbrains-mono). Each entry carries the family's faces as " +
+            "jetbrains-mono, and liberation-sans, metric-compatible with Helvetica " +
+            "and Arial). Each entry carries the family's faces as " +
             "{weight (1-1000), italic} pairs and a `readOnly` flag for " +
             "SUBSCRIBED-catalog (e.g. `system`) families.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),

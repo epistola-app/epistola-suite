@@ -6,8 +6,8 @@ graalvm-native = "1.1.14"
 ktlint = "14.2.0"
 # The ktlint engine the Gradle plugin runs; the plugin's own default lags behind (1.5.0).
 ktlint-engine = "1.8.0"
-htmx-spring-boot = "5.2.0"
-cyclonedx = "3.4.1"
+htmx-spring-boot = "6.0.0"
+cyclonedx = "3.5.0"
 dependency-license-report = "3.1.4"
 kover = "0.9.11"
 jdbi = "3.55.0"
@@ -19,10 +19,14 @@ playwright = "1.63.0"
 epistola-contract = "2.0.0-SNAPSHOT"
 epistola-hub-client = "0.7.0"
 epistola-exchange-client = "0.1.1"
-aws-sdk = "2.55.11"
+aws-sdk = "2.55.12"
 guava = "33.7.2-jre"
 spring-ai = "2.0.1"
 archunit = "1.5.1"
+# One iText for the renderer and for every test that reads the PDFs it writes.
+itext = "9.8.0"
+# Declared here because modules:generation is outside the Spring Boot BOM.
+caffeine = "3.3.0"
 # Security overrides of the Spring Boot BOM's Jackson versions, applied by the three apps (see
 # apps/epistola/build.gradle.kts). Drop both once the BOM manages these versions or later.
 jackson = "3.1.7"
@@ -49,6 +53,10 @@ aws-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws-sdk" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
 archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+itext-core = { module = "com.itextpdf:itext-core", version.ref = "itext" }
+itext-svg = { module = "com.itextpdf:svg", version.ref = "itext" }
+itext-kernel = { module = "com.itextpdf:kernel", version.ref = "itext" }
+caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
 # Not dependencies: listed so Renovate tracks the Jackson BOM overrides the apps apply.
 jackson-bom = { module = "tools.jackson:jackson-bom", version.ref = "jackson" }
 jackson2-bom = { module = "com.fasterxml.jackson:jackson-bom", version.ref = "jackson2" }

@@ -54,6 +54,11 @@ class DirectPdfRenderer(
      * returns null (no parameters) — production wiring binds a real provider.
      */
     private val parameterSchemaProvider: (Node, TemplateDocument) -> Map<String, Any?>? = { _, _ -> null },
+    /**
+     * Parsed fonts shared by every render of this renderer, bounded in heap and in faces.
+     * Production binds one sized from configuration; see [FontProgramCache].
+     */
+    private val fontPrograms: FontProgramCache = FontProgramCache(),
 ) {
 
     /**
@@ -103,18 +108,28 @@ class DirectPdfRenderer(
     ) {
         TwoPassAnalyzer.validate(document)
 
+        // Expanded once here so every reader of per-side keys sees them, not only StyleApplicator.
+        val (styledDocument, styledTheme) = if (renderingDefaults.expandStyleShorthands) {
+            StyleShorthands.expandIn(document) to StyleShorthands.expandIn(resolvedTheme)
+        } else {
+            document to resolvedTheme
+        }
+
         // Build a render-scoped evaluator chain bound to the effective culture.
         // `forCulture` is a no-op when `culture == RenderCulture.DEFAULT`, so the
         // untouched default path costs nothing — we only allocate when a
         // tenant/variant has actually opted into a different locale.
         val scopedEvaluator = expressionEvaluator.forCulture(culture)
 
-        if (TwoPassAnalyzer.requiresTwoPassRendering(document)) {
+        // One scope per render: the parsed-font cache counts a face as reused only across renders.
+        val fontScope = fontPrograms.scope()
+
+        if (TwoPassAnalyzer.requiresTwoPassRendering(styledDocument)) {
             renderTwoPass(
-                document = document,
+                document = styledDocument,
                 data = data,
                 outputStream = outputStream,
-                resolvedTheme = resolvedTheme,
+                resolvedTheme = styledTheme,
                 metadata = metadata,
                 pdfaCompliant = pdfaCompliant,
                 assetResolver = assetResolver,
@@ -122,15 +137,16 @@ class DirectPdfRenderer(
                 renderingDefaults = renderingDefaults,
                 renderMode = renderMode,
                 scopedEvaluator = scopedEvaluator,
+                fontScope = fontScope,
                 clock = clock,
                 watermarkText = watermarkText,
             )
         } else {
             renderSinglePass(
-                document = document,
+                document = styledDocument,
                 data = data,
                 outputStream = outputStream,
-                resolvedTheme = resolvedTheme,
+                resolvedTheme = styledTheme,
                 metadata = metadata,
                 pdfaCompliant = pdfaCompliant,
                 assetResolver = assetResolver,
@@ -138,6 +154,7 @@ class DirectPdfRenderer(
                 renderingDefaults = renderingDefaults,
                 renderMode = renderMode,
                 scopedEvaluator = scopedEvaluator,
+                fontScope = fontScope,
                 clock = clock,
                 watermarkText = watermarkText,
             )
@@ -155,9 +172,10 @@ class DirectPdfRenderer(
         renderingDefaults: RenderingDefaults,
         renderMode: RenderMode,
         scopedEvaluator: CompositeExpressionEvaluator = expressionEvaluator,
+        fontScope: FontProgramCache.Scope,
         clock: Clock = Clock.systemUTC(),
     ): RenderContext {
-        val fontCache = FontCache(pdfaCompliant, fontFamilyResolver)
+        val fontCache = FontCache(pdfaCompliant, fontFamilyResolver, fontScope)
         val proseMirrorConverter = ProseMirrorConverter(scopedEvaluator, defaultExpressionLanguage, renderingDefaults)
         return RenderContext(
             data = data,
@@ -191,6 +209,7 @@ class DirectPdfRenderer(
         renderingDefaults: RenderingDefaults,
         renderMode: RenderMode,
         scopedEvaluator: CompositeExpressionEvaluator = expressionEvaluator,
+        fontScope: FontProgramCache.Scope,
         clock: Clock = Clock.systemUTC(),
         watermarkText: String? = null,
     ) {
@@ -213,6 +232,7 @@ class DirectPdfRenderer(
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
             scopedEvaluator = scopedEvaluator,
+            fontScope = fontScope,
             clock = clock,
         )
 
@@ -249,6 +269,7 @@ class DirectPdfRenderer(
         renderingDefaults: RenderingDefaults,
         renderMode: RenderMode,
         scopedEvaluator: CompositeExpressionEvaluator = expressionEvaluator,
+        fontScope: FontProgramCache.Scope,
         clock: Clock = Clock.systemUTC(),
         watermarkText: String? = null,
     ) {
@@ -272,6 +293,7 @@ class DirectPdfRenderer(
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
             scopedEvaluator = scopedEvaluator,
+            fontScope = fontScope,
             clock = clock,
         )
 
@@ -298,6 +320,7 @@ class DirectPdfRenderer(
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
             scopedEvaluator = scopedEvaluator,
+            fontScope = fontScope,
             clock = clock,
         ).withTotalPages(FIRST_PASS_PAGE_TOTAL_PLACEHOLDER)
         val totalPages = performRenderWithContext(
@@ -327,6 +350,7 @@ class DirectPdfRenderer(
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
             scopedEvaluator = scopedEvaluator,
+            fontScope = fontScope,
             clock = clock,
         ).withTotalPages(totalPages)
 

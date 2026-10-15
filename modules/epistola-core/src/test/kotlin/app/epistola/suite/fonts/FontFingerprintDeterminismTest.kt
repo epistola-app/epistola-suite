@@ -136,7 +136,7 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
             template,
             VariantKey.INITIAL.value,
         )
-        return inputs.fontFamilyResolver.resolve("default", "brand-sans", 400, false)
+        return inputs.fontFamilyResolver.resolve("default", "brand-sans", 400, false)?.bytes
     }
 
     @org.springframework.beans.factory.annotation.Autowired

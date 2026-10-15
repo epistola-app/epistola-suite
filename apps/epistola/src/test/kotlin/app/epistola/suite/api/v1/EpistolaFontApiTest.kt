@@ -67,7 +67,7 @@ class EpistolaFontApiTest : IntegrationTestBase() {
     private lateinit var resourceLoader: ResourceLoader
 
     @Test
-    fun `list system fonts returns the eight bundled families with readOnly=true`() {
+    fun `list system fonts returns the nine bundled families with readOnly=true`() {
         val (tenantKey, key) = seedTenantAndKey()
         val response = restTemplate.exchange(
             "/api/tenants/${tenantKey.value}/catalogs/system/fonts",
@@ -79,8 +79,8 @@ class EpistolaFontApiTest : IntegrationTestBase() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!
         val slugs: List<String> = JsonPath.read(body, "$.items[*].slug")
-        assertThat(slugs).hasSize(8)
-        assertThat(slugs).contains("inter", "roboto", "jetbrains-mono")
+        assertThat(slugs).hasSize(9)
+        assertThat(slugs).contains("inter", "roboto", "jetbrains-mono", "liberation-sans")
         val readOnly: List<Boolean> = JsonPath.read(body, "$.items[*].readOnly")
         assertThat(readOnly).allMatch { it }
         val catalogTypes: List<String> = JsonPath.read(body, "$.items[*].catalogType")

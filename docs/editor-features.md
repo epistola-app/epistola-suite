@@ -70,13 +70,15 @@ A **link toggle** switches between editing all sides at once (linked) or indepen
 
 These are style properties available on all block components (text, container, columns, table, datatable, conditional, loop). They appear as checkboxes in the inspector's "Page Flow" section.
 
-**PDF rendering:** Maps to iText's `setKeepTogether(true)` / `setKeepWithNext(true)` via `StyleApplicator`.
+**PDF rendering:** `keepTogether` maps to iText's `setKeepTogether(true)` via `StyleApplicator`. iText only honours keep-with-next at the document root, so `NodeRendererRegistry.renderSlot` wraps a `keepWithNext` block and what follows it in a keep-together group. From rendering defaults V6 (`keepWithNextFirstBlock`) the group holds only the first block that follows, as in Word: a heading before a loop keeps with the loop's first item. Before V6 it held everything the next node rendered, so the heading waited for the whole loop to fit.
 
 ### Line Height
 
 Line height is a unitless multiplier (e.g., `1.5` = 150% of font size). It's an inheritable property — setting it at the document or theme level applies to all text blocks. The default tenant theme sets `lineHeight: 1.5`.
 
-**PDF rendering:** `TextNodeRenderer` resolves the style cascade and passes the value to `ProseMirrorConverter` via a pre-resolved styles map. `ProseMirrorConverter.applyTextStyles()` calls `paragraph.setMultipliedLeading(value)`.
+**PDF rendering:** `TextNodeRenderer` resolves the style cascade and passes the value to `ProseMirrorConverter` via a pre-resolved styles map. From rendering defaults V6 (`cssLineHeight`), `ProseMirrorConverter.applyTextStyles()` gives the paragraph a fixed leading of its font size × the multiplier (`CssLineHeight`), so the PDF matches the editor whatever the font. Before V6 it called `paragraph.setMultipliedLeading(value)`, which scales the font's own ascent-to-descent height instead: `1.0` spaced Liberation Sans 1.11× and Inter about 1.45× the font size.
+
+A value below 1 is allowed. From V6 a page header or footer keeps its last line at such a value (`bandOverflowRoom`); before V6 iText dropped it without an error when the band was sized to its content.
 
 ### Table Cell Styling
 

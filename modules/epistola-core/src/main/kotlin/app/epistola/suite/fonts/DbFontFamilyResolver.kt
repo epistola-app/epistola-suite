@@ -4,6 +4,7 @@
 
 package app.epistola.suite.fonts
 
+import app.epistola.generation.pdf.FontFaceBytes
 import app.epistola.generation.pdf.FontFamilyResolver
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
@@ -43,5 +44,5 @@ fun fontFamilyResolver(
             weight = weight,
             italic = italic,
         ).query()
-    }
+    }?.let { face -> FontFaceBytes(face.content, face.contentHash) }
 }

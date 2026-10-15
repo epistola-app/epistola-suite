@@ -43,6 +43,9 @@ import kotlin.math.abs
  * 4. Fetch that row's bytes by source (CLASSPATH → classloader resource;
  *    ASSET → [GetAssetContent]). Returns `null` when the resolved face's
  *    binary is missing.
+ *
+ * The result carries the row's stored `content_hash` (null when not yet hashed),
+ * so the renderer's parsed-font cache need not hash the bytes again.
  */
 data class ResolveFontFace(
     val tenantId: TenantKey,
@@ -50,11 +53,20 @@ data class ResolveFontFace(
     val slug: FontKey,
     val weight: Int,
     val italic: Boolean,
-) : Query<ByteArray?>,
+) : Query<ResolvedFontFace?>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_VIEW
     override val tenantKey get() = tenantId
 }
+
+/**
+ * A face's binary and the lowercase hex SHA-256 stored for it (`font_variants.content_hash`); the
+ * hash is null when the face is not yet hashed.
+ */
+class ResolvedFontFace(
+    val content: ByteArray,
+    val contentHash: String?,
+)
 
 internal data class FaceRow(
     val weight: Int,
@@ -62,6 +74,8 @@ internal data class FaceRow(
     val source: FontVariantSource,
     val assetKey: AssetKey?,
     val classpathLocation: String?,
+    /** Lowercase hex SHA-256 of the face binary; null when not yet hashed. */
+    val contentHash: String? = null,
 )
 
 /**
@@ -99,16 +113,16 @@ fun <T> pickNearestFace(faces: List<T>, weightOf: (T) -> Int, italicOf: (T) -> B
 @Component
 class ResolveFontFaceHandler(
     private val jdbi: Jdbi,
-) : QueryHandler<ResolveFontFace, ByteArray?> {
+) : QueryHandler<ResolveFontFace, ResolvedFontFace?> {
 
-    override fun handle(query: ResolveFontFace): ByteArray? {
+    override fun handle(query: ResolveFontFace): ResolvedFontFace? {
         val rows = jdbi.withHandle<List<FaceRow>, Exception> { handle ->
             handle.loadFaces(query.tenantId, query.catalogKey, query.slug)
         }
 
         val best = pickBestFace(rows, query.weight, query.italic) ?: return null
 
-        return when (best.source) {
+        val bytes = when (best.source) {
             FontVariantSource.CLASSPATH -> best.classpathLocation?.let { location ->
                 this::class.java.classLoader.getResourceAsStream(location)?.readBytes()
             }
@@ -116,14 +130,15 @@ class ResolveFontFaceHandler(
             FontVariantSource.ASSET -> best.assetKey?.let { assetKey ->
                 GetAssetContent(query.tenantId, assetKey).query()?.content
             }
-        }
+        } ?: return null
+        return ResolvedFontFace(bytes, best.contentHash)
     }
 }
 
 private fun Handle.loadFaces(tenantId: TenantKey, catalogKey: CatalogKey, slug: FontKey): List<FaceRow> = createQuery(
     """
     SELECT faces.weight, faces.italic, faces.source,
-           binary_asset.id AS asset_key, faces.classpath_location
+           binary_asset.id AS asset_key, faces.classpath_location, faces.content_hash
     $FACES_OF_FAMILY_AT_ADDRESS
     """,
 )
@@ -137,6 +152,7 @@ private fun Handle.loadFaces(tenantId: TenantKey, catalogKey: CatalogKey, slug: 
             source = FontVariantSource.valueOf(rs.getString("source")),
             assetKey = rs.getString("asset_key")?.let(::AssetKey),
             classpathLocation = rs.getString("classpath_location"),
+            contentHash = rs.getString("content_hash"),
         )
     }
     .list()

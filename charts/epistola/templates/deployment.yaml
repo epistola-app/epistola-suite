@@ -209,6 +209,16 @@ spec:
                    pod a distinct id automatically. */}}
             {{- end }}
 
+            {{- /* Parsed-font cache bounds; empty keeps the application defaults */}}
+            {{- with .Values.generation.fontCache.maxSize }}
+            - name: EPISTOLA_GENERATION_FONTCACHE_MAXSIZE
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if ne (toString .Values.generation.fontCache.maxFaces) "" }}
+            - name: EPISTOLA_GENERATION_FONTCACHE_MAXFACES
+              value: {{ .Values.generation.fontCache.maxFaces | quote }}
+            {{- end }}
+
             {{- /* Catalog and code-list source rules (closed by default) */}}
             {{- with .Values.catalog.fileRoots }}
             - name: EPISTOLA_CATALOG_FILEROOTS

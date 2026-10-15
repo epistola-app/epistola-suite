@@ -636,7 +636,11 @@ class ProseMirrorConverter(
      */
     private fun applyTextStyles(paragraph: Paragraph, resolvedStyles: Map<String, Any>) {
         (resolvedStyles["lineHeight"] as? Float)?.let {
-            paragraph.setMultipliedLeading(it)
+            if (renderingDefaults.cssLineHeight) {
+                app.epistola.generation.pdf.CssLineHeight.apply(paragraph, it)
+            } else {
+                paragraph.setMultipliedLeading(it)
+            }
         }
     }
 

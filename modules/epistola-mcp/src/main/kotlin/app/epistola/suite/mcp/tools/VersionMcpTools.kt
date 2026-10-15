@@ -95,6 +95,9 @@ class VersionMcpTools(
             "the server renders only what is stored in the document. Check the result with " +
             "`preview_document`, passing the returned `id` as `versionId` — without it, preview renders " +
             "the latest published version, which a new template does not have. " +
+            "The server normalises the document it stores (it adds absent fields as null and sorts keys); " +
+            "pass `returnContent: true` to get the stored document back as `templateModel`, in the form " +
+            "`get_template_content` returns, so later edits can be diffed against it. " +
             "Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
@@ -107,6 +110,8 @@ class VersionMcpTools(
         variantId: String,
         @McpToolParam(description = "The complete template document, as a JSON object string.")
         content: String,
+        @McpToolParam(description = "Return the stored document as `templateModel`. Default false.", required = false)
+        returnContent: Boolean? = null,
     ): VersionInfo {
         val variant = VariantId(
             VariantKey.of(variantId),
@@ -114,7 +119,7 @@ class VersionMcpTools(
         )
         val document = objectMapper.parseArgument("content", content, TemplateDocument::class.java)
         return UpdateDraft(variantId = variant, templateModel = document).execute()
-            ?.let(VersionInfo::from)
+            ?.let { VersionInfo.from(it, includeContent = returnContent == true) }
             ?: throw notFound("Variant", catalogId, "$templateId/$variantId")
     }
 }

@@ -9,6 +9,7 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
@@ -29,12 +30,15 @@ import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.themes.BlockStylePreset
+import app.epistola.suite.themes.BlockStylePresets
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import app.epistola.suite.themes.queries.GetTheme
 import app.epistola.suite.themes.queries.GetThemeUsagePage
 import app.epistola.suite.themes.queries.ListThemes
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 
@@ -177,6 +181,62 @@ class ThemeQueriesTest : IntegrationTestBase() {
         assertThat(updated?.name).isEqualTo("Updated First Theme")
         assertThat(GetTheme(id = firstTheme).query()?.name).isEqualTo("Updated First Theme")
         assertThat(GetTheme(id = secondTheme).query()?.name).isEqualTo("Second Theme")
+    }
+
+    @Test
+    fun `UpdateTheme merges and removes presets by name, keeping the rest`(): Unit = withMediator {
+        val tenant = createTenant("Theme Preset Merge")
+        val themeId = ThemeId(ThemeKey.of("kaarten"), CatalogId.default(TenantId(tenant.id)))
+        CreateTheme(
+            id = themeId,
+            name = "Kaarten",
+            blockStylePresets = BlockStylePresets.of(
+                "kaart" to BlockStylePreset(label = "Kaart", styles = mapOf("paddingTop" to "8pt")),
+                "oud" to BlockStylePreset(label = "Oud", styles = emptyMap()),
+                "titel" to BlockStylePreset(label = "Titel", styles = mapOf("fontSize" to "12pt")),
+            ),
+        ).execute()
+
+        UpdateTheme(
+            id = themeId,
+            mergeBlockStylePresets = BlockStylePresets.of(
+                "titel" to BlockStylePreset(label = "Titel", styles = mapOf("fontSize" to "14pt")),
+                "badge" to BlockStylePreset(label = "Badge", styles = mapOf("color" to "#c00000")),
+            ),
+            removeBlockStylePresets = setOf("oud", "bestaat-niet"),
+        ).execute()
+
+        val presets = GetTheme(id = themeId).query()!!.blockStylePresets!!
+        assertThat(presets.keys).containsExactlyInAnyOrder("kaart", "titel", "badge")
+        assertThat(presets.getValue("kaart").styles).isEqualTo(mapOf("paddingTop" to "8pt"))
+        assertThat(presets.getValue("titel").styles).isEqualTo(mapOf("fontSize" to "14pt"))
+    }
+
+    @Test
+    fun `UpdateTheme merges presets into a theme that has none`(): Unit = withMediator {
+        val tenant = createTenant("Theme Preset Merge Empty")
+        val themeId = ThemeId(ThemeKey.of("leeg"), CatalogId.default(TenantId(tenant.id)))
+        CreateTheme(id = themeId, name = "Leeg").execute()
+
+        UpdateTheme(
+            id = themeId,
+            mergeBlockStylePresets = BlockStylePresets.of("kaart" to BlockStylePreset(label = "Kaart", styles = emptyMap())),
+        ).execute()
+
+        assertThat(GetTheme(id = themeId).query()!!.blockStylePresets!!.keys).containsExactly("kaart")
+    }
+
+    @Test
+    fun `UpdateTheme refuses mixing a full replacement with per-preset changes`() {
+        val themeId = ThemeId(ThemeKey.of("x-theme"), CatalogId.default(TenantId(TenantKey.of("acme"))))
+        val presets = BlockStylePresets.of("a" to BlockStylePreset(label = "A", styles = emptyMap()))
+
+        assertThatThrownBy {
+            UpdateTheme(id = themeId, blockStylePresets = presets, removeBlockStylePresets = setOf("b"))
+        }.hasMessageContaining("not both")
+        assertThatThrownBy {
+            UpdateTheme(id = themeId, mergeBlockStylePresets = presets, removeBlockStylePresets = setOf("a"))
+        }.hasMessageContaining("merged and removed")
     }
 
     @Test
