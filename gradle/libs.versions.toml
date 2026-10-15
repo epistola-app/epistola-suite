@@ -26,7 +26,7 @@ archunit = "1.5.1"
 # One iText for the renderer and for every test that reads the PDFs it writes.
 itext = "9.8.0"
 # Declared here because modules:generation is outside the Spring Boot BOM.
-caffeine = "3.2.4"
+caffeine = "3.3.0"
 # Security overrides of the Spring Boot BOM's Jackson versions, applied by the three apps (see
 # apps/epistola/build.gradle.kts). Drop both once the BOM manages these versions or later.
 jackson = "3.1.7"
