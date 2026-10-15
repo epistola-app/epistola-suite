@@ -20,6 +20,7 @@ import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.publishAndRelease
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -126,13 +127,14 @@ class GenerationHistoryRoutesTest : BaseIntegrationTest() {
             templateKey = CreateDocumentTemplate(id = templateId, name = "Billing Invoice").execute().id
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
             val variant = CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()).execute()!!
-            val version = UpdateDraft(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Billing Invoice")).execute()!!
+            UpdateDraft(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Billing Invoice")).execute()!!
+            // Generation renders billing's latest release.
+            mediator.publishAndRelease(variantId)
             GenerateDocument(
                 tenantId = tenant.id,
                 catalogKey = billing,
                 templateId = templateKey,
                 variantId = variant.id,
-                versionId = version.id,
                 data = JsonNodeFactory.instance.objectNode(),
                 filename = "billing.pdf",
             ).execute()

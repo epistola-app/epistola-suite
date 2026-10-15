@@ -16,6 +16,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.generation.release.ReleaseRenderInputs
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
@@ -163,6 +164,40 @@ class GenerationService(
             assetResolver = assetResolver,
             fontFamilyResolver = fontFamilyResolver,
             renderingDefaults = renderingDefaults,
+            culture = culture,
+            clock = EpistolaClock.current(),
+            watermarkText = watermarkText,
+        )
+    }
+
+    /**
+     * Renders a PDF from a catalog release's inputs ([ReleaseRenderInputs]).
+     *
+     * Everything that varies between renders of the same release is in the inputs, read from the
+     * release and the releases it pinned: the model, the resolved theme, the rendering defaults the
+     * release was cut against, PDF/A, and the font and image resolvers bound to that release. Only
+     * [data], [culture] and the PDF metadata come from the request.
+     */
+    fun renderPdfFromRelease(
+        inputs: ReleaseRenderInputs,
+        data: Map<String, Any?>,
+        outputStream: OutputStream,
+        metadata: PdfMetadata,
+        culture: RenderCulture,
+        watermarkText: String? = null,
+    ) {
+        templateDocumentValidator.validateTemplateGraphForRendering(inputs.templateModel)
+
+        pdfRenderer.render(
+            document = inputs.templateModel,
+            data = data,
+            outputStream = outputStream,
+            resolvedTheme = inputs.resolvedTheme,
+            metadata = metadata.copy(engineVersion = inputs.renderingDefaults.engineVersionString()),
+            pdfaCompliant = inputs.pdfaEnabled,
+            assetResolver = inputs.assetResolver,
+            fontFamilyResolver = inputs.fontFamilyResolver,
+            renderingDefaults = inputs.renderingDefaults,
             culture = culture,
             clock = EpistolaClock.current(),
             watermarkText = watermarkText,

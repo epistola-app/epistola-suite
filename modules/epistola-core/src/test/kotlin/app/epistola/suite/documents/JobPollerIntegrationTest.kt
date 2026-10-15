@@ -31,6 +31,7 @@ import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestPrincipalUsers
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.TestcontainersConfiguration
+import app.epistola.suite.testing.publishAndRelease
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Tag
@@ -126,12 +127,13 @@ class JobPollerIntegrationTest {
             ),
         )!!
         val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
-        val version = mediator.send(
+        mediator.send(
             UpdateDraft(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
+        val version = mediator.publishAndRelease(variantId)
 
         // Generate document (will stay PENDING until JobPoller picks it up)
         val request = mediator.send(
@@ -139,7 +141,6 @@ class JobPollerIntegrationTest {
                 tenantId = tenant.id,
                 templateId = template.id,
                 variantId = variant.id,
-                versionId = version.id,
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "async-test.pdf",

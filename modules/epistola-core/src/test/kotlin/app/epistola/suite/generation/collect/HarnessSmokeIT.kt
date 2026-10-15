@@ -57,7 +57,7 @@ class HarnessSmokeIT : IntegrationTestBase() {
             val templateId = TemplateId(template.id, CatalogId.default(tenantId))
             val variant = variant(templateId, "Default")
             val variantId = VariantId(variant.id, templateId)
-            val version = version(variantId, TestTemplateBuilder.buildMinimal(name = "Invoice"))
+            val version = released(variantId, TestTemplateBuilder.buildMinimal(name = "Invoice"))
             DocumentSetup(tenant, template, variant, version)
         }.whenever { setup ->
             // Submit a generation request — JobPoller is disabled so it just sits there.
@@ -66,7 +66,6 @@ class HarnessSmokeIT : IntegrationTestBase() {
                     tenantId = setup.tenant.id,
                     templateId = setup.template.id,
                     variantId = setup.variant.id,
-                    versionId = setup.version.id,
                     environmentId = null,
                     data = objectMapper.createObjectNode().put("x", 1),
                     filename = "doc.pdf",
@@ -102,7 +101,7 @@ class HarnessSmokeIT : IntegrationTestBase() {
             val templateId = TemplateId(template.id, CatalogId.default(tenantId))
             val variant = variant(templateId, "Default")
             val variantId = VariantId(variant.id, templateId)
-            val version = version(variantId, TestTemplateBuilder.buildMinimal(name = "Invoice"))
+            val version = released(variantId, TestTemplateBuilder.buildMinimal(name = "Invoice"))
             DocumentSetup(tenant, template, variant, version)
         }.whenever { setup ->
             execute(
@@ -110,7 +109,6 @@ class HarnessSmokeIT : IntegrationTestBase() {
                     tenantId = setup.tenant.id,
                     templateId = setup.template.id,
                     variantId = setup.variant.id,
-                    versionId = setup.version.id,
                     environmentId = null,
                     data = objectMapper.createObjectNode(),
                     filename = "f.pdf",
@@ -138,7 +136,7 @@ class HarnessSmokeIT : IntegrationTestBase() {
             val templateId = TemplateId(template.id, CatalogId.default(tenantId))
             val variant = variant(templateId, "Default")
             val variantId = VariantId(variant.id, templateId)
-            val version = version(variantId, TestTemplateBuilder.buildMinimal(name = "Invoice"))
+            val version = released(variantId, TestTemplateBuilder.buildMinimal(name = "Invoice"))
             DocumentSetup(tenant, template, variant, version)
         }.whenever { setup ->
             execute(
@@ -146,7 +144,6 @@ class HarnessSmokeIT : IntegrationTestBase() {
                     tenantId = setup.tenant.id,
                     templateId = setup.template.id,
                     variantId = setup.variant.id,
-                    versionId = setup.version.id,
                     environmentId = null,
                     data = objectMapper.createObjectNode(),
                     filename = "f.pdf",

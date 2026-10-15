@@ -24,12 +24,14 @@ import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
+import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.DocumentNotFoundException
 import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.documents.GenerationJobNotCancellableException
 import app.epistola.suite.documents.GenerationJobNotFoundException
 import app.epistola.suite.documents.NoPublishedVersionException
+import app.epistola.suite.documents.TemplateNotInReleaseException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.environments.EnvironmentInUseException
@@ -447,6 +449,28 @@ object ApiExceptionMappings {
                 )
             },
             logMessage = { "Environment not found: ${it.message}" },
+        )
+
+        builder.register<CatalogNotReleasedException>(
+            problemType = ApiProblemTypes.CATALOG_NOT_RELEASED,
+            defaultDetail = "The catalog has no release to generate from",
+            extensions = { mapOf("tenantId" to it.tenantKey.value, "catalogId" to it.catalogKey.value) },
+            logMessage = { "Catalog not released: ${it.message}" },
+        )
+
+        builder.register<TemplateNotInReleaseException>(
+            problemType = ApiProblemTypes.TEMPLATE_NOT_IN_RELEASE,
+            defaultDetail = "The release does not contain the requested template or variant",
+            extensions = {
+                mapOf(
+                    "tenantId" to it.tenantKey.value,
+                    "catalogId" to it.catalogKey.value,
+                    "releaseVersion" to it.releaseVersion,
+                    "templateId" to it.templateId.value,
+                    "variantId" to it.variantId?.value,
+                )
+            },
+            logMessage = { "Template not in release: ${it.message}" },
         )
 
         builder.register<NoPublishedVersionException>(

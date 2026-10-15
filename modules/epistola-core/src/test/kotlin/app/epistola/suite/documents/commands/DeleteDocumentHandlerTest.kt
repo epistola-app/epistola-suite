@@ -17,6 +17,7 @@ import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.publishAndRelease
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
@@ -35,12 +36,13 @@ class DeleteDocumentHandlerTest : IntegrationTestBase() {
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
-        val version = mediator.send(
+        mediator.send(
             UpdateDraft(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
+        val version = mediator.publishAndRelease(variantId)
 
         // Generate document
         val request = mediator.send(
@@ -48,7 +50,6 @@ class DeleteDocumentHandlerTest : IntegrationTestBase() {
                 tenantId = tenant.id,
                 templateId = template.id,
                 variantId = variant.id,
-                versionId = version.id,
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "test.pdf",
@@ -93,19 +94,19 @@ class DeleteDocumentHandlerTest : IntegrationTestBase() {
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
-        val version = mediator.send(
+        mediator.send(
             UpdateDraft(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
+        val version = mediator.publishAndRelease(variantId)
 
         val request = mediator.send(
             GenerateDocument(
                 tenantId = tenant1.id,
                 templateId = template.id,
                 variantId = variant.id,
-                versionId = version.id,
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "test.pdf",

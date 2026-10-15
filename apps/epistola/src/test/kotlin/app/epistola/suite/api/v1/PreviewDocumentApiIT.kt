@@ -16,7 +16,6 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
 import app.epistola.suite.templates.model.DataExample
@@ -25,6 +24,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.publishAndRelease
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -114,6 +114,20 @@ class PreviewDocumentApiIT : IntegrationTestBase() {
         assertThat(response.headers.contentType).isEqualTo(MediaType.APPLICATION_PDF)
     }
 
+    @Test
+    fun `preview of a catalog with no release is a 404 naming the catalog`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        withMediator {
+            val templateId = TemplateId(TemplateKey.of(TEMPLATE), CatalogId.default(TenantId(tenantKey)))
+            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+        }
+
+        val response = preview(tenantKey, apiKey, "{}")
+
+        assertThat(response.statusCode.value()).isEqualTo(404)
+        assertThat(response.body).contains("errors/catalog-not-released").contains("\"catalogId\":\"default\"")
+    }
+
     private fun preview(tenantKey: TenantKey, apiKey: String, data: String) = restTemplate.exchange(
         "/api/tenants/${tenantKey.value}/documents/preview",
         HttpMethod.POST,
@@ -150,8 +164,9 @@ class PreviewDocumentApiIT : IntegrationTestBase() {
             ),
         ).execute()
         val variantId = VariantId(VariantKey.INITIAL, templateId)
-        val draft = UpdateDraft(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal()).execute()!!
-        PublishVersion(VersionId(draft.id, variantId)).execute()
+        UpdateDraft(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal()).execute()!!
+        // Preview renders the catalog's latest release.
+        mediator.publishAndRelease(variantId)
     }
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {

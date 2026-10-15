@@ -45,6 +45,14 @@ per-template deployment matrix in the UI, and the permissions `TEMPLATE_PUBLISH`
 - **Decisive fact:** serving still reads the working copy. `GenerateDocument` resolves a version
   from `template_versions` and never touches a release.
 
+### Progress
+
+- **Generation renders releases** (WP1, first slice): requests without an environment bind to the
+  catalog's latest release when accepted; a resource from another catalog renders from that
+  catalog's latest release (pins were dropped on 13 October 2026, see the revised order below);
+  preview renders the latest release or, on request, the working copy. Environment requests
+  still read activations until WP5.
+
 ## 3. The target model
 
 ### 3.1 Concepts

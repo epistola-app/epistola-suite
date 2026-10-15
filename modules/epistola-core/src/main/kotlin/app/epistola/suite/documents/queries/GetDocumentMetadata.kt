@@ -10,7 +10,6 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
@@ -29,7 +28,8 @@ data class DocumentMetadata(
     val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val templateId: TemplateKey,
     val variantId: VariantKey,
-    val versionId: VersionKey,
+    /** The catalog release rendered, from 2.0 on. */
+    val releaseVersion: String? = null,
     val filename: String,
     val correlationId: String?,
     val contentType: String,
@@ -61,7 +61,7 @@ class GetDocumentMetadataHandler(
     override fun handle(query: GetDocumentMetadata): DocumentMetadata? = jdbi.withHandle<DocumentMetadata?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_key, catalog_key, template_key, variant_key, version_key,
+            SELECT id, tenant_key, catalog_key, template_key, variant_key, release_version,
                    filename, correlation_id, content_type, size_bytes,
                    created_at, created_by
             FROM documents
@@ -78,7 +78,7 @@ class GetDocumentMetadataHandler(
                     catalogKey = CatalogKey(rs.getString("catalog_key")),
                     templateId = TemplateKey(rs.getString("template_key")),
                     variantId = VariantKey(rs.getString("variant_key")),
-                    versionId = VersionKey(rs.getInt("version_key")),
+                    releaseVersion = rs.getString("release_version"),
                     filename = rs.getString("filename"),
                     correlationId = rs.getString("correlation_id"),
                     contentType = rs.getString("content_type"),

@@ -65,14 +65,13 @@ class JobPollerDatabasePressureIntegrationTest : IntegrationTestBase() {
             val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
             val variant = variant(compositeTemplateId, "Default")
             val compositeVariantId = VariantId(variant.id, compositeTemplateId)
-            val version = version(compositeVariantId, TestTemplateBuilder.buildMinimal(name = "DB Pressure Template"))
+            val version = released(compositeVariantId, TestTemplateBuilder.buildMinimal(name = "DB Pressure Template"))
 
             fun request(filename: String) = execute(
                 GenerateDocument(
                     tenantId = tenant.id,
                     templateId = template.id,
                     variantId = variant.id,
-                    versionId = version.id,
                     environmentId = null,
                     data = objectMapper.createObjectNode(),
                     filename = filename,

@@ -16,6 +16,7 @@ import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.fonts.FontByteCache
 import app.epistola.suite.fonts.FontSnapshotVerifier
 import app.epistola.suite.generation.GenerationService
+import app.epistola.suite.generation.release.ReleaseRenderSource
 import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.storage.DocumentContentStore
@@ -72,6 +73,8 @@ class JobPollerShutdownIntegrationTest : IntegrationTestBase() {
     @Autowired private lateinit var fontSnapshotVerifier: FontSnapshotVerifier
 
     @Autowired private lateinit var fontByteCache: FontByteCache
+
+    @Autowired private lateinit var releaseRenderSource: ReleaseRenderSource
 
     @Autowired private lateinit var localeResolver: TenantLocaleResolver
 
@@ -155,13 +158,12 @@ class JobPollerShutdownIntegrationTest : IntegrationTestBase() {
         val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
         val variant = variant(compositeTemplateId, "Default")
         val compositeVariantId = VariantId(variant.id, compositeTemplateId)
-        val version = version(compositeVariantId, TestTemplateBuilder.buildMinimal(name = "Shutdown Drain Template"))
+        released(compositeVariantId, TestTemplateBuilder.buildMinimal(name = "Shutdown Drain Template"))
         val request = execute(
             GenerateDocument(
                 tenantId = tenant.id,
                 templateId = template.id,
                 variantId = variant.id,
-                versionId = version.id,
                 environmentId = null,
                 data = ObjectMapper().createObjectNode(),
                 filename = filename,
@@ -200,7 +202,7 @@ class JobPollerShutdownIntegrationTest : IntegrationTestBase() {
             jdbi = jdbi,
             jobExecutor = GatedExecutor(
                 gate, executor, jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore,
-                meterRegistry, fontSnapshotVerifier, fontByteCache, localeResolver,
+                meterRegistry, fontSnapshotVerifier, fontByteCache, localeResolver, releaseRenderSource,
             ),
             properties = pollerProperties,
             batchSizer = AdaptiveBatchSizer(pollerProperties, registry),
@@ -231,9 +233,10 @@ class JobPollerShutdownIntegrationTest : IntegrationTestBase() {
         fontSnapshotVerifier: FontSnapshotVerifier,
         fontByteCache: FontByteCache,
         localeResolver: TenantLocaleResolver,
+        releaseRenderSource: ReleaseRenderSource,
     ) : DocumentGenerationExecutor(
         jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore, meterRegistry,
-        fontSnapshotVerifier, fontByteCache, localeResolver, retentionDays = 7, maxDocumentSizeMb = 50,
+        fontSnapshotVerifier, fontByteCache, localeResolver, releaseRenderSource, retentionDays = 7, maxDocumentSizeMb = 50,
     ) {
         /** [interruptible] false models a CPU-bound render that does not stop on interrupt. */
         class Gate(val interruptible: Boolean) {

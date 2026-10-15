@@ -10,6 +10,8 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.documents.CatalogNotReleasedException
+import app.epistola.suite.documents.TemplateNotInReleaseException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.model.RequestStatus
@@ -19,6 +21,8 @@ import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.publishAndRelease
+import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -48,12 +52,13 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
-        val version = mediator.send(
+        mediator.send(
             UpdateDraft(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
+        val version = mediator.publishAndRelease(variantId)
 
         val data = objectMapper.createObjectNode().put("test", "value")
 
@@ -62,7 +67,6 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
                 tenantId = tenant.id,
                 templateId = template.id,
                 variantId = variant.id,
-                versionId = version.id,
                 environmentId = null,
                 data = data,
                 filename = "test.pdf",
@@ -75,9 +79,8 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `fails with non-existent template`(): Unit = withAuthentication {
+    fun `fails when the catalog has no release`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
-        val data = objectMapper.createObjectNode().put("test", "value")
 
         assertThatThrownBy {
             mediator.send(
@@ -85,41 +88,53 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
                     tenantId = tenant.id,
                     templateId = TestIdHelpers.nextTemplateId(),
                     variantId = TestIdHelpers.nextVariantId(),
-                    versionId = VersionKey.of(100), // Non-existent version for testing (valid range but doesn't exist)
-                    environmentId = null,
-                    data = data,
+                    data = objectMapper.createObjectNode().put("test", "value"),
                     filename = "test.pdf",
                 ),
             )
-        }.isInstanceOf(TemplateVariantNotFoundException::class.java)
-            .hasMessageContaining("Template")
+        }.isInstanceOf(CatalogNotReleasedException::class.java)
+            .hasMessageContaining("has no release")
     }
 
     @Test
-    fun `fails with non-existent version`(): Unit = withAuthentication {
+    fun `fails for a template the latest release does not contain`(): Unit = withAuthentication {
         val tenant = createTenant("Test Tenant")
-        val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
+        mediator.send(CreateDocumentTemplate(id = templateId, name = "Released"))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
-        val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
-
-        val data = objectMapper.createObjectNode().put("test", "value")
+        mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))
+        mediator.send(UpdateDraft(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Released")))
+        mediator.publishAndRelease(variantId)
 
         assertThatThrownBy {
             mediator.send(
                 GenerateDocument(
                     tenantId = tenant.id,
-                    templateId = template.id,
-                    variantId = variant.id,
-                    versionId = VersionKey.of(100), // Non-existent version for testing (valid range but doesn't exist)
-                    environmentId = null,
-                    data = data,
+                    templateId = TestIdHelpers.nextTemplateId(),
+                    data = objectMapper.createObjectNode(),
                     filename = "test.pdf",
                 ),
             )
-        }.isInstanceOf(VersionNotFoundException::class.java)
-            .hasMessageContaining("Version")
+        }.isInstanceOf(TemplateNotInReleaseException::class.java)
+            .hasMessageContaining("does not contain template")
+    }
+
+    @Test
+    fun `refuses an explicit template version`(): Unit = withAuthentication {
+        val tenant = createTenant("Test Tenant")
+
+        assertThatThrownBy {
+            mediator.send(
+                GenerateDocument(
+                    tenantId = tenant.id,
+                    templateId = TestIdHelpers.nextTemplateId(),
+                    versionId = VersionKey.of(1),
+                    data = objectMapper.createObjectNode(),
+                    filename = "test.pdf",
+                ),
+            )
+        }.isInstanceOf(ValidationException::class.java)
+            .hasMessageContaining("no longer supported")
     }
 
     @Test

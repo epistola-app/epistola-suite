@@ -22,6 +22,7 @@ import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.publishAndRelease
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
@@ -44,7 +45,8 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(name = templateName)
-        val version = mediator.send(UpdateDraft(variantId = variantId, templateModel = templateModel))!!
+        mediator.send(UpdateDraft(variantId = variantId, templateModel = templateModel))!!
+        val version = mediator.publishAndRelease(variantId)
         TemplateSetup(tenant, template, variant, version)
     }
 
@@ -55,7 +57,6 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
                 catalogKey = setup.template.catalogKey,
                 templateId = setup.template.id,
                 variantId = setup.variant.id,
-                versionId = setup.version.id,
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", filename),
                 filename = filename,
@@ -105,7 +106,8 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
             val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
             val templateModel = TestTemplateBuilder.buildMinimal(name = "Less Popular")
-            val version = mediator.send(UpdateDraft(variantId = variantId, templateModel = templateModel))!!
+            mediator.send(UpdateDraft(variantId = variantId, templateModel = templateModel))!!
+            val version = mediator.publishAndRelease(variantId)
             TemplateSetup(setup1.tenant, template, variant, version)
         }
 
@@ -150,7 +152,8 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
             val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
             val templateModel = TestTemplateBuilder.buildMinimal(name = "Template B")
-            val version = mediator.send(UpdateDraft(variantId = variantId, templateModel = templateModel))!!
+            mediator.send(UpdateDraft(variantId = variantId, templateModel = templateModel))!!
+            val version = mediator.publishAndRelease(variantId)
             TemplateSetup(setup1.tenant, template, variant, version)
         }
 
@@ -177,7 +180,8 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
             val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Invoice"))
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
             val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
-            val version = mediator.send(UpdateDraft(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Invoice")))!!
+            mediator.send(UpdateDraft(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Invoice")))!!
+            val version = mediator.publishAndRelease(variantId)
             TemplateSetup(inDefault.tenant, template, variant, version)
         }
 

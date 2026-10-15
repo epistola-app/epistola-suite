@@ -118,12 +118,12 @@ class ControllableDocumentGenerationExecutor(
             handle.createUpdate(
                 """
                 INSERT INTO documents (
-                    id, tenant_key, template_key, variant_key, version_key,
+                    id, tenant_key, template_key, variant_key, version_key, release_version,
                     filename, correlation_id, content_type, size_bytes,
                     created_at, created_by
                 )
                 VALUES (
-                    :id, :tenantId, :templateId, :variantId, :versionId,
+                    :id, :tenantId, :templateId, :variantId, :versionId, :releaseVersion,
                     :filename, :correlationId, :contentType, :sizeBytes,
                     NOW(), :createdBy
                 )
@@ -133,7 +133,8 @@ class ControllableDocumentGenerationExecutor(
                 .bind("tenantId", request.tenantKey)
                 .bind("templateId", request.templateKey)
                 .bind("variantId", request.variantKey)
-                .bind("versionId", request.versionKey ?: request.environmentKey)
+                .bind("versionId", request.versionKey)
+                .bind("releaseVersion", request.releaseVersion)
                 .bind("filename", filename)
                 .bind("correlationId", request.correlationId)
                 .bind("contentType", contentType)
@@ -258,7 +259,7 @@ class ControllableDocumentGenerationExecutor(
         handle.createQuery(
             """
             SELECT id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key,
-                   environment_key, data, filename, correlation_id, routing_key, document_key,
+                   environment_key, release_version, data, filename, correlation_id, routing_key, document_key,
                    status, claimed_by, claimed_at, error_message, created_at, started_at,
                    completed_at, expires_at
             FROM document_generation_requests

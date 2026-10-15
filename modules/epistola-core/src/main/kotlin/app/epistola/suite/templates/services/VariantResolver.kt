@@ -45,6 +45,13 @@ class AmbiguousVariantResolutionException(
         "all have score $score. Add more attributes to disambiguate.",
 )
 
+/** One variant as selection sees it: its key, its attributes, and whether it is the default. */
+data class VariantCandidate(
+    val id: VariantKey,
+    val attributes: Map<String, String>,
+    val isDefault: Boolean,
+)
+
 /**
  * Resolves a variant for a template based on attribute-matching criteria.
  *
@@ -72,9 +79,26 @@ class VariantResolver {
         template: TemplateId,
         criteria: VariantSelectionCriteria,
     ): VariantKey {
-        val templateId = template.key
         val variants = ListVariants(template).query()
+        return select(
+            template.key,
+            variants.map { VariantCandidate(it.id, it.attributes, it.isDefault) },
+            criteria,
+        )
+    }
 
+    /**
+     * The selection rule on its own, over any set of variants: the working copy's, or the ones a
+     * catalog release holds. Both must pick the same variant for the same request.
+     *
+     * @throws NoMatchingVariantException if no variant matches and no default exists
+     * @throws AmbiguousVariantResolutionException if multiple variants tie on score
+     */
+    fun select(
+        templateId: TemplateKey,
+        variants: List<VariantCandidate>,
+        criteria: VariantSelectionCriteria,
+    ): VariantKey {
         // Filter variants that match ALL required attributes
         val candidates = variants.filter { variant ->
             matchesAllRequired(variant, criteria.requiredAttributes)
@@ -110,11 +134,11 @@ class VariantResolver {
         return topCandidates.single().variant.id
     }
 
-    private fun matchesAllRequired(variant: TemplateVariant, required: Map<String, String>): Boolean = required.all { (key, value) -> variant.attributes[key] == value }
+    private fun matchesAllRequired(variant: VariantCandidate, required: Map<String, String>): Boolean = required.all { (key, value) -> variant.attributes[key] == value }
 
-    private fun countRequiredMatches(variant: TemplateVariant, required: Map<String, String>): Int = required.count { (key, value) -> variant.attributes[key] == value }
+    private fun countRequiredMatches(variant: VariantCandidate, required: Map<String, String>): Int = required.count { (key, value) -> variant.attributes[key] == value }
 
-    private fun countOptionalMatches(variant: TemplateVariant, optional: Map<String, String>): Int = optional.count { (key, value) -> variant.attributes[key] == value }
+    private fun countOptionalMatches(variant: VariantCandidate, optional: Map<String, String>): Int = optional.count { (key, value) -> variant.attributes[key] == value }
 
-    private data class ScoredVariant(val variant: TemplateVariant, val score: Int)
+    private data class ScoredVariant(val variant: VariantCandidate, val score: Int)
 }

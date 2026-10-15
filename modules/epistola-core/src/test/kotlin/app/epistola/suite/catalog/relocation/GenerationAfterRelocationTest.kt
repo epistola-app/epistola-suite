@@ -29,6 +29,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.storage.DocumentContentStore
 import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.validation.JsonSchemaValidator
+import app.epistola.suite.testing.releaseNext
 import io.micrometer.core.instrument.MeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -55,16 +56,19 @@ class GenerationAfterRelocationTest : RelocationTestSupport() {
 
     @Autowired private lateinit var localeResolver: TenantLocaleResolver
 
+    @Autowired
+    private lateinit var releaseRenderSource: app.epistola.suite.generation.release.ReleaseRenderSource
+
     private val realExecutor by lazy {
         DocumentGenerationExecutor(
             jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore,
-            meterRegistry, fontSnapshotVerifier, fontByteCache, localeResolver,
+            meterRegistry, fontSnapshotVerifier, fontByteCache, localeResolver, releaseRenderSource,
             retentionDays = 7, maxDocumentSizeMb = 50,
         )
     }
 
     @Test
-    fun `a moved template generates at its new address, by version and through an environment`() {
+    fun `a moved template generates from its new catalog's release and through an environment`() {
         val tenant = tenantWith("Generate moved template")
         val staging = EnvironmentId(EnvironmentKey.of("staging"), TenantId(tenant))
         val version = publishTemplate(tenant, letters, textModel())
@@ -74,34 +78,35 @@ class GenerationAfterRelocationTest : RelocationTestSupport() {
         }
 
         move(tenant, address(CatalogResourceType.TEMPLATE, letters, "invoice").movedTo(shared))
+        // Generation renders a release, so the template's new catalog is released after the move.
+        withMediator { mediator.releaseNext(catalogId(tenant, shared)) }
 
-        assertGenerates(tenant, withMediator { request(tenant, shared, version, environment = null) })
-        assertGenerates(tenant, withMediator { request(tenant, shared, version = null, environment = staging.key) })
+        assertGenerates(tenant, withMediator { request(tenant, shared, environment = null) })
+        assertGenerates(tenant, withMediator { request(tenant, shared, environment = staging.key) })
     }
 
     /**
-     * A request stores the address it was made against. One accepted before the template moved and
-     * rendered after finds nothing there and fails: a crude move does not follow queued work.
+     * A request is bound to the release that was latest when it was accepted. A template moved
+     * afterwards is gone from the working copy, but not from that release, so the queued request
+     * still renders: a move changes the working copy, never a release.
      */
     @Test
-    fun `a request queued before its template moves fails`() {
+    fun `a request queued before its template moves still renders the release it was accepted against`() {
         val tenant = tenantWith("Generate queued across move")
-        val version = publishTemplate(tenant, letters, textModel())
-        val queued = withMediator { request(tenant, letters, version, environment = null) }
+        publishTemplate(tenant, letters, textModel())
+        withMediator { mediator.releaseNext(catalogId(tenant, letters)) }
+        val queued = withMediator { request(tenant, letters, environment = null) }
 
         move(tenant, address(CatalogResourceType.TEMPLATE, letters, "invoice").movedTo(shared))
 
-        withMediator { realExecutor.execute(queued) }
-        val job = withMediator { GetGenerationJob(tenant, queued.id).query()!! }
-        assertThat(job.request.status).isEqualTo(RequestStatus.FAILED)
+        assertGenerates(tenant, queued)
     }
 
-    private fun request(tenant: TenantKey, catalog: CatalogKey, version: VersionKey?, environment: EnvironmentKey?) = GenerateDocument(
+    private fun request(tenant: TenantKey, catalog: CatalogKey, environment: EnvironmentKey?) = GenerateDocument(
         tenantId = tenant,
         catalogKey = catalog,
         templateId = TemplateKey.of("invoice"),
         variantId = VariantKey.INITIAL,
-        versionId = version,
         environmentId = environment,
         data = objectMapper.createObjectNode(),
         filename = "invoice.pdf",

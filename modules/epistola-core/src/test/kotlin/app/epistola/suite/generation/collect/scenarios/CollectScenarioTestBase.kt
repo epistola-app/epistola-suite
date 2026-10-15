@@ -66,7 +66,6 @@ abstract class CollectScenarioTestBase : IntegrationTestBase() {
             tenantId = setup.tenant.id,
             templateId = setup.template.id,
             variantId = setup.variant.id,
-            versionId = setup.version.id,
             environmentId = null,
             data = objectMapper.createObjectNode().put("x", 1),
             filename = filename,
@@ -91,6 +90,6 @@ fun ScenarioBuilder.GivenScope.provisionScenario(
     val templateId = TemplateId(template.id, CatalogId.default(tenantId))
     val variant = variant(templateId, "Default")
     val variantId = VariantId(variant.id, templateId)
-    val version = version(variantId, TestTemplateBuilder.buildMinimal(name = templateName))
+    val version = released(variantId, TestTemplateBuilder.buildMinimal(name = templateName))
     return DocumentSetup(tenant, template, variant, version)
 }

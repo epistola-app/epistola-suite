@@ -33,11 +33,11 @@ class PreviewMcpTools(
         name = "preview_document",
         description = "Render a preview of a template variant as a PDF and return it base64-encoded. " +
             "When `data` is omitted, the contract's first sample example is used. " +
-            "Specify either `versionId` (a specific version number) OR `environmentId` (resolves to the " +
-            "version active in that environment) — never both. If neither is set, the latest published " +
-            "version of the variant is used, and the call fails when there is none; to preview a draft, " +
-            "pass its number as `versionId` (from `update_template_draft` or `list_versions`). If the data does not satisfy the template's data contract the " +
-            "call fails; `analyze_template_data` then says which fields are missing or wrong.",
+            "By default this renders the catalog's latest release, exactly as generation would, and fails when " +
+            "the catalog has never been released. Set `workingCopy` to render the drafts and live resources " +
+            "instead, to see unreleased work. Set `environmentId` to render what that environment serves. " +
+            "If the data does not satisfy the template's data contract the call fails; `analyze_template_data` " +
+            "then says which fields are missing or wrong.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun previewDocument(
@@ -51,12 +51,12 @@ class PreviewMcpTools(
         )
         variantId: String?,
         @McpToolParam(
-            description = "Specific version number (1..N) to render. Mutually exclusive with `environmentId`.",
+            description = "Render the working copy (drafts and live resources) instead of the latest release.",
             required = false,
         )
-        versionId: Int?,
+        workingCopy: Boolean?,
         @McpToolParam(
-            description = "Environment key (e.g. 'production'). The active version for that environment is rendered. Mutually exclusive with `versionId`.",
+            description = "Environment key (e.g. 'production'). What that environment serves is rendered.",
             required = false,
         )
         environmentId: String?,
@@ -74,9 +74,9 @@ class PreviewMcpTools(
                 catalogKey = CatalogKey.of(catalogId),
                 templateId = TemplateKey.of(templateId),
                 variantId = variantId?.let { VariantKey.of(it) },
-                versionId = versionId?.let { VersionKey.of(it) },
                 environmentId = environmentId?.let { EnvironmentKey.of(it) },
                 data = parsedData,
+                workingCopy = workingCopy == true,
             ),
         )
 

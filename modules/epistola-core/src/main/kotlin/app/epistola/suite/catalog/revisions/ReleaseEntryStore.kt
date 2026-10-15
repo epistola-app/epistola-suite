@@ -141,6 +141,37 @@ class ReleaseEntryStore {
         .mapTo(String::class.java)
         .list()
 
+    /** The latest release of [catalogKey] that kept its content, or null when none has. */
+    fun latestRetainedRelease(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): String? = handle
+        .createQuery(
+            """
+            SELECT version FROM catalog_releases
+            WHERE tenant_key = :t AND catalog_key = :c AND content_retained
+            $LATEST_RELEASE_ORDER
+            LIMIT 1
+            """,
+        )
+        .bind("t", tenantKey)
+        .bind("c", catalogKey)
+        .mapTo(String::class.java)
+        .findOne()
+        .orElse(null)
+
+    /** Every catalog of the tenant that has a release that kept its content, with its latest such release. */
+    fun latestRetainedReleases(handle: Handle, tenantKey: TenantKey): Map<CatalogKey, String> = handle
+        .createQuery(
+            """
+            SELECT DISTINCT ON (catalog_key) catalog_key, version FROM catalog_releases
+            WHERE tenant_key = :t AND content_retained
+            ORDER BY catalog_key, version_major DESC NULLS LAST, version_minor DESC NULLS LAST,
+                     version_patch DESC NULLS LAST, released_at DESC
+            """,
+        )
+        .bind("t", tenantKey)
+        .map { rs, _ -> CatalogKey.of(rs.getString("catalog_key")) to rs.getString("version") }
+        .list()
+        .toMap()
+
     private fun loadIdentities(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): Map<String, UUID> = handle
         .createQuery(
             """

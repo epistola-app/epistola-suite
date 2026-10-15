@@ -76,6 +76,8 @@ object ApiProblemTypes {
     val VERSION_NOT_FOUND = problem("VERSION_NOT_FOUND", "Version Not Found", HttpStatus.NOT_FOUND, "The requested version does not exist or is not visible to the caller.", listOf("templateId", "variantId", "versionId"))
     val ENVIRONMENT_NOT_FOUND = problem("ENVIRONMENT_NOT_FOUND", "Environment Not Found", HttpStatus.NOT_FOUND, "The requested environment does not exist or is not visible to the caller.", listOf("tenantId", "environmentId"))
     val NO_PUBLISHED_VERSION = problem("NO_PUBLISHED_VERSION", "No Published Version", HttpStatus.NOT_FOUND, "No published version is available for the requested template and variant.", listOf("tenantId", "templateId", "variantId"))
+    val CATALOG_NOT_RELEASED = problem("CATALOG_NOT_RELEASED", "Catalog Not Released", HttpStatus.NOT_FOUND, "The catalog has no release to generate from; release it first.", listOf("tenantId", "catalogId"))
+    val TEMPLATE_NOT_IN_RELEASE = problem("TEMPLATE_NOT_IN_RELEASE", "Template Not In Release", HttpStatus.NOT_FOUND, "The release being generated from does not contain the requested template or variant.", listOf("tenantId", "catalogId", "releaseVersion", "templateId", "variantId"))
     val DEFAULT_VARIANT_NOT_FOUND = problem("DEFAULT_VARIANT_NOT_FOUND", "Default Variant Not Found", HttpStatus.NOT_FOUND, "The requested template has no default variant.", listOf("tenantId", "templateId"))
     val ASSET_NOT_FOUND = problem("ASSET_NOT_FOUND", "Asset Not Found", HttpStatus.NOT_FOUND, "The requested asset does not exist or is not visible to the caller.", emptyList())
     val ASSET_TOO_LARGE = problem("ASSET_TOO_LARGE", "Asset Too Large", HttpStatus.CONTENT_TOO_LARGE, "The uploaded asset exceeds the maximum allowed size.", emptyList())
@@ -147,6 +149,8 @@ object ApiProblemTypes {
         VERSION_NOT_FOUND,
         ENVIRONMENT_NOT_FOUND,
         NO_PUBLISHED_VERSION,
+        CATALOG_NOT_RELEASED,
+        TEMPLATE_NOT_IN_RELEASE,
         DEFAULT_VARIANT_NOT_FOUND,
         ASSET_NOT_FOUND,
         ASSET_TOO_LARGE,

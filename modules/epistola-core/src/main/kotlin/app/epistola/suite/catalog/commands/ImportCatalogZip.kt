@@ -478,6 +478,9 @@ class ImportCatalogZipHandler(
                 manifest.catalog.description,
                 catalogMetadataJson,
             )
+            if (!InstalledReleaseRecording.isDeferred) {
+                RecordInstalledRelease(command.tenantKey, catalogKey).execute()
+            }
         } else if (!anyFailed) {
             updateAuthoredMetadata(
                 command.tenantKey,

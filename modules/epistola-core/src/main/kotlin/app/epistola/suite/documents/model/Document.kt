@@ -37,7 +37,16 @@ data class Document(
     val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val templateKey: TemplateKey,
     val variantKey: VariantKey,
-    val versionKey: VersionKey,
+    /** The template version rendered, for documents generated before 2.0. Null from 2.0 on. */
+    val versionKey: VersionKey?,
+    /** The catalog release rendered, from 2.0 on. Null for documents generated before. */
+    val releaseVersion: String? = null,
+    /**
+     * The template's identity, when the caller knows it. Null lets the database fill it from the
+     * template's current address, which a document rendered from a release must not rely on: the
+     * template may have moved since the release was cut.
+     */
+    val templateResourceId: java.util.UUID? = null,
     val filename: String,
     val correlationId: String?,
     val contentType: String,

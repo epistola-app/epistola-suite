@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.catalog.protocol.ReleaseInfo
+import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogArchiveBuilder
 import app.epistola.suite.catalog.CatalogContentBuilder
@@ -120,6 +121,7 @@ class ReleaseCatalogVersionHandler(
         // they were built from. It is what lets the next release say which resources changed.
         val resourceFingerprints = fingerprintService.perResourceFingerprints(content)
         val unchanged = existing.any { fingerprintService.matchesFingerprint(content, it.fingerprint) }
+
         if (unchanged) {
             logger.warn(
                 "Releasing catalog '{}' v{} with content identical to a previous release (fingerprint {})",
@@ -150,8 +152,9 @@ class ReleaseCatalogVersionHandler(
         jdbi.useTransaction<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalog_releases (tenant_key, catalog_key, version, fingerprint, notes, manifest_snapshot, released_at, content_retained)
-                VALUES (:t, :c, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, TRUE)
+                INSERT INTO catalog_releases (tenant_key, catalog_key, version, fingerprint, notes, manifest_snapshot, released_at,
+                                              content_retained, rendering_defaults_version)
+                VALUES (:t, :c, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, TRUE, :renderingDefaults)
                 """,
             )
                 .bind("t", command.tenantKey)
@@ -161,6 +164,7 @@ class ReleaseCatalogVersionHandler(
                 .bind("notes", command.notes)
                 .bindJsonb("snapshot", manifest, objectMapper)
                 .bind("releasedAt", releasedAt)
+                .bind("renderingDefaults", RenderingDefaults.CURRENT.version)
                 .execute()
 
             handle.createUpdate(

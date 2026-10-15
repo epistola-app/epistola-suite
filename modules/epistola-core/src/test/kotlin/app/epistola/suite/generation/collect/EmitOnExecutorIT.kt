@@ -48,7 +48,7 @@ class EmitOnExecutorIT : IntegrationTestBase() {
             val variant = variant(templateId, "Default")
             val variantId = VariantId(variant.id, templateId)
             val templateModel = TestTemplateBuilder.buildMinimal(name = "Invoice Template")
-            val version = version(variantId, templateModel)
+            val version = released(variantId, templateModel)
             DocumentSetup(tenant, template, variant, version)
         }.whenever { setup ->
             val data: ObjectNode = objectMapper.createObjectNode().apply {
@@ -60,7 +60,6 @@ class EmitOnExecutorIT : IntegrationTestBase() {
                     tenantId = setup.tenant.id,
                     templateId = setup.template.id,
                     variantId = setup.variant.id,
-                    versionId = setup.version.id,
                     environmentId = null,
                     data = data,
                     filename = "x.pdf",
@@ -101,7 +100,7 @@ class EmitOnExecutorIT : IntegrationTestBase() {
             val variant = variant(templateId, "Default")
             val variantId = VariantId(variant.id, templateId)
             val templateModel = TestTemplateBuilder.buildMinimal(name = "Invoice Template")
-            val version = version(variantId, templateModel)
+            val version = released(variantId, templateModel)
             DocumentSetup(tenant, template, variant, version)
         }.whenever { setup ->
             val data: ObjectNode = objectMapper.createObjectNode().apply {
@@ -112,7 +111,6 @@ class EmitOnExecutorIT : IntegrationTestBase() {
                     tenantId = setup.tenant.id,
                     templateId = setup.template.id,
                     variantId = setup.variant.id,
-                    versionId = setup.version.id,
                     environmentId = null,
                     data = data,
                     filename = "y.pdf",

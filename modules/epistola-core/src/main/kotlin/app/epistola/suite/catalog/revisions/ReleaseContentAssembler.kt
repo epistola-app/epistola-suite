@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.revisions
 
 import app.epistola.catalog.protocol.CatalogManifest
+import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.ImageResource
 import app.epistola.catalog.protocol.ReleaseInfo
@@ -13,6 +14,7 @@ import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.fonts.model.sha256Hex
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -88,6 +90,85 @@ class ReleaseContentAssembler(
         )
     }
 
+    /**
+     * One resource of a release, or null when the release does not contain it.
+     *
+     * The narrow read that rendering needs: a whole-release [assemble] loads every payload and every
+     * binary, which is what an export wants and what a render must not pay for.
+     */
+    fun readResource(
+        tenantKey: TenantKey,
+        catalogKey: CatalogKey,
+        version: String,
+        resourceType: String,
+        resourceKey: String,
+    ): CatalogResource? = jdbi.withHandle<CatalogResource?, Exception> { handle ->
+        val digest = handle.createQuery(
+            """
+            SELECT revision_digest FROM release_entries
+            WHERE tenant_key = :t AND catalog_key = :c AND version = :version
+              AND resource_type = :type AND resource_key = :key
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("c", catalogKey)
+            .bind("version", version)
+            .bind("type", resourceType)
+            .bind("key", resourceKey)
+            .mapTo(String::class.java)
+            .findOne()
+            .orElse(null) ?: return@withHandle null
+        val payload = requireNotNull(loadPayloads(handle, tenantKey, listOf(digest))[digest]) {
+            "Release $version of ${catalogKey.value} names revision $digest, which is not stored"
+        }
+        detailOf(handle, tenantKey, payload).resource
+    }
+
+    /**
+     * The bytes a release holds under [contentHash], or null when no retained revision of this tenant
+     * holds them.
+     *
+     * Read through `revision_binaries`, so it answers only for bytes a release retained -- never for an
+     * asset that merely has the same hash today. Bundled font faces are the one exception: they live
+     * on the classpath rather than in the content store, so a release holds their hash but no blob. A
+     * bundled face is found by its hash and its bytes are checked against it, so a suite upgrade that
+     * ships a different file fails the lookup instead of rendering different glyphs.
+     */
+    fun readBinary(tenantKey: TenantKey, contentHash: String): ByteArray? = jdbi.withHandle<ByteArray?, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT c.content
+            FROM revision_binaries b
+            JOIN asset_content c ON c.scope = b.scope AND c.content_hash = b.content_hash
+            WHERE b.tenant_key = :t AND b.content_hash = :hash
+            LIMIT 1
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("hash", contentHash)
+            .mapTo(ByteArray::class.java)
+            .findOne()
+            .orElse(null)
+            ?: bundledFace(handle, tenantKey, contentHash)
+    }
+
+    private fun bundledFace(handle: Handle, tenantKey: TenantKey, contentHash: String): ByteArray? {
+        val location = handle.createQuery(
+            """
+            SELECT classpath_location FROM font_variants
+            WHERE tenant_key = :t AND content_hash = :hash AND source = 'CLASSPATH' AND classpath_location IS NOT NULL
+            LIMIT 1
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("hash", contentHash)
+            .mapTo(String::class.java)
+            .findOne()
+            .orElse(null) ?: return null
+        val bytes = javaClass.classLoader.getResourceAsStream(location)?.use { it.readBytes() } ?: return null
+        return bytes.takeIf { sha256Hex(it) == contentHash }
+    }
+
     /** The latest release of a catalog that retained its content, or null when none has. */
     fun assembleLatest(tenantKey: TenantKey, catalogKey: CatalogKey): RetainedRelease? {
         val latest = jdbi.withHandle<String?, Exception> { handle ->
@@ -111,26 +192,47 @@ class ReleaseContentAssembler(
         return objectMapper.treeToValue(envelope, ResourceDetail::class.java)
     }
 
-    /** Replaces every [REVISION_REF_FIELD] object with the payload it names, recursively. */
-    private fun resolveRefs(handle: Handle, tenantKey: TenantKey, node: JsonNode): JsonNode = when {
-        node is ObjectNode && node.size() == 1 && node.has(REVISION_REF_FIELD) -> {
-            val digest = node.get(REVISION_REF_FIELD).asString()
-            val child = requireNotNull(loadPayloads(handle, tenantKey, listOf(digest))[digest]) {
-                "A retained payload references revision $digest, which is not stored"
+    /**
+     * Replaces every revision reference in [node] with the payload it names, recursively. Payloads
+     * are loaded a level at a time — every reference found at one depth in one query — so a template
+     * costs one query for its variants however many it has, not one per variant.
+     */
+    private fun resolveRefs(handle: Handle, tenantKey: TenantKey, node: JsonNode): JsonNode {
+        val payloads = mutableMapOf<String, JsonNode>()
+        var pending = refsIn(node)
+        while (pending.isNotEmpty()) {
+            val loaded = loadPayloads(handle, tenantKey, pending)
+            pending.firstOrNull { it !in loaded }?.let { digest ->
+                error("A retained payload references revision $digest, which is not stored")
             }
-            resolveRefs(handle, tenantKey, child)
+            payloads += loaded
+            pending = loaded.values.flatMap { refsIn(it) }.filterNot { it in payloads }.distinct()
         }
+        return substitute(node, payloads)
+    }
+
+    private fun refsIn(node: JsonNode): List<String> = when {
+        node.isRevisionRef() -> listOf(node.get(REVISION_REF_FIELD).asString())
+        node is ObjectNode -> node.propertyNames().flatMap { refsIn(node.get(it)) }
+        node is ArrayNode -> node.flatMap { refsIn(it) }
+        else -> emptyList()
+    }.distinct()
+
+    private fun substitute(node: JsonNode, payloads: Map<String, JsonNode>): JsonNode = when {
+        node.isRevisionRef() -> substitute(payloads.getValue(node.get(REVISION_REF_FIELD).asString()), payloads)
 
         node is ObjectNode -> objectMapper.createObjectNode().also { copy ->
-            node.propertyNames().forEach { name -> copy.set(name, resolveRefs(handle, tenantKey, node.get(name))) }
+            node.propertyNames().forEach { name -> copy.set(name, substitute(node.get(name), payloads)) }
         }
 
         node is ArrayNode -> objectMapper.createArrayNode().also { copy ->
-            node.forEach { copy.add(resolveRefs(handle, tenantKey, it)) }
+            node.forEach { copy.add(substitute(it, payloads)) }
         }
 
         else -> node
     }
+
+    private fun JsonNode.isRevisionRef(): Boolean = this is ObjectNode && size() == 1 && has(REVISION_REF_FIELD)
 
     /**
      * The binaries the rebuilt content needs, keyed by the archive path each takes — the same keys

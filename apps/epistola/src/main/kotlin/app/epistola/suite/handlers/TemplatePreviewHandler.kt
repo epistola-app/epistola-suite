@@ -6,6 +6,7 @@ package app.epistola.suite.templates
 
 import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.generation.pdf.SpacingScale
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.documents.queries.PreviewVariant
@@ -15,6 +16,7 @@ import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
 import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.validation.ValidationException
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
@@ -71,14 +73,18 @@ class TemplatePreviewHandler(
 
         val pdfBytes = try {
             if (previewRequest.versionId != null && previewRequest.templateModel == null) {
-                // Render a specific stored version
-                PreviewDocument(
+                // A stored version's model, previewed in the working copy (live theme and resources).
+                // Generation no longer renders template versions; this keeps the version comparison
+                // page useful until version pages are replaced by release history.
+                val version = GetVersion(VersionId(VersionKey.of(previewRequest.versionId), variantId)).query()
+                    ?: return ServerResponse.notFound().build()
+                PreviewVariant(
                     tenantId = tenantId.key,
                     catalogKey = catalogId,
                     templateId = templateId.key,
-                    data = dataNode,
                     variantId = variantId.key,
-                    versionId = VersionKey.of(previewRequest.versionId),
+                    data = dataNode,
+                    templateModel = version.templateModel,
                 ).query()
             } else {
                 // Render draft, optionally with live template model from editor

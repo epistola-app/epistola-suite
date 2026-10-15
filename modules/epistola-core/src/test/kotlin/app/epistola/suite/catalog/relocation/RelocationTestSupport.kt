@@ -50,6 +50,7 @@ import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.template.model.ThemeRefOverride
@@ -84,10 +85,16 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
     protected fun tenantWith(name: String, catalogs: List<CatalogKey> = listOf(letters, shared)): TenantKey {
         val tenant = createTenant(name).id
         withMediator { catalogs.forEach { CreateCatalog(tenant, it, it.value.replaceFirstChar(Char::uppercase)).execute() } }
+        createdCatalogs[tenant] = catalogs
         return tenant
     }
 
     protected fun catalogId(tenant: TenantKey, catalog: CatalogKey) = CatalogId(catalog, TenantId(tenant))
+
+    /** The catalogs [tenantWith] created for [tenant], in the order it created them. */
+    protected fun catalogsOf(tenant: TenantKey): List<CatalogKey> = createdCatalogs.getValue(tenant)
+
+    private val createdCatalogs = mutableMapOf<TenantKey, List<CatalogKey>>()
 
     protected fun preview(tenant: TenantKey, vararg relocations: ResourceRelocation): CatalogResourceMovePreview = preview(tenant, relocations.toList())
 
@@ -238,11 +245,11 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
     }
 
     /**
-     * Renders published [version] of template [key] at [catalog] through the preview path: the real
-     * renderer, including the font integrity check a published version runs first. Integration
-     * tests wire a fake generation executor, so the generation pipeline would render nothing.
+     * Renders template [key] from the latest release of [catalog] through the preview path: the real
+     * renderer. Integration tests wire a fake generation executor, so the generation pipeline would
+     * render nothing.
      */
-    protected fun assertPreviewRenders(tenant: TenantKey, catalog: CatalogKey, version: VersionKey, key: String = "invoice") {
+    protected fun assertPreviewRenders(tenant: TenantKey, catalog: CatalogKey, key: String = "invoice") {
         val pdf = withMediator {
             PreviewDocument(
                 tenantId = tenant,
@@ -250,10 +257,24 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
                 templateId = TemplateKey.of(key),
                 data = objectMapper.createObjectNode(),
                 variantId = VariantKey.INITIAL,
-                versionId = version,
             ).query()
         }
         assertThat(pdf.take(4).toByteArray()).describedAs("a PDF").isEqualTo("%PDF".toByteArray())
+    }
+
+    /**
+     * Releases every catalog of [tenant], each after the catalogs it uses: a release pins the
+     * release of every other catalog it uses, so those must exist first.
+     */
+    protected fun releaseAll(tenant: TenantKey, catalogs: List<CatalogKey>) {
+        val pending = catalogs.toMutableList()
+        while (pending.isNotEmpty()) {
+            val released = pending.filter { catalog ->
+                runCatching { withMediator { mediator.releaseNext(catalogId(tenant, catalog)) } }.isSuccess
+            }
+            check(released.isNotEmpty()) { "No catalog of $pending could be released" }
+            pending -= released.toSet()
+        }
     }
 
     /** Styles naming font [slug], in [catalog] or relatively when it is null. */

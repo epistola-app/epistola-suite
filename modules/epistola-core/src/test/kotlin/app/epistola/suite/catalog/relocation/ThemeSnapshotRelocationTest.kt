@@ -31,6 +31,7 @@ class ThemeSnapshotRelocationTest : RelocationTestSupport() {
     fun `a publish freezes the catalog a theme's relative font resolves against`() {
         val tenant = boundThemeWithRelativeFont("Publish freezes font catalog")
         val version = publishBound(tenant)
+        releaseAll(tenant, catalogsOf(tenant))
 
         val snapshot = withMediator { GetVersion(VersionId(version, templateVariant(tenant, archive))).query()!!.resolvedTheme!! }
         assertThat(snapshot.documentStyles["fontFamily"]).isEqualTo(mapOf("slug" to "acme", "catalogKey" to letters.value))
@@ -41,11 +42,12 @@ class ThemeSnapshotRelocationTest : RelocationTestSupport() {
     fun `a published document still renders after its bound theme with a relative font moves`() {
         val tenant = boundThemeWithRelativeFont("Render after relative theme move")
         val version = publishBound(tenant)
-        assertPreviewRenders(tenant, archive, version)
+        releaseAll(tenant, catalogsOf(tenant))
+        assertPreviewRenders(tenant, archive)
 
         move(tenant, address(CatalogResourceType.THEME, letters, "brand").movedTo(shared))
 
-        assertPreviewRenders(tenant, archive, version)
+        assertPreviewRenders(tenant, archive)
     }
 
     /**
@@ -57,13 +59,14 @@ class ThemeSnapshotRelocationTest : RelocationTestSupport() {
     fun `a version published with a relative theme font keeps rendering after the theme moves`() {
         val tenant = boundThemeWithRelativeFont("Legacy snapshot after theme move")
         val version = publishBound(tenant)
+        releaseAll(tenant, catalogsOf(tenant))
         unqualifySnapshotFont(tenant, archive, version, letters.value, "acme")
-        assertPreviewRenders(tenant, archive, version)
+        assertPreviewRenders(tenant, archive)
 
         val plan = move(tenant, address(CatalogResourceType.THEME, letters, "brand").movedTo(shared))
 
         assertThat(plan.mutableRewriteCount).describedAs("the theme row and the published snapshot").isEqualTo(2)
-        assertPreviewRenders(tenant, archive, version)
+        assertPreviewRenders(tenant, archive)
     }
 
     /** Font `letters/acme`, and theme `letters/brand` naming it without a catalog. */
