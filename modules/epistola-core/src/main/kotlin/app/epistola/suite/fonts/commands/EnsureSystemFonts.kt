@@ -17,9 +17,9 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 /**
- * Seeds the eight bundled open-source font families into a tenant's `system`
- * catalog. Each family ships four static TTF faces on the classpath under
- * `epistola/fonts/<slug>/<slug>-<Token>.ttf`, registered as the canonical CSS
+ * Seeds the nine bundled open-source font families into a tenant's `system`
+ * catalog. Each family ships four static TTF faces on the classpath, by default
+ * under `epistola/fonts/<slug>/<slug>-<Token>.ttf`, registered as the canonical CSS
  * faces `(400,false)` / `(700,false)` / `(400,true)` / `(700,true)`; the rows
  * just point at those resources (`FontVariantSource.CLASSPATH`) — no
  * per-tenant binary copy.
@@ -42,12 +42,14 @@ data class EnsureSystemFonts(
 
 /**
  * One bundled family: slug + display name + coarse kind. The four faces are
- * derived by convention (`<slug>-<Variant>.ttf`).
+ * derived by convention (`<slug>-<Variant>.ttf`), unless [location] places them
+ * elsewhere on the classpath.
  */
 private data class SystemFont(
     val slug: String,
     val name: String,
     val kind: FontKind,
+    val location: ((token: String) -> String)? = null,
 )
 
 private val SYSTEM_FONTS = listOf(
@@ -55,6 +57,10 @@ private val SYSTEM_FONTS = listOf(
     SystemFont("source-sans-3", "Source Sans 3", FontKind.SANS),
     SystemFont("roboto", "Roboto", FontKind.SANS),
     SystemFont("lato", "Lato", FontKind.SANS),
+    // Metric-compatible with Helvetica and Arial, so a letter designed in either keeps its
+    // widths and line breaks. The renderer already bundles it as its fallback font
+    // (modules/generation, `fonts/`), so the faces are registered from there.
+    SystemFont("liberation-sans", "Liberation Sans", FontKind.SANS) { token -> "fonts/LiberationSans-$token.ttf" },
     SystemFont("source-serif-4", "Source Serif 4", FontKind.SERIF),
     SystemFont("merriweather", "Merriweather", FontKind.SERIF),
     SystemFont("lora", "Lora", FontKind.SERIF),
@@ -85,7 +91,7 @@ class EnsureSystemFontsHandler(
 
     companion object {
         /** The single addressing convention for a bundled face's classpath resource. */
-        private fun classpathLocation(slug: String, token: String): String = "epistola/fonts/$slug/$slug-$token.ttf"
+        private fun classpathLocation(font: SystemFont, token: String): String = font.location?.invoke(token) ?: "epistola/fonts/${font.slug}/${font.slug}-$token.ttf"
 
         /**
          * Every classpath resource the seeder will register, derived from the
@@ -96,13 +102,13 @@ class EnsureSystemFontsHandler(
          */
         internal val DECLARED_CLASSPATH_LOCATIONS: List<String> =
             SYSTEM_FONTS.flatMap { font ->
-                BUNDLED_FACES.map { face -> classpathLocation(font.slug, face.token) }
+                BUNDLED_FACES.map { face -> classpathLocation(font, face.token) }
             }
     }
 
     override fun handle(command: EnsureSystemFonts) {
         val tenantId = TenantId(command.tenantKey)
-        // All eight bundled families in ONE transaction and three statements via the
+        // All bundled families in ONE transaction and three statements via the
         // shared writer. The faces are all classpath, hashed from the writer's per-JVM cache.
         val fonts = SYSTEM_FONTS.map { font ->
             FontCatalogWriter.FontSpec(
@@ -114,7 +120,7 @@ class EnsureSystemFontsHandler(
                         weight = face.weight,
                         italic = face.italic,
                         source = FontVariantSource.CLASSPATH,
-                        classpathLocation = classpathLocation(font.slug, face.token),
+                        classpathLocation = classpathLocation(font, face.token),
                     )
                 },
             )
