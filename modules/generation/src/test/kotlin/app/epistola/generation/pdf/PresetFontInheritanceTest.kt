@@ -27,7 +27,7 @@ class PresetFontInheritanceTest {
         val calls = ConcurrentHashMap.newKeySet<String>()
         val resolver = FontFamilyResolver { _, slug, weight, italic ->
             calls.add("$slug|$weight|$italic")
-            liberationRegular
+            FontFaceBytes(liberationRegular, contentHash = null)
         }
         val text = Node(
             id = "label",

@@ -1,0 +1,59 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package app.epistola.suite.generation
+
+import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Test
+import org.springframework.boot.context.properties.bind.Binder
+import org.springframework.boot.context.properties.source.ConfigurationPropertySources
+import org.springframework.boot.context.properties.source.MapConfigurationPropertySource
+import org.springframework.core.env.StandardEnvironment
+import org.springframework.core.env.SystemEnvironmentPropertySource
+
+class FontCachePropertiesTest {
+
+    private fun bind(vararg properties: Pair<String, String>): FontCacheProperties = Binder(MapConfigurationPropertySource(properties.toMap()))
+        .bindOrCreate("epistola.generation.font-cache", FontCacheProperties::class.java)
+
+    private fun cacheFor(properties: FontCacheProperties) = PdfRendererConfiguration().fontProgramCache(properties)
+
+    @Test
+    fun `the font cache defaults to 384 MB and 64 faces`() {
+        val programs = cacheFor(bind())
+
+        assertThat(programs.maxBytes).isEqualTo(384L * 1024 * 1024)
+        assertThat(programs.maxFaces).isEqualTo(64)
+    }
+
+    @Test
+    fun `the font cache takes the configured limits`() {
+        val programs = cacheFor(
+            bind(
+                "epistola.generation.font-cache.max-size" to "64MB",
+                "epistola.generation.font-cache.max-faces" to "8",
+            ),
+        )
+
+        assertThat(programs.maxBytes).isEqualTo(64L * 1024 * 1024)
+        assertThat(programs.maxFaces).isEqualTo(8)
+    }
+
+    @Test
+    fun `the environment variables the Helm chart renders bind`() {
+        // Spring maps environment variable names only for the source named like the real environment.
+        val environment = SystemEnvironmentPropertySource(
+            StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME,
+            mapOf<String, Any>(
+                "EPISTOLA_GENERATION_FONTCACHE_MAXSIZE" to "512MB",
+                "EPISTOLA_GENERATION_FONTCACHE_MAXFACES" to "0",
+            ),
+        )
+        val properties = Binder(ConfigurationPropertySources.from(environment).filterNotNull())
+            .bindOrCreate("epistola.generation.font-cache", FontCacheProperties::class.java)
+
+        assertThat(properties.maxSize.toMegabytes()).isEqualTo(512)
+        assertThat(properties.maxFaces).isZero()
+    }
+}

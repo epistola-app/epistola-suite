@@ -12,6 +12,7 @@ import com.itextpdf.kernel.font.PdfFontFactory
 import com.itextpdf.kernel.font.PdfFontFactory.EmbeddingStrategy
 import com.itextpdf.layout.element.Text
 import org.slf4j.LoggerFactory
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Manages font creation and caching for a single PDF document.
@@ -29,11 +30,14 @@ import org.slf4j.LoggerFactory
  * `weight >= 700` to the bold built-in and `italic` to the oblique built-in.
  *
  * Fonts created by this cache are scoped to a specific PdfDocument instance
- * and should not be reused across different documents.
+ * and should not be reused across different documents. The parsed font programs
+ * behind them come from [fontPrograms], which renders share.
  */
 class FontCache(
     private val pdfaCompliant: Boolean = false,
     private val fontFamilyResolver: FontFamilyResolver? = null,
+    /** This render's scope of the parsed fonts renders share; the renderer passes its own. */
+    internal val fontPrograms: FontProgramCache.Scope = FontProgramCache().scope(),
 ) {
     private val fonts = mutableMapOf<String, PdfFont>()
 
@@ -44,9 +48,7 @@ class FontCache(
      * Gets or creates an embedded font for the given classpath resource path.
      */
     private fun getEmbeddedFont(resourcePath: String): PdfFont = fonts.getOrPut(resourcePath) {
-        val bytes = FontCache::class.java.getResourceAsStream(resourcePath)?.readBytes()
-            ?: throw IllegalStateException("Font resource not found: $resourcePath")
-        PdfFontFactory.createFont(bytes, PdfEncodings.IDENTITY_H, EmbeddingStrategy.FORCE_EMBEDDED)
+        embedded(builtInFace(resourcePath))
     }
 
     /**
@@ -99,6 +101,12 @@ class FontCache(
      */
     fun listMarker(marker: String, contentFont: PdfFont): Text = Text(marker).setFont(fontCoveringOrFallback(contentFont, marker))
 
+    /**
+     * A document-scoped embedded font over the shared parsed program. Never parse through
+     * `PdfFontFactory.createFont(bytes, …)`: that fills iText's static, never-evicting font cache.
+     */
+    private fun embedded(face: FontFaceBytes): PdfFont = PdfFontFactory.createFont(fontPrograms.program(face.bytes, face.contentHash), PdfEncodings.IDENTITY_H, EmbeddingStrategy.FORCE_EMBEDDED)
+
     private fun builtIn(isBold: Boolean, isItalic: Boolean): PdfFont = when {
         isBold && isItalic -> boldItalic
         isBold -> bold
@@ -110,8 +118,8 @@ class FontCache(
         val resolver = fontFamilyResolver ?: return null
         val cacheKey = "ref:${ref.catalogKey.orEmpty()}|${ref.slug}|$weight|$italic"
         fonts[cacheKey]?.let { return it }
-        val bytes = resolver.resolve(ref.catalogKey, ref.slug, weight, italic)
-        if (bytes == null) {
+        val face = resolver.resolve(ref.catalogKey, ref.slug, weight, italic)
+        if (face == null) {
             val familyKey = "${ref.catalogKey.orEmpty()}|${ref.slug}"
             if (warnedUnresolved.add(familyKey)) {
                 log.warn(
@@ -124,13 +132,22 @@ class FontCache(
             }
             return null
         }
-        val font = PdfFontFactory.createFont(bytes, PdfEncodings.IDENTITY_H, EmbeddingStrategy.FORCE_EMBEDDED)
+        val font = embedded(face)
         fonts[cacheKey] = font
         return font
     }
 
     companion object {
         private val log = LoggerFactory.getLogger(FontCache::class.java)
+
+        /** The bundled Liberation Sans faces, read and hashed once per JVM rather than per render. */
+        private val builtInFaces = ConcurrentHashMap<String, FontFaceBytes>()
+
+        private fun builtInFace(resourcePath: String): FontFaceBytes = builtInFaces.computeIfAbsent(resourcePath) {
+            val bytes = FontCache::class.java.getResourceAsStream(resourcePath)?.use { it.readBytes() }
+                ?: throw IllegalStateException("Font resource not found: $resourcePath")
+            FontFaceBytes(bytes, FontProgramCache.contentHash(bytes))
+        }
 
         /** CSS `font-weight` at or above which the built-in fallback is bold. */
         const val BOLD_THRESHOLD = 700

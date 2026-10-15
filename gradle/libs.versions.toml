@@ -25,6 +25,8 @@ spring-ai = "2.0.1"
 archunit = "1.5.1"
 # One iText for the renderer and for every test that reads the PDFs it writes.
 itext = "9.8.0"
+# Declared here because modules:generation is outside the Spring Boot BOM.
+caffeine = "3.2.4"
 # Security overrides of the Spring Boot BOM's Jackson versions, applied by the three apps (see
 # apps/epistola/build.gradle.kts). Drop both once the BOM manages these versions or later.
 jackson = "3.1.7"
@@ -54,6 +56,7 @@ archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref
 itext-core = { module = "com.itextpdf:itext-core", version.ref = "itext" }
 itext-svg = { module = "com.itextpdf:svg", version.ref = "itext" }
 itext-kernel = { module = "com.itextpdf:kernel", version.ref = "itext" }
+caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
 # Not dependencies: listed so Renovate tracks the Jackson BOM overrides the apps apply.
 jackson-bom = { module = "tools.jackson:jackson-bom", version.ref = "jackson" }
 jackson2-bom = { module = "com.fasterxml.jackson:jackson-bom", version.ref = "jackson2" }

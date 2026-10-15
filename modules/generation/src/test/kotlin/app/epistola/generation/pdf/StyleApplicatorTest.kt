@@ -295,7 +295,7 @@ class StyleApplicatorTest {
     fun `structured fontFamily ref applies the resolved font`() {
         val liberation = StyleApplicatorTest::class.java
             .getResourceAsStream("/fonts/LiberationSans-Regular.ttf")!!.readBytes()
-        val cache = FontCache(fontFamilyResolver = { _, _, _, _ -> liberation })
+        val cache = FontCache(fontFamilyResolver = { _, _, _, _ -> FontFaceBytes(liberation, contentHash = null) })
         val div = Div()
 
         StyleApplicator.applyStylesWithPreset(
@@ -322,7 +322,7 @@ class StyleApplicatorTest {
     private fun cacheResolvingEveryFamily(): FontCache {
         val liberation = StyleApplicatorTest::class.java
             .getResourceAsStream("/fonts/LiberationSans-Regular.ttf")!!.readBytes()
-        return FontCache(fontFamilyResolver = { _, _, _, _ -> liberation })
+        return FontCache(fontFamilyResolver = { _, _, _, _ -> FontFaceBytes(liberation, contentHash = null) })
     }
 
     private fun appliedFont(
@@ -417,7 +417,7 @@ class StyleApplicatorTest {
         val liberation = StyleApplicatorTest::class.java
             .getResourceAsStream("/fonts/LiberationSans-Regular.ttf")!!.readBytes()
         // This resolver would embed a custom font for ANY ref it is asked about.
-        val cache = FontCache(fontFamilyResolver = { _, _, _, _ -> liberation })
+        val cache = FontCache(fontFamilyResolver = { _, _, _, _ -> FontFaceBytes(liberation, contentHash = null) })
         val div = Div()
 
         StyleApplicator.applyStylesWithPreset(

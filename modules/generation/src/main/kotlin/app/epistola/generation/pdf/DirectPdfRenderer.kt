@@ -54,6 +54,11 @@ class DirectPdfRenderer(
      * returns null (no parameters) — production wiring binds a real provider.
      */
     private val parameterSchemaProvider: (Node, TemplateDocument) -> Map<String, Any?>? = { _, _ -> null },
+    /**
+     * Parsed fonts shared by every render of this renderer, bounded in heap and in faces.
+     * Production binds one sized from configuration; see [FontProgramCache].
+     */
+    private val fontPrograms: FontProgramCache = FontProgramCache(),
 ) {
 
     /**
@@ -116,6 +121,9 @@ class DirectPdfRenderer(
         // tenant/variant has actually opted into a different locale.
         val scopedEvaluator = expressionEvaluator.forCulture(culture)
 
+        // One scope per render: the parsed-font cache counts a face as reused only across renders.
+        val fontScope = fontPrograms.scope()
+
         if (TwoPassAnalyzer.requiresTwoPassRendering(styledDocument)) {
             renderTwoPass(
                 document = styledDocument,
@@ -129,6 +137,7 @@ class DirectPdfRenderer(
                 renderingDefaults = renderingDefaults,
                 renderMode = renderMode,
                 scopedEvaluator = scopedEvaluator,
+                fontScope = fontScope,
                 clock = clock,
                 watermarkText = watermarkText,
             )
@@ -145,6 +154,7 @@ class DirectPdfRenderer(
                 renderingDefaults = renderingDefaults,
                 renderMode = renderMode,
                 scopedEvaluator = scopedEvaluator,
+                fontScope = fontScope,
                 clock = clock,
                 watermarkText = watermarkText,
             )
@@ -162,9 +172,10 @@ class DirectPdfRenderer(
         renderingDefaults: RenderingDefaults,
         renderMode: RenderMode,
         scopedEvaluator: CompositeExpressionEvaluator = expressionEvaluator,
+        fontScope: FontProgramCache.Scope,
         clock: Clock = Clock.systemUTC(),
     ): RenderContext {
-        val fontCache = FontCache(pdfaCompliant, fontFamilyResolver)
+        val fontCache = FontCache(pdfaCompliant, fontFamilyResolver, fontScope)
         val proseMirrorConverter = ProseMirrorConverter(scopedEvaluator, defaultExpressionLanguage, renderingDefaults)
         return RenderContext(
             data = data,
@@ -198,6 +209,7 @@ class DirectPdfRenderer(
         renderingDefaults: RenderingDefaults,
         renderMode: RenderMode,
         scopedEvaluator: CompositeExpressionEvaluator = expressionEvaluator,
+        fontScope: FontProgramCache.Scope,
         clock: Clock = Clock.systemUTC(),
         watermarkText: String? = null,
     ) {
@@ -220,6 +232,7 @@ class DirectPdfRenderer(
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
             scopedEvaluator = scopedEvaluator,
+            fontScope = fontScope,
             clock = clock,
         )
 
@@ -256,6 +269,7 @@ class DirectPdfRenderer(
         renderingDefaults: RenderingDefaults,
         renderMode: RenderMode,
         scopedEvaluator: CompositeExpressionEvaluator = expressionEvaluator,
+        fontScope: FontProgramCache.Scope,
         clock: Clock = Clock.systemUTC(),
         watermarkText: String? = null,
     ) {
@@ -279,6 +293,7 @@ class DirectPdfRenderer(
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
             scopedEvaluator = scopedEvaluator,
+            fontScope = fontScope,
             clock = clock,
         )
 
@@ -305,6 +320,7 @@ class DirectPdfRenderer(
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
             scopedEvaluator = scopedEvaluator,
+            fontScope = fontScope,
             clock = clock,
         ).withTotalPages(FIRST_PASS_PAGE_TOTAL_PLACEHOLDER)
         val totalPages = performRenderWithContext(
@@ -334,6 +350,7 @@ class DirectPdfRenderer(
             renderingDefaults = renderingDefaults,
             renderMode = renderMode,
             scopedEvaluator = scopedEvaluator,
+            fontScope = fontScope,
             clock = clock,
         ).withTotalPages(totalPages)
 

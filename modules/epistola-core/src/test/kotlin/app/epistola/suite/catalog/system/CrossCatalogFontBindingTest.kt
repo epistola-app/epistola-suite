@@ -116,7 +116,7 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
                 slug = FontKey.of("inter"),
                 weight = 400,
                 italic = false,
-            ).query()
+            ).query()?.content
             assertThat(bytes).isNotNull()
             assertThat(bytes!!).isNotEmpty()
         }
