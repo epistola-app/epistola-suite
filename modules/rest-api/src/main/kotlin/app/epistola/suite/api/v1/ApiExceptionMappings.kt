@@ -33,6 +33,7 @@ import app.epistola.suite.documents.GenerationJobNotCancellableException
 import app.epistola.suite.documents.GenerationJobNotFoundException
 import app.epistola.suite.documents.NoPublishedVersionException
 import app.epistola.suite.documents.NoReleaseDeployedException
+import app.epistola.suite.documents.ReleaseNotFoundException
 import app.epistola.suite.documents.TemplateNotInReleaseException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
@@ -514,6 +515,13 @@ object ApiExceptionMappings {
             defaultDetail = "No release of the catalog is deployed to the environment",
             extensions = { mapOf("environmentId" to it.environmentKey.value, "catalogId" to it.catalogKey.value) },
             logMessage = { "No release deployed: ${it.message}" },
+        )
+
+        builder.register<ReleaseNotFoundException>(
+            problemType = ApiProblemTypes.RELEASE_NOT_FOUND,
+            defaultDetail = "The catalog has no such release that can be rendered",
+            extensions = { mapOf("catalogId" to it.catalogKey.value, "releaseVersion" to it.releaseVersion) },
+            logMessage = { "Release not found: ${it.message}" },
         )
 
         builder.register<ReleaseNotDeployableException>(

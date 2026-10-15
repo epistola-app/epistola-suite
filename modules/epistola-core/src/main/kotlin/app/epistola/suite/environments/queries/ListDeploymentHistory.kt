@@ -26,6 +26,8 @@ import java.time.OffsetDateTime
 data class ListDeploymentHistory(
     val environmentId: EnvironmentId,
     val limit: Int = DEFAULT_LIMIT,
+    /** Entries to skip, newest first; with [limit], pages the history in the database. */
+    val offset: Int = 0,
 ) : Query<List<DeploymentLogEntry>>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_VIEW
@@ -33,6 +35,7 @@ data class ListDeploymentHistory(
 
     init {
         validate("limit", limit in 1..MAX_LIMIT) { "limit must be between 1 and $MAX_LIMIT, got $limit" }
+        validate("offset", offset >= 0) { "offset must not be negative, got $offset" }
     }
 
     companion object {
@@ -54,12 +57,13 @@ class ListDeploymentHistoryHandler(
             LEFT JOIN users u ON u.id = l.changed_by
             WHERE l.tenant_key = :t AND l.environment_key = :e
             ORDER BY l.changed_at DESC, l.id DESC
-            LIMIT :limit
+            LIMIT :limit OFFSET :offset
             """,
         )
             .bind("t", query.environmentId.tenantKey)
             .bind("e", query.environmentId.key)
             .bind("limit", query.limit)
+            .bind("offset", query.offset)
             .map { rs, _ ->
                 DeploymentLogEntry(
                     environmentKey = EnvironmentKey.of(rs.getString("environment_key")),
@@ -72,5 +76,27 @@ class ListDeploymentHistoryHandler(
                 )
             }
             .list()
+    }
+}
+
+/** How many changes an environment's history holds, to page [ListDeploymentHistory]. */
+data class CountDeploymentHistory(
+    val environmentId: EnvironmentId,
+) : Query<Long>,
+    RequiresPermission {
+    override val permission get() = Permission.TEMPLATE_VIEW
+    override val tenantKey: TenantKey get() = environmentId.tenantKey
+}
+
+@Component
+class CountDeploymentHistoryHandler(
+    private val jdbi: Jdbi,
+) : QueryHandler<CountDeploymentHistory, Long> {
+    override fun handle(query: CountDeploymentHistory): Long = jdbi.withHandle<Long, Exception> { handle ->
+        handle.createQuery("SELECT count(*) FROM environment_deployment_log WHERE tenant_key = :t AND environment_key = :e")
+            .bind("t", query.environmentId.tenantKey)
+            .bind("e", query.environmentId.key)
+            .mapTo(Long::class.java)
+            .one()
     }
 }

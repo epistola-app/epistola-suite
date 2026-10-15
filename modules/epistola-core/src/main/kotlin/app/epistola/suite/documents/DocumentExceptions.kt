@@ -81,16 +81,12 @@ class TemplateNotInReleaseException(
     },
 )
 
-/**
- * Generating or previewing a specific template version is gone in 2.0: a request renders a catalog
- * release. Raised as a validation error so every surface reports it as a bad request, naming the
- * field that caused it.
- */
-fun versionGenerationRemoved(): app.epistola.suite.validation.ValidationException = app.epistola.suite.validation.ValidationException(
-    "versionId",
-    "Generating a specific template version is no longer supported: generation renders the catalog's latest release, " +
-        "or the release deployed to an environment. Leave versionId out.",
-)
+/** A request names a release of the template's catalog that does not exist or kept no content to render. */
+class ReleaseNotFoundException(
+    val tenantKey: TenantKey,
+    val catalogKey: CatalogKey,
+    val releaseVersion: String,
+) : RuntimeException("Catalog '${catalogKey.value}' has no release $releaseVersion that can be rendered.")
 
 /** A request names an environment that serves no release of the template's catalog. */
 class NoReleaseDeployedException(

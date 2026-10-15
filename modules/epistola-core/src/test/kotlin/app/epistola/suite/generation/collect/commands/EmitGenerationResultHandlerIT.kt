@@ -168,9 +168,38 @@ class EmitGenerationResultHandlerIT : IntegrationTestBase() {
         assertThat(rowCount).isEqualTo(1)
     }
 
+    @Test
+    fun `an emitted result names the release its request rendered`() {
+        val tenant = TenantKey.of("t-${UUID.randomUUID().toString().take(8)}")
+        val req = sampleRequest(tenant, routingKey = "release-key", releaseVersion = "1.4.0")
+
+        val emitted = withMediator {
+            EmitGenerationResult(
+                request = req,
+                status = ResultStatus.COMPLETED,
+                documentId = DocumentKey.of(UUID.randomUUID()),
+                sizeBytes = 1L,
+                contentType = "application/pdf",
+                error = null,
+                completedAt = OffsetDateTime.now(),
+            ).execute()
+        }
+
+        assertThat(emitted.releaseVersion).isEqualTo("1.4.0")
+        val stored = jdbi.withHandle<String?, Exception> { h ->
+            h.createQuery("SELECT release_version FROM generation_results WHERE tenant_key = :tenant AND sequence = :seq")
+                .bind("tenant", tenant)
+                .bind("seq", emitted.sequence)
+                .mapTo(String::class.java)
+                .one()
+        }
+        assertThat(stored).isEqualTo("1.4.0")
+    }
+
     private fun sampleRequest(
         tenantKey: TenantKey,
         routingKey: String?,
+        releaseVersion: String? = null,
     ) = DocumentGenerationRequest(
         id = GenerationRequestKey.of(UUID.randomUUID()),
         batchId = BatchKey.of(UUID.randomUUID()),
@@ -180,6 +209,7 @@ class EmitGenerationResultHandlerIT : IntegrationTestBase() {
         variantKey = VariantKey.of("default"),
         versionKey = null,
         environmentKey = EnvironmentKey.of("production"),
+        releaseVersion = releaseVersion,
         data = JsonNodeFactory.instance.objectNode(),
         filename = "doc.pdf",
         correlationId = "cor-1",

@@ -61,7 +61,7 @@ class TenantApiIT : IntegrationTestBase() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.id")).isEqualTo(tenantKey.value)
+        assertThat(JsonPath.read<String>(body, "$.slug")).isEqualTo(tenantKey.value)
         assertThat(JsonPath.read<String>(body, "$.name")).isEqualTo("Renamed Tenant")
 
         // Read-your-write: a subsequent GET reflects the new name.

@@ -11,7 +11,6 @@ import app.epistola.template.model.BlockStylePreset
 
 internal fun Theme.toDto() = ThemeDto(
     slug = id.value,
-    id = id.value,
     tenantId = tenantKey.value,
     name = name,
     description = description,

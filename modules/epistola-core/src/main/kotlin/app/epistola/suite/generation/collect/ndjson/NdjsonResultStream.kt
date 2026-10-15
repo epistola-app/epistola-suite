@@ -110,7 +110,7 @@ class NdjsonResultStream(
         "routingKey" to routingKey,
         "templateId" to templateId?.value,
         "variantId" to variantId?.value,
-        "versionId" to versionId?.value,
+        "releaseVersion" to releaseVersion,
         "filename" to filename,
         "contentType" to contentType,
         "sizeBytes" to sizeBytes,

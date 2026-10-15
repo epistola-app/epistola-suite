@@ -12,10 +12,8 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.preview.ReleasePreviewResolver
-import app.epistola.suite.documents.versionGenerationRemoved
 import app.epistola.suite.generation.DocumentPreviewRenderer
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.i18n.TenantLocaleResolver
@@ -52,8 +50,8 @@ import java.io.ByteArrayOutputStream
  * @property data JSON data to populate the template
  * @property variantId Explicit variant (mutually exclusive with variantSelectionCriteria)
  * @property variantSelectionCriteria Attribute criteria for auto-selecting a variant
- * @property versionId Explicit version (mutually exclusive with environmentId)
- * @property environmentId Environment to determine version from (mutually exclusive with versionId)
+ * @property releaseVersion Release of the catalog to render (mutually exclusive with environmentId)
+ * @property environmentId Environment whose deployed release is rendered (mutually exclusive with releaseVersion)
  */
 data class PreviewDocument(
     val tenantId: TenantKey,
@@ -62,7 +60,7 @@ data class PreviewDocument(
     val data: ObjectNode,
     val variantId: VariantKey? = null,
     val variantSelectionCriteria: VariantSelectionCriteria? = null,
-    val versionId: VersionKey? = null,
+    val releaseVersion: String? = null,
     val environmentId: EnvironmentKey? = null,
     /**
      * Render the working copy (each variant's draft, live theme and resources) instead of a release.
@@ -78,8 +76,11 @@ data class PreviewDocument(
         require(variantId == null || variantSelectionCriteria == null) {
             "Cannot specify both variantId and variantSelectionCriteria"
         }
-        require(!(versionId != null && environmentId != null)) {
-            "Cannot specify both versionId and environmentId"
+        require(!(releaseVersion != null && environmentId != null)) {
+            "Cannot specify both releaseVersion and environmentId"
+        }
+        require(!workingCopy || (releaseVersion == null && environmentId == null)) {
+            "The working copy is not a release: it cannot be combined with releaseVersion or environmentId"
         }
     }
 }
@@ -96,10 +97,7 @@ class PreviewDocumentHandler(
     private val objectMapper: ObjectMapper,
 ) : QueryHandler<PreviewDocument, ByteArray> {
 
-    override fun handle(query: PreviewDocument): ByteArray {
-        if (query.versionId != null) throw versionGenerationRemoved()
-        return if (query.workingCopy) previewWorkingCopy(query) else previewRelease(query)
-    }
+    override fun handle(query: PreviewDocument): ByteArray = if (query.workingCopy) previewWorkingCopy(query) else previewRelease(query)
 
     /**
      * The release the environment serves, or the catalog's latest without one, exactly as generation
@@ -114,6 +112,7 @@ class PreviewDocumentHandler(
             query.variantId,
             query.variantSelectionCriteria,
             query.environmentId,
+            query.releaseVersion,
         )
         val inputs = preview.inputs
         inputs.dataModel?.let {

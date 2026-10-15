@@ -8,34 +8,29 @@ import app.epistola.api.model.AttributeDto
 import app.epistola.api.model.AttributeDtoCodeListBinding
 import app.epistola.api.model.DataExampleDto
 import app.epistola.api.model.EnvironmentDto
+import app.epistola.api.model.ResourceStatus
 import app.epistola.api.model.TemplateDto
 import app.epistola.api.model.TemplateSummaryDto
 import app.epistola.api.model.TenantDto
 import app.epistola.api.model.VariantDto
 import app.epistola.api.model.VariantSummaryDto
-import app.epistola.api.model.VersionDto
-import app.epistola.api.model.VersionSummaryDto
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.environments.Environment
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.contracts.model.ContractVersion
 import app.epistola.suite.templates.model.TemplateVariant
-import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.model.VariantSummary
-import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.tenants.Tenant
 import tools.jackson.databind.ObjectMapper
 
 internal fun Tenant.toDto() = TenantDto(
     slug = id.value,
-    id = id.value,
     name = name,
     createdAt = createdAt,
 )
 
 internal fun VariantAttributeDefinition.toDto() = AttributeDto(
     slug = id.value,
-    key = id.value,
     tenantId = tenantKey.value,
     catalog = catalogKey.value,
     displayName = displayName,
@@ -55,7 +50,6 @@ internal fun VariantAttributeDefinition.toDto() = AttributeDto(
 
 internal fun Environment.toDto() = EnvironmentDto(
     slug = id.value,
-    id = id.value,
     tenantId = tenantKey.value,
     name = name,
     createdAt = createdAt,
@@ -63,16 +57,19 @@ internal fun Environment.toDto() = EnvironmentDto(
 
 internal fun DocumentTemplate.toSummaryDto() = TemplateSummaryDto(
     slug = id.value,
-    id = id.value,
     tenantId = tenantKey.value,
     name = name,
     createdAt = createdAt,
     lastModified = updatedAt,
 )
 
-internal fun DocumentTemplate.toDto(objectMapper: ObjectMapper, variantSummaries: List<VariantSummary>, contractVersion: ContractVersion? = null) = TemplateDto(
+internal fun DocumentTemplate.toDto(
+    objectMapper: ObjectMapper,
+    variantSummaries: List<VariantSummary>,
+    contractVersion: ContractVersion? = null,
+    status: WorkingCopyStatus,
+) = TemplateDto(
     slug = id.value,
-    id = id.value,
     tenantId = tenantKey.value,
     name = name,
     schema = contractVersion?.schema?.let { objectMapper.valueToTree(it) },
@@ -84,62 +81,27 @@ internal fun DocumentTemplate.toDto(objectMapper: ObjectMapper, variantSummaries
             data = objectMapper.valueToTree(example.data),
         )
     },
-    variants = variantSummaries.map { it.toDto() },
+    variants = variantSummaries.map { it.toDto(status.of("template", id.value, it.hasDraft, it.publishedVersions.isNotEmpty())) },
     createdAt = createdAt,
     lastModified = updatedAt,
 )
 
-internal fun VariantSummary.toDto() = VariantSummaryDto(
+internal fun VariantSummary.toDto(status: ResourceStatus) = VariantSummaryDto(
     slug = id.value,
-    id = id.value,
     title = title,
     attributes = attributes,
     isDefault = isDefault,
-    hasDraft = hasDraft,
-    publishedVersions = publishedVersions,
+    status = status,
 )
 
-internal fun TemplateVariant.toDto(info: VariantVersionInfo) = VariantDto(
+internal fun TemplateVariant.toDto(status: ResourceStatus) = VariantDto(
     slug = id.value,
-    id = id.value,
     templateId = templateKey.value,
     title = title,
     description = description,
     attributes = attributes,
     isDefault = isDefault,
-    hasDraft = info.hasDraft,
-    publishedVersions = info.publishedVersions,
+    status = status,
     createdAt = createdAt,
     lastModified = updatedAt,
 )
-
-internal fun TemplateVersion.toDto() = VersionDto(
-    id = id.value,
-    variantId = variantKey.value,
-    templateModel = templateModel,
-    status = status.toDtoStatus(),
-    createdAt = createdAt,
-    publishedAt = publishedAt,
-    archivedAt = archivedAt,
-)
-
-internal fun app.epistola.suite.templates.model.VersionSummary.toSummaryDto() = VersionSummaryDto(
-    id = id.value,
-    variantId = variantKey.value,
-    status = status.toSummaryDtoStatus(),
-    createdAt = createdAt,
-    publishedAt = publishedAt,
-    archivedAt = archivedAt,
-)
-
-internal fun VersionStatus.toDtoStatus() = when (this) {
-    VersionStatus.DRAFT -> VersionDto.Status.DRAFT
-    VersionStatus.PUBLISHED -> VersionDto.Status.PUBLISHED
-    VersionStatus.ARCHIVED -> VersionDto.Status.ARCHIVED
-}
-
-internal fun VersionStatus.toSummaryDtoStatus() = when (this) {
-    VersionStatus.DRAFT -> VersionSummaryDto.Status.DRAFT
-    VersionStatus.PUBLISHED -> VersionSummaryDto.Status.PUBLISHED
-    VersionStatus.ARCHIVED -> VersionSummaryDto.Status.ARCHIVED
-}

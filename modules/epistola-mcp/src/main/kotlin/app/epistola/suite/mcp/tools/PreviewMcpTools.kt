@@ -8,7 +8,6 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.queries.AnalyzeTemplateData
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.mcp.dto.PreviewResult
@@ -56,6 +55,11 @@ class PreviewMcpTools(
         )
         workingCopy: Boolean?,
         @McpToolParam(
+            description = "Release of the catalog to render (e.g. '1.4.0'). Mutually exclusive with `environmentId` and `workingCopy`.",
+            required = false,
+        )
+        releaseVersion: String?,
+        @McpToolParam(
             description = "Environment key (e.g. 'production'). What that environment serves is rendered.",
             required = false,
         )
@@ -75,6 +79,7 @@ class PreviewMcpTools(
                 templateId = TemplateKey.of(templateId),
                 variantId = variantId?.let { VariantKey.of(it) },
                 environmentId = environmentId?.let { EnvironmentKey.of(it) },
+                releaseVersion = releaseVersion,
                 data = parsedData,
                 workingCopy = workingCopy == true,
             ),
@@ -89,7 +94,7 @@ class PreviewMcpTools(
 
     @McpTool(
         name = "analyze_template_data",
-        description = "Check template data against the data contract of the version `preview_document` would " +
+        description = "Check template data against the data contract of the release `preview_document` would " +
             "render, without rendering. Returns which fields are missing (required ones always, optional ones " +
             "only when the template uses them) and which supplied values are wrong, each with a JSON Pointer " +
             "into `data` and the field's JSON Schema. Use it to ask the user for exactly the data the template " +
@@ -107,12 +112,12 @@ class PreviewMcpTools(
         )
         variantId: String?,
         @McpToolParam(
-            description = "Specific version number (1..N). Mutually exclusive with `environmentId`.",
+            description = "Release of the catalog to check against (e.g. '1.4.0'). Mutually exclusive with `environmentId`.",
             required = false,
         )
-        versionId: Int?,
+        releaseVersion: String?,
         @McpToolParam(
-            description = "Environment key (e.g. 'production'); the version active there is checked. Mutually exclusive with `versionId`.",
+            description = "Environment key (e.g. 'production'); the release deployed there is checked. Mutually exclusive with `releaseVersion`.",
             required = false,
         )
         environmentId: String?,
@@ -127,7 +132,7 @@ class PreviewMcpTools(
             catalogKey = CatalogKey.of(catalogId),
             templateId = TemplateKey.of(templateId),
             variantId = variantId?.let { VariantKey.of(it) },
-            versionId = versionId?.let { VersionKey.of(it) },
+            releaseVersion = releaseVersion,
             environmentId = environmentId?.let { EnvironmentKey.of(it) },
             data = parseData(data),
         ).query()

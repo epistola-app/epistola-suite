@@ -186,6 +186,31 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a request naming a release renders that release, not the latest`(): Unit = scenario {
+        given {
+            val tenant = tenant("Named release")
+            val templateId = TemplateId(template(tenant.id, "Letter").id, CatalogId.default(TenantId(tenant.id)))
+            val variant = VariantId(variant(templateId, "Default").id, templateId)
+            released(variant, TestTemplateBuilder.buildMinimal(name = "Letter"))
+            released(variant, TestTemplateBuilder.buildMinimal(name = "Letter"))
+            Triple(tenant, templateId, variant)
+        }.whenever { (tenant, templateId, variant) ->
+            execute(
+                GenerateDocument(
+                    tenantId = tenant.id,
+                    templateId = templateId.key,
+                    variantId = variant.key,
+                    releaseVersion = "1.0.0",
+                    data = objectMapper.createObjectNode(),
+                    filename = null,
+                ),
+            )
+        }.then { _, accepted ->
+            assertThat(accepted.releaseVersion).`as`("the named release, though 1.0.1 is newer").isEqualTo("1.0.0")
+        }
+    }
+
+    @Test
     fun `a request naming an environment that serves nothing of the catalog is refused`(): Unit = scenario {
         given {
             val tenant = tenant("Release by environment, none")

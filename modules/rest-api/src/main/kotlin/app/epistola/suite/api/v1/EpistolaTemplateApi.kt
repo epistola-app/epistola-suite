@@ -6,28 +6,27 @@ package app.epistola.suite.api.v1
 
 import app.epistola.api.TemplatesApi
 import app.epistola.api.VariantsApi
-import app.epistola.api.VersionsApi
-import app.epistola.api.model.ActivationListResponse
 import app.epistola.api.model.CreateTemplateRequest
 import app.epistola.api.model.CreateVariantRequest
-import app.epistola.api.model.PublishVersionRequest
+import app.epistola.api.model.InvalidDataField
+import app.epistola.api.model.MissingDataField
+import app.epistola.api.model.ResourceStatus
 import app.epistola.api.model.TemplateDataValidationError
 import app.epistola.api.model.TemplateDataValidationResult
 import app.epistola.api.model.TemplateDto
 import app.epistola.api.model.TemplateListResponse
-import app.epistola.api.model.UpdateDraftRequest
 import app.epistola.api.model.UpdateTemplateRequest
+import app.epistola.api.model.UpdateVariantContentRequest
 import app.epistola.api.model.UpdateVariantRequest
 import app.epistola.api.model.ValidateTemplateDataRequest
+import app.epistola.api.model.VariantContentDto
 import app.epistola.api.model.VariantDto
 import app.epistola.api.model.VariantListResponse
-import app.epistola.api.model.VersionDto
-import app.epistola.api.model.VersionListResponse
 import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.SortDirection
 import app.epistola.suite.api.v1.shared.UnsupportedSortException
-import app.epistola.suite.api.v1.shared.VariantVersionInfo
+import app.epistola.suite.api.v1.shared.WorkingCopyStatus
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toSummaryDto
 import app.epistola.suite.common.ids.CatalogId
@@ -44,6 +43,7 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
+import app.epistola.suite.documents.queries.AnalyzeTemplateData
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.DraftNotFoundException
@@ -65,6 +65,7 @@ import app.epistola.suite.templates.contracts.ContractPublishConflictException
 import app.epistola.suite.templates.contracts.commands.CreateContractVersion
 import app.epistola.suite.templates.contracts.commands.PublishContractVersion
 import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
+import app.epistola.suite.templates.contracts.queries.GetDraftContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
 import app.epistola.suite.templates.contracts.queries.GetLatestPublishedContractVersion
 import app.epistola.suite.templates.contracts.queries.PreviewContractUpdate
@@ -88,6 +89,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import tools.jackson.core.type.TypeReference
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
@@ -97,8 +99,7 @@ class EpistolaTemplateApi(
     private val objectMapper: ObjectMapper,
     private val jsonSchemaValidator: JsonSchemaValidator,
 ) : TemplatesApi,
-    VariantsApi,
-    VersionsApi {
+    VariantsApi {
 
     // ================== Template operations ==================
 
@@ -158,7 +159,7 @@ class EpistolaTemplateApi(
         ).execute()
         val templateIdComposite = TemplateId(template.id, CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
         val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
-        return ResponseEntity.status(HttpStatus.CREATED).body(template.toDto(objectMapper, variantSummaries))
+        return ResponseEntity.status(HttpStatus.CREATED).body(template.toDto(objectMapper, variantSummaries, status = WorkingCopyStatus.of(tenantIdComposite.key, templateIdComposite.catalogKey)))
     }
 
     override fun getTemplate(
@@ -172,7 +173,7 @@ class EpistolaTemplateApi(
             ?: throw TemplateNotFoundException(tenantIdComposite.key, templateIdComposite.key)
         val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
         val contractVersion = GetLatestPublishedContractVersion(templateId = templateIdComposite).query()
-        return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries, contractVersion))
+        return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries, contractVersion, WorkingCopyStatus.of(tenantIdComposite.key, templateIdComposite.catalogKey)))
     }
 
     override fun updateTemplate(
@@ -234,7 +235,7 @@ class EpistolaTemplateApi(
 
         val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
         val contractVersion = GetLatestPublishedContractVersion(templateId = templateIdComposite).query()
-        return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries, contractVersion))
+        return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries, contractVersion, WorkingCopyStatus.of(tenantIdComposite.key, templateIdComposite.catalogKey)))
     }
 
     override fun validateTemplateData(
@@ -243,33 +244,68 @@ class EpistolaTemplateApi(
         templateId: String,
         validateTemplateDataRequest: ValidateTemplateDataRequest,
     ): ResponseEntity<TemplateDataValidationResult> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val tenantKey = TenantKey.of(tenantId)
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), TenantId(tenantKey)))
         GetDocumentTemplate(id = templateIdComposite).query()
-            ?: throw TemplateNotFoundException(tenantIdComposite.key, templateIdComposite.key)
+            ?: throw TemplateNotFoundException(tenantKey, templateIdComposite.key)
 
-        val contractVersion = GetLatestContractVersion(templateId = templateIdComposite).query()
-        val dataModel = contractVersion?.dataModel
-            ?: return ResponseEntity.ok(TemplateDataValidationResult(valid = true, errors = emptyList()))
+        // Checked against the release preview and generation would render for the same selection.
+        val analysis = AnalyzeTemplateData(
+            tenantKey = tenantKey,
+            catalogKey = templateIdComposite.catalogKey,
+            templateId = templateIdComposite.key,
+            data = objectMapper.valueToTree<ObjectNode>(validateTemplateDataRequest.data),
+            variantId = validateTemplateDataRequest.variantId?.let { VariantKey.of(it) },
+            releaseVersion = validateTemplateDataRequest.releaseVersion,
+            environmentId = validateTemplateDataRequest.environmentId?.let { EnvironmentKey.of(it) },
+        ).query()
 
-        val dataNode = objectMapper.valueToTree<ObjectNode>(validateTemplateDataRequest.data)
-        // Fill in any field the caller omitted from its schema `default`, matching what
-        // generation and preview actually do, so this pre-flight check doesn't reject
-        // data that generation would accept.
-        val effectiveData = jsonSchemaValidator.applyDefaults(dataModel, dataNode)
-        val errors = jsonSchemaValidator.validate(dataModel, effectiveData)
-
+        val errors = analysis.invalidFields.map { TemplateDataValidationError(path = it.path, message = it.message) } +
+            analysis.missingFields.filter { it.required }.map { TemplateDataValidationError(path = it.path, message = "is required") }
         return ResponseEntity.ok(
             TemplateDataValidationResult(
-                valid = errors.isEmpty(),
-                errors = errors.map { error ->
-                    TemplateDataValidationError(
-                        path = error.path,
-                        message = error.message,
+                valid = analysis.valid,
+                errors = errors,
+                missingFields = analysis.missingFields.map {
+                    MissingDataField(path = it.path, required = it.required, schema = objectMapper.convertValue(it.schema, SCHEMA_MAP))
+                },
+                invalidFields = analysis.invalidFields.map {
+                    InvalidDataField(
+                        path = it.path,
+                        keyword = it.keyword,
+                        message = it.message,
+                        schema = it.schema?.let { schema -> objectMapper.convertValue(schema, SCHEMA_MAP) },
                     )
                 },
             ),
         )
+    }
+
+    /**
+     * Marks every variant of the template ready, and its data contract. Interim, until the working
+     * copy has a ready mark (WP3): a release reads published versions, so this publishes the drafts.
+     */
+    override fun markTemplateReady(
+        tenantId: String,
+        catalogId: String,
+        templateId: String,
+    ): ResponseEntity<TemplateDto> {
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val template = GetDocumentTemplate(id = templateIdComposite).query()
+            ?: throw TemplateNotFoundException(tenantIdComposite.key, templateIdComposite.key)
+        for (variant in ListVariants(templateId = templateIdComposite).query()) {
+            publishDraft(VariantId(variant.id, templateIdComposite))
+        }
+        if (GetDraftContractVersion(templateId = templateIdComposite).query() != null) {
+            val published = PublishContractVersion(templateId = templateIdComposite).execute()
+            if (published != null && !published.published) {
+                throw ContractPublishConflictException(published.breakingChanges.map { it.description })
+            }
+        }
+        val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
+        val contractVersion = GetLatestPublishedContractVersion(templateId = templateIdComposite).query()
+        return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries, contractVersion, WorkingCopyStatus.of(tenantIdComposite.key, templateIdComposite.catalogKey)))
     }
 
     override fun deleteTemplate(
@@ -408,241 +444,87 @@ class EpistolaTemplateApi(
         return ResponseEntity.ok(variant.toDto(summary))
     }
 
-    // ================== Draft operations ==================
+    // ================== Working copy ==================
+    //
+    // Interim, until the working copy exists without versions (WP3): a variant's working copy is its
+    // draft version when it has one, otherwise its latest published version, and marking it ready
+    // publishes the draft, which is what a release reads.
 
-    override fun getVariantDraft(
+    override fun getVariantContent(
         tenantId: String,
         catalogId: String,
         templateId: String,
         variantId: String,
-    ): ResponseEntity<VersionDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
-        // Verify variant exists before distinguishing "variant not found" from "no draft"
-        GetVariant(variantId = variantIdComposite).query()
-            ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
-        val draft = GetDraft(variantId = variantIdComposite).query()
-            ?: throw DraftNotFoundException(tenantIdComposite.key, variantIdComposite.key)
-        return ResponseEntity.ok(draft.toDto())
+    ): ResponseEntity<VariantContentDto> = ResponseEntity.ok(workingCopy(variantIdOf(tenantId, catalogId, templateId, variantId)))
+
+    override fun updateVariantContent(
+        tenantId: String,
+        catalogId: String,
+        templateId: String,
+        variantId: String,
+        updateVariantContentRequest: UpdateVariantContentRequest,
+    ): ResponseEntity<VariantContentDto> {
+        val id = variantIdOf(tenantId, catalogId, templateId, variantId)
+        UpdateDraft(variantId = id, templateModel = updateVariantContentRequest.templateModel).execute()
+            ?: throw TemplateVariantNotFoundException(id.tenantKey, id.templateKey, id.key)
+        return ResponseEntity.ok(workingCopy(id))
     }
 
-    override fun createVariantDraft(
+    override fun markVariantReady(
         tenantId: String,
         catalogId: String,
         templateId: String,
         variantId: String,
-    ): ResponseEntity<VersionDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
-        val draft = CreateVersion(variantId = variantIdComposite).execute()
-            ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
-        return ResponseEntity.status(HttpStatus.CREATED).body(draft.toDto())
+    ): ResponseEntity<VariantContentDto> {
+        val id = variantIdOf(tenantId, catalogId, templateId, variantId)
+        GetVariant(variantId = id).query() ?: throw TemplateVariantNotFoundException(id.tenantKey, id.templateKey, id.key)
+        publishDraft(id)
+        return ResponseEntity.ok(workingCopy(id))
     }
 
-    override fun upsertVariantDraft(
-        tenantId: String,
-        catalogId: String,
-        templateId: String,
-        variantId: String,
-        updateDraftRequest: UpdateDraftRequest,
-    ): ResponseEntity<VersionDto> {
-        val templateModel = updateDraftRequest.templateModel
-            ?: throw ValidationException(field = "templateModel", message = "Template model is required")
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
-        val draft = UpdateDraft(
-            variantId = variantIdComposite,
-            templateModel = templateModel,
-        ).execute() ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
-        return ResponseEntity.ok(draft.toDto())
+    private fun variantIdOf(tenantId: String, catalogId: String, templateId: String, variantId: String) = VariantId(
+        VariantKey.of(variantId),
+        TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), TenantId(TenantKey.of(tenantId)))),
+    )
+
+    private fun publishDraft(id: VariantId) {
+        GetDraft(variantId = id).query()?.let { PublishVersion(versionId = VersionId(it.id, id)).execute() }
     }
 
-    override fun publishVariantDraft(
-        tenantId: String,
-        catalogId: String,
-        templateId: String,
-        variantId: String,
-    ): ResponseEntity<VersionDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
-        GetVariant(variantId = variantIdComposite).query()
-            ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
-        val draft = GetDraft(variantId = variantIdComposite).query()
-            ?: throw DraftNotFoundException(tenantIdComposite.key, variantIdComposite.key)
-        val published = PublishVersion(versionId = VersionId(draft.id, variantIdComposite)).execute()
-            ?: throw VersionNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key, draft.id)
-        return ResponseEntity.ok(published.toDto())
-    }
-
-    override fun discardVariantDraft(
-        tenantId: String,
-        catalogId: String,
-        templateId: String,
-        variantId: String,
-    ): ResponseEntity<Unit> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
-        GetVariant(variantId = variantIdComposite).query()
-            ?: throw TemplateVariantNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key)
-        DiscardDraft(variantId = variantIdComposite).execute()
-        return ResponseEntity.noContent().build()
-    }
-
-    // ================== Activation operations ==================
-
-    override fun listVariantActivations(
-        tenantId: String,
-        catalogId: String,
-        templateId: String,
-        variantId: String,
-    ): ResponseEntity<ActivationListResponse> {
-        // Removed with environment activations; the operation stays until the 2.0 contract drops it.
-        throw ApiOperationNotImplementedException("listVariantActivations: Environments serve catalog releases since 2.0; per-variant activations no longer exist. Read a catalog's deployments instead.")
-    }
-
-    override fun removeVariantActivation(
-        tenantId: String,
-        catalogId: String,
-        templateId: String,
-        variantId: String,
-        environmentId: String,
-    ): ResponseEntity<Unit> {
-        // Removed with environment activations; the operation stays until the 2.0 contract drops it.
-        throw ApiOperationNotImplementedException("removeVariantActivation: Environments serve catalog releases since 2.0; undeploy the catalog's release from the environment instead.")
-    }
-
-    override fun getActiveVersion(
-        environment: String,
-        tenantId: String,
-        catalogId: String,
-        templateId: String,
-        variantId: String,
-    ): ResponseEntity<VersionDto> {
-        // Removed with environment activations; the operation stays until the 2.0 contract drops it.
-        throw ApiOperationNotImplementedException("getActiveVersion: Environments serve catalog releases since 2.0; there is no active template version. Read the environment's deployed release instead.")
-    }
-
-    // ================== Version operations ==================
-
-    override fun listVersions(
-        tenantId: String,
-        catalogId: String,
-        templateId: String,
-        variantId: String,
-        status: String?,
-        page: Int,
-        size: Int,
-        sort: String?,
-        direction: String,
-    ): ResponseEntity<VersionListResponse> {
-        // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
-        ListSorting.rejectUnsupportedSort(sort, direction)
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
-        val versions = ListVersions(variantId = variantIdComposite).query()
-        // Bounded per-variant collection: filter, then slice in application code so
-        // the total reflects the status filter.
-        val filteredVersions = if (status != null) {
-            versions.filter { it.status.name.equals(status, ignoreCase = true) }
-        } else {
-            versions
-        }
-        val slice = Pagination.paginate(filteredVersions, page, size)
-        return ResponseEntity.ok(
-            VersionListResponse(
-                items = slice.items.map { it.toSummaryDto() },
-                page = slice.page,
-            ),
+    /** The variant's draft if it has one, else its latest published version, with its status. */
+    private fun workingCopy(id: VariantId): VariantContentDto {
+        val variant = GetVariant(variantId = id).query()
+            ?: throw TemplateVariantNotFoundException(id.tenantKey, id.templateKey, id.key)
+        val versions = ListVersions(variantId = id).query()
+        val draft = versions.firstOrNull { it.status == VersionStatus.DRAFT }
+        val published = versions.filter { it.status == VersionStatus.PUBLISHED }.maxByOrNull { it.id.value }
+        val shown = (draft ?: published)?.let { GetVersion(versionId = VersionId(it.id, id)).query() }
+            ?: throw TemplateVariantNotFoundException(id.tenantKey, id.templateKey, id.key)
+        val status = WorkingCopyStatus.of(id.tenantKey, id.catalogKey)
+            .of("template", variant.templateKey.value, hasDraft = draft != null, hasPublished = published != null)
+        return VariantContentDto(
+            variantId = variant.id.value,
+            templateModel = shown.templateModel,
+            status = status,
+            lastModified = shown.publishedAt ?: shown.createdAt,
+            readyAt = if (status == ResourceStatus.READY) published?.publishedAt else null,
         )
-    }
-
-    override fun getVersion(
-        tenantId: String,
-        catalogId: String,
-        templateId: String,
-        variantId: String,
-        versionId: Int,
-    ): ResponseEntity<VersionDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
-        val versionIdComposite = VersionId(VersionKey.of(versionId), variantIdComposite)
-        val version = GetVersion(versionId = versionIdComposite).query()
-            ?: throw VersionNotFoundException(tenantIdComposite.key, templateIdComposite.key, variantIdComposite.key, versionIdComposite.key)
-        return ResponseEntity.ok(version.toDto())
-    }
-
-    override fun updateVersion(
-        tenantId: String,
-        catalogId: String,
-        templateId: String,
-        variantId: String,
-        versionId: Int,
-        updateDraftRequest: UpdateDraftRequest,
-    ): ResponseEntity<VersionDto> {
-        val templateModel = updateDraftRequest.templateModel
-            ?: throw ValidationException(field = "templateModel", message = "Template model is required")
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
-        val versionIdComposite = VersionId(VersionKey.of(versionId), variantIdComposite)
-        val version = UpdateVersion(
-            versionId = versionIdComposite,
-            templateModel = templateModel,
-        ).execute()
-        return ResponseEntity.ok(version.toDto())
-    }
-
-    override fun publishVersion(
-        tenantId: String,
-        catalogId: String,
-        templateId: String,
-        variantId: String,
-        versionId: Int,
-        publishVersionRequest: PublishVersionRequest,
-    ): ResponseEntity<VersionDto> {
-        // Removed with environment activations; the operation stays until the 2.0 contract drops it.
-        throw ApiOperationNotImplementedException("publishVersion: Publishing a version to an environment is replaced by releasing the catalog and deploying the release (2.0).")
-    }
-
-    override fun archiveVersion(
-        tenantId: String,
-        catalogId: String,
-        templateId: String,
-        variantId: String,
-        versionId: Int,
-    ): ResponseEntity<VersionDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
-        val versionIdComposite = VersionId(VersionKey.of(versionId), variantIdComposite)
-        val archived = ArchiveVersion(
-            versionId = versionIdComposite,
-        ).execute()
-        return ResponseEntity.ok(archived.toDto())
     }
 
     // ================== Helper methods ==================
 
-    private fun getVariantSummary(variant: TemplateVariant, tenantId: TenantKey, catalogId: String): VariantVersionInfo {
-        val tenantIdComposite = TenantId(tenantId)
-        val templateIdComposite = TemplateId(variant.templateKey, CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val variantIdComposite = VariantId(variant.id, templateIdComposite)
-        val versions = ListVersions(variantId = variantIdComposite).query()
-        val hasDraft = versions.any { it.status == VersionStatus.DRAFT }
-        val publishedVersions = versions
-            .filter { it.status == VersionStatus.PUBLISHED }
-            .map { it.id.value }
-            .sorted()
-        return VariantVersionInfo(
-            hasDraft = hasDraft,
-            publishedVersions = publishedVersions,
+    private fun getVariantSummary(variant: TemplateVariant, tenantId: TenantKey, catalogId: String): ResourceStatus {
+        val templateIdComposite = TemplateId(variant.templateKey, CatalogId(CatalogKey.of(catalogId), TenantId(tenantId)))
+        val versions = ListVersions(variantId = VariantId(variant.id, templateIdComposite)).query()
+        return WorkingCopyStatus.of(tenantId, CatalogKey.of(catalogId)).of(
+            "template",
+            variant.templateKey.value,
+            hasDraft = versions.any { it.status == VersionStatus.DRAFT },
+            hasPublished = versions.any { it.status == VersionStatus.PUBLISHED },
         )
+    }
+
+    private companion object {
+        val SCHEMA_MAP = object : TypeReference<Map<String, Any>>() {}
     }
 }

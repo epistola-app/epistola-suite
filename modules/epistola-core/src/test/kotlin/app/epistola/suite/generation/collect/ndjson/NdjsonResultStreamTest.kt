@@ -177,6 +177,21 @@ class NdjsonResultStreamTest {
         assertThat(node.has("batchId")).isTrue
     }
 
+    @Test
+    fun `writeTo names the release a result rendered, and no template version`() {
+        val out = ByteArrayOutputStream()
+        stream.writeTo(
+            out,
+            listOf(sample(1).copy(releaseVersion = "1.4.0")),
+            NdjsonResultStream.MetaLine(false, 1, 1L, PartitionAssignment(64, emptyList())),
+            NdjsonResultStream.Encoding.IDENTITY,
+        )
+        val node = mapper.readTree(out.toString(Charsets.UTF_8).split("\n").first())
+
+        assertThat(node["releaseVersion"].asString()).isEqualTo("1.4.0")
+        assertThat(node.has("versionId")).`as`("contract 2.0 dropped versionId").isFalse
+    }
+
     private fun sample(seq: Long) = GenerationResultRow(
         sequence = seq,
         partition = 0,

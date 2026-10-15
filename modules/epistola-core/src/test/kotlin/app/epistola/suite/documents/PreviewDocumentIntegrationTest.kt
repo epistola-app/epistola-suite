@@ -608,7 +608,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
         }
 
         @Test
-        fun `preview refuses an explicit template version`() = scenario {
+        fun `preview refuses a release the catalog does not have`() = scenario {
             given {
                 val tenant = tenant("Test Tenant")
                 val tenantId = TenantId(tenant.id)
@@ -629,12 +629,12 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                             catalogKey = CatalogKey.DEFAULT,
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
-                            versionId = setup.version.id,
+                            releaseVersion = "9.9.9",
                             data = emptyData(),
                         ),
                     )
-                }.isInstanceOf(app.epistola.suite.validation.ValidationException::class.java)
-                    .hasMessageContaining("no longer supported")
+                }.isInstanceOf(app.epistola.suite.documents.ReleaseNotFoundException::class.java)
+                    .hasMessageContaining("9.9.9")
             }
         }
 
