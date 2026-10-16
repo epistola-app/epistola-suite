@@ -83,6 +83,24 @@ published-stencil check, the interim `stencilVersionPinFindings`, `MultipleStenc
   `list_stencil_versions`/`get_stencil_version`/`update_stencil_draft`, editor `draft-hydration.ts`
   and `upgrade-refs.ts`, REST's draft/publish-based stencil working copy.
 
+Decided (16 October, user):
+
+- An instance stores a **content digest** and an **interface digest** (placeholders + parameter
+  schema). Different content digest = behind. Same interface digest = safe to move. Different
+  interface digest = check the instance (does it use a removed or retyped fill or binding, or leave
+  a newly required parameter unbound) — only then held back.
+- Cross-catalog instances move when the dependency pin moves, "like upgrading a Java library":
+  preview the breaking instances before moving the pin; breaking ones are held back and block the
+  release.
+- While template versions still exist, a stencil update writes into template drafts.
+
+Proposed, awaiting the user — what the template author sees on stencil ready:
+A silent update · B update and reset templates to modified · C mark stale, update on request ·
+**D (recommended)**: compatible copies move, template keeps its ready mark with a non-blocking
+"updated by stencil X" note in history and release changes; breaking ones held back; the stencil
+author sees a preview ("updates 37 templates, 2 held back") when marking ready. C fits only if
+template and stencil owners must not change each other's work.
+
 Open questions: see "Open decisions".
 
 ## Noticed, not touched
@@ -149,13 +167,9 @@ Open questions: see "Open decisions".
 
 ## Open decisions
 
-- Stencils: does moving an instance on stencil ready leave the template's ready mark as it was?
-- Stencils: how is "held back" known — a digest of the stencil content stored on the instance, or
-  a comparison of the copy (fills removed) with the stencil's ready content?
+- Stencils: what the template author sees on stencil ready (options A–D above; D recommended).
+
 - Stencils: inserting a stencil that was never marked ready — allowed, from its working copy?
-- Stencils: cross-catalog instances move when the dependency pin moves?
-- Stencils before template versions: propagation writes into template drafts (as
-  `UpdateStencilInTemplate` does today) until template versions go too.
 
 - Stencil pins on import: stopgap, or remove stencil versions now?
 - Catalog identity in the schema: registry/namespace in every key, or a surrogate key?
