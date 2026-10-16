@@ -98,6 +98,16 @@ Upgrade from 1.x must not change what renders (user requirement). Plan, not buil
 - A readiness check in 1.x lists the fills that read a stencil alias, split into rewritable and
   legacy; the 2.0 release check warns on every `legacyFillScope` instance.
 
+**Decided 16 October (user):**
+
+- 1.x instances on an older stencil version are **upgraded automatically** to the latest stencil
+  (they render the latest after the upgrade). What no longer fits (dropped fills, unbound required
+  parameters — the `StencilInstances` findings) is **reported**: upgrade report and quality findings.
+- Copies that are not a normal locked copy (no `stencilId`, or content differing from the pinned
+  version beyond fills) become plain content and are reported — collapsing them would lose content.
+- A release preview of templates affected by a stencil change comes **later**; prepare for it by
+  keeping "templates affected by a stencil change" a query of its own.
+
 **Superseded proposal** (copies + held back; kept for the record):
 
 - A stencil has one working copy (content + parameter schema) and a ready mark; `stencil_versions` goes.
@@ -211,9 +221,6 @@ Open questions: see "Open decisions".
 9. Upgrade job on a 1.x-shaped database; cleanup; docs; demo catalog; ADR 0028.
 
 ## Open decisions
-
-- Release preview of templates affected by a stencil change (before/after renders): requirement for 2.0?
-- 1.x instances on an older stencil version: render the latest stencil, or convert to plain content?
 
 - Stencils: inserting a stencil that was never marked ready — allowed, from its working copy?
 
