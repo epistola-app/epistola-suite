@@ -20,6 +20,7 @@ import app.epistola.suite.stencils.StencilResolvers
 import app.epistola.suite.stencils.model.StencilInstances
 import app.epistola.suite.stencils.model.StencilUsageDetail
 import app.epistola.suite.stencils.model.StencilUsagePage
+import app.epistola.suite.stencils.model.describe
 import app.epistola.suite.templates.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -91,7 +92,7 @@ class GetStencilUsagePageHandler(
                 val document = objectMapper.readValue(rs.getString("template_model"), TemplateDocument::class.java)
                 val problems = StencilInstances.expand(document, catalogKey, resolver).findings
                     .filter { it.stencilKey == query.stencilId.key.value && it.catalogKey == query.stencilId.catalogKey.value && it.blocking }
-                    .map(::describe)
+                    .map { it.describe() }
                 StencilUsageDetail(
                     templateId = TemplateKey.of(rs.getString("template_key")),
                     catalogKey = CatalogKey.of(catalogKey),
@@ -107,14 +108,5 @@ class GetStencilUsagePageHandler(
             .list()
 
         StencilUsagePage(items = items, page = current, totalPages = totalPages, total = total)
-    }
-
-    private fun describe(finding: StencilInstances.Finding): String = when (finding.problem) {
-        StencilInstances.Problem.UNKNOWN_PLACEHOLDER -> "fills placeholder '${finding.name}', which the stencil no longer has"
-        StencilInstances.Problem.UNBOUND_REQUIRED_PARAMETER -> "does not bind required parameter '${finding.name}'"
-        StencilInstances.Problem.UNKNOWN_PARAMETER -> "binds parameter '${finding.name}', which the stencil does not declare"
-        StencilInstances.Problem.STENCIL_NOT_FOUND -> "uses a stencil that does not exist"
-        StencilInstances.Problem.RECURSION -> "contains itself"
-        StencilInstances.Problem.DEPTH_EXCEEDED -> "nests stencils too deeply"
     }
 }

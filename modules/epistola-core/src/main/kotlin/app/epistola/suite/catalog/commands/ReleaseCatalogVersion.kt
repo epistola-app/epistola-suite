@@ -16,6 +16,7 @@ import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogReleasePublicationPort
 import app.epistola.suite.catalog.CatalogReleasePublicationRequest
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.ReleaseStencilCheck
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -89,6 +90,7 @@ class ReleaseCatalogVersionHandler(
     private val releaseEntryStore: ReleaseEntryStore,
     private val objectMapper: ObjectMapper,
     private val publicationPort: ObjectProvider<CatalogReleasePublicationPort>,
+    private val stencilCheck: ReleaseStencilCheck,
 ) : CommandHandler<ReleaseCatalogVersion, ReleaseCatalogVersionResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -116,6 +118,7 @@ class ReleaseCatalogVersionHandler(
 
         val content = contentBuilder.build(command.tenantKey, command.catalogKey)
         fingerprintService.requirePublishable(content)
+        stencilCheck.requireInstancesFit(command.tenantKey, command.catalogKey, content)
         val fingerprint = fingerprintService.fingerprint(content)
         // What this release contains, resource by resource. Recorded here because it cannot be
         // recovered afterwards: `manifest_snapshot` holds the manifest entries, not the payloads

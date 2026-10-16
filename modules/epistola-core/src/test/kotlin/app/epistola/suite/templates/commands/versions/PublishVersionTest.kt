@@ -350,7 +350,7 @@ class PublishVersionTest : IntegrationTestBase() {
             assertThatThrownBy { publishDraftWith(templateFilling(StencilKey.of("no-such-stencil"), "body")) }
                 .isInstanceOf(ValidationException::class.java)
                 .hasValidationCode(ValidationCode.STENCIL_REFERENCE_INVALID)
-                .hasMessageContaining("no-such-stencil does not exist")
+                .hasMessageContaining("no-such-stencil, which does not exist")
         }
 
         @Test

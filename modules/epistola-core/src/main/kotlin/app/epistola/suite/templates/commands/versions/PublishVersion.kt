@@ -23,6 +23,8 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.StencilResolvers
 import app.epistola.suite.stencils.model.StencilInstances
+import app.epistola.suite.stencils.model.describe
+import app.epistola.suite.stencils.model.validationCode
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.templateAtAddress
@@ -267,24 +269,8 @@ class PublishVersionHandler(
         if (problems.isEmpty()) return
         throw ValidationException(
             field = "templateModel",
-            message = "Cannot publish template version: " + problems.joinToString("; ") { finding ->
-                val stencil = "${finding.catalogKey}/${finding.stencilKey}"
-                when (finding.problem) {
-                    StencilInstances.Problem.UNKNOWN_PLACEHOLDER -> "it fills placeholder '${finding.name}', which stencil $stencil does not have"
-                    StencilInstances.Problem.UNBOUND_REQUIRED_PARAMETER -> "it does not bind required parameter '${finding.name}' of stencil $stencil"
-                    StencilInstances.Problem.STENCIL_NOT_FOUND -> "stencil $stencil does not exist"
-                    StencilInstances.Problem.RECURSION -> "stencil $stencil contains itself"
-                    StencilInstances.Problem.DEPTH_EXCEEDED -> "stencils nest too deeply at $stencil"
-                    StencilInstances.Problem.UNKNOWN_PARAMETER -> "it binds '${finding.name}', which stencil $stencil does not declare"
-                }
-            },
-            // The message lists every problem; the code is the first one's.
-            code = when (problems.first().problem) {
-                StencilInstances.Problem.UNBOUND_REQUIRED_PARAMETER -> ValidationCode.NODE_PARAMETER_BINDING_MISSING_REQUIRED
-                StencilInstances.Problem.RECURSION -> ValidationCode.STENCIL_RECURSION
-                StencilInstances.Problem.DEPTH_EXCEEDED -> ValidationCode.STENCIL_NESTING_DEPTH_EXCEEDED
-                else -> ValidationCode.STENCIL_REFERENCE_INVALID
-            },
+            message = "Cannot publish template version: a stencil instance " + problems.joinToString("; ") { it.describe() },
+            code = problems.validationCode(),
         )
     }
 }
