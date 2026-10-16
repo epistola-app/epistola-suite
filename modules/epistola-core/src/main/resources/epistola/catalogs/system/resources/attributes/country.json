@@ -1,11 +1,11 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "attribute",
-    "slug": "country",
+    "key": "country",
     "name": "Country",
     "codeListBinding": {
-      "slug": "iso-3166-1-alpha2"
+      "key": "iso-3166-1-alpha2"
     }
   }
 }

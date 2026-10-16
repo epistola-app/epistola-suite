@@ -1,11 +1,11 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "attribute",
-    "slug": "language",
+    "key": "language",
     "name": "Language",
     "codeListBinding": {
-      "slug": "iso-639-1"
+      "key": "iso-639-1"
     }
   }
 }

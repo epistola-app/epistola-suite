@@ -13,6 +13,7 @@ import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.dependencies.MissingDependencyDeclarer
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.common.ids.AssetKey
@@ -77,6 +78,9 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
 
     @Autowired
     private lateinit var resourceLoader: ResourceLoader
+
+    @Autowired
+    private lateinit var dependencyDeclarer: MissingDependencyDeclarer
 
     protected val letters: CatalogKey = CatalogKey.of("letters")
     protected val shared: CatalogKey = CatalogKey.of("shared")
@@ -264,9 +268,11 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
 
     /**
      * Releases every catalog of [tenant], each after the catalogs it uses: a release pins the
-     * release of every other catalog it uses, so those must exist first.
+     * release of every other catalog it uses, so those must exist first. Each catalog first declares
+     * the catalogs its content uses, as its author would.
      */
     protected fun releaseAll(tenant: TenantKey, catalogs: List<CatalogKey>) {
+        withMediator { dependencyDeclarer.declareMissingInTenant(tenant) }
         val pending = catalogs.toMutableList()
         while (pending.isNotEmpty()) {
             val released = pending.filter { catalog ->
@@ -280,7 +286,7 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
     /** Styles naming font [slug], in [catalog] or relatively when it is null. */
     protected fun fontStyle(slug: String, catalog: String?): Map<String, Any> = mapOf(
         "fontFamily" to buildMap {
-            put("slug", slug)
+            put("key", slug)
             catalog?.let { put("catalogKey", it) }
         },
     )

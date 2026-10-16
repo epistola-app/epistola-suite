@@ -1,8 +1,8 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "image",
-    "slug": "epistola-logo",
+    "key": "epistola-logo",
     "name": "Epistola Logo",
     "mediaType": "image/svg+xml",
     "width": null,

@@ -1,8 +1,8 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "stencil",
-    "slug": "letterhead",
+    "key": "letterhead",
     "name": "Letterhead",
     "version": 1,
     "description": "A page header and footer that travel with the stencil: wherever it is placed, its header applies from there and its footer covers that section.",

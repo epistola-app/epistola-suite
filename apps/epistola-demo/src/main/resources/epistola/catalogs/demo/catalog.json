@@ -1,20 +1,22 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "catalog": {
-    "slug": "epistola-demo",
+    "key": "epistola-demo",
+    "registry": "exchange.epistola.app",
+    "namespace": "epistola",
     "name": "Epistola Demo Catalog",
     "description": "Sample templates, themes, stencils, and attributes for getting started with Epistola.",
     "attributes": [
       {
-        "catalog": "system",
+        "catalogKey": "system",
         "key": "locale",
         "value": "nl-NL"
       }
     ],
     "keywords": ["brieven", "getting-started", "nederlands"],
     "presentation": {
-      "iconAssetSlug": "epistola-logo",
-      "imageAssetSlugs": ["epistola-logo", "catalog-preview"]
+      "iconImageKey": "epistola-logo",
+      "imageKeys": ["epistola-logo", "catalog-preview"]
     },
     "license": {
       "name": "Creative Commons Attribution 4.0 International",
@@ -28,14 +30,14 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "5.20.1",
-    "releasedAt": "2026-09-29T00:00:00Z",
-    "fingerprint": "d4b59a21c7e9dacd9c91f5fd205d6584332f82268240a5bc1e424aa15a96cc96"
+    "version": "6.0.0",
+    "releasedAt": "2026-10-17T00:00:00Z",
+    "fingerprint": "v5:8f0f1bc239d8268a525e90bba738979dd135cadd113599b927ee818827b76b08"
   },
   "resources": [
     {
       "type": "image",
-      "slug": "epistola-logo",
+      "key": "epistola-logo",
       "name": "Epistola Logo",
       "description": "Small brand logo for use in templates.",
       "updatedAt": "2026-04-10T00:00:00Z",
@@ -43,7 +45,7 @@
     },
     {
       "type": "image",
-      "slug": "catalog-preview",
+      "key": "catalog-preview",
       "name": "Epistola Catalog Preview",
       "description": "Preview illustration for the demo catalog gallery.",
       "updatedAt": "2026-08-20T00:00:00Z",
@@ -51,7 +53,7 @@
     },
     {
       "type": "attribute",
-      "slug": "language",
+      "key": "language",
       "name": "Language",
       "description": "Document language for multi-language template variants.",
       "updatedAt": "2026-04-10T00:00:00Z",
@@ -59,7 +61,7 @@
     },
     {
       "type": "theme",
-      "slug": "corporate",
+      "key": "corporate",
       "name": "Corporate Theme",
       "description": "A clean corporate theme with professional styling.",
       "updatedAt": "2026-05-17T00:00:00Z",
@@ -67,7 +69,7 @@
     },
     {
       "type": "stencil",
-      "slug": "company-header",
+      "key": "company-header",
       "name": "Company Header",
       "description": "Reusable company header block with logo placeholder and company name.",
       "updatedAt": "2026-06-25T00:00:00Z",
@@ -75,7 +77,7 @@
     },
     {
       "type": "stencil",
-      "slug": "letter-shell",
+      "key": "letter-shell",
       "name": "Letter Shell",
       "description": "A simple letter shell with a body placeholder that templates fill. Demonstrates the placeholder default/fill pattern.",
       "updatedAt": "2026-05-16T00:00:00Z",
@@ -83,7 +85,7 @@
     },
     {
       "type": "stencil",
-      "slug": "letterhead",
+      "key": "letterhead",
       "name": "Letterhead",
       "description": "A page header and footer that travel with the stencil: its header applies from where it is placed, its footer covers that section.",
       "updatedAt": "2026-09-29T00:00:00Z",
@@ -91,7 +93,7 @@
     },
     {
       "type": "template",
-      "slug": "hello-world",
+      "key": "hello-world",
       "name": "Hello World",
       "description": "A minimal template to get started. Contains a heading and a paragraph with data binding.",
       "updatedAt": "2026-07-27T00:00:00Z",
@@ -99,7 +101,7 @@
     },
     {
       "type": "template",
-      "slug": "advanced-data-contract",
+      "key": "advanced-data-contract",
       "name": "Advanced Data Contract",
       "description": "A focused test template for editing local references, schema compositions, nullable unions, mixed object variants, deeply nested arrays, and nested-loop expression scopes.",
       "updatedAt": "2026-08-21T00:00:00Z",
@@ -107,7 +109,7 @@
     },
     {
       "type": "template",
-      "slug": "quality-showcase",
+      "key": "quality-showcase",
       "name": "Quality Showcase",
       "description": "Deliberately flawed: an empty block, an overlong one, and an image with no alt text, so the quality report and editor panel have real findings to show. Enable the alpha 'quality' feature to see them.",
       "updatedAt": "2026-07-17T00:00:00Z",
@@ -115,7 +117,7 @@
     },
     {
       "type": "template",
-      "slug": "simple-letter",
+      "key": "simple-letter",
       "name": "Simple Letter",
       "description": "A basic letter template with sender, recipient, subject, and body.",
       "updatedAt": "2026-04-18T00:00:00Z",
@@ -123,7 +125,7 @@
     },
     {
       "type": "template",
-      "slug": "demo-invoice",
+      "key": "demo-invoice",
       "name": "Invoice Template",
       "description": "Professional invoice with line items, tax calculation, QR payment code, and conditional notes. Demonstrates datatables, columns, tables, conditionals, expressions, and the cover-page + running pageheader pattern.",
       "updatedAt": "2026-05-17T00:00:00Z",
@@ -131,7 +133,7 @@
     },
     {
       "type": "template",
-      "slug": "officiele-snelheidsbekeuring",
+      "key": "officiele-snelheidsbekeuring",
       "name": "Verkeersboete",
       "description": "Dutch traffic-fine notice (CJIB-style). Showcases locale-aware date and number formatting via $formatDate (four distinct patterns — long-form, short, date+time, no-leading-zero) and $formatLocaleNumber (integer speeds and currency amounts). Three variants exercise the locale chain: default (inherits from tenant/app), nl-NL (Dutch month names, '1.234,56' grouping), en-US (English month names, '1,234.56' grouping).",
       "updatedAt": "2026-05-21T00:00:00Z",
@@ -139,7 +141,7 @@
     },
     {
       "type": "template",
-      "slug": "sectioned-letter",
+      "key": "sectioned-letter",
       "name": "Sectioned Letter",
       "description": "A cover, a letter and terms, each with its own page header and footer. Demonstrates headers and footers placed anywhere: a conditional cover header, a letterhead stencil, a section-start header after a page break, a header switching mid-section, footers that apply from the page they land on, and an empty footer that switches the band off.",
       "updatedAt": "2026-09-29T00:00:00Z",
@@ -147,7 +149,7 @@
     },
     {
       "type": "template",
-      "slug": "batch-letters",
+      "key": "batch-letters",
       "name": "Batch Letters",
       "description": "One letter per recipient in a single document: a loop repeats a page header, footer and page break, so each letter gets its own header and footer with that recipient's data.",
       "updatedAt": "2026-09-29T00:00:00Z",

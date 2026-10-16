@@ -1,8 +1,8 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "stencil",
-    "slug": "company-header",
+    "key": "company-header",
     "name": "Company Header",
     "version": 2,
     "description": "Reusable company header block with company name and separator.",

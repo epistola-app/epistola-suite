@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.system.InstallSystemCatalog
@@ -82,6 +83,7 @@ class InstalledReleaseTest : IntegrationTestBase() {
         val templateId = TemplateId(TemplateKey.of("letter"), CatalogId.default(TenantId(tenant)))
         val variant = VariantId(VariantKey.INITIAL, templateId)
         withMediator {
+            declareDependency(tenant, CatalogKey.DEFAULT, on = SYSTEM_CATALOG_KEY)
             CreateDocumentTemplate(templateId, "Letter").execute().withRequiredDataExample()
             UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("default"), themeCatalogKey = SYSTEM_CATALOG_KEY).execute()
             UpdateDraft(variant, TestTemplateBuilder.buildMinimal(name = "Letter")).execute()

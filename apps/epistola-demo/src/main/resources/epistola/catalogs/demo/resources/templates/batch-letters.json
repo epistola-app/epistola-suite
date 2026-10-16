@@ -1,11 +1,11 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "template",
-    "slug": "batch-letters",
+    "key": "batch-letters",
     "name": "Batch Letters",
     "pdfaEnabled": false,
-    "themeId": "corporate",
+    "themeKey": "corporate",
     "dataModel": {
       "type": "object",
       "properties": {
@@ -35,6 +35,7 @@
     },
     "dataExamples": [
       {
+        "key": "three-letters",
         "name": "Three letters",
         "data": {
           "companyName": "Globex Corporation",
@@ -334,7 +335,7 @@
     },
     "variants": [
       {
-        "slug": "default",
+        "key": "default",
         "title": "Default",
         "attributes": {},
         "templateModel": null,

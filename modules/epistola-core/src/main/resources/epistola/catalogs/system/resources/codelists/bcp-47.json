@@ -1,8 +1,8 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "codeList",
-    "slug": "bcp-47",
+    "key": "bcp-47",
     "name": "BCP-47 Language Tags",
     "description": "Curated subset of common BCP-47 language + region tags. Tenants needing more granularity can author additional code lists alongside this one.",
     "entries": [

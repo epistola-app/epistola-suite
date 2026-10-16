@@ -1,10 +1,10 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "template",
-    "slug": "quality-showcase",
+    "key": "quality-showcase",
     "name": "Quality Showcase",
-    "themeId": "corporate",
+    "themeKey": "corporate",
     "dataModel": {
       "type": "object",
       "properties": {
@@ -20,6 +20,7 @@
     },
     "dataExamples": [
       {
+        "key": "default",
         "name": "Default",
         "data": {
           "customerName": "Marlowe Fenwick",
@@ -161,7 +162,7 @@
           "type": "image",
           "slots": [],
           "props": {
-            "assetId": "epistola-logo",
+            "imageKey": "epistola-logo",
             "width": "90pt"
           }
         },
@@ -170,7 +171,7 @@
           "type": "image",
           "slots": [],
           "props": {
-            "assetId": "epistola-logo",
+            "imageKey": "epistola-logo",
             "decorative": true,
             "width": "40pt"
           }
@@ -217,7 +218,7 @@
     },
     "variants": [
       {
-        "slug": "default",
+        "key": "default",
         "title": "Default",
         "attributes": {},
         "templateModel": null,
