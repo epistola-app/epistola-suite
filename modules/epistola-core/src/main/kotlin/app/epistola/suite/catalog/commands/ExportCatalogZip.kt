@@ -98,7 +98,8 @@ class ExportCatalogZipHandler(
 
         val rebuilt = fingerprintService.fingerprint(retained.content)
         val released = retained.release.fingerprint
-        if (released != null && rebuilt != released) {
+        // A release recorded before 2.0 names no algorithm; match it rather than compare strings.
+        if (released != null && !fingerprintService.matchesFingerprint(retained.content, released)) {
             throw IllegalStateException(
                 "Release $version of catalog '${command.catalogKey.value}' rebuilds to fingerprint $rebuilt " +
                     "but was released as $released; its retained content has been altered.",

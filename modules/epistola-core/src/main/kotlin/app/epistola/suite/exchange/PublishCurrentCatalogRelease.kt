@@ -169,7 +169,7 @@ class PublishCurrentCatalogReleaseHandler(
         val retained = assembler.assemble(command.tenantKey, command.catalogKey, release.version)
         if (retained != null) {
             val rebuilt = fingerprintService.fingerprint(retained.content)
-            check(rebuilt == release.fingerprint) {
+            check(fingerprintService.matchesFingerprint(retained.content, release.fingerprint)) {
                 "Release ${release.version} of catalog '${command.catalogKey.value}' rebuilds to fingerprint " +
                     "$rebuilt but was released as ${release.fingerprint}; its retained content has been altered."
             }

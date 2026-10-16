@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog
 
 import app.epistola.catalog.archive.CatalogArchive
+import app.epistola.catalog.canonical.QualifiedCatalogFingerprint
 import app.epistola.catalog.protocol.CatalogInfo
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.CatalogResource
@@ -34,7 +35,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         dependencies: List<DependencyRef>?,
         assetBytes: (contentUrl: String) -> ByteArray?,
     ): String = archive(catalog, serializedDetails, dependencies, assetBytes = assetBytes).use {
-        PortableCatalogCanonicalizer.currentFingerprint(it).value
+        PortableCatalogCanonicalizer.currentQualifiedFingerprint(it).toString()
     }
 
     fun fingerprint(content: CatalogContent): String = archive(
@@ -45,7 +46,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         includeSerializedDetails = false,
     ) { contentPath ->
         content.assetContents[contentPath]
-    }.use { PortableCatalogCanonicalizer.currentFingerprint(it).value }
+    }.use { PortableCatalogCanonicalizer.currentQualifiedFingerprint(it).toString() }
 
     fun fingerprint(
         catalog: CatalogInfo,
@@ -67,7 +68,15 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         includeSerializedDetails = false,
     ) { contentPath ->
         content.assetContents[contentPath]
-    }.use { PortableCatalogCanonicalizer.matchesFingerprint(it, expected) }
+    }.use { archive ->
+        // Wire v8 names the algorithm (`v5:<hex>`) and is checked with exactly that one; a fingerprint
+        // recorded before 2.0 is bare hex, checked against the legacy forms.
+        if (QualifiedCatalogFingerprint.parse(expected) != null) {
+            PortableCatalogCanonicalizer.matchesQualifiedFingerprint(archive, expected)
+        } else {
+            PortableCatalogCanonicalizer.matchesFingerprint(archive, expected)
+        }
+    }
 
     fun requirePublishable(content: CatalogContent) {
         archive(
