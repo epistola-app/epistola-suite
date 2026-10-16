@@ -55,6 +55,13 @@ data class RenderContext(
      */
     val parameterScopes: Map<String, Map<String, Any?>> = emptyMap(),
     /**
+     * The expression scope a placeholder's **fill** renders in: the scope of the place the fill was
+     * written, which is outside the stencil that owns the placeholder. Set by [StencilNodeRenderer]
+     * on entering a stencil; null outside any stencil, and inside an instance marked
+     * [StencilNodeKeys.PROP_LEGACY_FILL_SCOPE], whose fills keep the stencil's scope as before 2.0.
+     */
+    val fillScope: ExpressionScope? = null,
+    /**
      * Pluggable schema lookup for parametrised nodes. Returns the JSON Schema
      * (as a JSON-structured `Map<String, Any?>`) describing the node's
      * parameters, or null if the node has none. Production wiring delegates to
@@ -124,6 +131,20 @@ data class RenderContext(
         return if (resolved === inheritedStyles) this else copy(inheritedStyles = resolved)
     }
 
+    /** The part of this context expressions see. */
+    fun expressionScope(): ExpressionScope = ExpressionScope(data, loopContext, parameterScopes, fillScope)
+
+    /**
+     * This context, with expressions seeing [scope] instead. Everything else — styles, fonts, page
+     * state — stays, because a fill renders where it sits even though it reads where it was written.
+     */
+    fun withExpressionScope(scope: ExpressionScope): RenderContext = copy(
+        data = scope.data,
+        loopContext = scope.loopContext,
+        parameterScopes = scope.parameterScopes,
+        fillScope = scope.fillScope,
+    )
+
     /**
      * Data map with engine-provided scopes merged in. System parameters live
      * under `sys.*`; each named entry in [parameterScopes] (default alias
@@ -166,3 +187,12 @@ data class RenderContext(
         systemParams = systemParams + SystemParameterRegistry.buildNestedMap(mapOf("pages.total" to totalPages)),
     )
 }
+
+/** What expressions see at one place in a document: its data, loop variables and parameter scopes. */
+data class ExpressionScope(
+    val data: Map<String, Any?>,
+    val loopContext: Map<String, Any?>,
+    val parameterScopes: Map<String, Map<String, Any?>>,
+    /** The scope fills of the stencil this scope is inside render in; see [RenderContext.fillScope]. */
+    val fillScope: ExpressionScope?,
+)

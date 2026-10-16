@@ -18,6 +18,12 @@ package app.epistola.generation.pdf
 object StencilNodeKeys {
     const val NODE_TYPE = "stencil"
     const val PROP_STENCIL_ID = "stencilId"
+
+    /**
+     * Set by the 2.0 upgrade on an instance whose fills use the stencil's parameters in a way the
+     * upgrade could not rewrite: its fills keep seeing the stencil's scope, as they did before 2.0.
+     */
+    const val PROP_LEGACY_FILL_SCOPE = "legacyFillScope"
 }
 
 object PlaceholderNodeKeys {

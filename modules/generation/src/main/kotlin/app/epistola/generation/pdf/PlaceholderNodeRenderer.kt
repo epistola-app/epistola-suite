@@ -17,6 +17,10 @@ import com.itextpdf.layout.element.IElement
  *
  * The renderer dispatches by slot name (not position) and falls back to default
  * when the fill slot is empty.
+ *
+ * Expressions are scoped lexically: the fill is the embedding document's content and reads
+ * [RenderContext.fillScope] — what was in scope where the stencil instance sits — while the default
+ * reads the stencil's own scope, `params` included.
  */
 class PlaceholderNodeRenderer : NodeRenderer {
     override fun render(
@@ -33,12 +37,12 @@ class PlaceholderNodeRenderer : NodeRenderer {
         }
         val fillSlot = fillSlotId?.let { document.slots[it] }
 
-        val targetSlotId = if (fillSlot != null && fillSlot.children.isNotEmpty()) {
-            fillSlotId
-        } else {
-            defaultSlotId
-        } ?: return emptyList()
-
-        return registry.renderSlot(targetSlotId, document, context)
+        if (fillSlotId != null && fillSlot != null && fillSlot.children.isNotEmpty()) {
+            // The fill reads the scope it was written in (outside the stencil); the default is the
+            // stencil's own content and reads the stencil's scope.
+            val fillContext = context.fillScope?.let(context::withExpressionScope) ?: context
+            return registry.renderSlot(fillSlotId, document, fillContext)
+        }
+        return defaultSlotId?.let { registry.renderSlot(it, document, context) } ?: emptyList()
     }
 }
