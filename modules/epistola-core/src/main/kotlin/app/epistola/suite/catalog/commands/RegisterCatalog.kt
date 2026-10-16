@@ -72,7 +72,7 @@ class RegisterCatalogHandler(
             command.authCredential,
         )
 
-        val catalogKey = CatalogKey.of(manifest.catalog.slug)
+        val catalogKey = CatalogKey.of(manifest.catalog.key)
         // #692: bound the manifest name to catalogs.name VARCHAR(255) before insert.
         validateCatalogNameLength(manifest.catalog.name)
 

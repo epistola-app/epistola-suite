@@ -136,7 +136,7 @@ class RunQualityChecksHandler(
         subject: QualitySubject,
         templateModel: app.epistola.suite.templates.model.TemplateDocument,
     ): Map<FontRef, Boolean> = DependencyScanner.documentFontRefs(templateModel).associateWith { ref ->
-        val slug = FontKey.validateOrNull(ref.slug) ?: return@associateWith false
+        val slug = FontKey.validateOrNull(ref.key) ?: return@associateWith false
         val catalog = ref.catalogKey?.let { CatalogKey.validateOrNull(it) ?: return@associateWith false }
             ?: subject.catalogKey
         ResolveFontFace(

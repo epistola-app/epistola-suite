@@ -16,7 +16,7 @@ import app.epistola.suite.stencils.queries.StencilInstance
 import tools.jackson.databind.node.ObjectNode
 
 internal fun Stencil.toDto(status: ResourceStatus) = StencilDto(
-    slug = id.value,
+    key = id.value,
     tenantId = tenantKey.value,
     name = name,
     description = description,
@@ -27,7 +27,7 @@ internal fun Stencil.toDto(status: ResourceStatus) = StencilDto(
 )
 
 internal fun Stencil.toSummaryDto(status: ResourceStatus) = StencilSummaryDto(
-    slug = id.value,
+    key = id.value,
     tenantId = tenantKey.value,
     name = name,
     description = description,
@@ -38,7 +38,7 @@ internal fun Stencil.toSummaryDto(status: ResourceStatus) = StencilSummaryDto(
 )
 
 internal fun StencilSummaryWithVersionInfo.toSummaryDto(status: ResourceStatus) = StencilSummaryDto(
-    slug = id.value,
+    key = id.value,
     tenantId = tenantKey.value,
     name = name,
     description = description,

@@ -116,15 +116,15 @@ class FontCache(
 
     private fun resolveReferencedFont(ref: FontRef, weight: Int, italic: Boolean): PdfFont? {
         val resolver = fontFamilyResolver ?: return null
-        val cacheKey = "ref:${ref.catalogKey.orEmpty()}|${ref.slug}|$weight|$italic"
+        val cacheKey = "ref:${ref.catalogKey.orEmpty()}|${ref.key}|$weight|$italic"
         fonts[cacheKey]?.let { return it }
-        val face = resolver.resolve(ref.catalogKey, ref.slug, weight, italic)
+        val face = resolver.resolve(ref.catalogKey, ref.key, weight, italic)
         if (face == null) {
-            val familyKey = "${ref.catalogKey.orEmpty()}|${ref.slug}"
+            val familyKey = "${ref.catalogKey.orEmpty()}|${ref.key}"
             if (warnedUnresolved.add(familyKey)) {
                 log.warn(
                     "Font ref '{}' (catalog '{}', weight {}, italic {}) could not be resolved; falling back to the built-in font",
-                    ref.slug,
+                    ref.key,
                     ref.catalogKey ?: "<owning>",
                     weight,
                     italic,

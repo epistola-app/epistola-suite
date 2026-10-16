@@ -70,13 +70,13 @@ data class CatalogMetadata(
         } else {
             presentation?.let {
                 CatalogPresentation(
-                    iconAssetSlug = it.iconAssetSlug?.takeIf(availableAssetSlugs::contains),
-                    imageAssetSlugs = it.imageAssetSlugs.filter(availableAssetSlugs::contains),
+                    iconImageKey = it.iconImageKey?.takeIf(availableAssetSlugs::contains),
+                    imageKeys = it.imageKeys.filter(availableAssetSlugs::contains),
                 )
             }
         }
         return CatalogInfo.create(
-            slug = slug,
+            key = slug,
             name = name,
             description = description,
             attributes = attributes,

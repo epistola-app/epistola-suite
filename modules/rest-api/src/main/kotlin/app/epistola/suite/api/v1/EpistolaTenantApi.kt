@@ -180,7 +180,7 @@ class EpistolaTenantApi :
         // `CreateAttributeDefinition.init { … }` and surfaces as a 4xx.
         val codeListId = createAttributeRequest.codeListBinding?.let { binding ->
             CodeListId(
-                key = CodeListKey.of(binding.slug),
+                key = CodeListKey.of(binding.key),
                 catalogId = CatalogId(CatalogKey.of(binding.catalog), tenantIdComposite),
             )
         }
@@ -221,7 +221,7 @@ class EpistolaTenantApi :
             ?: throw AttributeNotFoundException(attributeIdComposite.tenantKey, attributeIdComposite.catalogKey, attributeIdComposite.key)
         val codeListId = if (updateAttributeRequest.codeListBinding != null) {
             CodeListId(
-                key = CodeListKey.of(updateAttributeRequest.codeListBinding!!.slug),
+                key = CodeListKey.of(updateAttributeRequest.codeListBinding!!.key),
                 catalogId = CatalogId(CatalogKey.of(updateAttributeRequest.codeListBinding!!.catalog), tenantIdComposite),
             )
         } else {

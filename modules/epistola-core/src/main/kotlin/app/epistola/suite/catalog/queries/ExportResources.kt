@@ -54,7 +54,7 @@ class ExportThemesHandler(
         if (query.slugs != null) q.bindList("slugs", query.slugs)
         q.map { rs, _ ->
             ThemeResource(
-                slug = rs.getString("id"),
+                key = rs.getString("id"),
                 name = rs.getString("name"),
                 description = rs.getString("description"),
                 documentStyles = rs.getString("document_styles")?.let { objectMapper.readValue(it, DocumentStyles::class.java) } ?: emptyMap(),
@@ -115,13 +115,13 @@ class ExportAttributesHandler(
                 // catalogKey so `DependencyRef.CodeList` can be matched.
                 CodeListBindingRef(
                     catalogKey = if (bindingCatalogKey == ownCatalogKey) null else bindingCatalogKey,
-                    slug = bindingSlug,
+                    key = bindingSlug,
                 )
             } else {
                 null
             }
             AttributeResource(
-                slug = rs.getString("id"),
+                key = rs.getString("id"),
                 name = rs.getString("display_name"),
                 allowedValues = allowedValues,
                 codeListBinding = binding,
@@ -207,7 +207,7 @@ class ExportCodeListsHandler(
 
         codeLists.map { (catalogKey, slug, names) ->
             CodeListResource(
-                slug = slug,
+                key = slug,
                 name = names.first,
                 description = names.second,
                 entries = entriesByList[catalogKey to slug] ?: emptyList(),
@@ -266,9 +266,8 @@ class ExportStencilsHandler(
                 objectMapper.readValue(it, Map::class.java) as Map<String, Any?>
             }
             StencilResource(
-                slug = rs.getString("id"),
+                key = rs.getString("id"),
                 name = rs.getString("name"),
-                version = rs.getInt("version"),
                 description = rs.getString("description"),
                 tags = tags,
                 content = objectMapper.readValue(rs.getString("content"), TemplateDocument::class.java),
@@ -360,7 +359,7 @@ class ExportFontsHandler(
 
         fonts.map { font ->
             FontResource(
-                slug = font.slug,
+                key = font.slug,
                 name = font.name,
                 kind = font.kind,
                 variants = variantsByFont[font.catalogKey to font.slug] ?: emptyList(),

@@ -111,7 +111,7 @@ class UpgradeCatalogHandler(
 
         // 1. Fetch manifest (once — reused for install and stale check)
         val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
-        val manifestSlugs = manifest.resources.groupBy({ it.type }, { it.slug })
+        val manifestSlugs = manifest.resources.groupBy({ it.type }, { it.key })
 
         // 2. Find which resources are currently installed locally
         val installedSlugs = analyzer.installedByType(command.tenantKey, command.catalogKey)

@@ -66,7 +66,7 @@ class StencilCrossCatalogDependencyTest : IntegrationTestBase() {
         }
 
         val dependencies = manifestOf(zip.zipBytes).dependencies.orEmpty()
-        assertThat(dependencies).contains(DependencyRef.Font(catalogKey = SYSTEM_CATALOG_KEY.value, slug = "inter"))
+        assertThat(dependencies).contains(DependencyRef.Font(catalogKey = SYSTEM_CATALOG_KEY.value, key = "inter"))
     }
 
     @Test
@@ -100,7 +100,7 @@ class StencilCrossCatalogDependencyTest : IntegrationTestBase() {
         root = "root",
         nodes = mapOf("root" to Node(id = "root", type = "root")),
         slots = emptyMap(),
-        themeRef = ThemeRefOverride(themeId = "brand"),
+        themeRef = ThemeRefOverride(themeKey = "brand"),
     )
 
     private fun bindsSystemFont(): TemplateDocument = TemplateDocument(

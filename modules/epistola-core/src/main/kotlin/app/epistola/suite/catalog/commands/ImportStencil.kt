@@ -41,12 +41,17 @@ import tools.jackson.databind.ObjectMapper
  *      - `RENUMBER` — inserts as `MAX(version)+1`, returns the new number;
  *        the orchestrator uses this to rewrite stencil-node pins in the
  *        templates from the same ZIP
+ *
+ * Wire v8 carries no stencil version ([version] null). Interim, until stencils
+ * lose their versions in the suite too: content equal to the latest published
+ * version is `SKIPPED`, anything else is published as `MAX(version)+1`. There
+ * is no conflict, because nothing in a v8 archive pins a stencil version.
  */
 data class ImportStencil(
     val tenantId: TenantId,
     val catalogKey: CatalogKey = CatalogKey.DEFAULT,
     val slug: String,
-    val version: Int,
+    val version: Int?,
     val name: String,
     val description: String? = null,
     val tags: List<String> = emptyList(),
@@ -135,6 +140,10 @@ class ImportStencilHandler(
                 .bind("stencilKey", stencilKey)
                 .execute()
 
+            if (command.version == null) {
+                return@inTransaction importUnversioned(handle, command, stencilKey, stencilRowExisted, contentJson, parameterSchemaJson, auditUser)
+            }
+
             // Is there already a published row for the requested (stencil, version)?
             // Compare JSONB by value, not text — postgres normalises whitespace and
             // object-key order so semantic equality is the right call. The parameter
@@ -207,6 +216,53 @@ class ImportStencilHandler(
                 }
             }
         }
+    }
+
+    private fun importUnversioned(
+        handle: org.jdbi.v3.core.Handle,
+        command: ImportStencil,
+        stencilKey: StencilKey,
+        stencilRowExisted: Boolean,
+        contentJson: String,
+        parameterSchemaJson: String?,
+        auditUser: java.util.UUID?,
+    ): ImportStencilResult {
+        val latestMatching = handle.createQuery(
+            """
+            SELECT id, (content = :content::jsonb
+                        AND parameter_schema IS NOT DISTINCT FROM :parameterSchema::jsonb) AS matches
+            FROM stencil_versions
+            WHERE tenant_key = :tenantKey AND stencil_resource_id = ${stencilAtAddress("tenantKey", "catalogKey", "stencilKey")}
+              AND status = 'published'
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+        )
+            .bind("tenantKey", command.tenantKey)
+            .bind("catalogKey", command.catalogKey)
+            .bind("stencilKey", stencilKey)
+            .bind("content", contentJson)
+            .bind("parameterSchema", parameterSchemaJson)
+            .map { rs, _ -> rs.getInt("id").takeIf { rs.getBoolean("matches") } }
+            .findOne()
+            .orElse(null)
+        if (latestMatching != null) {
+            return ImportStencilResult(status = InstallStatus.SKIPPED, assignedVersion = latestMatching, wasRenumbered = false)
+        }
+        val newVersion = handle.createQuery(
+            "SELECT COALESCE(MAX(id), 0) + 1 FROM stencil_versions WHERE tenant_key = :tenantKey AND stencil_resource_id = ${stencilAtAddress("tenantKey", "catalogKey", "stencilKey")}",
+        )
+            .bind("tenantKey", command.tenantKey)
+            .bind("catalogKey", command.catalogKey)
+            .bind("stencilKey", stencilKey)
+            .mapTo(Int::class.java)
+            .one()
+        insertVersion(handle, command, stencilKey, newVersion, contentJson, parameterSchemaJson, auditUser)
+        return ImportStencilResult(
+            status = if (stencilRowExisted) InstallStatus.UPDATED else InstallStatus.INSTALLED,
+            assignedVersion = newVersion,
+            wasRenumbered = false,
+        )
     }
 
     private fun insertVersion(

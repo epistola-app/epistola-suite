@@ -85,7 +85,7 @@ class EpistolaCatalogApi : CatalogsApi {
                 items = slice.items.map { catalog ->
                     val authored = catalog.type == CatalogType.AUTHORED
                     CatalogDto(
-                        slug = catalog.id.value,
+                        key = catalog.id.value,
                         name = catalog.name,
                         description = catalog.description,
                         type = CatalogDto.Type.valueOf(catalog.type.name),
@@ -223,7 +223,7 @@ class EpistolaCatalogApi : CatalogsApi {
 
                 else -> ResourceChangeDto.Change.READY
             }
-            change?.let { ResourceChangeDto(type = resource.type, slug = resource.slug, change = it) }
+            change?.let { ResourceChangeDto(type = resource.type, key = resource.slug, change = it) }
         }
         return CatalogChangesDto(
             latestRelease = changes.latestVersion,
@@ -281,13 +281,13 @@ class EpistolaCatalogApi : CatalogsApi {
                 installResults = result.installResults.map {
                     CatalogInstallResultDto(
                         type = it.type,
-                        slug = it.slug,
+                        key = it.slug,
                         status = CatalogInstallResultDto.Status.valueOf(it.status.name),
                         errorMessage = it.errorMessage,
                     )
                 },
                 removedResources = result.removedResources.map {
-                    RemovedCatalogResourceDto(type = it.type, slug = it.slug)
+                    RemovedCatalogResourceDto(type = it.type, key = it.slug)
                 },
                 aborted = result.aborted,
                 previousVersion = result.previousVersion,

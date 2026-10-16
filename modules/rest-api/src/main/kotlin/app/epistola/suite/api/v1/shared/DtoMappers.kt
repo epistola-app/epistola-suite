@@ -24,13 +24,13 @@ import app.epistola.suite.tenants.Tenant
 import tools.jackson.databind.ObjectMapper
 
 internal fun Tenant.toDto() = TenantDto(
-    slug = id.value,
+    key = id.value,
     name = name,
     createdAt = createdAt,
 )
 
 internal fun VariantAttributeDefinition.toDto() = AttributeDto(
-    slug = id.value,
+    key = id.value,
     tenantId = tenantKey.value,
     catalog = catalogKey.value,
     displayName = displayName,
@@ -44,19 +44,19 @@ internal fun VariantAttributeDefinition.toDto() = AttributeDto(
     lastModified = updatedAt,
     description = null,
     codeListBinding = codeListId?.let { id ->
-        AttributeDtoCodeListBinding(catalog = id.catalogKey.value, slug = id.key.value)
+        AttributeDtoCodeListBinding(catalog = id.catalogKey.value, key = id.key.value)
     },
 )
 
 internal fun Environment.toDto() = EnvironmentDto(
-    slug = id.value,
+    key = id.value,
     tenantId = tenantKey.value,
     name = name,
     createdAt = createdAt,
 )
 
 internal fun DocumentTemplate.toSummaryDto() = TemplateSummaryDto(
-    slug = id.value,
+    key = id.value,
     tenantId = tenantKey.value,
     name = name,
     createdAt = createdAt,
@@ -69,7 +69,7 @@ internal fun DocumentTemplate.toDto(
     contractVersion: ContractVersion? = null,
     status: WorkingCopyStatus,
 ) = TemplateDto(
-    slug = id.value,
+    key = id.value,
     tenantId = tenantKey.value,
     name = name,
     schema = contractVersion?.schema?.let { objectMapper.valueToTree(it) },
@@ -87,7 +87,7 @@ internal fun DocumentTemplate.toDto(
 )
 
 internal fun VariantSummary.toDto(status: ResourceStatus) = VariantSummaryDto(
-    slug = id.value,
+    key = id.value,
     title = title,
     attributes = attributes,
     isDefault = isDefault,
@@ -95,7 +95,7 @@ internal fun VariantSummary.toDto(status: ResourceStatus) = VariantSummaryDto(
 )
 
 internal fun TemplateVariant.toDto(status: ResourceStatus) = VariantDto(
-    slug = id.value,
+    key = id.value,
     templateId = templateKey.value,
     title = title,
     description = description,

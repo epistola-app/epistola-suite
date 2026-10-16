@@ -114,7 +114,7 @@ class GetCatalogResourceChangesHandler(
         }.orEmpty()
 
         // The working copy names a resource it still has; the release names one dropped since.
-        val names = content.resourceEntries.associate { "${it.type}/${it.slug}" to it.name } +
+        val names = content.resourceEntries.associate { "${it.type}/${it.key}" to it.name } +
             released.filterKeys { it !in working }.mapValues { (_, entry) -> entry.name }
 
         fun change(key: String, state: CatalogResourceState) = CatalogResourceChange(

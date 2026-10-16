@@ -18,7 +18,7 @@ import app.epistola.suite.attributes.codelists.model.CodeListSource
  * lists arrive as inline rows in the import path.
  */
 internal fun CodeList.toDto() = CodeListDto(
-    slug = slug.value,
+    key = slug.value,
     tenantId = tenantKey.value,
     catalog = catalogKey.value,
     displayName = displayName,

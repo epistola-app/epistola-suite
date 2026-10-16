@@ -85,7 +85,7 @@ class EpistolaCodeListApi : CodeListsApi {
     ): ResponseEntity<CodeListDto> {
         val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val catalogIdComposite = CatalogId(CatalogKey.of(catalogId), tenantIdComposite)
-        val codeListId = CodeListId(CodeListKey.of(createCodeListRequest.slug), catalogIdComposite)
+        val codeListId = CodeListId(CodeListKey.of(createCodeListRequest.key), catalogIdComposite)
         val codeList = CreateCodeList(
             id = codeListId,
             displayName = createCodeListRequest.displayName,

@@ -100,20 +100,20 @@ class CatalogContentBuilder(
 
         fun addResource(type: String, slug: String, name: String, description: String?, resource: CatalogResource) {
             resourceEntries.add(
-                ResourceEntry(type = type, slug = slug, name = name, description = description, detailUrl = "./resources/$type/$slug.json"),
+                ResourceEntry(type = type, key = slug, name = name, description = description, detailUrl = "./resources/$type/$slug.json"),
             )
             // The catalog has one wire version — stamp every detail (and the
             // manifest) with the same catalog-wide CATALOG_SCHEMA_VERSION.
             resourceDetails["$type/$slug"] = ResourceDetail(schemaVersion = CATALOG_SCHEMA_VERSION, resource = resource)
         }
 
-        for (codeList in codeLists) addResource("codeList", codeList.slug, codeList.name, codeList.description, codeList)
-        for (font in fonts) addResource("font", font.slug, font.name, null, font)
-        for (attr in attributes) addResource("attribute", attr.slug, attr.name, null, attr)
-        for (theme in themes) addResource("theme", theme.slug, theme.name, theme.description, theme)
-        for (stencil in stencils) addResource("stencil", stencil.slug, stencil.name, stencil.description, stencil)
-        for (image in assets) addResource("image", image.slug, image.name, null, image)
-        for (template in templates) addResource("template", template.slug, template.name, null, template)
+        for (codeList in codeLists) addResource("codeList", codeList.key, codeList.name, codeList.description, codeList)
+        for (font in fonts) addResource("font", font.key, font.name, null, font)
+        for (attr in attributes) addResource("attribute", attr.key, attr.name, null, attr)
+        for (theme in themes) addResource("theme", theme.key, theme.name, theme.description, theme)
+        for (stencil in stencils) addResource("stencil", stencil.key, stencil.name, stencil.description, stencil)
+        for (image in assets) addResource("image", image.key, image.name, null, image)
+        for (template in templates) addResource("template", template.key, template.name, null, template)
 
         // Keyed by the archive path each binary takes, which is what the canonicaliser and the
         // writer both ask for. It used to key by a filename parsed out of contentUrl and recover
@@ -123,7 +123,7 @@ class CatalogContentBuilder(
         for (detail in resourceDetails.values) {
             when (val resource = detail.resource) {
                 is ImageResource -> {
-                    val content = GetAssetContent(tenantId = tenantKey, assetId = AssetKey.of(resource.slug)).query()
+                    val content = GetAssetContent(tenantId = tenantKey, assetId = AssetKey.of(resource.key)).query()
                         ?: continue
                     assetContents[resource.contentPath()] = content.content
                 }
@@ -151,7 +151,7 @@ class CatalogContentBuilder(
                 slug = catalogKey.value,
                 name = catalog.name,
                 description = catalog.description,
-                availableAssetSlugs = if (catalog.type == CatalogType.SUBSCRIBED) assets.mapTo(mutableSetOf()) { it.slug } else null,
+                availableAssetSlugs = if (catalog.type == CatalogType.SUBSCRIBED) assets.mapTo(mutableSetOf()) { it.key } else null,
             ),
             resourceEntries = resourceEntries,
             resourceDetails = resourceDetails,
@@ -248,9 +248,9 @@ class CatalogContentBuilder(
                 ?: return@mapNotNull null
 
             TemplateResource(
-                slug = template.id,
+                key = template.id,
                 name = template.name,
-                themeId = template.themeKey,
+                themeKey = template.themeKey,
                 themeCatalogKey = template.themeCatalogKey,
                 pdfaEnabled = template.pdfaEnabled,
                 dataModel = template.dataModel?.let {
@@ -265,7 +265,7 @@ class CatalogContentBuilder(
                 templateModel = defaultModel,
                 variants = variants.map { v ->
                     VariantEntry(
-                        slug = v.id,
+                        key = v.id,
                         title = v.title,
                         attributes = v.attributes?.let { objectMapper.readValue(it, objectMapper.typeFactory.constructMapType(Map::class.java, String::class.java, String::class.java)) },
                         templateModel = if (v.id == defaultVariant.id) {
@@ -303,14 +303,14 @@ class CatalogContentBuilder(
         manifestResources: List<ResourceEntry>,
         catalogKey: String,
     ): List<DependencyRef>? {
-        val ownResources = manifestResources.map { "${it.type}:${it.slug}" }.toSet()
+        val ownResources = manifestResources.map { "${it.type}:${it.key}" }.toSet()
         val dependencies = mutableSetOf<DependencyRef>()
 
         fun addFontRef(ref: FontRef) {
             val target = ref.catalogKey ?: return
             if (target == catalogKey) return
-            if ("font:${ref.slug}" in ownResources) return
-            dependencies.add(DependencyRef.Font(catalogKey = target, slug = ref.slug))
+            if ("font:${ref.key}" in ownResources) return
+            dependencies.add(DependencyRef.Font(catalogKey = target, key = ref.key))
         }
         for (theme in themes) {
             DependencyScanner.themeFontRefs(theme.documentStyles, theme.blockStylePresets).forEach(::addFontRef)
@@ -320,7 +320,7 @@ class CatalogContentBuilder(
             val binding = attribute.codeListBinding ?: continue
             val target = binding.catalogKey ?: continue
             if (target == catalogKey) continue
-            dependencies.add(DependencyRef.CodeList(catalogKey = target, slug = binding.slug))
+            dependencies.add(DependencyRef.CodeList(catalogKey = target, key = binding.key))
         }
 
         fun scanDocument(doc: TemplateDocument) {
@@ -329,8 +329,8 @@ class CatalogContentBuilder(
             val themeRef = doc.themeRef
             if (themeRef is app.epistola.template.model.ThemeRefOverride) {
                 val refCatalog = themeRef.catalogKey
-                if (refCatalog != null && refCatalog != catalogKey && "theme:${themeRef.themeId}" !in ownResources) {
-                    dependencies.add(DependencyRef.Theme(catalogKey = refCatalog, slug = themeRef.themeId))
+                if (refCatalog != null && refCatalog != catalogKey && "theme:${themeRef.themeKey}" !in ownResources) {
+                    dependencies.add(DependencyRef.Theme(catalogKey = refCatalog, key = themeRef.themeKey))
                 }
             }
 
@@ -340,7 +340,7 @@ class CatalogContentBuilder(
                         val refCatalog = node.props?.get("catalogKey") as? String
                         val stencilId = node.props?.get("stencilId") as? String
                         if (refCatalog != null && stencilId != null && refCatalog != catalogKey && "stencil:$stencilId" !in ownResources) {
-                            dependencies.add(DependencyRef.Stencil(catalogKey = refCatalog, slug = stencilId))
+                            dependencies.add(DependencyRef.Stencil(catalogKey = refCatalog, key = stencilId))
                         }
                     }
 
@@ -353,7 +353,7 @@ class CatalogContentBuilder(
                         val refCatalog = node.props?.get("catalogKey") as? String
                         val assetId = node.props?.get("assetId") as? String
                         if (refCatalog != null && assetId != null && refCatalog != catalogKey && "image:$assetId" !in ownResources) {
-                            dependencies.add(DependencyRef.Image(catalogKey = refCatalog, slug = assetId))
+                            dependencies.add(DependencyRef.Image(catalogKey = refCatalog, key = assetId))
                         }
                     }
                 }
@@ -362,8 +362,8 @@ class CatalogContentBuilder(
 
         for (template in templates) {
             val themeCatalog = template.themeCatalogKey
-            if (template.themeId != null && "theme:${template.themeId}" !in ownResources && themeCatalog != null && themeCatalog != catalogKey) {
-                dependencies.add(DependencyRef.Theme(catalogKey = themeCatalog, slug = template.themeId!!))
+            if (template.themeKey != null && "theme:${template.themeKey}" !in ownResources && themeCatalog != null && themeCatalog != catalogKey) {
+                dependencies.add(DependencyRef.Theme(catalogKey = themeCatalog, key = template.themeKey!!))
             }
             scanDocument(template.templateModel)
             template.variants.mapNotNull { it.templateModel }.forEach(::scanDocument)

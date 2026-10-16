@@ -114,7 +114,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
     ): String {
         val manifest = catalogClient.fetchManifest(manifestUrl, authType, credential)
         val serializedDetails = manifest.resources.associate { entry ->
-            "${entry.type}/${entry.slug}" to
+            "${entry.type}/${entry.key}" to
                 catalogClient.fetchBinaryContent(entry.detailUrl, manifestUrl, authType, credential)
         }
         return fingerprintFromSerializedDetails(

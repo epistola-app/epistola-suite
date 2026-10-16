@@ -153,14 +153,14 @@ class InstallFromCatalogHandler(
         val results = installTransaction.execute { status ->
             val results = staged.map { item ->
                 if (item.fetchError != null) {
-                    return@map InstallResult(type = item.entry.type, slug = item.entry.slug, status = InstallStatus.FAILED, errorMessage = item.fetchError)
+                    return@map InstallResult(type = item.entry.type, slug = item.entry.key, status = InstallStatus.FAILED, errorMessage = item.fetchError)
                 }
                 try {
                     val installStatus = installResource(command, item, manifest.release.version)
-                    InstallResult(type = item.entry.type, slug = item.entry.slug, status = installStatus)
+                    InstallResult(type = item.entry.type, slug = item.entry.key, status = installStatus)
                 } catch (e: Exception) {
-                    logger.error("Failed to install {} '{}' from catalog '{}': {}", item.entry.type, item.entry.slug, command.catalogKey, e.message, e)
-                    InstallResult(type = item.entry.type, slug = item.entry.slug, status = InstallStatus.FAILED, errorMessage = e.message)
+                    logger.error("Failed to install {} '{}' from catalog '{}': {}", item.entry.type, item.entry.key, command.catalogKey, e.message, e)
+                    InstallResult(type = item.entry.type, slug = item.entry.key, status = InstallStatus.FAILED, errorMessage = e.message)
                 }
             }
             if (results.any { it.status == InstallStatus.FAILED }) {
@@ -224,7 +224,7 @@ class InstallFromCatalogHandler(
             } catch (e: CatalogTooLargeException) {
                 throw e
             } catch (e: Exception) {
-                logger.error("Failed to fetch {} '{}' from catalog '{}': {}", entry.type, entry.slug, command.catalogKey, e.message, e)
+                logger.error("Failed to fetch {} '{}' from catalog '{}': {}", entry.type, entry.key, command.catalogKey, e.message, e)
                 StagedResource(entry, fetchError = e.message ?: "could not be fetched from the catalog source")
             }
         }
@@ -234,7 +234,7 @@ class InstallFromCatalogHandler(
         command: InstallFromCatalog,
         item: StagedResource,
         releaseVersion: String,
-    ): InstallStatus = when (val resource = requireNotNull(item.resource) { "Resource '${item.entry.slug}' was not staged" }) {
+    ): InstallStatus = when (val resource = requireNotNull(item.resource) { "Resource '${item.entry.key}' was not staged" }) {
         is TemplateResource -> installTemplate(command, resource, releaseVersion)
 
         is ThemeResource -> installTheme(command, resource)
@@ -246,7 +246,7 @@ class InstallFromCatalogHandler(
         is ImageResource -> installAsset(
             command,
             resource,
-            requireNotNull(item.binaries[resource.contentPath()]) { "Image '${resource.slug}' was not staged" },
+            requireNotNull(item.binaries[resource.contentPath()]) { "Image '${resource.key}' was not staged" },
         )
 
         is CodeListResource -> installCodeList(command, resource)
@@ -256,11 +256,11 @@ class InstallFromCatalogHandler(
 
     private fun installTemplate(command: InstallFromCatalog, resource: TemplateResource, releaseVersion: String): InstallStatus {
         val input = ImportTemplateInput(
-            slug = resource.slug,
+            slug = resource.key,
             name = resource.name,
             version = releaseVersion,
-            themeId = resource.themeId,
-            themeCatalogKey = if (resource.themeId != null) resource.themeCatalogKey ?: command.catalogKey.value else null,
+            themeId = resource.themeKey,
+            themeCatalogKey = if (resource.themeKey != null) resource.themeCatalogKey ?: command.catalogKey.value else null,
             pdfaEnabled = resource.pdfaEnabled,
             dataModel = protocolMapper.toObjectNode(resource.dataModel),
             dataExamples = resource.dataExamples?.map {
@@ -269,7 +269,7 @@ class InstallFromCatalogHandler(
             templateModel = resource.templateModel,
             variants = resource.variants.map { variant ->
                 ImportVariantInput(
-                    id = variant.slug,
+                    id = variant.key,
                     title = variant.title,
                     attributes = variant.attributes ?: emptyMap(),
                     templateModel = variant.templateModel,
@@ -286,7 +286,7 @@ class InstallFromCatalogHandler(
 
         val result = results.first()
         if (result.status == ImportStatus.FAILED) {
-            throw RuntimeException("Import failed for '${resource.slug}': ${result.errorMessage}")
+            throw RuntimeException("Import failed for '${resource.key}': ${result.errorMessage}")
         }
         return if (result.status == ImportStatus.CREATED) InstallStatus.INSTALLED else InstallStatus.UPDATED
     }
@@ -296,7 +296,7 @@ class InstallFromCatalogHandler(
         return ImportTheme(
             tenantId = tenantId,
             catalogKey = command.catalogKey,
-            slug = resource.slug,
+            slug = resource.key,
             name = resource.name,
             description = resource.description,
             documentStyles = protocolMapper.mapToDocumentStyles(resource.documentStyles),
@@ -308,16 +308,13 @@ class InstallFromCatalogHandler(
 
     private fun installStencil(command: InstallFromCatalog, resource: StencilResource): InstallStatus {
         val tenantId = TenantId(command.tenantKey)
-        // `InstallFromCatalog` installs one resource without orchestrating cross-
-        // resource renumber rewrites, so it cannot wire RENUMBER into templates.
-        // Surface FAIL conflicts as-is; the operator must use the multi-resource
-        // ZIP import path to renumber.
+        // Wire v8 carries no stencil version; ImportStencil publishes a changed stencil as its next one.
         return ImportStencil(
             tenantId = tenantId,
             catalogKey = command.catalogKey,
-            slug = resource.slug,
+            slug = resource.key,
             name = resource.name,
-            version = resource.version,
+            version = null,
             description = resource.description,
             tags = resource.tags,
             content = resource.content,
@@ -335,11 +332,11 @@ class InstallFromCatalogHandler(
         val bindingCatalog = resource.codeListBinding?.let { binding ->
             binding.catalogKey?.let(CatalogKey::of) ?: command.catalogKey
         }
-        val bindingSlug = resource.codeListBinding?.slug?.let(CodeListKey::of)
+        val bindingSlug = resource.codeListBinding?.key?.let(CodeListKey::of)
         return ImportAttribute(
             tenantId = tenantId,
             catalogKey = command.catalogKey,
-            slug = resource.slug,
+            slug = resource.key,
             displayName = resource.name,
             allowedValues = resource.allowedValues,
             codeListCatalogKey = bindingCatalog,
@@ -352,7 +349,7 @@ class InstallFromCatalogHandler(
         return ImportCodeList(
             tenantId = tenantId,
             catalogKey = command.catalogKey,
-            slug = resource.slug,
+            slug = resource.key,
             displayName = resource.name,
             description = resource.description,
             entries = resource.entries.map { wire ->
@@ -378,14 +375,14 @@ class InstallFromCatalogHandler(
         return ImportFont(
             tenantId = tenantId,
             catalogKey = command.catalogKey,
-            slug = resource.slug,
+            slug = resource.key,
             name = resource.name,
             kind = resource.kind,
             variants = resource.variants.map { entry ->
                 val faceKey = materialiseFontFace(
                     tenantId,
                     command.catalogKey,
-                    resource.slug,
+                    resource.key,
                     entry,
                     requireNotNull(binaries[entry.contentPath()]) { "font face was not staged" },
                 )
@@ -409,7 +406,7 @@ class InstallFromCatalogHandler(
         return ImportAsset(
             tenantId = tenantId,
             catalogKey = command.catalogKey,
-            id = app.epistola.suite.common.ids.AssetKey.of(resource.slug),
+            id = app.epistola.suite.common.ids.AssetKey.of(resource.key),
             name = resource.name,
             mediaType = AssetMediaType.fromMimeType(resource.mediaType),
             content = content,

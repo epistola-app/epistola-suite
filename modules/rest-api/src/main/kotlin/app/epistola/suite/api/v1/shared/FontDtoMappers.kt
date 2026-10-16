@@ -22,7 +22,7 @@ import app.epistola.suite.fonts.model.Font
  * through the UI / catalog exchange only), so there is no `toModel` direction.
  */
 internal fun Font.toDto(variants: List<FontVariantDto>) = FontDto(
-    slug = slug.value,
+    key = slug.value,
     name = name,
     kind = FontDto.Kind.forValue(kind.wire),
     catalog = catalogKey.value,

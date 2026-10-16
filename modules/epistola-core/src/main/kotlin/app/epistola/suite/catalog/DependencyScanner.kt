@@ -64,7 +64,7 @@ object DependencyScanner {
         // Scan themeRef
         val themeRef = document.themeRef
         if (themeRef is ThemeRefOverride) {
-            themeRefs.add(themeRef.themeId)
+            themeRefs.add(themeRef.themeKey)
         }
 
         // Scan all nodes for stencils and images
@@ -91,7 +91,7 @@ object DependencyScanner {
         // code lists; cross-catalog ones are declared on manifest.dependencies.
         val fontRefs = documentFontRefs(document)
             .filter { it.catalogKey == null }
-            .mapTo(mutableSetOf()) { it.slug }
+            .mapTo(mutableSetOf()) { it.key }
 
         return Dependencies(
             themeRefs = themeRefs,

@@ -59,7 +59,7 @@ class ReleaseEntryStore {
         val identities = loadIdentities(handle, tenantKey, catalogKey)
 
         for (entry in content.resourceEntries) {
-            val key = "${entry.type}/${entry.slug}"
+            val key = "${entry.type}/${entry.key}"
             // Every catalog resource is in the identity registry — the sync trigger puts it there
             // on insert, and V20260905090000 backfilled the rest. A gap is a defect in that
             // invariant, and a release is exactly where it should be noticed rather than recorded
@@ -80,7 +80,7 @@ class ReleaseEntryStore {
                 .bind("c", catalogKey)
                 .bind("version", version)
                 .bind("type", entry.type)
-                .bind("key", entry.slug)
+                .bind("key", entry.key)
                 .bind("resourceId", resourceId)
                 .bind("revision", requireNotNull(revisionDigests[key]) { "No revision retained for $key" })
                 .bind("fingerprint", requireNotNull(fingerprints[key]) { "No fingerprint computed for $key" })
@@ -192,7 +192,7 @@ class ReleaseEntryStore {
 /** The manifest entry a release entry describes, as [CatalogContent] carries it. */
 fun ReleaseEntry.toResourceEntry(): ResourceEntry = ResourceEntry(
     type = resourceType,
-    slug = resourceKey,
+    key = resourceKey,
     name = name,
     description = description,
     detailUrl = "./resources/$resourceType/$resourceKey.json",

@@ -142,9 +142,9 @@ class CatalogExportImportTest : IntegrationTestBase() {
             assertThat(imported.catalogMetadata.attributes)
                 .containsExactly(AttributeAssignment(catalogKey.value, "audience", "municipalities"))
             assertThat(imported.catalogMetadata.keywords).containsExactlyInAnyOrder("letters", "municipal")
-            assertThat(imported.catalogMetadata.presentation?.iconAssetSlug).isNotNull()
-            assertThat(imported.catalogMetadata.presentation?.imageAssetSlugs)
-                .containsExactly(imported.catalogMetadata.presentation?.iconAssetSlug)
+            assertThat(imported.catalogMetadata.presentation?.iconImageKey).isNotNull()
+            assertThat(imported.catalogMetadata.presentation?.imageKeys)
+                .containsExactly(imported.catalogMetadata.presentation?.iconImageKey)
             assertThat(imported.catalogMetadata.license?.spdxExpression).isEqualTo("CC-BY-4.0")
             assertThat(imported.catalogMetadata.license?.url)
                 .isEqualTo("https://creativecommons.org/licenses/by/4.0/")
@@ -829,9 +829,9 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 catalogKey = catalogKey,
             ).query()
 
-            assertThat(exported.map { it.slug }).doesNotContain(draftOnlyKey.value)
+            assertThat(exported.map { it.key }).doesNotContain(draftOnlyKey.value)
 
-            val publishedExport = exported.single { it.slug == publishedKey.value }
+            val publishedExport = exported.single { it.key == publishedKey.value }
             assertThat(publishedExport.content.root).isEqualTo("published-v1-root")
         }
     }
@@ -861,12 +861,12 @@ class CatalogExportImportTest : IntegrationTestBase() {
             ).execute()
 
             val exported = ExportStencils(tenantKey = tenantKey, catalogKey = sourceCatalogKey).query()
-            val resource = exported.single { it.slug == stencilSlug.value }
+            val resource = exported.single { it.key == stencilSlug.value }
 
             ImportStencil(
                 tenantId = tenantId,
                 catalogKey = targetCatalogKey,
-                slug = resource.slug,
+                slug = resource.key,
                 version = resource.version,
                 name = resource.name,
                 description = resource.description,

@@ -47,11 +47,11 @@ data class CatalogInfo(
                 name = catalog.name,
                 description = catalog.description,
                 attributes = catalog.catalogMetadata.attributes.map {
-                    CatalogAttributeInfo(catalog = it.catalog, key = it.key, value = it.value)
+                    CatalogAttributeInfo(catalog = it.catalogKey, key = it.key, value = it.value)
                 },
                 keywords = catalog.catalogMetadata.keywords,
                 presentation = catalog.catalogMetadata.presentation?.let {
-                    CatalogPresentationInfo(iconAssetSlug = it.iconAssetSlug, imageAssetSlugs = it.imageAssetSlugs)
+                    CatalogPresentationInfo(iconAssetSlug = it.iconImageKey, imageAssetSlugs = it.imageKeys)
                 },
                 license = catalog.catalogMetadata.license?.let {
                     CatalogLicenseInfo(it.name, it.spdxExpression, it.url, it.copyrightText)

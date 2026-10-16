@@ -134,7 +134,7 @@ class ThemeStyleResolver(
         // Theme cascade: variant-level > template-level > tenant-level
         // The catalog key must follow the theme key through the cascade
         val (effectiveThemeId, effectiveCatalogKey) = when (val ref = templateModel.themeRef) {
-            is ThemeRefOverride -> ThemeKey.of(ref.themeId) to (ref.catalogKey?.let { CatalogKey.of(it) } ?: templateCatalogKey)
+            is ThemeRefOverride -> ThemeKey.of(ref.themeKey) to (ref.catalogKey?.let { CatalogKey.of(it) } ?: templateCatalogKey)
             else -> null to null
         }.let { (themeId, catalogKey) ->
             if (themeId != null) {

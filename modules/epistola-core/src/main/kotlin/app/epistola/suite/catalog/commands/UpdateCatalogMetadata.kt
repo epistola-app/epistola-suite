@@ -56,12 +56,12 @@ data class UpdateCatalogMetadata(
     }
 
     private fun validatePortableMetadata() {
-        val qualifiedAttributes = attributes.map { "${it.catalog}.${it.key}" }
+        val qualifiedAttributes = attributes.map { "${it.catalogKey}.${it.key}" }
         validate("attributes", qualifiedAttributes.distinct().size == qualifiedAttributes.size) {
             "Each catalog attribute can only be assigned once."
         }
         attributes.forEach {
-            validate("attributes", CatalogKey.validateOrNull(it.catalog) != null && AttributeKey.validateOrNull(it.key) != null) {
+            validate("attributes", CatalogKey.validateOrNull(it.catalogKey) != null && AttributeKey.validateOrNull(it.key) != null) {
                 "Catalog attributes must use qualified catalog and attribute slugs."
             }
         }
@@ -75,11 +75,11 @@ data class UpdateCatalogMetadata(
             "A catalog can have at most $MAX_KEYWORDS keywords"
         }
         presentation?.let {
-            val imageSlugs = listOfNotNull(it.iconAssetSlug) + it.imageAssetSlugs
+            val imageSlugs = listOfNotNull(it.iconImageKey) + it.imageKeys
             validate("presentation", imageSlugs.all { slug -> slug.isNotBlank() && slug == slug.trim() }) {
                 "Presentation asset slugs must be non-blank and cannot start or end with whitespace."
             }
-            validate("presentation", it.imageAssetSlugs.distinct().size == it.imageAssetSlugs.size) {
+            validate("presentation", it.imageKeys.distinct().size == it.imageKeys.size) {
                 "Presentation images must be unique."
             }
         }
@@ -215,7 +215,7 @@ class UpdateCatalogMetadataHandler(
 
         validateAttributes(
             TenantId(command.tenantKey),
-            command.attributes.associate { "${it.catalog}.${it.key}" to it.value },
+            command.attributes.associate { "${it.catalogKey}.${it.key}" to it.value },
         )
         validatePresentationAssets(command)
 
@@ -249,7 +249,7 @@ class UpdateCatalogMetadataHandler(
 
     private fun validatePresentationAssets(command: UpdateCatalogMetadata) {
         val presentation = command.presentation ?: return
-        val referenced = listOfNotNull(presentation.iconAssetSlug) + presentation.imageAssetSlugs
+        val referenced = listOfNotNull(presentation.iconImageKey) + presentation.imageKeys
         if (referenced.isEmpty()) return
 
         val available = ListAssets(command.tenantKey, catalogKey = command.catalogKey).query()

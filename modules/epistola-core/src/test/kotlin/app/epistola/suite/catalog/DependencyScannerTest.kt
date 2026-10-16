@@ -19,7 +19,7 @@ class DependencyScannerTest {
         val doc = TemplateDocument(
             modelVersion = 1,
             root = "n-root",
-            themeRef = ThemeRefOverride(themeId = "corporate"),
+            themeRef = ThemeRefOverride(themeKey = "corporate"),
             nodes = mapOf("n-root" to Node(id = "n-root", type = "root", slots = emptyList())),
             slots = emptyMap(),
         )

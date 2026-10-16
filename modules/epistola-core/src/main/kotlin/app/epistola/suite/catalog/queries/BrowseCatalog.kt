@@ -155,10 +155,10 @@ class BrowseCatalogHandler(
         val resources = manifest.resources.map { entry ->
             BrowseResource(
                 type = entry.type,
-                slug = entry.slug,
+                slug = entry.key,
                 name = entry.name,
                 description = entry.description,
-                status = if ("${entry.type}:${entry.slug}" in installedKeys) ResourceStatus.INSTALLED else ResourceStatus.AVAILABLE,
+                status = if ("${entry.type}:${entry.key}" in installedKeys) ResourceStatus.INSTALLED else ResourceStatus.AVAILABLE,
             )
         }
 

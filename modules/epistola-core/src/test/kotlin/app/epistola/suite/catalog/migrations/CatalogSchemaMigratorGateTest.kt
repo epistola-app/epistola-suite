@@ -16,7 +16,7 @@ class CatalogSchemaMigratorGateTest {
     fun `current manifest binds through portable migrator`() {
         val migrated = migrator.migrateAndBindManifest(manifest(CatalogWireSchema.CURRENT_VERSION))
 
-        assertThat(migrated.manifest.catalog.slug).isEqualTo("demo")
+        assertThat(migrated.manifest.catalog.key).isEqualTo("demo")
         assertThat(migrated.catalog.sourceVersion).isEqualTo(CatalogWireSchema.CURRENT_VERSION)
     }
 

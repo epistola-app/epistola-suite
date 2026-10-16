@@ -74,7 +74,7 @@ class ExportAssetsHandler(
 
         return rows.map { row ->
             ImageResource(
-                slug = row.id,
+                key = row.id,
                 name = row.name,
                 mediaType = row.mediaType,
                 width = row.width,

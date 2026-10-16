@@ -118,7 +118,7 @@ class ReleaseRenderSource(
 
         val template = read(scope.tenantKey, release, "template", templateKey) as? TemplateResource
             ?: throw ReleaseRenderException("Release ${release.label()} does not contain template '$templateKey'")
-        val variant = template.variants.firstOrNull { it.slug == variantKey }
+        val variant = template.variants.firstOrNull { it.key == variantKey }
             ?: throw ReleaseRenderException("Release ${release.label()} has no variant '$variantKey' of template '$templateKey'")
         // The wire form hoists the default variant's model onto the template and leaves it off the
         // variant entry, so the default variant's model is the template's.
@@ -166,8 +166,8 @@ class ReleaseRenderSource(
     private fun resolveTheme(scope: Scope, tenant: Tenant, template: TemplateResource, model: TemplateDocument): Pair<CatalogKey?, ThemeResource?> {
         val ref = model.themeRef
         val (themeKey, themeCatalog) = when {
-            ref is ThemeRefOverride -> ref.themeId to ref.catalogKey?.let(CatalogKey::of)
-            template.themeId != null -> template.themeId!! to template.themeCatalogKey?.let(CatalogKey::of)
+            ref is ThemeRefOverride -> ref.themeKey to ref.catalogKey?.let(CatalogKey::of)
+            template.themeKey != null -> template.themeKey!! to template.themeCatalogKey?.let(CatalogKey::of)
             tenant.defaultThemeKey != null -> tenant.defaultThemeKey.value to tenant.defaultThemeCatalogKey
             else -> return null to null
         }

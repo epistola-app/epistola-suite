@@ -151,7 +151,7 @@ class ReleaseTargetResolver(
     ): ReleaseTarget {
         val template = renderSource.template(tenantKey, release, templateKey.value)
             ?: throw TemplateNotInReleaseException(tenantKey, release.catalogKey, release.version, templateKey, variantId = null)
-        val candidates = template.variants.map { VariantCandidate(VariantKey.of(it.slug), it.attributes.orEmpty(), it.isDefault) }
+        val candidates = template.variants.map { VariantCandidate(VariantKey.of(it.key), it.attributes.orEmpty(), it.isDefault) }
 
         val chosen = when {
             variantKey != null -> candidates.firstOrNull { it.id == variantKey }?.id

@@ -195,7 +195,7 @@ class PublishVersionHandler(
 
         val effectiveThemeKey = when (val ref = version.templateModel.themeRef) {
             is app.epistola.template.model.ThemeRefOverride ->
-                app.epistola.suite.common.ids.ThemeKey.of(ref.themeId)
+                app.epistola.suite.common.ids.ThemeKey.of(ref.themeKey)
 
             else -> null
         } ?: template?.themeKey ?: tenant?.defaultThemeKey
@@ -245,12 +245,12 @@ class PublishVersionHandler(
 
         return buildMap {
             for (ref in refs) {
-                val slug = FontKey.validateOrNull(ref.slug) ?: continue
+                val slug = FontKey.validateOrNull(ref.key) ?: continue
                 val effCatalog = ref.catalogKey?.let(CatalogKey::of) ?: owningCatalogKey
                 val fingerprint = runCatching {
                     GetFontFamilyFingerprint(versionId.tenantKey, effCatalog, slug).query()
                 }.getOrNull() ?: continue
-                put("${ref.catalogKey ?: ""}/${ref.slug}", fingerprint)
+                put("${ref.catalogKey ?: ""}/${ref.key}", fingerprint)
             }
         }
     }

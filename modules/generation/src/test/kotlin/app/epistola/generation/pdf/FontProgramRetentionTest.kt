@@ -84,7 +84,7 @@ class FontProgramRetentionTest {
         val programs = FontProgramCache()
         val first = FontCache(pdfaCompliant = true, fontFamilyResolver = resolver, fontPrograms = programs.scope())
         val second = FontCache(pdfaCompliant = true, fontFamilyResolver = resolver, fontPrograms = programs.scope())
-        val ref = FontRef(slug = "unique", catalogKey = "system")
+        val ref = FontRef(key = "unique", catalogKey = "system")
 
         val program = first.font(ref, 400, false).fontProgram
         assertNotNull(program)
@@ -96,7 +96,7 @@ class FontProgramRetentionTest {
         val programs = FontProgramCache()
         val hashing = FontFamilyResolver { _, _, _, _ -> FontFaceBytes(uniqueFont, "stored-hash") }
         val rendered = FontCache(pdfaCompliant = true, fontFamilyResolver = hashing, fontPrograms = programs.scope())
-            .font(FontRef(slug = "unique", catalogKey = "system"), 400, false).fontProgram
+            .font(FontRef(key = "unique", catalogKey = "system"), 400, false).fontProgram
 
         // Other bytes under the same hash: only a lookup by that hash can return the rendered program.
         assertSame(rendered, programs.scope().program(ByteArray(1), "stored-hash"))

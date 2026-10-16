@@ -312,7 +312,7 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
         root = "root",
         nodes = mapOf("root" to Node(id = "root", type = "root")),
         slots = emptyMap(),
-        themeRef = ThemeRefOverride(themeId = themeKey, catalogKey = catalogKey),
+        themeRef = ThemeRefOverride(themeKey = themeKey, catalogKey = catalogKey),
     )
 
     protected fun emptyTemplate(): TemplateDocument = TemplateDocument(

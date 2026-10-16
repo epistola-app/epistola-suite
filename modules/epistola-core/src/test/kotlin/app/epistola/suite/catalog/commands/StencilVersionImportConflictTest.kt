@@ -155,7 +155,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
             val zip = buildManualZip(
                 catalogSlug = key.value,
                 stencil = StencilResource(
-                    slug = stencilKey.value,
+                    key = stencilKey.value,
                     name = "C",
                     version = 1,
                     content = simpleStencil("remote"),
@@ -201,7 +201,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
             // single FAILED resource swallowed by the generic catch.
             val zip = buildManualZip(
                 catalogSlug = key.value,
-                stencil = StencilResource(slug = "sg-stencil", name = "S", version = 1, content = simpleStencil("local")),
+                stencil = StencilResource(key = "sg-stencil", name = "S", version = 1, content = simpleStencil("local")),
                 template = simpleStencil("tpl"),
                 templateDetailSchemaVersion = 99,
             )
@@ -313,7 +313,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
             val zip = buildManualZip(
                 catalogSlug = key.value,
                 stencil = StencilResource(
-                    slug = stencilKey.value,
+                    key = stencilKey.value,
                     name = "CC",
                     version = 1,
                     content = simpleStencil("remote-v1"),
@@ -382,7 +382,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
             val zip = buildManualZip(
                 catalogSlug = key.value,
                 stencil = StencilResource(
-                    slug = stencilKey.value,
+                    key = stencilKey.value,
                     name = "RR",
                     version = 1,
                     content = simpleStencil("remote"),
@@ -564,7 +564,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
             .let {
                 it.copy(
                     catalog = app.epistola.catalog.protocol.CatalogInfo.create(
-                        slug = newSlug,
+                        key = newSlug,
                         name = it.catalog.name,
                         description = it.catalog.description,
                         attributes = it.catalog.attributes,
@@ -610,10 +610,10 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
         resources.add(
             app.epistola.catalog.protocol.ResourceEntry(
                 type = "stencil",
-                slug = stencil.slug,
+                key = stencil.key,
                 name = stencil.name,
                 description = stencil.description,
-                detailUrl = "./resources/stencil/${stencil.slug}.json",
+                detailUrl = "./resources/stencil/${stencil.key}.json",
             ),
         )
         val templateKey = template?.let { TemplateKey.of("manual-template") }
@@ -621,7 +621,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
             resources.add(
                 app.epistola.catalog.protocol.ResourceEntry(
                     type = "template",
-                    slug = templateKey!!.value,
+                    key = templateKey!!.value,
                     name = templateKey.value,
                     description = null,
                     detailUrl = "./resources/template/${templateKey.value}.json",
@@ -643,18 +643,18 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
             zos.putNextEntry(ZipEntry("catalog.json"))
             zos.write(objectMapper.writeValueAsBytes(manifest))
             zos.closeEntry()
-            zos.putNextEntry(ZipEntry("resources/stencil/${stencil.slug}.json"))
+            zos.putNextEntry(ZipEntry("resources/stencil/${stencil.key}.json"))
             zos.write(objectMapper.writeValueAsBytes(ResourceDetail(schemaVersion = CATALOG_SCHEMA_VERSION, resource = stencil)))
             zos.closeEntry()
             if (template != null) {
                 val variantKey = "${templateKey!!.value}-default"
                 val tpl = app.epistola.catalog.protocol.TemplateResource(
-                    slug = templateKey.value,
+                    key = templateKey.value,
                     name = templateKey.value,
                     templateModel = template,
                     variants = listOf(
                         app.epistola.catalog.protocol.VariantEntry(
-                            slug = variantKey,
+                            key = variantKey,
                             title = null,
                             attributes = null,
                             templateModel = null,
@@ -674,7 +674,7 @@ class StencilVersionImportConflictTest : IntegrationTestBase() {
         val resources = listOf(
             app.epistola.catalog.protocol.ResourceEntry(
                 type = "stencil",
-                slug = "no-version",
+                key = "no-version",
                 name = "Legacy",
                 description = null,
                 detailUrl = "./resources/stencil/no-version.json",

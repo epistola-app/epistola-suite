@@ -16,7 +16,7 @@ import app.epistola.suite.catalog.CatalogType
  * the asset operations cannot express because their `id` is declared `format: uuid`.
  */
 internal fun Asset.toImageDto() = ImageDto(
-    slug = id.value,
+    key = id.value,
     tenantId = tenantKey.value,
     catalog = catalogKey.value,
     catalogType = when (catalogType) {

@@ -93,7 +93,7 @@ class CatalogFingerprintService(
         val manifest = catalogClient.fetchManifest(manifestUrl, authType, credential)
         val detailBytes = LinkedHashMap<String, ByteArray>()
         for (entry in manifest.resources) {
-            detailBytes["${entry.type}/${entry.slug}"] =
+            detailBytes["${entry.type}/${entry.key}"] =
                 catalogClient.fetchBinaryContent(entry.detailUrl, manifestUrl, authType, credential)
         }
         return canonicalizer.perResourceFingerprintsFromSerializedDetails(detailBytes) { contentUrl ->

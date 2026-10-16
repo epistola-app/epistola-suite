@@ -19,16 +19,16 @@ class CatalogCanonicalizerTest {
 
     private val canonicalizer = CatalogCanonicalizer(jsonMapper { addModule(kotlinModule()) })
 
-    private val catalog = CatalogInfo(slug = "demo", name = "Demo", description = "d")
+    private val catalog = CatalogInfo(key = "demo", name = "Demo", description = "d")
 
     private fun theme(slug: String, unit: Float) = ResourceDetail(
         schemaVersion = CATALOG_SCHEMA_VERSION,
-        resource = ThemeResource(slug = slug, name = slug, spacingUnit = unit),
+        resource = ThemeResource(key = slug, name = slug, spacingUnit = unit),
     )
 
     private fun asset(slug: String) = ResourceDetail(
         schemaVersion = CATALOG_SCHEMA_VERSION,
-        resource = ImageResource(slug = slug, name = slug, mediaType = "image/png", contentUrl = "./resources/asset/$slug", contentHash = "0000000000000000000000000000000000000000000000000000000000000000"),
+        resource = ImageResource(key = slug, name = slug, mediaType = "image/png", contentUrl = "./resources/asset/$slug", contentHash = "0000000000000000000000000000000000000000000000000000000000000000"),
     )
 
     @Test
@@ -63,8 +63,8 @@ class CatalogCanonicalizerTest {
     fun `fingerprint is independent of dependency order`() {
         val details = linkedMapOf("theme/x" to theme("x", 4f))
         val depsA = listOf(
-            DependencyRef.Font(catalogKey = "system", slug = "inter"),
-            DependencyRef.Theme(catalogKey = "shared", slug = "base"),
+            DependencyRef.Font(catalogKey = "system", key = "inter"),
+            DependencyRef.Theme(catalogKey = "shared", key = "base"),
         )
         val depsB = depsA.reversed()
         assertEquals(
@@ -77,7 +77,7 @@ class CatalogCanonicalizerTest {
     fun `fingerprint changes when catalog identity changes`() {
         val details = linkedMapOf("theme/x" to theme("x", 4f))
         val renamedCatalog = CatalogInfo.create(
-            slug = catalog.slug,
+            key = catalog.key,
             name = "Renamed",
             description = catalog.description,
             attributes = catalog.attributes,

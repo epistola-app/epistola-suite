@@ -130,14 +130,46 @@ class TemplateDocumentValidator(
         document,
         object : TemplateValidationContext {
             override val documentKind: TemplateDocumentKind = kind
-            override val allowDraftStencilReferences: Boolean = allowDraftStencilReferences
 
             override fun resolveParameterSchema(
                 node: Node,
                 document: TemplateDocument,
             ): Map<String, Any?>? = parameterSchemas.resolve(node, document)
         },
-    ).findings.filter { it.severity == ValidationSeverity.ERROR }
+    ).findings.filter { it.severity == ValidationSeverity.ERROR } +
+        if (allowDraftStencilReferences) emptyList() else stencilVersionPinFindings(document)
+
+    /**
+     * Published content must pin a published stencil version. Contract 2.0 dropped this check
+     * because its stencil references carry no version; the suite still stores pins until stencils
+     * lose their versions, so it keeps the rule here (interim).
+     */
+    private fun stencilVersionPinFindings(document: TemplateDocument): List<TemplateValidationFinding> = document.nodes.values
+        .filter { it.type == "stencil" }
+        .sortedBy(Node::id)
+        .mapNotNull { node ->
+            val props = node.props.orEmpty()
+            when {
+                props["draftVersion"] != null -> stencilPinFinding(
+                    "nodes.${node.id}.props.draftVersion",
+                    "portable catalog content cannot reference draft stencil versions",
+                )
+
+                (props["version"] as? Number)?.toInt()?.takeIf { it > 0 } == null -> stencilPinFinding(
+                    "nodes.${node.id}.props.version",
+                    "portable catalog content must reference a positive published version",
+                )
+
+                else -> null
+            }
+        }
+
+    private fun stencilPinFinding(path: String, message: String) = TemplateValidationFinding(
+        code = TemplateValidationCodes.STENCIL_REFERENCE_INVALID,
+        severity = ValidationSeverity.ERROR,
+        path = path,
+        message = message,
+    )
 
     private fun TemplateValidationFinding.asSuiteException(
         requestField: String,

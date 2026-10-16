@@ -317,7 +317,7 @@ class ThemeQueriesTest : IntegrationTestBase() {
             overrideVersionId,
             createDefaultTemplateModel(VariantKey.INITIAL).copy(
                 themeRef = ThemeRefOverride(
-                    themeId = targetTheme.key.value,
+                    themeKey = targetTheme.key.value,
                     catalogKey = targetTheme.catalogKey.value,
                 ),
             ),

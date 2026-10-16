@@ -257,7 +257,7 @@ class ImportCatalogZipHandler(
 
             CatalogImportSchemaAction.IMPORT -> {} // proceed
         }
-        val catalogKey = CatalogKey.of(manifest.catalog.slug)
+        val catalogKey = CatalogKey.of(manifest.catalog.key)
         // #692: bound the manifest name to catalogs.name VARCHAR(255). SUBSCRIBED writes
         // it directly (insert/update); AUTHORED goes through CreateCatalog (tighter cap),
         // so this only tightens the direct-write paths that had no guard.
@@ -310,11 +310,11 @@ class ImportCatalogZipHandler(
             if (missing.isNotEmpty()) {
                 val details = missing.joinToString(", ") { dep ->
                     when (dep) {
-                        is app.epistola.catalog.protocol.DependencyRef.Theme -> "theme '${dep.slug}' from catalog '${dep.catalogKey}'"
-                        is app.epistola.catalog.protocol.DependencyRef.Stencil -> "stencil '${dep.slug}' from catalog '${dep.catalogKey}'"
-                        is app.epistola.catalog.protocol.DependencyRef.Image -> "image '${dep.slug}' from catalog '${dep.catalogKey}'"
-                        is app.epistola.catalog.protocol.DependencyRef.CodeList -> "code list '${dep.slug}' from catalog '${dep.catalogKey}'"
-                        is app.epistola.catalog.protocol.DependencyRef.Font -> "font '${dep.slug}' from catalog '${dep.catalogKey}'"
+                        is app.epistola.catalog.protocol.DependencyRef.Theme -> "theme '${dep.key}' from catalog '${dep.catalogKey}'"
+                        is app.epistola.catalog.protocol.DependencyRef.Stencil -> "stencil '${dep.key}' from catalog '${dep.catalogKey}'"
+                        is app.epistola.catalog.protocol.DependencyRef.Image -> "image '${dep.key}' from catalog '${dep.catalogKey}'"
+                        is app.epistola.catalog.protocol.DependencyRef.CodeList -> "code list '${dep.key}' from catalog '${dep.catalogKey}'"
+                        is app.epistola.catalog.protocol.DependencyRef.Font -> "font '${dep.key}' from catalog '${dep.catalogKey}'"
                     }
                 }
                 throw IllegalArgumentException(
@@ -325,7 +325,7 @@ class ImportCatalogZipHandler(
         }
 
         val tenantId = TenantId(command.tenantKey)
-        val manifestSlugs = manifest.resources.groupBy({ it.type }, { it.slug })
+        val manifestSlugs = manifest.resources.groupBy({ it.type }, { it.key })
 
         // Stale-prune cases: SUBSCRIBED (always — the ZIP is the upgrade), and
         // AUTHORED REPLACE into an existing catalog (mirror it exactly). Both
@@ -395,16 +395,10 @@ class ImportCatalogZipHandler(
                     ?: throw IllegalArgumentException(
                         "Resource at ${entry.detailUrl} declared type 'stencil' but parsed as ${parsed::class.simpleName}",
                     )
-                entry.slug to stencil
+                entry.key to stencil
             }
-        val stencilConflicts = scanStencilVersionConflicts(
-            command.tenantKey,
-            catalogKey,
-            parsedStencilsBySlug.values.toList(),
-        )
-        if (stencilConflicts.isNotEmpty() && command.onStencilConflict == OnStencilConflict.FAIL) {
-            throw StencilVersionImportConflictsException(catalogKey, stencilConflicts)
-        }
+        // Wire v8 carries no stencil versions, so no stencil-version conflict can exist: ImportStencil
+        // publishes a changed stencil as its next version (interim, until stencils lose versions).
 
         // Renumber decisions collected as stencils install — handed to
         // ImportTemplates so template stencil-node pins from the same ZIP can
@@ -415,8 +409,8 @@ class ImportCatalogZipHandler(
         val results = ordered.map { entry ->
             try {
                 val resource: CatalogResource = if (entry.type == "stencil") {
-                    parsedStencilsBySlug[entry.slug]
-                        ?: error("Pre-scan produced no stencil for slug '${entry.slug}' (manifest/pre-scan out of sync)")
+                    parsedStencilsBySlug[entry.key]
+                        ?: error("Pre-scan produced no stencil for slug '${entry.key}' (manifest/pre-scan out of sync)")
                 } else {
                     val detailPath = entry.detailUrl.removePrefix("./")
                     val detailBytes = entries[detailPath]
@@ -434,7 +428,7 @@ class ImportCatalogZipHandler(
                     onStencilConflict = command.onStencilConflict,
                     stencilRenumbers = stencilRenumbers,
                 )
-                InstallResult(type = entry.type, slug = entry.slug, status = status)
+                InstallResult(type = entry.type, slug = entry.key, status = status)
             } catch (e: CatalogSchemaException) {
                 // A wire-version gate failure (too new/old/unknown) rejects the
                 // whole import and surfaces the dedicated operator remediation
@@ -442,8 +436,8 @@ class ImportCatalogZipHandler(
                 // FAILED resource by the generic catch below.
                 throw e
             } catch (e: Exception) {
-                logger.error("Failed to import {} '{}': {}", entry.type, entry.slug, e.message, e)
-                InstallResult(type = entry.type, slug = entry.slug, status = InstallStatus.FAILED, errorMessage = e.message)
+                logger.error("Failed to import {} '{}': {}", entry.type, entry.key, e.message, e)
+                InstallResult(type = entry.type, slug = entry.key, status = InstallStatus.FAILED, errorMessage = e.message)
             }
         }
 
@@ -674,7 +668,7 @@ class ImportCatalogZipHandler(
         entries: Map<String, ByteArray>,
     ): Map<String, String> {
         val detailBytesByKey = manifest.resources.mapNotNull { entry ->
-            entries[entry.detailUrl.removePrefix("./")]?.let { "${entry.type}/${entry.slug}" to it }
+            entries[entry.detailUrl.removePrefix("./")]?.let { "${entry.type}/${entry.key}" to it }
         }.toMap()
         return canonicalizer.perResourceFingerprintsFromSerializedDetails(detailBytesByKey) { contentUrl ->
             entries[contentUrl.removePrefix("./")]
@@ -693,11 +687,11 @@ class ImportCatalogZipHandler(
     ): InstallStatus = when (resource) {
         is TemplateResource -> {
             val input = ImportTemplateInput(
-                slug = resource.slug,
+                slug = resource.key,
                 name = resource.name,
                 version = version,
-                themeId = resource.themeId,
-                themeCatalogKey = if (resource.themeId != null) resource.themeCatalogKey ?: catalogKey.value else null,
+                themeId = resource.themeKey,
+                themeCatalogKey = if (resource.themeKey != null) resource.themeCatalogKey ?: catalogKey.value else null,
                 pdfaEnabled = resource.pdfaEnabled,
                 dataModel = protocolMapper.toObjectNode(resource.dataModel),
                 dataExamples = resource.dataExamples?.map {
@@ -706,7 +700,7 @@ class ImportCatalogZipHandler(
                 templateModel = resource.templateModel,
                 variants = resource.variants.map { variant ->
                     ImportVariantInput(
-                        id = variant.slug,
+                        id = variant.key,
                         title = variant.title,
                         attributes = variant.attributes ?: emptyMap(),
                         templateModel = variant.templateModel,
@@ -722,7 +716,7 @@ class ImportCatalogZipHandler(
             ).execute()
             val result = results.first()
             if (result.status == ImportStatus.FAILED) {
-                throw RuntimeException("Import failed for '${resource.slug}': ${result.errorMessage}")
+                throw RuntimeException("Import failed for '${resource.key}': ${result.errorMessage}")
             }
             if (result.status == ImportStatus.CREATED) InstallStatus.INSTALLED else InstallStatus.UPDATED
         }
@@ -730,7 +724,7 @@ class ImportCatalogZipHandler(
         is ThemeResource -> ImportTheme(
             tenantId = tenantId,
             catalogKey = catalogKey,
-            slug = resource.slug,
+            slug = resource.key,
             name = resource.name,
             description = resource.description,
             documentStyles = protocolMapper.mapToDocumentStyles(resource.documentStyles),
@@ -743,21 +737,15 @@ class ImportCatalogZipHandler(
             val result = ImportStencil(
                 tenantId = tenantId,
                 catalogKey = catalogKey,
-                slug = resource.slug,
+                slug = resource.key,
                 name = resource.name,
-                version = resource.version,
+                version = null,
                 description = resource.description,
                 tags = resource.tags,
                 content = resource.content,
                 parameterSchema = resource.parameterSchema,
                 onConflict = onStencilConflict,
             ).execute()
-            if (result.wasRenumbered) {
-                stencilRenumbers[StencilKey.of(resource.slug)] = StencilRenumber(
-                    sourceVersion = resource.version,
-                    assignedVersion = result.assignedVersion,
-                )
-            }
             result.status
         }
 
@@ -765,11 +753,11 @@ class ImportCatalogZipHandler(
             val bindingCatalog = resource.codeListBinding?.let {
                 it.catalogKey?.let(CatalogKey::of) ?: catalogKey
             }
-            val bindingSlug = resource.codeListBinding?.slug?.let(CodeListKey::of)
+            val bindingSlug = resource.codeListBinding?.key?.let(CodeListKey::of)
             ImportAttribute(
                 tenantId = tenantId,
                 catalogKey = catalogKey,
-                slug = resource.slug,
+                slug = resource.key,
                 displayName = resource.name,
                 allowedValues = resource.allowedValues,
                 codeListCatalogKey = bindingCatalog,
@@ -780,7 +768,7 @@ class ImportCatalogZipHandler(
         is app.epistola.catalog.protocol.CodeListResource -> ImportCodeList(
             tenantId = tenantId,
             catalogKey = catalogKey,
-            slug = resource.slug,
+            slug = resource.key,
             displayName = resource.name,
             description = resource.description,
             entries = resource.entries.map { wire ->
@@ -796,7 +784,7 @@ class ImportCatalogZipHandler(
         is FontResource -> app.epistola.suite.fonts.commands.ImportFont(
             tenantId = tenantId,
             catalogKey = catalogKey,
-            slug = resource.slug,
+            slug = resource.key,
             name = resource.name,
             kind = resource.kind,
             // Every variant's binary rode the ZIP as an `AssetResource`
@@ -805,7 +793,7 @@ class ImportCatalogZipHandler(
             variants = resource.variants.map { entry ->
                 val faceBytes = entries[entry.contentPath()]
                     ?: throw IllegalArgumentException("Missing font face content: ${entry.contentPath()}")
-                val faceKey = materialiseFontFace(tenantId, catalogKey, resource.slug, entry, faceBytes)
+                val faceKey = materialiseFontFace(tenantId, catalogKey, resource.key, entry, faceBytes)
                 app.epistola.suite.fonts.commands.ImportFontVariant(
                     weight = entry.weight,
                     italic = entry.italic,
@@ -825,7 +813,7 @@ class ImportCatalogZipHandler(
             // -- and this accepts them. It used to parse the slug as a UUID, because the REST
             // surface could not represent anything else; `/images` addresses an image by `slug`,
             // a plain string, and the asset operations that forced the UUID are gone.
-            val assetId = AssetKey.of(resource.slug)
+            val assetId = AssetKey.of(resource.key)
             ImportAsset(
                 tenantId = tenantId,
                 catalogKey = catalogKey,
@@ -857,7 +845,7 @@ class ImportCatalogZipHandler(
             if (themeDeps.isNotEmpty()) {
                 handle.createQuery("SELECT catalog_key, id FROM themes WHERE tenant_key = :tenantKey AND id IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
-                    .bindList("slugs", themeDeps.map { it.slug })
+                    .bindList("slugs", themeDeps.map { it.key })
                     .map { rs, _ -> "theme:${rs.getString("catalog_key")}:${rs.getString("id")}" }
                     .list()
                     .let { found.addAll(it) }
@@ -868,7 +856,7 @@ class ImportCatalogZipHandler(
             if (stencilDeps.isNotEmpty()) {
                 handle.createQuery("SELECT catalog_key, id FROM stencils WHERE tenant_key = :tenantKey AND id IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
-                    .bindList("slugs", stencilDeps.map { it.slug })
+                    .bindList("slugs", stencilDeps.map { it.key })
                     .map { rs, _ -> "stencil:${rs.getString("catalog_key")}:${rs.getString("id")}" }
                     .list()
                     .let { found.addAll(it) }
@@ -884,7 +872,7 @@ class ImportCatalogZipHandler(
                     "SELECT catalog_key, id::text FROM assets WHERE tenant_key = :tenantKey AND id::text IN (<slugs>)",
                 )
                     .bind("tenantKey", tenantKey)
-                    .bindList("slugs", imageDeps.map { it.slug })
+                    .bindList("slugs", imageDeps.map { it.key })
                     .map { rs, _ -> "image:${rs.getString("catalog_key")}:${rs.getString("id")}" }
                     .list()
                     .let { found.addAll(it) }
@@ -896,7 +884,7 @@ class ImportCatalogZipHandler(
             if (codeListDeps.isNotEmpty()) {
                 handle.createQuery("SELECT catalog_key, slug FROM code_lists WHERE tenant_key = :tenantKey AND slug IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
-                    .bindList("slugs", codeListDeps.map { it.slug })
+                    .bindList("slugs", codeListDeps.map { it.key })
                     .map { rs, _ -> "codeList:${rs.getString("catalog_key")}:${rs.getString("slug")}" }
                     .list()
                     .let { found.addAll(it) }
@@ -908,7 +896,7 @@ class ImportCatalogZipHandler(
             if (fontDeps.isNotEmpty()) {
                 handle.createQuery("SELECT catalog_key, slug FROM fonts WHERE tenant_key = :tenantKey AND slug IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
-                    .bindList("slugs", fontDeps.map { it.slug })
+                    .bindList("slugs", fontDeps.map { it.key })
                     .map { rs, _ -> "font:${rs.getString("catalog_key")}:${rs.getString("slug")}" }
                     .list()
                     .let { found.addAll(it) }
@@ -917,80 +905,12 @@ class ImportCatalogZipHandler(
 
         return deps.filter { dep ->
             when (dep) {
-                is app.epistola.catalog.protocol.DependencyRef.Theme -> "theme:${dep.catalogKey}:${dep.slug}" !in found
-                is app.epistola.catalog.protocol.DependencyRef.Stencil -> "stencil:${dep.catalogKey}:${dep.slug}" !in found
-                is app.epistola.catalog.protocol.DependencyRef.Image -> "image:${dep.catalogKey}:${dep.slug}" !in found
-                is app.epistola.catalog.protocol.DependencyRef.CodeList -> "codeList:${dep.catalogKey}:${dep.slug}" !in found
-                is app.epistola.catalog.protocol.DependencyRef.Font -> "font:${dep.catalogKey}:${dep.slug}" !in found
+                is app.epistola.catalog.protocol.DependencyRef.Theme -> "theme:${dep.catalogKey}:${dep.key}" !in found
+                is app.epistola.catalog.protocol.DependencyRef.Stencil -> "stencil:${dep.catalogKey}:${dep.key}" !in found
+                is app.epistola.catalog.protocol.DependencyRef.Image -> "image:${dep.catalogKey}:${dep.key}" !in found
+                is app.epistola.catalog.protocol.DependencyRef.CodeList -> "codeList:${dep.catalogKey}:${dep.key}" !in found
+                is app.epistola.catalog.protocol.DependencyRef.Font -> "font:${dep.catalogKey}:${dep.key}" !in found
             }
         }
-    }
-
-    /**
-     * Read-only conflict scan over every stencil in the manifest. For each
-     * (slug, version) carried by the ZIP, compares the source content against
-     * what target already has at that exact version. Returns one entry per
-     * stencil where target has a row with **different content** — same content
-     * is idempotent, missing rows are installable. No mutation; safe to run
-     * before deciding whether to proceed (FAIL aborts; RENUMBER overlays).
-     *
-     * All `(slug, version, content)` tuples are sent in a single batched query
-     * via a `VALUES` CTE, so the round-trip cost is O(1) instead of O(N).
-     */
-    private fun scanStencilVersionConflicts(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
-        stencils: List<StencilResource>,
-    ): List<StencilVersionImportConflictsException.StencilImportConflict> {
-        if (stencils.isEmpty()) return emptyList()
-
-        val valuesPlaceholders = stencils.indices.joinToString(", ") { idx ->
-            "(:slug$idx, :ver$idx, :content$idx)"
-        }
-        val sql = """
-            WITH incoming AS (
-                SELECT
-                    slug::text   AS slug,
-                    version::int AS version,
-                    content::jsonb AS content
-                FROM (VALUES $valuesPlaceholders) AS t(slug, version, content)
-            )
-            SELECT i.slug AS slug, i.version AS version
-            FROM incoming i
-            JOIN stencils s
-              ON s.tenant_key  = :tenantKey
-             AND s.catalog_key = :catalogKey
-             AND s.id          = i.slug
-            JOIN stencil_versions sv
-              ON sv.tenant_key          = s.tenant_key
-             AND sv.stencil_resource_id = s.resource_id
-             AND sv.id                  = i.version
-            WHERE sv.content <> i.content
-        """.trimIndent()
-
-        val conflictKeys: Set<Pair<String, Int>> = jdbi.withHandle<Set<Pair<String, Int>>, Exception> { handle ->
-            val query = handle.createQuery(sql)
-                .bind("tenantKey", tenantKey)
-                .bind("catalogKey", catalogKey)
-            stencils.forEachIndexed { idx, resource ->
-                query
-                    .bind("slug$idx", resource.slug)
-                    .bind("ver$idx", resource.version)
-                    .bind("content$idx", objectMapper.writeValueAsString(resource.content))
-            }
-            query.map { rs, _ -> rs.getString("slug") to rs.getInt("version") }
-                .list()
-                .toSet()
-        }
-
-        return stencils
-            .filter { (it.slug to it.version) in conflictKeys }
-            .map { resource ->
-                StencilVersionImportConflictsException.StencilImportConflict(
-                    stencilKey = StencilKey.of(resource.slug),
-                    stencilName = resource.name,
-                    version = resource.version,
-                )
-            }
     }
 }
