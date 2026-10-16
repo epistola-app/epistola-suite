@@ -4,6 +4,7 @@
 
 package app.epistola.suite.environments.commands
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.environments.DeploymentAction
@@ -38,7 +39,7 @@ class UndeployReleaseHandler(
 ) : CommandHandler<UndeployRelease, Boolean> {
     override fun handle(command: UndeployRelease): Boolean = jdbi.inTransaction<Boolean, Exception> { handle ->
         val removed = handle.createQuery(
-            "DELETE FROM environment_catalog_deployments WHERE tenant_key = :t AND environment_key = :e AND catalog_key = :c RETURNING version",
+            "DELETE FROM environment_catalog_deployments WHERE tenant_key = :t AND environment_key = :e AND catalog_id = ${catalogAt("t", "c")} RETURNING version",
         )
             .bind("t", command.environmentId.tenantKey)
             .bind("e", command.environmentId.key)

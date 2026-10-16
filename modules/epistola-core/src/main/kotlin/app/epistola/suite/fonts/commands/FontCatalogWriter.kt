@@ -4,6 +4,7 @@
 
 package app.epistola.suite.fonts.commands
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
@@ -76,14 +77,14 @@ class FontCatalogWriter {
         val tenantKey = tenantId.key
         val keyed = fonts.map { it to FontKey.of(it.slug) }
         val tuples = keyed.indices.joinToString(",\n") { i ->
-            "(:slug$i, :tenantKey, :catalogKey, :name$i, :kind$i, NOW(), NOW())"
+            "(:slug$i, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, :name$i, :kind$i, NOW(), NOW())"
         }
         val upsert = handle.createQuery(
             """
-            INSERT INTO fonts (slug, tenant_key, catalog_key, name, kind, created_at, updated_at)
+            INSERT INTO fonts (slug, tenant_key, catalog_id, name, kind, created_at, updated_at)
             VALUES
             $tuples
-            ON CONFLICT (tenant_key, catalog_key, slug) DO UPDATE
+            ON CONFLICT (tenant_key, catalog_id, slug) DO UPDATE
             SET name       = EXCLUDED.name,
                 kind       = EXCLUDED.kind,
                 updated_at = NOW()

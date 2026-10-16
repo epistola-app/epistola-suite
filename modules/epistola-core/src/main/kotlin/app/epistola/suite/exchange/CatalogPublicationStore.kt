@@ -5,6 +5,7 @@
 package app.epistola.suite.exchange
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
@@ -96,8 +97,8 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
         handle.createUpdate(
             """
             INSERT INTO catalog_release_publications
-                (id, tenant_key, catalog_key, version, fingerprint, namespace, status, idempotency_key)
-            VALUES (:id, :tenantKey, :catalogKey, :version, :fingerprint, :namespace, :status, :idempotencyKey)
+                (id, tenant_key, catalog_id, version, fingerprint, namespace, status, idempotency_key)
+            VALUES (:id, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, :version, :fingerprint, :namespace, :status, :idempotencyKey)
             """,
         ).bind("id", id).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey).bind("version", version)
             .bind("fingerprint", fingerprint).bind("namespace", namespace)
@@ -166,13 +167,13 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
         .bind("id", id).map(::map).findOne().orElse(null)
 
     fun findByVersion(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): CatalogReleasePublication? = handle.createQuery(
-        "${SELECT_METADATA} WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND version = :version FOR UPDATE",
+        "${SELECT_METADATA} WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND version = :version FOR UPDATE",
     ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey).bind("version", version)
         .map(::map).findOne().orElse(null)
 
     fun list(tenantKey: TenantKey, catalogKey: CatalogKey): List<CatalogReleasePublication> = jdbi.withHandle<List<CatalogReleasePublication>, Exception> { handle ->
         handle.createQuery(
-            "$SELECT_METADATA WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey ORDER BY created_at DESC",
+            "$SELECT_METADATA WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} ORDER BY created_at DESC",
         ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey).map(::map).list()
     }
 
@@ -305,7 +306,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
             """
             UPDATE catalog_release_publications
             SET namespace = :namespace, status = 'READY', error_code = NULL, error_detail = NULL, updated_at = NOW()
-            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+            WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
               AND remote_publication_id IS NULL AND status = ANY(:active)
             """,
         ).bind("namespace", namespace).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey)
@@ -419,7 +420,11 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
     private companion object {
         /** Never reads the retained bytes; only whether any are still held. */
         const val SELECT_METADATA = """
-            SELECT id, tenant_key, catalog_key, version, namespace, status, idempotency_key,
+            SELECT id, tenant_key,
+                   (SELECT cat.catalog_key FROM catalogs cat
+                    WHERE cat.tenant_key = catalog_release_publications.tenant_key
+                      AND cat.catalog_id = catalog_release_publications.catalog_id) AS catalog_key,
+                   version, namespace, status, idempotency_key,
                    remote_publication_id, attempts,
                    EXISTS(SELECT 1 FROM catalog_release_publication_archives a
                           WHERE a.publication_id = catalog_release_publications.id) AS archive_retained,

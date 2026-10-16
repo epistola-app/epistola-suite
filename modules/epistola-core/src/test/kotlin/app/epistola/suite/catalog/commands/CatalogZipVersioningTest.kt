@@ -11,6 +11,7 @@ import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.CheckCatalogUpgrade
@@ -116,7 +117,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
     private fun manifestOf(zipBytes: ByteArray): CatalogManifest = objectMapper.readValue(unzip(zipBytes)["catalog.json"]!!, CatalogManifest::class.java)
 
     private fun themeName(tenantKey: app.epistola.suite.common.ids.TenantKey, catalogKey: CatalogKey, slug: String): String? = jdbi.withHandle<String?, Exception> { h ->
-        h.createQuery("SELECT name FROM themes WHERE tenant_key = :t AND catalog_key = :c AND id = :s")
+        h.createQuery("SELECT name FROM themes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :s")
             .bind("t", tenantKey).bind("c", catalogKey).bind("s", slug)
             .mapTo(String::class.java).findOne().orElse(null)
     }

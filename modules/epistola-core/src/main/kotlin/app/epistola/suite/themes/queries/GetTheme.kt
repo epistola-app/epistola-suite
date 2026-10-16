@@ -4,6 +4,7 @@
 
 package app.epistola.suite.themes.queries
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -29,12 +30,12 @@ class GetThemeHandler(
     override fun handle(query: GetTheme): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT t.*, c.type AS catalog_type
+            SELECT t.*, c.catalog_key AS catalog_key, c.type AS catalog_type
             FROM themes t
-            JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.id = t.catalog_key
+            JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
             WHERE t.id = :id
               AND t.tenant_key = :tenantId
-              AND t.catalog_key = :catalogKey
+              AND t.catalog_id = ${catalogAt("tenantId", "catalogKey")}
             """,
         )
             .bind("id", query.id.key)

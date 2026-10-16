@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.queries
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -33,7 +34,7 @@ class GetStencilVersionHandler(
         handle.createQuery(
             """
             SELECT $STENCIL_VERSION_COLUMNS $STENCIL_VERSION_PARENT_JOIN
-            WHERE stencil.tenant_key = :tenantId AND stencil.catalog_key = :catalogKey
+            WHERE stencil.tenant_key = :tenantId AND stencil.catalog_id = ${catalogAt("tenantId", "catalogKey")}
               AND stencil.id = :stencilId AND versions.id = :versionId
             """,
         )

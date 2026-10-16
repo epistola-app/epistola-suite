@@ -76,7 +76,7 @@ class GetThemeUsagePageHandler(
             WITH resolved_usage AS (
                 SELECT
                     template.id AS template_key,
-                    template.catalog_key AS template_catalog_key,
+                    template_catalog.catalog_key AS template_catalog_key,
                     template.name AS template_name,
                     variant.id AS variant_key,
                     variant.title AS variant_title,
@@ -102,11 +102,11 @@ class GetThemeUsagePageHandler(
                         WHEN COALESCE(version.template_model -> 'themeRef' ->> 'type', 'inherit') = 'override'
                             THEN COALESCE(
                                 version.template_model -> 'themeRef' ->> 'catalogKey',
-                                template_theme.catalog_key::text
+                                template_theme_catalog.catalog_key::text
                             )
                         WHEN template.theme_resource_id IS NOT NULL
-                            THEN template_theme.catalog_key::text
-                        ELSE tenant_theme.catalog_key::text
+                            THEN template_theme_catalog.catalog_key::text
+                        ELSE tenant_theme_catalog.catalog_key::text
                     END AS effective_theme_catalog_key
                 FROM template_versions version
                 JOIN template_variants variant
@@ -116,13 +116,22 @@ class GetThemeUsagePageHandler(
                 JOIN document_templates template
                   ON template.tenant_key = variant.tenant_key
                  AND template.resource_id = variant.template_resource_id
+                JOIN catalogs template_catalog
+                  ON template_catalog.tenant_key = template.tenant_key
+                 AND template_catalog.catalog_id = template.catalog_id
                 JOIN tenants tenant ON tenant.id = version.tenant_key
                 LEFT JOIN themes template_theme
                   ON template_theme.tenant_key = template.tenant_key
                  AND template_theme.resource_id = template.theme_resource_id
+                LEFT JOIN catalogs template_theme_catalog
+                  ON template_theme_catalog.tenant_key = template_theme.tenant_key
+                 AND template_theme_catalog.catalog_id = template_theme.catalog_id
                 LEFT JOIN themes tenant_theme
                   ON tenant_theme.tenant_key = tenant.id
                  AND tenant_theme.resource_id = tenant.default_theme_resource_id
+                LEFT JOIN catalogs tenant_theme_catalog
+                  ON tenant_theme_catalog.tenant_key = tenant_theme.tenant_key
+                 AND tenant_theme_catalog.catalog_id = tenant_theme.catalog_id
                 WHERE version.tenant_key = :tenantKey
                   AND version.status IN ('draft', 'published')
             ),

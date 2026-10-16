@@ -67,8 +67,8 @@ class CreateTenantHandler(
             // Create the tenant's default catalog so authored resources have a home.
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (id, tenant_key, registry, namespace, name, type, created_at, updated_at)
-                VALUES ('default', :tenantKey, :registry, :namespace, 'Default', 'AUTHORED', NOW(), NOW())
+                INSERT INTO catalogs (catalog_id, catalog_key, tenant_key, registry, namespace, name, type, created_at, updated_at)
+                VALUES (epistola_uuidv7(), 'default', :tenantKey, :registry, :namespace, 'Default', 'AUTHORED', NOW(), NOW())
                 """,
             )
                 .bind("tenantKey", command.id)

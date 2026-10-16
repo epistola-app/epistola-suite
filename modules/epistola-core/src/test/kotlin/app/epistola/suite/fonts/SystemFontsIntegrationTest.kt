@@ -4,6 +4,7 @@
 
 package app.epistola.suite.fonts
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -133,7 +134,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
                 FROM font_variants faces
                 JOIN fonts family ON family.tenant_key = faces.tenant_key
                                  AND family.resource_id = faces.font_resource_id
-                WHERE family.tenant_key = :tenantKey AND family.catalog_key = :catalogKey
+                WHERE family.tenant_key = :tenantKey AND family.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                 """,
             )
                 .bind("tenantKey", tenant.id.value)

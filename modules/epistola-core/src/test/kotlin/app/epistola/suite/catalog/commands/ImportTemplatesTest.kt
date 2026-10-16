@@ -68,7 +68,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                 """
                 SELECT pdfa_enabled
                 FROM document_templates
-                WHERE tenant_key = :tenantKey AND catalog_key = 'default' AND id = :templateKey
+                WHERE tenant_key = :tenantKey AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = 'default') AND id = :templateKey
                 """,
             )
                 .bind("tenantKey", tenant.id)
@@ -402,7 +402,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                 SELECT versions.referenced_paths::text
                 FROM template_versions versions
                 ${templateJoin("versions")}
-                WHERE versions.tenant_key = :tenantKey AND template.catalog_key = 'default'
+                WHERE versions.tenant_key = :tenantKey AND template.catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = 'default')
                   AND template.id = :templateKey AND versions.variant_key = 'default'
                 ORDER BY versions.id DESC LIMIT 1
                 """,
@@ -459,7 +459,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                   ON template.resource_id = versions.template_resource_id
                  AND template.tenant_key = versions.tenant_key
                 WHERE template.tenant_key = :tenantKey
-                  AND template.catalog_key = 'default'
+                  AND template.catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = 'default')
                   AND template.id = :templateKey
                   AND versions.status = 'published'
                 """,

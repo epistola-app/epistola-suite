@@ -12,6 +12,7 @@ import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogContent
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.model.sha256Hex
@@ -106,7 +107,7 @@ class ReleaseContentAssembler(
         val digest = handle.createQuery(
             """
             SELECT revision_digest FROM release_entries
-            WHERE tenant_key = :t AND catalog_key = :c AND version = :version
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
               AND resource_type = :type AND resource_key = :key
             """,
         )
@@ -293,7 +294,7 @@ class ReleaseContentAssembler(
         .createQuery(
             """
             SELECT manifest_snapshot::text AS snapshot FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_key = :c AND version = :version
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
             """,
         )
         .bind("t", tenantKey)

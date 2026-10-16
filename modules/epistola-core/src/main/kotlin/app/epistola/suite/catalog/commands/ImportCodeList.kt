@@ -8,6 +8,7 @@ import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
 import app.epistola.suite.attributes.codelists.commands.insertEntries
 import app.epistola.suite.attributes.codelists.commands.validateCodeListEntries
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
@@ -68,9 +69,9 @@ class ImportCodeListHandler(
             // INSTALLED vs UPDATED itself, without a preceding existence SELECT.
             val inserted = handle.createQuery(
                 """
-                INSERT INTO code_lists (slug, tenant_key, catalog_key, display_name, description, source_type, source_url, auth_type, created_at, updated_at)
-                VALUES (:slug, :tenantKey, :catalogKey, :displayName, :description, 'INLINE', NULL, 'NONE', NOW(), NOW())
-                ON CONFLICT (tenant_key, catalog_key, slug) DO UPDATE
+                INSERT INTO code_lists (slug, tenant_key, catalog_id, display_name, description, source_type, source_url, auth_type, created_at, updated_at)
+                VALUES (:slug, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, :displayName, :description, 'INLINE', NULL, 'NONE', NOW(), NOW())
+                ON CONFLICT (tenant_key, catalog_id, slug) DO UPDATE
                 SET display_name  = :displayName,
                     description   = :description,
                     updated_at = NOW()

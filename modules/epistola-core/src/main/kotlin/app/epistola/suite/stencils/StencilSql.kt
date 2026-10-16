@@ -4,6 +4,8 @@
 
 package app.epistola.suite.stencils
 
+import app.epistola.suite.catalog.catalogAt
+
 /**
  * The identity of the stencil a caller named by address.
  *
@@ -14,7 +16,7 @@ package app.epistola.suite.stencils
  * @param tenantParam name of the bound tenant parameter, which differs between call sites.
  */
 internal fun stencilAtAddress(tenantParam: String, catalogParam: String, keyParam: String): String = "(SELECT resource_id FROM stencils WHERE tenant_key = :$tenantParam" +
-    " AND catalog_key = :$catalogParam AND id = :$keyParam)"
+    " AND catalog_id = ${catalogAt(tenantParam, catalogParam)} AND id = :$keyParam)"
 
 /** A version's own columns plus the parent key the model still carries. Aliased `versions`/`stencil`. */
 internal const val STENCIL_VERSION_COLUMNS: String = "versions.*, stencil.id AS stencil_key"

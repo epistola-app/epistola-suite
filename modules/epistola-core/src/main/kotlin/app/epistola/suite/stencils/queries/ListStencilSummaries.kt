@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.queries
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantId
@@ -44,17 +45,18 @@ class ListStencilSummariesHandler(
         val sql = buildString {
             append(
                 """
-                    SELECT s.id, s.tenant_key, s.catalog_key, s.name, s.description, s.tags,
+                    SELECT s.id, s.tenant_key, cat.catalog_key AS catalog_key, s.name, s.description, s.tags,
                            s.created_at, s.updated_at, s.created_by, s.updated_by,
                            MAX(CASE WHEN v.status = 'published' THEN v.id END) AS latest_published_version,
                            MAX(v.id) AS latest_version
                     FROM stencils s
+                    JOIN catalogs cat ON cat.tenant_key = s.tenant_key AND cat.catalog_id = s.catalog_id
                     LEFT JOIN stencil_versions v ON v.tenant_key = s.tenant_key AND v.stencil_resource_id = s.resource_id
                     WHERE s.tenant_key = :tenantId
                     """,
             )
             if (query.catalogKey != null) {
-                append(" AND s.catalog_key = :catalogKey")
+                append(" AND s.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND (s.name ILIKE :searchTerm OR s.description ILIKE :searchTerm)")
@@ -62,7 +64,7 @@ class ListStencilSummariesHandler(
             if (!query.tag.isNullOrBlank()) {
                 append(" AND s.tags @> :tag::jsonb")
             }
-            append(" GROUP BY s.id, s.tenant_key, s.catalog_key, s.name, s.description, s.tags, s.created_at, s.updated_at, s.created_by, s.updated_by")
+            append(" GROUP BY s.id, s.tenant_key, cat.catalog_key, s.name, s.description, s.tags, s.created_at, s.updated_at, s.created_by, s.updated_by")
             append(" ORDER BY s.updated_at DESC")
             append(" LIMIT :limit OFFSET :offset")
         }

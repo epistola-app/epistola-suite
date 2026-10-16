@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.contracts.commands
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
@@ -59,7 +60,7 @@ class CreateContractVersionHandler(
                 """
                 SELECT id
                 FROM document_templates
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id = :templateKey
+                WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = :templateKey
                 FOR UPDATE
                 """,
             )

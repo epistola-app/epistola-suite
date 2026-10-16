@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.config.findByTenantAndId
 import app.epistola.suite.mediator.Query
@@ -29,6 +30,6 @@ class GetCatalogHandler(
 ) : QueryHandler<GetCatalog, Catalog?> {
 
     override fun handle(query: GetCatalog): Catalog? = jdbi.withHandle<Catalog?, Exception> { handle ->
-        handle.findByTenantAndId<Catalog>("catalogs", query.tenantKey, query.catalogKey.value)
+        handle.findCatalog(query.tenantKey, query.catalogKey)
     }
 }

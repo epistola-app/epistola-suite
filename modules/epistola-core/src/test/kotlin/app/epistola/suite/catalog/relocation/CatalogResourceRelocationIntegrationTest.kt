@@ -9,6 +9,7 @@ import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
@@ -381,10 +382,10 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
      */
     private val stencilOwner =
         "stencil_resource_id = (SELECT resource_id FROM stencils " +
-            "WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id = :ownerKey)"
+            "WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = :ownerKey)"
     private val templateOwner =
         "template_resource_id = (SELECT resource_id FROM document_templates " +
-            "WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id = :ownerKey)"
+            "WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = :ownerKey)"
 
     /** Removes a qualification the write path added, to plant content in its pre-qualification shape. */
     private fun stripQualification(table: String, column: String, path: String, tenantKey: TenantKey, catalogKey: CatalogKey, owner: String, ownerKey: String) {
@@ -520,9 +521,12 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO documents (id, tenant_key, catalog_key, template_key, variant_key, version_key,
+                INSERT INTO documents (id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key,
                                        filename, size_bytes, created_at)
-                VALUES (gen_random_uuid(), :tenantKey, :catalogKey, :templateKey, :variantKey, 1,
+                VALUES (gen_random_uuid(), :tenantKey, :catalogKey,
+                        (SELECT registry FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey),
+                        (SELECT namespace FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey),
+                        :templateKey, :variantKey, 1,
                         'invoice.pdf', 1024, NOW())
                 """,
             )
@@ -552,9 +556,11 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
     private fun catalogKeysOfTemplatesOwning(table: String, tenantKey: TenantKey): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT DISTINCT template.catalog_key::text
+            SELECT DISTINCT template_catalog.catalog_key::text
             FROM $table owned
             ${templateJoin("owned")}
+            JOIN catalogs template_catalog
+              ON template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id
             WHERE owned.tenant_key = :tenantKey
             """,
         )
@@ -791,7 +797,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             FROM code_list_entries entries
             JOIN code_lists lists
               ON lists.tenant_key = entries.tenant_key AND lists.resource_id = entries.code_list_resource_id
-            WHERE entries.tenant_key = :tenantKey AND lists.catalog_key = :catalogKey AND lists.slug = :slug
+            WHERE entries.tenant_key = :tenantKey AND lists.catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND lists.slug = :slug
             ORDER BY entries.code
             """,
         )
@@ -805,10 +811,11 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
     private fun boundCodeListCatalog(tenantKey: TenantKey, attributeId: AttributeId): String? = jdbi.withHandle<String?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT lists.catalog_key::text
+            SELECT list_catalog.catalog_key::text
             FROM variant_attribute_definitions a
             JOIN code_lists lists ON lists.tenant_key = a.tenant_key AND lists.resource_id = a.code_list_resource_id
-            WHERE a.tenant_key = :tenantKey AND a.catalog_key = :catalogKey AND a.id = :id
+            JOIN catalogs list_catalog ON list_catalog.tenant_key = lists.tenant_key AND list_catalog.catalog_id = lists.catalog_id
+            WHERE a.tenant_key = :tenantKey AND a.catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND a.id = :id
             """,
         )
             .bind("tenantKey", tenantKey)
@@ -970,7 +977,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             """
             SELECT resource_id FROM catalog_resources
             WHERE tenant_key = :tenantKey AND resource_type = :resourceType
-              AND catalog_key = :catalogKey AND resource_key = :resourceKey
+              AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND resource_key = :resourceKey
             """,
         )
             .bind("tenantKey", tenantKey)

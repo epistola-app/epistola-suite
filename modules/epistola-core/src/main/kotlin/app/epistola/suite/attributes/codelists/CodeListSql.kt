@@ -4,6 +4,8 @@
 
 package app.epistola.suite.attributes.codelists
 
+import app.epistola.suite.catalog.catalogAt
+
 /**
  * The identity of the code list at a `(catalogKey, slug)` address.
  *
@@ -14,8 +16,8 @@ package app.epistola.suite.attributes.codelists
  *
  * Expects `:tenantKey`, `:catalogKey` and `:slug` to be bound by the surrounding statement.
  */
-internal const val CODE_LIST_AT_ADDRESS: String =
-    "(SELECT resource_id FROM code_lists WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug)"
+internal val CODE_LIST_AT_ADDRESS: String =
+    "(SELECT resource_id FROM code_lists WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND slug = :slug)"
 
 /**
  * The identity of the code list a caller named by address, for writing a binding.
@@ -35,7 +37,7 @@ internal fun boundCodeListAtAddress(tenantParam: String): String =
          ELSE COALESCE(
              (SELECT resource_id FROM code_lists
                WHERE tenant_key = :$tenantParam
-                 AND catalog_key = :codeListCatalogKey
+                 AND catalog_id = ${catalogAt(tenantParam, "codeListCatalogKey")}
                  AND slug = :codeListSlug),
              '00000000-0000-0000-0000-000000000000'::uuid)
     END

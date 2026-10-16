@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -37,7 +38,7 @@ class CountDocumentTemplatesHandler(
         val sql = buildString {
             append("SELECT COUNT(*) FROM document_templates dt WHERE dt.tenant_key = :tenantId")
             if (query.catalogKey != null) {
-                append(" AND dt.catalog_key = :catalogKey")
+                append(" AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND dt.name ILIKE :searchTerm")

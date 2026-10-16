@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.queries
 
 import app.epistola.catalog.protocol.ImageResource
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -54,7 +55,7 @@ class ExportAssetsHandler(
                 // `/images` surface uses for the same reason.
                 append("SELECT id::text, name, media_type, width, height, content_hash FROM assets WHERE tenant_key = :tenantKey")
                 append(" AND media_type LIKE 'image/%'")
-                if (query.catalogKey != null) append(" AND catalog_key = :catalogKey")
+                if (query.catalogKey != null) append(" AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
                 if (query.assetIds != null) append(" AND id::text IN (<assetIds>)")
             }
             val q = handle.createQuery(sql).bind("tenantKey", query.tenantKey)

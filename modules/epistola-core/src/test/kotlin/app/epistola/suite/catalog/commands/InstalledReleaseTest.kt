@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.system.InstallSystemCatalog
@@ -96,7 +97,7 @@ class InstalledReleaseTest : IntegrationTestBase() {
 
     // Read-only: there is no query listing a catalog's releases with their fingerprint and flag together.
     private fun releaseRow(tenant: TenantKey, catalog: CatalogKey, version: String): Pair<String, Boolean> = jdbi.withHandle<Pair<String, Boolean>, Exception> { handle ->
-        handle.createQuery("SELECT fingerprint, content_retained FROM catalog_releases WHERE tenant_key = :t AND catalog_key = :c AND version = :v")
+        handle.createQuery("SELECT fingerprint, content_retained FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
             .bind("t", tenant)
             .bind("c", catalog)
             .bind("v", version)
@@ -105,7 +106,7 @@ class InstalledReleaseTest : IntegrationTestBase() {
     }
 
     private fun releaseCount(tenant: TenantKey, catalog: CatalogKey): Int = jdbi.withHandle<Int, Exception> { handle ->
-        handle.createQuery("SELECT COUNT(*) FROM catalog_releases WHERE tenant_key = :t AND catalog_key = :c")
+        handle.createQuery("SELECT COUNT(*) FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", tenant)
             .bind("c", catalog)
             .mapTo(Int::class.java)

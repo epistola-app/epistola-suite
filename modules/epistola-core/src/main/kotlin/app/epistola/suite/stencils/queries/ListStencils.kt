@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.queries
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -35,9 +36,9 @@ class ListStencilsHandler(
 ) : QueryHandler<ListStencils, List<Stencil>> {
     override fun handle(query: ListStencils): List<Stencil> = jdbi.withHandle<List<Stencil>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT s.id, s.tenant_key, s.catalog_key, c.type AS catalog_type, s.name, s.description, s.tags, s.created_at, s.updated_at, s.created_by, s.updated_by FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.id = s.catalog_key WHERE s.tenant_key = :tenantId")
+            append("SELECT s.id, s.tenant_key, c.catalog_key AS catalog_key, c.type AS catalog_type, s.name, s.description, s.tags, s.created_at, s.updated_at, s.created_by, s.updated_by FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id WHERE s.tenant_key = :tenantId")
             if (query.catalogKey != null) {
-                append(" AND s.catalog_key = :catalogKey")
+                append(" AND s.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND (s.name ILIKE :searchTerm OR s.description ILIKE :searchTerm)")

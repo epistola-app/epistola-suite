@@ -192,18 +192,22 @@ the suite database (PostgreSQL), then rewrite each expression in JSONata and pub
 
 ```sql
 -- Template versions
-SELECT t.tenant_key, t.catalog_key, t.id AS template, v.variant_key AS variant, v.id AS version, v.status
+SELECT t.tenant_key, c.catalog_key, t.id AS template, v.variant_key AS variant, v.id AS version, v.status
 FROM template_versions v
 JOIN document_templates t
   ON t.tenant_key = v.tenant_key AND t.resource_id = v.template_resource_id
+JOIN catalogs c
+  ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
 WHERE jsonb_path_exists(v.template_model, '$.** ? (@.language like_regex "^\\s*javascript\\s*$" flag "i")')
 ORDER BY 1, 2, 3, 4, 5;
 
 -- Stencil versions
-SELECT s.tenant_key, s.catalog_key, s.id AS stencil, sv.id AS version, sv.status
+SELECT s.tenant_key, c.catalog_key, s.id AS stencil, sv.id AS version, sv.status
 FROM stencil_versions sv
 JOIN stencils s
   ON s.tenant_key = sv.tenant_key AND s.resource_id = sv.stencil_resource_id
+JOIN catalogs c
+  ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id
 WHERE jsonb_path_exists(sv.content, '$.** ? (@.language like_regex "^\\s*javascript\\s*$" flag "i")')
 ORDER BY 1, 2, 3, 4;
 ```

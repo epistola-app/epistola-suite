@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.StencilId
@@ -88,9 +89,9 @@ class CreateStencilHandler(
                 // 1. Create the stencil
                 val stencil = handle.createQuery(
                     """
-                    INSERT INTO stencils (id, tenant_key, catalog_key, name, description, tags, created_at, updated_at, created_by, updated_by)
-                    VALUES (:id, :tenantId, :catalogKey, :name, :description, :tags::jsonb, NOW(), NOW(), :createdBy, :updatedBy)
-                    RETURNING id, tenant_key, catalog_key, name, description, tags, created_at, updated_at, created_by, updated_by
+                    INSERT INTO stencils (id, tenant_key, catalog_id, name, description, tags, created_at, updated_at, created_by, updated_by)
+                    VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, :name, :description, :tags::jsonb, NOW(), NOW(), :createdBy, :updatedBy)
+                    RETURNING id, tenant_key, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = stencils.tenant_key AND cat.catalog_id = stencils.catalog_id) AS catalog_key, name, description, tags, created_at, updated_at, created_by, updated_by
                     """,
                 )
                     .bind("id", command.id.key)

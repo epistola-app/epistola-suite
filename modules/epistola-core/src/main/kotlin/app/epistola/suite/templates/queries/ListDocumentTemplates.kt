@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -77,19 +78,19 @@ class ListDocumentTemplatesHandler(
 ) : QueryHandler<ListDocumentTemplates, List<DocumentTemplate>> {
     override fun handle(query: ListDocumentTemplates): List<DocumentTemplate> = jdbi.withHandle<List<DocumentTemplate>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT dt.id, dt.tenant_key, dt.catalog_key, c.type AS catalog_type, dt.name, th.id AS theme_key, th.catalog_key AS theme_catalog_key, dt.pdfa_enabled, dt.created_at, dt.updated_at, dt.created_by, dt.updated_by FROM document_templates dt JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.id = dt.catalog_key LEFT JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id WHERE dt.tenant_key = :tenantId")
+            append("SELECT dt.id, dt.tenant_key, c.catalog_key AS catalog_key, c.type AS catalog_type, dt.name, th.id AS theme_key, th_cat.catalog_key AS theme_catalog_key, dt.pdfa_enabled, dt.created_at, dt.updated_at, dt.created_by, dt.updated_by FROM document_templates dt JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.catalog_id = dt.catalog_id LEFT JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id LEFT JOIN catalogs th_cat ON th_cat.tenant_key = th.tenant_key AND th_cat.catalog_id = th.catalog_id WHERE dt.tenant_key = :tenantId")
             if (query.catalogKey != null) {
-                append(" AND dt.catalog_key = :catalogKey")
+                append(" AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND dt.name ILIKE :searchTerm")
             }
             // ORDER BY expression comes from the DocumentTemplateSort whitelist, never raw input.
-            // The (catalog_key, id) tiebreaker is a total order for the composite PK
-            // (tenant_key, catalog_key, id), so paging stays stable even when the sort
+            // The (catalog key, id) tiebreaker is a total order: a catalog key is unique in its
+            // tenant and a template id in its catalog, so paging stays stable even when the sort
             // column ties and even for callers that list across catalogs (catalogKey == null).
             val direction = if (query.descending) "DESC" else "ASC"
-            append(" ORDER BY ${query.sort.orderBy} $direction, dt.catalog_key ASC, dt.id ASC")
+            append(" ORDER BY ${query.sort.orderBy} $direction, c.catalog_key ASC, dt.id ASC")
             append(" LIMIT :limit OFFSET :offset")
         }
 

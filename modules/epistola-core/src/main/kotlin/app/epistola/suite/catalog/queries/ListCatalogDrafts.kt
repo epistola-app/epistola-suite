@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.queries
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -53,7 +54,7 @@ class ListCatalogDraftsHandler(
             SELECT DISTINCT dt.id AS template_key, tv.variant_key
             FROM template_versions tv
             JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
-            WHERE tv.tenant_key = :t AND dt.catalog_key = :c AND tv.status = 'draft'
+            WHERE tv.tenant_key = :t AND dt.catalog_id = ${catalogAt("t", "c")} AND tv.status = 'draft'
             ORDER BY dt.id, tv.variant_key
             """,
         )
@@ -65,7 +66,7 @@ class ListCatalogDraftsHandler(
             """
             SELECT DISTINCT dt.id FROM contract_versions cv
             JOIN document_templates dt ON dt.tenant_key = cv.tenant_key AND dt.resource_id = cv.template_resource_id
-            WHERE cv.tenant_key = :t AND dt.catalog_key = :c AND cv.status = 'draft'
+            WHERE cv.tenant_key = :t AND dt.catalog_id = ${catalogAt("t", "c")} AND cv.status = 'draft'
             ORDER BY dt.id
             """,
         )
@@ -77,7 +78,7 @@ class ListCatalogDraftsHandler(
             """
             SELECT DISTINCT s.id FROM stencil_versions sv
             JOIN stencils s ON s.tenant_key = sv.tenant_key AND s.resource_id = sv.stencil_resource_id
-            WHERE sv.tenant_key = :t AND s.catalog_key = :c AND sv.status = 'draft'
+            WHERE sv.tenant_key = :t AND s.catalog_id = ${catalogAt("t", "c")} AND sv.status = 'draft'
             ORDER BY s.id
             """,
         )

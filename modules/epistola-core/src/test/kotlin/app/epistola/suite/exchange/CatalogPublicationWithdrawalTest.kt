@@ -136,7 +136,7 @@ class CatalogPublicationWithdrawalTest : ExchangeIntegrationTestBase() {
      * about what survives it, not about the purge itself.
      */
     private fun deleteCatalog(tenant: Tenant, catalogKey: CatalogKey) = jdbi.useHandle<Exception> { handle ->
-        handle.createUpdate("DELETE FROM catalogs WHERE tenant_key = :tenantKey AND id = :catalogKey")
+        handle.createUpdate("DELETE FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey")
             .bind("tenantKey", tenant.id).bind("catalogKey", catalogKey).execute()
     }
 

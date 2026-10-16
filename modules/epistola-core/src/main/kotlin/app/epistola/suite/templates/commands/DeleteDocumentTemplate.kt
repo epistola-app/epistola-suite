@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
@@ -33,7 +34,7 @@ class DeleteDocumentTemplateHandler(
             val rowsAffected = handle.createUpdate(
                 """
                 DELETE FROM document_templates
-                WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
+                WHERE id = :id AND tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
                 """,
             )
                 .bind("id", command.id.key)

@@ -49,8 +49,13 @@ internal object DeploymentLog {
         handle.createUpdate(
             """
             INSERT INTO environment_deployment_log
-                (tenant_key, environment_key, catalog_key, action, version, previous_version, changed_at, changed_by)
-            VALUES (:t, :e, :c, :action, :v, :previous, NOW(), :by)
+                (tenant_key, environment_key, catalog_key, registry, namespace, action, version, previous_version, changed_at, changed_by)
+            VALUES (
+                :t, :e, :c,
+                (SELECT registry FROM catalogs WHERE tenant_key = :t AND catalog_key = :c),
+                (SELECT namespace FROM catalogs WHERE tenant_key = :t AND catalog_key = :c),
+                :action, :v, :previous, NOW(), :by
+            )
             """,
         )
             .bind("t", tenantKey)

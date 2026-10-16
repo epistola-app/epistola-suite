@@ -78,7 +78,8 @@ class ReencryptCredentialsHandler(
         var count = 0
         rows.forEach { (keys, raw) ->
             val reencrypted = reencryptOrNull(raw) ?: return@forEach
-            val where = definition.keyColumns.joinToString(" AND ") { "$it = :key_$it" }
+            // Keys are read as text, so they are compared as text: a key column may be a UUID.
+            val where = definition.keyColumns.joinToString(" AND ") { "$it::text = :key_$it" }
             val update = handle.createUpdate(
                 "UPDATE ${definition.table} SET ${definition.column} = :credential WHERE $where",
             ).bind("credential", reencrypted)

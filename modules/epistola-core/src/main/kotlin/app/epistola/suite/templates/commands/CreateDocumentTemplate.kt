@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
@@ -61,9 +62,9 @@ class CreateDocumentTemplateHandler(
                 // 1. Create the template
                 val template = handle.createQuery(
                     """
-                INSERT INTO document_templates (id, tenant_key, catalog_key, name, pdfa_enabled, created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantId, :catalogKey, :name, TRUE, NOW(), NOW(), :createdBy, :updatedBy)
-                RETURNING id, tenant_key, catalog_key, name, NULL::text AS theme_key, pdfa_enabled, created_at, updated_at, created_by, updated_by
+                INSERT INTO document_templates (id, tenant_key, catalog_id, name, pdfa_enabled, created_at, updated_at, created_by, updated_by)
+                VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, :name, TRUE, NOW(), NOW(), :createdBy, :updatedBy)
+                RETURNING id, tenant_key, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = document_templates.tenant_key AND cat.catalog_id = document_templates.catalog_id) AS catalog_key, name, NULL::text AS theme_key, pdfa_enabled, created_at, updated_at, created_by, updated_by
                 """,
                 )
                     .bind("id", command.id.key)

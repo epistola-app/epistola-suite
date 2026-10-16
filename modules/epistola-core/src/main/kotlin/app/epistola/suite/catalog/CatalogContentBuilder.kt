@@ -181,17 +181,18 @@ class CatalogContentBuilder(
         val templates = jdbi.withHandle<List<TemplateRow>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT dt.id, dt.name, th.id AS theme_key, th.catalog_key AS theme_catalog_key, dt.pdfa_enabled,
+                SELECT dt.id, dt.name, th.id AS theme_key, thc.catalog_key AS theme_catalog_key, dt.pdfa_enabled,
                        cv.data_model::text, cv.data_examples::text
                 FROM document_templates dt
                 LEFT JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
+                LEFT JOIN catalogs thc ON thc.tenant_key = th.tenant_key AND thc.catalog_id = th.catalog_id
                 LEFT JOIN LATERAL (
                     SELECT data_model, data_examples FROM contract_versions
                     WHERE tenant_key = dt.tenant_key AND template_resource_id = dt.resource_id
                     ORDER BY CASE status WHEN 'published' THEN 0 ELSE 1 END, id DESC
                     LIMIT 1
                 ) cv ON TRUE
-                WHERE dt.tenant_key = :tenantKey AND dt.catalog_key = :catalogKey
+                WHERE dt.tenant_key = :tenantKey AND dt.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                 """,
             )
                 .bind("tenantKey", tenantKey)
@@ -295,21 +296,16 @@ class CatalogContentBuilder(
     }
 
     /**
-     * Scan template models for references to resources NOT in this catalog's
-     * manifest. Collect them as cross-catalog dependencies. No DB queries.
-     */
-
-    /**
      * [dependencies] each with the registry and namespace of the catalog it names (contract ADR
      * 0003): a key alone does not say which catalog is meant. A dependency on a catalog the tenant
      * does not have stays unnamed, and the validator refuses it, as it should.
      */
     private fun named(tenantKey: TenantKey, dependencies: List<DependencyRef>): List<DependencyRef> {
         val names = jdbi.withHandle<Map<String, Pair<String, String>>, Exception> { handle ->
-            handle.createQuery("SELECT id, registry, namespace FROM catalogs WHERE tenant_key = :t AND id IN (<keys>)")
+            handle.createQuery("SELECT catalog_key, registry, namespace FROM catalogs WHERE tenant_key = :t AND catalog_key IN (<keys>)")
                 .bind("t", tenantKey)
                 .bindList("keys", dependencies.map { it.catalogKey }.distinct())
-                .map { rs, _ -> rs.getString("id") to (rs.getString("registry") to rs.getString("namespace")) }
+                .map { rs, _ -> rs.getString("catalog_key") to (rs.getString("registry") to rs.getString("namespace")) }
                 .list()
                 .toMap()
         }
@@ -325,6 +321,10 @@ class CatalogContentBuilder(
         }
     }
 
+    /**
+     * Scan template models for references to resources NOT in this catalog's
+     * manifest. Collect them as cross-catalog dependencies. No DB queries.
+     */
     private fun findCrossCatalogDependencies(
         templates: List<TemplateResource>,
         stencils: List<StencilResource>,

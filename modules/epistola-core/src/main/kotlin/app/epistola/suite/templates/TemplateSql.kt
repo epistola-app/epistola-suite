@@ -4,6 +4,8 @@
 
 package app.epistola.suite.templates
 
+import app.epistola.suite.catalog.catalogAt
+
 /**
  * The identity of the template a caller named by address.
  *
@@ -19,7 +21,7 @@ package app.epistola.suite.templates
  * @param tenantParam name of the bound tenant parameter, which differs between call sites.
  */
 fun templateAtAddress(tenantParam: String, catalogParam: String, keyParam: String): String = "(SELECT resource_id FROM document_templates WHERE tenant_key = :$tenantParam" +
-    " AND catalog_key = :$catalogParam AND id = :$keyParam)"
+    " AND catalog_id = ${catalogAt(tenantParam, catalogParam)} AND id = :$keyParam)"
 
 /**
  * Joins a hierarchy row aliased [alias] to the template it belongs to, aliased `template`, so a
@@ -30,7 +32,9 @@ fun templateJoin(alias: String): String = "JOIN document_templates template ON t
 
 /** The address columns a caller reading through [templateJoin] still expects to select. */
 const val TEMPLATE_ADDRESS_COLUMNS: String =
-    "template.catalog_key AS catalog_key, template.id AS template_key"
+    "(SELECT template_catalog.catalog_key FROM catalogs template_catalog" +
+        " WHERE template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id)" +
+        " AS catalog_key, template.id AS template_key"
 
 /**
  * The address columns for a query already filtered to the template at `(:catalogKey, :templateKey)`.

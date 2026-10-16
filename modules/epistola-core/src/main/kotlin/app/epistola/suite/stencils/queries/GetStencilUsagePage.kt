@@ -66,17 +66,17 @@ private val USAGE_CTES = """
         WHERE tenant_key = :tenantId AND stencil_resource_id = ${stencilAtAddress("tenantId", "catalogKey", "stencilId")} AND status = 'published'
     ),
     usage AS (
-        SELECT dt.id AS template_key, dt.catalog_key, c.type AS catalog_type, dt.name AS template_name,
+        SELECT dt.id AS template_key, c.catalog_key AS catalog_key, c.type AS catalog_type, dt.name AS template_name,
                tv.variant_key, tv.id AS version_id, tv.status AS version_status,
                COALESCE((node.value -> 'props' ->> 'version')::int, 0) AS stencil_version,
                COUNT(*) AS instance_count
         FROM template_versions tv
         JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
-        JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.id = dt.catalog_key
+        JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.catalog_id = dt.catalog_id
         CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS node(key, value)
         WHERE tv.tenant_key = :tenantId
           AND ${StencilReferences.usedBy("node", "dt")}
-        GROUP BY dt.id, dt.catalog_key, c.type, dt.name, tv.variant_key, tv.id, tv.status,
+        GROUP BY dt.id, c.catalog_key, c.type, dt.name, tv.variant_key, tv.id, tv.status,
                  COALESCE((node.value -> 'props' ->> 'version')::int, 0)
     ),
     flagged AS (

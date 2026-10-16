@@ -17,6 +17,7 @@ import app.epistola.suite.catalog.CatalogReleasePublicationPort
 import app.epistola.suite.catalog.CatalogReleasePublicationRequest
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.SemVer
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
@@ -152,9 +153,9 @@ class ReleaseCatalogVersionHandler(
         jdbi.useTransaction<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalog_releases (tenant_key, catalog_key, version, fingerprint, notes, manifest_snapshot, released_at,
+                INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, notes, manifest_snapshot, released_at,
                                               content_retained, rendering_defaults_version)
-                VALUES (:t, :c, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, TRUE, :renderingDefaults)
+                VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, TRUE, :renderingDefaults)
                 """,
             )
                 .bind("t", command.tenantKey)
@@ -172,7 +173,7 @@ class ReleaseCatalogVersionHandler(
                 UPDATE catalogs
                 SET released_version = :version, released_fingerprint = :fingerprint,
                     released_at = :releasedAt, updated_at = NOW()
-                WHERE tenant_key = :t AND id = :c
+                WHERE tenant_key = :t AND catalog_key = :c
                 """,
             )
                 .bind("t", command.tenantKey)
@@ -253,7 +254,7 @@ class ReleaseCatalogVersionHandler(
 
     private fun loadReleases(tenantKey: TenantKey, catalogKey: CatalogKey): List<ReleaseRow> = jdbi.withHandle<List<ReleaseRow>, Exception> { handle ->
         handle.createQuery(
-            "SELECT version, fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_key = :c",
+            "SELECT version, fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
         )
             .bind("t", tenantKey)
             .bind("c", catalogKey)

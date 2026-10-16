@@ -24,7 +24,7 @@ class CatalogUpstreamCheckStore(
 ) {
     /** Every recorded check for a tenant, keyed by catalog, for rendering a whole list at once. */
     fun statesFor(tenantKey: TenantKey): Map<CatalogKey, CatalogUpstreamCheck> = jdbi.withHandle<Map<CatalogKey, CatalogUpstreamCheck>, Exception> { handle ->
-        handle.createQuery("$SELECT_CHECK WHERE tenant_key = :t")
+        handle.createQuery("$SELECT_CHECK WHERE u.tenant_key = :t")
             .bind("t", tenantKey)
             .map(::map)
             .list()
@@ -32,7 +32,7 @@ class CatalogUpstreamCheckStore(
     }
 
     fun stateFor(tenantKey: TenantKey, catalogKey: CatalogKey): CatalogUpstreamCheck? = jdbi.withHandle<CatalogUpstreamCheck?, Exception> { handle ->
-        handle.createQuery("$SELECT_CHECK WHERE tenant_key = :t AND catalog_key = :c")
+        handle.createQuery("$SELECT_CHECK WHERE u.tenant_key = :t AND u.catalog_id = ${catalogAt("t", "c")}")
             .bind("t", tenantKey).bind("c", catalogKey)
             .map(::map).findOne().orElse(null)
     }
@@ -47,7 +47,7 @@ class CatalogUpstreamCheckStore(
         handle.createQuery(
             """
             SELECT COUNT(*) FROM catalog_upstream_checks u
-            JOIN catalogs c ON c.tenant_key = u.tenant_key AND c.id = u.catalog_key
+            JOIN catalogs c ON c.tenant_key = u.tenant_key AND c.catalog_id = u.catalog_id
             WHERE u.tenant_key = :t
               AND u.available_release_version IS NOT NULL
               AND u.available_release_version IS DISTINCT FROM c.installed_release_version
@@ -67,12 +67,12 @@ class CatalogUpstreamCheckStore(
             handle.createUpdate(
                 """
                 INSERT INTO catalog_upstream_checks (
-                    tenant_key, catalog_key, available_release_version, installed_availability,
+                    tenant_key, catalog_id, available_release_version, installed_availability,
                     installed_availability_checked_at, installed_archive_sha256,
                     last_checked_at, next_check_at, check_attempts, error_code, error_detail
                 )
-                VALUES (:t, :c, :version, 'AVAILABLE', NOW(), :sha, NOW(), NOW() + :interval * INTERVAL '1 second', 0, NULL, NULL)
-                ON CONFLICT (tenant_key, catalog_key) DO UPDATE
+                VALUES (:t, ${catalogAt("t", "c")}, :version, 'AVAILABLE', NOW(), :sha, NOW(), NOW() + :interval * INTERVAL '1 second', 0, NULL, NULL)
+                ON CONFLICT (tenant_key, catalog_id) DO UPDATE
                 SET available_release_version = :version,
                     installed_availability = 'AVAILABLE',
                     installed_availability_checked_at = NOW(),
@@ -104,9 +104,9 @@ class CatalogUpstreamCheckStore(
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalog_upstream_checks (tenant_key, catalog_key)
-                VALUES (:t, :c)
-                ON CONFLICT (tenant_key, catalog_key) DO NOTHING
+                INSERT INTO catalog_upstream_checks (tenant_key, catalog_id)
+                VALUES (:t, ${catalogAt("t", "c")})
+                ON CONFLICT (tenant_key, catalog_id) DO NOTHING
                 """,
             ).bind("t", tenantKey).bind("c", catalogKey).execute()
         }
@@ -127,7 +127,7 @@ class CatalogUpstreamCheckStore(
             """
                 SELECT c.*
                 FROM catalog_upstream_checks u
-                JOIN catalogs c ON c.tenant_key = u.tenant_key AND c.id = u.catalog_key
+                JOIN catalogs c ON c.tenant_key = u.tenant_key AND c.catalog_id = u.catalog_id
                 WHERE u.next_check_at <= NOW()
                   AND c.source_url IS NOT NULL
                   AND (u.claimed_at IS NULL OR u.claimed_at < NOW() - :lease * INTERVAL '1 second')
@@ -139,7 +139,7 @@ class CatalogUpstreamCheckStore(
             .mapTo(Catalog::class.java).list()
         rows.forEach { catalog ->
             handle.createUpdate(
-                "UPDATE catalog_upstream_checks SET claimed_at = NOW() WHERE tenant_key = :t AND catalog_key = :c",
+                "UPDATE catalog_upstream_checks SET claimed_at = NOW() WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
             ).bind("t", catalog.tenantKey).bind("c", catalog.id).execute()
         }
         rows
@@ -174,7 +174,7 @@ class CatalogUpstreamCheckStore(
                     error_code = NULL,
                     error_detail = NULL,
                     updated_at = NOW()
-                WHERE tenant_key = :t AND catalog_key = :c
+                WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
                 """,
             )
                 .bind("t", tenantKey).bind("c", catalogKey)
@@ -215,7 +215,7 @@ class CatalogUpstreamCheckStore(
                     error_code = :code,
                     error_detail = :detail,
                     updated_at = NOW()
-                WHERE tenant_key = :t AND catalog_key = :c
+                WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
                 """,
             )
                 .bind("t", tenantKey).bind("c", catalogKey)
@@ -240,10 +240,11 @@ class CatalogUpstreamCheckStore(
 
     private companion object {
         const val SELECT_CHECK = """
-            SELECT catalog_key, available_release_version, available_schema_version,
-                   installed_availability, installed_archive_sha256, last_checked_at,
-                   error_code, error_detail
-            FROM catalog_upstream_checks
+            SELECT c.catalog_key, u.available_release_version, u.available_schema_version,
+                   u.installed_availability, u.installed_archive_sha256, u.last_checked_at,
+                   u.error_code, u.error_detail
+            FROM catalog_upstream_checks u
+            JOIN catalogs c ON c.tenant_key = u.tenant_key AND c.catalog_id = u.catalog_id
         """
 
         /**

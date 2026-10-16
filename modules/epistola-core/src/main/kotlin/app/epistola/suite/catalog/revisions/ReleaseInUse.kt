@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.revisions
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
@@ -32,7 +33,7 @@ object ReleaseInUse {
         val environments = handle.createQuery(
             """
             SELECT environment_key FROM environment_catalog_deployments
-            WHERE tenant_key = :t AND catalog_key = :c AND version = :v
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
             ORDER BY environment_key
             """,
         )
@@ -46,7 +47,7 @@ object ReleaseInUse {
 
     /** As [requireUnused], for every release of a catalog that is about to be deleted. */
     fun requireCatalogUnused(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey) {
-        handle.createQuery("SELECT version FROM catalog_releases WHERE tenant_key = :t AND catalog_key = :c")
+        handle.createQuery("SELECT version FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", tenantKey)
             .bind("c", catalogKey)
             .mapTo(String::class.java)

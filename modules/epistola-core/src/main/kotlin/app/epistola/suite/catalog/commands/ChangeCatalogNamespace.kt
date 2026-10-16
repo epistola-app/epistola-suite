@@ -13,8 +13,8 @@ import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogReleasePublicationPort
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.catalogName
+import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.config.findByTenantAndId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
@@ -61,7 +61,7 @@ class ChangeCatalogNamespaceHandler(
 ) : CommandHandler<ChangeCatalogNamespace, Catalog> {
 
     override fun handle(command: ChangeCatalogNamespace): Catalog = jdbi.inTransaction<Catalog, Exception> { handle ->
-        val catalog = handle.findByTenantAndId<Catalog>("catalogs", command.tenantKey, command.catalogKey.value)
+        val catalog = handle.findCatalog(command.tenantKey, command.catalogKey)
             ?: throw CatalogNotFoundException(command.catalogKey)
         if (catalog.type == CatalogType.SUBSCRIBED) throw CatalogReadOnlyException(command.catalogKey)
         if (catalog.namespace == command.namespace) return@inTransaction catalog
@@ -69,12 +69,12 @@ class ChangeCatalogNamespaceHandler(
             throw CatalogNamespaceFixedException(catalog.catalogName)
         }
         handle.createUpdate(
-            "UPDATE catalogs SET namespace = :namespace, updated_at = NOW() WHERE tenant_key = :tenantKey AND id = :catalogKey",
+            "UPDATE catalogs SET namespace = :namespace, updated_at = NOW() WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey",
         )
             .bind("namespace", command.namespace)
             .bind("tenantKey", command.tenantKey)
             .bind("catalogKey", command.catalogKey)
             .execute()
-        handle.findByTenantAndId<Catalog>("catalogs", command.tenantKey, command.catalogKey.value)!!
+        handle.findCatalog(command.tenantKey, command.catalogKey)!!
     }
 }

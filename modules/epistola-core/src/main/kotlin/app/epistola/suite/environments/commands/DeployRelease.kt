@@ -4,6 +4,7 @@
 
 package app.epistola.suite.environments.commands
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.documents.EnvironmentNotFoundException
@@ -61,7 +62,7 @@ class DeployReleaseHandler(
         if (!environmentExists) throw EnvironmentNotFoundException(tenantKey, command.environmentId.key)
 
         val retained = handle.createQuery(
-            "SELECT content_retained FROM catalog_releases WHERE tenant_key = :t AND catalog_key = :c AND version = :v",
+            "SELECT content_retained FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
         )
             .bind("t", tenantKey)
             .bind("c", command.catalogKey)
@@ -77,10 +78,11 @@ class DeployReleaseHandler(
         // Locked, so two deploys racing on one environment and catalog log the release each replaced.
         val current = handle.createQuery(
             """
-            SELECT environment_key, catalog_key, version, deployed_at, deployed_by
-            FROM environment_catalog_deployments
-            WHERE tenant_key = :t AND environment_key = :e AND catalog_key = :c
-            FOR UPDATE
+            SELECT d.environment_key, cat.catalog_key AS catalog_key, d.version, d.deployed_at, d.deployed_by
+            FROM environment_catalog_deployments d
+            JOIN catalogs cat ON cat.tenant_key = d.tenant_key AND cat.catalog_id = d.catalog_id
+            WHERE d.tenant_key = :t AND d.environment_key = :e AND d.catalog_id = ${catalogAt("t", "c")}
+            FOR UPDATE OF d
             """,
         )
             .bind("t", tenantKey)
@@ -93,11 +95,15 @@ class DeployReleaseHandler(
 
         val deployment = handle.createQuery(
             """
-            INSERT INTO environment_catalog_deployments (tenant_key, environment_key, catalog_key, version, deployed_at, deployed_by)
-            VALUES (:t, :e, :c, :v, NOW(), :by)
-            ON CONFLICT (tenant_key, environment_key, catalog_key)
+            INSERT INTO environment_catalog_deployments (tenant_key, environment_key, catalog_id, version, deployed_at, deployed_by)
+            VALUES (:t, :e, ${catalogAt("t", "c")}, :v, NOW(), :by)
+            ON CONFLICT (tenant_key, environment_key, catalog_id)
             DO UPDATE SET version = EXCLUDED.version, deployed_at = EXCLUDED.deployed_at, deployed_by = EXCLUDED.deployed_by
-            RETURNING environment_key, catalog_key, version, deployed_at, deployed_by
+            RETURNING environment_key,
+                      (SELECT catalog_key FROM catalogs cat
+                       WHERE cat.tenant_key = environment_catalog_deployments.tenant_key
+                         AND cat.catalog_id = environment_catalog_deployments.catalog_id) AS catalog_key,
+                      version, deployed_at, deployed_by
             """,
         )
             .bind("t", tenantKey)

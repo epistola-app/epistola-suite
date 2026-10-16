@@ -4,6 +4,7 @@
 
 package app.epistola.suite.themes.queries
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Query
@@ -31,9 +32,9 @@ class ListThemesHandler(
 ) : QueryHandler<ListThemes, List<Theme>> {
     override fun handle(query: ListThemes): List<Theme> = jdbi.withHandle<List<Theme>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT t.*, c.type AS catalog_type FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.id = t.catalog_key WHERE t.tenant_key = :tenantId")
+            append("SELECT t.*, c.catalog_key AS catalog_key, c.type AS catalog_type FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantId")
             if (query.catalogKey != null) {
-                append(" AND t.catalog_key = :catalogKey")
+                append(" AND t.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND t.name ILIKE :searchTerm")

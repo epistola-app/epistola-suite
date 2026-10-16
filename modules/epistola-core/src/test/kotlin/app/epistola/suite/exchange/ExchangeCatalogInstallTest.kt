@@ -8,6 +8,7 @@ import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.CatalogUpstreamCheckStore
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -351,7 +352,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     /** The resource identities relocation's registry holds for one catalog. */
     private fun resourceIdentities(tenant: TenantKey, catalogKey: String): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
         handle.createQuery(
-            "SELECT resource_id::text FROM catalog_resources WHERE tenant_key = :t AND catalog_key = :c",
+            "SELECT resource_id::text FROM catalog_resources WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
         ).bind("t", tenant).bind("c", catalogKey).mapTo(String::class.java).list()
     }
 
@@ -363,7 +364,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
      */
     private fun registeredResourceIdentities(tenant: TenantKey, catalogKey: String): Int = jdbi.withHandle<Int, Exception> { handle ->
         handle.createQuery(
-            "SELECT COUNT(*) FROM catalog_resources WHERE tenant_key = :t AND catalog_key = :c",
+            "SELECT COUNT(*) FROM catalog_resources WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
         ).bind("t", tenant).bind("c", catalogKey).mapTo(Int::class.java).one()
     }
 

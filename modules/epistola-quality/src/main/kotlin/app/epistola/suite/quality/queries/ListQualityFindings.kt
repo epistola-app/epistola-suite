@@ -4,6 +4,7 @@
 
 package app.epistola.suite.quality.queries
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -108,7 +109,7 @@ class ListQualityFindingsHandler(
                     WHERE f.tenant_key = :tenantKey
                 """.trimIndent(),
             )
-            if (query.catalogKey != null) append(" AND template.catalog_key = :catalogKey")
+            if (query.catalogKey != null) append(" AND template.catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
             if (query.templateKey != null) append(" AND template.id = :templateKey")
             if (query.sourceId != null) append(" AND f.source_id = :sourceId")
             if (query.ruleId != null) append(" AND f.rule_id = :ruleId")

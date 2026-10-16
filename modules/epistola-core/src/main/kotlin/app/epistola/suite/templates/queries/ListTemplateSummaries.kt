@@ -5,6 +5,7 @@
 package app.epistola.suite.templates.queries
 
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -56,7 +57,7 @@ enum class TemplateSort(
     val defaultDescending: Boolean,
 ) {
     NAME("name", "dt.name", false),
-    CATALOG("catalog", "dt.catalog_key", false),
+    CATALOG("catalog", "c.catalog_key", false),
     VARIANTS("variants", "variant_count", true),
     UPDATED("updated", "dt.updated_at", true),
     ;
@@ -90,7 +91,7 @@ class ListTemplateSummariesHandler(
                 """
                 SELECT
                     dt.id,
-                    dt.catalog_key,
+                    c.catalog_key AS catalog_key,
                     c.type AS catalog_type,
                     dt.name,
                     dt.updated_at,
@@ -107,19 +108,19 @@ class ListTemplateSummariesHandler(
                     -- window over the full filtered set, so it cannot drift from the page.
                     COUNT(*) OVER()::int AS total_count
                 FROM document_templates dt
-                JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.id = dt.catalog_key
+                JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.catalog_id = dt.catalog_id
                 WHERE dt.tenant_key = :tenantId
                 """.trimIndent(),
             )
             if (query.catalogKey != null) {
-                append(" AND dt.catalog_key = :catalogKey")
+                append(" AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND dt.name ILIKE :searchTerm ESCAPE '\\'")
             }
             // ORDER BY column comes from the TemplateSort whitelist, never raw input.
             val direction = if (query.descending) "DESC" else "ASC"
-            append(" ORDER BY ${query.sort.column} $direction, dt.catalog_key ASC, dt.id ASC")
+            append(" ORDER BY ${query.sort.column} $direction, c.catalog_key ASC, dt.id ASC")
             append(" LIMIT :limit OFFSET :offset")
         }
 

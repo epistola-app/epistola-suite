@@ -44,29 +44,29 @@ data class CatalogListRow(
  * and fingerprint remain the authoritative answer.
  */
 internal val CATALOG_ACTIVITY_CTE = """
-            WITH activity(catalog_key, ts) AS (
-                SELECT id, content_updated_at         FROM catalogs                      WHERE tenant_key = :t
-                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM document_templates            WHERE tenant_key = :t GROUP BY catalog_key
-                UNION ALL SELECT template.catalog_key, MAX(variants.updated_at)
+            WITH activity(catalog_id, ts) AS (
+                SELECT catalog_id, content_updated_at FROM catalogs                      WHERE tenant_key = :t
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM document_templates            WHERE tenant_key = :t GROUP BY catalog_id
+                UNION ALL SELECT template.catalog_id, MAX(variants.updated_at)
                                  FROM template_variants variants ${templateJoin("variants")}
-                                 WHERE variants.tenant_key = :t GROUP BY template.catalog_key
-                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM themes               WHERE tenant_key = :t GROUP BY catalog_key
-                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM stencils             WHERE tenant_key = :t GROUP BY catalog_key
-                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM variant_attribute_definitions WHERE tenant_key = :t GROUP BY catalog_key
-                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM code_lists           WHERE tenant_key = :t GROUP BY catalog_key
-                UNION ALL SELECT catalog_key, MAX(updated_at)   FROM fonts                WHERE tenant_key = :t GROUP BY catalog_key
-                UNION ALL SELECT template.catalog_key, MAX(versions.published_at)
+                                 WHERE variants.tenant_key = :t GROUP BY template.catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM themes               WHERE tenant_key = :t GROUP BY catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM stencils             WHERE tenant_key = :t GROUP BY catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM variant_attribute_definitions WHERE tenant_key = :t GROUP BY catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM code_lists           WHERE tenant_key = :t GROUP BY catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM fonts                WHERE tenant_key = :t GROUP BY catalog_id
+                UNION ALL SELECT template.catalog_id, MAX(versions.published_at)
                                  FROM template_versions versions ${templateJoin("versions")}
-                                 WHERE versions.tenant_key = :t GROUP BY template.catalog_key
-                UNION ALL SELECT template.catalog_key, MAX(contracts.published_at)
+                                 WHERE versions.tenant_key = :t GROUP BY template.catalog_id
+                UNION ALL SELECT template.catalog_id, MAX(contracts.published_at)
                                  FROM contract_versions contracts ${templateJoin("contracts")}
-                                 WHERE contracts.tenant_key = :t GROUP BY template.catalog_key
-                UNION ALL SELECT stencil.catalog_key, MAX(versions.published_at)
+                                 WHERE contracts.tenant_key = :t GROUP BY template.catalog_id
+                UNION ALL SELECT stencil.catalog_id, MAX(versions.published_at)
                                  FROM stencil_versions versions
                                  JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
                                                       AND stencil.resource_id = versions.stencil_resource_id
-                                 WHERE versions.tenant_key = :t GROUP BY stencil.catalog_key
-                UNION ALL SELECT catalog_key, MAX(created_at)   FROM assets               WHERE tenant_key = :t GROUP BY catalog_key
+                                 WHERE versions.tenant_key = :t GROUP BY stencil.catalog_id
+                UNION ALL SELECT catalog_id, MAX(created_at)   FROM assets               WHERE tenant_key = :t GROUP BY catalog_id
             )
 """
 
@@ -77,8 +77,8 @@ internal const val CATALOG_PENDING_CHANGES = """COALESCE(
                        FALSE
                    ) AS pending_changes"""
 
-internal const val CATALOG_ACTIVITY_JOIN = """LEFT JOIN (SELECT catalog_key, MAX(ts) AS last_activity FROM activity GROUP BY catalog_key) a
-              ON a.catalog_key = c.id"""
+internal const val CATALOG_ACTIVITY_JOIN = """LEFT JOIN (SELECT catalog_id, MAX(ts) AS last_activity FROM activity GROUP BY catalog_id) a
+              ON a.catalog_id = c.catalog_id"""
 
 /**
  * The catalog-management list. [ListCatalogs] (the shared read model, used by

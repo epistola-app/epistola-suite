@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.revisions
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Jdbi
@@ -23,11 +24,11 @@ import org.jdbi.v3.core.Jdbi
  * @return how many releases were made to forget, so a caller can assert it did something.
  */
 fun Jdbi.forgetRetainedContent(tenantKey: TenantKey, catalogKey: CatalogKey): Int = withHandle<Int, Exception> { handle ->
-    handle.createUpdate("DELETE FROM release_entries WHERE tenant_key = :t AND catalog_key = :c")
+    handle.createUpdate("DELETE FROM release_entries WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
         .bind("t", tenantKey)
         .bind("c", catalogKey)
         .execute()
-    handle.createUpdate("UPDATE catalog_releases SET content_retained = FALSE WHERE tenant_key = :t AND catalog_key = :c")
+    handle.createUpdate("UPDATE catalog_releases SET content_retained = FALSE WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
         .bind("t", tenantKey)
         .bind("c", catalogKey)
         .execute()

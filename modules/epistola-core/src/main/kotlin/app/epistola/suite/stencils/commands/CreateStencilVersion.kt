@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.StencilId
@@ -62,7 +63,7 @@ class CreateStencilVersionHandler(
         return jdbi.inTransaction<StencilVersion?, Exception> { handle ->
             // Verify stencil exists
             val stencilExists = handle.createQuery(
-                "SELECT COUNT(*) > 0 FROM stencils WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :stencilId",
+                "SELECT COUNT(*) > 0 FROM stencils WHERE tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")} AND id = :stencilId",
             )
                 .bind("tenantId", command.stencilId.tenantKey)
                 .bind("catalogKey", command.stencilId.catalogKey)
@@ -76,7 +77,7 @@ class CreateStencilVersionHandler(
             val existingDraft = handle.createQuery(
                 """
             SELECT $STENCIL_VERSION_COLUMNS $STENCIL_VERSION_PARENT_JOIN
-            WHERE stencil.tenant_key = :tenantId AND stencil.catalog_key = :catalogKey
+            WHERE stencil.tenant_key = :tenantId AND stencil.catalog_id = ${catalogAt("tenantId", "catalogKey")}
               AND stencil.id = :stencilId AND versions.status = 'draft'
             """,
             )

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.relocation
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
@@ -201,10 +202,10 @@ class CatalogResourceMovePlanner(
     ): Map<String, String> {
         val keys = relocations.flatMap { listOf(it.source.catalogKey, it.target.catalogKey) }.distinct()
         if (keys.isEmpty()) return emptyMap()
-        return handle.createQuery("SELECT id::text, type::text FROM catalogs WHERE tenant_key = :tenantKey AND id IN (<keys>)")
+        return handle.createQuery("SELECT catalog_key::text, type::text FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key IN (<keys>)")
             .bind("tenantKey", tenantKey)
             .bindList("keys", keys)
-            .map { rs, _ -> rs.getString("id") to rs.getString("type") }
+            .map { rs, _ -> rs.getString("catalog_key") to rs.getString("type") }
             .list()
             .toMap()
     }
@@ -213,7 +214,7 @@ class CatalogResourceMovePlanner(
         """
         SELECT resource_id FROM catalog_resources
         WHERE tenant_key = :tenantKey AND resource_type = :resourceType
-          AND catalog_key = :catalogKey AND resource_key = :resourceKey
+          AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND resource_key = :resourceKey
         """,
     )
         .bind("tenantKey", tenantKey)
@@ -231,7 +232,7 @@ class CatalogResourceMovePlanner(
         SELECT EXISTS(
             SELECT 1 FROM catalog_resources
             WHERE tenant_key = :tenantKey AND resource_type = :resourceType
-              AND catalog_key = :catalogKey AND resource_key = :resourceKey
+              AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND resource_key = :resourceKey
         )
         """,
     )
@@ -243,7 +244,7 @@ class CatalogResourceMovePlanner(
         .one()
 
     private fun hasRelease(handle: Handle, tenantKey: TenantKey, catalogKey: String): Boolean = handle.createQuery(
-        "SELECT EXISTS(SELECT 1 FROM catalog_releases WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey)",
+        "SELECT EXISTS(SELECT 1 FROM catalog_releases WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")})",
     )
         .bind("tenantKey", tenantKey)
         .bind("catalogKey", catalogKey)
@@ -328,9 +329,11 @@ class CatalogResourceMovePlanner(
         if (contentMoves.keys.none { it.type == CatalogResourceType.FONT } && movingThemes.isEmpty()) return
         handle.createQuery(
             """
-            SELECT catalog_key::text, id::text theme_key, document_styles::text, block_style_presets::text presets
-            FROM themes WHERE tenant_key = :tenantKey
-            ORDER BY catalog_key, id
+            SELECT c.catalog_key::text, th.id::text theme_key, th.document_styles::text, th.block_style_presets::text presets
+            FROM themes th
+            JOIN catalogs c ON c.tenant_key = th.tenant_key AND c.catalog_id = th.catalog_id
+            WHERE th.tenant_key = :tenantKey
+            ORDER BY c.catalog_key, th.id
             """,
         )
             .bind("tenantKey", tenantKey)
@@ -382,19 +385,21 @@ class CatalogResourceMovePlanner(
         for (theme in movingThemes) {
             handle.createQuery(
                 """
-                SELECT template.catalog_key::text, template.id::text owner_key, versions.variant_key::text,
+                SELECT template_catalog.catalog_key::text, template.id::text owner_key, versions.variant_key::text,
                        versions.id, versions.resolved_theme::text json
                 FROM template_versions versions
                 ${templateJoin("versions")}
+                JOIN catalogs template_catalog
+                  ON template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id
                 JOIN tenants tenant ON tenant.id = template.tenant_key
                 LEFT JOIN themes bound
                   ON bound.tenant_key = template.tenant_key AND bound.resource_id = template.theme_resource_id
                 LEFT JOIN themes fallback
                   ON fallback.tenant_key = tenant.id AND fallback.resource_id = tenant.default_theme_resource_id
                 WHERE versions.tenant_key = :tenantKey AND versions.resolved_theme IS NOT NULL
-                  AND COALESCE(bound.catalog_key, fallback.catalog_key) = :themeCatalog
+                  AND COALESCE(bound.catalog_id, fallback.catalog_id) = ${catalogAt("tenantKey", "themeCatalog")}
                   AND COALESCE(bound.id, fallback.id) = :themeKey
-                ORDER BY template.catalog_key, template.id, versions.variant_key, versions.id
+                ORDER BY template_catalog.catalog_key, template.id, versions.variant_key, versions.id
                 """,
             )
                 .bind("tenantKey", tenantKey)
@@ -527,13 +532,15 @@ class CatalogResourceMovePlanner(
 
         return handle.createQuery(
             """
-            SELECT template.catalog_key::text, template.id::text AS template_key,
+            SELECT template_catalog.catalog_key::text, template.id::text AS template_key,
                    variants.id::text variant_key, variants.attributes::text
             FROM template_variants variants
             ${templateJoin("variants")}
+            JOIN catalogs template_catalog
+              ON template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id
             WHERE variants.tenant_key = :tenantKey
               AND EXISTS (SELECT 1 FROM jsonb_object_keys(variants.attributes) named WHERE named IN (<keys>))
-            ORDER BY template.catalog_key, template.id, variants.id
+            ORDER BY template_catalog.catalog_key, template.id, variants.id
             """,
         )
             .bind("tenantKey", tenantKey)
@@ -564,12 +571,14 @@ class CatalogResourceMovePlanner(
         if (owners != null && owners.isEmpty()) return emptyList()
         return handle.createQuery(
             """
-            SELECT template.catalog_key::text, template.id::text owner_key,
+            SELECT template_catalog.catalog_key::text, template.id::text owner_key,
                    versions.variant_key::text, versions.id, versions.status, versions.template_model::text json
             FROM template_versions versions
             ${templateJoin("versions")}
-            WHERE versions.tenant_key = :tenantKey ${ownerFilter(owners, "template.id", "template.catalog_key")}
-            ORDER BY template.catalog_key, template.id, versions.variant_key, versions.id
+            JOIN catalogs template_catalog
+              ON template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id
+            WHERE versions.tenant_key = :tenantKey ${ownerFilter(owners, "template.id", "template_catalog.catalog_key")}
+            ORDER BY template_catalog.catalog_key, template.id, versions.variant_key, versions.id
             """,
         )
             .bind("tenantKey", tenantKey)
@@ -584,13 +593,15 @@ class CatalogResourceMovePlanner(
         if (owners != null && owners.isEmpty()) return emptyList()
         return handle.createQuery(
             """
-            SELECT stencil.catalog_key::text, stencil.id::text owner_key,
+            SELECT stencil_catalog.catalog_key::text, stencil.id::text owner_key,
                    versions.id, versions.status, versions.content::text json
             FROM stencil_versions versions
             JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
                                  AND stencil.resource_id = versions.stencil_resource_id
-            WHERE versions.tenant_key = :tenantKey ${ownerFilter(owners, "stencil.id", "stencil.catalog_key")}
-            ORDER BY stencil.catalog_key, stencil.id, versions.id
+            JOIN catalogs stencil_catalog
+              ON stencil_catalog.tenant_key = stencil.tenant_key AND stencil_catalog.catalog_id = stencil.catalog_id
+            WHERE versions.tenant_key = :tenantKey ${ownerFilter(owners, "stencil.id", "stencil_catalog.catalog_key")}
+            ORDER BY stencil_catalog.catalog_key, stencil.id, versions.id
             """,
         )
             .bind("tenantKey", tenantKey)

@@ -5,6 +5,7 @@
 package app.epistola.suite.themes
 
 import app.epistola.generation.pdf.SpacingScale
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -156,9 +157,9 @@ class ThemeStyleResolver(
      */
     private fun getTheme(tenantId: TenantKey, catalogKey: CatalogKey?, themeId: ThemeKey): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
         val sql = buildString {
-            append("SELECT t.*, c.type AS catalog_type FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.id = t.catalog_key WHERE t.id = :id AND t.tenant_key = :tenantId")
+            append("SELECT t.*, c.catalog_key AS catalog_key, c.type AS catalog_type FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.id = :id AND t.tenant_key = :tenantId")
             if (catalogKey != null) {
-                append(" AND t.catalog_key = :catalogKey")
+                append(" AND t.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             }
         }
         val query = handle.createQuery(sql)

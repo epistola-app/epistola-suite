@@ -6,6 +6,7 @@ package app.epistola.suite.templates.commands.versions
 
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.catalog.DependencyScanner
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
@@ -305,7 +306,7 @@ class PublishVersionHandler(
                     JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
                                          AND stencil.resource_id = versions.stencil_resource_id
                     WHERE stencil.tenant_key = :tenantKey
-                      AND stencil.catalog_key = :catalogKey
+                      AND stencil.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                       AND versions.status = 'published'
                       AND stencil.id IN (<stencilIds>)
                     """,
@@ -330,7 +331,7 @@ class PublishVersionHandler(
                     JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
                                          AND stencil.resource_id = versions.stencil_resource_id
                     WHERE stencil.tenant_key = :tenantKey
-                      AND stencil.catalog_key = :catalogKey
+                      AND stencil.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                       AND versions.status = 'published'
                       AND stencil.id IN (<stencilIds>)
                     """,

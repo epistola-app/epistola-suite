@@ -62,11 +62,19 @@ object StencilReferences {
             OR NOT EXISTS (
                 SELECT 1 FROM stencils referenced
                 WHERE referenced.tenant_key = $templateAlias.tenant_key
-                  AND referenced.catalog_key = ${referencedCatalog(nodeAlias, templateAlias)}
+                  AND referenced.catalog_id = (
+                      SELECT referenced_catalog.catalog_id FROM catalogs referenced_catalog
+                      WHERE referenced_catalog.tenant_key = referenced.tenant_key
+                        AND referenced_catalog.catalog_key = ${referencedCatalog(nodeAlias, templateAlias)}
+                  )
                   AND referenced.id = :$KEY_PARAM
             )
         )
     )"""
 
-    private fun referencedCatalog(nodeAlias: String, templateAlias: String) = "COALESCE(NULLIF($nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_CATALOG_KEY}', ''), $templateAlias.catalog_key)"
+    private fun referencedCatalog(nodeAlias: String, templateAlias: String) = "COALESCE(NULLIF($nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_CATALOG_KEY}', ''), ${templateCatalog(templateAlias)})"
+
+    /** The key of the catalog the template aliased [templateAlias] lives in. */
+    private fun templateCatalog(templateAlias: String) = "(SELECT template_catalog.catalog_key FROM catalogs template_catalog" +
+        " WHERE template_catalog.tenant_key = $templateAlias.tenant_key AND template_catalog.catalog_id = $templateAlias.catalog_id)"
 }

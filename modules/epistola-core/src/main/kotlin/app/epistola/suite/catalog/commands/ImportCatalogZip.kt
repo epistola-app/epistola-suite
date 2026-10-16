@@ -569,7 +569,7 @@ class ImportCatalogZipHandler(
 
     private fun touchImportedAt(tenantKey: TenantKey, catalogKey: CatalogKey) {
         jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate("UPDATE catalogs SET imported_at = NOW() WHERE tenant_key = :t AND id = :c")
+            handle.createUpdate("UPDATE catalogs SET imported_at = NOW() WHERE tenant_key = :t AND catalog_key = :c")
                 .bind("t", tenantKey)
                 .bind("c", catalogKey)
                 .execute()
@@ -589,7 +589,7 @@ class ImportCatalogZipHandler(
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (id, tenant_key, registry, namespace, name, description, type, source_url, created_at, updated_at)
+                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, description, type, source_url, created_at, updated_at)
                 VALUES (:c, :t, :registry, :namespace, :name, :description, 'SUBSCRIBED', :sourceUrl, NOW(), NOW())
                 """,
             )
@@ -628,7 +628,7 @@ class ImportCatalogZipHandler(
                     installed_resource_fingerprints = :resourceFingerprints::jsonb,
                     name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
                     installed_at = NOW(), content_updated_at = NOW(), updated_at = NOW()
-                WHERE tenant_key = :t AND id = :c
+                WHERE tenant_key = :t AND catalog_key = :c
                 """,
             )
                 .bind("t", tenantKey)
@@ -656,7 +656,7 @@ class ImportCatalogZipHandler(
                 UPDATE catalogs
                 SET name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
                     content_updated_at = NOW(), updated_at = NOW()
-                WHERE tenant_key = :t AND id = :c
+                WHERE tenant_key = :t AND catalog_key = :c
                 """,
             )
                 .bind("t", tenantKey)
@@ -855,7 +855,7 @@ class ImportCatalogZipHandler(
             // Catalog-scoped: themes
             val themeDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Theme>()
             if (themeDeps.isNotEmpty()) {
-                handle.createQuery("SELECT catalog_key, id FROM themes WHERE tenant_key = :tenantKey AND id IN (<slugs>)")
+                handle.createQuery("SELECT rc.catalog_key, th.id FROM themes th JOIN catalogs rc ON rc.tenant_key = th.tenant_key AND rc.catalog_id = th.catalog_id WHERE th.tenant_key = :tenantKey AND th.id IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", themeDeps.map { it.key })
                     .map { rs, _ -> "theme:${rs.getString("catalog_key")}:${rs.getString("id")}" }
@@ -866,7 +866,7 @@ class ImportCatalogZipHandler(
             // Catalog-scoped: stencils
             val stencilDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Stencil>()
             if (stencilDeps.isNotEmpty()) {
-                handle.createQuery("SELECT catalog_key, id FROM stencils WHERE tenant_key = :tenantKey AND id IN (<slugs>)")
+                handle.createQuery("SELECT rc.catalog_key, st.id FROM stencils st JOIN catalogs rc ON rc.tenant_key = st.tenant_key AND rc.catalog_id = st.catalog_id WHERE st.tenant_key = :tenantKey AND st.id IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", stencilDeps.map { it.key })
                     .map { rs, _ -> "stencil:${rs.getString("catalog_key")}:${rs.getString("id")}" }
@@ -881,7 +881,7 @@ class ImportCatalogZipHandler(
             val imageDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Image>()
             if (imageDeps.isNotEmpty()) {
                 handle.createQuery(
-                    "SELECT catalog_key, id::text FROM assets WHERE tenant_key = :tenantKey AND id::text IN (<slugs>)",
+                    "SELECT rc.catalog_key, a.id::text AS id FROM assets a JOIN catalogs rc ON rc.tenant_key = a.tenant_key AND rc.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey AND a.id::text IN (<slugs>)",
                 )
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", imageDeps.map { it.key })
@@ -894,7 +894,7 @@ class ImportCatalogZipHandler(
             // shape as themes/stencils so the look-up cost is one PK probe.
             val codeListDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.CodeList>()
             if (codeListDeps.isNotEmpty()) {
-                handle.createQuery("SELECT catalog_key, slug FROM code_lists WHERE tenant_key = :tenantKey AND slug IN (<slugs>)")
+                handle.createQuery("SELECT rc.catalog_key, cl.slug FROM code_lists cl JOIN catalogs rc ON rc.tenant_key = cl.tenant_key AND rc.catalog_id = cl.catalog_id WHERE cl.tenant_key = :tenantKey AND cl.slug IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", codeListDeps.map { it.key })
                     .map { rs, _ -> "codeList:${rs.getString("catalog_key")}:${rs.getString("slug")}" }
@@ -906,7 +906,7 @@ class ImportCatalogZipHandler(
             // as themes/stencils/code lists.
             val fontDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Font>()
             if (fontDeps.isNotEmpty()) {
-                handle.createQuery("SELECT catalog_key, slug FROM fonts WHERE tenant_key = :tenantKey AND slug IN (<slugs>)")
+                handle.createQuery("SELECT rc.catalog_key, fo.slug FROM fonts fo JOIN catalogs rc ON rc.tenant_key = fo.tenant_key AND rc.catalog_id = fo.catalog_id WHERE fo.tenant_key = :tenantKey AND fo.slug IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", fontDeps.map { it.key })
                     .map { rs, _ -> "font:${rs.getString("catalog_key")}:${rs.getString("slug")}" }

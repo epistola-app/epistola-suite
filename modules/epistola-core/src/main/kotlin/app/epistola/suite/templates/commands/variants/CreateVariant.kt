@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands.variants
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
@@ -62,7 +63,7 @@ class CreateVariantHandler(
                     """
                 SELECT 1
                 FROM document_templates
-                WHERE id = :templateId AND tenant_key = :tenantId AND catalog_key = :catalogKey
+                WHERE id = :templateId AND tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
                 """,
                 )
                     .bind("templateId", command.id.templateKey)

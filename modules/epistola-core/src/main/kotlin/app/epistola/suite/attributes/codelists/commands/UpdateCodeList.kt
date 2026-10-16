@@ -10,6 +10,7 @@ import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.codelists.service.CodeListClient
 import app.epistola.suite.catalog.AuthType
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.crypto.Secret
@@ -80,8 +81,10 @@ class UpdateCodeListHandler(
                     auth_type     = :authType,
                     credential    = :credential,
                     updated_at = NOW()
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
-                RETURNING slug, tenant_key, catalog_key, display_name, description,
+                WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND slug = :slug
+                RETURNING slug, tenant_key, (SELECT cat.catalog_key FROM catalogs cat
+                            WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS catalog_key,
+                          display_name, description,
                           source_type, source_url, auth_type, credential,
                           last_refreshed_at, last_refresh_error,
                           created_at, updated_at
@@ -124,7 +127,7 @@ class UpdateCodeListHandler(
         handle.createQuery(
             """
             SELECT source_url FROM code_lists
-            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
+            WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND slug = :slug
             """,
         )
             .bind("tenantKey", command.id.tenantKey)

@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.relocation
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.common.AuditDetailed
 import app.epistola.suite.common.ids.ResourceIdentity
@@ -176,7 +177,7 @@ class MoveCatalogResourcesHandler(
                     WHERE tenant_key = :tenantKey
                       AND stencil_resource_id = (SELECT resource_id FROM stencils
                                                   WHERE tenant_key = :tenantKey
-                                                    AND catalog_key = :catalogKey AND id = :stencilKey)
+                                                    AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = :stencilKey)
                       AND id = :version
                       AND content = :expected::jsonb
                     """,
@@ -205,7 +206,7 @@ class MoveCatalogResourcesHandler(
                     UPDATE themes
                     SET document_styles = :replacementDocumentStyles::jsonb,
                         block_style_presets = :replacementPresets::jsonb
-                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id = :themeKey
+                    WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = :themeKey
                       AND document_styles = :expectedDocumentStyles::jsonb
                       AND block_style_presets IS NOT DISTINCT FROM :expectedPresets::jsonb
                     """,
@@ -242,7 +243,7 @@ class MoveCatalogResourcesHandler(
             val moved = handle.createUpdate(
                 """
                 UPDATE ${movable.table}
-                SET catalog_key = :targetCatalogKey,
+                SET catalog_id = ${catalogAt("tenantKey", "targetCatalogKey")},
                     ${movable.keyColumn} = ${movable.keyColumnType?.let { "CAST(:targetKey AS $it)" } ?: ":targetKey"}
                 WHERE tenant_key = :tenantKey AND resource_id = :resourceId
                 """,

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.themes.commands
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
@@ -50,7 +51,7 @@ class DeleteThemeHandler(
                 JOIN themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
                 WHERE t.id = :tenantId
                   AND th.id = :themeId
-                  AND th.catalog_key = :catalogKey
+                  AND th.catalog_id = ${catalogAt("tenantId", "catalogKey")}
                 """,
             )
                 .bind("tenantId", command.id.tenantKey)
@@ -65,7 +66,7 @@ class DeleteThemeHandler(
 
             val deleted = handle.createUpdate(
                 """
-                DELETE FROM themes WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
+                DELETE FROM themes WHERE id = :id AND tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
                 """,
             )
                 .bind("id", command.id.key)

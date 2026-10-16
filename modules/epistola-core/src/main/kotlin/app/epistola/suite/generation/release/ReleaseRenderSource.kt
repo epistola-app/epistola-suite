@@ -16,6 +16,7 @@ import app.epistola.generation.pdf.FontFamilyResolver
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.generation.pdf.SpacingScale
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.ids.CatalogKey
@@ -130,7 +131,7 @@ class ReleaseRenderSource(
             handle.createQuery(
                 """
                 SELECT resource_id FROM release_entries
-                WHERE tenant_key = :t AND catalog_key = :c AND version = :version
+                WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
                   AND resource_type = 'template' AND resource_key = :key
                 """,
             )
@@ -246,7 +247,7 @@ class ReleaseRenderSource(
         val row = handle.createQuery(
             """
             SELECT content_retained, rendering_defaults_version FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_key = :c AND version = :version
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
             """,
         )
             .bind("t", tenantKey)
@@ -283,7 +284,7 @@ class ReleaseRenderSource(
         }
 
         private fun deployedRelease(handle: Handle, environment: EnvironmentKey, catalog: CatalogKey): String? = handle
-            .createQuery("SELECT version FROM environment_catalog_deployments WHERE tenant_key = :t AND environment_key = :e AND catalog_key = :c")
+            .createQuery("SELECT version FROM environment_catalog_deployments WHERE tenant_key = :t AND environment_key = :e AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", tenantKey)
             .bind("e", environment)
             .bind("c", catalog)

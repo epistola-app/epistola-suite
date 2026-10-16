@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.identity
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Jdbi
@@ -46,10 +47,11 @@ class TenantResourceIdentityStore(
         return jdbi.withHandle<TenantResourceIdentities, Exception> { handle ->
             val resources = handle.createQuery(
                 """
-                SELECT resource_type, catalog_key::text, resource_key, resource_id
-                FROM catalog_resources
-                WHERE tenant_key = :tenantKey AND catalog_key IN (<catalogKeys>)
-                ORDER BY resource_type, catalog_key, resource_key
+                SELECT r.resource_type, c.catalog_key::text, r.resource_key, r.resource_id
+                FROM catalog_resources r
+                JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
+                WHERE r.tenant_key = :tenantKey AND c.catalog_key IN (<catalogKeys>)
+                ORDER BY r.resource_type, c.catalog_key, r.resource_key
                 """,
             )
                 .bind("tenantKey", tenantKey)
@@ -82,8 +84,8 @@ class TenantResourceIdentityStore(
             handle.execute("SET CONSTRAINTS ALL DEFERRED")
             val batch = handle.prepareBatch(
                 """
-                INSERT INTO catalog_resources (tenant_key, resource_id, resource_type, catalog_key, resource_key)
-                VALUES (:tenantKey, :resourceId, :resourceType, :catalogKey, :resourceKey)
+                INSERT INTO catalog_resources (tenant_key, resource_id, resource_type, catalog_id, resource_key)
+                VALUES (:tenantKey, :resourceId, :resourceType, ${catalogAt("tenantKey", "catalogKey")}, :resourceKey)
                 ON CONFLICT (tenant_key, resource_id) DO NOTHING
                 """,
             )

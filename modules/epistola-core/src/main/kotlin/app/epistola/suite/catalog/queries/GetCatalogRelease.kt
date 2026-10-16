@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.queries
 
 import app.epistola.catalog.protocol.CatalogInfo
 import app.epistola.catalog.protocol.CatalogManifest
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.ReleaseEntry
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.ids.CatalogKey
@@ -68,7 +69,7 @@ class GetCatalogReleaseHandler(
             """
             SELECT version, released_at, notes, fingerprint, content_retained, manifest_snapshot::text AS snapshot
             FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_key = :c AND version = :version
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
             """,
         )
             .bind("t", query.tenantKey)

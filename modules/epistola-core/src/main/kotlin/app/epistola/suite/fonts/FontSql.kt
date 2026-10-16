@@ -4,18 +4,20 @@
 
 package app.epistola.suite.fonts
 
+import app.epistola.suite.catalog.catalogAt
+
 /**
  * The faces of the family at an address, joined so callers can keep naming a family by where it
  * lives while the rows themselves name the family's identity.
  */
-internal const val FACES_OF_FAMILY_AT_ADDRESS: String =
+internal val FACES_OF_FAMILY_AT_ADDRESS: String =
     """
     FROM font_variants faces
     JOIN fonts family ON family.tenant_key = faces.tenant_key AND family.resource_id = faces.font_resource_id
     LEFT JOIN assets binary_asset
            ON binary_asset.tenant_key = faces.tenant_key
           AND binary_asset.resource_id = faces.asset_resource_id
-    WHERE family.tenant_key = :tenantKey AND family.catalog_key = :catalogKey AND family.slug = :slug
+    WHERE family.tenant_key = :tenantKey AND family.catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND family.slug = :slug
     """
 
 /**
@@ -30,7 +32,7 @@ internal fun assetAtAddress(tenantParam: String, catalogParam: String, keyParam:
     CASE WHEN CAST(:$keyParam AS UUID) IS NULL THEN NULL
          ELSE COALESCE(
              (SELECT resource_id FROM assets
-               WHERE tenant_key = :$tenantParam AND catalog_key = :$catalogParam AND id = :$keyParam),
+               WHERE tenant_key = :$tenantParam AND catalog_id = ${catalogAt(tenantParam, catalogParam)} AND id = :$keyParam),
              '00000000-0000-0000-0000-000000000000'::uuid)
     END
     """

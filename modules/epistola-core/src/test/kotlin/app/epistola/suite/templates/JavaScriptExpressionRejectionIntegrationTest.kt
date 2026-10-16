@@ -269,10 +269,12 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
     companion object {
         /** Verbatim from the operator note in docs/generation.md — keep the two in step. */
         private const val OPERATOR_TEMPLATE_QUERY = """
-            SELECT t.tenant_key, t.catalog_key, t.id AS template, v.variant_key AS variant, v.id AS version, v.status
+            SELECT t.tenant_key, c.catalog_key, t.id AS template, v.variant_key AS variant, v.id AS version, v.status
             FROM template_versions v
             JOIN document_templates t
               ON t.tenant_key = v.tenant_key AND t.resource_id = v.template_resource_id
+            JOIN catalogs c
+              ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
             WHERE jsonb_path_exists(v.template_model, '$.** ? (@.language like_regex "^\\s*javascript\\s*$" flag "i")')
             ORDER BY 1, 2, 3, 4, 5
         """

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.StencilKey
@@ -216,7 +217,7 @@ class ImportTemplatesHandler(
             """
                 SELECT COUNT(*) > 0
                 FROM document_templates
-                WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
+                WHERE id = :id AND tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
                 """,
         )
             .bind("id", templateId)
@@ -229,9 +230,9 @@ class ImportTemplatesHandler(
         val status: ImportStatus = if (!templateExists) {
             handle.createUpdate(
                 """
-                    INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_resource_id, pdfa_enabled, created_at, updated_at, created_by, updated_by)
-                    VALUES (:id, :tenantId, :catalogKey, :name, ${themeAtAddress("tenantId", "themeCatalogKey", "themeKey")}, :pdfaEnabled, NOW(), NOW(), :createdBy, :updatedBy)
-                    ON CONFLICT (tenant_key, catalog_key, id) DO UPDATE
+                    INSERT INTO document_templates (id, tenant_key, catalog_id, name, theme_resource_id, pdfa_enabled, created_at, updated_at, created_by, updated_by)
+                    VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, :name, ${themeAtAddress("tenantId", "themeCatalogKey", "themeKey")}, :pdfaEnabled, NOW(), NOW(), :createdBy, :updatedBy)
+                    ON CONFLICT (tenant_key, catalog_id, id) DO UPDATE
                     SET name = :name, theme_resource_id = EXCLUDED.theme_resource_id,
                         pdfa_enabled = :pdfaEnabled, updated_at = NOW(), updated_by = :updatedBy
                     """,
@@ -252,7 +253,7 @@ class ImportTemplatesHandler(
                     UPDATE document_templates
                     SET name = :name, theme_resource_id = ${themeAtAddress("tenantId", "themeCatalogKey", "themeKey")},
                         pdfa_enabled = :pdfaEnabled, updated_at = NOW(), updated_by = :updatedBy
-                    WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
+                    WHERE id = :id AND tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
                     """,
             )
                 .bind("id", templateId)

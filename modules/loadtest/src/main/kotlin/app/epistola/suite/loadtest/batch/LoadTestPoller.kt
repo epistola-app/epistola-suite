@@ -130,9 +130,10 @@ class LoadTestPoller(
             FROM claimed
             WHERE load_test_runs.id = claimed.id
             RETURNING load_test_runs.id, tenant_key,
-                      (SELECT catalog_key FROM document_templates
-                        WHERE tenant_key = load_test_runs.tenant_key
-                          AND resource_id = load_test_runs.template_resource_id) AS catalog_key,
+                      (SELECT cat.catalog_key FROM document_templates t
+                        JOIN catalogs cat ON cat.tenant_key = t.tenant_key AND cat.catalog_id = t.catalog_id
+                        WHERE t.tenant_key = load_test_runs.tenant_key
+                          AND t.resource_id = load_test_runs.template_resource_id) AS catalog_key,
                       (SELECT id FROM document_templates
                         WHERE tenant_key = load_test_runs.tenant_key
                           AND resource_id = load_test_runs.template_resource_id) AS template_key,

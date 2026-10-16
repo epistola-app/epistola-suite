@@ -10,10 +10,13 @@ import app.epistola.catalog.protocol.CatalogLicense
 import app.epistola.catalog.protocol.CatalogPresentation
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.crypto.Secret
+import org.jdbi.v3.core.mapper.reflect.ColumnName
 import org.jdbi.v3.json.Json
 import java.time.OffsetDateTime
 
 data class Catalog(
+    /** The catalog's key within its namespace; column `catalog_key`. */
+    @ColumnName("catalog_key")
     val id: CatalogKey,
     val tenantKey: TenantKey,
     /** The registry the catalog is named on (contract ADR 0003). */

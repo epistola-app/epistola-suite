@@ -5,6 +5,7 @@
 package app.epistola.suite.attributes.codelists.commands
 
 import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Command
@@ -65,7 +66,7 @@ class DeleteCodeListHandler(
             val rowsAffected = handle.createUpdate(
                 """
                 DELETE FROM code_lists
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
+                WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND slug = :slug
                 """,
             )
                 .bind("tenantKey", command.id.tenantKey)

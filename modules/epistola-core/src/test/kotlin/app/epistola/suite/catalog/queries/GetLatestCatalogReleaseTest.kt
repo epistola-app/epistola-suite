@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
@@ -106,7 +107,7 @@ class GetLatestCatalogReleaseTest : IntegrationTestBase() {
             """
                 SELECT version_major, version_minor, version_patch
                 FROM catalog_releases
-                WHERE tenant_key = :t AND catalog_key = :c AND version = :v
+                WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
                 """,
         )
             .bind("t", tenantKey)

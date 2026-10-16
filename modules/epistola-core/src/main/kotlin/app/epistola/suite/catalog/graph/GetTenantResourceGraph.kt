@@ -65,13 +65,13 @@ class TenantResourceGraphBuilder(
         """
             SELECT resource_id, resource_type, catalog_key, resource_key, resource_name, catalog_name, catalog_type
             FROM (
-                SELECT a.resource_id, 'image' resource_type, a.catalog_key::text, a.id::text resource_key, a.name resource_name, c.name catalog_name, c.type::text catalog_type FROM assets a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.id = a.catalog_key WHERE a.tenant_key = :tenantKey
-                UNION ALL SELECT l.resource_id, 'codeList', l.catalog_key::text, l.slug::text, l.display_name, c.name, c.type::text FROM code_lists l JOIN catalogs c ON c.tenant_key = l.tenant_key AND c.id = l.catalog_key WHERE l.tenant_key = :tenantKey
-                UNION ALL SELECT f.resource_id, 'font', f.catalog_key::text, f.slug::text, f.name, c.name, c.type::text FROM fonts f JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.id = f.catalog_key WHERE f.tenant_key = :tenantKey
-                UNION ALL SELECT a.resource_id, 'attribute', a.catalog_key::text, a.id::text, a.display_name, c.name, c.type::text FROM variant_attribute_definitions a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.id = a.catalog_key WHERE a.tenant_key = :tenantKey
-                UNION ALL SELECT t.resource_id, 'theme', t.catalog_key::text, t.id::text, t.name, c.name, c.type::text FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.id = t.catalog_key WHERE t.tenant_key = :tenantKey
-                UNION ALL SELECT s.resource_id, 'stencil', s.catalog_key::text, s.id::text, s.name, c.name, c.type::text FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.id = s.catalog_key WHERE s.tenant_key = :tenantKey
-                UNION ALL SELECT t.resource_id, 'template', t.catalog_key::text, t.id::text, t.name, c.name, c.type::text FROM document_templates t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.id = t.catalog_key WHERE t.tenant_key = :tenantKey
+                SELECT a.resource_id, 'image' resource_type, c.catalog_key::text, a.id::text resource_key, a.name resource_name, c.name catalog_name, c.type::text catalog_type FROM assets a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey
+                UNION ALL SELECT l.resource_id, 'codeList', c.catalog_key::text, l.slug::text, l.display_name, c.name, c.type::text FROM code_lists l JOIN catalogs c ON c.tenant_key = l.tenant_key AND c.catalog_id = l.catalog_id WHERE l.tenant_key = :tenantKey
+                UNION ALL SELECT f.resource_id, 'font', c.catalog_key::text, f.slug::text, f.name, c.name, c.type::text FROM fonts f JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id WHERE f.tenant_key = :tenantKey
+                UNION ALL SELECT a.resource_id, 'attribute', c.catalog_key::text, a.id::text, a.display_name, c.name, c.type::text FROM variant_attribute_definitions a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey
+                UNION ALL SELECT t.resource_id, 'theme', c.catalog_key::text, t.id::text, t.name, c.name, c.type::text FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey
+                UNION ALL SELECT s.resource_id, 'stencil', c.catalog_key::text, s.id::text, s.name, c.name, c.type::text FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id WHERE s.tenant_key = :tenantKey
+                UNION ALL SELECT t.resource_id, 'template', c.catalog_key::text, t.id::text, t.name, c.name, c.type::text FROM document_templates t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey
             ) resources
             ORDER BY catalog_name, resource_type, resource_name
         """,
@@ -91,9 +91,11 @@ class TenantResourceGraphBuilder(
         val result = mutableListOf<Occurrence>()
         handle.createQuery(
             """
-                SELECT dt.catalog_key::text, dt.id::text, th.catalog_key::text AS theme_catalog_key, th.id::text AS theme_key
+                SELECT dc.catalog_key::text, dt.id::text, thc.catalog_key::text AS theme_catalog_key, th.id::text AS theme_key
                 FROM document_templates dt
+                JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
                 JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
+                JOIN catalogs thc ON thc.tenant_key = th.tenant_key AND thc.catalog_id = th.catalog_id
                 WHERE dt.tenant_key = :tenantKey
             """,
         ).bind("tenantKey", tenantKey).map { rs, _ ->
@@ -109,10 +111,12 @@ class TenantResourceGraphBuilder(
 
         handle.createQuery(
             """
-                SELECT a.catalog_key::text, a.id::text,
-                       cl.catalog_key::text AS code_list_catalog_key, cl.slug::text AS code_list_slug
+                SELECT ac.catalog_key::text, a.id::text,
+                       clc.catalog_key::text AS code_list_catalog_key, cl.slug::text AS code_list_slug
                 FROM variant_attribute_definitions a
+                JOIN catalogs ac ON ac.tenant_key = a.tenant_key AND ac.catalog_id = a.catalog_id
                 JOIN code_lists cl ON cl.tenant_key = a.tenant_key AND cl.resource_id = a.code_list_resource_id
+                JOIN catalogs clc ON clc.tenant_key = cl.tenant_key AND clc.catalog_id = cl.catalog_id
                 WHERE a.tenant_key = :tenantKey
             """,
         ).bind("tenantKey", tenantKey).map { rs, _ ->
@@ -128,15 +132,19 @@ class TenantResourceGraphBuilder(
 
         handle.createQuery(
             """
-                SELECT family.catalog_key::text, family.slug::text AS font_slug,
-                       binary_asset.catalog_key::text AS asset_catalog_key,
+                SELECT family_catalog.catalog_key::text, family.slug::text AS font_slug,
+                       asset_catalog.catalog_key::text AS asset_catalog_key,
                        binary_asset.id::text AS asset_key,
                        faces.weight, faces.italic
                 FROM font_variants faces
                 JOIN fonts family ON family.tenant_key = faces.tenant_key AND family.resource_id = faces.font_resource_id
+                JOIN catalogs family_catalog
+                  ON family_catalog.tenant_key = family.tenant_key AND family_catalog.catalog_id = family.catalog_id
                 JOIN assets binary_asset
                   ON binary_asset.tenant_key = faces.tenant_key
                  AND binary_asset.resource_id = faces.asset_resource_id
+                JOIN catalogs asset_catalog
+                  ON asset_catalog.tenant_key = binary_asset.tenant_key AND asset_catalog.catalog_id = binary_asset.catalog_id
                 WHERE faces.tenant_key = :tenantKey AND faces.source = 'ASSET'
             """,
         ).bind("tenantKey", tenantKey).map { rs, _ ->
@@ -152,10 +160,12 @@ class TenantResourceGraphBuilder(
 
         handle.createQuery(
             """
-                SELECT template.catalog_key::text, template.id::text AS template_key,
+                SELECT template_catalog.catalog_key::text, template.id::text AS template_key,
                        tv.id::text variant_key, attribute.key attribute_key
                 FROM template_variants tv
                 ${templateJoin("tv")}
+                JOIN catalogs template_catalog
+                  ON template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id
                 CROSS JOIN LATERAL jsonb_object_keys(tv.attributes) attribute(key)
                 WHERE tv.tenant_key = :tenantKey
             """,
@@ -177,8 +187,10 @@ class TenantResourceGraphBuilder(
 
     private fun loadThemeReferences(handle: Handle, tenantKey: TenantKey): List<Occurrence> = handle.createQuery(
         """
-            SELECT catalog_key::text, id::text, document_styles::text, COALESCE(block_style_presets, '{}'::jsonb)::text presets
-            FROM themes WHERE tenant_key = :tenantKey
+            SELECT tc.catalog_key::text, th.id::text, th.document_styles::text, COALESCE(th.block_style_presets, '{}'::jsonb)::text presets
+            FROM themes th
+            JOIN catalogs tc ON tc.tenant_key = th.tenant_key AND tc.catalog_id = th.catalog_id
+            WHERE th.tenant_key = :tenantKey
         """,
     ).bind("tenantKey", tenantKey).map { rs, _ ->
         val source = ResourceAddress(CatalogResourceType.THEME, rs.getString("catalog_key"), rs.getString("id"))
@@ -190,11 +202,13 @@ class TenantResourceGraphBuilder(
 
     private fun loadTemplateReferences(handle: Handle, tenantKey: TenantKey, includeHistory: Boolean): List<Occurrence> = handle.createQuery(
         """
-            SELECT template.catalog_key::text, template.id::text AS template_key,
+            SELECT template_catalog.catalog_key::text, template.id::text AS template_key,
                    version.variant_key::text, version.id, version.status,
                    version.template_model::text, version.resolved_theme::text
             FROM template_versions version
             ${templateJoin("version")}
+            JOIN catalogs template_catalog
+              ON template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id
             WHERE version.tenant_key = :tenantKey
               AND (:includeHistory OR version.status IN ('draft', 'published'))
         """,
@@ -212,11 +226,13 @@ class TenantResourceGraphBuilder(
 
     private fun loadStencilReferences(handle: Handle, tenantKey: TenantKey, includeHistory: Boolean): List<Occurrence> = handle.createQuery(
         """
-            SELECT stencil.catalog_key::text, stencil.id::text AS stencil_key,
+            SELECT stencil_catalog.catalog_key::text, stencil.id::text AS stencil_key,
                    versions.id, versions.status, versions.content::text
             FROM stencil_versions versions
             JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
                                  AND stencil.resource_id = versions.stencil_resource_id
+            JOIN catalogs stencil_catalog
+              ON stencil_catalog.tenant_key = stencil.tenant_key AND stencil_catalog.catalog_id = stencil.catalog_id
             WHERE versions.tenant_key = :tenantKey
               AND (:includeHistory OR versions.status IN ('draft', 'published'))
         """,

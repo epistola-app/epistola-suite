@@ -185,10 +185,13 @@ class GenerateDocumentBatchHandler(
             val batch = handle.prepareBatch(
                 """
                 INSERT INTO document_generation_requests (
-                    id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
-                    release_version, data, filename, correlation_id, routing_key, document_key, status
+                    id, batch_id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key,
+                    environment_key, release_version, data, filename, correlation_id, routing_key, document_key, status
                 )
-                VALUES (:id, :batchId, :tenantId, :catalogKey, :templateId, :variantId, NULL, :environmentId,
+                VALUES (:id, :batchId, :tenantId, :catalogKey,
+                        (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
+                        (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
+                        :templateId, :variantId, NULL, :environmentId,
                         :releaseVersion, :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status)
                 """,
             )

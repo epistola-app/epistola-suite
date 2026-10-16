@@ -5,6 +5,7 @@
 package app.epistola.suite.storage.backfill
 
 import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -45,8 +46,8 @@ class ContentBackfillRunnerIT : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO assets (id, tenant_key, catalog_key, name, media_type, size_bytes, width, height, content_hash, created_at)
-                VALUES (:id, :tenant, :cat, 'legacy.png', 'image/png', :size, 1, 1, NULL, now())
+                INSERT INTO assets (id, tenant_key, catalog_id, name, media_type, size_bytes, width, height, content_hash, created_at)
+                VALUES (:id, :tenant, ${catalogAt("tenant", "cat")}, 'legacy.png', 'image/png', :size, 1, 1, NULL, now())
                 """,
             )
                 .bind("id", assetId.value)

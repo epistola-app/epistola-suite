@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.revisions
 
 import app.epistola.catalog.protocol.ResourceEntry
 import app.epistola.suite.catalog.CatalogContent
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.LATEST_RELEASE_ORDER
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -70,10 +71,10 @@ class ReleaseEntryStore {
             handle.createUpdate(
                 """
                 INSERT INTO release_entries (
-                    tenant_key, catalog_key, version, resource_type, resource_key,
+                    tenant_key, catalog_id, version, resource_type, resource_key,
                     resource_id, revision_digest, fingerprint, name, description
                 )
-                VALUES (:t, :c, :version, :type, :key, :resourceId, :revision, :fingerprint, :name, :description)
+                VALUES (:t, ${catalogAt("t", "c")}, :version, :type, :key, :resourceId, :revision, :fingerprint, :name, :description)
                 """,
             )
                 .bind("t", tenantKey)
@@ -96,7 +97,7 @@ class ReleaseEntryStore {
             """
             SELECT resource_type, resource_key, resource_id, revision_digest, fingerprint, name, description
             FROM release_entries
-            WHERE tenant_key = :t AND catalog_key = :c AND version = :version
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
             ORDER BY resource_type, resource_key
             """,
         )
@@ -132,7 +133,7 @@ class ReleaseEntryStore {
             """
             SELECT r.version
             FROM catalog_releases r
-            WHERE r.tenant_key = :t AND r.catalog_key = :c AND r.content_retained
+            WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.content_retained
             $LATEST_RELEASE_ORDER
             """,
         )
@@ -146,7 +147,7 @@ class ReleaseEntryStore {
         .createQuery(
             """
             SELECT version FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_key = :c AND content_retained
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND content_retained
             $LATEST_RELEASE_ORDER
             LIMIT 1
             """,
@@ -161,10 +162,11 @@ class ReleaseEntryStore {
     fun latestRetainedReleases(handle: Handle, tenantKey: TenantKey): Map<CatalogKey, String> = handle
         .createQuery(
             """
-            SELECT DISTINCT ON (catalog_key) catalog_key, version FROM catalog_releases
-            WHERE tenant_key = :t AND content_retained
-            ORDER BY catalog_key, version_major DESC NULLS LAST, version_minor DESC NULLS LAST,
-                     version_patch DESC NULLS LAST, released_at DESC
+            SELECT DISTINCT ON (cat.catalog_key) cat.catalog_key, r.version FROM catalog_releases r
+            JOIN catalogs cat ON cat.tenant_key = r.tenant_key AND cat.catalog_id = r.catalog_id
+            WHERE r.tenant_key = :t AND r.content_retained
+            ORDER BY cat.catalog_key, r.version_major DESC NULLS LAST, r.version_minor DESC NULLS LAST,
+                     r.version_patch DESC NULLS LAST, r.released_at DESC
             """,
         )
         .bind("t", tenantKey)
@@ -177,7 +179,7 @@ class ReleaseEntryStore {
             """
             SELECT resource_type, resource_key, resource_id
             FROM catalog_resources
-            WHERE tenant_key = :t AND catalog_key = :c
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             """,
         )
         .bind("t", tenantKey)

@@ -51,9 +51,10 @@ class PurgeTenantCatalogsHandler(
             handle
                 .createQuery(
                     """
-                    SELECT th.catalog_key AS default_theme_catalog_key, th.id AS default_theme_key
+                    SELECT thc.catalog_key AS default_theme_catalog_key, th.id AS default_theme_key
                     FROM tenants t
                     LEFT JOIN themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
+                    LEFT JOIN catalogs thc ON thc.tenant_key = th.tenant_key AND thc.catalog_id = th.catalog_id
                     WHERE t.id = :tenantKey
                     """,
                 )

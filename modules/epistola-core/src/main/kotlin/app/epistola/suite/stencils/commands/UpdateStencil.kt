@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
@@ -92,7 +93,9 @@ class UpdateStencilHandler(
             if (setClauses.isEmpty()) {
                 // Nothing to update, just return current state
                 return@inTransaction handle.createQuery(
-                    "SELECT * FROM stencils WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :id",
+                    "SELECT s.*, cat.catalog_key AS catalog_key FROM stencils s" +
+                        " JOIN catalogs cat ON cat.tenant_key = s.tenant_key AND cat.catalog_id = s.catalog_id" +
+                        " WHERE s.tenant_key = :tenantId AND s.catalog_id = ${catalogAt("tenantId", "catalogKey")} AND s.id = :id",
                 )
                     .bind("tenantId", command.id.tenantKey)
                     .bind("catalogKey", command.id.catalogKey)
@@ -108,8 +111,8 @@ class UpdateStencilHandler(
 
             val sql = """
             UPDATE stencils SET ${setClauses.joinToString(", ")}
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :id
-            RETURNING *
+            WHERE tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")} AND id = :id
+            RETURNING *, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = stencils.tenant_key AND cat.catalog_id = stencils.catalog_id) AS catalog_key
         """
 
             val query = handle.createQuery(sql)

@@ -9,6 +9,7 @@ import app.epistola.suite.attributes.codelists.model.CodeList
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.codelists.service.CodeListClient
 import app.epistola.suite.attributes.codelists.service.CodeListFetchException
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Command
@@ -60,12 +61,14 @@ class RefreshCodeListHandler(
         val current = jdbi.withHandle<CodeList?, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT slug, tenant_key, catalog_key, display_name, description,
+                SELECT slug, tenant_key, (SELECT cat.catalog_key FROM catalogs cat
+                         WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS catalog_key,
+                       display_name, description,
                        source_type, source_url, auth_type, credential,
                        last_refreshed_at, last_refresh_error,
                        created_at, updated_at
                 FROM code_lists
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
+                WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND slug = :slug
                 """,
             )
                 .bind("tenantKey", command.id.tenantKey)
@@ -123,8 +126,10 @@ class RefreshCodeListHandler(
                 SET last_refreshed_at  = NOW(),
                     last_refresh_error = NULL,
                     updated_at      = NOW()
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
-                RETURNING slug, tenant_key, catalog_key, display_name, description,
+                WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND slug = :slug
+                RETURNING slug, tenant_key, (SELECT cat.catalog_key FROM catalogs cat
+                            WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS catalog_key,
+                          display_name, description,
                           source_type, source_url, auth_type, credential,
                           last_refreshed_at, last_refresh_error,
                           created_at, updated_at
@@ -144,7 +149,7 @@ class RefreshCodeListHandler(
                 """
                 UPDATE code_lists
                 SET last_refresh_error = :error, updated_at = NOW()
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
+                WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND slug = :slug
                 """,
             )
                 .bind("tenantKey", id.tenantKey)
@@ -158,12 +163,14 @@ class RefreshCodeListHandler(
     private fun load(id: CodeListId): CodeList? = jdbi.withHandle<CodeList?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT slug, tenant_key, catalog_key, display_name, description,
+            SELECT slug, tenant_key, (SELECT cat.catalog_key FROM catalogs cat
+                     WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS catalog_key,
+                   display_name, description,
                    source_type, source_url, auth_type, credential,
                    last_refreshed_at, last_refresh_error,
                    created_at, updated_at
             FROM code_lists
-            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
+            WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND slug = :slug
             """,
         )
             .bind("tenantKey", id.tenantKey)

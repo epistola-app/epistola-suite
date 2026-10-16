@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogPublicationPolicy
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
@@ -98,7 +99,7 @@ class PublishCurrentCatalogReleaseHandler(
             handle.createQuery(
                 """
                 SELECT status FROM catalog_release_publications
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND version = :version
+                WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND version = :version
                 """,
             ).bind("tenantKey", command.tenantKey).bind("catalogKey", command.catalogKey)
                 .bind("version", release.version)
@@ -223,8 +224,8 @@ class PublishCurrentCatalogReleaseHandler(
             """
             SELECT r.version, r.fingerprint, r.released_at
             FROM catalog_releases r
-            JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.id = r.catalog_key
-            WHERE r.tenant_key = :tenantKey AND r.catalog_key = :catalogKey
+            JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
+            WHERE r.tenant_key = :tenantKey AND c.catalog_key = :catalogKey
               $selection
             """,
         ).apply { if (command.version != null) bind("version", command.version) }

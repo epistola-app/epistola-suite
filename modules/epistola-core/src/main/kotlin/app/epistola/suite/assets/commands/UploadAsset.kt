@@ -10,6 +10,7 @@ import app.epistola.suite.assets.AssetTooLargeException
 import app.epistola.suite.assets.MAX_ASSET_SIZE_BYTES
 import app.epistola.suite.assets.SvgContentPolicy
 import app.epistola.suite.assets.assetContentScope
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -118,8 +119,8 @@ class UploadAssetHandler(
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO assets (id, tenant_key, catalog_key, name, media_type, size_bytes, width, height, content_hash, sensitive, created_at, created_by)
-                VALUES (:id, :tenantId, :catalogKey, :name, :mediaType, :sizeBytes, :width, :height, :contentHash, :sensitive, :createdAt, :createdBy)
+                INSERT INTO assets (id, tenant_key, catalog_id, name, media_type, size_bytes, width, height, content_hash, sensitive, created_at, created_by)
+                VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, :name, :mediaType, :sizeBytes, :width, :height, :contentHash, :sensitive, :createdAt, :createdBy)
                 """,
             )
                 .bind("id", id.value)

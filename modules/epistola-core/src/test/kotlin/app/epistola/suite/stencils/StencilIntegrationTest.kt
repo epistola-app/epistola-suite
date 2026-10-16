@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilVersionId
@@ -266,7 +267,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
                 WHERE tenant_key = :tenantKey
                   AND stencil_resource_id = (SELECT resource_id FROM stencils
                                               WHERE tenant_key = :tenantKey
-                                                AND catalog_key = :catalogKey AND id = :stencilKey)
+                                                AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = :stencilKey)
                   AND id = 1
                 """,
             )

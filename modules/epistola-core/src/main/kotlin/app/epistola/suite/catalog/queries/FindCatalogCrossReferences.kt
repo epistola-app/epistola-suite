@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -36,12 +37,13 @@ class FindCatalogCrossReferencesHandler(
         // 1. Templates in other catalogs that reference themes from this catalog
         handle.createQuery(
             """
-            SELECT DISTINCT dt.name, dt.catalog_key
+            SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
             FROM document_templates dt
+            JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
             JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
             WHERE dt.tenant_key = :tenantKey
-              AND th.catalog_key = :catalogKey
-              AND dt.catalog_key != :catalogKey
+              AND th.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+              AND dt.catalog_id != ${catalogAt("tenantKey", "catalogKey")}
             """,
         )
             .bind("tenantKey", query.tenantKey)
@@ -55,12 +57,13 @@ class FindCatalogCrossReferencesHandler(
         // 2. Templates in other catalogs that use stencils from this catalog
         handle.createQuery(
             """
-            SELECT DISTINCT dt.name, dt.catalog_key
+            SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
             FROM template_versions tv
             JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
+            JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
             WHERE tv.tenant_key = :tenantKey
-              AND dt.catalog_key != :catalogKey
+              AND dt.catalog_id != ${catalogAt("tenantKey", "catalogKey")}
               AND tv.status IN ('draft', 'published')
               AND n.value ->> 'type' = 'stencil'
               AND n.value -> 'props' ->> 'catalogKey' = :catalogKeyStr
@@ -78,13 +81,14 @@ class FindCatalogCrossReferencesHandler(
         // 3. Templates in other catalogs that use assets from this catalog
         handle.createQuery(
             """
-            SELECT DISTINCT dt.name, dt.catalog_key
+            SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
             FROM template_versions tv
             JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
+            JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
-            JOIN assets a ON a.tenant_key = tv.tenant_key AND a.catalog_key = :catalogKey AND a.id::text = n.value -> 'props' ->> 'assetId'
+            JOIN assets a ON a.tenant_key = tv.tenant_key AND a.catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND a.id::text = n.value -> 'props' ->> 'assetId'
             WHERE tv.tenant_key = :tenantKey
-              AND dt.catalog_key != :catalogKey
+              AND dt.catalog_id != ${catalogAt("tenantKey", "catalogKey")}
               AND tv.status IN ('draft', 'published')
               AND n.value ->> 'type' = 'image'
             """,

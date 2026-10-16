@@ -10,6 +10,7 @@ import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
@@ -210,7 +211,7 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
 
     private fun themeIdentity(tenantKey: String, catalogKey: String, key: String): UUID = jdbi.withHandle<UUID, Exception> { handle ->
         handle
-            .createQuery("SELECT resource_id FROM themes WHERE tenant_key = :t AND catalog_key = :c AND id = :k")
+            .createQuery("SELECT resource_id FROM themes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k")
             .bind("t", tenantKey)
             .bind("c", catalogKey)
             .bind("k", key)

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.themes.commands
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
@@ -134,8 +135,8 @@ class UpdateThemeHandler(
             SET ${updates.joinToString(", ")}
             WHERE id = :id
               AND tenant_key = :tenantId
-              AND catalog_key = :catalogKey
-            RETURNING *
+              AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
+            RETURNING *, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = themes.tenant_key AND cat.catalog_id = themes.catalog_id) AS catalog_key
         """
 
         return jdbi.withHandle<Theme?, Exception> { handle ->
@@ -155,11 +156,12 @@ class UpdateThemeHandler(
     private fun getExisting(id: ThemeId): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT *
-            FROM themes
-            WHERE id = :id
-              AND tenant_key = :tenantId
-              AND catalog_key = :catalogKey
+            SELECT t.*, cat.catalog_key AS catalog_key
+            FROM themes t
+            JOIN catalogs cat ON cat.tenant_key = t.tenant_key AND cat.catalog_id = t.catalog_id
+            WHERE t.id = :id
+              AND t.tenant_key = :tenantId
+              AND t.catalog_id = ${catalogAt("tenantId", "catalogKey")}
             """,
         )
             .bind("id", id.key)

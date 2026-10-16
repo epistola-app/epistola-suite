@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.ReleaseEntry
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.ids.CatalogKey
@@ -174,7 +175,7 @@ class GetCatalogResourceChangesHandler(
             """
             SELECT version, fingerprint
             FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_key = :c
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             $LATEST_RELEASE_ORDER
             LIMIT 1
             """,

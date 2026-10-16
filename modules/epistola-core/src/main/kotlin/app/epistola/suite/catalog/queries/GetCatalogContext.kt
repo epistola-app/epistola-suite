@@ -85,17 +85,17 @@ class GetCatalogContextHandler(
         handle.createQuery(
             """
             $CATALOG_ACTIVITY_CTE
-            SELECT c.id, c.name, c.type, c.released_version, $CATALOG_PENDING_CHANGES
+            SELECT c.catalog_key, c.name, c.type, c.released_version, $CATALOG_PENDING_CHANGES
             FROM catalogs c
             $CATALOG_ACTIVITY_JOIN
-            WHERE c.tenant_key = :t AND c.id = :c
+            WHERE c.tenant_key = :t AND c.catalog_key = :c
             """,
         )
             .bind("t", query.tenantKey)
             .bind("c", query.catalogKey)
             .map { rs, _ ->
                 CatalogContext(
-                    catalogKey = rs.getString("id"),
+                    catalogKey = rs.getString("catalog_key"),
                     name = rs.getString("name"),
                     type = CatalogType.valueOf(rs.getString("type")),
                     releasedVersion = rs.getString("released_version"),

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.ReleaseInUse
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
 import app.epistola.suite.common.ids.CatalogKey
@@ -65,7 +66,7 @@ class ForgetReleaseContentHandler(
             """
             UPDATE catalog_releases
             SET content_retained = FALSE
-            WHERE tenant_key = :t AND catalog_key = :c AND version = :v AND content_retained
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v AND content_retained
             """,
         )
             .bind("t", command.tenantKey)
@@ -78,7 +79,7 @@ class ForgetReleaseContentHandler(
         handle.createUpdate(
             """
             DELETE FROM release_entries
-            WHERE tenant_key = :t AND catalog_key = :c AND version = :v
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
             """,
         )
             .bind("t", command.tenantKey)

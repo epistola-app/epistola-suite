@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.queries
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -62,10 +63,10 @@ class ListCatalogReleasesHandler(
             """
             SELECT r.version, r.released_at, r.notes, r.fingerprint, r.content_retained,
                    (SELECT count(*) FROM release_entries e
-                     WHERE e.tenant_key = r.tenant_key AND e.catalog_key = r.catalog_key AND e.version = r.version
+                     WHERE e.tenant_key = r.tenant_key AND e.catalog_id = r.catalog_id AND e.version = r.version
                    ) AS resource_count
             FROM catalog_releases r
-            WHERE r.tenant_key = :t AND r.catalog_key = :c
+            WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")}
             $LATEST_RELEASE_ORDER
             LIMIT :limit OFFSET :offset
             """,
@@ -106,7 +107,7 @@ class CountCatalogReleasesHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<CountCatalogReleases, Long> {
     override fun handle(query: CountCatalogReleases): Long = jdbi.withHandle<Long, Exception> { handle ->
-        handle.createQuery("SELECT count(*) FROM catalog_releases WHERE tenant_key = :t AND catalog_key = :c")
+        handle.createQuery("SELECT count(*) FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", query.tenantKey)
             .bind("c", query.catalogKey)
             .mapTo(Long::class.java)

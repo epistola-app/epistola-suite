@@ -11,11 +11,11 @@ import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogMetadata
+import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.outbound.CatalogSourceProperties
 import app.epistola.suite.catalog.outbound.OutboundUrlGuard
 import app.epistola.suite.catalog.outbound.OutboundUrlRejectedException
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.config.findByTenantAndId
 import app.epistola.suite.crypto.Secret
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -94,9 +94,9 @@ class RegisterCatalogHandler(
         return jdbi.inTransaction<Catalog, Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (id, tenant_key, registry, namespace, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_fingerprint, installed_resource_fingerprints, installed_at, catalog_metadata, created_at, updated_at)
+                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_fingerprint, installed_resource_fingerprints, installed_at, catalog_metadata, created_at, updated_at)
                 VALUES (:id, :tenantKey, :registry, :namespace, :name, :description, 'SUBSCRIBED', :sourceUrl, :authType, :authCredential, :releaseVersion, :fingerprint, :resourceFingerprints::jsonb, NOW(), :catalogMetadata::jsonb, NOW(), NOW())
-                ON CONFLICT (tenant_key, id) DO UPDATE
+                ON CONFLICT (tenant_key, catalog_key) DO UPDATE
                 SET registry = :registry, namespace = :namespace,
                     name = :name, description = :description, source_url = :sourceUrl, source_auth_type = :authType,
                     source_auth_credential = :authCredential, installed_release_version = :releaseVersion,
@@ -121,7 +121,7 @@ class RegisterCatalogHandler(
                 .bind("catalogMetadata", catalogMetadataJson)
                 .execute()
 
-            handle.findByTenantAndId<Catalog>("catalogs", command.tenantKey, catalogKey.value)!!
+            handle.findCatalog(command.tenantKey, catalogKey)!!
         }
     }
 }

@@ -35,7 +35,7 @@ class IsCatalogEditableHandler(
             """
             SELECT type = 'AUTHORED'
             FROM catalogs
-            WHERE tenant_key = :tenantKey AND id = :catalogKey
+            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
             """,
         )
             .bind("tenantKey", query.tenantKey)

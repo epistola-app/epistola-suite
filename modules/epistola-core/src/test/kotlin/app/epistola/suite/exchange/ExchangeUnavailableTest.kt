@@ -5,6 +5,7 @@
 package app.epistola.suite.exchange
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
@@ -88,7 +89,7 @@ class ExchangeUnavailableTest : IntegrationTestBase() {
     /** The deferral is measured by the database clock, which the test clock cannot move. */
     private fun forceDue(tenantKey: TenantKey, catalogKey: CatalogKey) = jdbi.useHandle<Exception> { handle ->
         handle.createUpdate(
-            "UPDATE catalog_release_publications SET next_attempt_at = NOW() WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey",
+            "UPDATE catalog_release_publications SET next_attempt_at = NOW() WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}",
         ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey).execute()
     }
 

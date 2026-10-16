@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.relocation
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
@@ -98,7 +99,7 @@ class ThemeSnapshotRelocationTest : RelocationTestSupport() {
                         resolved_theme -> 'fontFingerprints' -> :qualified)
                 WHERE tenant_key = :tenantKey AND variant_key = :variantKey AND id = :version
                   AND template_resource_id = (SELECT resource_id FROM document_templates
-                                              WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id = :templateKey)
+                                              WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = :templateKey)
                 """,
             )
                 .bind("qualified", "$fontCatalog/$slug")

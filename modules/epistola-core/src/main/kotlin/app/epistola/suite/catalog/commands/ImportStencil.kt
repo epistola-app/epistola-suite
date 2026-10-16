@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilKey
@@ -112,9 +113,9 @@ class ImportStencilHandler(
             // separately below.
             handle.createUpdate(
                 """
-                INSERT INTO stencils (id, tenant_key, catalog_key, name, description, tags, created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantKey, :catalogKey, :name, :description, :tags::jsonb, NOW(), NOW(), :createdBy, :updatedBy)
-                ON CONFLICT (tenant_key, catalog_key, id) DO UPDATE
+                INSERT INTO stencils (id, tenant_key, catalog_id, name, description, tags, created_at, updated_at, created_by, updated_by)
+                VALUES (:id, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, :name, :description, :tags::jsonb, NOW(), NOW(), :createdBy, :updatedBy)
+                ON CONFLICT (tenant_key, catalog_id, id) DO UPDATE
                 SET name = :name, description = :description, tags = :tags::jsonb, updated_at = NOW(), updated_by = :updatedBy
                 """,
             )

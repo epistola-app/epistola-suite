@@ -183,8 +183,8 @@ class AttributeValidationCodeListTest : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (id, tenant_key, name, type, created_at, updated_at)
-                VALUES ('shared', :tenantKey, 'Shared', 'AUTHORED', NOW(), NOW())
+                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, type, created_at, updated_at)
+                VALUES ('shared', :tenantKey, 'exchange.epistola.app', :tenantKey, 'Shared', 'AUTHORED', NOW(), NOW())
                 """,
             )
                 .bind("tenantKey", tenant.id)

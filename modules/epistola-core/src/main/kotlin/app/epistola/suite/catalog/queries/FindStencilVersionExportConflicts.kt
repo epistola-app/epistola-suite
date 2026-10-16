@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.queries
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.MultipleStencilVersionsInUseException.StencilVersionConflict
 import app.epistola.suite.catalog.MultipleStencilVersionsInUseException.TemplatePin
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -69,7 +70,7 @@ class FindStencilVersionExportConflictsHandler(
                      AND sv.stencil_resource_id = s.resource_id
                      AND sv.status = 'published'
                     WHERE s.tenant_key = :tenantKey
-                      AND s.catalog_key = :catalogKey
+                      AND s.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                     GROUP BY s.id
                 ),
                 latest_published_templates AS (
@@ -80,7 +81,7 @@ class FindStencilVersionExportConflictsHandler(
                       ON template.tenant_key = version.tenant_key
                      AND template.resource_id = version.template_resource_id
                     WHERE version.tenant_key = :tenantKey
-                      AND template.catalog_key = :catalogKey
+                      AND template.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                       AND version.status = 'published'
                     ORDER BY version.tenant_key, version.template_resource_id, version.variant_key, version.id DESC
                 ),
@@ -102,7 +103,7 @@ class FindStencilVersionExportConflictsHandler(
                     sr.stencil_version AS pinned_version
                 FROM stencil_refs sr
                 JOIN stencils s ON s.tenant_key = :tenantKey
-                               AND s.catalog_key = :catalogKey
+                               AND s.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                                AND s.id = sr.stencil_id
                 JOIN latest_stencil_version lsv ON lsv.id = s.id
                 JOIN document_templates dt ON dt.tenant_key = :tenantKey

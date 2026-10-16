@@ -7,6 +7,7 @@ package app.epistola.suite.assets.queries
 import app.epistola.suite.assets.AssetContent
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.assetContentScope
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -86,11 +87,12 @@ private data class AssetMeta(
 
 private fun Handle.loadAssetMeta(tenantId: TenantKey, assetId: AssetKey, catalogKey: CatalogKey?): AssetMeta? = createQuery(
     """
-    SELECT id, tenant_key, catalog_key, media_type, content_hash, sensitive
-    FROM assets
-    WHERE id = :assetId
-      AND tenant_key = :tenantId
-      ${if (catalogKey != null) "AND catalog_key = :catalogKey" else ""}
+    SELECT a.id, a.tenant_key, c.catalog_key AS catalog_key, a.media_type, a.content_hash, a.sensitive
+    FROM assets a
+    JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id
+    WHERE a.id = :assetId
+      AND a.tenant_key = :tenantId
+      ${if (catalogKey != null) "AND a.catalog_id = ${catalogAt("tenantId", "catalogKey")}" else ""}
     """,
 )
     .bind("assetId", assetId.value)

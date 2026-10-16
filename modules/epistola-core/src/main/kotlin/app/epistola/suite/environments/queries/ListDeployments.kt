@@ -36,12 +36,13 @@ class ListDeploymentsHandler(
     override fun handle(query: ListDeployments): List<CatalogDeployment> = jdbi.withHandle<List<CatalogDeployment>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT environment_key, catalog_key, version, deployed_at, deployed_by
-            FROM environment_catalog_deployments
-            WHERE tenant_key = :t
-              AND (CAST(:c AS TEXT) IS NULL OR catalog_key = :c)
-              AND (CAST(:e AS TEXT) IS NULL OR environment_key = :e)
-            ORDER BY environment_key, catalog_key
+            SELECT d.environment_key, cat.catalog_key AS catalog_key, d.version, d.deployed_at, d.deployed_by
+            FROM environment_catalog_deployments d
+            JOIN catalogs cat ON cat.tenant_key = d.tenant_key AND cat.catalog_id = d.catalog_id
+            WHERE d.tenant_key = :t
+              AND (CAST(:c AS TEXT) IS NULL OR cat.catalog_key = :c)
+              AND (CAST(:e AS TEXT) IS NULL OR d.environment_key = :e)
+            ORDER BY d.environment_key, cat.catalog_key
             """,
         )
             .bind("t", query.tenantKey)

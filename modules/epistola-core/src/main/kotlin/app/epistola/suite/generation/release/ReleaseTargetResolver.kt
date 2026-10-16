@@ -5,6 +5,7 @@
 package app.epistola.suite.generation.release
 
 import app.epistola.catalog.protocol.TemplateResource
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
@@ -67,7 +68,7 @@ class ReleaseTargetResolver(
     /** [releaseVersion], when the catalog has that release and it kept its content. */
     fun namedRelease(tenantKey: TenantKey, catalogKey: CatalogKey, releaseVersion: String): String {
         val retained = jdbi.withHandle<Boolean?, Exception> { handle ->
-            handle.createQuery("SELECT content_retained FROM catalog_releases WHERE tenant_key = :t AND catalog_key = :c AND version = :v")
+            handle.createQuery("SELECT content_retained FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
                 .bind("t", tenantKey)
                 .bind("c", catalogKey)
                 .bind("v", releaseVersion)
@@ -131,7 +132,7 @@ class ReleaseTargetResolver(
             .one()
         if (!environmentExists) throw EnvironmentNotFoundException(tenantKey, environmentKey)
         handle.createQuery(
-            "SELECT version FROM environment_catalog_deployments WHERE tenant_key = :t AND environment_key = :e AND catalog_key = :c",
+            "SELECT version FROM environment_catalog_deployments WHERE tenant_key = :t AND environment_key = :e AND catalog_id = ${catalogAt("t", "c")}",
         )
             .bind("t", tenantKey)
             .bind("e", environmentKey)

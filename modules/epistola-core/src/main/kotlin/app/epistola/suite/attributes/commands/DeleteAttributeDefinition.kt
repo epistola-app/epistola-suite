@@ -5,6 +5,7 @@
 package app.epistola.suite.attributes.commands
 
 import app.epistola.suite.attributes.AttributeReferences
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.mediator.Command
@@ -63,7 +64,7 @@ class DeleteAttributeDefinitionHandler(
             val rowsAffected = handle.createUpdate(
                 """
                 DELETE FROM variant_attribute_definitions
-                WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
+                WHERE id = :id AND tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
                 """,
             )
                 .bind("id", command.id.key)

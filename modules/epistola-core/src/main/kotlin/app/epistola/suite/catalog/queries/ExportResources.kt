@@ -12,6 +12,7 @@ import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.FontVariantEntry
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.ThemeResource
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -46,7 +47,7 @@ class ExportThemesHandler(
     override fun handle(query: ExportThemes): List<ThemeResource> = jdbi.withHandle<List<ThemeResource>, Exception> { handle ->
         val sql = buildString {
             append("SELECT id, name, description, document_styles::text, page_settings::text, block_style_presets::text, spacing_unit FROM themes WHERE tenant_key = :tenantKey")
-            if (query.catalogKey != null) append(" AND catalog_key = :catalogKey")
+            if (query.catalogKey != null) append(" AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
             if (query.slugs != null) append(" AND id IN (<slugs>)")
         }
         val q = handle.createQuery(sql).bind("tenantKey", query.tenantKey)
@@ -87,14 +88,16 @@ class ExportAttributesHandler(
         val sql = buildString {
             append(
                 """
-                SELECT a.id, a.catalog_key, a.display_name, a.allowed_values::text,
-                       cl.catalog_key AS code_list_catalog_key, cl.slug AS code_list_slug
+                SELECT a.id, ac.catalog_key AS catalog_key, a.display_name, a.allowed_values::text,
+                       clc.catalog_key AS code_list_catalog_key, cl.slug AS code_list_slug
                 FROM variant_attribute_definitions a
+                JOIN catalogs ac ON ac.tenant_key = a.tenant_key AND ac.catalog_id = a.catalog_id
                 LEFT JOIN code_lists cl ON cl.tenant_key = a.tenant_key AND cl.resource_id = a.code_list_resource_id
+                LEFT JOIN catalogs clc ON clc.tenant_key = cl.tenant_key AND clc.catalog_id = cl.catalog_id
                 WHERE a.tenant_key = :tenantKey
                 """,
             )
-            if (query.catalogKey != null) append(" AND a.catalog_key = :catalogKey")
+            if (query.catalogKey != null) append(" AND a.catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
             if (query.slugs != null) append(" AND a.id IN (<slugs>)")
         }
         val q = handle.createQuery(sql).bind("tenantKey", query.tenantKey)
@@ -153,14 +156,15 @@ class ExportCodeListsHandler(
         val codeListSql = buildString {
             append(
                 """
-                SELECT catalog_key, slug, display_name, description
-                FROM code_lists
-                WHERE tenant_key = :tenantKey
+                SELECT c.catalog_key, l.slug, l.display_name, l.description
+                FROM code_lists l
+                JOIN catalogs c ON c.tenant_key = l.tenant_key AND c.catalog_id = l.catalog_id
+                WHERE l.tenant_key = :tenantKey
                 """,
             )
-            if (query.catalogKey != null) append(" AND catalog_key = :catalogKey")
-            if (query.slugs != null) append(" AND slug IN (<slugs>)")
-            append(" ORDER BY catalog_key, slug")
+            if (query.catalogKey != null) append(" AND l.catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
+            if (query.slugs != null) append(" AND l.slug IN (<slugs>)")
+            append(" ORDER BY c.catalog_key, l.slug")
         }
         val codeLists = handle.createQuery(codeListSql).bind("tenantKey", query.tenantKey).apply {
             if (query.catalogKey != null) bind("catalogKey", query.catalogKey)
@@ -179,15 +183,17 @@ class ExportCodeListsHandler(
         val wantedKeys = codeLists.map { (cat, slug, _) -> cat to slug }.toSet()
         val entriesByList = handle.createQuery(
             """
-            SELECT lists.catalog_key, lists.slug AS code_list_slug, entries.code, entries.label,
+            SELECT list_catalog.catalog_key, lists.slug AS code_list_slug, entries.code, entries.label,
                    entries.sort_order, entries.hidden
             FROM code_list_entries entries
             JOIN code_lists lists
               ON lists.tenant_key = entries.tenant_key AND lists.resource_id = entries.code_list_resource_id
+            JOIN catalogs list_catalog
+              ON list_catalog.tenant_key = lists.tenant_key AND list_catalog.catalog_id = lists.catalog_id
             WHERE entries.tenant_key = :tenantKey
-              AND lists.catalog_key IN (<catalogs>)
+              AND list_catalog.catalog_key IN (<catalogs>)
               AND lists.slug IN (<slugs>)
-            ORDER BY lists.catalog_key, lists.slug, entries.sort_order, entries.code
+            ORDER BY list_catalog.catalog_key, lists.slug, entries.sort_order, entries.code
             """,
         )
             .bind("tenantKey", query.tenantKey)
@@ -250,7 +256,7 @@ class ExportStencilsHandler(
                 WHERE s.tenant_key = :tenantKey
                 """,
             )
-            if (query.catalogKey != null) append(" AND s.catalog_key = :catalogKey")
+            if (query.catalogKey != null) append(" AND s.catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
             if (query.slugs != null) append(" AND s.id IN (<slugs>)")
         }
         val q = handle.createQuery(sql).bind("tenantKey", query.tenantKey)
@@ -299,14 +305,15 @@ class ExportFontsHandler(
         val fontSql = buildString {
             append(
                 """
-                SELECT catalog_key, slug, name, kind
-                FROM fonts
-                WHERE tenant_key = :tenantKey
+                SELECT c.catalog_key, f.slug, f.name, f.kind
+                FROM fonts f
+                JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id
+                WHERE f.tenant_key = :tenantKey
                 """,
             )
-            if (query.catalogKey != null) append(" AND catalog_key = :catalogKey")
-            if (query.slugs != null) append(" AND slug IN (<slugs>)")
-            append(" ORDER BY catalog_key, slug")
+            if (query.catalogKey != null) append(" AND f.catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
+            if (query.slugs != null) append(" AND f.slug IN (<slugs>)")
+            append(" ORDER BY c.catalog_key, f.slug")
         }
         data class FontRow(val catalogKey: String, val slug: String, val name: String, val kind: String)
         val fonts = handle.createQuery(fontSql).bind("tenantKey", query.tenantKey).apply {
@@ -325,19 +332,21 @@ class ExportFontsHandler(
         val wantedKeys = fonts.map { it.catalogKey to it.slug }.toSet()
         val variantsByFont = handle.createQuery(
             """
-            SELECT family.catalog_key, family.slug AS font_slug,
+            SELECT family_catalog.catalog_key, family.slug AS font_slug,
                    faces.weight, faces.italic, binary_asset.id AS asset_key,
                    binary_asset.media_type, faces.content_hash
             FROM font_variants faces
             JOIN fonts family ON family.tenant_key = faces.tenant_key AND family.resource_id = faces.font_resource_id
+            JOIN catalogs family_catalog
+              ON family_catalog.tenant_key = family.tenant_key AND family_catalog.catalog_id = family.catalog_id
             JOIN assets binary_asset
               ON binary_asset.tenant_key = faces.tenant_key
              AND binary_asset.resource_id = faces.asset_resource_id
             WHERE faces.tenant_key = :tenantKey
               AND faces.source = 'ASSET'
-              AND family.catalog_key IN (<catalogs>)
+              AND family_catalog.catalog_key IN (<catalogs>)
               AND family.slug IN (<slugs>)
-            ORDER BY family.catalog_key, family.slug, faces.italic, faces.weight
+            ORDER BY family_catalog.catalog_key, family.slug, faces.italic, faces.weight
             """,
         )
             .bind("tenantKey", query.tenantKey)

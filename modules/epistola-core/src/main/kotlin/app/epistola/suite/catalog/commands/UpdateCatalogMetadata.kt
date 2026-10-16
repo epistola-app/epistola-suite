@@ -13,12 +13,12 @@ import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogMetadata
 import app.epistola.suite.catalog.CatalogNotFoundException
+import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.config.findByTenantAndId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.query
@@ -233,7 +233,7 @@ class UpdateCatalogMetadataHandler(
                 UPDATE catalogs
                 SET name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
                     content_updated_at = NOW(), updated_at = NOW()
-                WHERE tenant_key = :tenantKey AND id = :catalogKey
+                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
@@ -243,7 +243,7 @@ class UpdateCatalogMetadataHandler(
                 .bind("catalogMetadata", catalogMetadataJson)
                 .execute()
 
-            handle.findByTenantAndId<Catalog>("catalogs", command.tenantKey, command.catalogKey.value)!!
+            handle.findCatalog(command.tenantKey, command.catalogKey)!!
         }
     }
 

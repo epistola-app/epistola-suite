@@ -7,6 +7,7 @@ package app.epistola.suite.attributes.commands
 import app.epistola.suite.attributes.AttributeReferences
 import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.CodeListId
@@ -73,7 +74,7 @@ class UpdateAttributeDefinitionHandler(
                 val currentAllowedValues = handle.createQuery(
                     """
                     SELECT allowed_values FROM variant_attribute_definitions
-                    WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
+                    WHERE id = :id AND tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
                     """,
                 )
                     .bind("id", command.id.key)
@@ -123,9 +124,13 @@ class UpdateAttributeDefinitionHandler(
                     allowed_values         = :allowedValues::jsonb,
                     code_list_resource_id  = ${boundCodeListAtAddress("tenantId")},
                     updated_at          = NOW()
-                WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
-                RETURNING id, tenant_key, catalog_key, display_name, allowed_values, created_at, updated_at,
-                          (SELECT catalog_key FROM code_lists cl
+                WHERE id = :id AND tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
+                RETURNING id, tenant_key, display_name, allowed_values, created_at, updated_at,
+                          (SELECT cat.catalog_key FROM catalogs cat
+                            WHERE cat.tenant_key = variant_attribute_definitions.tenant_key
+                              AND cat.catalog_id = variant_attribute_definitions.catalog_id) AS catalog_key,
+                          (SELECT cl_cat.catalog_key FROM code_lists cl
+                             JOIN catalogs cl_cat ON cl_cat.tenant_key = cl.tenant_key AND cl_cat.catalog_id = cl.catalog_id
                             WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
                               AND cl.resource_id = variant_attribute_definitions.code_list_resource_id) AS code_list_catalog_key,
                           (SELECT slug FROM code_lists cl

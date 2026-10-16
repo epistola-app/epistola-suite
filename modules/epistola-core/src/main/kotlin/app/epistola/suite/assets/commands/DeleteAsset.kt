@@ -46,7 +46,13 @@ class DeleteAssetHandler(
     override fun handle(command: DeleteAsset): Boolean {
         // Check catalog editability before proceeding
         val catalogKey = jdbi.withHandle<CatalogKey, Exception> { handle ->
-            handle.createQuery("SELECT catalog_key FROM assets WHERE tenant_key = :tenantId AND id = :assetId")
+            handle.createQuery(
+                """
+                SELECT c.catalog_key FROM assets a
+                JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id
+                WHERE a.tenant_key = :tenantId AND a.id = :assetId
+                """,
+            )
                 .bind("tenantId", command.tenantId)
                 .bind("assetId", command.assetId)
                 .map { rs, _ -> CatalogKey(rs.getString("catalog_key")) }

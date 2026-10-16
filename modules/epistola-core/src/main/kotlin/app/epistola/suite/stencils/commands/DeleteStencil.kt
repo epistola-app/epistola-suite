@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
@@ -49,7 +50,7 @@ class DeleteStencilHandler(
             val rowsDeleted = handle.createUpdate(
                 """
             DELETE FROM stencils
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :id
+            WHERE tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")} AND id = :id
             """,
             )
                 .bind("tenantId", command.id.tenantKey)

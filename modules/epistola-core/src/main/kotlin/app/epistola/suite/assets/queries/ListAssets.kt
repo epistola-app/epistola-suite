@@ -7,6 +7,7 @@ package app.epistola.suite.assets.queries
 import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -45,15 +46,15 @@ class ListAssetsHandler(
     override fun handle(query: ListAssets): List<Asset> = jdbi.withHandle<List<Asset>, Exception> { handle ->
         val sql = StringBuilder(
             """
-            SELECT a.id, a.tenant_key, a.catalog_key, c.type AS catalog_type, a.name, a.media_type, a.size_bytes, a.width, a.height, a.created_at, a.created_by
+            SELECT a.id, a.tenant_key, c.catalog_key AS catalog_key, c.type AS catalog_type, a.name, a.media_type, a.size_bytes, a.width, a.height, a.created_at, a.created_by
             FROM assets a
-            JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.id = a.catalog_key
+            JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id
             WHERE a.tenant_key = :tenantId
             """,
         )
 
         if (query.catalogKey != null) {
-            sql.append(" AND a.catalog_key = :catalogKey")
+            sql.append(" AND a.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
         }
         if (!query.searchTerm.isNullOrBlank()) {
             sql.append(" AND a.name ILIKE :searchTerm")

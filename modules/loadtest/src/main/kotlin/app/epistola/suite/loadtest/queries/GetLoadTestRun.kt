@@ -42,7 +42,7 @@ class GetLoadTestRunHandler(
                 r.id,
                 r.batch_id,
                 r.tenant_key,
-                template.catalog_key,
+                cat.catalog_key AS catalog_key,
                 template.id AS template_key,
                 r.variant_key,
                 r.version_key,
@@ -87,6 +87,7 @@ class GetLoadTestRunHandler(
             FROM load_test_runs r
             JOIN document_templates template ON template.tenant_key = r.tenant_key
                                             AND template.resource_id = r.template_resource_id
+            JOIN catalogs cat ON cat.tenant_key = template.tenant_key AND cat.catalog_id = template.catalog_id
             WHERE r.id = :runId
               AND r.tenant_key = :tenantId
             """,

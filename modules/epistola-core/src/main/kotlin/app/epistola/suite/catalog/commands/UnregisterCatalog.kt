@@ -52,7 +52,7 @@ class UnregisterCatalogHandler(
             val deleted = handle.createUpdate(
                 """
                 DELETE FROM catalogs
-                WHERE tenant_key = :tenantKey AND id = :id
+                WHERE tenant_key = :tenantKey AND catalog_key = :id
                 """,
             )
                 .bind("tenantKey", command.tenantKey)

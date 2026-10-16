@@ -9,6 +9,7 @@ import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
@@ -77,7 +78,7 @@ class RecordInstalledReleaseHandler(
         val version = catalog.installedReleaseVersion ?: return null
 
         val exists = jdbi.withHandle<Boolean, Exception> { handle ->
-            handle.createQuery("SELECT EXISTS (SELECT 1 FROM catalog_releases WHERE tenant_key = :t AND catalog_key = :c AND version = :v)")
+            handle.createQuery("SELECT EXISTS (SELECT 1 FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v)")
                 .bind("t", command.tenantKey)
                 .bind("c", command.catalogKey)
                 .bind("v", version)
@@ -98,9 +99,9 @@ class RecordInstalledReleaseHandler(
 
             handle.createUpdate(
                 """
-                INSERT INTO catalog_releases (tenant_key, catalog_key, version, fingerprint, notes, manifest_snapshot, released_at,
+                INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, notes, manifest_snapshot, released_at,
                                               content_retained, rendering_defaults_version)
-                VALUES (:t, :c, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, TRUE, :renderingDefaults)
+                VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, TRUE, :renderingDefaults)
                 """,
             )
                 .bind("t", command.tenantKey)

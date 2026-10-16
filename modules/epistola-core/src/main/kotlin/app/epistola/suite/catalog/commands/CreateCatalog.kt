@@ -8,8 +8,8 @@ import app.epistola.catalog.protocol.CatalogNamespaces
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.config.findByTenantAndId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
@@ -56,7 +56,7 @@ class CreateCatalogHandler(
         jdbi.withHandle<Catalog, Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (id, tenant_key, registry, namespace, name, description, type, created_at, updated_at)
+                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, description, type, created_at, updated_at)
                 VALUES (:id, :tenantKey, :registry, :namespace, :name, :description, 'AUTHORED', NOW(), NOW())
                 """,
             )
@@ -68,7 +68,7 @@ class CreateCatalogHandler(
                 .bind("description", command.description)
                 .execute()
 
-            handle.findByTenantAndId<Catalog>("catalogs", command.tenantKey, command.id.value)!!
+            handle.findCatalog(command.tenantKey, command.id)!!
         }
     }
 }

@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.revisions
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeleteCatalogRelease
 import app.epistola.suite.catalog.commands.ForgetReleaseContent
@@ -298,7 +299,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
      */
     private fun pointer(tenantKey: String, catalogKey: String): Map<String, Any?> = jdbi.withHandle<Map<String, Any?>, Exception> { handle ->
         handle.createQuery(
-            "SELECT released_version, released_fingerprint, released_at FROM catalogs WHERE tenant_key = :t AND id = :c",
+            "SELECT released_version, released_fingerprint, released_at FROM catalogs WHERE tenant_key = :t AND catalog_key = :c",
         )
             .bind("t", tenantKey).bind("c", catalogKey)
             .map { rs, _ ->
@@ -313,7 +314,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
 
     private fun releaseFingerprint(tenantKey: String, catalogKey: String, version: String): String = jdbi.withHandle<String, Exception> { handle ->
         handle.createQuery(
-            "SELECT fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_key = :c AND version = :v",
+            "SELECT fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
         )
             .bind("t", tenantKey).bind("c", catalogKey).bind("v", version)
             .mapTo(String::class.java)
@@ -324,7 +325,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
     // its revisions are in every tenant. The counts below are about this test's catalog.
     private fun revisionCount(tenantKey: TenantKey, kind: String? = null): Int = jdbi.withHandle<Int, Exception> { handle ->
         handle.createQuery(
-            "SELECT count(*) FROM resource_revisions WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_key = 'system') AND (:kind IS NULL OR kind = :kind)",
+            "SELECT count(*) FROM resource_revisions WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system')) AND (:kind IS NULL OR kind = :kind)",
         )
             .bind("t", tenantKey)
             .bind("kind", kind)
@@ -333,12 +334,12 @@ class RevisionCollectionTest : IntegrationTestBase() {
     }
 
     private fun entryCount(tenantKey: TenantKey): Int = jdbi.withHandle<Int, Exception> { handle ->
-        handle.createQuery("SELECT count(*) FROM release_entries WHERE tenant_key = :t AND catalog_key <> 'system'")
+        handle.createQuery("SELECT count(*) FROM release_entries WHERE tenant_key = :t AND catalog_id <> (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system')")
             .bind("t", tenantKey).mapTo(Int::class.java).one()
     }
 
     private fun binaryCount(tenantKey: TenantKey): Int = jdbi.withHandle<Int, Exception> { handle ->
-        handle.createQuery("SELECT count(*) FROM revision_binaries WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_key = 'system')")
+        handle.createQuery("SELECT count(*) FROM revision_binaries WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system'))")
             .bind("t", tenantKey).mapTo(Int::class.java).one()
     }
 
@@ -350,7 +351,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
         handle.createQuery(
             """
                 SELECT content_retained, notes, fingerprint FROM catalog_releases
-                WHERE tenant_key = :t AND catalog_key = :c AND version = :v
+                WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
                 """,
         )
             .bind("t", tenantKey).bind("c", catalogKey).bind("v", version)
@@ -368,7 +369,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
     private class ReleaseEntryStoreProbe(private val jdbi: Jdbi) {
         fun entryCount(tenantKey: TenantKey, catalogKey: String, version: String): Int = jdbi.withHandle<Int, Exception> { handle ->
             handle.createQuery(
-                "SELECT count(*) FROM release_entries WHERE tenant_key = :t AND catalog_key = :c AND version = :v",
+                "SELECT count(*) FROM release_entries WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
             )
                 .bind("t", tenantKey).bind("c", catalogKey).bind("v", version)
                 .mapTo(Int::class.java)
