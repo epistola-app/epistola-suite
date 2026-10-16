@@ -171,7 +171,7 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
                 id = ThemeId(ThemeKey.of("brand-theme"), catalogId),
                 name = "Brand Theme",
                 documentStyles = mapOf(
-                    "fontFamily" to mapOf("slug" to "brand-sans", "catalogKey" to "default"),
+                    "fontFamily" to mapOf("key" to "brand-sans", "catalogKey" to "default"),
                 ),
             ).execute()
 

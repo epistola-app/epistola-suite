@@ -15,7 +15,8 @@ import org.springframework.stereotype.Component
 
 /**
  * Finds themes and template versions that reference a given font family via a
- * structured `fontFamily` style ref (`{ "slug": ..., "catalogKey": ... }`).
+ * structured `fontFamily` style ref (`{ "key": ..., "catalogKey": ... }`, or `slug` in content
+ * stored before 2.0).
  *
  * Mirrors `app.epistola.suite.assets.queries.FindAssetUsages`. A font is
  * considered in use when the structured ref appears — at any nesting depth —
@@ -27,8 +28,8 @@ import org.springframework.stereotype.Component
  *    `documentStylesOverride` / inline styles), for `draft` or `published`
  *    versions only.
  *
- * The recursive `jsonpath` (`$.** ? (...)`) matches the migration's recursive
- * `fontFamily` rewrite, so we don't have to enumerate every nesting path.
+ * The recursive `jsonpath` (`$.**.fontFamily ? (...)`) finds a `fontFamily` at any depth, so we
+ * don't have to enumerate every nesting path.
  */
 data class FindFontUsages(
     val fontId: FontId,
@@ -43,11 +44,10 @@ class FindFontUsagesHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<FindFontUsages, List<FontUsage>> {
 
-    // Recursively match any object that *is* a fontFamily ref to this slug +
-    // catalogKey. The migration nests the ref under a "fontFamily" key, so we
-    // match the ref object itself anywhere in the document.
+    // Match every fontFamily ref, at any depth, to this font. Wire v8 names the font by `key`;
+    // content stored before 2.0 says `slug` until the upgrade rewrites it, and still uses the font.
     private val jsonPath =
-        """$.** ? (@.slug == ${'$'}slug && @.catalogKey == ${'$'}catalogKey)"""
+        """$.**.fontFamily ? ((@.key == ${'$'}slug || @.slug == ${'$'}slug) && @.catalogKey == ${'$'}catalogKey)"""
 
     override fun handle(query: FindFontUsages): List<FontUsage> = jdbi.withHandle<List<FontUsage>, Exception> { handle ->
         val vars = """{"slug": "${query.fontId.key.value}", "catalogKey": "${query.fontId.catalogKey.value}"}"""

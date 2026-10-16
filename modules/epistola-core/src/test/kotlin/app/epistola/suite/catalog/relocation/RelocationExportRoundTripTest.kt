@@ -91,7 +91,7 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
     fun `a moved font is exported at its new address and installs elsewhere`() = roundTrip(
         moved = address(CatalogResourceType.FONT, letters, "acme"),
         setup = { tenant -> importFont(tenant, letters, "acme") },
-        model = { catalog -> singleNodeModel(Node(id = "title", type = "text", styles = mapOf("fontFamily" to mapOf("slug" to "acme", "catalogKey" to catalog.value)))) },
+        model = { catalog -> singleNodeModel(Node(id = "title", type = "text", styles = mapOf("fontFamily" to mapOf("key" to "acme", "catalogKey" to catalog.value)))) },
     )
 
     /**

@@ -124,7 +124,7 @@ class CatalogWireExportTest : IntegrationTestBase() {
                 id = ThemeId(ThemeKey.of("house-style"), catalogId),
                 name = "House Style",
                 description = "The town hall's look",
-                documentStyles = mapOf("fontFamily" to mapOf("slug" to "inter", "catalogKey" to catalogKey.value)),
+                documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to catalogKey.value)),
             ).execute()
 
             val stencilId = StencilId(StencilKey.of("letterhead"), catalogId)

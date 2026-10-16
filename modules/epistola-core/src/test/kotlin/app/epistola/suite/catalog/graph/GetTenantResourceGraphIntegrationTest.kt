@@ -89,7 +89,7 @@ class GetTenantResourceGraphIntegrationTest : IntegrationTestBase() {
             CreateTheme(
                 id = ThemeId(ThemeKey.of("corporate"), CatalogId(brandCatalog, tenantId)),
                 name = "Corporate",
-                documentStyles = mapOf("fontFamily" to mapOf("slug" to "inter", "catalogKey" to "system")),
+                documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to "system")),
             ).execute()
             UploadAsset(
                 tenantId = tenant.id,

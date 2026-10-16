@@ -109,7 +109,7 @@ class StencilCrossCatalogDependencyTest : IntegrationTestBase() {
             "title" to Node(
                 id = "title",
                 type = "text",
-                styles = mapOf("fontFamily" to mapOf("slug" to "inter", "catalogKey" to SYSTEM_CATALOG_KEY.value)),
+                styles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to SYSTEM_CATALOG_KEY.value)),
             ),
         ),
         slots = mapOf("children" to Slot(id = "children", nodeId = "root", name = "children", children = listOf("title"))),

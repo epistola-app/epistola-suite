@@ -81,7 +81,7 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
                 id = ThemeId(ThemeKey.of("branded"), CatalogId(source, TenantId(tenant.id))),
                 name = "Branded",
                 documentStyles = mapOf(
-                    "fontFamily" to mapOf("slug" to "inter", "catalogKey" to SYSTEM_CATALOG_KEY.value),
+                    "fontFamily" to mapOf("key" to "inter", "catalogKey" to SYSTEM_CATALOG_KEY.value),
                 ),
             ).execute()
 
@@ -157,7 +157,7 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
                 id = ThemeId(ThemeKey.of("own-theme"), CatalogId(authored, tenantId)),
                 name = "Own Theme",
                 documentStyles = mapOf(
-                    "fontFamily" to mapOf("slug" to "acme-sans", "catalogKey" to authored.value),
+                    "fontFamily" to mapOf("key" to "acme-sans", "catalogKey" to authored.value),
                 ),
             ).execute()
 

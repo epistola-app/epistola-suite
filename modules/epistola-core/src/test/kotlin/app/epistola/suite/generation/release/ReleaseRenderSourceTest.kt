@@ -158,7 +158,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
             CreateTheme(
                 ThemeId(ThemeKey.of("brand"), shared),
                 "Brand",
-                documentStyles = mapOf("fontFamily" to mapOf("slug" to "brand-sans", "catalogKey" to "base")),
+                documentStyles = mapOf("fontFamily" to mapOf("key" to "brand-sans", "catalogKey" to "base")),
             ).execute()
             release(shared, "1.0.0")
             declareDependency(tenant.id, letters.key, on = shared.key)

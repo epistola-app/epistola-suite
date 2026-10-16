@@ -430,7 +430,7 @@ class CatalogResourceMovePlanner(
         var changed = false
         fun pin(styles: JsonNode?) {
             val font = styles?.get("fontFamily") as? ObjectNode ?: return
-            if (font.hasNonNull("catalogKey") || !font.hasNonNull("slug")) return
+            if (font.hasNonNull("catalogKey") || !(font.hasNonNull("key") || font.hasNonNull("slug"))) return
             font.put("catalogKey", catalogKey)
             changed = true
         }

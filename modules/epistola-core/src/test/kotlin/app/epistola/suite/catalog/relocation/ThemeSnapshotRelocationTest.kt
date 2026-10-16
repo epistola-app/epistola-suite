@@ -35,7 +35,7 @@ class ThemeSnapshotRelocationTest : RelocationTestSupport() {
         releaseAll(tenant, catalogsOf(tenant))
 
         val snapshot = withMediator { GetVersion(VersionId(version, templateVariant(tenant, archive))).query()!!.resolvedTheme!! }
-        assertThat(snapshot.documentStyles["fontFamily"]).isEqualTo(mapOf("slug" to "acme", "catalogKey" to letters.value))
+        assertThat(snapshot.documentStyles["fontFamily"]).isEqualTo(mapOf("key" to "acme", "catalogKey" to letters.value))
         assertThat(snapshot.fontFingerprints).containsOnlyKeys("letters/acme")
     }
 

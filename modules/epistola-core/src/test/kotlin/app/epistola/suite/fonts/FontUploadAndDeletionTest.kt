@@ -178,7 +178,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
                 id = ThemeId(ThemeKey.of("brand-theme"), CatalogId(CatalogKey.DEFAULT, tenantId)),
                 name = "Brand Theme",
                 documentStyles = mapOf(
-                    "fontFamily" to mapOf("slug" to "used-font", "catalogKey" to "default"),
+                    "fontFamily" to mapOf("key" to "used-font", "catalogKey" to "default"),
                 ),
             ).execute()
 
@@ -195,6 +195,33 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
 
             // force = true overrides the guard.
             assertThat(DeleteFont(fontId, force = true).execute()).isTrue()
+        }
+    }
+
+    @Test
+    fun `a theme stored before 2_0, naming its font by slug, still counts as using it`() {
+        withMediator {
+            val tenant = createTenant("Font Slug Tenant")
+            val tenantId = TenantId(tenant.id)
+            val regular = uploadFace(tenantId, CatalogKey.DEFAULT, "slug-regular.ttf")
+            ImportFont(
+                tenantId = tenantId,
+                catalogKey = CatalogKey.DEFAULT,
+                slug = "slug-font",
+                name = "Slug Font",
+                kind = FontKind.SANS.wire,
+                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = regular)),
+            ).execute()
+            // The wire-v7 member name, as 1.x stored it.
+            CreateTheme(
+                id = ThemeId(ThemeKey.of("old-theme"), CatalogId(CatalogKey.DEFAULT, tenantId)),
+                name = "Old Theme",
+                documentStyles = mapOf("fontFamily" to mapOf("slug" to "slug-font", "catalogKey" to "default")),
+            ).execute()
+
+            val usages = FindFontUsages(FontId(FontKey.of("slug-font"), CatalogId(CatalogKey.DEFAULT, tenantId))).query()
+
+            assertThat(usages.map { it.name }).containsExactly("Old Theme")
         }
     }
 

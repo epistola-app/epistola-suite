@@ -39,7 +39,10 @@ class CatalogUpgradeAnalyzer(
 
     private companion object {
         val STALE_PRUNED_RESOURCE_TYPES = RESOURCE_INSTALL_ORDER.keys
-        const val FONT_REFERENCE_JSON_PATH = "\$.** ? (@.slug == \$slug && @.catalogKey == \$catalogKey)"
+
+        // A `fontFamily` reference names its font by `key` from wire v8; content stored before 2.0
+        // says `slug` until the upgrade rewrites it, and still uses the font.
+        const val FONT_REFERENCE_JSON_PATH = "\$.**.fontFamily ? ((@.key == \$slug || @.slug == \$slug) && @.catalogKey == \$catalogKey)"
     }
 
     private val logger = LoggerFactory.getLogger(javaClass)

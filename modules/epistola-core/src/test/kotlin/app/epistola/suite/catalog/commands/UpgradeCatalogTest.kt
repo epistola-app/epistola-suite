@@ -180,7 +180,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
                 id = ThemeId(ThemeKey.of("uses-font"), CatalogId.default(tenantId)),
                 name = "Uses Font",
                 documentStyles = mapOf(
-                    "fontFamily" to mapOf("slug" to "used-font", "catalogKey" to "epistola-demo"),
+                    "fontFamily" to mapOf("key" to "used-font", "catalogKey" to "epistola-demo"),
                 ),
             ).execute()
 
@@ -219,7 +219,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
                 slug = "obsolete-theme",
                 name = "Obsolete Theme",
                 documentStyles = mapOf(
-                    "fontFamily" to mapOf("slug" to "obsolete-font", "catalogKey" to "epistola-demo"),
+                    "fontFamily" to mapOf("key" to "obsolete-font", "catalogKey" to "epistola-demo"),
                 ),
             ).execute()
 
