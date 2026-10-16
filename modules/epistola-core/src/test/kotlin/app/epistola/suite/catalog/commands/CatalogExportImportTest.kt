@@ -23,6 +23,7 @@ import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.ExportStencils
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -699,6 +700,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
         val exported = withMediator {
             CreateCatalog(tenantKey = tenantKey, id = sourceKey, name = "Cross-Catalog Asset Source").execute()
             CreateCatalog(tenantKey = tenantKey, id = assetCatalogKey, name = "Cross-Catalog Asset Store").execute()
+            declareDependency(tenantKey, sourceKey, on = assetCatalogKey)
 
             // The asset lives in the OTHER catalog.
             val asset = UploadAsset(
@@ -732,7 +734,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
         val deps = readManifestDependencies(zipBytes)
         assertThat(deps).anySatisfy { dep ->
             assertThat(dep.get("type").asString()).isEqualTo("image")
-            assertThat(dep.get("slug").asString()).isEqualTo(assetId)
+            assertThat(dep.get("key").asString()).isEqualTo(assetId)
         }
     }
 

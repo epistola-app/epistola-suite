@@ -12,6 +12,7 @@ import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -82,6 +83,7 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
             ).execute()
 
             CreateCatalog(tenantKey = tenant.id, id = main, name = "Main").execute()
+            declareDependency(tenant.id, main, on = shared)
             CreateAttributeDefinition(
                 id = regionAttr,
                 displayName = "Region",

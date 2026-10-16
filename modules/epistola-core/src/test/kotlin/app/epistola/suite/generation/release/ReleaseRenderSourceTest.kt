@@ -9,6 +9,7 @@ import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -41,12 +42,14 @@ import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -90,13 +93,14 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a theme from another catalog renders from that catalog's latest release, not its working copy`() {
-        val tenant = createTenant("rr-latest")
+    fun `a theme from another catalog renders from the release of it this release pinned`() {
+        val tenant = createTenant("rr-pinned")
         val shared = catalogIn(tenant.id, "shared")
         val letters = catalogIn(tenant.id, "letters")
         withMediator {
             CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand", documentStyles = mapOf("color" to "#ff0000")).execute()
             release(shared, "1.0.0")
+            declareDependency(tenant.id, letters.key, on = shared.key)
             invoice(letters, theme = ThemeKey.of("brand"), themeCatalog = shared.key, nodeId = "body")
             release(letters, "1.0.0")
 
@@ -108,12 +112,12 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
         val inputs = source.resolve(tenantOf(letters), ReleaseRef(letters.key, "1.0.0"), "invoice", VariantKey.INITIAL.value)
 
         assertThat(inputs.resolvedTheme.documentStyles)
-            .`as`("a release does not lock the catalogs it borrows from: shared@1.1.0, not 1.0.0 nor the unreleased edit")
-            .containsEntry("color", "#0000ff")
+            .`as`("letters@1.0.0 was cut with shared@1.0.0: not shared's later release nor its unreleased edit")
+            .containsEntry("color", "#ff0000")
     }
 
     @Test
-    fun `an environment chooses the release of a catalog the template borrows from`() {
+    fun `an environment does not change the release a pinned dependency renders from`() {
         val tenant = createTenant("rr-environment")
         val shared = catalogIn(tenant.id, "shared")
         val letters = catalogIn(tenant.id, "letters")
@@ -121,6 +125,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
         withMediator {
             CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand", documentStyles = mapOf("color" to "#ff0000")).execute()
             release(shared, "1.0.0")
+            declareDependency(tenant.id, letters.key, on = shared.key)
             invoice(letters, theme = ThemeKey.of("brand"), themeCatalog = shared.key, nodeId = "body")
             release(letters, "1.0.0")
             UpdateTheme(ThemeId(ThemeKey.of("brand"), shared), documentStyles = mapOf("color" to "#0000ff")).execute()
@@ -128,67 +133,70 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
 
             CreateEnvironment(production, "Production").execute()
             DeployRelease(production, letters.key, "1.0.0").execute()
-            DeployRelease(production, shared.key, "1.0.0").execute()
+            DeployRelease(production, shared.key, "1.1.0").execute()
         }
 
         val inProduction = source.resolve(tenantOf(letters), ReleaseRef(letters.key, "1.0.0"), "invoice", VariantKey.INITIAL.value, production.key)
-        val outside = source.resolve(tenantOf(letters), ReleaseRef(letters.key, "1.0.0"), "invoice", VariantKey.INITIAL.value)
 
         assertThat(inProduction.resolvedTheme.documentStyles)
-            .`as`("production deploys shared@1.0.0, so it renders that, not shared's latest")
+            .`as`("production deploys shared@1.1.0, but letters@1.0.0 was cut with shared@1.0.0")
             .containsEntry("color", "#ff0000")
-        assertThat(outside.resolvedTheme.documentStyles).containsEntry("color", "#0000ff")
     }
 
     @Test
-    fun `a catalog used only through another one renders from its own latest release`() {
+    fun `a catalog used only through another one renders from the release that one pinned`() {
         val tenant = createTenant("rr-transitive")
         val base = catalogIn(tenant.id, "base")
         val shared = catalogIn(tenant.id, "shared")
         val letters = catalogIn(tenant.id, "letters")
-        val bold = classpathBytes("epistola/fonts/inter/inter-Bold.ttf")
+        val regular = classpathBytes("epistola/fonts/inter/inter-Regular.ttf")
         withMediator {
             // base: a font. shared: a theme naming it. letters: a template using the theme.
-            importFont(base, "brand-sans", classpathBytes("epistola/fonts/inter/inter-Regular.ttf"))
+            importFont(base, "brand-sans", regular)
             release(base, "1.0.0")
+            declareDependency(tenant.id, shared.key, on = base.key)
             CreateTheme(
                 ThemeId(ThemeKey.of("brand"), shared),
                 "Brand",
                 documentStyles = mapOf("fontFamily" to mapOf("slug" to "brand-sans", "catalogKey" to "base")),
             ).execute()
             release(shared, "1.0.0")
+            declareDependency(tenant.id, letters.key, on = shared.key)
             invoice(letters, theme = ThemeKey.of("brand"), themeCatalog = shared.key, nodeId = "body")
             release(letters, "1.0.0")
 
             // base moves on: a different face under the same slug, released as 1.1.0.
-            importFont(base, "brand-sans", bold)
+            importFont(base, "brand-sans", classpathBytes("epistola/fonts/inter/inter-Bold.ttf"))
             release(base, "1.1.0")
         }
 
         val inputs = source.resolve(tenantOf(letters), ReleaseRef(letters.key, "1.0.0"), "invoice", VariantKey.INITIAL.value)
         val face = inputs.fontFamilyResolver.resolve("base", "brand-sans", 400, false)
         assertThat(face?.bytes)
-            .`as`("base's latest release, reached through shared's theme")
-            .isEqualTo(bold)
+            .`as`("base@1.0.0, which shared@1.0.0 pinned, reached through shared's theme")
+            .isEqualTo(regular)
         // The parsed-font cache keys on this hash, so it must be the hash of exactly these bytes.
-        assertThat(face?.contentHash).isEqualTo(sha256Hex(bold))
+        assertThat(face?.contentHash).isEqualTo(sha256Hex(regular))
     }
 
     @Test
-    fun `a release may use a catalog that has no release yet, and rendering it names that catalog`() {
+    fun `a release is refused while a catalog it depends on has no release`() {
         val tenant = createTenant("rr-unreleased")
         val shared = catalogIn(tenant.id, "shared")
         val letters = catalogIn(tenant.id, "letters")
-        withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand").execute()
-            invoice(letters, theme = ThemeKey.of("brand"), themeCatalog = shared.key, nodeId = "body")
-            release(letters, "1.0.0")
-        }
 
-        assertThatThrownBy { source.resolve(tenantOf(letters), ReleaseRef(letters.key, "1.0.0"), "invoice", VariantKey.INITIAL.value) }
-            .isInstanceOf(ReleaseRenderException::class.java)
-            .hasMessageContaining("'shared'")
-            .hasMessageContaining("no release")
+        assertThatThrownBy {
+            withMediator {
+                CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand").execute()
+                declareDependency(tenant.id, letters.key, on = shared.key)
+                invoice(letters, theme = ThemeKey.of("brand"), themeCatalog = shared.key, nodeId = "body")
+                release(letters, "1.0.0")
+            }
+        }
+            .isInstanceOf(ValidationException::class.java)
+            .hasValidationCode(ValidationCode.CATALOG_DEPENDENCY_UNRESOLVED)
+            .hasMessageContaining("shared@*")
+            .hasMessageContaining("matches no release")
     }
 
     @Test

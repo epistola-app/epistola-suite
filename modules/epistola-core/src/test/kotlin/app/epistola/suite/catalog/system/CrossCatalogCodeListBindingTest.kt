@@ -14,6 +14,7 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.RegisterCatalog
+import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -82,6 +83,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
         // Author a catalog containing one attribute bound across to `system`.
         val zip = withMediator {
             CreateCatalog(tenantKey = tenant.id, id = source, name = "Xref Source").execute()
+            declareDependency(tenant.id, source, on = SYSTEM_CATALOG_KEY)
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("locale-pref"), CatalogId(source, tenantId)),
                 displayName = "Locale preference",
@@ -101,7 +103,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
         val dependency = manifest["dependencies"].single()
         assertThat(dependency["type"].asString()).isEqualTo("codeList")
         assertThat(dependency["catalogKey"].asString()).isEqualTo("system")
-        assertThat(dependency["slug"].asString()).isEqualTo("bcp-47")
+        assertThat(dependency["key"].asString()).isEqualTo("bcp-47")
 
         val attributeDetail = mapper.readTree(readZipEntry(zip.zipBytes, "resources/attribute/locale-pref.json"))
         assertThat(attributeDetail["resource"]["codeListBinding"]["catalogKey"].asString()).isEqualTo("system")

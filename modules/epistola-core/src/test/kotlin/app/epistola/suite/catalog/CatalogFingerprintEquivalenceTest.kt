@@ -47,12 +47,12 @@ class CatalogFingerprintEquivalenceTest {
         )
         val assets = { contentUrl: String -> if (contentUrl.endsWith("logo")) "PNGBYTES".toByteArray() else null }
 
-        val stamped = canon.fingerprint(catalog, details, null, assets)
+        val stamped = canon.fingerprint(catalog, details, null, assetBytes = assets)
         val recomputedFromWire = canon.fingerprintFromSerializedDetails(
             catalog,
             details.mapValues { (_, d) -> om.writeValueAsBytes(d) },
             null,
-            assets,
+            assetBytes = assets,
         )
 
         assertEquals(recomputedFromWire, stamped, "stamped fingerprint must equal recompute-from-wire")

@@ -19,6 +19,8 @@ import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.ReleaseStencilCheck
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
@@ -30,6 +32,8 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.tenants.queries.GetTenant
+import app.epistola.suite.validation.ValidationCode
+import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
@@ -91,6 +95,7 @@ class ReleaseCatalogVersionHandler(
     private val objectMapper: ObjectMapper,
     private val publicationPort: ObjectProvider<CatalogReleasePublicationPort>,
     private val stencilCheck: ReleaseStencilCheck,
+    private val dependencyStore: CatalogDependencyStore,
 ) : CommandHandler<ReleaseCatalogVersion, ReleaseCatalogVersionResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -116,6 +121,7 @@ class ReleaseCatalogVersionHandler(
             )
         }
 
+        val pins = pinDependencies(command.tenantKey, command.catalogKey)
         val content = contentBuilder.build(command.tenantKey, command.catalogKey)
         fingerprintService.requirePublishable(content)
         stencilCheck.requireInstancesFit(command.tenantKey, command.catalogKey, content)
@@ -189,6 +195,7 @@ class ReleaseCatalogVersionHandler(
             // Inside the release transaction: a release, the content it retains and the record of
             // what it contained commit together, so there is no state where one exists without the
             // others.
+            dependencyStore.recordRelease(handle, command.tenantKey, command.catalogKey, newVersion.toString(), pins)
             val revisionDigests = revisionStore.retain(handle, command.tenantKey, content)
             releaseEntryStore.record(
                 handle,
@@ -230,6 +237,44 @@ class ReleaseCatalogVersionHandler(
             unchangedContent = unchanged,
             publicationId = publicationId,
         )
+    }
+
+    /**
+     * The release of each declared dependency this release is cut with (contract ADR 0003): its lock.
+     * A declaration still unlocked is locked first to the highest release that matches now. Refused
+     * when a declaration matches no release, or its lock no longer holds because the release is gone
+     * or no longer matches.
+     */
+    private fun pinDependencies(tenantKey: TenantKey, catalogKey: CatalogKey): List<CatalogDependencyDeclaration> = jdbi.inTransaction<List<CatalogDependencyDeclaration>, Exception> { handle ->
+        val declarations = dependencyStore.declarations(handle, tenantKey, catalogKey)
+        val locked = declarations.map { declaration ->
+            if (declaration.locked) {
+                declaration
+            } else {
+                dependencyStore.highestMatch(handle, tenantKey, declaration)
+                    ?.let { declaration.copy(releaseVersion = it.version, releaseFingerprint = it.fingerprint) }
+                    ?: declaration
+            }
+        }
+        if (locked != declarations) dependencyStore.replace(handle, tenantKey, catalogKey, locked)
+        val problems = locked.mapNotNull { declaration ->
+            when {
+                !declaration.locked -> "$declaration matches no release of it this tenant has that kept its content"
+
+                !dependencyStore.lockHolds(handle, tenantKey, declaration) ->
+                    "$declaration is locked to ${declaration.releaseVersion}, which this tenant no longer has as it was locked or which no longer matches"
+
+                else -> null
+            }
+        }
+        if (problems.isNotEmpty()) {
+            throw ValidationException(
+                field = "catalogDependencies",
+                message = "Cannot release ${catalogKey.value}: dependency " + problems.joinToString("; "),
+                code = ValidationCode.CATALOG_DEPENDENCY_UNRESOLVED,
+            )
+        }
+        locked
     }
 
     /**

@@ -133,6 +133,46 @@ of resources have independent audiences or release rhythms — a house style ver
 say — publish them as two catalogs and declare the dependency between them. That is cheaper for
 everyone than one large catalog nobody wants all of.
 
+## Declared dependencies
+
+A catalog that uses another catalog's resources declares that catalog once (wire v8
+`catalogDependencies`, contract ADR 0003): by registry, namespace and key, with a version selector in
+the npm range grammar (`^1.4.0`, `~1.4.0`, `>=1.0.0 <2.0.0`, `1.4.2`, `*`). Ivy's interval syntax
+(`[1.0,2.0)`) is refused. `UpdateCatalogDependencies` (`TEMPLATE_PUBLISH`, as releasing) replaces the declarations of an
+authored catalog; each must name a catalog the tenant has, not itself, and not twice.
+
+Each declaration is **locked** to one release of the dependency, like a lockfile: the highest release
+the selector matches when it is declared, among the dependency's releases that kept their content and
+carry a `v5:` fingerprint (a release cut before 2.0 does not). The lock stays when the dependency
+releases again; `ResolveCatalogDependencies` moves every lock to the highest match, the way a library
+upgrade does. Changing a selector keeps a lock it still matches. Renaming the dependency's namespace
+carries the declarations that name it.
+
+**Releasing** is cut with the locks. A declaration still unlocked is locked first if a release matches
+now; the release is refused (`CATALOG_DEPENDENCY_UNRESOLVED`) when one matches nothing, or its locked
+release is gone or no longer matches. A resource reference into a catalog the catalog does not
+declare is refused too. The release records each declaration with its pin (`releaseVersion` and
+`releaseFingerprint`) in its manifest and in `catalog_release_dependencies`
+(`ListReleaseDependencies`).
+
+**Rendering** a release reads another catalog from the release it pinned, whatever was released or
+deployed since; a catalog only a dependency uses comes from the release that dependency pinned,
+nearest first. A pinned release the tenant no longer has, or has with another fingerprint, fails the
+render. Only a release cut before 2.0, which pinned nothing, still reads other catalogs from the
+environment's deployment or their latest release.
+
+**Retention** follows the pins: a release that a retained release of another catalog is pinned to
+cannot be deleted or have its content forgotten (`ReleaseInUseException` names the pinning releases),
+and neither can its catalog be deleted. Forgetting the pinning release's content first frees it.
+
+**Moving** a resource into another catalog declares what the move creates: every authored catalog
+whose content now references a catalog it did not declare gets a declaration `*`, locked to that
+catalog's highest release.
+
+**Installing** keeps the archive's pins: a subscribed catalog's declarations, locks and the pins of
+its installed release are the publisher's. An authored import takes them as its locks, and adopts the
+archive's release only when the tenant has every pinned release.
+
 ## Cutting a release (AUTHORED)
 
 The web UI catalog list shows a **Release new version** action (AUTHORED only)
@@ -370,9 +410,5 @@ added later if automation demand appears.
   `GET /tenants/{tenantId}/catalogs/{catalogId}/upgrade-preview`
   (`CatalogUpgradeDiff`) and MCP `preview_catalog_upgrade`; the upgrade
   _action_ stays UI-only. Still open: ZIP-import dry-run.
-- **Phase 3 — dependency SemVer ranges.** Implement the reserved
-  `DependencyRef.versionRange` (catalog-level, e.g. `system >=1.2.0 <2.0.0`),
-  validated against the dependency catalog's installed/released version at
-  import/upgrade; surfaced in the Phase 2 preview. The snapshot JSON already
-  round-trips an unknown `versionRange` and `SemVer` is the comparison
-  primitive — no Phase 1 rework.
+- **Phase 3 — dependency SemVer ranges.** Done in 2.0 as declared dependencies; see
+  [Declared dependencies](#declared-dependencies).

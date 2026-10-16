@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.relocation
 
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
+import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.snapshot.BuildTenantSnapshot
 import app.epistola.suite.catalog.snapshot.RestoreTenantSnapshot
@@ -64,6 +65,8 @@ class RelocationSnapshotRoundTripTest : RelocationTestSupport() {
         // The published invoice still names letters, where nothing is left, so its catalog cannot be
         // snapshotted until the invoice is republished against where things live now.
         withMediator {
+            // The republished invoice names shared itself, which letters then depends on.
+            declareDependency(tenant, letters, on = shared)
             CreateVersion(templateVariant(tenant, letters)).execute()
             UpdateDraft(
                 templateVariant(tenant, letters),

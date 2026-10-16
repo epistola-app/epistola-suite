@@ -11,6 +11,8 @@ import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogMetadata
+import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.outbound.CatalogSourceProperties
 import app.epistola.suite.catalog.outbound.OutboundUrlGuard
@@ -57,6 +59,7 @@ class RegisterCatalogHandler(
     private val guard: OutboundUrlGuard,
     private val properties: CatalogSourceProperties,
     private val identity: CatalogIdentityProperties,
+    private val dependencyStore: CatalogDependencyStore,
 ) : CommandHandler<RegisterCatalog, Catalog> {
 
     override fun handle(command: RegisterCatalog): Catalog {
@@ -120,6 +123,8 @@ class RegisterCatalogHandler(
                 .bind("resourceFingerprints", resourceFingerprintsJson)
                 .bind("catalogMetadata", catalogMetadataJson)
                 .execute()
+            // What the publisher's release declares and was cut with: the mirror renders with it.
+            dependencyStore.replace(handle, command.tenantKey, catalogKey, manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of))
 
             handle.findCatalog(command.tenantKey, catalogKey)!!
         }

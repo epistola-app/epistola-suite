@@ -32,6 +32,8 @@ import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.ProtocolMapper
 import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
 import app.epistola.suite.catalog.SemVer
+import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
@@ -150,6 +152,7 @@ class ImportCatalogZipHandler(
     private val analyzer: CatalogUpgradeAnalyzer,
     private val schemaMigrator: CatalogSchemaMigrator,
     private val identity: CatalogIdentityProperties,
+    private val dependencyStore: CatalogDependencyStore,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -415,6 +418,7 @@ class ImportCatalogZipHandler(
 
         val anyFailed = results.any { it.status == InstallStatus.FAILED }
         val catalogMetadataJson = objectMapper.writeValueAsString(CatalogMetadata.from(manifest.catalog))
+        val declared = manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of)
 
         if (command.catalogType == CatalogType.SUBSCRIBED) {
             // A ZIP import of a SUBSCRIBED catalog IS its upgrade — same
@@ -444,6 +448,7 @@ class ImportCatalogZipHandler(
                 manifest.catalog.description,
                 catalogMetadataJson,
             )
+            jdbi.useHandle<Exception> { dependencyStore.replace(it, command.tenantKey, catalogKey, declared) }
             if (!InstalledReleaseRecording.isDeferred) {
                 RecordInstalledRelease(command.tenantKey, catalogKey).execute()
             }
@@ -455,13 +460,23 @@ class ImportCatalogZipHandler(
                 manifest.catalog.description,
                 catalogMetadataJson,
             )
+            // The archive's declarations, locked as it was cut. A merge keeps those it does not name.
+            jdbi.useHandle<Exception> { handle ->
+                val kept = if (existingCatalog != null && command.authoredMode != AuthoredImportMode.REPLACE) {
+                    dependencyStore.declarations(handle, command.tenantKey, catalogKey).filter { local -> declared.none { it.identity == local.identity } }
+                } else {
+                    emptyList()
+                }
+                dependencyStore.replace(handle, command.tenantKey, catalogKey, declared + kept)
+            }
         }
 
         if (command.catalogType == CatalogType.AUTHORED &&
             existingCatalog == null &&
             manifest.release.fingerprint != null &&
             SemVer.parseOrNull(manifest.release.version) != null &&
-            !anyFailed
+            !anyFailed &&
+            dependencyLocksHold(command.tenantKey, catalogKey, manifest.release.version)
         ) {
             // AUTHORED: adopt the published version as the *initial* release
             // only when this import created the catalog. A release is an
@@ -529,6 +544,24 @@ class ImportCatalogZipHandler(
             catalogName = manifest.catalog.name,
             results = results,
         )
+    }
+
+    /**
+     * Whether every dependency the archive declares is locked to a release this tenant has as the
+     * archive pinned it. Only then is its release adopted: a release is cut with exactly those, and
+     * releasing would refuse otherwise. The catalog still imports, as unreleased work.
+     */
+    private fun dependencyLocksHold(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        val unresolved = dependencyStore.declarations(handle, tenantKey, catalogKey).filterNot { dependencyStore.lockHolds(handle, tenantKey, it) }
+        if (unresolved.isNotEmpty()) {
+            logger.info(
+                "Did not adopt imported release {} for new catalog '{}': this tenant lacks the dependency releases it was cut with: {}",
+                version,
+                catalogKey.value,
+                unresolved.joinToString { "$it locked to ${it.releaseVersion}" },
+            )
+        }
+        unresolved.isEmpty()
     }
 
     private fun touchImportedAt(tenantKey: TenantKey, catalogKey: CatalogKey) {

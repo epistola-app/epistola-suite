@@ -14,6 +14,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallStatus
+import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
@@ -75,6 +76,7 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
 
         val zip = withMediator {
             CreateCatalog(tenantKey = tenant.id, id = source, name = "Xfont Source").execute()
+            declareDependency(tenant.id, source, on = SYSTEM_CATALOG_KEY)
             CreateTheme(
                 id = ThemeId(ThemeKey.of("branded"), CatalogId(source, TenantId(tenant.id))),
                 name = "Branded",
@@ -89,7 +91,7 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
         // The cross-catalog font binding is declared on the manifest as a
         // DependencyRef.Font(catalogKey = "system", slug = "inter").
         val deps = manifestOf(zip.zipBytes).dependencies.orEmpty()
-        assertThat(deps).contains(DependencyRef.Font(catalogKey = SYSTEM_CATALOG_KEY.value, key = "inter"))
+        assertThat(deps).contains(DependencyRef.Font(catalogKey = SYSTEM_CATALOG_KEY.value, key = "inter", namespace = "epistola", registry = "exchange.epistola.app"))
 
         // Re-import into a SECOND fresh tenant. createTenant auto-installs the
         // system catalog (incl. system/inter), so the cross-catalog font

@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.relocation
 
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.dependencies.MissingDependencyDeclarer
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.common.AuditDetailed
 import app.epistola.suite.common.ids.ResourceIdentity
@@ -139,6 +140,7 @@ class PreviewCatalogResourceMoveHandler(
 class MoveCatalogResourcesHandler(
     private val jdbi: Jdbi,
     private val planner: CatalogResourceMovePlanner,
+    private val declarer: MissingDependencyDeclarer,
 ) : CommandHandler<MoveCatalogResources, CatalogResourceMovePreview> {
     override fun handle(command: MoveCatalogResources): CatalogResourceMovePreview = jdbi.inTransaction<CatalogResourceMovePreview, Exception> { handle ->
         handle.createQuery("SELECT pg_advisory_xact_lock(hashtextextended(:tenantKey, 0))")
@@ -254,6 +256,11 @@ class MoveCatalogResourcesHandler(
             // every dependant names that, so nothing else refers to the address being changed --
             // owned hierarchies included, and a rename no differently from a move.
         }
+
+        // A reference that now crosses into another catalog makes its catalog depend on that one
+        // (contract ADR 0003). The move implies it, so it is declared here rather than left for the
+        // next release to refuse.
+        declarer.declareMissingInTenant(command.tenantKey)
 
         plan.preview
     }

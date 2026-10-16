@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeleteCatalogRelease
 import app.epistola.suite.catalog.commands.ForgetReleaseContent
 import app.epistola.suite.catalog.commands.UnregisterCatalog
+import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.common.ids.CatalogId
@@ -105,13 +106,14 @@ class CatalogDeploymentTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a release another catalog borrows from may be forgotten and deleted when no environment deploys it`() {
+    fun `a release another release is pinned to is kept until that release lets go of its content`() {
         val tenant = createTenant("dep-borrowed").id
         val shared = catalogIn(tenant, "shared")
         val letters = catalogIn(tenant, "letters")
         withMediator {
             CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand").execute()
             mediator.releaseNext(shared)
+            declareDependency(tenant, letters.key, on = shared.key)
             val templateId = TemplateId(TemplateKey.of("invoice"), letters)
             CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
             UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("brand"), themeCatalogKey = shared.key).execute()
@@ -119,9 +121,16 @@ class CatalogDeploymentTest : IntegrationTestBase() {
             mediator.publishAndRelease(VariantId(VariantKey.INITIAL, templateId))
         }
 
-        // A release no longer locks the catalogs it borrows from, so letters@1.0.0 holds nothing of
-        // shared's: only an environment deploying shared@1.0.0 keeps it.
+        // letters@1.0.0 renders with shared@1.0.0, which no environment deploys.
+        assertThatThrownBy { withMediator { ForgetReleaseContent(tenant, shared.key, "1.0.0").execute() } }
+            .isInstanceOf(ReleaseInUseException::class.java)
+            .hasMessageContaining("pinned by letters@1.0.0")
+        assertThatThrownBy { withMediator { DeleteCatalogRelease(tenant, shared.key, "1.0.0").execute() } }
+            .isInstanceOf(ReleaseInUseException::class.java)
+
+        // Once letters@1.0.0 cannot render any more, nothing renders from shared@1.0.0 either.
         withMediator {
+            ForgetReleaseContent(tenant, letters.key, "1.0.0").execute()
             ForgetReleaseContent(tenant, shared.key, "1.0.0").execute()
             DeleteCatalogRelease(tenant, shared.key, "1.0.0").execute()
         }

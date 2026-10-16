@@ -10,6 +10,8 @@ import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
@@ -68,6 +70,7 @@ class RecordInstalledReleaseHandler(
     private val revisionStore: ResourceRevisionStore,
     private val releaseEntryStore: ReleaseEntryStore,
     private val objectMapper: ObjectMapper,
+    private val dependencyStore: CatalogDependencyStore,
 ) : CommandHandler<RecordInstalledRelease, String?> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -114,6 +117,14 @@ class RecordInstalledReleaseHandler(
                 .bind("renderingDefaults", RenderingDefaults.CURRENT.version)
                 .execute()
 
+            // The publisher's pins, as installed: a subscribed catalog's declarations are its archive's.
+            dependencyStore.recordRelease(
+                handle,
+                command.tenantKey,
+                command.catalogKey,
+                version,
+                content.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of),
+            )
             val revisionDigests = revisionStore.retain(handle, command.tenantKey, content)
             releaseEntryStore.record(handle, command.tenantKey, command.catalogKey, version, content, revisionDigests, resourceFingerprints)
         }

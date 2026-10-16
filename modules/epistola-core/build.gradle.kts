@@ -56,6 +56,8 @@ dependencies {
     // JSONata expression language (already in :modules:generation; declared here
     // for compile-time visibility in epistola-core validators)
     implementation(libs.jsonata)
+    // npm SemVer ranges for catalog dependency selectors (contract ADR 0003).
+    implementation(libs.semver4j)
 
     // UUID generation
     implementation(libs.uuid.creator)

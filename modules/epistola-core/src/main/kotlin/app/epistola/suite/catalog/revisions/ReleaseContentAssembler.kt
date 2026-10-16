@@ -85,6 +85,7 @@ class ReleaseContentAssembler(
                 resourceEntries = entries.map { it.toResourceEntry() },
                 resourceDetails = details,
                 dependencies = snapshot.dependencies,
+                catalogDependencies = snapshot.catalogDependencies,
                 assetContents = loadAssetContents(handle, tenantKey, details.values),
             ),
             release = snapshot.release,

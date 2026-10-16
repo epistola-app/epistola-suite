@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
+import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.GetTenantResourceGraph
 import app.epistola.suite.catalog.graph.ReferenceResolution
@@ -181,6 +182,8 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
         }
         move(tenant, moved.movedTo(shared))
         withMediator {
+            // The republished invoice names shared itself, which letters then depends on.
+            declareDependency(tenant, letters, on = shared)
             CreateVersion(variant).execute()
             UpdateDraft(variant, model(shared)).execute()
             PublishVersion(VersionId(GetDraft(variant).query()!!.id, variant)).execute()

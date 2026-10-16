@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog
 
 import app.epistola.catalog.protocol.AttributeResource
+import app.epistola.catalog.protocol.CatalogDependency
 import app.epistola.catalog.protocol.CatalogInfo
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.CatalogResource
@@ -23,6 +24,7 @@ import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.catalog.protocol.VariantEntry
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.assets.queries.ResolveAssetKeysByContentHash
+import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.queries.ExportAssets
 import app.epistola.suite.catalog.queries.ExportAttributes
@@ -49,6 +51,8 @@ data class CatalogContent(
     /** `"$type/$slug"` -> detail. */
     val resourceDetails: Map<String, ResourceDetail>,
     val dependencies: List<DependencyRef>?,
+    /** The catalogs this one declares it depends on, each with the release it is locked or pinned to. */
+    val catalogDependencies: List<CatalogDependency>? = null,
     /** Asset content filename (the part after `./resources/asset/`) -> bytes. */
     val assetContents: Map<String, ByteArray>,
 ) {
@@ -62,6 +66,7 @@ data class CatalogContent(
         release = release,
         resources = resourceEntries,
         dependencies = dependencies,
+        catalogDependencies = catalogDependencies,
     )
 }
 
@@ -78,6 +83,7 @@ data class CatalogContent(
 class CatalogContentBuilder(
     private val objectMapper: ObjectMapper,
     private val jdbi: Jdbi,
+    private val dependencyStore: CatalogDependencyStore,
 ) {
 
     fun build(tenantKey: TenantKey, catalogKey: CatalogKey): CatalogContent {
@@ -160,6 +166,9 @@ class CatalogContentBuilder(
             resourceDetails = resourceDetails,
             dependencies = findCrossCatalogDependencies(templates, stencils, attributes, themes, resourceEntries, catalogKey.value)
                 ?.let { named(tenantKey, it) },
+            catalogDependencies = jdbi.withHandle<List<CatalogDependency>, Exception> { handle ->
+                dependencyStore.declarations(handle, tenantKey, catalogKey).map { it.toWire() }
+            }.ifEmpty { null },
             assetContents = assetContents,
         )
     }

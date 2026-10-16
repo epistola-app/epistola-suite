@@ -32,7 +32,8 @@ import org.springframework.stereotype.Component
  * to be easy: it is one statement, allowed as long as the catalog has never been published under its
  * namespace. A subscribed catalog is named by its publisher and is refused.
  *
- * Releases already cut keep the namespace they were cut with: they are history.
+ * Releases already cut keep the namespace they were cut with: they are history. The declarations of
+ * the tenant's other catalogs that name it follow the new namespace.
  */
 data class ChangeCatalogNamespace(
     override val tenantKey: TenantKey,
@@ -73,6 +74,20 @@ class ChangeCatalogNamespaceHandler(
         )
             .bind("namespace", command.namespace)
             .bind("tenantKey", command.tenantKey)
+            .bind("catalogKey", command.catalogKey)
+            .execute()
+        // The tenant's other catalogs name this one in their declarations: they follow it. Their
+        // locks stay, because the releases they lock to are the same releases.
+        handle.createUpdate(
+            """
+            UPDATE catalog_dependencies SET namespace = :namespace
+            WHERE tenant_key = :tenantKey AND registry = :registry AND namespace = :previous AND dependency_key = :catalogKey
+            """,
+        )
+            .bind("namespace", command.namespace)
+            .bind("tenantKey", command.tenantKey)
+            .bind("registry", catalog.registry)
+            .bind("previous", catalog.namespace)
             .bind("catalogKey", command.catalogKey)
             .execute()
         handle.findCatalog(command.tenantKey, command.catalogKey)!!

@@ -18,6 +18,7 @@ import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.generation.pdf.SpacingScale
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.ids.CatalogKey
@@ -91,6 +92,7 @@ class ReleaseRenderSource(
     private val assembler: ReleaseContentAssembler,
     private val entryStore: ReleaseEntryStore,
     private val objectMapper: ObjectMapper,
+    private val dependencyStore: CatalogDependencyStore,
 ) {
 
     private val resources = Caffeine.newBuilder()
@@ -287,25 +289,74 @@ class ReleaseRenderSource(
 
     /**
      * Where a catalog's resources come from while rendering one release: its own catalog from that
-     * release, every other catalog from the release [environment] deploys of it, else from its latest
-     * release that kept its content. Each catalog is looked up once, so one render reads one release
-     * of it however many references it follows.
+     * release, every other catalog from the release it is pinned to (contract ADR 0003). A pin is
+     * this release's own, else that of a release it pins, nearest first, for a catalog only a
+     * dependency depends on. A catalog no release pins, which only a release cut before 2.0 has,
+     * comes from the release [environment] deploys of it, else from its latest release that kept its
+     * content. Each catalog is looked up once, so one render reads one release of it however many
+     * references it follows.
      */
     private inner class Scope(val tenantKey: TenantKey, val release: ReleaseRef, val environment: EnvironmentKey?) {
         private val latest = mutableMapOf<CatalogKey, ReleaseRef>()
+
+        private val pins: Map<CatalogKey, Pair<String, String>> by lazy {
+            jdbi.withHandle<Map<CatalogKey, Pair<String, String>>, Exception> { handle ->
+                val found = LinkedHashMap<CatalogKey, Pair<String, String>>()
+                val visited = mutableSetOf(release)
+                val queue = ArrayDeque(listOf(release))
+                while (queue.isNotEmpty()) {
+                    val from = queue.removeFirst()
+                    for (pin in dependencyStore.releasePins(handle, tenantKey, from.catalogKey, from.version)) {
+                        val version = pin.releaseVersion ?: continue
+                        // A dependency's key is its key in this tenant: a declaration names a catalog the tenant has.
+                        val catalog = CatalogKey.of(pin.catalogKey)
+                        if (catalog == release.catalogKey) continue
+                        found.putIfAbsent(catalog, version to pin.releaseFingerprint!!)
+                        ReleaseRef(catalog, version).takeIf(visited::add)?.let(queue::addLast)
+                    }
+                }
+                found
+            }
+        }
 
         fun releaseOf(catalog: CatalogKey): ReleaseRef = if (catalog == release.catalogKey) {
             release
         } else {
             latest.getOrPut(catalog) {
-                val version = jdbi.withHandle<String?, Exception> { handle ->
-                    environment?.let { deployedRelease(handle, it, catalog) } ?: entryStore.latestRetainedRelease(handle, tenantKey, catalog)
-                }
-                    ?: throw ReleaseRenderException(
-                        "Release ${release.label()} uses catalog '${catalog.value}', which has no release that kept its content",
-                    )
-                ReleaseRef(catalog, version)
+                pins[catalog]?.let { (version, fingerprint) -> pinned(catalog, version, fingerprint) } ?: unpinned(catalog)
             }
+        }
+
+        /** The pinned release, refused unless the tenant has it with its content and the fingerprint the pin recorded. */
+        private fun pinned(catalog: CatalogKey, version: String, fingerprint: String): ReleaseRef {
+            val stored = jdbi.withHandle<String?, Exception> { handle ->
+                handle.createQuery(
+                    "SELECT fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v AND content_retained",
+                )
+                    .bind("t", tenantKey)
+                    .bind("c", catalog)
+                    .bind("v", version)
+                    .mapTo(String::class.java)
+                    .findOne()
+                    .orElse(null)
+            }
+            if (stored != fingerprint) {
+                throw ReleaseRenderException(
+                    "Release ${release.label()} is pinned to ${catalog.value}@$version ($fingerprint), " +
+                        if (stored == null) "which this tenant does not have with its content" else "but this tenant has that release as $stored",
+                )
+            }
+            return ReleaseRef(catalog, version)
+        }
+
+        private fun unpinned(catalog: CatalogKey): ReleaseRef {
+            val version = jdbi.withHandle<String?, Exception> { handle ->
+                environment?.let { deployedRelease(handle, it, catalog) } ?: entryStore.latestRetainedRelease(handle, tenantKey, catalog)
+            }
+                ?: throw ReleaseRenderException(
+                    "Release ${release.label()} uses catalog '${catalog.value}', which has no release that kept its content",
+                )
+            return ReleaseRef(catalog, version)
         }
 
         private fun deployedRelease(handle: Handle, environment: EnvironmentKey, catalog: CatalogKey): String? = handle
@@ -317,11 +368,11 @@ class ReleaseRenderSource(
             .findOne()
             .orElse(null)
 
-        /** The latest release of every other catalog of the tenant, in catalog order. */
+        /** Every other catalog of the tenant, in catalog order: its pinned release, else its latest. */
         fun otherCatalogs(): List<ReleaseRef> = jdbi.withHandle<Map<CatalogKey, String>, Exception> { handle -> entryStore.latestRetainedReleases(handle, tenantKey) }
             .filterKeys { it != release.catalogKey }
             .entries.sortedBy { it.key.value }
-            .map { (catalog, version) -> ReleaseRef(catalog, version).also { latest.putIfAbsent(catalog, it) } }
+            .map { (catalog, version) -> if (catalog in pins) releaseOf(catalog) else ReleaseRef(catalog, version).also { latest.putIfAbsent(catalog, it) } }
     }
 
     private companion object {

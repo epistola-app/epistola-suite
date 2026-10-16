@@ -60,6 +60,10 @@ enum class ValidationCode(val wire: String) {
     // Catalog identity (contract ADR 0003).
     CATALOG_NAMESPACE_INVALID("CATALOG_NAMESPACE_INVALID"),
 
+    // Declared catalog dependencies (contract ADR 0003).
+    CATALOG_DEPENDENCY_INVALID("CATALOG_DEPENDENCY_INVALID"),
+    CATALOG_DEPENDENCY_UNRESOLVED("CATALOG_DEPENDENCY_UNRESOLVED"),
+
     // Page header and footer placement.
     PAGEBAND_NESTED("PAGEBAND_NESTED"),
 

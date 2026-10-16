@@ -13,6 +13,8 @@ import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.RemovedResource
+import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -93,6 +95,7 @@ class UpgradeCatalogHandler(
     private val analyzer: CatalogUpgradeAnalyzer,
     private val fingerprintService: CatalogFingerprintService,
     private val objectMapper: ObjectMapper,
+    private val dependencyStore: CatalogDependencyStore,
 ) : CommandHandler<UpgradeCatalog, UpgradeCatalogResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -182,6 +185,7 @@ class UpgradeCatalogHandler(
             manifest.catalog.name,
             manifest.catalog.description,
             objectMapper.writeValueAsString(CatalogMetadata.from(manifest.catalog)),
+            manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of),
         )
 
         if (!InstalledReleaseRecording.isDeferred) {
@@ -220,6 +224,7 @@ class UpgradeCatalogHandler(
         name: String,
         description: String?,
         catalogMetadataJson: String,
+        dependencies: List<CatalogDependencyDeclaration>,
     ) {
         // #692: bound the re-fetched manifest name to catalogs.name VARCHAR(255).
         validateCatalogNameLength(name)
@@ -243,6 +248,7 @@ class UpgradeCatalogHandler(
                 .bind("description", description)
                 .bind("catalogMetadata", catalogMetadataJson)
                 .execute()
+            dependencyStore.replace(handle, tenantKey, catalogKey, dependencies)
         }
     }
 }

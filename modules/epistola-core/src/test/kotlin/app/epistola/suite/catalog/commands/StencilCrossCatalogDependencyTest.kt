@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.commands
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.DependencyRef
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
@@ -56,6 +57,7 @@ class StencilCrossCatalogDependencyTest : IntegrationTestBase() {
 
         val zip = withMediator {
             CreateCatalog(tenant.id, source, "Letters").execute()
+            declareDependency(tenant.id, source, on = SYSTEM_CATALOG_KEY)
             CreateStencil(header, "Header").execute()
             UpdateStencil(header, content = bindsSystemFont()).execute()
 
@@ -63,7 +65,7 @@ class StencilCrossCatalogDependencyTest : IntegrationTestBase() {
         }
 
         val dependencies = manifestOf(zip.zipBytes).dependencies.orEmpty()
-        assertThat(dependencies).contains(DependencyRef.Font(catalogKey = SYSTEM_CATALOG_KEY.value, key = "inter"))
+        assertThat(dependencies).contains(DependencyRef.Font(catalogKey = SYSTEM_CATALOG_KEY.value, key = "inter", namespace = "epistola", registry = "exchange.epistola.app"))
     }
 
     @Test

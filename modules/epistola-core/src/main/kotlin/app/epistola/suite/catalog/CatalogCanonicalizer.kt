@@ -6,6 +6,7 @@ package app.epistola.suite.catalog
 
 import app.epistola.catalog.archive.CatalogArchive
 import app.epistola.catalog.canonical.QualifiedCatalogFingerprint
+import app.epistola.catalog.protocol.CatalogDependency
 import app.epistola.catalog.protocol.CatalogInfo
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.CatalogResource
@@ -33,8 +34,9 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         catalog: CatalogInfo,
         serializedDetails: Map<String, ByteArray>,
         dependencies: List<DependencyRef>?,
+        catalogDependencies: List<CatalogDependency>? = null,
         assetBytes: (contentUrl: String) -> ByteArray?,
-    ): String = archive(catalog, serializedDetails, dependencies, assetBytes = assetBytes).use {
+    ): String = archive(catalog, serializedDetails, dependencies, catalogDependencies, assetBytes = assetBytes).use {
         PortableCatalogCanonicalizer.currentQualifiedFingerprint(it).toString()
     }
 
@@ -42,6 +44,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         content.catalog,
         content.resourceDetails.mapValues { (_, detail) -> objectMapper.writeValueAsBytes(detail) },
         content.dependencies,
+        content.catalogDependencies,
         content.resourceEntries,
         includeSerializedDetails = false,
     ) { contentPath ->
@@ -52,11 +55,13 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         catalog: CatalogInfo,
         resourceDetails: Map<String, ResourceDetail>,
         dependencies: List<DependencyRef>?,
+        catalogDependencies: List<CatalogDependency>? = null,
         assetBytes: (contentUrl: String) -> ByteArray?,
     ): String = fingerprintFromSerializedDetails(
         catalog,
         resourceDetails.mapValues { (_, detail) -> objectMapper.writeValueAsBytes(detail) },
         dependencies,
+        catalogDependencies,
         assetBytes,
     )
 
@@ -64,6 +69,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         content.catalog,
         content.resourceDetails.mapValues { (_, detail) -> objectMapper.writeValueAsBytes(detail) },
         content.dependencies,
+        content.catalogDependencies,
         content.resourceEntries,
         includeSerializedDetails = false,
     ) { contentPath ->
@@ -83,6 +89,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
             content.catalog,
             content.resourceDetails.mapValues { (_, detail) -> objectMapper.writeValueAsBytes(detail) },
             content.dependencies,
+            content.catalogDependencies,
             content.resourceEntries,
         ) { contentPath ->
             content.assetContents[contentPath]
@@ -130,6 +137,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
             manifest.catalog,
             serializedDetails,
             manifest.dependencies,
+            manifest.catalogDependencies,
         ) { contentUrl ->
             catalogClient.fetchBinaryContent(contentUrl, manifestUrl, authType, credential)
         }
@@ -139,6 +147,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         catalog: CatalogInfo,
         serializedDetails: Map<String, ByteArray>,
         dependencies: List<DependencyRef>?,
+        catalogDependencies: List<CatalogDependency>? = null,
         resourceEntries: List<ResourceEntry> = emptyList(),
         includeSerializedDetails: Boolean = true,
         assetBytes: (contentUrl: String) -> ByteArray?,
@@ -166,6 +175,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
                 release = ReleaseInfo("0.0.0"),
                 resources = resourceEntries,
                 dependencies = dependencies,
+                catalogDependencies = catalogDependencies,
             ),
             resourceDetails = details,
             paths = content.keys,
