@@ -152,10 +152,13 @@ class CatalogContentBuilder(
                 name = catalog.name,
                 description = catalog.description,
                 availableAssetSlugs = if (catalog.type == CatalogType.SUBSCRIBED) assets.mapTo(mutableSetOf()) { it.key } else null,
+                namespace = catalog.namespace,
+                registry = catalog.registry,
             ),
             resourceEntries = resourceEntries,
             resourceDetails = resourceDetails,
-            dependencies = findCrossCatalogDependencies(templates, stencils, attributes, themes, resourceEntries, catalogKey.value),
+            dependencies = findCrossCatalogDependencies(templates, stencils, attributes, themes, resourceEntries, catalogKey.value)
+                ?.let { named(tenantKey, it) },
             assetContents = assetContents,
         )
     }
@@ -295,6 +298,33 @@ class CatalogContentBuilder(
      * Scan template models for references to resources NOT in this catalog's
      * manifest. Collect them as cross-catalog dependencies. No DB queries.
      */
+
+    /**
+     * [dependencies] each with the registry and namespace of the catalog it names (contract ADR
+     * 0003): a key alone does not say which catalog is meant. A dependency on a catalog the tenant
+     * does not have stays unnamed, and the validator refuses it, as it should.
+     */
+    private fun named(tenantKey: TenantKey, dependencies: List<DependencyRef>): List<DependencyRef> {
+        val names = jdbi.withHandle<Map<String, Pair<String, String>>, Exception> { handle ->
+            handle.createQuery("SELECT id, registry, namespace FROM catalogs WHERE tenant_key = :t AND id IN (<keys>)")
+                .bind("t", tenantKey)
+                .bindList("keys", dependencies.map { it.catalogKey }.distinct())
+                .map { rs, _ -> rs.getString("id") to (rs.getString("registry") to rs.getString("namespace")) }
+                .list()
+                .toMap()
+        }
+        return dependencies.map { dependency ->
+            val (registry, namespace) = names[dependency.catalogKey] ?: return@map dependency
+            when (dependency) {
+                is DependencyRef.Theme -> dependency.copy(registry = registry, namespace = namespace)
+                is DependencyRef.Stencil -> dependency.copy(registry = registry, namespace = namespace)
+                is DependencyRef.Image -> dependency.copy(registry = registry, namespace = namespace)
+                is DependencyRef.CodeList -> dependency.copy(registry = registry, namespace = namespace)
+                is DependencyRef.Font -> dependency.copy(registry = registry, namespace = namespace)
+            }
+        }
+    }
+
     private fun findCrossCatalogDependencies(
         templates: List<TemplateResource>,
         stencils: List<StencilResource>,

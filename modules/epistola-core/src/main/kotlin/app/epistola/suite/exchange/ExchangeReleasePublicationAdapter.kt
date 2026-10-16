@@ -50,6 +50,8 @@ class ExchangeReleasePublicationAdapter(
      */
     override fun isSendInFlight(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): Boolean = store.findByVersion(handle, tenantKey, catalogKey, version)?.status?.isActive == true
 
+    override fun isNamespaceFixed(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): Boolean = namespaceBinder.isLocked(handle, tenantKey, catalogKey)
+
     override fun recordReleasePublication(handle: Handle, request: CatalogReleasePublicationRequest): UUID {
         val id = UUIDv7.generate()
         store.insert(

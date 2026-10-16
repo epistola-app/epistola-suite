@@ -57,6 +57,9 @@ enum class ValidationCode(val wire: String) {
     STENCIL_REFERENCE_INVALID("STENCIL_REFERENCE_INVALID"),
     STENCIL_REFERENCE_NOT_FOUND("STENCIL_REFERENCE_NOT_FOUND"),
 
+    // Catalog identity (contract ADR 0003).
+    CATALOG_NAMESPACE_INVALID("CATALOG_NAMESPACE_INVALID"),
+
     // Page header and footer placement.
     PAGEBAND_NESTED("PAGEBAND_NESTED"),
 

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.tenants.commands
 
+import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.system.InstallSystemCatalog
 import app.epistola.suite.common.EntityIdentifiable
 import app.epistola.suite.common.ids.TenantKey
@@ -41,6 +42,7 @@ data class CreateTenant(
 @Component
 class CreateTenantHandler(
     private val jdbi: Jdbi,
+    private val identity: CatalogIdentityProperties,
 ) : CommandHandler<CreateTenant, Tenant> {
     @Transactional
     override fun handle(command: CreateTenant): Tenant = executeOrThrowDuplicate("tenant", command.id.value) {
@@ -65,11 +67,13 @@ class CreateTenantHandler(
             // Create the tenant's default catalog so authored resources have a home.
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (id, tenant_key, name, type, created_at, updated_at)
-                VALUES ('default', :tenantKey, 'Default', 'AUTHORED', NOW(), NOW())
+                INSERT INTO catalogs (id, tenant_key, registry, namespace, name, type, created_at, updated_at)
+                VALUES ('default', :tenantKey, :registry, :namespace, 'Default', 'AUTHORED', NOW(), NOW())
                 """,
             )
                 .bind("tenantKey", command.id)
+                .bind("registry", identity.defaultRegistry)
+                .bind("namespace", CatalogIdentityProperties.defaultNamespace(command.id))
                 .execute()
 
             inserted

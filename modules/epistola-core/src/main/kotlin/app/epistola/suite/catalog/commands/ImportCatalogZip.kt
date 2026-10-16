@@ -21,6 +21,7 @@ import app.epistola.catalog.validation.ValidationSeverity
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogCanonicalizer
+import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogImportSchemaAction
 import app.epistola.suite.catalog.CatalogMetadata
@@ -161,6 +162,7 @@ class ImportCatalogZipHandler(
     private val jdbi: org.jdbi.v3.core.Jdbi,
     private val analyzer: CatalogUpgradeAnalyzer,
     private val schemaMigrator: CatalogSchemaMigrator,
+    private val identity: CatalogIdentityProperties,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -355,11 +357,14 @@ class ImportCatalogZipHandler(
         // Ensure the catalog row exists with the requested type before install.
         if (existingCatalog == null) {
             when (command.catalogType) {
+                // A catalog keeps the name its archive gives it (contract ADR 0003).
                 CatalogType.AUTHORED -> CreateCatalog(
                     tenantKey = command.tenantKey,
                     id = catalogKey,
                     name = manifest.catalog.name,
                     description = manifest.catalog.description,
+                    namespace = manifest.catalog.namespace,
+                    registry = manifest.catalog.registry,
                 ).execute()
 
                 CatalogType.SUBSCRIBED -> insertSubscribedCatalog(
@@ -368,6 +373,8 @@ class ImportCatalogZipHandler(
                     manifest.catalog.name,
                     manifest.catalog.description,
                     command.sourceUrl,
+                    registry = manifest.catalog.registry ?: identity.defaultRegistry,
+                    namespace = manifest.catalog.namespace ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey),
                 )
             }
         }
@@ -576,15 +583,19 @@ class ImportCatalogZipHandler(
         name: String,
         description: String?,
         sourceUrl: String?,
+        registry: String,
+        namespace: String,
     ) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (id, tenant_key, name, description, type, source_url, created_at, updated_at)
-                VALUES (:c, :t, :name, :description, 'SUBSCRIBED', :sourceUrl, NOW(), NOW())
+                INSERT INTO catalogs (id, tenant_key, registry, namespace, name, description, type, source_url, created_at, updated_at)
+                VALUES (:c, :t, :registry, :namespace, :name, :description, 'SUBSCRIBED', :sourceUrl, NOW(), NOW())
                 """,
             )
                 .bind("c", catalogKey)
+                .bind("registry", registry)
+                .bind("namespace", namespace)
                 .bind("t", tenantKey)
                 .bind("name", name)
                 .bind("description", description)

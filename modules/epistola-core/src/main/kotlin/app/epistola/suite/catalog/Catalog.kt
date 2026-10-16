@@ -16,6 +16,10 @@ import java.time.OffsetDateTime
 data class Catalog(
     val id: CatalogKey,
     val tenantKey: TenantKey,
+    /** The registry the catalog is named on (contract ADR 0003). */
+    val registry: String,
+    /** The catalog's namespace on [registry] (contract ADR 0003). */
+    val namespace: String,
     val name: String,
     val description: String? = null,
     val type: CatalogType,
@@ -52,6 +56,22 @@ data class Catalog(
     val updatedAt: OffsetDateTime,
 )
 
+/** This catalog's full name. */
+val Catalog.catalogName: CatalogName get() = CatalogName(registry, namespace, id)
+
+/**
+ * A catalog's full name (contract ADR 0003): its key means nothing on its own, since two publishers
+ * can each have a catalog called `letters`. Messages and logs name a catalog by this.
+ */
+data class CatalogName(
+    val registry: String,
+    val namespace: String,
+    val key: CatalogKey,
+) {
+    /** The canonical name, `registry/namespace/key` (contract ADR 0004). */
+    override fun toString(): String = "$registry/$namespace/${key.value}"
+}
+
 /** Catalog metadata that is part of the portable catalog manifest. */
 data class CatalogMetadata(
     val attributes: List<AttributeAssignment> = emptyList(),
@@ -64,6 +84,8 @@ data class CatalogMetadata(
         name: String,
         description: String?,
         availableAssetSlugs: Set<String>? = null,
+        namespace: String? = null,
+        registry: String? = null,
     ): CatalogInfo {
         val effectivePresentation = if (availableAssetSlugs == null) {
             presentation
@@ -83,6 +105,8 @@ data class CatalogMetadata(
             keywords = keywords,
             presentation = effectivePresentation,
             license = license,
+            namespace = namespace,
+            registry = registry,
         )
     }
 

@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogFingerprintService
+import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogMetadata
 import app.epistola.suite.catalog.outbound.CatalogSourceProperties
@@ -55,6 +56,7 @@ class RegisterCatalogHandler(
     private val objectMapper: ObjectMapper,
     private val guard: OutboundUrlGuard,
     private val properties: CatalogSourceProperties,
+    private val identity: CatalogIdentityProperties,
 ) : CommandHandler<RegisterCatalog, Catalog> {
 
     override fun handle(command: RegisterCatalog): Catalog {
@@ -92,10 +94,11 @@ class RegisterCatalogHandler(
         return jdbi.inTransaction<Catalog, Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_fingerprint, installed_resource_fingerprints, installed_at, catalog_metadata, created_at, updated_at)
-                VALUES (:id, :tenantKey, :name, :description, 'SUBSCRIBED', :sourceUrl, :authType, :authCredential, :releaseVersion, :fingerprint, :resourceFingerprints::jsonb, NOW(), :catalogMetadata::jsonb, NOW(), NOW())
+                INSERT INTO catalogs (id, tenant_key, registry, namespace, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_fingerprint, installed_resource_fingerprints, installed_at, catalog_metadata, created_at, updated_at)
+                VALUES (:id, :tenantKey, :registry, :namespace, :name, :description, 'SUBSCRIBED', :sourceUrl, :authType, :authCredential, :releaseVersion, :fingerprint, :resourceFingerprints::jsonb, NOW(), :catalogMetadata::jsonb, NOW(), NOW())
                 ON CONFLICT (tenant_key, id) DO UPDATE
-                SET name = :name, description = :description, source_url = :sourceUrl, source_auth_type = :authType,
+                SET registry = :registry, namespace = :namespace,
+                    name = :name, description = :description, source_url = :sourceUrl, source_auth_type = :authType,
                     source_auth_credential = :authCredential, installed_release_version = :releaseVersion,
                     installed_fingerprint = :fingerprint, installed_resource_fingerprints = :resourceFingerprints::jsonb,
                     catalog_metadata = :catalogMetadata::jsonb, installed_at = NOW(),
@@ -104,6 +107,9 @@ class RegisterCatalogHandler(
             )
                 .bind("id", catalogKey)
                 .bind("tenantKey", command.tenantKey)
+                // A subscribed catalog is named by its publisher (contract ADR 0003).
+                .bind("registry", manifest.catalog.registry ?: identity.defaultRegistry)
+                .bind("namespace", manifest.catalog.namespace ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey))
                 .bind("name", manifest.catalog.name)
                 .bind("description", manifest.catalog.description)
                 .bind("sourceUrl", command.sourceUrl)

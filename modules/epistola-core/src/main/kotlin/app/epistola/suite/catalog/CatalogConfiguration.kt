@@ -4,10 +4,12 @@
 
 package app.epistola.suite.catalog
 
+import app.epistola.catalog.protocol.CatalogNamespaces
 import app.epistola.suite.catalog.outbound.CatalogSourceProperties
 import app.epistola.suite.catalog.outbound.OutboundHttpFetcher
 import app.epistola.suite.catalog.outbound.OutboundSourceReader
 import app.epistola.suite.catalog.outbound.OutboundUrlGuard
+import app.epistola.suite.common.ids.TenantKey
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
@@ -72,6 +74,13 @@ data class CatalogIdentityProperties(
     companion object {
         /** The namespace of the catalogs Epistola ships (system, demo) on the default registry. */
         const val BUNDLED_NAMESPACE = "epistola"
+
+        /**
+         * The namespace an authored catalog gets unless it is given one: its tenant's key, padded with
+         * `0` to the length a namespace needs, as the contract pads a short key. The 2.0 migration
+         * names existing catalogs the same way.
+         */
+        fun defaultNamespace(tenantKey: TenantKey): String = tenantKey.value.padEnd(CatalogNamespaces.MIN_LENGTH, '0')
     }
 }
 
