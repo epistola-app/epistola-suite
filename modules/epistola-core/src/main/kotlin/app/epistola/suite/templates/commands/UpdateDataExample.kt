@@ -79,6 +79,8 @@ class UpdateDataExampleHandler(
                 id = existingExample.id,
                 name = command.name ?: existingExample.name,
                 data = command.data ?: existingExample.data,
+                // A rename keeps the address.
+                key = existingExample.key,
             )
 
             // Validate only the updated example against schema

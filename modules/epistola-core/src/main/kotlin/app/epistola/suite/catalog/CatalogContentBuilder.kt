@@ -34,6 +34,7 @@ import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.model.DataExamples
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
@@ -264,7 +265,9 @@ class CatalogContentBuilder(
                     )
                 },
                 dataExamples = template.dataExamples?.let {
-                    objectMapper.readValue(it, objectMapper.typeFactory.constructCollectionType(List::class.java, DataExampleEntry::class.java))
+                    objectMapper.readValue(it, DataExamples::class.java).map { example ->
+                        DataExampleEntry(name = example.name, data = objectMapper.convertValue(example.data, Map::class.java).mapKeys { (k, _) -> k as String }, key = example.key)
+                    }
                 },
                 templateModel = defaultModel,
                 variants = variants.map { v ->

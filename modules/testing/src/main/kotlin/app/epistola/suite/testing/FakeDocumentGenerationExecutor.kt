@@ -143,12 +143,15 @@ class FakeDocumentGenerationExecutor(
                 handle.createUpdate(
                     """
                     INSERT INTO documents (
-                        id, tenant_key, template_key, variant_key, version_key, release_version,
+                        id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key, release_version,
                         filename, correlation_id, content_type, size_bytes,
                         created_at, created_by
                     )
                     VALUES (
-                        :id, :tenantId, :templateId, :variantId, :versionId, :releaseVersion,
+                        :id, :tenantId, :catalogKey,
+                        (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
+                        (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
+                        :templateId, :variantId, :versionId, :releaseVersion,
                         :filename, :correlationId, 'application/pdf', :sizeBytes,
                         :createdAt, :createdBy
                     )
@@ -156,6 +159,7 @@ class FakeDocumentGenerationExecutor(
                 )
                     .bind("id", documentId)
                     .bind("tenantId", request.tenantKey)
+                    .bind("catalogKey", request.catalogKey)
                     .bind("templateId", request.templateKey)
                     .bind("variantId", request.variantKey)
                     .bind("versionId", request.versionKey)

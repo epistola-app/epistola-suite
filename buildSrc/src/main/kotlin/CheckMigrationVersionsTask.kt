@@ -37,8 +37,10 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
     @get:Input
     abstract val githubBaseRef: Property<String>
 
+    // SQL migrations, and Kotlin ones (a data migration that must run the catalog contract's own code):
+    // both share Flyway's one version namespace.
     private val runtimeMigrationPath =
-        Regex("""^modules/[^/]+/src/main/resources/db/migration/[^/]+/V(\d{14})__.+\.sql$""")
+        Regex("""^modules/[^/]+/src/main/(?:resources/db/migration/[^/]+/V(\d{14})__.+\.sql|kotlin/db/migration/[^/]+/V(\d{14})__.+\.kt)$""")
 
     /**
      * A merged migration someone deliberately edited, pinned to the exact content that was reviewed.
@@ -227,7 +229,7 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
     }
 
     private fun migrationVersion(path: String): Long? =
-        runtimeMigrationPath.matchEntire(path)?.groupValues?.get(1)?.toLong()
+        runtimeMigrationPath.matchEntire(path)?.groupValues?.drop(1)?.firstOrNull { it.isNotEmpty() }?.toLong()
 
     private fun runGit(vararg args: String): String? = gitBytes(*args)?.toString(Charsets.UTF_8)?.trim()
 

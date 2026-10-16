@@ -264,7 +264,7 @@ class InstallFromCatalogHandler(
             pdfaEnabled = resource.pdfaEnabled,
             dataModel = protocolMapper.toObjectNode(resource.dataModel),
             dataExamples = resource.dataExamples?.map {
-                DataExample(id = java.util.UUID.randomUUID().toString(), name = it.name, data = protocolMapper.toObjectNode(it.data)!!)
+                DataExample(id = java.util.UUID.randomUUID().toString(), name = it.name, data = protocolMapper.toObjectNode(it.data)!!, key = it.key)
             } ?: emptyList(),
             templateModel = resource.templateModel,
             variants = resource.variants.map { variant ->
