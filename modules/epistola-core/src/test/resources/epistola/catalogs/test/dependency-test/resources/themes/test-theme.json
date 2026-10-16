@@ -1,12 +1,12 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "theme",
-    "slug": "test-theme",
+    "key": "test-theme",
     "name": "Test Theme",
     "documentStyles": {
       "fontFamily": {
-        "slug": "inter",
+        "key": "inter",
         "catalogKey": "system"
       },
       "fontSize": "11pt"

@@ -1,8 +1,8 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "template",
-    "slug": "no-deps",
+    "key": "no-deps",
     "name": "No Dependencies",
     "templateModel": {
       "modelVersion": 1,
@@ -56,7 +56,7 @@
         "title": "Default",
         "attributes": {},
         "isDefault": true,
-        "slug": "default"
+        "key": "default"
       }
     ]
   }

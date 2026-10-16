@@ -1,8 +1,8 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "stencil",
-    "slug": "header-with-logo",
+    "key": "header-with-logo",
     "name": "Header With Logo",
     "version": 1,
     "tags": ["header"],
@@ -23,7 +23,7 @@
           "type": "image",
           "slots": [],
           "props": {
-            "assetId": "01966a00-0000-7000-8000-000000000099"
+            "imageKey": "01966a00-0000-7000-8000-000000000099"
           }
         },
         "n-heading": {

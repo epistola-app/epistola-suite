@@ -1,7 +1,9 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "catalog": {
-    "slug": "dep-test",
+    "key": "dep-test",
+    "registry": "exchange.epistola.app",
+    "namespace": "epistola",
     "name": "Dependency Test Catalog"
   },
   "publisher": {
@@ -13,39 +15,39 @@
   "resources": [
     {
       "type": "image",
-      "slug": "01966a00-0000-7000-8000-000000000099",
+      "key": "01966a00-0000-7000-8000-000000000099",
       "name": "Test Logo",
       "detailUrl": "./resources/assets/test-logo.json"
     },
     {
       "type": "attribute",
-      "slug": "language",
+      "key": "language",
       "name": "Language",
       "detailUrl": "./resources/attributes/language.json"
     },
     {
       "type": "theme",
-      "slug": "test-theme",
+      "key": "test-theme",
       "name": "Test Theme",
       "detailUrl": "./resources/themes/test-theme.json"
     },
     {
       "type": "stencil",
-      "slug": "header-with-logo",
+      "key": "header-with-logo",
       "name": "Header With Logo",
       "description": "Stencil that references an image asset.",
       "detailUrl": "./resources/stencils/header-with-logo.json"
     },
     {
       "type": "template",
-      "slug": "full-deps",
+      "key": "full-deps",
       "name": "Full Dependencies",
       "description": "Template referencing theme, stencil, and attribute.",
       "detailUrl": "./resources/templates/full-deps.json"
     },
     {
       "type": "template",
-      "slug": "no-deps",
+      "key": "no-deps",
       "name": "No Dependencies",
       "description": "Template with no external dependencies.",
       "detailUrl": "./resources/templates/no-deps.json"

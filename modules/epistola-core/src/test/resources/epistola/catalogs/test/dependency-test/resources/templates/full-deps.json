@@ -1,15 +1,15 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "template",
-    "slug": "full-deps",
+    "key": "full-deps",
     "name": "Full Dependencies",
     "templateModel": {
       "modelVersion": 1,
       "root": "n-root",
       "themeRef": {
         "type": "override",
-        "themeId": "test-theme"
+        "themeKey": "test-theme"
       },
       "nodes": {
         "n-root": {
@@ -24,8 +24,7 @@
           "type": "stencil",
           "slots": [],
           "props": {
-            "stencilId": "header-with-logo",
-            "version": 1
+            "stencilKey": "header-with-logo"
           }
         },
         "n-body": {
@@ -69,7 +68,7 @@
           "language": "nl"
         },
         "isDefault": true,
-        "slug": "dutch"
+        "key": "dutch"
       },
       {
         "title": "English",
@@ -77,7 +76,7 @@
           "language": "en"
         },
         "isDefault": false,
-        "slug": "english"
+        "key": "english"
       }
     ]
   }

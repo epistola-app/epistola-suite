@@ -1,10 +1,10 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "template",
-    "slug": "simple-letter",
+    "key": "simple-letter",
     "name": "Simple Letter",
-    "themeId": "corporate",
+    "themeKey": "corporate",
     "dataModel": {
       "type": "object",
       "properties": {
@@ -61,6 +61,7 @@
     },
     "dataExamples": [
       {
+        "key": "sample-letter",
         "name": "Sample Letter",
         "data": {
           "sender": {
@@ -361,7 +362,7 @@
             "marginBottom": "4sp"
           },
           "props": {
-            "assetId": "01966a00-0000-7000-8000-000000000010",
+            "imageKey": "01966a00-0000-7000-8000-000000000010",
             "catalogKey": "system",
             "alt": "System badge",
             "width": "24pt",
@@ -731,7 +732,7 @@
         "attributes": {},
         "templateModel": null,
         "isDefault": true,
-        "slug": "default"
+        "key": "default"
       },
       {
         "title": "US English",
@@ -740,7 +741,7 @@
         },
         "templateModel": null,
         "isDefault": false,
-        "slug": "en-us"
+        "key": "en-us"
       },
       {
         "title": "Dutch",
@@ -749,7 +750,7 @@
         },
         "templateModel": null,
         "isDefault": false,
-        "slug": "nl-nl"
+        "key": "nl-nl"
       }
     ]
   }

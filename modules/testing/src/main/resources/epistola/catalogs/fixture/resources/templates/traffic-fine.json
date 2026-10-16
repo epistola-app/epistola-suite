@@ -1,9 +1,9 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
-    "slug": "officiele-snelheidsbekeuring",
+    "key": "officiele-snelheidsbekeuring",
     "name": "Offici\u00eble Snelheidsbekeuring",
-    "themeId": null,
+    "themeKey": null,
     "themeCatalogKey": null,
     "dataModel": {
       "type": "object",
@@ -126,6 +126,7 @@
     },
     "dataExamples": [
       {
+        "key": "example",
         "name": "example",
         "data": {
           "person": {
@@ -1944,7 +1945,7 @@
           "documentStylesOverride": null
         },
         "isDefault": false,
-        "slug": "notice-of-speeding-violation"
+        "key": "notice-of-speeding-violation"
       },
       {
         "title": "Nederlands",
@@ -1953,7 +1954,7 @@
         },
         "templateModel": null,
         "isDefault": true,
-        "slug": "officiele-snelheidsbekeuring-default"
+        "key": "officiele-snelheidsbekeuring-default"
       }
     ],
     "type": "template"
