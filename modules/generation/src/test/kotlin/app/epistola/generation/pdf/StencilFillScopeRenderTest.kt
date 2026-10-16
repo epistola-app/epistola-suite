@@ -162,4 +162,48 @@ class StencilFillScopeRenderTest {
         assertContains(text, "page=A")
         assertContains(text, "template=T")
     }
+
+    // ── Isolation (ADR 0006 part 5) ──────────────────────────────────────────
+
+    @Test
+    fun `a stencil does not see the template's data by default`() {
+        val document = doc {
+            expr("own", "own", "customer")
+            stencil("inst", "letterhead", "name", "'x'", listOf("own"))
+            build("inst")
+        }
+        val text = render(document, mapOf("customer" to "Jane"))
+        assertFalse(text.contains("own=Jane"), text)
+    }
+
+    @Test
+    fun `a stencil that declares readsTemplateData sees the template's data and its params`() {
+        val document = doc {
+            expr("own", "own", "customer")
+            expr("param", "param", "params.name")
+            stencil("inst", "letterhead", "name", "'Stencil Name'", listOf("own", "param"), mapOf(StencilNodeKeys.PROP_READS_TEMPLATE_DATA to true))
+            build("inst")
+        }
+        val text = render(document, mapOf("customer" to "Jane"))
+        assertContains(text, "own=Jane")
+        assertContains(text, "param=Stencil Name")
+    }
+
+    @Test
+    fun `an isolated stencil inside a stencil does not see the outer stencil's params`() {
+        val document = doc {
+            expr("inner-own", "inner", "params.a")
+            node("inner", "stencil", mapOf("stencilId" to "badge"), "children" to listOf("inner-own"))
+            stencil("inst", "page", "a", "'A'", listOf("inner"))
+            build("inst")
+        }
+        assertFalse(render(document, emptyMap()).contains("inner=A"))
+    }
+
+    @Test
+    fun `isolation still lets bindings read the template's data`() {
+        val text = render(template("customer"), mapOf("customer" to "Jane"))
+        assertContains(text, "own=Stencil Name")
+        assertContains(text, "fill=Jane")
+    }
 }

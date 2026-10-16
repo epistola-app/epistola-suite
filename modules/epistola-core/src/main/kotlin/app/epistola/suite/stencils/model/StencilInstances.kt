@@ -39,6 +39,8 @@ object StencilInstances {
     data class Content(
         val document: TemplateDocument,
         val parameterSchema: Map<String, Any?>?,
+        /** The stencil reads the template's data (ADR 0006 part 5). */
+        val readsTemplateData: Boolean = false,
     )
 
     /** Resolves the stencil [stencilKey] of catalog [catalogKey], or null when there is none. */
@@ -95,6 +97,7 @@ object StencilInstances {
         StencilNodeKeys.PROP_VERSION,
         StencilNodeKeys.PROP_DRAFT_VERSION,
         StencilNodeKeys.PROP_PARAMETER_SCHEMA_SNAPSHOT,
+        StencilNodeKeys.PROP_READS_TEMPLATE_DATA,
     )
 
     /**
@@ -216,9 +219,12 @@ object StencilInstances {
                 fills.getValue(name).children.forEach { removeSubtree(it, nodes, slots, emptySet()) }
             }
             findings += parameterFindings(props, content.parameterSchema) { problem, name -> finding(problem, name) }
-            nodes[node.id] = node.copy(
-                props = content.parameterSchema?.let { props + (StencilNodeKeys.PROP_PARAMETER_SCHEMA_SNAPSHOT to it) } ?: props,
-            )
+            val expandedProps = props +
+                listOfNotNull(
+                    content.parameterSchema?.let { StencilNodeKeys.PROP_PARAMETER_SCHEMA_SNAPSHOT to it },
+                    (StencilNodeKeys.PROP_READS_TEMPLATE_DATA to true).takeIf { content.readsTemplateData },
+                )
+            nodes[node.id] = node.copy(props = expandedProps)
 
             // The stencil's own instances resolve in the stencil's catalog, and are its to fit.
             inlined.rootChildren.forEach { walk(it, ref.catalogKey, path + ref) }

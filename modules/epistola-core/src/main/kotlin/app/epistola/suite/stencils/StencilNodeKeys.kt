@@ -36,6 +36,16 @@ object StencilNodeKeys {
      * [app.epistola.suite.templates.model.NodeParameterKeys.PROP_PARAMETER_BINDINGS].
      */
     const val PROP_PARAMETER_SCHEMA_SNAPSHOT = "parameterSchemaSnapshot"
+
+    /**
+     * The stencil reads the template's data (ADR 0006 part 5); without it the renderer shows the
+     * stencil's content only its parameters and `sys`. A property of the stencil, carried on an
+     * instance only while it is expanded.
+     */
+    const val PROP_READS_TEMPLATE_DATA = "readsTemplateData"
+
+    /** Set by the 2.0 upgrade on an instance whose fills keep the pre-2.0 scope (ADR 0006). */
+    const val PROP_LEGACY_FILL_SCOPE = "legacyFillScope"
 }
 
 /**

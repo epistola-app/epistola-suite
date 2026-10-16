@@ -63,7 +63,20 @@ class StencilNodeRenderer(
         val schema = afterRecursionGuard.parameterSchemaProvider(node, document)
         // Fills are the embedding document's content, so they read the scope the instance sits in.
         val fillScope = if (node.props?.get(StencilNodeKeys.PROP_LEGACY_FILL_SCOPE) == true) null else afterRecursionGuard.expressionScope()
-        val nextContext = ParameterScope.push(node, schema, afterRecursionGuard).copy(fillScope = fillScope)
+        val withParams = ParameterScope.push(node, schema, afterRecursionGuard)
+        // A stencil sees only its parameters unless it declares it reads the template's data.
+        val isolated = if (node.props?.get(StencilNodeKeys.PROP_READS_TEMPLATE_DATA) == true) {
+            withParams
+        } else {
+            val own = ParameterScope.aliasOf(node)
+            withParams.copy(
+                data = emptyMap(),
+                loopContext = emptyMap(),
+                // Only the scope this stencil pushed; a stencil without parameters pushes none.
+                parameterScopes = if (withParams === afterRecursionGuard) emptyMap() else withParams.parameterScopes.filterKeys { it == own },
+            )
+        }
+        val nextContext = isolated.copy(fillScope = fillScope)
 
         return delegate.render(node, document, nextContext, registry)
     }

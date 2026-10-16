@@ -24,6 +24,12 @@ object StencilNodeKeys {
      * upgrade could not rewrite: its fills keep seeing the stencil's scope, as they did before 2.0.
      */
     const val PROP_LEGACY_FILL_SCOPE = "legacyFillScope"
+
+    /**
+     * The stencil declares it reads the template's data (ADR 0006 part 5). Without it, the stencil's
+     * content sees only its own parameters and `sys`. Carried on the instance while expanded.
+     */
+    const val PROP_READS_TEMPLATE_DATA = "readsTemplateData"
 }
 
 object PlaceholderNodeKeys {

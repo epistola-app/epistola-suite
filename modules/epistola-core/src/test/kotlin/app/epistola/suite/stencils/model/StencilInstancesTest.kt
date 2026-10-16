@@ -367,4 +367,18 @@ class StencilInstancesTest {
         assertThat(expanded.findings).isEmpty()
         assertThat(expanded.document.texts()).containsExactly("LOGO", "OWN", "default body")
     }
+
+    @Test
+    fun `a stencil that reads the template's data carries that on its instance only while expanded`() {
+        val expanded = StencilInstances.expand(
+            storedTemplate(),
+            "letters",
+            resolver(("letterhead" to "letters") to StencilInstances.Content(letterhead, null, readsTemplateData = true)),
+        ).document
+
+        assertThat(expanded.nodes.getValue("inst").props!![StencilNodeKeys.PROP_READS_TEMPLATE_DATA]).isEqualTo(true)
+        assertThat(StencilInstances.collapse(expanded).nodes.getValue("inst").props!!).doesNotContainKey(StencilNodeKeys.PROP_READS_TEMPLATE_DATA)
+        val isolated = StencilInstances.expand(storedTemplate(), "letters", resolver(("letterhead" to "letters") to content(letterhead))).document
+        assertThat(isolated.nodes.getValue("inst").props!!).doesNotContainKey(StencilNodeKeys.PROP_READS_TEMPLATE_DATA)
+    }
 }
