@@ -75,6 +75,44 @@ a pin-filling stopgap, or remove stencil versions now (recommended).
 | Version kept `1.5.1-SNAPSHOT` instead of `1.5.0`                                                             | `3ea58d82a`              | ➖                                                                                                                    |
 | ADR 0029 closed as superseded                                                                                | #1058                    | ➖                                                                                                                    |
 
+## Design: catalogs by opaque id, named by registry + namespace + key — decided 16 October
+
+User: a key is not unique per tenant (two `letters` in different namespaces must coexist), and
+correctness beats effort. Resources already have opaque ids (`catalog_resources.resource_id`) and
+reference each other by them; catalogs get the same treatment.
+
+Schema (verified against the migrated schema, not the migration files):
+
+- `catalogs`: new opaque `catalog_id UUID` (UUIDv7), primary key `(tenant_key, catalog_id)`; column
+  `id` renamed `catalog_key`; identity `UNIQUE (tenant_key, registry, namespace, catalog_key)`.
+- **Live tables reference the catalog by `catalog_id`** (FK to `catalogs`, `ON DELETE CASCADE` as
+  today), replacing `catalog_key`: `catalog_resources`, `themes`, `document_templates`,
+  `variant_attribute_definitions`, `assets`, `stencils`, `code_lists`, `fonts` (address
+  `UNIQUE (tenant_key, catalog_id, key)`); `catalog_releases` (PK `(tenant_key, catalog_id,
+  version)`) and its dependants `release_entries`, `catalog_release_publications`,
+  `environment_catalog_deployments`; `catalog_upstream_checks`.
+- **History keeps the name it had:** `documents` and `document_generation_requests` (partitioned)
+  and `environment_deployment_log` keep `catalog_key` and gain `registry` and `namespace`,
+  backfilled; no FK — history names a catalog, it does not point at one.
+- Unchanged: `catalog_exchange_bindings` (nobody uses Exchange yet); quality and load-test tables
+  (already on `template_resource_id`); old-world tables (no `catalog_key` left).
+- DB functions follow: `sync_catalog_resource_identity` (registry rows by `catalog_id`),
+  `touch_catalog_content_on_delete` / `_on_variant_delete` (join by `catalog_id`),
+  `fill_generation_template_identity` (check).
+
+Code:
+
+- `CatalogId(tenantId, registry, namespace, key)`; resource ids (`TemplateId`, `StencilId`,
+  `ThemeId`, …) carry it. A bare `CatalogKey` is no longer an identity.
+- SQL resolves a catalog from its name with one helper (`catalogAt(...)`, like the existing
+  `stencilAtAddress(...)`); `catalog_id` never leaves persistence.
+- Every catalog exception carries `CatalogName`; a not-found names what was asked for.
+
+Verification: a migration test seeding pre-2.0-shaped rows (two catalogs, resources, releases,
+deployments, documents) and checking every row maps to the right `catalog_id`; then the existing
+suites; plus a test with two `letters` in different namespaces in one tenant through import,
+release, deploy and render.
+
 ## Design: stencils by reference (step 2) — decided 16 October
 
 Recorded as **contract ADR 0006** (`epistola-contract` `docs/adr/0006-stencil-instances-by-reference.md`,
