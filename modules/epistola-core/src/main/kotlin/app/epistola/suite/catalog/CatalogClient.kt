@@ -71,7 +71,10 @@ class CatalogClient(
         // chokepoint, so every consumer — install, browse, upgrade-check,
         // fingerprint — sees a current-shape manifest.
         val bytes = sourceReader.readSource(url, authHeaders(authType, credential), allowHttp)
-        return schemaMigrator.migrateAndBindManifest(bytes) to bytes.size
+        // A classpath catalog is one Epistola ships; a remote one from before wire v8 has no namespace
+        // this installation could give it, so it is refused until its publisher moves to v8.
+        val namespace = CatalogIdentityProperties.BUNDLED_NAMESPACE.takeIf { url.startsWith("classpath:") }
+        return schemaMigrator.migrateAndBindManifest(bytes, namespace) to bytes.size
     }
 
     /**

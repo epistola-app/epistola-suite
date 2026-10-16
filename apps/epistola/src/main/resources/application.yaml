@@ -206,6 +206,10 @@ epistola:
     # Refuse a plaintext Exchange. Only a local checkout should ever turn this on.
     allow-http: false
   catalog:
+    identity:
+      # The registry a catalog is named on when it does not say (ADR 0003 in epistola-contract): what
+      # `~` stands for in an API path, and the registry given to a catalog from before wire v8.
+      default-registry: exchange.epistola.app
     # Where catalog and code-list sources may be read from (docs/exchange/README.md, "Catalog and
     # code-list sources"). Plaintext http:// sources are refused; only a local setup should allow them.
     allow-http: false

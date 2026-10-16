@@ -227,7 +227,8 @@ class ImportCatalogZipHandler(
         // schemaVersion and every resource detail echoes it, so details are gated
         // against the same version below. The chain is empty today, so
         // current-shape payloads pass straight through to binding.
-        val migratedManifest = schemaMigrator.migrateAndBindManifest(manifestBytes)
+        // An archive from before wire v8 lands in the importing tenant's namespace (ADR 0003).
+        val migratedManifest = schemaMigrator.migrateAndBindManifest(manifestBytes, command.tenantKey.value)
         val manifest = migratedManifest.manifest
         val catalogCtx = migratedManifest.catalog
         // Decide what to do about an outdated-schema ZIP (a source-less transport

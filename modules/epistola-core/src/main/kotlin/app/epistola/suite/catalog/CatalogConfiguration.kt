@@ -17,7 +17,7 @@ import org.springframework.util.unit.DataSize
 import java.time.Duration
 
 @Configuration
-@EnableConfigurationProperties(CatalogSizeLimits::class, CatalogUpstreamCheckProperties::class, CatalogSourceProperties::class)
+@EnableConfigurationProperties(CatalogSizeLimits::class, CatalogUpstreamCheckProperties::class, CatalogSourceProperties::class, CatalogIdentityProperties::class)
 class CatalogConfiguration {
 
     /**
@@ -51,6 +51,29 @@ data class CatalogSizeLimits(
     val maxZipSize: DataSize = DataSize.ofMegabytes(10),
     val maxDecompressedSize: DataSize = DataSize.ofMegabytes(20),
 )
+
+/**
+ * How this installation names catalogs (ADR 0003 in the contract repo).
+ *
+ * A catalog is identified by registry, namespace and key. [defaultRegistry] is the registry `~` stands
+ * for, and the registry given to a catalog that arrives from before wire v8, which names none.
+ *
+ * ```yaml
+ * epistola:
+ *   catalog:
+ *     identity:
+ *       default-registry: exchange.epistola.app
+ * ```
+ */
+@ConfigurationProperties(prefix = "epistola.catalog.identity")
+data class CatalogIdentityProperties(
+    val defaultRegistry: String = "exchange.epistola.app",
+) {
+    companion object {
+        /** The namespace of the catalogs Epistola ships (system, demo) on the default registry. */
+        const val BUNDLED_NAMESPACE = "epistola"
+    }
+}
 
 /**
  * How often a subscribed catalog's source is asked whether it has published anything newer.
