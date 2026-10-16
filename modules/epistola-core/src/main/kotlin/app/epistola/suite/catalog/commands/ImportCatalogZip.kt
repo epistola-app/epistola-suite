@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.commands
 import app.epistola.catalog.archive.CatalogArchivePolicy
 import app.epistola.catalog.archive.CatalogArchiveReader
 import app.epistola.catalog.migration.CatalogMigrationCodes
+import app.epistola.catalog.migration.CatalogMigrationOptions
 import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.CatalogResource
@@ -171,12 +172,20 @@ class ImportCatalogZipHandler(
         // epistola-catalog owns ZIP safety and path normalization. Suite
         // materializes the already-checked entries because the persistence
         // orchestration below consumes them more than once.
+        // An archive from before wire v8 names no registry or namespace: it lands in the importing
+        // tenant's namespace on the default registry (contract ADR 0003). The reader migrates it, so
+        // it is told here, not only the manifest binding below.
+        val migration = CatalogMigrationOptions(
+            namespace = CatalogIdentityProperties.defaultNamespace(command.tenantKey),
+            registry = identity.defaultRegistry,
+        )
         val read = CatalogArchiveReader.read(
             ByteArrayInputStream(command.zipBytes),
             CatalogArchivePolicy(
                 maxCompressedBytes = maxZipSize,
                 maxExpandedBytes = maxDecompressedSize,
             ),
+            migration,
         )
         val migrationFinding = read.findings.firstOrNull {
             it.code == CatalogMigrationCodes.SCHEMA_UNKNOWN ||
@@ -196,7 +205,7 @@ class ImportCatalogZipHandler(
         val entries = archive.use { safeArchive ->
             val validation = CatalogValidator.validate(
                 safeArchive,
-                CatalogValidationPolicy(verifyFingerprint = true),
+                CatalogValidationPolicy(verifyFingerprint = true, migration = migration),
             )
             val validationFindings = read.findings.map {
                 CatalogImportValidationFinding(it.code, ValidationSeverity.ERROR, it.path, it.message)
@@ -220,7 +229,7 @@ class ImportCatalogZipHandler(
         // against the same version below. The chain is empty today, so
         // current-shape payloads pass straight through to binding.
         // An archive from before wire v8 lands in the importing tenant's namespace (ADR 0003).
-        val migratedManifest = schemaMigrator.migrateAndBindManifest(manifestBytes, command.tenantKey.value)
+        val migratedManifest = schemaMigrator.migrateAndBindManifest(manifestBytes, migration.namespace)
         val manifest = migratedManifest.manifest
         val catalogCtx = migratedManifest.catalog
         // Decide what to do about an outdated-schema ZIP (a source-less transport
