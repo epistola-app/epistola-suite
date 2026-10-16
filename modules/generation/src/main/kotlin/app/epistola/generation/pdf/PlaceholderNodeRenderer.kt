@@ -20,7 +20,9 @@ import com.itextpdf.layout.element.IElement
  *
  * Expressions are scoped lexically: the fill is the embedding document's content and reads
  * [RenderContext.fillScope] — what was in scope where the stencil instance sits — while the default
- * reads the stencil's own scope, `params` included.
+ * reads the stencil's own scope, `params` included. A placeholder that passes parameters
+ * ([PlaceholderNodeKeys.PROP_PASS_PARAMETERS]) also gives its fill the stencil's parameters, under the
+ * name the using document chose, else the stencil author's, else `params`.
  */
 class PlaceholderNodeRenderer : NodeRenderer {
     override fun render(
@@ -40,7 +42,15 @@ class PlaceholderNodeRenderer : NodeRenderer {
         if (fillSlotId != null && fillSlot != null && fillSlot.children.isNotEmpty()) {
             // The fill reads the scope it was written in (outside the stencil); the default is the
             // stencil's own content and reads the stencil's scope.
-            val fillContext = context.fillScope?.let(context::withExpressionScope) ?: context
+            val lexical = context.fillScope?.let(context::withExpressionScope) ?: context
+            val fillContext = if (node.props?.get(PlaceholderNodeKeys.PROP_PASS_PARAMETERS) == true) {
+                val name = sequenceOf(PlaceholderNodeKeys.PROP_FILL_PARAMETERS_AS, PlaceholderNodeKeys.PROP_PARAMETERS_AS)
+                    .mapNotNull { (node.props?.get(it) as? String)?.takeIf(String::isNotBlank) }
+                    .firstOrNull() ?: PlaceholderNodeKeys.DEFAULT_PARAMETERS_NAME
+                lexical.copy(parameterScopes = lexical.parameterScopes + (name to context.stencilParameters.orEmpty()))
+            } else {
+                lexical
+            }
             return registry.renderSlot(fillSlotId, document, fillContext)
         }
         return defaultSlotId?.let { registry.renderSlot(it, document, context) } ?: emptyList()

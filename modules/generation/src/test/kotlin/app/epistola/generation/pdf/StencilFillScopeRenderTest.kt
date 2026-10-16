@@ -123,9 +123,36 @@ class StencilFillScopeRenderTest {
         assertContains(render(document, emptyMap()), "default=Stencil Name")
     }
 
+    // ── A placeholder that passes the stencil's parameters ───────────────────
+
+    /** The letterhead whose `body` placeholder passes parameters, with the given placeholder/fill names. */
+    private fun passing(fillExpression: String, placeholderName: String? = null, fillName: String? = null) = doc {
+        expr("fill", "fill", fillExpression)
+        val placeholderProps = buildMap<String, Any?> {
+            put("name", "body")
+            put(PlaceholderNodeKeys.PROP_PASS_PARAMETERS, true)
+            placeholderName?.let { put(PlaceholderNodeKeys.PROP_PARAMETERS_AS, it) }
+            fillName?.let { put(PlaceholderNodeKeys.PROP_FILL_PARAMETERS_AS, it) }
+        }
+        node("body", "placeholder", placeholderProps, "default" to emptyList(), "fill" to listOf("fill"))
+        stencil("inst", "letterhead", "name", "'Stencil Name'", listOf("body"))
+        build("inst")
+    }
+
     @Test
-    fun `an instance marked legacyFillScope keeps its fills in the stencil's scope`() {
-        val text = render(template("params.name", mapOf(StencilNodeKeys.PROP_LEGACY_FILL_SCOPE to true)), emptyMap())
+    fun `a placeholder that passes parameters gives its fill the stencil's params, besides the template's data`() {
+        val text = render(passing("params.name & ' / ' & customer"), mapOf("customer" to "Jane"))
+        assertContains(text, "fill=Stencil Name / Jane")
+    }
+
+    @Test
+    fun `the stencil author can name the passed parameters`() {
+        assertContains(render(passing("letter.name", placeholderName = "letter"), emptyMap()), "fill=Stencil Name")
+    }
+
+    @Test
+    fun `the using document's name wins over the stencil author's`() {
+        val text = render(passing("mine.name", placeholderName = "letter", fillName = "mine"), emptyMap())
         assertContains(text, "fill=Stencil Name")
     }
 

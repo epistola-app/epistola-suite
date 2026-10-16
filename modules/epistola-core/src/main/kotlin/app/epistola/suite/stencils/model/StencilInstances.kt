@@ -144,7 +144,8 @@ object StencilInstances {
                 id = placeholderId,
                 type = PlaceholderNodeKeys.NODE_TYPE,
                 slots = listOf(fillSlotId),
-                props = mapOf(PlaceholderNodeKeys.PROP_NAME to name),
+                props = mapOf(PlaceholderNodeKeys.PROP_NAME to name) +
+                    listOfNotNull(fill.parametersAs?.let { PlaceholderNodeKeys.PROP_PARAMETERS_AS to it }),
             )
             slots[fillSlotId] = Slot(id = fillSlotId, nodeId = placeholderId, name = PlaceholderNodeKeys.SLOT_FILL, children = fill.children)
             placeholderId
@@ -212,6 +213,9 @@ object StencilInstances {
                 val fillSlot = placeholder.slots.mapNotNull(slots::get).firstOrNull { it.name == PlaceholderNodeKeys.SLOT_FILL } ?: return@forEach
                 fillSlot.children.forEach { removeSubtree(it, nodes, slots, emptySet()) }
                 slots[fillSlot.id] = fillSlot.copy(children = fill.children)
+                fill.parametersAs?.let { usingName ->
+                    nodes[placeholder.id] = placeholder.copy(props = placeholder.props.orEmpty() + (PlaceholderNodeKeys.PROP_FILL_PARAMETERS_AS to usingName))
+                }
             }
             (fills.keys - placeholders.keys).sorted().forEach { name ->
                 findings += finding(Problem.UNKNOWN_PLACEHOLDER, name)
@@ -250,16 +254,28 @@ object StencilInstances {
         return unbound + unknown
     }
 
-    /** A fill: the top-level nodes of a placeholder's `fill` slot. */
-    private data class Fill(val children: List<String>)
+    /** A fill: the top-level nodes of a placeholder's `fill` slot, and the name the fill gives passed parameters. */
+    private data class Fill(val children: List<String>, val parametersAs: String?)
 
     /** Non-empty fills of the outermost placeholders under [roots], by name; the first of a name wins. */
     private fun fillsByName(roots: List<String>, nodes: Map<String, Node>, slots: Map<String, Slot>): Map<String, Fill> = topLevelPlaceholders(roots, nodes, slots)
         .mapNotNull { (name, node) ->
             val fillSlot = node.slots.mapNotNull(slots::get).firstOrNull { it.name == PlaceholderNodeKeys.SLOT_FILL }
-            fillSlot?.takeIf { it.children.isNotEmpty() }?.let { name to Fill(it.children) }
+            fillSlot?.takeIf { it.children.isNotEmpty() }?.let { name to Fill(it.children, usingSideName(node, slots)) }
         }
         .toMap()
+
+    /**
+     * The name the using document gave passed parameters: carried as `fillParametersAs` while expanded,
+     * stored as `parametersAs` on a fill (which has no `default` slot — on a stencil's own placeholder,
+     * `parametersAs` is the author's default, not the using side's choice).
+     */
+    private fun usingSideName(placeholder: Node, slots: Map<String, Slot>): String? {
+        val props = placeholder.props.orEmpty()
+        (props[PlaceholderNodeKeys.PROP_FILL_PARAMETERS_AS] as? String)?.let { return it }
+        val isStoredFill = placeholder.slots.mapNotNull(slots::get).none { it.name == PlaceholderNodeKeys.SLOT_DEFAULT }
+        return (props[PlaceholderNodeKeys.PROP_PARAMETERS_AS] as? String).takeIf { isStoredFill }
+    }
 
     /**
      * The placeholders under [roots] that belong to this level, by name (first wins): not inside

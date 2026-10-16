@@ -43,9 +43,6 @@ object StencilNodeKeys {
      * instance only while it is expanded.
      */
     const val PROP_READS_TEMPLATE_DATA = "readsTemplateData"
-
-    /** Set by the 2.0 upgrade on an instance whose fills keep the pre-2.0 scope (ADR 0006). */
-    const val PROP_LEGACY_FILL_SCOPE = "legacyFillScope"
 }
 
 /**
@@ -59,4 +56,16 @@ object PlaceholderNodeKeys {
     const val SLOT_FILL = "fill"
     const val PROP_NAME = "name"
     const val PROP_DESCRIPTION = "description"
+
+    /** The stencil author lets this placeholder pass the stencil's parameters to its fill (ADR 0006). */
+    const val PROP_PASS_PARAMETERS = "passParameters"
+
+    /**
+     * The name passed parameters appear under: on a stencil's placeholder, the author's default; on a
+     * fill a template stores, the using side's choice, which wins.
+     */
+    const val PROP_PARAMETERS_AS = "parametersAs"
+
+    /** The using side's [PROP_PARAMETERS_AS], carried on the stencil's placeholder while expanded. */
+    const val PROP_FILL_PARAMETERS_AS = "fillParametersAs"
 }

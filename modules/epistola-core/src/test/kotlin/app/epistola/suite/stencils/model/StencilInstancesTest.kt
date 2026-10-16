@@ -381,4 +381,58 @@ class StencilInstancesTest {
         val isolated = StencilInstances.expand(storedTemplate(), "letters", resolver(("letterhead" to "letters") to content(letterhead))).document
         assertThat(isolated.nodes.getValue("inst").props!!).doesNotContainKey(StencilNodeKeys.PROP_READS_TEMPLATE_DATA)
     }
+
+    @Test
+    fun `the name a template gives passed parameters is stored on its fill and carried while expanded`() {
+        val stored = doc {
+            text("my-body", "Dear customer")
+            node(
+                "fill-body",
+                PlaceholderNodeKeys.NODE_TYPE,
+                mapOf(PlaceholderNodeKeys.PROP_NAME to "body", PlaceholderNodeKeys.PROP_PARAMETERS_AS to "mine"),
+                PlaceholderNodeKeys.SLOT_FILL to listOf("my-body"),
+            )
+            stencil("inst", "letterhead", listOf("fill-body"))
+            build("inst")
+        }
+        val passing = doc {
+            node(
+                "body",
+                PlaceholderNodeKeys.NODE_TYPE,
+                mapOf(PlaceholderNodeKeys.PROP_NAME to "body", PlaceholderNodeKeys.PROP_PASS_PARAMETERS to true, PlaceholderNodeKeys.PROP_PARAMETERS_AS to "letter"),
+                PlaceholderNodeKeys.SLOT_DEFAULT to emptyList(),
+                PlaceholderNodeKeys.SLOT_FILL to emptyList(),
+            )
+            build("body")
+        }
+
+        val expanded = StencilInstances.expand(stored, "letters", resolver(("letterhead" to "letters") to content(passing))).document
+        val placeholder = expanded.nodes.getValue("inst:body").props!!
+        assertThat(placeholder[PlaceholderNodeKeys.PROP_FILL_PARAMETERS_AS]).isEqualTo("mine")
+        assertThat(placeholder[PlaceholderNodeKeys.PROP_PARAMETERS_AS]).isEqualTo("letter")
+
+        val collapsed = StencilInstances.collapse(expanded)
+        assertThat(collapsed.nodes.getValue("inst:fill:body").props).isEqualTo(
+            mapOf(PlaceholderNodeKeys.PROP_NAME to "body", PlaceholderNodeKeys.PROP_PARAMETERS_AS to "mine"),
+        )
+        assertThat(StencilInstances.collapse(stored)).isEqualTo(collapsed)
+    }
+
+    @Test
+    fun `the stencil author's default name is not mistaken for the template's choice`() {
+        val passing = doc {
+            node(
+                "body",
+                PlaceholderNodeKeys.NODE_TYPE,
+                mapOf(PlaceholderNodeKeys.PROP_NAME to "body", PlaceholderNodeKeys.PROP_PASS_PARAMETERS to true, PlaceholderNodeKeys.PROP_PARAMETERS_AS to "letter"),
+                PlaceholderNodeKeys.SLOT_DEFAULT to emptyList(),
+                PlaceholderNodeKeys.SLOT_FILL to emptyList(),
+            )
+            build("body")
+        }
+        val expanded = StencilInstances.expand(storedTemplate(), "letters", resolver(("letterhead" to "letters") to content(passing))).document
+
+        assertThat(expanded.nodes.getValue("inst:body").props!!).doesNotContainKey(PlaceholderNodeKeys.PROP_FILL_PARAMETERS_AS)
+        assertThat(StencilInstances.collapse(expanded).nodes.getValue("inst:fill:body").props).isEqualTo(mapOf(PlaceholderNodeKeys.PROP_NAME to "body"))
+    }
 }

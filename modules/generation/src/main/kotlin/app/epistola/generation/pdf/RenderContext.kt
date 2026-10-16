@@ -57,10 +57,14 @@ data class RenderContext(
     /**
      * The expression scope a placeholder's **fill** renders in: the scope of the place the fill was
      * written, which is outside the stencil that owns the placeholder. Set by [StencilNodeRenderer]
-     * on entering a stencil; null outside any stencil, and inside an instance marked
-     * [StencilNodeKeys.PROP_LEGACY_FILL_SCOPE], whose fills keep the stencil's scope as before 2.0.
+     * on entering a stencil; null outside any stencil.
      */
     val fillScope: ExpressionScope? = null,
+    /**
+     * The parameters of the stencil this content belongs to, as evaluated at its instance; what a
+     * placeholder that passes parameters hands to its fill. Null outside any stencil.
+     */
+    val stencilParameters: Map<String, Any?>? = null,
     /**
      * Pluggable schema lookup for parametrised nodes. Returns the JSON Schema
      * (as a JSON-structured `Map<String, Any?>`) describing the node's
@@ -132,7 +136,7 @@ data class RenderContext(
     }
 
     /** The part of this context expressions see. */
-    fun expressionScope(): ExpressionScope = ExpressionScope(data, loopContext, parameterScopes, fillScope)
+    fun expressionScope(): ExpressionScope = ExpressionScope(data, loopContext, parameterScopes, fillScope, stencilParameters)
 
     /**
      * This context, with expressions seeing [scope] instead. Everything else — styles, fonts, page
@@ -143,6 +147,7 @@ data class RenderContext(
         loopContext = scope.loopContext,
         parameterScopes = scope.parameterScopes,
         fillScope = scope.fillScope,
+        stencilParameters = scope.stencilParameters,
     )
 
     /**
@@ -195,4 +200,6 @@ data class ExpressionScope(
     val parameterScopes: Map<String, Map<String, Any?>>,
     /** The scope fills of the stencil this scope is inside render in; see [RenderContext.fillScope]. */
     val fillScope: ExpressionScope?,
+    /** See [RenderContext.stencilParameters]. */
+    val stencilParameters: Map<String, Any?>?,
 )
