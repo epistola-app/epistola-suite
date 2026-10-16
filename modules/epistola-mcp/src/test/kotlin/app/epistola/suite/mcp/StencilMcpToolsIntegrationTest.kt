@@ -6,10 +6,8 @@ package app.epistola.suite.mcp
 
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
-import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.UserKey
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mcp.tools.StencilMcpTools
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
@@ -18,10 +16,10 @@ import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
@@ -29,10 +27,10 @@ import tools.jackson.databind.node.ObjectNode
 import java.util.UUID
 
 /**
- * Verifies that the MCP stencil version tools (`list_stencil_versions`,
- * `get_stencil_version`) correctly expose parameter schemas and content.
+ * The MCP stencil read tools expose a stencil's one content and parameter schema (`get_stencil`),
+ * and which templates still fit it (`list_stencil_usages`).
  */
-class StencilVersionMcpToolsIntegrationTest : IntegrationTestBase() {
+class StencilMcpToolsIntegrationTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var stencilTools: StencilMcpTools
@@ -59,105 +57,33 @@ class StencilVersionMcpToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `list_stencil_versions includes parameter schema`() {
-        val tenant = createTenant("MCP Stencil Versions Tenant")
-        val tenantId = TenantId(tenant.id)
-
+    fun `get_stencil returns the content and the full parameter schema`() {
+        val tenantId = TenantId(createTenant("MCP Get Stencil Tenant").id)
         val stencilKey = withMediator {
             val id = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
-            CreateStencil(
-                id = id,
-                name = "Parametrised Letter",
-                parameterSchema = parameterSchema(),
-            ).execute()
+            CreateStencil(id = id, name = "Parametrised Header", parameterSchema = parameterSchema()).execute()
             id.key
         }
 
-        val versions = runAsApiKey(tenantId) {
-            stencilTools.listStencilVersions(
-                catalogId = "default",
-                stencilId = stencilKey.value,
-            )
-        }
+        val stencil = runAsApiKey(tenantId) { stencilTools.getStencil(catalogId = "default", stencilId = stencilKey.value) }!!
 
-        assertThat(versions).hasSize(1)
-        val v1 = versions[0]
-        assertThat(v1.version).isEqualTo(1)
-        assertThat(v1.status).isEqualTo("draft")
-        assertThat(v1.parameterSchema).isNotNull
-        assertThat(v1.parameterSchema!!.get("type").stringValue()).isEqualTo("object")
-        assertThat(v1.parameterSchema.get("properties").has("recipientName")).isTrue
+        assertThat(stencil.stencil.parameterSchema!!.get("properties").has("recipientName")).isTrue
+        assertThat(stencil.stencil.readsTemplateData).isFalse()
+        assertThat(stencil.content.nodes).containsKey(stencil.content.root)
     }
 
     @Test
-    fun `get_stencil_version returns full schema and content`() {
-        val tenant = createTenant("MCP Get Stencil Version Tenant")
-        val tenantId = TenantId(tenant.id)
+    fun `get_stencil returns null for a stencil that does not exist`() {
+        val tenantId = TenantId(createTenant("MCP Missing Stencil Tenant").id)
 
-        val stencilKey = withMediator {
-            val id = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
-            CreateStencil(
-                id = id,
-                name = "Published Parametrised Header",
-                parameterSchema = parameterSchema(),
-            ).execute()
-            PublishStencilVersion(
-                versionId = StencilVersionId(VersionKey.of(1), id),
-            ).execute()
-            id.key
-        }
-
-        val version = runAsApiKey(tenantId) {
-            stencilTools.getStencilVersion(
-                catalogId = "default",
-                stencilId = stencilKey.value,
-                version = 1,
-            )
-        }
-
-        assertThat(version).isNotNull
-        assertThat(version!!.version).isEqualTo(1)
-        assertThat(version.status).isEqualTo("published")
-        assertThat(version.parameterSchema).isNotNull
-        assertThat(version.parameterSchema!!.get("type").stringValue()).isEqualTo("object")
-        assertThat(version.content).isNotNull
-        assertThat(version.content!!.nodes).isNotEmpty
+        assertThat(runAsApiKey(tenantId) { stencilTools.getStencil(catalogId = "default", stencilId = "nonexistent") }).isNull()
     }
 
     @Test
-    fun `list_stencil_versions returns empty for nonexistent stencil`() {
-        val tenant = createTenant("MCP Empty Stencil Versions Tenant")
-        val tenantId = TenantId(tenant.id)
+    fun `list_stencil_usages refuses a stencil that does not exist`() {
+        val tenantId = TenantId(createTenant("MCP Missing Stencil Usage Tenant").id)
 
-        val versions = runAsApiKey(tenantId) {
-            stencilTools.listStencilVersions(
-                catalogId = "default",
-                stencilId = "nonexistent",
-            )
-        }
-
-        assertThat(versions).isEmpty()
-    }
-
-    @Test
-    fun `get_stencil_version returns null for nonexistent version`() {
-        val tenant = createTenant("MCP Null Stencil Version Tenant")
-        val tenantId = TenantId(tenant.id)
-
-        val stencilKey = withMediator {
-            val id = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
-            CreateStencil(id = id, name = "No Version 2").execute()
-            id.key
-        }
-
-        val version = runAsApiKey(tenantId) {
-            stencilTools.getStencilVersion(
-                catalogId = "default",
-                stencilId = stencilKey.value,
-                version = 99,
-            )
-        }
-
-        assertThat(version).isNull()
+        assertThatThrownBy { runAsApiKey(tenantId) { stencilTools.listStencilUsages(catalogId = "default", stencilId = "nonexistent", page = null) } }
+            .hasMessageContaining("nonexistent")
     }
 }

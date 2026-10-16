@@ -8,27 +8,20 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
-import app.epistola.suite.common.ids.StencilVersionId
-import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.mcp.dto.StencilDetailInfo
 import app.epistola.suite.mcp.dto.StencilInfo
-import app.epistola.suite.mcp.dto.StencilVersionFullInfo
-import app.epistola.suite.mcp.dto.StencilVersionSummaryInfo
+import app.epistola.suite.mcp.dto.StencilUsageInfo
 import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
-import app.epistola.suite.mcp.support.parseArgument
 import app.epistola.suite.mcp.support.parseOptionalArgument
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.CreateStencilVersion
 import app.epistola.suite.stencils.commands.UpdateStencil
-import app.epistola.suite.stencils.commands.UpdateStencilDraft
-import app.epistola.suite.stencils.model.StencilVersionStatus
 import app.epistola.suite.stencils.queries.GetStencil
-import app.epistola.suite.stencils.queries.GetStencilVersion
-import app.epistola.suite.stencils.queries.ListStencilVersions
+import app.epistola.suite.stencils.queries.GetStencilUsagePage
 import app.epistola.suite.stencils.queries.ListStencils
 import app.epistola.suite.templates.model.TemplateDocument
 import org.springframework.ai.mcp.annotation.McpTool
@@ -37,6 +30,11 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 
+/**
+ * Stencils over MCP. A stencil has one editable content that templates use by reference (contract
+ * ADR 0006): there are no stencil versions to publish or upgrade to, and changing a stencil changes
+ * every template that uses it, which `list_stencil_usages` checks.
+ */
 @Component
 class StencilMcpTools(
     private val mediator: Mediator,
@@ -46,8 +44,8 @@ class StencilMcpTools(
     @McpTool(
         name = "list_stencils",
         description = "List stencils in the current tenant. A stencil is a reusable content block " +
-            "templates can embed. Each stencil has its own version history; this tool exposes metadata " +
-            "and tags so the AI can find relevant stencils by name or tag.",
+            "templates use by reference; this tool exposes metadata, tags and the parameter schema so the " +
+            "AI can find relevant stencils by name or tag.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun listStencils(
@@ -77,7 +75,8 @@ class StencilMcpTools(
 
     @McpTool(
         name = "get_stencil",
-        description = "Fetch a single stencil's metadata. Use `list_stencils` first to find candidate IDs.",
+        description = "Fetch a stencil with its content (a template document) and its parameter schema " +
+            "(JSON Schema). Use `list_stencils` first to find candidate IDs.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun getStencil(
@@ -85,60 +84,34 @@ class StencilMcpTools(
         catalogId: String,
         @McpToolParam(description = "Stencil key.")
         stencilId: String,
-    ): StencilInfo? {
-        val id = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
-        return mediator.query(GetStencil(id))?.let { StencilInfo.from(it) }
-    }
+    ): StencilDetailInfo? = mediator.query(GetStencil(stencilId(catalogId, stencilId)))?.let { StencilDetailInfo.from(it) }
 
     @McpTool(
-        name = "list_stencil_versions",
-        description = "List all versions of a stencil, newest first. Each version includes its " +
-            "status (draft / published / archived) and its parameter schema if one is declared. " +
-            "Use this to discover which versions have parameters before calling `get_stencil_version` " +
-            "to fetch the full schema and content.",
+        name = "list_stencil_usages",
+        description = "List the template versions (draft and published) that use a stencil, and whether each " +
+            "still fits the stencil as it is now: a fill for a placeholder the stencil no longer has, or a " +
+            "required parameter left unbound, is listed as a problem. Run it after changing a stencil. " +
+            "100 per page.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
-    fun listStencilVersions(
+    fun listStencilUsages(
         @McpToolParam(description = "Catalog key the stencil belongs to.")
         catalogId: String,
         @McpToolParam(description = "Stencil key.")
         stencilId: String,
-    ): List<StencilVersionSummaryInfo> {
-        val id = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
-        return mediator.query(ListStencilVersions(id)).map { StencilVersionSummaryInfo.from(it) }
-    }
-
-    @McpTool(
-        name = "get_stencil_version",
-        description = "Fetch a single stencil version including its full parameter schema and content. " +
-            "Use `list_stencil_versions` first to discover available version numbers, then call this " +
-            "to inspect the parameter schema (JSON Schema) and content (template document fragment) " +
-            "before embedding the stencil in a template.",
-        annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
-    )
-    fun getStencilVersion(
-        @McpToolParam(description = "Catalog key the stencil belongs to.")
-        catalogId: String,
-        @McpToolParam(description = "Stencil key.")
-        stencilId: String,
-        @McpToolParam(description = "Version number (1..N).")
-        version: Int,
-    ): StencilVersionFullInfo? {
-        val tenantId = mcpTenantId()
-        val versionId = StencilVersionId(
-            VersionKey.of(version),
-            StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantId)),
-        )
-        return mediator.query(GetStencilVersion(versionId))?.let { StencilVersionFullInfo.from(it) }
+        @McpToolParam(description = "1-based page; defaults to 1.", required = false)
+        page: Int?,
+    ): List<StencilUsageInfo> {
+        val id = stencilId(catalogId, stencilId)
+        if (GetStencil(id).query() == null) throw notFound("Stencil", catalogId, stencilId)
+        return GetStencilUsagePage(id, page = page ?: 1).query().items.map(StencilUsageInfo::from)
     }
 
     @McpTool(
         name = "create_stencil",
         description = "Create a stencil — a reusable content block, such as a letterhead or a signature — in an " +
-            "AUTHORED catalog. It starts with a draft version holding `content` (or an empty document). " +
-            "Templates embed a stencil with a `stencil` component; a draft template may reference the draft, " +
-            "publishing the template needs a published stencil version: see `publish_stencil_version` and " +
-            "`upgrade_stencil_in_template`. " +
+            "AUTHORED catalog, with `content` (or an empty document). Templates use it with a `stencil` " +
+            "component that names it by `stencilKey`; see the MCP guide for the instance shape. " +
             "Requires the STENCIL_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
@@ -154,8 +127,8 @@ class StencilMcpTools(
         @McpToolParam(description = "Tags to find the stencil by.", required = false)
         tags: List<String>?,
         @McpToolParam(
-            description = "Initial draft content: a template document as a JSON object string, same shape as " +
-                "`update_template_draft` takes. Stencils cannot contain other stencils. Omit for an empty draft.",
+            description = "Content: a template document as a JSON object string, same shape as " +
+                "`update_template_draft` takes. It may use other stencils. Omit for an empty document.",
             required = false,
         )
         content: String?,
@@ -164,6 +137,12 @@ class StencilMcpTools(
             required = false,
         )
         parameterSchema: String?,
+        @McpToolParam(
+            description = "Whether the content also reads the using template's data, not only the stencil's " +
+                "parameters. Defaults to false.",
+            required = false,
+        )
+        readsTemplateData: Boolean?,
     ): StencilInfo = StencilInfo.from(
         CreateStencil(
             id = stencilId(catalogId, stencilId),
@@ -172,14 +151,15 @@ class StencilMcpTools(
             tags = tags.orEmpty(),
             content = objectMapper.parseOptionalArgument("content", content, TemplateDocument::class.java),
             parameterSchema = objectMapper.parseOptionalArgument("parameterSchema", parameterSchema, JsonNode::class.java),
+            readsTemplateData = readsTemplateData ?: false,
         ).execute(),
     )
 
     @McpTool(
         name = "update_stencil",
-        description = "Update a stencil's metadata: name, description, tags. Omitted arguments are left " +
-            "unchanged; given `tags` replace all tags. Change content with `update_stencil_draft`. " +
-            "Requires the STENCIL_EDIT permission.",
+        description = "Update a stencil. Omitted arguments are left unchanged; given `tags` replace all tags. A new " +
+            "`content` or `parameterSchema` takes effect in every template that uses the stencil: check " +
+            "`list_stencil_usages` afterwards. Requires the STENCIL_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
     fun updateStencil(
@@ -193,57 +173,24 @@ class StencilMcpTools(
         description: String?,
         @McpToolParam(description = "Tags; replaces all current tags.", required = false)
         tags: List<String>?,
+        @McpToolParam(description = "The complete new content: a template document as a JSON object string.", required = false)
+        content: String?,
+        @McpToolParam(description = "JSON Schema object string replacing the parameter schema.", required = false)
+        parameterSchema: String?,
+        @McpToolParam(description = "True to remove the parameter schema; ignored when `parameterSchema` is given.", required = false)
+        clearParameterSchema: Boolean?,
+        @McpToolParam(description = "Whether the content also reads the using template's data.", required = false)
+        readsTemplateData: Boolean?,
     ): StencilInfo = UpdateStencil(
         id = stencilId(catalogId, stencilId),
         name = name?.takeIf { it.isNotBlank() },
         description = description?.takeIf { it.isNotBlank() },
         tags = tags,
+        content = objectMapper.parseOptionalArgument("content", content, TemplateDocument::class.java),
+        parameterSchema = objectMapper.parseOptionalArgument("parameterSchema", parameterSchema, JsonNode::class.java),
+        clearParameterSchema = parameterSchema == null && clearParameterSchema == true,
+        readsTemplateData = readsTemplateData,
     ).execute()?.let { StencilInfo.from(it) } ?: throw notFound("Stencil", catalogId, stencilId)
-
-    @McpTool(
-        name = "update_stencil_draft",
-        description = "Replace the content of a stencil's draft version, creating a new draft from the latest " +
-            "version when the stencil has none. Published versions are never changed; publish the draft with " +
-            "`publish_stencil_version`. Returns the draft's " +
-            "version number and parameter schema. Requires the STENCIL_EDIT permission.",
-        annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
-    )
-    fun updateStencilDraft(
-        @McpToolParam(description = "Catalog key the stencil belongs to.")
-        catalogId: String,
-        @McpToolParam(description = "Stencil key.")
-        stencilId: String,
-        @McpToolParam(description = "The complete stencil content: a template document as a JSON object string.")
-        content: String,
-        @McpToolParam(
-            description = "JSON Schema object string declaring the stencil's parameters. Omit to keep the " +
-                "current draft's (or, for a new draft, the latest version's) schema.",
-            required = false,
-        )
-        parameterSchema: String?,
-    ): StencilVersionSummaryInfo {
-        val id = stencilId(catalogId, stencilId)
-        val document = objectMapper.parseArgument("content", content, TemplateDocument::class.java)
-        val schema = objectMapper.parseOptionalArgument("parameterSchema", parameterSchema, JsonNode::class.java)
-        if (GetStencil(id).query() == null) throw notFound("Stencil", catalogId, stencilId)
-        val draft = ListStencilVersions(id).query().firstOrNull { it.status == StencilVersionStatus.DRAFT }
-        val version = if (draft == null) {
-            CreateStencilVersion(
-                stencilId = id,
-                content = document,
-                parameterSchema = schema,
-                inheritParameterSchemaFromSource = schema == null,
-            ).execute() ?: throw notFound("Stencil", catalogId, stencilId)
-        } else {
-            // UpdateStencilDraft stores the schema it is given, so an omitted one is carried over.
-            UpdateStencilDraft(
-                versionId = StencilVersionId(draft.id, id),
-                content = document,
-                parameterSchema = schema ?: draft.parameterSchema,
-            ).execute()
-        }
-        return StencilVersionSummaryInfo.from(version)
-    }
 
     private fun stencilId(catalogId: String, stencilId: String) = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
 }

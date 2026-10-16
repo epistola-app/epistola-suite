@@ -366,28 +366,30 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `create_stencil and update_stencil_draft keep one draft and carry its parameter schema over`() {
+    fun `create_stencil and update_stencil edit the stencil's one content and keep what is not given`() {
         val tenantId = newTenant()
         val parameters = """{"type": "object", "properties": {"title": {"type": "string"}}}"""
 
         val stencil = runAsApiKey(tenantId) {
-            stencilTools.createStencil("default", "letterhead", "Letterhead", null, listOf("header"), documentJson("ACME"), parameters)
+            stencilTools.createStencil("default", "letterhead", "Letterhead", null, listOf("header"), documentJson("ACME"), parameters, null)
         }
         assertThat(stencil.tags).containsExactly("header")
+        assertThat(stencil.parameterSchema.toString()).contains("title")
+        assertThat(stencil.readsTemplateData).isFalse()
 
-        val draft = runAsApiKey(tenantId) {
-            stencilTools.updateStencilDraft("default", "letterhead", documentJson("ACME Corp"), null)
+        val updated = runAsApiKey(tenantId) {
+            stencilTools.updateStencil("default", "letterhead", null, null, null, documentJson("ACME Corp"), null, null, true)
         }
-        assertThat(draft.status).isEqualTo("draft")
-        assertThat(draft.parameterSchema.toString()).contains("title")
-        val versions = runAsApiKey(tenantId) { stencilTools.listStencilVersions("default", "letterhead") }
-        assertThat(versions).hasSize(1)
-        val content = runAsApiKey(tenantId) { stencilTools.getStencilVersion("default", "letterhead", draft.version) }!!
-        assertThat(content.content!!.nodes["text1"]!!.props.toString()).contains("ACME Corp")
+        assertThat(updated.parameterSchema.toString()).contains("title")
+        assertThat(updated.readsTemplateData).isTrue()
+        val detail = runAsApiKey(tenantId) { stencilTools.getStencil("default", "letterhead") }!!
+        assertThat(detail.content.nodes["text1"]!!.props.toString()).contains("ACME Corp")
 
-        val renamed = runAsApiKey(tenantId) { stencilTools.updateStencil("default", "letterhead", "Header", null, null) }
+        val renamed = runAsApiKey(tenantId) { stencilTools.updateStencil("default", "letterhead", "Header", null, null, null, null, true, null) }
         assertThat(renamed.name).isEqualTo("Header")
         assertThat(renamed.tags).containsExactly("header")
+        assertThat(renamed.parameterSchema).isNull()
+        assertThat(renamed.readsTemplateData).isTrue()
     }
 
     @Test

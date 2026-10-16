@@ -59,66 +59,44 @@ class McpPublishToolsIntegrationTest : IntegrationTestBase() {
 
     private fun newTenant(): TenantId = TenantId(createTenant("MCP Publish ${UUID.randomUUID()}").id)
 
-    /** A stencil `letterhead` (draft v1) and a template `letter` embedding it by its draft. */
-    private fun seedTemplateOnStencilDraft(tenantId: TenantId): String = runAsApiKey(tenantId) {
-        stencilTools.createStencil("default", "letterhead", "Letterhead", null, null, document("text-1", "ACME"), null)
+    /** A stencil `letterhead` with a `body` placeholder, and a template `letter` using it (sent inlined, as the editor does). */
+    private fun seedTemplateOnStencil(tenantId: TenantId, fill: String): String = runAsApiKey(tenantId) {
+        stencilTools.createStencil("default", "letterhead", "Letterhead", null, null, LETTERHEAD, null, null)
         templateTools.createTemplate("default", "letter", "Letter", null, null, null)
         contractTools.updateDataContract("default", "letter", NAME_SCHEMA, """[{"name": "Jane", "data": {"name": "Jane"}}]""")
         val variant = templateTools.listVariants("default", "letter").single().id
-        versionTools.updateTemplateDraft("default", "letter", variant, templateWithStencil(""""draftVersion": 1"""))
+        versionTools.updateTemplateDraft("default", "letter", variant, templateWithStencil(fill))
         variant
     }
 
     @Test
-    fun `a template built on a stencil draft is published through stencil publish, upgrade and template publish`() {
+    fun `a template using a stencil publishes directly, storing the instance by reference`() {
         val tenantId = newTenant()
-        val variant = seedTemplateOnStencilDraft(tenantId)
+        val variant = seedTemplateOnStencil(tenantId, fill = "body")
+
+        val published = runAsApiKey(tenantId) { publishTools.publishTemplateVersion("default", "letter", variant, null) }
+
+        assertThat(published.status).isEqualTo("published")
+        val stored = runAsApiKey(tenantId) { versionTools.listVersions("default", "letter", variant) }.single()
+        assertThat(stored.status).isEqualTo("published")
+        val instance = (runAsApiKey(tenantId) { templateTools.getTemplateContent("default", "letter", variant) }!!.templateModel as TemplateDocument)
+            .nodes.getValue("stencil-1").props!!
+        assertThat(instance).containsEntry("stencilKey", "letterhead").doesNotContainKeys("version", "draftVersion")
+    }
+
+    @Test
+    fun `publishing is refused while an instance fills a placeholder its stencil lacks, and the usage lists it`() {
+        val tenantId = newTenant()
+        val variant = seedTemplateOnStencil(tenantId, fill = "footer")
 
         assertThatThrownBy {
             runAsApiKey(tenantId) { publishTools.publishTemplateVersion("default", "letter", variant, null) }
-        }.hasMessageContaining("cannot reference draft stencil versions")
+        }.hasMessageContaining("fills placeholder 'footer', which stencil default/letterhead does not have")
 
-        val stencil = runAsApiKey(tenantId) { publishTools.publishStencilVersion("default", "letterhead", 1) }
-        assertThat(stencil.status).isEqualTo("published")
-        assertThat(stencil.publishedAt).isNotNull
-
-        val upgrade = runAsApiKey(tenantId) { publishTools.upgradeStencilInTemplate("default", "letter", variant, "letterhead", 1) }
-        assertThat(upgrade.upgradedCount).isEqualTo(1)
-        assertThat(upgrade.unboundRequired).isEmpty()
-        val model = runAsApiKey(tenantId) { templateTools.getTemplateContent("default", "letter", variant) }!!
-            .templateModel as TemplateDocument
-        val instance = model.nodes.getValue("stencil-1").props!!
-        assertThat(instance["version"]).isEqualTo(1)
-        assertThat(instance).doesNotContainKey("draftVersion")
-
-        val published = runAsApiKey(tenantId) { publishTools.publishTemplateVersion("default", "letter", variant, null) }
-        assertThat(published.status).isEqualTo("published")
-        assertThat(published.publishedAt).isNotNull
-        assertThat(runAsApiKey(tenantId) { versionTools.listVersions("default", "letter", variant) }.map { it.status })
-            .containsExactly("published")
-        assertThat(runAsApiKey(tenantId) { contractTools.getDataContract("default", "letter", null) }!!.status)
-            .isEqualTo("published")
-    }
-
-    @Test
-    fun `publish_stencil_version refuses a version that is already published`() {
-        val tenantId = newTenant()
-        runAsApiKey(tenantId) { stencilTools.createStencil("default", "letterhead", "Letterhead", null, null, null, null) }
-        runAsApiKey(tenantId) { publishTools.publishStencilVersion("default", "letterhead", 1) }
-
-        assertThatThrownBy {
-            runAsApiKey(tenantId) { publishTools.publishStencilVersion("default", "letterhead", 1) }
-        }.hasMessageContaining("already published")
-    }
-
-    @Test
-    fun `upgrade_stencil_in_template refuses an unpublished stencil version`() {
-        val tenantId = newTenant()
-        val variant = seedTemplateOnStencilDraft(tenantId)
-
-        assertThatThrownBy {
-            runAsApiKey(tenantId) { publishTools.upgradeStencilInTemplate("default", "letter", variant, "letterhead", 1) }
-        }.hasMessageContaining("not published")
+        val usage = runAsApiKey(tenantId) { stencilTools.listStencilUsages("default", "letterhead", null) }.single()
+        assertThat(usage.templateId).isEqualTo("letter")
+        assertThat(usage.fits).isFalse()
+        assertThat(usage.problems.single()).contains("'footer'")
     }
 
     @Test
@@ -153,12 +131,9 @@ class McpPublishToolsIntegrationTest : IntegrationTestBase() {
     @Test
     fun `publishing needs the publish permissions`() {
         val tenantId = newTenant()
-        val variant = seedTemplateOnStencilDraft(tenantId)
+        val variant = seedTemplateOnStencil(tenantId, fill = "body")
         val authorOnly = setOf(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR)
 
-        assertThatThrownBy {
-            runAsApiKey(tenantId, authorOnly) { publishTools.publishStencilVersion("default", "letterhead", 1) }
-        }.hasMessageContaining("STENCIL_PUBLISH")
         assertThatThrownBy {
             runAsApiKey(tenantId, authorOnly) { publishTools.publishTemplateVersion("default", "letter", variant, null) }
         }.hasMessageContaining("TEMPLATE_PUBLISH")
@@ -169,32 +144,28 @@ class McpPublishToolsIntegrationTest : IntegrationTestBase() {
         val tenantId = newTenant()
 
         assertThatThrownBy {
-            runAsApiKey(tenantId) { publishTools.upgradeStencilInTemplate("system", "letter", "initial", "letterhead", 1) }
-        }.hasMessageContaining("read-only catalog 'system'")
-        assertThatThrownBy {
             runAsApiKey(tenantId) { publishTools.publishDataContract("system", "letter", null) }
         }.hasMessageContaining("read-only catalog 'system'")
     }
 
-    private fun document(textId: String, text: String): String = """
-        {"modelVersion": 1, "root": "root",
-         "nodes": {"root": {"id": "root", "type": "root", "slots": ["slot-root"]}, ${textNode(textId, text)}},
-         "slots": {"slot-root": {"id": "slot-root", "nodeId": "root", "name": "children", "children": ["$textId"]}},
-         "themeRef": {"type": "inherit"}}
-    """.trimIndent()
-
-    /** A template whose root holds one `letterhead` stencil instance carrying a copy of its content. */
-    private fun templateWithStencil(reference: String): String = """
+    /**
+     * A template whose root holds one `letterhead` instance as the editor sends it: the stencil's
+     * content inlined, with the template's own text in the fill of placeholder [fill].
+     */
+    private fun templateWithStencil(fill: String): String = """
         {"modelVersion": 1, "root": "root",
          "nodes": {
            "root": {"id": "root", "type": "root", "slots": ["slot-root"]},
            "stencil-1": {"id": "stencil-1", "type": "stencil", "slots": ["slot-stencil"],
-                         "props": {"stencilId": "letterhead", "catalogKey": "default", $reference}},
-           ${textNode("copy-1", "ACME")}
+                         "props": {"stencilKey": "letterhead", "catalogKey": "default"}},
+           ${textNode("copy-1", "ACME")},
+           "ph": {"id": "ph", "type": "placeholder", "slots": ["ph-fill"], "props": {"name": "$fill"}},
+           ${textNode("mine", "Dear Jane")}
          },
          "slots": {
            "slot-root": {"id": "slot-root", "nodeId": "root", "name": "children", "children": ["stencil-1"]},
-           "slot-stencil": {"id": "slot-stencil", "nodeId": "stencil-1", "name": "children", "children": ["copy-1"]}
+           "slot-stencil": {"id": "slot-stencil", "nodeId": "stencil-1", "name": "children", "children": ["copy-1", "ph"]},
+           "ph-fill": {"id": "ph-fill", "nodeId": "ph", "name": "fill", "children": ["mine"]}
          },
          "themeRef": {"type": "inherit"}}
     """.trimIndent()
@@ -205,6 +176,23 @@ class McpPublishToolsIntegrationTest : IntegrationTestBase() {
     """.trimIndent()
 
     private companion object {
+        /** The letterhead stencil: a logo line, then a `body` placeholder. */
+        val LETTERHEAD = """
+            {"modelVersion": 1, "root": "root",
+             "nodes": {
+               "root": {"id": "root", "type": "root", "slots": ["slot-root"]},
+               "logo": {"id": "logo", "type": "text", "slots": [], "props": {"content":
+                 {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "ACME"}]}]}}},
+               "body": {"id": "body", "type": "placeholder", "slots": ["body-default", "body-fill"], "props": {"name": "body"}}
+             },
+             "slots": {
+               "slot-root": {"id": "slot-root", "nodeId": "root", "name": "children", "children": ["logo", "body"]},
+               "body-default": {"id": "body-default", "nodeId": "body", "name": "default", "children": []},
+               "body-fill": {"id": "body-fill", "nodeId": "body", "name": "fill", "children": []}
+             },
+             "themeRef": {"type": "inherit"}}
+        """.trimIndent()
+
         const val NAME_SCHEMA = """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}"""
     }
 }
