@@ -82,7 +82,7 @@ class UpdateStencilHandler(
 ) : CommandHandler<UpdateStencil, Stencil?> {
     override fun handle(command: UpdateStencil): Stencil? {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
-        command.content?.let(templateDocumentValidator::validateStencil)
+        command.content?.let { templateDocumentValidator.validateStencil(it, command.id.key.value, command.id.catalogKey.value) }
         parameterSchemaValidator.validate(command.parameterSchema)
         return jdbi.inTransaction<Stencil?, Exception> { handle ->
             val setClauses = mutableListOf<String>()

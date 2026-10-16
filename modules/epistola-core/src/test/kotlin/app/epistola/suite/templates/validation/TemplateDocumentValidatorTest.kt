@@ -195,7 +195,7 @@ class TemplateDocumentValidatorTest {
             "templateModel" to validator::validateTemplateDraft,
             "templateModel" to validator::validateTemplatePublishable,
             "templateModel" to validator::validateTemplateGraphForRendering,
-            "content" to validator::validateStencil,
+            "content" to { doc -> validator.validateStencil(doc) },
         )
         for ((prefix, validate) in entryPoints) {
             val exception = assertThrows<ValidationException> { validate(document) }

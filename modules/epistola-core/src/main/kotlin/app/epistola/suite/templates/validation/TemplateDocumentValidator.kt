@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.validation
 
+import app.epistola.catalog.validation.CatalogResourceReference
 import app.epistola.catalog.validation.TemplateDocumentKind
 import app.epistola.catalog.validation.TemplateValidationCodes
 import app.epistola.catalog.validation.TemplateValidationContext
@@ -54,9 +55,14 @@ class TemplateDocumentValidator(
         )
     }
 
-    /** A stencil's content; it may contain stencil instances of its own (contract ADR 0006). */
-    fun validateStencil(doc: TemplateDocument) {
-        validateAt(STENCIL_FIELD, doc, TemplateDocumentKind.STENCIL)
+    /**
+     * A stencil's content; it may contain stencil instances of its own (contract ADR 0006). Given
+     * the stencil it belongs to ([stencilKey] in [catalogKey]), an instance of that stencil in its own
+     * content is refused here; a cycle through another stencil only shows when instances expand, on
+     * publish and release.
+     */
+    fun validateStencil(doc: TemplateDocument, stencilKey: String? = null, catalogKey: String? = null) {
+        validateAt(STENCIL_FIELD, doc, TemplateDocumentKind.STENCIL, owner = stencilKey?.let { it to catalogKey })
     }
 
     /**
@@ -79,9 +85,10 @@ class TemplateDocumentValidator(
         document: TemplateDocument,
         kind: TemplateDocumentKind,
         ignoredCodes: Set<String> = emptySet(),
+        owner: Pair<String, String?>? = null,
     ) {
         rejectJavaScriptExpressions(requestField, document)
-        validate(document, kind)
+        validate(document, kind, owner)
             .filterNot { it.code in ignoredCodes }
             .minWithOrNull(compareBy({ LEGACY_CODE_PRIORITY.indexOf(it.code).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }, { it.path }))
             ?.let { throw it.asSuiteException(requestField, document) }
@@ -105,10 +112,15 @@ class TemplateDocumentValidator(
     private fun validate(
         document: TemplateDocument,
         kind: TemplateDocumentKind,
+        owner: Pair<String, String?>? = null,
     ): List<TemplateValidationFinding> = TemplateValidator.validate(
         document,
         object : TemplateValidationContext {
             override val documentKind: TemplateDocumentKind = kind
+            override val currentCatalogKey: String? = owner?.second
+            override val containingStencil: CatalogResourceReference? = owner?.let { (key, catalog) ->
+                CatalogResourceReference("stencil", key, catalog, null, null)
+            }
 
             override fun resolveParameterSchema(
                 node: Node,

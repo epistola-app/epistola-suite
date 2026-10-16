@@ -82,7 +82,7 @@ class CreateStencilHandler(
     override fun handle(command: CreateStencil): Stencil {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         if (command.content != null) {
-            templateDocumentValidator.validateStencil(command.content)
+            templateDocumentValidator.validateStencil(command.content, command.id.key.value, command.id.catalogKey.value)
         }
         parameterSchemaValidator.validate(command.parameterSchema)
         val auditUser = currentUserIdOrNull()?.value

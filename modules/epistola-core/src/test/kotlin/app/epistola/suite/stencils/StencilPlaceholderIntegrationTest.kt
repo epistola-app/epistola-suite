@@ -124,6 +124,30 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
     // ── Refused on publish: only the stencils as they are can tell ──
 
     @Test
+    fun `saving a stencil whose own content uses it is refused, also inside a fill`() = test {
+        val tenantId = TenantId(createTenant("placeholder-self").id)
+        val box = stencilId(tenantId, "box")
+        CreateStencil(id = box, name = "Box").execute()
+        // Inside the stencil's own content, a fill is still the stencil's: box(fill: box) is box in box.
+        val selfInFill = stencilDocument {
+            stencil("inner", "box")
+            placeholder("fill", "inside", fill = listOf("inner"))
+            stencil("frame", "frame", listOf("fill"))
+            build("frame")
+        }
+
+        assertThatThrownBy { UpdateStencil(id = box, content = using("box")).execute() }
+            .isInstanceOf(ValidationException::class.java)
+            .hasValidationCode(ValidationCode.STENCIL_RECURSION)
+        assertThatThrownBy { UpdateStencil(id = box, content = selfInFill).execute() }
+            .isInstanceOf(ValidationException::class.java)
+            .hasValidationCode(ValidationCode.STENCIL_RECURSION)
+        assertThatThrownBy { CreateStencil(id = stencilId(tenantId, "loop"), name = "Loop", content = using("loop")).execute() }
+            .isInstanceOf(ValidationException::class.java)
+            .hasValidationCode(ValidationCode.STENCIL_RECURSION)
+    }
+
+    @Test
     fun `publishing refuses a stencil that contains itself through another`() = test {
         val tenantId = TenantId(createTenant("placeholder-recursion").id)
         CreateStencil(id = stencilId(tenantId, "header"), name = "Header").execute()

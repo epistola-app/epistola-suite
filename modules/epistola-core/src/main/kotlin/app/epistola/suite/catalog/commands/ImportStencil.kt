@@ -60,7 +60,7 @@ class ImportStencilHandler(
 ) : CommandHandler<ImportStencil, InstallStatus> {
 
     override fun handle(command: ImportStencil): InstallStatus {
-        templateDocumentValidator.validateStencil(command.content)
+        templateDocumentValidator.validateStencil(command.content, command.slug, command.catalogKey.value)
         // Wire content is relative to the catalog it lands in, so qualify against the target. The
         // same JSON backs the comparison and the write, so a re-import still compares equal.
         val contentJson = objectMapper.valueToTree<JsonNode>(command.content)
