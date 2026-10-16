@@ -1,31 +1,21 @@
 -- A catalog is identified by registry, namespace and key (contract ADR 0003). Until now a catalog
--- had only its key; the namespace existed only once it was bound for Exchange publication.
+-- had only its key.
 --
--- Existing catalogs are named on the default registry, exchange.epistola.app, with:
---   1. the namespace already bound for Exchange publication, so a published catalog keeps the
---      name it is published under;
---   2. otherwise `epistola` for the catalogs Epistola ships (installed from the classpath);
---   3. otherwise the namespace an Exchange-installed catalog was installed from
---      (`exchange:<namespace>/<key>`);
---   4. otherwise the tenant's key, padded with `0` to the 3 characters a namespace needs, as the
---      contract pads a short key.
--- The namespace stays changeable until the catalog is first published (catalog_exchange_bindings).
+-- Existing catalogs are named on the default registry, exchange.epistola.app, with `epistola` as
+-- namespace for the catalogs Epistola ships (installed from the classpath), and otherwise their
+-- tenant's key, padded with `0` to the 3 characters a namespace needs, as the contract pads a short
+-- key. The namespace stays changeable until the catalog is first published.
 ALTER TABLE catalogs
     ADD COLUMN registry TEXT,
     ADD COLUMN namespace TEXT;
 
-UPDATE catalogs c
+UPDATE catalogs
 SET registry  = 'exchange.epistola.app',
-    namespace = COALESCE(
-        (SELECT b.namespace FROM catalog_exchange_bindings b
-          WHERE b.tenant_key = c.tenant_key AND b.catalog_key = c.id),
-        CASE
-            WHEN c.source_url LIKE 'classpath:epistola/catalogs/%' THEN 'epistola'
-            WHEN c.source_url LIKE 'exchange:%/%' THEN split_part(substring(c.source_url FROM 10), '/', 1)
-            WHEN length(c.tenant_key) < 3 THEN rpad(c.tenant_key, 3, '0')
-            ELSE c.tenant_key
-        END
-    );
+    namespace = CASE
+        WHEN source_url LIKE 'classpath:epistola/catalogs/%' THEN 'epistola'
+        WHEN length(tenant_key) < 3 THEN rpad(tenant_key, 3, '0')
+        ELSE tenant_key
+    END;
 
 ALTER TABLE catalogs
     ALTER COLUMN registry SET NOT NULL,
