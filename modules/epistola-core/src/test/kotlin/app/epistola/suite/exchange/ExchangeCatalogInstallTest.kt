@@ -416,17 +416,17 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     ): ByteArray {
         val svgContentHash = MessageDigest.getInstance("SHA-256").digest(svg.toByteArray()).joinToString("") { "%02x".format(it) }
         val manifest = """
-            {"schemaVersion":7,
-             "catalog":{"slug":"broken","name":"Broken","description":null,"attributes":[],"keywords":[],"presentation":null,"license":null},
+            {"schemaVersion":8,
+             "catalog":{"registry":"exchange.epistola.app","namespace":"acme","key":"broken","name":"Broken","description":null,"attributes":[],"keywords":[],"presentation":null,"license":null},
              "publisher":{"name":"Test","url":null},
              "release":{"version":"1.0.0","releasedAt":null,"fingerprint":null},
              "compatibility":null,"includes":null,"dependencies":[],
-             "resources":[{"type":"image","slug":"municipality-mark","name":"Municipality mark",
+             "resources":[{"type":"image","key":"municipality-mark","name":"Municipality mark",
                            "description":null,"updatedAt":null,
-                           "detailUrl":"./resources/image/municipality-mark.json","compatibility":null}]}
+                           "detailUrl":"./resources/image/municipality-mark.json"}]}
         """.trimIndent()
         val detail = """
-            {"schemaVersion":7,"resource":{"slug":"municipality-mark","name":"Municipality mark",
+            {"schemaVersion":8,"resource":{"key":"municipality-mark","name":"Municipality mark",
              "mediaType":"$mediaType","width":96,"height":96,
              "contentHash":"$svgContentHash","type":"image"}}
         """.trimIndent()

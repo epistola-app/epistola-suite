@@ -248,7 +248,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
         refreshed["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
         val read = CatalogArchiveReader.read(ByteArrayInputStream(rawZip(refreshed)))
         val archive = read.archive ?: return rawZip(refreshed)
-        val fingerprint = archive.use { PortableCatalogCanonicalizer.currentFingerprint(it).value }
+        val fingerprint = archive.use { PortableCatalogCanonicalizer.currentQualifiedFingerprint(it).toString() }
         (manifest.get("release") as ObjectNode).put("fingerprint", fingerprint)
         refreshed["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
         return rawZip(refreshed)

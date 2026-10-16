@@ -347,14 +347,14 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 zip.write(
                     """
                     {
-                      "schemaVersion": 5,
-                      "catalog": {"slug": "${catalogKey.value}", "name": "Invalid portable catalog"},
+                      "schemaVersion": 8,
+                      "catalog": {"registry": "exchange.epistola.app", "namespace": "epistola-tests", "key": "${catalogKey.value}", "name": "Invalid portable catalog"},
                       "publisher": {"name": "Epistola tests"},
                       "release": {"version": "1.0.0"},
                       "resources": [
                         {
                           "type": "template",
-                          "slug": "invoice",
+                          "key": "invoice",
                           "name": "Invoice",
                           "detailUrl": "./resources/template/invoice.json"
                         }
@@ -368,10 +368,10 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 zip.write(
                     """
                     {
-                      "schemaVersion": 5,
+                      "schemaVersion": 8,
                       "resource": {
                         "type": "template",
-                        "slug": "invoice",
+                        "key": "invoice",
                         "name": "Invoice",
                         "templateModel": {"root": "missing", "nodes": {}, "slots": {}},
                         "variants": []
@@ -753,7 +753,9 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 {
                   "schemaVersion": $CATALOG_SCHEMA_VERSION,
                   "catalog": {
-                    "slug": "needs-missing",
+                    "registry": "exchange.epistola.app",
+                    "namespace": "epistola-tests",
+                    "key": "needs-missing",
                     "name": "Needs Missing Dep",
                     "description": "Declares a cross-catalog code-list dep that the tenant does not have."
                   },
@@ -761,7 +763,23 @@ class CatalogExportImportTest : IntegrationTestBase() {
                   "release": { "version": "1.0.0", "releasedAt": "2026-05-11T00:00:00Z" },
                   "resources": [],
                   "dependencies": [
-                    { "type": "codeList", "catalogKey": "no-such-catalog", "slug": "no-such-list" }
+                    {
+                      "type": "codeList",
+                      "registry": "exchange.epistola.app",
+                      "namespace": "epistola-tests",
+                      "catalogKey": "no-such-catalog",
+                      "key": "no-such-list"
+                    }
+                  ],
+                  "catalogDependencies": [
+                    {
+                      "registry": "exchange.epistola.app",
+                      "namespace": "epistola-tests",
+                      "catalogKey": "no-such-catalog",
+                      "version": "*",
+                      "releaseVersion": null,
+                      "releaseFingerprint": null
+                    }
                   ]
                 }
                 """.trimIndent().toByteArray(),

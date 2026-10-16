@@ -96,7 +96,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
         val unsigned = rawZip(refreshed)
         val read = CatalogArchiveReader.read(ByteArrayInputStream(unsigned))
         val archive = read.archive ?: return unsigned
-        val fingerprint = archive.use { PortableCatalogCanonicalizer.currentFingerprint(it).value }
+        val fingerprint = archive.use { PortableCatalogCanonicalizer.currentQualifiedFingerprint(it).toString() }
         (manifest.get("release") as ObjectNode).put("fingerprint", fingerprint)
         refreshed["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
         return rawZip(refreshed)
@@ -142,8 +142,8 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             val manifest = objectMapper.readTree(entries["catalog.json"]!!) as ObjectNode
             val kept = objectMapper.createArrayNode()
             (manifest.get("resources") as ArrayNode).forEach { r ->
-                if (r.get("slug").asString() != "drop") {
-                    if (r.get("slug").asString() == "keep") (r as ObjectNode).put("name", "Keep V2")
+                if (r.get("key").asString() != "drop") {
+                    if (r.get("key").asString() == "keep") (r as ObjectNode).put("name", "Keep V2")
                     kept.add(r)
                 }
             }
@@ -407,7 +407,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             val entries = unzip(v1)
             val manifest = objectMapper.readTree(entries["catalog.json"]!!) as ObjectNode
             val kept = objectMapper.createArrayNode()
-            (manifest.get("resources") as ArrayNode).forEach { if (it.get("slug").asString() != "drop") kept.add(it) }
+            (manifest.get("resources") as ArrayNode).forEach { if (it.get("key").asString() != "drop") kept.add(it) }
             manifest.set("resources", kept)
             (manifest.get("release") as ObjectNode).put("version", "2.0.0")
             entries.remove("resources/theme/drop.json")
@@ -472,7 +472,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             val entries = unzip(v1)
             val manifest = objectMapper.readTree(entries["catalog.json"]!!) as ObjectNode
             val kept = objectMapper.createArrayNode()
-            (manifest.get("resources") as ArrayNode).forEach { if (it.get("slug").asString() != "drop") kept.add(it) }
+            (manifest.get("resources") as ArrayNode).forEach { if (it.get("key").asString() != "drop") kept.add(it) }
             manifest.set("resources", kept)
             (manifest.get("release") as ObjectNode).put("version", "2.0.0")
             entries.remove("resources/theme/drop.json")
@@ -589,7 +589,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             val entries = unzip(ExportCatalogZip(tenantKey = tenant.id, catalogKey = catalogKey).execute().zipBytes)
             val manifest = objectMapper.readTree(entries["catalog.json"]!!) as ObjectNode
             val kept = objectMapper.createArrayNode()
-            (manifest.get("resources") as ArrayNode).forEach { if (it.get("slug").asString() != "local-only") kept.add(it) }
+            (manifest.get("resources") as ArrayNode).forEach { if (it.get("key").asString() != "local-only") kept.add(it) }
             manifest.set("resources", kept)
             entries.remove("resources/theme/local-only.json")
             entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)

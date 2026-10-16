@@ -95,12 +95,13 @@ class ImageDependencyProbeTest : IntegrationTestBase() {
     /** A catalog whose only content is a manifest declaring one qualified image dependency. */
     private fun archiveDependingOnImage(imageCatalog: String): ByteArray {
         val manifest = """
-            {"schemaVersion":7,
-             "catalog":{"slug":"letters","name":"Letters","description":null,"attributes":[],"keywords":[],"presentation":null,"license":null},
+            {"schemaVersion":8,
+             "catalog":{"registry":"$REGISTRY","namespace":"$NAMESPACE","key":"letters","name":"Letters","description":null,"attributes":[],"keywords":[],"presentation":null,"license":null},
              "publisher":{"name":"Test","url":null},
              "release":{"version":"1.0.0","releasedAt":null,"fingerprint":null},
              "compatibility":null,"includes":null,
-             "dependencies":[{"type":"image","catalogKey":"$imageCatalog","slug":"logo"}],
+             "dependencies":[{"type":"image","registry":"$REGISTRY","namespace":"$NAMESPACE","catalogKey":"$imageCatalog","key":"logo"}],
+             "catalogDependencies":[{"registry":"$REGISTRY","namespace":"$NAMESPACE","catalogKey":"$imageCatalog","version":"*","releaseVersion":null,"releaseFingerprint":null}],
              "resources":[]}
         """.trimIndent()
         val out = ByteArrayOutputStream()
@@ -113,6 +114,8 @@ class ImageDependencyProbeTest : IntegrationTestBase() {
     }
 
     private companion object {
+        const val REGISTRY = "exchange.epistola.app"
+        const val NAMESPACE = "test-tenant"
         val BRAND = CatalogKey.of("brand")
         val PNG = byteArrayOf(
             0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,

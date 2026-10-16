@@ -134,7 +134,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
 
     @Test
     fun `install from an HTTP catalog preserves cross-catalog code-list binding`() {
-        // Serve a v3 manifest over real HTTP, exercising `RestClient` — the
+        // Serve a current-version manifest over real HTTP, exercising `RestClient` — the
         // production transport. classpath/file shortcuts in `CatalogClient`
         // would otherwise mask any bug in the HTTP fetch path.
         val tenant = createTenant("CrossBind3")
@@ -198,9 +198,11 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
 
     private fun manifestJson(slug: String): String = """
         {
-          "schemaVersion": 5,
+          "schemaVersion": $CATALOG_SCHEMA_VERSION,
           "catalog": {
-            "slug": "$slug",
+            "registry": "exchange.epistola.app",
+            "namespace": "epistola-tests",
+            "key": "$slug",
             "name": "HTTP Served",
             "description": "Cross-catalog binding test catalog served over real HTTP"
           },
@@ -209,25 +211,41 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
           "resources": [
             {
               "type": "attribute",
-              "slug": "lang",
+              "key": "lang",
               "name": "Language",
               "detailUrl": "./resources/attributes/lang.json"
             }
           ],
           "dependencies": [
-            { "type": "codeList", "catalogKey": "system", "slug": "iso-639-1" }
+            {
+              "type": "codeList",
+              "registry": "exchange.epistola.app",
+              "namespace": "epistola",
+              "catalogKey": "system",
+              "key": "iso-639-1"
+            }
+          ],
+          "catalogDependencies": [
+            {
+              "registry": "exchange.epistola.app",
+              "namespace": "epistola",
+              "catalogKey": "system",
+              "version": "*",
+              "releaseVersion": null,
+              "releaseFingerprint": null
+            }
           ]
         }
     """.trimIndent()
 
     private fun attributeDetailJson(): String = """
         {
-          "schemaVersion": 5,
+          "schemaVersion": $CATALOG_SCHEMA_VERSION,
           "resource": {
             "type": "attribute",
-            "slug": "lang",
+            "key": "lang",
             "name": "Language",
-            "codeListBinding": { "catalogKey": "system", "slug": "iso-639-1" }
+            "codeListBinding": { "catalogKey": "system", "key": "iso-639-1" }
           }
         }
     """.trimIndent()

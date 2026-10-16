@@ -263,10 +263,10 @@ class CatalogIntegrationTest : IntegrationTestBase() {
     private fun writeCatalogWithName(dir: Path, name: String): String {
         val manifest = """
             {
-              "schemaVersion": 5,
-              "catalog": { "slug": "overlong-name", "name": ${escapeJson(name)} },
+              "schemaVersion": 8,
+              "catalog": { "key": "overlong-name", "registry": "exchange.epistola.app", "namespace": "test-publisher", "name": ${escapeJson(name)} },
               "publisher": { "name": "Test" },
-              "release": { "version": "1.0.0", "fingerprint": "${"0".repeat(64)}" },
+              "release": { "version": "1.0.0" },
               "resources": []
             }
         """.trimIndent()
@@ -310,20 +310,20 @@ class CatalogIntegrationTest : IntegrationTestBase() {
     private fun writeCatalogWithBrokenTemplate(dir: Path): String {
         val manifest = """
             {
-              "schemaVersion": 6,
-              "catalog": { "slug": "rollback-test", "name": "Rollback Test Catalog" },
+              "schemaVersion": 8,
+              "catalog": { "key": "rollback-test", "registry": "exchange.epistola.app", "namespace": "test-publisher", "name": "Rollback Test Catalog" },
               "publisher": { "name": "Test" },
-              "release": { "version": "1.0.0", "fingerprint": "${"0".repeat(64)}" },
+              "release": { "version": "1.0.0" },
               "resources": [
                 {
                   "type": "theme",
-                  "slug": "rollback-theme",
+                  "key": "rollback-theme",
                   "name": "Rollback Theme",
                   "detailUrl": "./resources/themes/rollback-theme.json"
                 },
                 {
                   "type": "template",
-                  "slug": "broken",
+                  "key": "broken",
                   "name": "Broken Template",
                   "detailUrl": "./resources/templates/broken.json"
                 }
@@ -332,10 +332,10 @@ class CatalogIntegrationTest : IntegrationTestBase() {
         """.trimIndent()
         val theme = """
             {
-              "schemaVersion": 6,
+              "schemaVersion": 8,
               "resource": {
                 "type": "theme",
-                "slug": "rollback-theme",
+                "key": "rollback-theme",
                 "name": "Rollback Theme",
                 "documentStyles": { "fontSize": "11pt" }
               }
@@ -345,10 +345,10 @@ class CatalogIntegrationTest : IntegrationTestBase() {
         // than during the wire-version or manifest gate, which is what exercises the rollback.
         val template = """
             {
-              "schemaVersion": 6,
+              "schemaVersion": 8,
               "resource": {
                 "type": "template",
-                "slug": "broken",
+                "key": "broken",
                 "name": "Broken Template",
                 "templateModel": {
                   "modelVersion": 1,
@@ -371,21 +371,21 @@ class CatalogIntegrationTest : IntegrationTestBase() {
     }
 
     /**
-     * Writes a minimal `file:` catalog under [dir]: a current-version (5) manifest
+     * Writes a minimal `file:` catalog under [dir]: a current-version (8) manifest
      * declaring one `codeList`, whose detail is deliberately stamped at version 3.
      * Returns the `file:` URL of the manifest.
      */
     private fun writeDriftedCatalog(dir: Path): String {
         val manifest = """
             {
-              "schemaVersion": 5,
-              "catalog": { "slug": "drift-test", "name": "Drift Test Catalog" },
+              "schemaVersion": 8,
+              "catalog": { "key": "drift-test", "registry": "exchange.epistola.app", "namespace": "test-publisher", "name": "Drift Test Catalog" },
               "publisher": { "name": "Test" },
-              "release": { "version": "1.0.0", "fingerprint": "${"0".repeat(64)}" },
+              "release": { "version": "1.0.0" },
               "resources": [
                 {
                   "type": "codeList",
-                  "slug": "colours",
+                  "key": "colours",
                   "name": "Colours",
                   "detailUrl": "./resources/codelists/colours.json"
                 }
