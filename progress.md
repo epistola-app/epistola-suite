@@ -53,6 +53,38 @@ a pin-filling stopgap, or remove stencil versions now (recommended).
 | Version kept `1.5.1-SNAPSHOT` instead of `1.5.0`                                                             | `3ea58d82a`              | ➖                                                                                                                    |
 | ADR 0029 closed as superseded                                                                                | #1058                    | ➖                                                                                                                    |
 
+## Design in progress: stencils without versions (step 2)
+
+Today (mapped 16 October): a stencil instance is an **embedded copy** in the template's stencil node
+(`children` slot), with props `stencilId`, `catalogKey`, `version`, `draftVersion`,
+`parameterSchemaSnapshot`, `parameterBindings`; placeholder fills live in the copy's `fill` slots.
+The renderer only reads the copy (`StencilNodeRenderer`), never the stencil. Upgrading an instance
+is `UpdateStencilInTemplate` + `StencilContentReplacer`, which reports `droppedFills`,
+`droppedBindings`, `unboundRequired` but blocks on none.
+
+Proposal (contract `markStencilReady` / `heldBack` semantics):
+
+- A stencil has one working copy (content + parameter schema) and a ready mark; `stencil_versions` goes.
+- An instance keeps its embedded copy and loses `version`/`draftVersion`.
+- **Marking a stencil ready moves every instance in the same catalog** whose template it does not
+  break (`StencilContentReplacer`; breaking = it would drop a fill or binding, or leave a newly
+  required parameter unbound). Breaking instances are **held back** on their old copy, listed in
+  stencil usage, and block the release until the variant is edited.
+- Cross-catalog instances move when the dependency pin moves (to confirm).
+- Upgrade from 1.x: the first release is cut from today's copies (renders exactly as before); then
+  instances behind the latest stencil are moved in the draft, breaking ones held back.
+
+Goes with it (step 2 scope): `stencil_versions` and its commands (`CreateStencilVersion`,
+`UpdateStencilDraft`, `PublishStencilVersion`, `ArchiveStencilVersion`), `PublishVersion`'s
+published-stencil check, the interim `stencilVersionPinFindings`, `MultipleStencilVersionsInUseException`
+
+- `FindStencilVersionExportConflicts`, `OnStencilConflict` and the renumber plumbing, the usage
+  page's `UpgradeBlockReason`, the client-side bulk upgrade (`stencil-detail.js`), MCP
+  `list_stencil_versions`/`get_stencil_version`/`update_stencil_draft`, editor `draft-hydration.ts`
+  and `upgrade-refs.ts`, REST's draft/publish-based stencil working copy.
+
+Open questions: see "Open decisions".
+
 ## Noticed, not touched
 
 | What                                                                                                                   | Where                                                                                                                                                | Why it matters                                                        | When                         |
@@ -116,6 +148,14 @@ a pin-filling stopgap, or remove stencil versions now (recommended).
 9. Upgrade job on a 1.x-shaped database; cleanup; docs; demo catalog; ADR 0028.
 
 ## Open decisions
+
+- Stencils: does moving an instance on stencil ready leave the template's ready mark as it was?
+- Stencils: how is "held back" known — a digest of the stencil content stored on the instance, or
+  a comparison of the copy (fills removed) with the stencil's ready content?
+- Stencils: inserting a stencil that was never marked ready — allowed, from its working copy?
+- Stencils: cross-catalog instances move when the dependency pin moves?
+- Stencils before template versions: propagation writes into template drafts (as
+  `UpdateStencilInTemplate` does today) until template versions go too.
 
 - Stencil pins on import: stopgap, or remove stencil versions now?
 - Catalog identity in the schema: registry/namespace in every key, or a surrogate key?
