@@ -126,9 +126,7 @@ Once the image is published, post the release on
 (`.agents/mcp/discourse/`; it posts as the signed-in user). Draft the post, show it to the
 user and post only after they approve it: once posted, it is public.
 
-- **Category:** Aankondigingen (`aankondigingen`, id 5). Create a new topic, not a reply.
-- **Title:** `Epistola X.Y.Z: <headline in Dutch>`, e.g. `Epistola 1.4.0: kop- en voetteksten
-  overal, en templates bouwen via MCP`.
+- **Category:** Aankondigingen (id 5), a new topic. **Title:** `Epistola X.Y.Z: <Dutch headline>`.
 - **Body:** Dutch first, then the same text in English inside `[details="English"]…[/details]`.
   Write it for administrators and template authors, not as a copy of the changelog:
   - Open with `⚠️ **Controleer dit vóór de upgrade:**` when there is an action on upgrade
