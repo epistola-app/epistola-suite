@@ -867,7 +867,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 tenantId = tenantId,
                 catalogKey = targetCatalogKey,
                 slug = resource.key,
-                version = resource.version,
+                version = null,
                 name = resource.name,
                 description = resource.description,
                 tags = resource.tags,
