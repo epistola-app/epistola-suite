@@ -39,19 +39,19 @@ under its title. That banner, not this table, is authoritative.
 
 ## Authoring: templates and the document model
 
-| Doc                                                | Status  | What it covers                                                                     |
-| -------------------------------------------------- | ------- | ---------------------------------------------------------------------------------- |
-| [Editor features](editor-features.md)              | Current | Components, styling and rendering features available in the template editor.       |
-| [Component registry](component-registry.md)        | Current | How the TypeScript component vocabulary reaches the backend as a JSON snapshot.    |
-| [Stencils](stencils.md)                            | Current | Versioned, reusable components shared across templates.                            |
-| [Stencil placeholders](stencil-placeholders.md)    | Current | The `placeholder` node: default slot, fill slot, and recursion limits.             |
-| [Stencil parameters](stencil-parameters.md)        | Current | Parameter schemas, binding validation, and render-time parameter scope.            |
-| [Variant attributes](attributes.md)                | Current | The tenant attribute registry and attribute-driven variant selection.              |
-| [Code lists](code-lists.md)                        | Current | Named `{code, label}` collections that constrain attribute values.                 |
-| [Data contracts](data-contracts.md)                | Current | The JSON Schema a template accepts, plus example data.                             |
-| [Contract schema versioning](schema-versioning.md) | Current | Draft/published lifecycle of contract versions and how versions bind to templates. |
-| [Fonts](fonts.md)                                  | Current | Fonts as catalog resources: modelling, resolution and deterministic rendering.     |
-| [Locale](locale.md)                                | Current | One BCP-47 locale per render, and the formatting tokens that follow from it.       |
+| Doc                                                | Status  | What it covers                                                                                    |
+| -------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------- |
+| [Editor features](editor-features.md)              | Current | Components, styling and rendering features available in the template editor.                      |
+| [Component registry](component-registry.md)        | Current | How the TypeScript component vocabulary reaches the backend as a JSON snapshot.                   |
+| [Stencils](stencils.md)                            | Current | Reusable components templates use by reference: one working copy, checked on publish and release. |
+| [Stencil placeholders](stencil-placeholders.md)    | Current | The `placeholder` node: default and fill slots, lexical fill scope, passing parameters, nesting.  |
+| [Stencil parameters](stencil-parameters.md)        | Current | Parameter schemas, binding validation, and render-time parameter scope.                           |
+| [Variant attributes](attributes.md)                | Current | The tenant attribute registry and attribute-driven variant selection.                             |
+| [Code lists](code-lists.md)                        | Current | Named `{code, label}` collections that constrain attribute values.                                |
+| [Data contracts](data-contracts.md)                | Current | The JSON Schema a template accepts, plus example data.                                            |
+| [Contract schema versioning](schema-versioning.md) | Current | Draft/published lifecycle of contract versions and how versions bind to templates.                |
+| [Fonts](fonts.md)                                  | Current | Fonts as catalog resources: modelling, resolution and deterministic rendering.                    |
+| [Locale](locale.md)                                | Current | One BCP-47 locale per render, and the formatting tokens that follow from it.                      |
 
 ## Generating documents
 
