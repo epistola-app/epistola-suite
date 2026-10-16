@@ -5,9 +5,17 @@
 package app.epistola.suite.mcp.tools
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
+import app.epistola.suite.catalog.commands.ResolveCatalogDependencies
+import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
+import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
+import app.epistola.suite.mcp.dto.CatalogDependencyInfo
+import app.epistola.suite.mcp.dto.CatalogDependencyInput
 import app.epistola.suite.mcp.dto.CatalogInfo
 import app.epistola.suite.mcp.dto.CatalogUpgradeDiffInfo
 import app.epistola.suite.mcp.support.mcpTenantKey
@@ -75,4 +83,55 @@ class CatalogMcpTools(
     ): CatalogUpgradeDiffInfo = CatalogUpgradeDiffInfo.from(
         mediator.query(PreviewCatalogUpgrade(mcpTenantKey(), CatalogKey.of(catalogId))),
     )
+
+    @McpTool(
+        name = "list_catalog_dependencies",
+        description = "List the catalogs a catalog declares it depends on: each with its version selector " +
+            "(an npm range) and the release it is locked to, which the catalog's next release is cut with " +
+            "and renders with. A catalog that uses another catalog's themes, stencils, fonts, images or " +
+            "code lists must declare that catalog before it can be released.",
+        annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
+    )
+    fun listCatalogDependencies(
+        @McpToolParam(description = "Catalog key. From `list_catalogs`.")
+        catalogId: String,
+    ): List<CatalogDependencyInfo> = mediator.query(ListCatalogDependencies(mcpTenantKey(), CatalogKey.of(catalogId)))
+        .map(CatalogDependencyInfo::from)
+
+    @McpTool(
+        name = "update_catalog_dependencies",
+        description = "Replace the catalogs an AUTHORED catalog depends on, in the order given. Each names " +
+            "another catalog of this tenant by key and selects its releases with an npm range: `^1.4.0`, " +
+            "`~1.4.0`, `>=1.0.0 <2.0.0`, `1.4.2` or `*`. A dependency keeps the release it is locked to " +
+            "while the range still matches it; otherwise it is locked to the highest release that matches, " +
+            "or left unlocked when none does. Requires the TEMPLATE_PUBLISH permission, as releasing does.",
+        annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
+    )
+    fun updateCatalogDependencies(
+        @McpToolParam(description = "Catalog key of an AUTHORED catalog. From `list_catalogs`.")
+        catalogId: String,
+        @McpToolParam(description = "Every dependency, as `{catalogId, version}`; an empty list declares none.")
+        dependencies: List<CatalogDependencyInput>,
+    ): List<CatalogDependencyInfo> {
+        val tenant = mcpTenantKey()
+        val declared = dependencies.map { dependency ->
+            val key = CatalogKey.of(dependency.catalogId)
+            val target = mediator.query(GetCatalog(tenant, key)) ?: throw CatalogNotFoundException(key)
+            DeclaredCatalogDependency(target.registry, target.namespace, key.value, dependency.version)
+        }
+        return UpdateCatalogDependencies(tenant, CatalogKey.of(catalogId), declared).execute().map(CatalogDependencyInfo::from)
+    }
+
+    @McpTool(
+        name = "resolve_catalog_dependencies",
+        description = "Move every dependency of an AUTHORED catalog to the highest release its version " +
+            "range matches, as upgrading a library does. The catalog's next release is cut with the result. " +
+            "Requires the TEMPLATE_PUBLISH permission.",
+        annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
+    )
+    fun resolveCatalogDependencies(
+        @McpToolParam(description = "Catalog key of an AUTHORED catalog. From `list_catalogs`.")
+        catalogId: String,
+    ): List<CatalogDependencyInfo> = ResolveCatalogDependencies(mcpTenantKey(), CatalogKey.of(catalogId)).execute()
+        .map(CatalogDependencyInfo::from)
 }
