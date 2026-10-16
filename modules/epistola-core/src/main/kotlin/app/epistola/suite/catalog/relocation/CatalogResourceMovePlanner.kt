@@ -296,13 +296,12 @@ class CatalogResourceMovePlanner(
                 )
             }
         }
-        for (row in loadStencilVersions(handle, tenantKey, if (everyHolder) null else movingStencils.keys)) {
+        for (row in loadStencils(handle, tenantKey, if (everyHolder) null else movingStencils.keys)) {
             val owner = movingStencils[ResourceAddress(CatalogResourceType.STENCIL, row.catalogKey, row.ownerKey)]
             rewriteRow(row, owner, contentMoves, immutableBySource)?.let { result ->
-                rewrites += JsonRewrite.StencilVersion(
+                rewrites += JsonRewrite.StencilContent(
                     row.catalogKey,
                     row.ownerKey,
-                    row.version,
                     row.rawJson,
                     result.json.toString(),
                     result.attributedTo,
@@ -589,19 +588,18 @@ class CatalogResourceMovePlanner(
             }.list()
     }
 
-    private fun loadStencilVersions(handle: Handle, tenantKey: TenantKey, owners: Set<ResourceAddress>?): List<JsonOwnerRow> {
+    /** Stencils' working copies: one per stencil, always editable, so planned like a draft. */
+    private fun loadStencils(handle: Handle, tenantKey: TenantKey, owners: Set<ResourceAddress>?): List<JsonOwnerRow> {
         if (owners != null && owners.isEmpty()) return emptyList()
         return handle.createQuery(
             """
             SELECT stencil_catalog.catalog_key::text, stencil.id::text owner_key,
-                   versions.id, versions.status, versions.content::text json
-            FROM stencil_versions versions
-            JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
-                                 AND stencil.resource_id = versions.stencil_resource_id
+                   0 AS id, 'draft' AS status, stencil.content::text json
+            FROM stencils stencil
             JOIN catalogs stencil_catalog
               ON stencil_catalog.tenant_key = stencil.tenant_key AND stencil_catalog.catalog_id = stencil.catalog_id
-            WHERE versions.tenant_key = :tenantKey ${ownerFilter(owners, "stencil.id", "stencil_catalog.catalog_key")}
-            ORDER BY stencil_catalog.catalog_key, stencil.id, versions.id
+            WHERE stencil.tenant_key = :tenantKey ${ownerFilter(owners, "stencil.id", "stencil_catalog.catalog_key")}
+            ORDER BY stencil_catalog.catalog_key, stencil.id
             """,
         )
             .bind("tenantKey", tenantKey)
@@ -715,15 +713,16 @@ internal sealed interface JsonRewrite {
         override val identity get() = "template:$catalogKey:$ownerKey:$variantKey:$version"
     }
 
-    data class StencilVersion(
+    /** A stencil's working copy; a stencil has no versions, so [version] is always 0. */
+    data class StencilContent(
         override val catalogKey: String,
         override val ownerKey: String,
-        override val version: Int,
         override val expected: String,
         override val replacement: String,
         override val attributedTo: ResourceAddress?,
     ) : JsonRewrite {
-        override val identity get() = "stencil:$catalogKey:$ownerKey:$version"
+        override val version: Int get() = 0
+        override val identity get() = "stencil:$catalogKey:$ownerKey"
     }
 
     /** A published version's frozen theme snapshot, pinned when the theme it resolves through moves. */

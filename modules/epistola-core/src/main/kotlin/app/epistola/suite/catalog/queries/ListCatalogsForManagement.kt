@@ -61,11 +61,7 @@ internal val CATALOG_ACTIVITY_CTE = """
                 UNION ALL SELECT template.catalog_id, MAX(contracts.published_at)
                                  FROM contract_versions contracts ${templateJoin("contracts")}
                                  WHERE contracts.tenant_key = :t GROUP BY template.catalog_id
-                UNION ALL SELECT stencil.catalog_id, MAX(versions.published_at)
-                                 FROM stencil_versions versions
-                                 JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
-                                                      AND stencil.resource_id = versions.stencil_resource_id
-                                 WHERE versions.tenant_key = :t GROUP BY stencil.catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM stencils             WHERE tenant_key = :t GROUP BY catalog_id
                 UNION ALL SELECT catalog_id, MAX(created_at)   FROM assets               WHERE tenant_key = :t GROUP BY catalog_id
             )
 """

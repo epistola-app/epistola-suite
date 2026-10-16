@@ -7,6 +7,7 @@ package app.epistola.suite.generation.release
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.ImageResource
+import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.generation.pdf.AssetResolution
@@ -23,6 +24,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.queries.pickNearestFace
+import app.epistola.suite.stencils.model.StencilInstances
 import app.epistola.suite.tenants.Tenant
 import app.epistola.template.model.TemplateDocument
 import app.epistola.template.model.ThemeRefOverride
@@ -123,7 +125,7 @@ class ReleaseRenderSource(
             ?: throw ReleaseRenderException("Release ${release.label()} has no variant '$variantKey' of template '$templateKey'")
         // The wire form hoists the default variant's model onto the template and leaves it off the
         // variant entry, so the default variant's model is the template's.
-        val model = variant.templateModel ?: template.templateModel
+        val model = expandStencils(scope, variant.templateModel ?: template.templateModel)
 
         val (themeCatalog, theme) = resolveTheme(scope, tenant, template, model)
 
@@ -157,6 +159,29 @@ class ReleaseRenderSource(
             assetResolver = assetResolver(scope),
             fontFamilyResolver = fontResolver(scope, owningCatalog = themeCatalog ?: release.catalogKey),
         )
+    }
+
+    /**
+     * The template with its stencil instances expanded (contract ADR 0006): a stencil of this catalog
+     * comes from this release, one of another catalog from that catalog's release in [scope]. The
+     * release check keeps instances that do not fit out of a release, so a stencil that cannot be
+     * found or that contains itself is a broken release and refuses to render; a fill or binding
+     * that no longer fits renders as the expansion leaves it.
+     */
+    private fun expandStencils(scope: Scope, model: TemplateDocument): TemplateDocument {
+        val resolver = StencilInstances.Resolver { stencilKey, catalogKey ->
+            (read(scope.tenantKey, scope.releaseOf(CatalogKey.of(catalogKey)), "stencil", stencilKey) as? StencilResource)?.let {
+                StencilInstances.Content(it.content, it.parameterSchema, it.readsTemplateData)
+            }
+        }
+        val expanded = StencilInstances.expand(model, scope.release.catalogKey.value, resolver)
+        expanded.findings.firstOrNull { it.problem in UNRENDERABLE }?.let { finding ->
+            throw ReleaseRenderException(
+                "Release ${scope.release.label()} uses stencil '${finding.stencilKey}' of catalog '${finding.catalogKey}', " +
+                    if (finding.problem == StencilInstances.Problem.STENCIL_NOT_FOUND) "which it cannot supply" else "which cannot be expanded (${finding.problem})",
+            )
+        }
+        return expanded.document
     }
 
     /**
@@ -302,6 +327,11 @@ class ReleaseRenderSource(
     private companion object {
         const val MAX_RESOURCES = 2_000L
         const val MAX_BINARY_BYTES = 64L * 1024 * 1024
+        val UNRENDERABLE = setOf(
+            StencilInstances.Problem.STENCIL_NOT_FOUND,
+            StencilInstances.Problem.RECURSION,
+            StencilInstances.Problem.DEPTH_EXCEEDED,
+        )
     }
 }
 

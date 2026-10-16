@@ -17,7 +17,7 @@ package app.epistola.generation.pdf
  */
 object StencilNodeKeys {
     const val NODE_TYPE = "stencil"
-    const val PROP_STENCIL_ID = "stencilId"
+    const val PROP_STENCIL_KEY = "stencilKey"
 
     /**
      * The stencil declares it reads the template's data (ADR 0006 part 5). Without it, the stencil's

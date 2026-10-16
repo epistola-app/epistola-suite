@@ -63,7 +63,7 @@ internal class BandDoc {
 
     fun container(id: String, vararg children: String): String = withChildren(id, "container", "children", children.toList())
 
-    fun stencil(id: String, vararg children: String): String = withChildren(id, "stencil", "children", children.toList(), mapOf("stencilId" to "letter-shell", "version" to 1))
+    fun stencil(id: String, vararg children: String): String = withChildren(id, "stencil", "children", children.toList(), mapOf("stencilKey" to "letter-shell", "version" to 1))
 
     fun conditional(id: String, condition: String, vararg children: String): String = withChildren(id, "conditional", "body", children.toList(), mapOf("condition" to mapOf("raw" to condition, "language" to "jsonata")))
 

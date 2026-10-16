@@ -308,18 +308,17 @@ class InstallFromCatalogHandler(
 
     private fun installStencil(command: InstallFromCatalog, resource: StencilResource): InstallStatus {
         val tenantId = TenantId(command.tenantKey)
-        // Wire v8 carries no stencil version; ImportStencil publishes a changed stencil as its next one.
         return ImportStencil(
             tenantId = tenantId,
             catalogKey = command.catalogKey,
             slug = resource.key,
             name = resource.name,
-            version = null,
             description = resource.description,
             tags = resource.tags,
             content = resource.content,
             parameterSchema = resource.parameterSchema,
-        ).execute().status
+            readsTemplateData = resource.readsTemplateData,
+        ).execute()
     }
 
     private fun installAttribute(command: InstallFromCatalog, resource: AttributeResource): InstallStatus {

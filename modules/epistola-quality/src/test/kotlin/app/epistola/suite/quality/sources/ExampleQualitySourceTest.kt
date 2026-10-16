@@ -127,7 +127,7 @@ class ExampleQualitySourceTest {
 
     @Test
     fun `non-text nodes are ignored`() {
-        val image = Node(id = "img-1", type = "image", slots = emptyList(), props = mapOf("assetId" to "x"))
+        val image = Node(id = "img-1", type = "image", slots = emptyList(), props = mapOf("imageKey" to "x"))
 
         assertThat(source.check(inputFor(documentWith(image)))).isEmpty()
     }

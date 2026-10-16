@@ -76,6 +76,8 @@ class JobPollerShutdownIntegrationTest : IntegrationTestBase() {
 
     @Autowired private lateinit var releaseRenderSource: ReleaseRenderSource
 
+    @Autowired private lateinit var stencilResolvers: app.epistola.suite.stencils.StencilResolvers
+
     @Autowired private lateinit var localeResolver: TenantLocaleResolver
 
     @Test
@@ -202,7 +204,7 @@ class JobPollerShutdownIntegrationTest : IntegrationTestBase() {
             jdbi = jdbi,
             jobExecutor = GatedExecutor(
                 gate, executor, jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore,
-                meterRegistry, fontSnapshotVerifier, fontByteCache, localeResolver, releaseRenderSource,
+                meterRegistry, fontSnapshotVerifier, fontByteCache, localeResolver, releaseRenderSource, stencilResolvers,
             ),
             properties = pollerProperties,
             batchSizer = AdaptiveBatchSizer(pollerProperties, registry),
@@ -234,9 +236,10 @@ class JobPollerShutdownIntegrationTest : IntegrationTestBase() {
         fontByteCache: FontByteCache,
         localeResolver: TenantLocaleResolver,
         releaseRenderSource: ReleaseRenderSource,
+        stencilResolvers: app.epistola.suite.stencils.StencilResolvers,
     ) : DocumentGenerationExecutor(
         jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore, meterRegistry,
-        fontSnapshotVerifier, fontByteCache, localeResolver, releaseRenderSource, retentionDays = 7, maxDocumentSizeMb = 50,
+        fontSnapshotVerifier, fontByteCache, localeResolver, releaseRenderSource, stencilResolvers, retentionDays = 7, maxDocumentSizeMb = 50,
     ) {
         /** [interruptible] false models a CPU-bound render that does not stop on interrupt. */
         class Gate(val interruptible: Boolean) {

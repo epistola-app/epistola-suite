@@ -37,7 +37,7 @@ class TemplateDocumentValidator(
     }
 
     fun validateTemplatePublishable(doc: TemplateDocument) {
-        validateAt(TEMPLATE_FIELD, doc, TemplateDocumentKind.TEMPLATE, allowDraftStencilReferences = false)
+        validateAt(TEMPLATE_FIELD, doc, TemplateDocumentKind.TEMPLATE)
     }
 
     /**
@@ -54,28 +54,9 @@ class TemplateDocumentValidator(
         )
     }
 
+    /** A stencil's content; it may contain stencil instances of its own (contract ADR 0006). */
     fun validateStencil(doc: TemplateDocument) {
-        rejectUnsupportedNestedStencilAuthoring(doc)
         validateAt(STENCIL_FIELD, doc, TemplateDocumentKind.STENCIL)
-    }
-
-    fun validateStencilPublishable(doc: TemplateDocument) {
-        rejectUnsupportedNestedStencilAuthoring(doc)
-        validateAt(STENCIL_FIELD, doc, TemplateDocumentKind.STENCIL, allowDraftStencilReferences = false)
-    }
-
-    private fun rejectUnsupportedNestedStencilAuthoring(document: TemplateDocument) {
-        val stencilNodeIds = document.nodes.values
-            .filter { it.type == "stencil" }
-            .map(Node::id)
-            .sorted()
-        if (stencilNodeIds.isNotEmpty()) {
-            throw ValidationException(
-                field = STENCIL_FIELD,
-                message = "Stencil content cannot contain nested stencil components. " +
-                    "Stencil nodes found: ${stencilNodeIds.joinToString(", ")}",
-            )
-        }
     }
 
     /**
@@ -98,10 +79,9 @@ class TemplateDocumentValidator(
         document: TemplateDocument,
         kind: TemplateDocumentKind,
         ignoredCodes: Set<String> = emptySet(),
-        allowDraftStencilReferences: Boolean = true,
     ) {
         rejectJavaScriptExpressions(requestField, document)
-        validate(document, kind, allowDraftStencilReferences)
+        validate(document, kind)
             .filterNot { it.code in ignoredCodes }
             .minWithOrNull(compareBy({ LEGACY_CODE_PRIORITY.indexOf(it.code).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }, { it.path }))
             ?.let { throw it.asSuiteException(requestField, document) }
@@ -125,7 +105,6 @@ class TemplateDocumentValidator(
     private fun validate(
         document: TemplateDocument,
         kind: TemplateDocumentKind,
-        allowDraftStencilReferences: Boolean = true,
     ): List<TemplateValidationFinding> = TemplateValidator.validate(
         document,
         object : TemplateValidationContext {
@@ -136,40 +115,7 @@ class TemplateDocumentValidator(
                 document: TemplateDocument,
             ): Map<String, Any?>? = parameterSchemas.resolve(node, document)
         },
-    ).findings.filter { it.severity == ValidationSeverity.ERROR } +
-        if (allowDraftStencilReferences) emptyList() else stencilVersionPinFindings(document)
-
-    /**
-     * Published content must pin a published stencil version. Contract 2.0 dropped this check
-     * because its stencil references carry no version; the suite still stores pins until stencils
-     * lose their versions, so it keeps the rule here (interim).
-     */
-    private fun stencilVersionPinFindings(document: TemplateDocument): List<TemplateValidationFinding> = document.nodes.values
-        .filter { it.type == "stencil" }
-        .sortedBy(Node::id)
-        .mapNotNull { node ->
-            val props = node.props.orEmpty()
-            when {
-                props["draftVersion"] != null -> stencilPinFinding(
-                    "nodes.${node.id}.props.draftVersion",
-                    "portable catalog content cannot reference draft stencil versions",
-                )
-
-                (props["version"] as? Number)?.toInt()?.takeIf { it > 0 } == null -> stencilPinFinding(
-                    "nodes.${node.id}.props.version",
-                    "portable catalog content must reference a positive published version",
-                )
-
-                else -> null
-            }
-        }
-
-    private fun stencilPinFinding(path: String, message: String) = TemplateValidationFinding(
-        code = TemplateValidationCodes.STENCIL_REFERENCE_INVALID,
-        severity = ValidationSeverity.ERROR,
-        path = path,
-        message = message,
-    )
+    ).findings.filter { it.severity == ValidationSeverity.ERROR }
 
     private fun TemplateValidationFinding.asSuiteException(
         requestField: String,
@@ -179,7 +125,7 @@ class TemplateDocumentValidator(
             val nodeId = path.substringAfter("nodes.").substringBefore(".props.parameterBindings.")
             val parameter = path.substringAfterLast('.')
             val node = document.nodes[nodeId]
-            val stencilId = node?.props?.get("stencilId") as? String
+            val stencilId = node?.props?.get("stencilKey") as? String
             val component = if (stencilId.isNullOrBlank()) {
                 "Component '$nodeId' (${node?.type ?: "unknown"})"
             } else {

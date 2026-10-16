@@ -19,7 +19,7 @@ package app.epistola.suite.stencils
 object StencilNodeKeys {
     const val NODE_TYPE = "stencil"
     const val SLOT_CHILDREN = "children"
-    const val PROP_STENCIL_ID = "stencilId"
+    const val PROP_STENCIL_KEY = "stencilKey"
     const val PROP_CATALOG_KEY = "catalogKey"
     const val PROP_VERSION = "version"
     const val PROP_DRAFT_VERSION = "draftVersion"

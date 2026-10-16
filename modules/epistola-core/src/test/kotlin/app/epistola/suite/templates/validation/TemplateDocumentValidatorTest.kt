@@ -13,6 +13,7 @@ import app.epistola.template.model.TemplateDocument
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 
 class TemplateDocumentValidatorTest {
@@ -90,7 +91,7 @@ class TemplateDocumentValidatorTest {
         }
 
         assertThat(exception.code).isEqualTo(ValidationCode.STENCIL_NESTING_DEPTH_EXCEEDED)
-        assertThat(exception.field).isEqualTo("templateModel.nodes.stencil-5.props.stencilId")
+        assertThat(exception.field).isEqualTo("templateModel.nodes.stencil-5.props.stencilKey")
     }
 
     @Test
@@ -100,21 +101,13 @@ class TemplateDocumentValidatorTest {
         }
 
         assertThat(exception.code).isEqualTo(ValidationCode.STENCIL_RECURSION)
-        assertThat(exception.field).isEqualTo("templateModel.nodes.stencil-2.props.stencilId")
+        assertThat(exception.field).isEqualTo("templateModel.nodes.stencil-2.props.stencilKey")
     }
 
     @Test
-    fun `Suite capability policy rejects embedded stencil references`() {
-        val exception = assertThrows<ValidationException> {
-            validator.validateStencil(nestedStencils("address", "contact"))
-        }
-
-        assertThat(exception.code).isEqualTo(ValidationCode.GENERIC)
-        assertThat(exception.field).isEqualTo("content")
-        assertThat(exception.message).isEqualTo(
-            "Stencil content cannot contain nested stencil components. " +
-                "Stencil nodes found: stencil-0, stencil-1",
-        )
+    fun `stencil content may contain stencil instances`() {
+        // Stencils in stencils are allowed (contract ADR 0006); whether they fit is checked on publish.
+        assertDoesNotThrow { validator.validateStencil(nestedStencils("address", "contact")) }
     }
 
     @Test
@@ -142,9 +135,7 @@ class TemplateDocumentValidatorTest {
                     type = "stencil",
                     slots = listOf("stencil-slot"),
                     props = mapOf(
-                        "stencilId" to "header",
-                        "version" to 1,
-                        "draftVersion" to 2,
+                        "stencilKey" to "header",
                         "parameterSchemaSnapshot" to mapOf(
                             "type" to "object",
                             "properties" to mapOf("recipientName" to mapOf("type" to "string")),
@@ -205,7 +196,6 @@ class TemplateDocumentValidatorTest {
             "templateModel" to validator::validateTemplatePublishable,
             "templateModel" to validator::validateTemplateGraphForRendering,
             "content" to validator::validateStencil,
-            "content" to validator::validateStencilPublishable,
         )
         for ((prefix, validate) in entryPoints) {
             val exception = assertThrows<ValidationException> { validate(document) }
@@ -273,7 +263,7 @@ class TemplateDocumentValidatorTest {
                 id = "stencil-$index",
                 type = "stencil",
                 slots = listOf("stencil-$index-children"),
-                props = mapOf("stencilId" to slug, "version" to 1),
+                props = mapOf("stencilKey" to slug),
             )
         }
         return TemplateDocument(

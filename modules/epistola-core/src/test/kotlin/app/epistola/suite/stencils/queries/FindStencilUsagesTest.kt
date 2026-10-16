@@ -186,8 +186,7 @@ class FindStencilUsagesTest : IntegrationTestBase() {
                     id = stencilNodeId,
                     type = "stencil",
                     props = mapOf(
-                        "stencilId" to stencilKey.value,
-                        "version" to 1,
+                        "stencilKey" to stencilKey.value,
                     ),
                 ),
             ),

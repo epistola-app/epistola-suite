@@ -23,7 +23,6 @@ import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
-import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -36,7 +35,6 @@ import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.commands.versions.CreateVersion
@@ -70,7 +68,6 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
         setup = { tenant ->
             val header = StencilId(StencilKey.of("header"), catalogId(tenant, letters))
             CreateStencil(header, "Header").execute()
-            PublishStencilVersion(StencilVersionId(VersionKey.of(1), header)).execute()
         },
         model = { catalog -> templateEmbedding("header", catalog.value) },
     )
@@ -86,7 +83,7 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
     fun `a moved image is exported at its new address and installs elsewhere`() = roundTrip(
         moved = address(CatalogResourceType.IMAGE, letters, "logo"),
         setup = { tenant -> uploadPng(tenant, letters, "logo", renderablePng()) },
-        model = { catalog -> singleNodeModel(Node(id = "logo", type = "image", props = mapOf("assetId" to "logo", "catalogKey" to catalog.value))) },
+        model = { catalog -> singleNodeModel(Node(id = "logo", type = "image", props = mapOf("imageKey" to "logo", "catalogKey" to catalog.value))) },
     )
 
     @Test

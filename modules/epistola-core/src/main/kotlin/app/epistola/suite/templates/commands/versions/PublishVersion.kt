@@ -21,6 +21,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.stencils.StencilResolvers
+import app.epistola.suite.stencils.model.StencilInstances
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.templateAtAddress
@@ -28,6 +30,8 @@ import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.themes.ResolvedThemeSnapshot
 import app.epistola.suite.themes.ThemeStyleResolver
+import app.epistola.suite.validation.ValidationCode
+import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -58,6 +62,7 @@ class PublishVersionHandler(
     private val mediator: Mediator,
     private val objectMapper: ObjectMapper,
     private val templateDocumentValidator: TemplateDocumentValidator,
+    private val stencilResolvers: StencilResolvers,
 ) : CommandHandler<PublishVersion, TemplateVersion?> {
     override fun handle(command: PublishVersion): TemplateVersion? {
         return jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
@@ -135,12 +140,7 @@ class PublishVersionHandler(
             // 4. If draft, freeze it (update to published) with rendering snapshot
             if (version.status.name == "DRAFT") {
                 requireCatalogEditable(command.versionId.tenantKey, command.versionId.catalogKey)
-                validateReferencedStencilsPublished(
-                    handle,
-                    command.versionId.tenantKey,
-                    command.versionId.catalogKey.value,
-                    version.templateModel,
-                )
+                requireStencilInstancesFit(command.versionId.tenantKey, command.versionId.catalogKey.value, version.templateModel)
                 val themeSnapshot = resolveThemeSnapshot(command.versionId, version)
                 val themeSnapshotJson = themeSnapshot?.let { objectMapper.writeValueAsString(it) }
 
@@ -256,98 +256,35 @@ class PublishVersionHandler(
         }
     }
 
-    private data class StencilRef(val catalogKey: String, val stencilId: String, val pinnedVersion: Int?)
-
-    private fun validateReferencedStencilsPublished(
-        handle: Handle,
-        tenantKey: TenantKey,
-        defaultCatalogKey: String,
-        templateModel: app.epistola.template.model.TemplateDocument,
-    ) {
-        val refs: Set<StencilRef> = templateModel.nodes.values
-            .asSequence()
-            .filter { it.type == "stencil" }
-            .mapNotNull { node ->
-                val props = node.props ?: return@mapNotNull null
-                val stencilId = (props["stencilId"] as? String)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-                val refCatalogKey = (props["catalogKey"] as? String)?.takeIf { it.isNotBlank() } ?: defaultCatalogKey
-                val pinned = (props["version"] as? Number)?.toInt()
-                StencilRef(refCatalogKey, stencilId, pinned)
-            }
-            .toSet()
-
-        if (refs.isEmpty()) return
-
-        val unpublished = findUnpublishedStencilRefs(handle, tenantKey, refs)
-        require(unpublished.isEmpty()) {
-            val list = unpublished.joinToString(", ") { ref ->
-                if (ref.pinnedVersion != null) "${ref.stencilId} v${ref.pinnedVersion}" else ref.stencilId
-            }
-            val noun = if (unpublished.size > 1) "stencils are" else "stencil is"
-            "Cannot publish template version: referenced $noun not published — $list. Publish the stencil(s) first."
-        }
-    }
-
-    private fun findUnpublishedStencilRefs(
-        handle: Handle,
-        tenantKey: TenantKey,
-        refs: Set<StencilRef>,
-    ): Set<StencilRef> {
-        val unpublished = mutableSetOf<StencilRef>()
-        refs.groupBy { it.catalogKey }.forEach { (catalogKey, group) ->
-            val pinned = group.filter { it.pinnedVersion != null }
-            val unpinned = group.filter { it.pinnedVersion == null }
-
-            if (pinned.isNotEmpty()) {
-                val publishedPairs: Set<Pair<String, Int>> = handle.createQuery(
-                    """
-                    SELECT stencil.id AS stencil_key, versions.id
-                    FROM stencil_versions versions
-                    JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
-                                         AND stencil.resource_id = versions.stencil_resource_id
-                    WHERE stencil.tenant_key = :tenantKey
-                      AND stencil.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
-                      AND versions.status = 'published'
-                      AND stencil.id IN (<stencilIds>)
-                    """,
-                )
-                    .bind("tenantKey", tenantKey)
-                    .bind("catalogKey", catalogKey)
-                    .bindList("stencilIds", pinned.map { it.stencilId }.distinct())
-                    .map { rs, _ -> rs.getString("stencil_key") to rs.getInt("id") }
-                    .set()
-                for (ref in pinned) {
-                    if ((ref.stencilId to ref.pinnedVersion!!) !in publishedPairs) {
-                        unpublished.add(ref)
-                    }
+    /**
+     * Every stencil instance must fit the stencil it names, as it is now (contract ADR 0006): a fill
+     * for a placeholder the stencil no longer has, a required parameter left unbound, a missing
+     * stencil or a stencil containing itself refuses the publish. A binding the stencil does not
+     * declare is harmless and ignored.
+     */
+    private fun requireStencilInstancesFit(tenantKey: TenantKey, catalogKey: String, templateModel: app.epistola.template.model.TemplateDocument) {
+        val problems = StencilInstances.expand(templateModel, catalogKey, stencilResolvers.workingCopies(tenantKey)).findings.filter { it.blocking }
+        if (problems.isEmpty()) return
+        throw ValidationException(
+            field = "templateModel",
+            message = "Cannot publish template version: " + problems.joinToString("; ") { finding ->
+                val stencil = "${finding.catalogKey}/${finding.stencilKey}"
+                when (finding.problem) {
+                    StencilInstances.Problem.UNKNOWN_PLACEHOLDER -> "it fills placeholder '${finding.name}', which stencil $stencil does not have"
+                    StencilInstances.Problem.UNBOUND_REQUIRED_PARAMETER -> "it does not bind required parameter '${finding.name}' of stencil $stencil"
+                    StencilInstances.Problem.STENCIL_NOT_FOUND -> "stencil $stencil does not exist"
+                    StencilInstances.Problem.RECURSION -> "stencil $stencil contains itself"
+                    StencilInstances.Problem.DEPTH_EXCEEDED -> "stencils nest too deeply at $stencil"
+                    StencilInstances.Problem.UNKNOWN_PARAMETER -> "it binds '${finding.name}', which stencil $stencil does not declare"
                 }
-            }
-
-            if (unpinned.isNotEmpty()) {
-                val publishedStencils: Set<String> = handle.createQuery(
-                    """
-                    SELECT DISTINCT stencil.id AS stencil_key
-                    FROM stencil_versions versions
-                    JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
-                                         AND stencil.resource_id = versions.stencil_resource_id
-                    WHERE stencil.tenant_key = :tenantKey
-                      AND stencil.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
-                      AND versions.status = 'published'
-                      AND stencil.id IN (<stencilIds>)
-                    """,
-                )
-                    .bind("tenantKey", tenantKey)
-                    .bind("catalogKey", catalogKey)
-                    .bindList("stencilIds", unpinned.map { it.stencilId }.distinct())
-                    .mapTo<String>()
-                    .set()
-                for (ref in unpinned) {
-                    if (ref.stencilId !in publishedStencils) {
-                        unpublished.add(ref)
-                    }
-                }
-            }
-        }
-        return unpublished
+            },
+            // The message lists every problem; the code is the first one's.
+            code = when (problems.first().problem) {
+                StencilInstances.Problem.UNBOUND_REQUIRED_PARAMETER -> ValidationCode.NODE_PARAMETER_BINDING_MISSING_REQUIRED
+                StencilInstances.Problem.RECURSION -> ValidationCode.STENCIL_RECURSION
+                StencilInstances.Problem.DEPTH_EXCEEDED -> ValidationCode.STENCIL_NESTING_DEPTH_EXCEEDED
+                else -> ValidationCode.STENCIL_REFERENCE_INVALID
+            },
+        )
     }
 }

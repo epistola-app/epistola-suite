@@ -331,7 +331,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
                 imageNodeId to Node(
                     id = imageNodeId,
                     type = "image",
-                    props = mapOf("assetId" to assetId.value),
+                    props = mapOf("imageKey" to assetId.value),
                 ),
             ),
             slots = mapOf(

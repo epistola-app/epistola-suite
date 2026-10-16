@@ -11,8 +11,6 @@ import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogType
-import app.epistola.suite.catalog.MultipleStencilVersionsInUseException
-import app.epistola.suite.catalog.queries.FindStencilVersionExportConflicts
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
@@ -113,14 +111,6 @@ class ExportCatalogZipHandler(
     }
 
     private fun exportWorkingCopy(command: ExportCatalogZip): ExportCatalogZipResult {
-        // Block export when published templates pin the same own-catalog stencil
-        // at more than one version — the wire format only carries one version per
-        // stencil, so a downstream import would silently break the divergent uses.
-        val conflicts = FindStencilVersionExportConflicts(command.tenantKey, command.catalogKey).query()
-        if (conflicts.isNotEmpty()) {
-            throw MultipleStencilVersionsInUseException(command.catalogKey, conflicts)
-        }
-
         val content = contentBuilder.build(command.tenantKey, command.catalogKey)
         fingerprintService.requirePublishable(content)
 

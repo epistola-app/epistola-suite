@@ -36,7 +36,7 @@ class StencilPlaceholderRendererTest {
                 id = "stencil",
                 type = "stencil",
                 slots = listOf("stencil-slot"),
-                props = mapOf("stencilId" to "letter", "version" to 1),
+                props = mapOf("stencilKey" to "letter"),
             ),
             "ph" to Node(
                 id = "ph",
@@ -101,13 +101,13 @@ class StencilPlaceholderRendererTest {
                     id = "outer",
                     type = "stencil",
                     slots = listOf("outer-slot"),
-                    props = mapOf("stencilId" to "self", "version" to 1),
+                    props = mapOf("stencilKey" to "self"),
                 ),
                 "inner" to Node(
                     id = "inner",
                     type = "stencil",
                     slots = listOf("inner-slot"),
-                    props = mapOf("stencilId" to "self", "version" to 1),
+                    props = mapOf("stencilKey" to "self"),
                 ),
             ),
             slots = mapOf(
@@ -122,6 +122,31 @@ class StencilPlaceholderRendererTest {
     }
 
     @Test
+    fun `a fill may hold the stencil it fills, which is not recursion`() {
+        // box(fill: box(fill: "Innermost")) — the inner box is written outside the outer one, in its fill.
+        val doc = TemplateDocument(
+            root = "root",
+            nodes = mapOf(
+                "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
+                "outer" to Node(id = "outer", type = "stencil", slots = listOf("outer-slot"), props = mapOf("stencilKey" to "box")),
+                "outer-ph" to Node(id = "outer-ph", type = "placeholder", slots = listOf("outer-ph-fill"), props = mapOf("name" to "inside")),
+                "inner" to Node(id = "inner", type = "stencil", slots = listOf("inner-slot"), props = mapOf("stencilKey" to "box")),
+                "inner-ph" to Node(id = "inner-ph", type = "placeholder", slots = listOf("inner-ph-fill"), props = mapOf("name" to "inside")),
+                "text" to Node(id = "text", type = "text", slots = emptyList(), props = mapOf("content" to richText("Innermost"))),
+            ),
+            slots = mapOf(
+                "root-slot" to Slot("root-slot", "root", "children", listOf("outer")),
+                "outer-slot" to Slot("outer-slot", "outer", "children", listOf("outer-ph")),
+                "outer-ph-fill" to Slot("outer-ph-fill", "outer-ph", "fill", listOf("inner")),
+                "inner-slot" to Slot("inner-slot", "inner", "children", listOf("inner-ph")),
+                "inner-ph-fill" to Slot("inner-ph-fill", "inner-ph", "fill", listOf("text")),
+            ),
+        )
+
+        assertContains(PdfContentExtractor.extract(renderToPdf(doc)), "Innermost")
+    }
+
+    @Test
     fun `renders visible content from different nested stencils`() {
         val doc = TemplateDocument(
             root = "root",
@@ -131,13 +156,13 @@ class StencilPlaceholderRendererTest {
                     id = "outer",
                     type = "stencil",
                     slots = listOf("outer-slot"),
-                    props = mapOf("stencilId" to "letter", "version" to 1),
+                    props = mapOf("stencilKey" to "letter"),
                 ),
                 "inner" to Node(
                     id = "inner",
                     type = "stencil",
                     slots = listOf("inner-slot"),
-                    props = mapOf("stencilId" to "address", "version" to 1),
+                    props = mapOf("stencilKey" to "address"),
                 ),
                 "text" to Node(
                     id = "text",
@@ -183,7 +208,7 @@ class StencilPlaceholderRendererTest {
                 id = "stencil-$index",
                 type = "stencil",
                 slots = listOf("stencil-$index-children"),
-                props = mapOf("stencilId" to "stencil-$index", "version" to 1),
+                props = mapOf("stencilKey" to "stencil-$index"),
             )
         }
         val text = Node(

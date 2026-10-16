@@ -371,7 +371,7 @@ class CatalogContentBuilder(
                 when (node.type) {
                     "stencil" -> {
                         val refCatalog = node.props?.get("catalogKey") as? String
-                        val stencilId = node.props?.get("stencilId") as? String
+                        val stencilId = node.props?.get("stencilKey") as? String
                         if (refCatalog != null && stencilId != null && refCatalog != catalogKey && "stencil:$stencilId" !in ownResources) {
                             dependencies.add(DependencyRef.Stencil(catalogKey = refCatalog, key = stencilId))
                         }
@@ -384,7 +384,7 @@ class CatalogContentBuilder(
                         // never identified a particular catalog's asset and could not be declared
                         // honestly -- it used to be emitted with no catalog at all.
                         val refCatalog = node.props?.get("catalogKey") as? String
-                        val assetId = node.props?.get("assetId") as? String
+                        val assetId = node.props?.get("imageKey") as? String
                         if (refCatalog != null && assetId != null && refCatalog != catalogKey && "image:$assetId" !in ownResources) {
                             dependencies.add(DependencyRef.Image(catalogKey = refCatalog, key = assetId))
                         }

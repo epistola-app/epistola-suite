@@ -71,7 +71,7 @@ class StencilParameterRenderTest {
                     type = "stencil",
                     slots = listOf("stencil1-slot"),
                     props = mapOf(
-                        "stencilId" to "letter",
+                        "stencilKey" to "letter",
                         "version" to 1,
                         "parameterSchemaSnapshot" to schema,
                         "parameterBindings" to mapOf(paramName to binding),
@@ -142,7 +142,7 @@ class StencilParameterRenderTest {
                     type = "stencil",
                     slots = listOf("stencil1-slot"),
                     props = mapOf(
-                        "stencilId" to "letter",
+                        "stencilKey" to "letter",
                         "version" to 1,
                         "parameterSchemaSnapshot" to mapOf(
                             "type" to "object",

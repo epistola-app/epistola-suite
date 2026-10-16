@@ -46,7 +46,7 @@ class FindAssetUsagesHandler(
                     CROSS JOIN LATERAL jsonb_each(ver.template_model -> 'nodes') AS n(key, value)
                     WHERE ver.tenant_key = :tenantId
                       AND ver.status IN ('draft', 'published')
-                      AND n.value -> 'props' ->> 'assetId' = :assetId
+                      AND n.value -> 'props' ->> 'imageKey' = :assetId
 
                     UNION ALL
 
@@ -54,9 +54,9 @@ class FindAssetUsagesHandler(
                     FROM catalogs c
                     WHERE c.tenant_key = :tenantId
                       AND (
-                          c.catalog_metadata #>> '{presentation,iconAssetSlug}' = :assetId
+                          c.catalog_metadata #>> '{presentation,iconImageKey}' = :assetId
                           OR jsonb_exists(
-                              COALESCE(c.catalog_metadata #> '{presentation,imageAssetSlugs}', '[]'::jsonb),
+                              COALESCE(c.catalog_metadata #> '{presentation,imageKeys}', '[]'::jsonb),
                               :assetId
                           )
                       )

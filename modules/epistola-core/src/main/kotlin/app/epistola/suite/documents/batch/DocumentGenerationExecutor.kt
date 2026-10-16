@@ -32,6 +32,7 @@ import app.epistola.suite.generation.release.ReleaseRenderSource
 import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.security.currentUserIdOrNull
+import app.epistola.suite.stencils.StencilResolvers
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.DocumentContentStore
 import app.epistola.suite.templates.queries.GetDocumentTemplate
@@ -72,6 +73,7 @@ class DocumentGenerationExecutor(
     private val fontByteCache: app.epistola.suite.fonts.FontByteCache,
     private val localeResolver: TenantLocaleResolver,
     private val releaseRenderSource: ReleaseRenderSource,
+    private val stencilResolvers: StencilResolvers,
     @Value("\${epistola.generation.jobs.retention-days:7}")
     private val retentionDays: Int,
     @Value("\${epistola.generation.documents.max-size-mb:50}")
@@ -249,8 +251,8 @@ class DocumentGenerationExecutor(
                 ?: throw IllegalStateException("No published version found for template ${request.templateKey} variant ${request.variantKey}. Import a catalog or publish a version first.")
         }
 
-        // 2. Get template model
-        val templateModel = version.templateModel
+        // 2. Get template model, its stencil instances expanded from the stencils as they are now
+        val templateModel = stencilResolvers.expandWithWorkingCopies(request.tenantKey, request.catalogKey, version.templateModel)
 
         // 3. Fetch template to get default theme
         val template = mediator.query(GetDocumentTemplate(templateId))

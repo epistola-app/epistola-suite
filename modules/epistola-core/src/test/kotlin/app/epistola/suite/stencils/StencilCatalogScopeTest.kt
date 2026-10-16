@@ -9,25 +9,17 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
-import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.CreateStencilVersion
 import app.epistola.suite.stencils.commands.DeleteStencil
-import app.epistola.suite.stencils.commands.PublishStencilVersion
-import app.epistola.suite.stencils.commands.UpdateStencilDraft
-import app.epistola.suite.stencils.commands.UpdateStencilInTemplate
-import app.epistola.suite.stencils.queries.CountStencilUsageByVersion
+import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.stencils.queries.FindStencilUsages
 import app.epistola.suite.stencils.queries.GetStencil
-import app.epistola.suite.stencils.queries.GetStencilUsage
-import app.epistola.suite.stencils.queries.GetStencilUsageDetails
 import app.epistola.suite.stencils.queries.GetStencilUsagePage
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.versions.UpdateDraft
@@ -40,6 +32,7 @@ import app.epistola.template.model.TemplateDocument
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
 
 /**
  * #1024 / #983: stencil keys are unique only within a catalog. Two catalogs may each have a
@@ -48,6 +41,8 @@ import org.junit.jupiter.api.Test
  * lookup must all tell the two apart.
  */
 class StencilCatalogScopeTest : IntegrationTestBase() {
+
+    @Autowired private lateinit var stencilResolvers: StencilResolvers
 
     private val acme = CatalogKey.of("acme")
     private val brandB = CatalogKey.of("brand-b")
@@ -81,7 +76,7 @@ class StencilCatalogScopeTest : IntegrationTestBase() {
                     id = nodeId,
                     type = "stencil",
                     slots = listOf("$nodeId-children"),
-                    props = mapOf("stencilId" to letterhead.value, "catalogKey" to catalogKey, "version" to 1),
+                    props = mapOf("stencilKey" to letterhead.value, "catalogKey" to catalogKey),
                 )
             },
         slots = mapOf("root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = instances.map { it.first })) +
@@ -91,14 +86,13 @@ class StencilCatalogScopeTest : IntegrationTestBase() {
         themeRef = ThemeRef.Inherit,
     )
 
-    /** `acme/letterhead` and `brand-b/letterhead`, both published at v1, and a template using [instances]. */
+    /** `acme/letterhead` and `brand-b/letterhead`, and a template using [instances]. */
     private fun setUp(vararg instances: Pair<String, String>): Fixture = withMediator {
         val tenantId = TenantId(createTenant("Stencil scope").id)
         val stencils = listOf(acme, brandB).map { catalog ->
             CreateCatalog(tenantKey = tenantId.key, id = catalog, name = catalog.value).execute()
             val id = StencilId(letterhead, CatalogId(catalog, tenantId))
             CreateStencil(id = id, name = "${catalog.value} letterhead", content = content("${catalog.value} v1")).execute()
-            PublishStencilVersion(StencilVersionId(VersionKey.of(1), id)).execute()
             id
         }
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
@@ -109,22 +103,14 @@ class StencilCatalogScopeTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `upgrading one catalog's stencil leaves a same-named stencil from another catalog alone`() {
+    fun `each instance expands to the letterhead of the catalog it names`() {
         val f = setUp("acme-instance" to acme.value, "brand-b-instance" to brandB.value)
 
         withMediator {
-            CreateStencilVersion(f.acmeLetterhead).execute()
-            UpdateStencilDraft(StencilVersionId(VersionKey.of(2), f.acmeLetterhead), content("acme v2")).execute()
-            PublishStencilVersion(StencilVersionId(VersionKey.of(2), f.acmeLetterhead)).execute()
+            UpdateStencil(f.acmeLetterhead, content = content("acme v2")).execute()
 
-            val result = UpdateStencilInTemplate(variantId = f.variantId, stencilId = f.acmeLetterhead, newVersion = 2).execute()
-
-            assertThat(result!!.upgradedCount).isEqualTo(1)
-            val nodes = GetDraft(f.variantId).query()!!.templateModel.nodes
-            assertThat(nodes.getValue("acme-instance").props!!["version"]).isEqualTo(2)
-            val other = nodes.getValue("brand-b-instance")
-            assertThat(other.props!!["version"]).isEqualTo(1)
-            assertThat(other.props!!["catalogKey"]).isEqualTo(brandB.value)
+            val expanded = stencilResolvers.expandWithWorkingCopies(f.tenantId.key, CatalogKey.DEFAULT, GetDraft(f.variantId).query()!!.templateModel)
+            assertThat(expanded.texts()).containsExactlyInAnyOrder("acme v2", "brand-b v1")
         }
     }
 
@@ -134,16 +120,10 @@ class StencilCatalogScopeTest : IntegrationTestBase() {
 
         withMediator {
             assertThat(FindStencilUsages(f.acmeLetterhead).query()).isEmpty()
-            assertThat(GetStencilUsage(StencilVersionId(VersionKey.of(1), f.acmeLetterhead)).query()).isEmpty()
-            assertThat(GetStencilUsageDetails(f.acmeLetterhead).query()).isEmpty()
-            assertThat(CountStencilUsageByVersion(f.acmeLetterhead).query()).isEmpty()
-            assertThat(GetStencilUsagePage(f.acmeLetterhead).query().totalAll).isZero()
+            assertThat(GetStencilUsagePage(f.acmeLetterhead).query().total).isZero()
 
             assertThat(FindStencilUsages(f.brandBLetterhead).query()).containsExactly("Letter")
-            assertThat(GetStencilUsage(StencilVersionId(VersionKey.of(1), f.brandBLetterhead)).query()).hasSize(1)
-            assertThat(GetStencilUsageDetails(f.brandBLetterhead).query()).hasSize(1)
-            assertThat(CountStencilUsageByVersion(f.brandBLetterhead).query()).containsEntry(1, 1)
-            assertThat(GetStencilUsagePage(f.brandBLetterhead).query().totalAll).isEqualTo(1)
+            assertThat(GetStencilUsagePage(f.brandBLetterhead).query().total).isEqualTo(1)
         }
     }
 
@@ -156,7 +136,7 @@ class StencilCatalogScopeTest : IntegrationTestBase() {
 
         withMediator {
             assertThat(FindStencilUsages(f.acmeLetterhead).query()).containsExactly("Letter")
-            assertThat(GetStencilUsagePage(f.acmeLetterhead).query().totalAll).isEqualTo(1)
+            assertThat(GetStencilUsagePage(f.acmeLetterhead).query().total).isEqualTo(1)
         }
     }
 

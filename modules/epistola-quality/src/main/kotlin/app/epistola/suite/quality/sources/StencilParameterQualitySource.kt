@@ -58,7 +58,7 @@ class StencilParameterQualitySource : QualityFindingSource {
                     missing.joinToString(", ") + ".",
                 nodeIds = listOf(node.id),
                 context = JsonNodeFactory.instance.objectNode().apply {
-                    put("stencilId", props[StencilNodeKeys.PROP_STENCIL_ID] as? String)
+                    put("stencilId", props[StencilNodeKeys.PROP_STENCIL_KEY] as? String)
                     putArray("parameters").apply { missing.forEach(::add) }
                 },
             )

@@ -93,7 +93,7 @@ class GetThemeUsagePageHandler(
                     END AS usage_source,
                     CASE
                         WHEN COALESCE(version.template_model -> 'themeRef' ->> 'type', 'inherit') = 'override'
-                            THEN version.template_model -> 'themeRef' ->> 'themeId'
+                            THEN version.template_model -> 'themeRef' ->> 'themeKey'
                         WHEN template.theme_resource_id IS NOT NULL
                             THEN template_theme.id::text
                         ELSE tenant_theme.id::text

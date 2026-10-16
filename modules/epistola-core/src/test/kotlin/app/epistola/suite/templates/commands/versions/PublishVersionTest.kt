@@ -26,8 +26,10 @@ import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.CreateStencilVersion
-import app.epistola.suite.stencils.commands.PublishStencilVersion
+import app.epistola.suite.stencils.commands.UpdateStencil
+import app.epistola.suite.stencils.model.StencilInstances
+import app.epistola.suite.stencils.stencilDocument
+import app.epistola.suite.stencils.texts
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.contracts.commands.CreateContractVersion
 import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
@@ -35,6 +37,7 @@ import app.epistola.suite.templates.contracts.queries.GetLatestPublishedContract
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.templates.queries.versions.GetDraft
@@ -313,138 +316,118 @@ class PublishVersionTest : IntegrationTestBase() {
         }
     }
 
+    /** Publishing checks every stencil instance against the stencil as it is now (contract ADR 0006). */
     @Nested
     inner class StencilValidation {
-        @Test
-        fun `blocks publish when referenced stencil has no published version`() {
+        private fun createStencil(content: TemplateDocument = letterhead, parameterSchema: String? = null): StencilKey {
             val stencilKey = TestIdHelpers.nextStencilId()
-            val stencilId = StencilId(stencilKey, templateId.catalogId)
             withMediator {
-                CreateStencil(id = stencilId, name = "Draft-Only Stencil").execute()
-                UpdateDraft(
-                    variantId = defaultVariantId,
-                    templateModel = templateModelReferencingStencil(stencilKey, draftVersion = 1),
-                ).execute()
-            }
-
-            val draft = withMediator { GetDraft(defaultVariantId).query()!! }
-
-            assertThatThrownBy {
-                withMediator {
-                    PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute()
+                CreateStencil(id = StencilId(stencilKey, templateId.catalogId), name = "Letterhead", content = content).execute()
+                if (parameterSchema != null) {
+                    UpdateStencil(StencilId(stencilKey, templateId.catalogId), parameterSchema = objectMapper.readTree(parameterSchema)).execute()
                 }
-            }.isInstanceOf(IllegalArgumentException::class.java)
-                .hasMessageContaining("cannot reference draft stencil versions")
+            }
+            return stencilKey
+        }
+
+        private fun publishDraftWith(model: TemplateDocument): TemplateVersion? {
+            withMediator { UpdateDraft(variantId = defaultVariantId, templateModel = model).execute() }
+            val draft = withMediator { GetDraft(defaultVariantId).query()!! }
+            return withMediator { PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute() }
         }
 
         @Test
-        fun `blocks publish when pinned stencil version is still draft`() {
-            val stencilKey = TestIdHelpers.nextStencilId()
-            val stencilId = StencilId(stencilKey, templateId.catalogId)
-            withMediator {
-                CreateStencil(id = stencilId, name = "Pinned Stencil").execute()
-                PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
-                CreateStencilVersion(stencilId = stencilId).execute()
-                UpdateDraft(
-                    variantId = defaultVariantId,
-                    templateModel = templateModelReferencingStencil(stencilKey, version = 2, draftVersion = 2),
-                ).execute()
-            }
+        fun `allows publish when the instance fits the stencil`() {
+            val stencilKey = createStencil()
 
-            val draft = withMediator { GetDraft(defaultVariantId).query()!! }
+            val result = publishDraftWith(templateFilling(stencilKey, "body"))
 
-            assertThatThrownBy {
-                withMediator {
-                    PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute()
-                }
-            }.isInstanceOf(IllegalArgumentException::class.java)
-                .hasMessageContaining("cannot reference draft stencil versions")
-        }
-
-        @Test
-        fun `allows publish when referenced stencil is published`() {
-            val stencilKey = TestIdHelpers.nextStencilId()
-            val stencilId = StencilId(stencilKey, templateId.catalogId)
-            withMediator {
-                CreateStencil(id = stencilId, name = "Published Stencil").execute()
-                PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
-                UpdateDraft(
-                    variantId = defaultVariantId,
-                    templateModel = templateModelReferencingStencil(stencilKey),
-                ).execute()
-            }
-
-            val draft = withMediator { GetDraft(defaultVariantId).query()!! }
-
-            val result = withMediator {
-                PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute()
-            }
-            assertThat(result).isNotNull
             assertThat(result!!.status).isEqualTo(VersionStatus.PUBLISHED)
         }
 
         @Test
-        fun `allows incomplete required bindings in draft but blocks publication`() {
-            val stencilKey = TestIdHelpers.nextStencilId()
-            val stencilId = StencilId(stencilKey, templateId.catalogId)
-            withMediator {
-                CreateStencil(id = stencilId, name = "Parameterized Stencil").execute()
-                PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
-                UpdateDraft(
-                    variantId = defaultVariantId,
-                    templateModel = templateModelReferencingStencil(
-                        stencilKey = stencilKey,
-                        requiredParameter = "recipientName",
-                    ),
-                ).execute()
-            }
+        fun `blocks publish when the referenced stencil does not exist`() {
+            assertThatThrownBy { publishDraftWith(templateFilling(StencilKey.of("no-such-stencil"), "body")) }
+                .isInstanceOf(ValidationException::class.java)
+                .hasValidationCode(ValidationCode.STENCIL_REFERENCE_INVALID)
+                .hasMessageContaining("no-such-stencil does not exist")
+        }
 
+        @Test
+        fun `blocks publish when a fill names a placeholder the stencil does not have`() {
+            val stencilKey = createStencil()
+
+            assertThatThrownBy { publishDraftWith(templateFilling(stencilKey, "footer")) }
+                .isInstanceOf(ValidationException::class.java)
+                .hasValidationCode(ValidationCode.STENCIL_REFERENCE_INVALID)
+                .hasMessageContaining("placeholder 'footer'")
+        }
+
+        @Test
+        fun `allows incomplete required bindings in draft but blocks publication`() {
+            val stencilKey = createStencil(
+                parameterSchema = """{"type":"object","properties":{"recipientName":{"type":"string"}},"required":["recipientName"]}""",
+            )
+
+            withMediator { UpdateDraft(variantId = defaultVariantId, templateModel = templateFilling(stencilKey, "body")).execute() }
             val draft = withMediator { GetDraft(defaultVariantId).query()!! }
             assertThat(draft.status).isEqualTo(VersionStatus.DRAFT)
 
             assertThatThrownBy {
-                withMediator {
-                    PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute()
-                }
+                withMediator { PublishVersion(versionId = VersionId(draft.id, defaultVariantId)).execute() }
             }.isInstanceOf(ValidationException::class.java)
                 .hasValidationCode(ValidationCode.NODE_PARAMETER_BINDING_MISSING_REQUIRED)
                 .hasMessageContaining("recipientName")
         }
+
+        @Test
+        fun `a stencil may contain another stencil, and each is checked`() {
+            val inner = createStencil()
+            val outer = createStencil(
+                stencilDocument {
+                    text("outer-fill", "from the outer stencil")
+                    placeholder("outer-fill-body", "body", fill = listOf("outer-fill"))
+                    stencil("nested", inner.value, listOf("outer-fill-body"))
+                    build("nested")
+                },
+            )
+
+            assertThat(publishDraftWith(templateUsing(outer))!!.status).isEqualTo(VersionStatus.PUBLISHED)
+        }
+
+        @Test
+        fun `a draft saved with the stencil inlined is stored with only the reference and the fills`() {
+            val stencilKey = createStencil()
+            // As the editor sends it: the letterhead's content inlined around the fill.
+            val inlined = StencilInstances.expand(templateFilling(stencilKey, "body"), templateId.catalogId.key.value) { _, _ ->
+                StencilInstances.Content(letterhead, null)
+            }.document
+            assertThat(inlined.texts()).contains("LOGO", "Dear customer")
+
+            withMediator { UpdateDraft(variantId = defaultVariantId, templateModel = inlined).execute() }
+            val stored = withMediator { GetDraft(defaultVariantId).query()!! }.templateModel
+
+            assertThat(stored.texts()).containsExactly("Dear customer")
+        }
     }
 
-    private fun templateModelReferencingStencil(
-        stencilKey: StencilKey,
-        version: Int = 1,
-        draftVersion: Int? = null,
-        requiredParameter: String? = null,
-    ): TemplateDocument {
-        val rootId = "root-1"
-        val slotId = "slot-1"
-        val stencilNodeId = "stencil-1"
-        val props = mutableMapOf<String, Any?>(
-            "stencilId" to stencilKey.value,
-            "version" to version,
-        )
-        draftVersion?.let { props["draftVersion"] = it }
-        if (requiredParameter != null) {
-            props["parameterSchemaSnapshot"] = mapOf(
-                "type" to "object",
-                "properties" to mapOf(requiredParameter to mapOf("type" to "string")),
-                "required" to listOf(requiredParameter),
-            )
-        }
-        return TemplateDocument(
-            modelVersion = 1,
-            root = rootId,
-            nodes = mapOf(
-                rootId to Node(id = rootId, type = "root", slots = listOf(slotId)),
-                stencilNodeId to Node(id = stencilNodeId, type = "stencil", props = props),
-            ),
-            slots = mapOf(
-                slotId to Slot(id = slotId, nodeId = rootId, name = "children", children = listOf(stencilNodeId)),
-            ),
-            themeRef = ThemeRef.Inherit,
-        )
+    /** A letterhead stencil: a logo, then a `body` placeholder. */
+    private val letterhead = stencilDocument {
+        text("logo", "LOGO")
+        placeholder("body", "body")
+        build("logo", "body")
+    }
+
+    private fun templateFilling(stencilKey: StencilKey, placeholderName: String) = stencilDocument {
+        text("my-body", "Dear customer")
+        placeholder("fill", placeholderName, fill = listOf("my-body"))
+        stencil("inst", stencilKey.value, listOf("fill"))
+        build("inst")
+    }
+
+    private fun templateUsing(stencilKey: StencilKey) = stencilDocument {
+        stencil("inst", stencilKey.value)
+        build("inst")
     }
 
     @Nested

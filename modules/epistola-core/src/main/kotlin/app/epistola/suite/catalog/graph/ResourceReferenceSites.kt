@@ -35,10 +35,10 @@ enum class ReferenceSiteKind(
     /** Field holding the reference object, for references not carried in a node's `props`. */
     val containerField: String? = null,
 ) {
-    STENCIL_INSERTION(CatalogResourceType.STENCIL, "stencil-insertion", ReferenceSemantics.PROVENANCE, "stencilId", true, nodeType = "stencil"),
-    IMAGE_ASSET(CatalogResourceType.IMAGE, "image-asset", ReferenceSemantics.RUNTIME, "assetId", false, nodeType = "image"),
-    THEME_OVERRIDE(CatalogResourceType.THEME, "theme-override", ReferenceSemantics.RUNTIME, "themeId", true, containerField = "themeRef"),
-    FONT_FAMILY(CatalogResourceType.FONT, "font-family", ReferenceSemantics.RUNTIME, "slug", true, containerField = "fontFamily"),
+    STENCIL_INSERTION(CatalogResourceType.STENCIL, "stencil-insertion", ReferenceSemantics.PROVENANCE, "stencilKey", true, nodeType = "stencil"),
+    IMAGE_ASSET(CatalogResourceType.IMAGE, "image-asset", ReferenceSemantics.RUNTIME, "imageKey", false, nodeType = "image"),
+    THEME_OVERRIDE(CatalogResourceType.THEME, "theme-override", ReferenceSemantics.RUNTIME, "themeKey", true, containerField = "themeRef"),
+    FONT_FAMILY(CatalogResourceType.FONT, "font-family", ReferenceSemantics.RUNTIME, "key", true, containerField = "fontFamily"),
     ;
 
     internal fun locationIn(path: String) = if (nodeType != null) "$path.props.$keyField" else "$path.$containerField"

@@ -84,19 +84,6 @@ data class ImportCatalogZip(
     val catalogType: CatalogType,
     val authoredMode: AuthoredImportMode = AuthoredImportMode.MERGE,
     /**
-     * What to do when an imported stencil version collides with an
-     * already-installed version of the same (slug, version) carrying
-     * different content. `FAIL` (default) aborts the whole import with a
-     * structured report so the operator can decide. `RENUMBER` is only
-     * accepted for **AUTHORED MERGE** imports — the conflicting source
-     * stencil version is installed at `MAX(target.version) + 1` and the
-     * matching pins in templates from the same ZIP are rewritten to the
-     * new number. SUBSCRIBED and AUTHORED REPLACE are mirror-semantic
-     * imports — renumber there would silently diverge the mirror from
-     * source, so the orchestrator rejects it.
-     */
-    val onStencilConflict: OnStencilConflict = OnStencilConflict.FAIL,
-    /**
      * Whether to pre-validate that cross-catalog dependencies (a theme / code list /
      * font / stencil this catalog references in *another* catalog) already exist.
      * `true` (default) for normal imports. A full-tenant **restore** sets this `false`:
@@ -291,19 +278,6 @@ class ImportCatalogZipHandler(
             )
         }
 
-        // Renumber-on-stencil-conflict is mirror-incompatible. SUBSCRIBED *is*
-        // a mirror by definition (source wins); AUTHORED REPLACE is the explicit
-        // "make my catalog exactly this ZIP" mode. Allowing renumber there would
-        // silently let target diverge from source. Restrict to AUTHORED MERGE.
-        if (command.onStencilConflict == OnStencilConflict.RENUMBER &&
-            !(command.catalogType == CatalogType.AUTHORED && command.authoredMode == AuthoredImportMode.MERGE)
-        ) {
-            throw IllegalArgumentException(
-                "onStencilConflict=RENUMBER is only supported for AUTHORED MERGE imports " +
-                    "(got catalogType=${command.catalogType}, authoredMode=${command.authoredMode}).",
-            )
-        }
-
         // Validate cross-catalog dependencies exist (batch check). Skipped during a full-tenant
         // restore, which imports a self-consistent snapshot in dependency order within one
         // transaction (the DB FKs still enforce integrity).
@@ -405,14 +379,6 @@ class ImportCatalogZipHandler(
                     )
                 entry.key to stencil
             }
-        // Wire v8 carries no stencil versions, so no stencil-version conflict can exist: ImportStencil
-        // publishes a changed stencil as its next version (interim, until stencils lose versions).
-
-        // Renumber decisions collected as stencils install — handed to
-        // ImportTemplates so template stencil-node pins from the same ZIP can
-        // be rewritten in lockstep. Filled in the install loop below.
-        val stencilRenumbers: MutableMap<StencilKey, StencilRenumber> = mutableMapOf()
-
         // Install resources in dependency order
         val results = ordered.map { entry ->
             try {
@@ -433,8 +399,6 @@ class ImportCatalogZipHandler(
                     resource = resource,
                     version = manifest.release.version,
                     entries = entries,
-                    onStencilConflict = command.onStencilConflict,
-                    stencilRenumbers = stencilRenumbers,
                 )
                 InstallResult(type = entry.type, slug = entry.key, status = status)
             } catch (e: CatalogSchemaException) {
@@ -694,8 +658,6 @@ class ImportCatalogZipHandler(
         resource: CatalogResource,
         version: String,
         entries: Map<String, ByteArray>,
-        onStencilConflict: OnStencilConflict,
-        stencilRenumbers: MutableMap<StencilKey, StencilRenumber>,
     ): InstallStatus = when (resource) {
         is TemplateResource -> {
             val input = ImportTemplateInput(
@@ -724,7 +686,6 @@ class ImportCatalogZipHandler(
                 tenantId = tenantId,
                 catalogKey = catalogKey,
                 templates = listOf(input),
-                stencilRenumbers = stencilRenumbers.toMap(),
             ).execute()
             val result = results.first()
             if (result.status == ImportStatus.FAILED) {
@@ -745,21 +706,17 @@ class ImportCatalogZipHandler(
             spacingUnit = resource.spacingUnit,
         ).execute()
 
-        is StencilResource -> {
-            val result = ImportStencil(
-                tenantId = tenantId,
-                catalogKey = catalogKey,
-                slug = resource.key,
-                name = resource.name,
-                version = null,
-                description = resource.description,
-                tags = resource.tags,
-                content = resource.content,
-                parameterSchema = resource.parameterSchema,
-                onConflict = onStencilConflict,
-            ).execute()
-            result.status
-        }
+        is StencilResource -> ImportStencil(
+            tenantId = tenantId,
+            catalogKey = catalogKey,
+            slug = resource.key,
+            name = resource.name,
+            description = resource.description,
+            tags = resource.tags,
+            content = resource.content,
+            parameterSchema = resource.parameterSchema,
+            readsTemplateData = resource.readsTemplateData,
+        ).execute()
 
         is AttributeResource -> {
             val bindingCatalog = resource.codeListBinding?.let {

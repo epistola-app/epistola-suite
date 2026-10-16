@@ -71,12 +71,12 @@ object DependencyScanner {
         for (node in document.nodes.values) {
             when (node.type) {
                 "stencil" -> {
-                    val stencilId = node.props?.get("stencilId") as? String
+                    val stencilId = node.props?.get("stencilKey") as? String
                     if (stencilId != null) stencilRefs.add(stencilId)
                 }
 
                 "image" -> {
-                    val assetId = node.props?.get("assetId") as? String
+                    val assetId = node.props?.get("imageKey") as? String
                     val assetCatalogKey = node.props?.get("catalogKey") as? String
                     // Same-catalog image assets (no explicit catalogKey) are
                     // auto-pulled; cross-catalog ones are declared on

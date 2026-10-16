@@ -184,7 +184,7 @@ object StencilInstances {
             }
             if (!expanded.add(node.id)) return
             val props = node.props.orEmpty()
-            val stencilKey = props[StencilNodeKeys.PROP_STENCIL_ID] as? String ?: return
+            val stencilKey = props[StencilNodeKeys.PROP_STENCIL_KEY] as? String ?: return
             val ref = StencilRef(stencilKey, (props[StencilNodeKeys.PROP_CATALOG_KEY] as? String)?.takeIf { it.isNotBlank() } ?: contextCatalog)
             fun finding(problem: Problem, name: String? = null) = Finding(node.id, ref.stencilKey, ref.catalogKey, path.lastOrNull(), problem, name)
 

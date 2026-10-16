@@ -9,7 +9,6 @@ import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
-import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -20,7 +19,6 @@ import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.commands.versions.UpdateDraft
@@ -277,7 +275,6 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
         val header = StencilId(StencilKey.of("header"), catalogId(tenant, letters))
         withMediator {
             CreateStencil(header, "Header").execute()
-            PublishStencilVersion(StencilVersionId(VersionKey.of(1), header)).execute()
             CreateDocumentTemplate(invoiceVariant(tenant).templateId, "Invoice").execute().withRequiredDataExample()
             UpdateDraft(invoiceVariant(tenant), templateEmbedding("header", letters.value)).execute()
         }

@@ -315,8 +315,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                     id = stencilNodeId,
                     type = "stencil",
                     props = mapOf(
-                        "stencilId" to stencilKey.value,
-                        "version" to 1,
+                        "stencilKey" to stencilKey.value,
                     ),
                 ),
             ),
@@ -348,7 +347,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 imageNodeId to Node(
                     id = imageNodeId,
                     type = "image",
-                    props = mapOf("assetId" to assetId.value),
+                    props = mapOf("imageKey" to assetId.value),
                 ),
             ),
             slots = mapOf(

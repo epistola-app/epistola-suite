@@ -27,7 +27,6 @@ import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
-import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -44,10 +43,9 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.DeleteStencil
-import app.epistola.suite.stencils.commands.PublishStencilVersion
-import app.epistola.suite.stencils.commands.UpdateStencilDraft
+import app.epistola.suite.stencils.commands.UpdateStencil
+import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.stencils.queries.GetStencilUsagePage
-import app.epistola.suite.stencils.queries.ListStencilVersions
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.commands.versions.CreateVersion
@@ -97,7 +95,6 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
             CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
             CreateStencil(stencilId, "Header").execute()
-            PublishStencilVersion(StencilVersionId(VersionKey.of(1), stencilId)).execute()
             CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
             UpdateDraft(variantId, templateEmbedding(stencilId.key.value)).execute()
             val publishedDraft = GetDraft(variantId).query()!!
@@ -121,7 +118,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         assertThat(identityAt(tenant.id, sourceAddress)).isNull()
 
         val movedStencilId = StencilId(stencilId.key, CatalogId(targetCatalog, tenantId))
-        assertThat(withMediator { ListStencilVersions(movedStencilId).query() }).hasSize(1)
+        assertThat(withMediator { GetStencil(movedStencilId).query() }).isNotNull()
 
         val draft = withMediator { GetDraft(variantId).query()!! }
         assertThat(draft.templateModel.nodes.getValue("stencil-instance").props?.get("catalogKey"))
@@ -137,7 +134,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         // Export carries the latest published version, whose reference no longer resolves, so the
         // catalog cannot be exported -- or released, or snapshotted -- until it is republished.
         assertThatThrownBy { withMediator { ExportCatalogZip(tenant.id, sourceCatalog).execute() } }
-            .hasMessageContaining("stencil 'header' version 1 does not exist")
+            .hasMessageContaining("stencil 'header' does not exist in the catalog context")
 
         withMediator { DeleteStencil(movedStencilId, force = true).execute() }
         assertThat(identityAt(tenant.id, sourceAddress.copy(catalogKey = targetCatalog.value))).isNull()
@@ -279,8 +276,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             CreateStencil(header, "Header").execute()
             // Authored WITHOUT a catalogKey: before write-time qualification this stored a relative
             // reference, which a move could not preserve once published.
-            UpdateStencilDraft(StencilVersionId(VersionKey.of(1), header), dependsOnThemeRelatively()).execute()
-            PublishStencilVersion(StencilVersionId(VersionKey.of(1), header)).execute()
+            UpdateStencil(header, content = dependsOnThemeRelatively()).execute()
         }
 
         val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(headerAddress.movedTo(targetCatalog))).query() }
@@ -297,7 +293,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a stencil whose published version predates qualification can still move`() {
+    fun `a stencil whose content predates qualification can still move`() {
         val tenant = createTenant("Legacy relative stencil")
         val tenantId = TenantId(tenant.id)
         val sourceCatalog = CatalogKey.of("letters")
@@ -311,12 +307,20 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), sourceCatalogId), "Brand").execute()
             CreateStencil(header, "Header").execute()
-            UpdateStencilDraft(StencilVersionId(VersionKey.of(1), header), dependsOnThemeRelatively()).execute()
-            PublishStencilVersion(StencilVersionId(VersionKey.of(1), header)).execute()
+            UpdateStencil(header, content = dependsOnThemeRelatively()).execute()
         }
-        // Content published before references were qualified on write stored this relatively. No
-        // command writes that shape any more, so the qualification is stripped from the row.
-        stripQualification("stencil_versions", "content", "{themeRef,catalogKey}", tenant.id, sourceCatalog, stencilOwner, header.key.value)
+        // Content written before references were qualified on write stored this relatively, and the
+        // 2.0 upgrade carried it into the working copy. No command writes that shape any more, so the
+        // qualification is stripped from the row.
+        jdbi.useHandle<Exception> { handle ->
+            val stripped = handle.createUpdate(
+                "UPDATE stencils SET content = content #- '{themeRef,catalogKey}' WHERE tenant_key = :t AND id = :ownerKey" +
+                    " AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = :catalogKey)",
+            )
+                .bind("t", tenant.id).bind("catalogKey", sourceCatalog).bind("ownerKey", header.key.value)
+                .execute()
+            assertThat(stripped).isEqualTo(1)
+        }
 
         val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(headerAddress.movedTo(targetCatalog))).query() }
         assertThat(preview.blockers).isEmpty()
@@ -324,9 +328,9 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
 
         withMediator { MoveCatalogResources(tenant.id, listOf(headerAddress.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 
-        // The published version now says what it always meant: the theme in the catalog it left.
-        val published = publishedJson("stencil_versions", "content", tenant.id, targetCatalog, stencilOwner, header.key.value)
-        assertThat(published.path("themeRef").path("catalogKey").stringValue()).isEqualTo(sourceCatalog.value)
+        // The stencil now says what it always meant: the theme in the catalog it left.
+        val moved = withMediator { GetStencil(StencilId(header.key, CatalogId(targetCatalog, tenantId))).query()!! }
+        assertThat((moved.content.themeRef as ThemeRefOverride).catalogKey).isEqualTo(sourceCatalog.value)
         val graph = withMediator { GetTenantResourceGraph(tenant.id, includeHistory = true).query() }
         assertThat(graph.edges)
             .filteredOn { it.targetSelector.type == CatalogResourceType.THEME }
@@ -350,7 +354,6 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
             CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
             CreateStencil(stencilId, "Header").execute()
-            PublishStencilVersion(StencilVersionId(VersionKey.of(1), stencilId)).execute()
             CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
             UpdateDraft(variantId, templateEmbedding(stencilId.key.value)).execute()
             PublishVersion(VersionId(GetDraft(variantId).query()!!.id, variantId)).execute()
@@ -376,13 +379,9 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
     }
 
     /**
-     * How a versions table names the resource that owns it, as a bindable predicate on
-     * `(:tenantKey, :catalogKey, :ownerKey)`. Stencil versions name their stencil's identity, so
-     * the address has to be resolved through it; template versions still carry the address.
+     * How a versions table names the template that owns it, as a bindable predicate on
+     * `(:tenantKey, :catalogKey, :ownerKey)`.
      */
-    private val stencilOwner =
-        "stencil_resource_id = (SELECT resource_id FROM stencils " +
-            "WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = :ownerKey)"
     private val templateOwner =
         "template_resource_id = (SELECT resource_id FROM document_templates " +
             "WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = :ownerKey)"
@@ -611,7 +610,6 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
             CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
             CreateStencil(stencilId, "Header").execute()
-            PublishStencilVersion(StencilVersionId(VersionKey.of(1), stencilId)).execute()
             CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
             UpdateDraft(variantId, templateEmbedding(stencilId.key.value)).execute()
             PublishVersion(VersionId(GetDraft(variantId).query()!!.id, variantId)).execute()
@@ -652,7 +650,6 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
             CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
             CreateStencil(stencilId, "Header").execute()
-            PublishStencilVersion(StencilVersionId(VersionKey.of(1), stencilId)).execute()
             CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
             UpdateDraft(variantId, templateEmbedding(stencilId.key.value)).execute()
             PublishVersion(VersionId(GetDraft(variantId).query()!!.id, variantId)).execute()
@@ -695,8 +692,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             CreateTheme(lettersTheme, "Brand").execute()
             CreateStencil(header, "Header").execute()
             // The stencil depends on a theme that stays in letters.
-            UpdateStencilDraft(StencilVersionId(VersionKey.of(1), header), usesTheme(lettersTheme.key.value, letters.value)).execute()
-            PublishStencilVersion(StencilVersionId(VersionKey.of(1), header)).execute()
+            UpdateStencil(header, content = usesTheme(lettersTheme.key.value, letters.value)).execute()
             // And a template in letters depends on the shared theme, so letters -> shared exists.
             CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
             UpdateDraft(variantId, usesTheme(sharedTheme.key.value, shared.value)).execute()
@@ -735,7 +731,6 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
             CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
             CreateStencil(stencilId, "Header").execute()
-            PublishStencilVersion(StencilVersionId(VersionKey.of(1), stencilId)).execute()
             ReleaseCatalogVersion(tenant.id, sourceCatalog, "1.0.0", publication = ReleasePublication.SKIP).execute()
         }
 
@@ -839,7 +834,6 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             CreateCatalog(tenant.id, letters, "Letters").execute()
             CreateCatalog(tenant.id, shared, "Shared").execute()
             CreateStencil(stencilId, "Header").execute()
-            PublishStencilVersion(StencilVersionId(VersionKey.of(1), stencilId)).execute()
         }
 
         val relocation = address.movedTo(shared, "letterhead")
@@ -854,7 +848,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         // The owned hierarchy followed the rename, not only the catalog change: the ON UPDATE
         // CASCADE foreign key fires on any referenced column.
         val renamed = StencilId(StencilKey.of("letterhead"), CatalogId(shared, tenantId))
-        assertThat(withMediator { ListStencilVersions(renamed).query() }).hasSize(1)
+        assertThat(withMediator { GetStencil(renamed).query() }).isNotNull()
     }
 
     @Test
@@ -998,8 +992,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
                 id = "stencil-instance",
                 type = "stencil",
                 props = buildMap {
-                    put("stencilId", stencilKey)
-                    put("version", 1)
+                    put("stencilKey", stencilKey)
                     catalogKey?.let { put("catalogKey", it) }
                 },
             ),

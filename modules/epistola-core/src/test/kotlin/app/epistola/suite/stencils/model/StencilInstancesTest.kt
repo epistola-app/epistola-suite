@@ -46,7 +46,7 @@ class StencilInstancesTest {
         fun stencil(id: String, key: String, children: List<String>, props: Map<String, Any?> = emptyMap()) = node(
             id,
             StencilNodeKeys.NODE_TYPE,
-            mapOf(StencilNodeKeys.PROP_STENCIL_ID to key) + props,
+            mapOf(StencilNodeKeys.PROP_STENCIL_KEY to key) + props,
             StencilNodeKeys.SLOT_CHILDREN to children,
         )
 
@@ -112,7 +112,7 @@ class StencilInstancesTest {
 
         assertThat(stored.nodes.getValue("inst").props).isEqualTo(
             mapOf(
-                StencilNodeKeys.PROP_STENCIL_ID to "letterhead",
+                StencilNodeKeys.PROP_STENCIL_KEY to "letterhead",
                 NodeParameterKeys.PROP_PARAMETER_BINDINGS to mapOf("name" to "customer.name"),
             ),
         )

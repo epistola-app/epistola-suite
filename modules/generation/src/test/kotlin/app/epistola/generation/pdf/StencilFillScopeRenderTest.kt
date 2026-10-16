@@ -68,7 +68,7 @@ class StencilFillScopeRenderTest {
             id,
             "stencil",
             mapOf(
-                "stencilId" to key,
+                "stencilKey" to key,
                 "parameterSchemaSnapshot" to mapOf("type" to "object", "properties" to mapOf(param to mapOf("type" to "string"))),
                 "parameterBindings" to mapOf(param to binding),
             ) + extra,
@@ -220,7 +220,7 @@ class StencilFillScopeRenderTest {
     fun `an isolated stencil inside a stencil does not see the outer stencil's params`() {
         val document = doc {
             expr("inner-own", "inner", "params.a")
-            node("inner", "stencil", mapOf("stencilId" to "badge"), "children" to listOf("inner-own"))
+            node("inner", "stencil", mapOf("stencilKey" to "badge"), "children" to listOf("inner-own"))
             stencil("inst", "page", "a", "'A'", listOf("inner"))
             build("inst")
         }

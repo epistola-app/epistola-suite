@@ -135,7 +135,7 @@ class PdfAccessibilityTest {
 
     @Test
     fun `image alt text is exposed as a tagged figure description`() {
-        val doc = documentWithImageNode(mapOf("assetId" to "asset-123", "alt" to "Company logo"))
+        val doc = documentWithImageNode(mapOf("imageKey" to "asset-123", "alt" to "Company logo"))
 
         val snapshot = PdfAccessibilityInspector.inspect(renderToBytes(doc, resolver = resolverWithTestPng))
 
@@ -149,7 +149,7 @@ class PdfAccessibilityTest {
     @Test
     fun `decorative image is an artifact and absent from the structure tree`() {
         val doc = documentWithImageNode(
-            mapOf("assetId" to "asset-123", "alt" to "ignored", "decorative" to true),
+            mapOf("imageKey" to "asset-123", "alt" to "ignored", "decorative" to true),
         )
 
         val snapshot = PdfAccessibilityInspector.inspect(renderToBytes(doc, resolver = resolverWithTestPng))

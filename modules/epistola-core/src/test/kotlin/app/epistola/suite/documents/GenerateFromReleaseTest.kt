@@ -69,10 +69,12 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
 
     @Autowired private lateinit var releaseRenderSource: ReleaseRenderSource
 
+    @Autowired private lateinit var stencilResolvers: app.epistola.suite.stencils.StencilResolvers
+
     private val realExecutor by lazy {
         DocumentGenerationExecutor(
             jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore,
-            meterRegistry, fontSnapshotVerifier, fontByteCache, localeResolver, releaseRenderSource,
+            meterRegistry, fontSnapshotVerifier, fontByteCache, localeResolver, releaseRenderSource, stencilResolvers,
             retentionDays = 7, maxDocumentSizeMb = 50,
         )
     }

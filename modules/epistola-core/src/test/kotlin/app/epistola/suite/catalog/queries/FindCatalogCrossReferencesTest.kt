@@ -276,9 +276,8 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
                     id = stencilNodeId,
                     type = "stencil",
                     props = mapOf(
-                        "stencilId" to stencilKey.value,
+                        "stencilKey" to stencilKey.value,
                         "catalogKey" to catalogKey.value,
-                        "version" to 1,
                     ),
                 ),
             ),
@@ -310,7 +309,7 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
                 imageNodeId to Node(
                     id = imageNodeId,
                     type = "image",
-                    props = mapOf("assetId" to assetId.value),
+                    props = mapOf("imageKey" to assetId.value),
                 ),
             ),
             slots = mapOf(

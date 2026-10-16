@@ -244,15 +244,8 @@ class ExportStencilsHandler(
             append(
                 """
                 SELECT s.id, s.name, s.description, s.tags::text,
-                       sv.id AS version, sv.content::text, sv.parameter_schema::text
+                       s.content::text, s.parameter_schema::text, s.reads_template_data
                 FROM stencils s
-                JOIN LATERAL (
-                    SELECT id, content, parameter_schema FROM stencil_versions
-                    WHERE tenant_key = s.tenant_key AND stencil_resource_id = s.resource_id
-                      AND status = 'published'
-                    ORDER BY id DESC
-                    LIMIT 1
-                ) sv ON TRUE
                 WHERE s.tenant_key = :tenantKey
                 """,
             )
@@ -278,6 +271,7 @@ class ExportStencilsHandler(
                 tags = tags,
                 content = objectMapper.readValue(rs.getString("content"), TemplateDocument::class.java),
                 parameterSchema = parameterSchema,
+                readsTemplateData = rs.getBoolean("reads_template_data"),
             )
         }.list()
     }

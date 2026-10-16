@@ -226,22 +226,17 @@ class TenantResourceGraphBuilder(
 
     private fun loadStencilReferences(handle: Handle, tenantKey: TenantKey, includeHistory: Boolean): List<Occurrence> = handle.createQuery(
         """
-            SELECT stencil_catalog.catalog_key::text, stencil.id::text AS stencil_key,
-                   versions.id, versions.status, versions.content::text
-            FROM stencil_versions versions
-            JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
-                                 AND stencil.resource_id = versions.stencil_resource_id
+            SELECT stencil_catalog.catalog_key::text, stencil.id::text AS stencil_key, stencil.content::text
+            FROM stencils stencil
             JOIN catalogs stencil_catalog
               ON stencil_catalog.tenant_key = stencil.tenant_key AND stencil_catalog.catalog_id = stencil.catalog_id
-            WHERE versions.tenant_key = :tenantKey
-              AND (:includeHistory OR versions.status IN ('draft', 'published'))
+            WHERE stencil.tenant_key = :tenantKey
         """,
-    ).bind("tenantKey", tenantKey).bind("includeHistory", includeHistory).map { rs, _ ->
+    ).bind("tenantKey", tenantKey).map { rs, _ ->
+        // A stencil has one working copy, so its references are live; there is no history to include.
         val source = ResourceAddress(CatalogResourceType.STENCIL, rs.getString("catalog_key"), rs.getString("stencil_key"))
-        val status = rs.getString("status")
-        val lifecycle = if (status == "archived") ReferenceLifecycle.HISTORICAL else ReferenceLifecycle.LIVE
         buildList {
-            scanJson(source, objectMapper.readTree(rs.getString("content")), "content", lifecycle, status, rs.getInt("id"), this, "Stencil version")
+            scanJson(source, objectMapper.readTree(rs.getString("content")), "content", ReferenceLifecycle.LIVE, null, null, this, "Stencil")
         }
     }.list().flatten()
 

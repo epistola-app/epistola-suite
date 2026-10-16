@@ -11,8 +11,11 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 
 /**
- * Detailed usage info for a stencil across template versions.
- * Used by the bulk upgrade UI to show which templates need upgrading.
+ * A template version that uses a stencil (contract ADR 0006): the stencil reaches it by reference,
+ * so there is nothing to upgrade, only whether the template still fits the stencil as it is.
+ *
+ * @property problems what no longer fits ([StencilInstances.Finding]s about this stencil, as text);
+ *   empty when the template fits.
  */
 data class StencilUsageDetail(
     val templateId: TemplateKey,
@@ -22,38 +25,9 @@ data class StencilUsageDetail(
     val variantId: VariantKey,
     val versionId: VersionKey,
     val versionStatus: String,
-    val stencilVersion: Int,
     /** Number of instances of this stencil in this template version. */
     val instanceCount: Int,
-    /**
-     * Whether this row is the single bulk-upgrade target for its variant.
-     *
-     * Upgrading always lands in the variant's draft (created from the latest
-     * published version when none exists), so exactly one row per variant is
-     * actionable: the draft if the variant has one, otherwise its latest
-     * published version. Other rows of the same variant (and subscribed/archived
-     * rows) are not upgradable. Computed by `GetStencilUsagePage` (raw rows from
-     * `GetStencilUsageDetails` leave this `false`).
-     */
-    val upgradable: Boolean = false,
-    /**
-     * Why this row is not upgradable, for the UI to explain to the operator.
-     * Null exactly when [upgradable] is true.
-     */
-    val upgradeBlockReason: UpgradeBlockReason? = null,
+    val problems: List<String> = emptyList(),
 ) {
-    /** Reason a usage row cannot be the bulk-upgrade target. */
-    enum class UpgradeBlockReason {
-        /** Belongs to a subscribed (read-only) catalog. */
-        SUBSCRIBED,
-
-        /** The variant already has an open draft, which is the upgrade target instead. */
-        HAS_DRAFT,
-
-        /** A newer version of the variant is the upgrade target (this one is superseded/archived). */
-        SUPERSEDED,
-
-        /** This variant already pins the stencil's latest published version — nothing to upgrade to. */
-        UP_TO_DATE,
-    }
+    val fits: Boolean get() = problems.isEmpty()
 }

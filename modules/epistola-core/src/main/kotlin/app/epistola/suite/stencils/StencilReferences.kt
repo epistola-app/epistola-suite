@@ -28,7 +28,7 @@ object StencilReferences {
     fun refersTo(node: Node, stencil: StencilId, templateCatalog: CatalogKey): Boolean {
         if (node.type != StencilNodeKeys.NODE_TYPE) return false
         val props = node.props ?: return false
-        if (props[StencilNodeKeys.PROP_STENCIL_ID] as? String != stencil.key.value) return false
+        if (props[StencilNodeKeys.PROP_STENCIL_KEY] as? String != stencil.key.value) return false
         val refCatalog = (props[StencilNodeKeys.PROP_CATALOG_KEY] as? String)?.takeIf { it.isNotBlank() } ?: templateCatalog.value
         return refCatalog == stencil.catalogKey.value
     }
@@ -40,7 +40,7 @@ object StencilReferences {
      */
     fun refersTo(nodeAlias: String, templateAlias: String): String = """(
         $nodeAlias.value ->> 'type' = '${StencilNodeKeys.NODE_TYPE}'
-        AND $nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_STENCIL_ID}' = :$KEY_PARAM
+        AND $nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_STENCIL_KEY}' = :$KEY_PARAM
         AND ${referencedCatalog(nodeAlias, templateAlias)} = :$CATALOG_PARAM
     )"""
 
@@ -56,7 +56,7 @@ object StencilReferences {
      */
     fun usedBy(nodeAlias: String, templateAlias: String): String = """(
         $nodeAlias.value ->> 'type' = '${StencilNodeKeys.NODE_TYPE}'
-        AND $nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_STENCIL_ID}' = :$KEY_PARAM
+        AND $nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_STENCIL_KEY}' = :$KEY_PARAM
         AND (
             ${referencedCatalog(nodeAlias, templateAlias)} = :$CATALOG_PARAM
             OR NOT EXISTS (

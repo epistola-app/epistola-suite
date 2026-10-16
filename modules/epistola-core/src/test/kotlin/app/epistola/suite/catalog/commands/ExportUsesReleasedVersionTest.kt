@@ -52,7 +52,7 @@ class ExportUsesReleasedVersionTest : IntegrationTestBase() {
             // 1. Never released -> 0.0.0-dev, fingerprint present
             val pre = exportedManifest(ExportCatalogZip(tenantKey, catalogKey).execute().zipBytes)
             assertThat(pre.release.version).isEqualTo("0.0.0-dev")
-            assertThat(pre.release.fingerprint).isNotNull().hasSize(64)
+            assertThat(pre.release.fingerprint).isNotNull().matches("v5:[0-9a-f]{64}")
 
             // 2. Released, no edits -> clean version, fingerprint == released fingerprint
             val released = ReleaseCatalogVersion(tenantKey, catalogKey, "1.0.0").execute()

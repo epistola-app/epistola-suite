@@ -17,6 +17,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.FontSnapshotVerifier
 import app.epistola.suite.fonts.fontFamilyResolver
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.stencils.StencilResolvers
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.tenants.Tenant
@@ -40,6 +41,7 @@ class DocumentPreviewRenderer(
     private val objectMapper: ObjectMapper,
     private val fontSnapshotVerifier: FontSnapshotVerifier,
     private val fontByteCache: app.epistola.suite.fonts.FontByteCache,
+    private val stencilResolvers: StencilResolvers,
 ) {
 
     /**
@@ -63,6 +65,7 @@ class DocumentPreviewRenderer(
         resolvedThemeOverride: ResolvedTheme? = null,
     ): ByteArray {
         val outputStream = ByteArrayOutputStream()
+        val expandedModel = stencilResolvers.expandWithWorkingCopies(tenantId, template.catalogKey, templateModel)
 
         @Suppress("UNCHECKED_CAST")
         val dataMap = objectMapper.convertValue(data, Map::class.java) as Map<String, Any?>
@@ -91,7 +94,7 @@ class DocumentPreviewRenderer(
             val renderingDefaults = RenderingDefaults.forVersion(renderingDefaultsVersion)
             val metadataWithEngine = metadata.copy(engineVersion = renderingDefaults.engineVersionString())
             generationService.renderPdfWithSnapshot(
-                templateModel,
+                expandedModel,
                 dataMap,
                 outputStream,
                 resolvedTheme,
@@ -109,7 +112,7 @@ class DocumentPreviewRenderer(
             )
             generationService.renderPdf(
                 tenantId,
-                templateModel,
+                expandedModel,
                 dataMap,
                 outputStream,
                 template.themeKey,

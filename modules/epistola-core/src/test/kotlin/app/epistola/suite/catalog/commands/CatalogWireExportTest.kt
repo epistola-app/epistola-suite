@@ -21,7 +21,6 @@ import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
-import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -37,7 +36,6 @@ import app.epistola.suite.fonts.model.FontKind
 import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.versions.PublishVersion
@@ -131,7 +129,6 @@ class CatalogWireExportTest : IntegrationTestBase() {
 
             val stencilId = StencilId(StencilKey.of("letterhead"), catalogId)
             CreateStencil(id = stencilId, name = "Letterhead", content = doc("letterhead-root")).execute()
-            PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
 
             val templateId = TemplateId(TemplateKey.of("decision-letter"), catalogId)
             CreateDocumentTemplate(id = templateId, name = "Decision Letter").execute()

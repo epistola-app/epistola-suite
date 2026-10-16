@@ -54,7 +54,7 @@ class EnsureSubscribedCatalogTest : IntegrationTestBase() {
         // Simulate content drift by stamping a stale installed fingerprint.
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
-                "UPDATE catalogs SET installed_fingerprint = 'stale' WHERE tenant_key = :t AND id = 'epistola-demo'",
+                "UPDATE catalogs SET installed_fingerprint = 'stale' WHERE tenant_key = :t AND catalog_key = 'epistola-demo'",
             ).bind("t", tenant.id).execute()
         }
 

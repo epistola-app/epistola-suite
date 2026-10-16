@@ -157,7 +157,7 @@ class GetTenantResourceGraphIntegrationTest : IntegrationTestBase() {
             "image" to Node(
                 id = "image",
                 type = "image",
-                props = mapOf("assetId" to assetKey.toString(), "catalogKey" to catalogKey.value),
+                props = mapOf("imageKey" to assetKey.toString(), "catalogKey" to catalogKey.value),
             ),
         ),
         slots = mapOf("children" to Slot(id = "children", nodeId = "root", name = "children", children = listOf("image"))),

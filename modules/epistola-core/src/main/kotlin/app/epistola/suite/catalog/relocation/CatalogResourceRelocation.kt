@@ -171,19 +171,15 @@ class MoveCatalogResourcesHandler(
                     .bindRewrite(command.tenantKey, rewrite)
                     .execute()
 
-                is JsonRewrite.StencilVersion -> handle.createUpdate(
+                is JsonRewrite.StencilContent -> handle.createUpdate(
                     """
-                    UPDATE stencil_versions SET content = :replacement::jsonb
+                    UPDATE stencils SET content = :replacement::jsonb
                     WHERE tenant_key = :tenantKey
-                      AND stencil_resource_id = (SELECT resource_id FROM stencils
-                                                  WHERE tenant_key = :tenantKey
-                                                    AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = :stencilKey)
-                      AND id = :version
+                      AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = :stencilKey
                       AND content = :expected::jsonb
                     """,
                 )
                     .bind("stencilKey", rewrite.ownerKey)
-                    .bind("version", rewrite.version)
                     .bindRewrite(command.tenantKey, rewrite)
                     .execute()
 

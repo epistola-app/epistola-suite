@@ -15,8 +15,11 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
+import app.epistola.suite.stencils.STENCIL_COLUMNS
+import app.epistola.suite.stencils.STENCIL_FROM
 import app.epistola.suite.stencils.Stencil
 import app.epistola.suite.stencils.stencilAtAddress
+import app.epistola.suite.stencils.withAbsentSchemaAsNull
 import app.epistola.suite.templates.validation.ParameterSchemaValidator
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
@@ -33,8 +36,7 @@ import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 
 /**
- * Creates a new stencil. If content is provided, a draft version (version 1)
- * is automatically created with that content.
+ * Creates a new stencil with its working copy: [content], or an empty document.
  */
 data class CreateStencil(
     val id: StencilId,
@@ -43,6 +45,8 @@ data class CreateStencil(
     val tags: List<String> = emptyList(),
     val content: TemplateDocument? = null,
     val parameterSchema: JsonNode? = null,
+    /** The stencil's content also sees the using template's data (contract ADR 0006, part 5). */
+    val readsTemplateData: Boolean = false,
 ) : Command<Stencil>,
     RequiresPermission {
     override val permission = Permission.STENCIL_EDIT
@@ -86,12 +90,18 @@ class CreateStencilHandler(
             jdbi.inTransaction<Stencil, Exception> { handle ->
                 val tagsJson = objectMapper.writeValueAsString(command.tags)
 
-                // 1. Create the stencil
-                val stencil = handle.createQuery(
+                val content = command.content ?: emptyTemplateDocument()
+                // Stored references name the catalog they resolve against, so relocation cannot
+                // change their meaning (ResourceReferenceSites).
+                val contentJson = objectMapper.valueToTree<JsonNode>(content)
+                    .also { ResourceReferenceSites.qualifyRelative(it, command.id.catalogKey.value) }
+                    .let(objectMapper::writeValueAsString)
+                handle.createUpdate(
                     """
-                    INSERT INTO stencils (id, tenant_key, catalog_id, name, description, tags, created_at, updated_at, created_by, updated_by)
-                    VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, :name, :description, :tags::jsonb, NOW(), NOW(), :createdBy, :updatedBy)
-                    RETURNING id, tenant_key, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = stencils.tenant_key AND cat.catalog_id = stencils.catalog_id) AS catalog_key, name, description, tags, created_at, updated_at, created_by, updated_by
+                    INSERT INTO stencils (id, tenant_key, catalog_id, name, description, tags, content, parameter_schema, reads_template_data,
+                                          created_at, updated_at, created_by, updated_by)
+                    VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, :name, :description, :tags::jsonb, :content::jsonb,
+                            :parameterSchema::jsonb, :readsTemplateData, NOW(), NOW(), :createdBy, :updatedBy)
                     """,
                 )
                     .bind("id", command.id.key)
@@ -100,36 +110,18 @@ class CreateStencilHandler(
                     .bind("name", command.name)
                     .bind("description", command.description)
                     .bind("tags", tagsJson)
+                    .bind("content", contentJson)
+                    .bind("parameterSchema", command.parameterSchema?.let { objectMapper.writeValueAsString(it) })
+                    .bind("readsTemplateData", command.readsTemplateData)
                     .bind("createdBy", auditUser).bind("updatedBy", auditUser)
+                    .execute()
+                val stencil = handle.createQuery("SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :tenantId AND s.catalog_id = ${catalogAt("tenantId", "catalogKey")} AND s.id = :id")
+                    .bind("id", command.id.key)
+                    .bind("tenantId", command.id.tenantKey)
+                    .bind("catalogKey", command.id.catalogKey)
                     .mapTo<Stencil>()
+                    .map(Stencil::withAbsentSchemaAsNull)
                     .one()
-
-                // 2. Create initial draft version (empty if no content provided)
-                run {
-                    val content = command.content ?: emptyTemplateDocument()
-                    // Stored references name the catalog they resolve against; see UpdateStencilDraft.
-                    val contentJson = objectMapper.valueToTree<JsonNode>(content)
-                        .also { ResourceReferenceSites.qualifyRelative(it, command.id.catalogKey.value) }
-                        .let(objectMapper::writeValueAsString)
-                    val parameterSchemaJson = command.parameterSchema?.let { objectMapper.writeValueAsString(it) }
-                    handle.createUpdate(
-                        """
-                        INSERT INTO stencil_versions (id, tenant_key, stencil_resource_id, content, parameter_schema, status, created_at, created_by)
-                        VALUES (
-                            :id, :tenantId, ${stencilAtAddress("tenantId", "catalogKey", "stencilId")},
-                            :content::jsonb, :parameterSchema::jsonb, 'draft', NOW(), :createdBy
-                        )
-                        """,
-                    )
-                        .bind("id", VersionKey.of(1))
-                        .bind("tenantId", command.id.tenantKey)
-                        .bind("catalogKey", command.id.catalogKey)
-                        .bind("stencilId", command.id.key)
-                        .bind("content", contentJson)
-                        .bind("parameterSchema", parameterSchemaJson)
-                        .bind("createdBy", auditUser).bind("updatedBy", auditUser)
-                        .execute()
-                }
 
                 stencil
             }

@@ -73,7 +73,7 @@ class ImportNameLengthValidationTest {
     /** Commands whose name/title column is VARCHAR(255). label -> builder taking the field value. */
     private val name255Cases: List<Pair<String, (String) -> Any>> = listOf(
         "ImportTheme.name" to { s -> ImportTheme(tenantId, catalogKey, slug = "mytheme", name = s) },
-        "ImportStencil.name" to { s -> ImportStencil(tenantId, catalogKey, slug = "mystencil", version = 1, name = s, content = content()) },
+        "ImportStencil.name" to { s -> ImportStencil(tenantId, catalogKey, slug = "mystencil", name = s, content = content()) },
         "ImportAsset.name" to { s -> ImportAsset(tenantId, catalogKey, id = AssetKey.generate(), name = s, mediaType = AssetMediaType.fromMimeType("image/png"), content = ByteArray(1)) },
         "UploadAsset.name" to { s -> UploadAsset(tenantId.key, name = s, mediaType = AssetMediaType.fromMimeType("image/png"), content = ByteArray(1), width = null, height = null, catalogKey = catalogKey) },
         "ImportTemplates.name" to { s -> ImportTemplates(tenantId, catalogKey, templates = listOf(templateInput(name = s))) },

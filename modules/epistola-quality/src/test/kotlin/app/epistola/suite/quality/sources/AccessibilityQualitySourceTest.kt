@@ -57,7 +57,7 @@ class AccessibilityQualitySourceTest {
 
     @Test
     fun `an image with no alt is reported`() {
-        val findings = source.check(inputFor(imageNode("img-1", mapOf("assetId" to "a"))))
+        val findings = source.check(inputFor(imageNode("img-1", mapOf("imageKey" to "a"))))
 
         assertThat(findings).singleElement().satisfies({
             assertThat(it.ruleId).isEqualTo(AccessibilityQualitySource.RULE_IMAGE_MISSING_ALT)
@@ -70,14 +70,14 @@ class AccessibilityQualitySourceTest {
 
     @Test
     fun `a blank alt is no better than a missing one`() {
-        val findings = source.check(inputFor(imageNode("img-1", mapOf("assetId" to "a", "alt" to "   "))))
+        val findings = source.check(inputFor(imageNode("img-1", mapOf("imageKey" to "a", "alt" to "   "))))
 
         assertThat(findings).hasSize(1)
     }
 
     @Test
     fun `an image with alt text is not reported`() {
-        val findings = source.check(inputFor(imageNode("img-1", mapOf("assetId" to "a", "alt" to "Company logo"))))
+        val findings = source.check(inputFor(imageNode("img-1", mapOf("imageKey" to "a", "alt" to "Company logo"))))
 
         assertThat(findings).isEmpty()
     }
@@ -89,7 +89,7 @@ class AccessibilityQualitySourceTest {
      */
     @Test
     fun `a decorative image is not reported even with no alt`() {
-        val findings = source.check(inputFor(imageNode("img-1", mapOf("assetId" to "a", "decorative" to true))))
+        val findings = source.check(inputFor(imageNode("img-1", mapOf("imageKey" to "a", "decorative" to true))))
 
         assertThat(findings).isEmpty()
     }
@@ -113,8 +113,8 @@ class AccessibilityQualitySourceTest {
     fun `each unlabelled image is reported separately`() {
         val findings = source.check(
             inputFor(
-                imageNode("img-1", mapOf("assetId" to "a")),
-                imageNode("img-2", mapOf("assetId" to "b")),
+                imageNode("img-1", mapOf("imageKey" to "a")),
+                imageNode("img-2", mapOf("imageKey" to "b")),
             ),
         )
 
@@ -125,7 +125,7 @@ class AccessibilityQualitySourceTest {
     /** Auto-resolve and ignore-carry-forward both rest on this. */
     @Test
     fun `the same image fingerprints identically across runs`() {
-        val node = imageNode("img-1", mapOf("assetId" to "a"))
+        val node = imageNode("img-1", mapOf("imageKey" to "a"))
 
         val first = source.check(inputFor(node)).single().fingerprint
         val second = source.check(inputFor(node)).single().fingerprint

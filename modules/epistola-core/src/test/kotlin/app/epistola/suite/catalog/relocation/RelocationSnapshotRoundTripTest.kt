@@ -12,7 +12,6 @@ import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
-import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VersionId
@@ -20,7 +19,6 @@ import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.commands.versions.CreateVersion
 import app.epistola.suite.templates.commands.versions.PublishVersion
@@ -47,11 +45,10 @@ class RelocationSnapshotRoundTripTest : RelocationTestSupport() {
         publishTemplate(
             tenant,
             letters,
-            singleNodeModel(Node(id = "logo", type = "image", props = mapOf("assetId" to "logo", "catalogKey" to letters.value)), usesTheme("brand", letters.value).themeRef),
+            singleNodeModel(Node(id = "logo", type = "image", props = mapOf("imageKey" to "logo", "catalogKey" to letters.value)), usesTheme("brand", letters.value).themeRef),
         ) {
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, letters)), "Brand", documentStyles = fontStyle("acme", letters.value)).execute()
             CreateStencil(header, "Header").execute()
-            PublishStencilVersion(StencilVersionId(VersionKey.of(1), header)).execute()
             CreateAttributeDefinition(AttributeId(AttributeKey.of("brand"), catalogId(tenant, letters)), "Brand", listOf("acme")).execute()
         }
         withMediator { UpdateVariant(templateVariant(tenant, letters), "Main", mapOf("letters.brand" to "acme")).execute() }
@@ -70,7 +67,7 @@ class RelocationSnapshotRoundTripTest : RelocationTestSupport() {
             CreateVersion(templateVariant(tenant, letters)).execute()
             UpdateDraft(
                 templateVariant(tenant, letters),
-                singleNodeModel(Node(id = "logo", type = "image", props = mapOf("assetId" to "logo", "catalogKey" to shared.value)), usesTheme("brand", shared.value).themeRef),
+                singleNodeModel(Node(id = "logo", type = "image", props = mapOf("imageKey" to "logo", "catalogKey" to shared.value)), usesTheme("brand", shared.value).themeRef),
             ).execute()
             PublishVersion(VersionId(GetDraft(templateVariant(tenant, letters)).query()!!.id, templateVariant(tenant, letters))).execute()
         }

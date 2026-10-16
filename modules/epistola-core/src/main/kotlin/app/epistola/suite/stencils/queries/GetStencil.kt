@@ -11,7 +11,10 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.stencils.STENCIL_COLUMNS
+import app.epistola.suite.stencils.STENCIL_FROM
 import app.epistola.suite.stencils.Stencil
+import app.epistola.suite.stencils.withAbsentSchemaAsNull
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -31,9 +34,8 @@ class GetStencilHandler(
     override fun handle(query: GetStencil): Stencil? = jdbi.withHandle<Stencil?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT s.id, s.tenant_key, c.catalog_key AS catalog_key, c.type AS catalog_type, s.name, s.description, s.tags, s.created_at, s.updated_at, s.created_by, s.updated_by
-            FROM stencils s
-            JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id
+            SELECT $STENCIL_COLUMNS
+            $STENCIL_FROM
             WHERE s.id = :id AND s.tenant_key = :tenantId AND s.catalog_id = ${catalogAt("tenantId", "catalogKey")}
             """,
         )
@@ -41,6 +43,7 @@ class GetStencilHandler(
             .bind("tenantId", query.id.tenantKey)
             .bind("catalogKey", query.id.catalogKey)
             .mapTo<Stencil>()
+            .map(Stencil::withAbsentSchemaAsNull)
             .findOne()
             .orElse(null)
     }

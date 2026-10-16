@@ -210,8 +210,7 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
                     id = nodeId,
                     type = "stencil",
                     props = buildMap {
-                        put("stencilId", stencilKey)
-                        put("version", 1)
+                        put("stencilKey", stencilKey)
                         catalogKey?.let { put("catalogKey", it) }
                     },
                 )

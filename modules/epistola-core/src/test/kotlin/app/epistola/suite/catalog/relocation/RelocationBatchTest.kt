@@ -10,7 +10,6 @@ import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
-import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.ThemeId
@@ -21,8 +20,7 @@ import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.PublishStencilVersion
-import app.epistola.suite.stencils.commands.UpdateStencilDraft
+import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
@@ -157,7 +155,7 @@ class RelocationBatchTest : RelocationTestSupport() {
         val movedVariant = VariantId(VariantKey.INITIAL, TemplateId(template.key, catalogId(tenant, shared)))
         val props = withMediator { GetDraft(movedVariant).query()!! }.templateModel.nodes.getValue("stencil-instance").props!!
         assertThat(props["catalogKey"]).isEqualTo(shared.value)
-        assertThat(props["stencilId"]).isEqualTo("masthead")
+        assertThat(props["stencilKey"]).isEqualTo("masthead")
     }
 
     @Test
@@ -180,8 +178,8 @@ class RelocationBatchTest : RelocationTestSupport() {
 
         assertThat(plan.mutableRewriteCount).isEqualTo(1)
         val nodes = withMediator { GetDraft(variant).query()!! }.templateModel.nodes
-        assertThat(nodes.getValue("top").props).containsEntry("catalogKey", shared.value).containsEntry("stencilId", "header")
-        assertThat(nodes.getValue("bottom").props).containsEntry("catalogKey", archive.value).containsEntry("stencilId", "closing")
+        assertThat(nodes.getValue("top").props).containsEntry("catalogKey", shared.value).containsEntry("stencilKey", "header")
+        assertThat(nodes.getValue("bottom").props).containsEntry("catalogKey", archive.value).containsEntry("stencilKey", "closing")
     }
 
     @Test
@@ -214,8 +212,7 @@ class RelocationBatchTest : RelocationTestSupport() {
             CreateTheme(ThemeId(ThemeKey.of("base"), catalogId(tenant, shared)), "Base").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, letters)), "Brand").execute()
             CreateStencil(header, "Header").execute()
-            UpdateStencilDraft(StencilVersionId(VersionKey.of(1), header), usesTheme("brand", letters.value)).execute()
-            PublishStencilVersion(StencilVersionId(VersionKey.of(1), header)).execute()
+            UpdateStencil(header, content = usesTheme("brand", letters.value)).execute()
             val invoice = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
             CreateDocumentTemplate(invoice, "Invoice").execute()
             UpdateDraft(VariantId(VariantKey.INITIAL, invoice), usesTheme("base", shared.value)).execute()

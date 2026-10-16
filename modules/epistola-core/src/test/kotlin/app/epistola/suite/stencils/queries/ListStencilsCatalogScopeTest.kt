@@ -18,7 +18,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 /** Regression test for #466: list endpoints must filter by catalog, not just tenant. */
-class ListStencilSummariesCatalogScopeTest : IntegrationTestBase() {
+class ListStencilsCatalogScopeTest : IntegrationTestBase() {
 
     @Test
     fun `list filters by catalogKey when set`(): Unit = withMediator {
@@ -34,13 +34,13 @@ class ListStencilSummariesCatalogScopeTest : IntegrationTestBase() {
         CreateStencil(id = stencilA, name = "Catalog A Stencil").execute()
         CreateStencil(id = stencilB, name = "Catalog B Stencil").execute()
 
-        val onlyA = ListStencilSummaries(tenantId = tenantId, catalogKey = catalogA).query()
+        val onlyA = ListStencils(tenantId = tenantId, catalogKey = catalogA).query()
         assertThat(onlyA.map { it.id.value }).contains("in-cat-a").doesNotContain("in-cat-b")
 
-        val onlyB = ListStencilSummaries(tenantId = tenantId, catalogKey = catalogB).query()
+        val onlyB = ListStencils(tenantId = tenantId, catalogKey = catalogB).query()
         assertThat(onlyB.map { it.id.value }).contains("in-cat-b").doesNotContain("in-cat-a")
 
-        val allCatalogs = ListStencilSummaries(tenantId = tenantId).query()
+        val allCatalogs = ListStencils(tenantId = tenantId).query()
         assertThat(allCatalogs.map { it.id.value }).contains("in-cat-a", "in-cat-b")
     }
 }

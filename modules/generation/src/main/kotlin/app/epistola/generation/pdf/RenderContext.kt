@@ -85,11 +85,12 @@ data class RenderContext(
      */
     val bookmarkCollector: MutableList<BookmarkEntry> = mutableListOf(),
     /**
-     * Stencil IDs of every stencil node we are currently inside. Pushed by
-     * [StencilNodeRenderer] when entering a stencil. A duplicate is the
-     * defence-in-depth recursion catch; the editor and server-side validator
-     * already reject documents that would recurse, so this should never trigger
-     * in normal flow.
+     * Stencil IDs of every stencil node we are lexically inside. Pushed by
+     * [StencilNodeRenderer] when entering a stencil, and restored to the outer
+     * stencils inside a fill, which is written outside the stencil it fills. A
+     * duplicate is the defence-in-depth recursion catch; publishing already
+     * refuses stencils that contain themselves, so this should never trigger in
+     * normal flow.
      */
     val ancestorStencilIds: Set<String> = emptySet(),
     /** Number of stencil nodes currently in the ancestor chain. */
@@ -136,7 +137,7 @@ data class RenderContext(
     }
 
     /** The part of this context expressions see. */
-    fun expressionScope(): ExpressionScope = ExpressionScope(data, loopContext, parameterScopes, fillScope, stencilParameters)
+    fun expressionScope(): ExpressionScope = ExpressionScope(data, loopContext, parameterScopes, fillScope, stencilParameters, ancestorStencilIds, stencilNestingDepth)
 
     /**
      * This context, with expressions seeing [scope] instead. Everything else — styles, fonts, page
@@ -148,6 +149,8 @@ data class RenderContext(
         parameterScopes = scope.parameterScopes,
         fillScope = scope.fillScope,
         stencilParameters = scope.stencilParameters,
+        ancestorStencilIds = scope.ancestorStencilIds,
+        stencilNestingDepth = scope.stencilNestingDepth,
     )
 
     /**
@@ -193,7 +196,11 @@ data class RenderContext(
     )
 }
 
-/** What expressions see at one place in a document: its data, loop variables and parameter scopes. */
+/**
+ * What one place in a document lexically sees: its data, loop variables and parameter scopes, and the
+ * stencils it is written inside. A fill is written outside the stencil that owns its placeholder, so
+ * it sees neither that stencil's scope nor that stencil as an ancestor (contract ADR 0006).
+ */
 data class ExpressionScope(
     val data: Map<String, Any?>,
     val loopContext: Map<String, Any?>,
@@ -202,4 +209,8 @@ data class ExpressionScope(
     val fillScope: ExpressionScope?,
     /** See [RenderContext.stencilParameters]. */
     val stencilParameters: Map<String, Any?>?,
+    /** See [RenderContext.ancestorStencilIds]. */
+    val ancestorStencilIds: Set<String> = emptySet(),
+    /** See [RenderContext.stencilNestingDepth]. */
+    val stencilNestingDepth: Int = 0,
 )

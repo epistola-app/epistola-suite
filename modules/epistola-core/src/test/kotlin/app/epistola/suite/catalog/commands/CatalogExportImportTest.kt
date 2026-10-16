@@ -35,7 +35,6 @@ import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
-import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
@@ -47,8 +46,8 @@ import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.CreateStencilVersion
-import app.epistola.suite.stencils.commands.PublishStencilVersion
+import app.epistola.suite.stencils.commands.UpdateStencil
+import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.versions.PublishVersion
@@ -785,141 +784,61 @@ class CatalogExportImportTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `export stencils excludes draft-only stencils and uses published content`() {
-        val tenant = createTenant("Stencil Export Filter")
-        val tenantKey = tenant.id
-        val tenantId = TenantId(tenantKey)
-        val catalogKey = CatalogKey.of("stencil-export-filter")
+    fun `export stencils carries each stencil's working copy, whether it reads the template's data included`() {
+        val tenant = createTenant("Stencil Export")
+        val tenantId = TenantId(tenant.id)
+        val catalogKey = CatalogKey.of("stencil-export")
         val catalogId = CatalogId(catalogKey, tenantId)
 
         withMediator {
-            CreateCatalog(
-                tenantKey = tenantKey,
-                id = catalogKey,
-                name = "Stencil Export Filter",
-            ).execute()
-
-            // Stencil A: only ever drafted, never published
-            val draftOnlyKey = StencilKey.of("draft-only-stencil")
-            val draftOnlyId = StencilId(draftOnlyKey, catalogId)
+            CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Stencil Export").execute()
+            val plainId = StencilId(StencilKey.of("plain"), catalogId)
+            CreateStencil(id = plainId, name = "Plain", content = stencilContentWithRoot("first-root")).execute()
+            UpdateStencil(plainId, content = stencilContentWithRoot("edited-root")).execute()
             CreateStencil(
-                id = draftOnlyId,
-                name = "Draft Only",
-                content = stencilContentWithRoot("draft-only-root"),
+                id = StencilId(StencilKey.of("reader"), catalogId),
+                name = "Reader",
+                content = stencilContentWithRoot("reader-root"),
+                readsTemplateData = true,
             ).execute()
 
-            // Stencil B: v1 published with one content, v2 draft with newer content
-            val publishedKey = StencilKey.of("published-with-newer-draft")
-            val publishedId = StencilId(publishedKey, catalogId)
-            CreateStencil(
-                id = publishedId,
-                name = "Published With Newer Draft",
-                content = stencilContentWithRoot("published-v1-root"),
-            ).execute()
-            PublishStencilVersion(
-                versionId = StencilVersionId(VersionKey.of(1), publishedId),
-            ).execute()
-            CreateStencilVersion(
-                stencilId = publishedId,
-                content = stencilContentWithRoot("newer-draft-v2-root"),
-            ).execute()
+            val exported = ExportStencils(tenantKey = tenant.id, catalogKey = catalogKey).query().associateBy { it.key }
 
-            val exported = ExportStencils(
-                tenantKey = tenantKey,
-                catalogKey = catalogKey,
-            ).query()
-
-            assertThat(exported.map { it.key }).doesNotContain(draftOnlyKey.value)
-
-            val publishedExport = exported.single { it.key == publishedKey.value }
-            assertThat(publishedExport.content.root).isEqualTo("published-v1-root")
+            assertThat(exported.keys).containsExactlyInAnyOrder("plain", "reader")
+            assertThat(exported.getValue("plain").content.root).isEqualTo("edited-root")
+            assertThat(exported.getValue("plain").readsTemplateData).isFalse()
+            assertThat(exported.getValue("reader").readsTemplateData).isTrue()
         }
     }
 
     @Test
-    fun `import installs stencil version as published, not draft`() {
-        val tenant = createTenant("Stencil Import Status")
-        val tenantKey = tenant.id
-        val tenantId = TenantId(tenantKey)
-        val sourceCatalogKey = CatalogKey.of("stencil-import-source")
-        val sourceCatalogId = CatalogId(sourceCatalogKey, tenantId)
-        val targetCatalogKey = CatalogKey.of("stencil-import-target")
-        val targetCatalogId = CatalogId(targetCatalogKey, tenantId)
+    fun `importing a stencil installs it as the working copy, and a re-import replaces it`() {
+        val tenant = createTenant("Stencil Import")
+        val tenantId = TenantId(tenant.id)
+        val catalogKey = CatalogKey.of("stencil-import")
+        val stencilId = StencilId(StencilKey.of("imported"), CatalogId(catalogKey, tenantId))
+        fun import(root: String, readsTemplateData: Boolean = false) = ImportStencil(
+            tenantId = tenantId,
+            catalogKey = catalogKey,
+            slug = "imported",
+            name = "Imported",
+            content = stencilContentWithRoot(root),
+            readsTemplateData = readsTemplateData,
+        ).execute()
 
         withMediator {
-            CreateCatalog(tenantKey = tenantKey, id = sourceCatalogKey, name = "Source").execute()
-            CreateCatalog(tenantKey = tenantKey, id = targetCatalogKey, name = "Target").execute()
+            CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Stencil Import").execute()
 
-            val stencilSlug = StencilKey.of("import-status-stencil")
-            CreateStencil(
-                id = StencilId(stencilSlug, sourceCatalogId),
-                name = "Import Status",
-                content = stencilContentWithRoot("published-root"),
-            ).execute()
-            PublishStencilVersion(
-                versionId = StencilVersionId(VersionKey.of(1), StencilId(stencilSlug, sourceCatalogId)),
-            ).execute()
+            assertThat(import("first-root")).isEqualTo(InstallStatus.INSTALLED)
+            assertThat(GetStencil(stencilId).query()!!.content.root).isEqualTo("first-root")
 
-            val exported = ExportStencils(tenantKey = tenantKey, catalogKey = sourceCatalogKey).query()
-            val resource = exported.single { it.key == stencilSlug.value }
+            // Local edits are replaced by the next import: the archive is the source.
+            UpdateStencil(stencilId, content = stencilContentWithRoot("local-root")).execute()
+            assertThat(import("second-root", readsTemplateData = true)).isEqualTo(InstallStatus.UPDATED)
 
-            ImportStencil(
-                tenantId = tenantId,
-                catalogKey = targetCatalogKey,
-                slug = resource.key,
-                version = null,
-                name = resource.name,
-                description = resource.description,
-                tags = resource.tags,
-                content = resource.content,
-            ).execute()
-
-            val versions = app.epistola.suite.stencils.queries.ListStencilVersions(
-                stencilId = StencilId(stencilSlug, targetCatalogId),
-            ).query()
-            assertThat(versions).hasSize(1)
-            assertThat(versions.single().status)
-                .isEqualTo(app.epistola.suite.stencils.model.StencilVersionStatus.PUBLISHED)
-            assertThat(versions.single().publishedAt).isNotNull()
-        }
-    }
-
-    @Test
-    fun `import supersedes existing draft and installs published version`() {
-        val tenant = createTenant("Stencil Import Supersedes Draft")
-        val tenantKey = tenant.id
-        val tenantId = TenantId(tenantKey)
-        val catalogKey = CatalogKey.of("stencil-import-supersedes")
-        val catalogId = CatalogId(catalogKey, tenantId)
-
-        withMediator {
-            CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Supersedes").execute()
-
-            val stencilSlug = StencilKey.of("supersedes-stencil")
-            val stencilId = StencilId(stencilSlug, catalogId)
-            // Local state: v1 published, v2 draft (work-in-progress)
-            CreateStencil(id = stencilId, name = "Supersedes", content = stencilContentWithRoot("v1-root")).execute()
-            PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
-            CreateStencilVersion(stencilId = stencilId, content = stencilContentWithRoot("local-draft-root")).execute()
-
-            // Simulate a re-import with new content (e.g. from an updated remote catalog).
-            // The wire format now carries the source version: this represents a
-            // republish of v2 from the source catalog, replacing the local draft.
-            ImportStencil(
-                tenantId = tenantId,
-                catalogKey = catalogKey,
-                slug = stencilSlug.value,
-                version = 2,
-                name = "Supersedes",
-                content = stencilContentWithRoot("imported-root"),
-            ).execute()
-
-            val versions = app.epistola.suite.stencils.queries.ListStencilVersions(stencilId = stencilId).query()
-            // Local draft v2 is gone; v1 (published) survives; new v2 lands as published.
-            assertThat(versions).hasSize(2)
-            assertThat(versions.map { it.status }).containsOnly(
-                app.epistola.suite.stencils.model.StencilVersionStatus.PUBLISHED,
-            )
+            val stored = GetStencil(stencilId).query()!!
+            assertThat(stored.content.root).isEqualTo("second-root")
+            assertThat(stored.readsTemplateData).isTrue()
         }
     }
 
@@ -946,7 +865,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
         val zipBytes = withMediator {
             CreateCatalog(tenantKey = source.id, id = catalogKey, name = "Stencil Params Round-Trip").execute()
 
-            // Parametrised stencil, published as v1.
+            // Parametrised stencil.
             val stencilKey = StencilKey.of("greeting")
             val stencilId = StencilId(stencilKey, sourceCatalogId)
             CreateStencil(
@@ -955,7 +874,6 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 content = stencilContentWithRoot("greeting-root"),
                 parameterSchema = parameterSchema,
             ).execute()
-            PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
 
             // Template embedding the stencil with a binding + snapshot, published.
             val templateId = TemplateId(templateKey, sourceCatalogId)
@@ -985,12 +903,8 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 assertThat(result.status).isNotEqualTo(InstallStatus.FAILED)
             }
 
-            // 1. The stencil version's parameter_schema survived export + import.
-            val versions = app.epistola.suite.stencils.queries.ListStencilVersions(
-                stencilId = StencilId(StencilKey.of("greeting"), targetCatalogId),
-            ).query()
-            assertThat(versions).hasSize(1)
-            assertThat(versions.single().parameterSchema).isEqualTo(parameterSchema)
+            // 1. The stencil's parameter_schema survived export + import.
+            assertThat(GetStencil(StencilId(StencilKey.of("greeting"), targetCatalogId)).query()!!.parameterSchema).isEqualTo(parameterSchema)
 
             // 2. The consuming template's stencil node kept its parameter binding props.
             val imported = app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion(
@@ -1001,7 +915,8 @@ class CatalogExportImportTest : IntegrationTestBase() {
             assertThat(stencilNode.props?.get("parameterBindings"))
                 .isEqualTo(mapOf("recipientName" to "'Alice'"))
             assertThat(stencilNode.props?.get("paramsAlias")).isEqualTo("params")
-            assertThat(stencilNode.props?.get("parameterSchemaSnapshot")).isNotNull()
+            // The schema is the stencil's, read when the instance expands; the stored form keeps no copy.
+            assertThat(stencilNode.props).doesNotContainKey("parameterSchemaSnapshot")
 
             // 3. The imported template renders end-to-end with its bound parameter.
             //    (Text-level parameter rendering is asserted by StencilParameterRenderTest
@@ -1019,57 +934,32 @@ class CatalogExportImportTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `re-importing a stencil version with a different parameter schema is a conflict, not a skip`() {
-        // Issue #383 idempotency probe: the parameter schema is part of a
-        // version's identity. A re-import carrying byte-identical content but a
-        // *different* parameter_schema must be a genuine conflict (FAIL throws;
-        // RENUMBER writes MAX+1), not a false-positive idempotent SKIP. Content
-        // is held constant across every import so only the schema varies.
-        val tenant = createTenant("Stencil Schema Conflict")
+    fun `re-importing a stencil with a different parameter schema is an update, not a skip`() {
+        // Issue #383 idempotency probe: the parameter schema is part of what a stencil is. A re-import
+        // with byte-identical content but a different schema must update, not skip.
+        val tenant = createTenant("Stencil Schema Change")
         val tenantId = TenantId(tenant.id)
-        val catalogKey = CatalogKey.of("schema-conflict")
-        val content = stencilContentWithRoot("conflict-root")
+        val catalogKey = CatalogKey.of("schema-change")
+        val content = stencilContentWithRoot("schema-root")
+        val schemaA: Map<String, Any?> = mapOf("type" to "object", "properties" to mapOf("a" to mapOf("type" to "string")))
+        val schemaB: Map<String, Any?> = mapOf("type" to "object", "properties" to mapOf("b" to mapOf("type" to "string")))
 
-        val schemaA: Map<String, Any?> = mapOf(
-            "type" to "object",
-            "properties" to mapOf("a" to mapOf("type" to "string")),
-        )
-        val schemaB: Map<String, Any?> = mapOf(
-            "type" to "object",
-            "properties" to mapOf("b" to mapOf("type" to "string")),
-        )
-
-        fun importWidget(
-            parameterSchema: Map<String, Any?>?,
-            onConflict: OnStencilConflict = OnStencilConflict.FAIL,
-        ) = ImportStencil(
+        fun importWidget(parameterSchema: Map<String, Any?>?) = ImportStencil(
             tenantId = tenantId,
             catalogKey = catalogKey,
             slug = "widget",
-            version = 1,
             name = "Widget",
             content = content,
             parameterSchema = parameterSchema,
-            onConflict = onConflict,
-        )
+        ).execute()
 
         withMediator {
-            CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Schema Conflict").execute()
+            CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Schema Change").execute()
 
-            // First import establishes (slug=widget, v1) with schema A.
-            assertThat(importWidget(schemaA).execute().status).isEqualTo(InstallStatus.INSTALLED)
-
-            // Same content, same schema → idempotent re-import is a SKIP.
-            assertThat(importWidget(schemaA).execute().status).isEqualTo(InstallStatus.SKIPPED)
-
-            // Same content, DIFFERENT schema, FAIL (default) → genuine conflict.
-            assertThatThrownBy { importWidget(schemaB).execute() }
-                .isInstanceOf(StencilVersionConflictException::class.java)
-
-            // Same content, DIFFERENT schema, RENUMBER → installs as MAX+1 (v2).
-            val renumbered = importWidget(schemaB, OnStencilConflict.RENUMBER).execute()
-            assertThat(renumbered.wasRenumbered).isTrue()
-            assertThat(renumbered.assignedVersion).isEqualTo(2)
+            assertThat(importWidget(schemaA)).isEqualTo(InstallStatus.INSTALLED)
+            assertThat(importWidget(schemaA)).isEqualTo(InstallStatus.SKIPPED)
+            assertThat(importWidget(schemaB)).isEqualTo(InstallStatus.UPDATED)
+            assertThat(importWidget(null)).isEqualTo(InstallStatus.UPDATED)
         }
     }
 
@@ -1095,8 +985,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                     type = "stencil",
                     slots = listOf("stencil1-slot"),
                     props = mapOf(
-                        "stencilId" to stencilSlug,
-                        "version" to 1,
+                        "stencilKey" to stencilSlug,
                         "parameterSchemaSnapshot" to schemaSnapshot,
                         "parameterBindings" to mapOf("recipientName" to "'Alice'"),
                         "paramsAlias" to "params",
@@ -1145,7 +1034,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 id = "image1",
                 type = "image",
                 slots = emptyList(),
-                props = mapOf("assetId" to assetId, "catalogKey" to catalogKey),
+                props = mapOf("imageKey" to assetId, "catalogKey" to catalogKey),
             ),
         ),
         slots = mapOf(

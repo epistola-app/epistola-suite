@@ -12,6 +12,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.stencils.StencilResolvers
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.templateAtAddress
 import app.epistola.template.model.TemplateDocument
@@ -28,6 +29,10 @@ data class EditorContext(
     val templateThemeKey: ThemeKey?,
     val templateThemeCatalogKey: CatalogKey?,
     val variantAttributes: Map<String, String>,
+    /**
+     * The variant's document with its stencil instances expanded from the stencils' working copies
+     * (contract ADR 0006), as the author sees it. Saving it stores the reference form again.
+     */
     val templateModel: TemplateDocument,
     val dataExamples: List<DataExample>,
     val dataModel: ObjectNode?,
@@ -49,6 +54,7 @@ data class GetEditorContext(
 class GetEditorContextHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val stencilResolvers: StencilResolvers,
 ) : QueryHandler<GetEditorContext, EditorContext?> {
     override fun handle(query: GetEditorContext): EditorContext? = jdbi.withHandle<EditorContext?, Exception> { handle ->
         val row = handle.createQuery(
@@ -135,7 +141,7 @@ class GetEditorContextHandler(
             templateThemeKey = (row["theme_key"] as String?)?.let(ThemeKey::of),
             templateThemeCatalogKey = (row["theme_catalog_key"] as String?)?.let(CatalogKey::of),
             variantAttributes = variantAttributes,
-            templateModel = templateModel,
+            templateModel = stencilResolvers.expandWithWorkingCopies(query.variantId.tenantKey, query.variantId.catalogKey, templateModel),
             dataExamples = dataExamples,
             dataModel = row["data_model"]?.let { raw ->
                 val json = raw.toString()

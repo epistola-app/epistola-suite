@@ -145,7 +145,7 @@ class CatalogUpgradeAnalyzer(
               AND tv.status IN ('draft', 'published')
               AND n.value ->> 'type' = 'stencil'
               AND n.value -> 'props' ->> 'catalogKey' = :cStr
-              AND n.value -> 'props' ->> 'stencilId' = :slug
+              AND n.value -> 'props' ->> 'stencilKey' = :slug
             """,
         ).bind("t", tenantKey).bind("c", catalogKey).bind("cStr", catalogKey.value).bind("slug", slug)
             .map { rs, _ -> "Stencil '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
