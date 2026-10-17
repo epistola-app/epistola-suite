@@ -154,130 +154,120 @@
     <th:block th:fragment="release-dialog">
         <dialog id="release-dialog" class="ep-dialog">
             <div class="ep-dialog-header">
-                <h3 th:text="${readiness.drafts.severalDrafts and readiness.draftVersion != null} ? 'Release draft v' + ${readiness.draftVersion} : 'Release new version'">Release new version</h3>
+                <h3 th:text="${readiness.drafts.fixing} ? 'Publish fix of ' + ${readiness.drafts.catalogName} + ' v' + ${readiness.drafts.fixOf} : 'Publish ' + ${readiness.drafts.catalogName}">Publish Letters</h3>
             </div>
             <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
                   hx-target="#release-dialog-container" hx-swap="innerHTML">
                 <div th:replace="~{epistola-web/form-error :: form-error(id='release-catalog-error')}"></div>
                 <div class="ep-dialog-body">
-                    <div class="form-group">
-                        <span class="ep-label">Current published version</span>
-                        <p style="margin: var(--ep-space-1) 0 0;">
-                            <strong th:if="${status.latestVersion != null}" th:text="'v' + ${status.latestVersion}"></strong>
-                            <strong th:if="${status.latestVersion == null}" class="text-muted">none — not published yet</strong>
-                            <span class="form-hint" th:if="${status.latestVersion != null and changes.hasUnreleasedChanges}">· this working copy has unreleased changes</span>
-                            <span class="form-hint" th:if="${status.latestVersion != null and !changes.hasUnreleasedChanges}">· no changes since the last release</span>
+                    <!--/* Publish, for people who are not technical (docs/catalog-workspace-navigation.md):
+                           what changes, what that means for whatever is connected, and the number it
+                           gets — picked for them from the kind of change. Ready marks are set as part
+                           of publishing; only what publishing cannot do itself stops it, in a sentence. */-->
+                    <p th:if="${readiness.nothingToPublish}" data-testid="publish-nothing">
+                        Nothing has changed since <span th:text="'v' + ${status.latestVersion}">v1.0.0</span> was published,
+                        so there is nothing to publish.
+                    </p>
+
+                    <th:block th:unless="${readiness.nothingToPublish}">
+                    <div class="form-group" data-testid="publish-changes">
+                        <span class="ep-label">What changes</span>
+                        <p th:if="${!changes.baselineAvailable}" class="form-hint">
+                            The previous version was published before Epistola kept track of its contents, so the
+                            changes cannot be listed this time. From now on they can.
                         </p>
+                        <ul th:if="${changes.baselineAvailable}" style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
+                            <li th:each="change : ${readiness.changedForPeople}" data-testid="publish-change">
+                                <span th:text="${change.state.name() == 'NEW'} ? 'Added' : (${change.state.name() == 'REMOVED'} ? 'Removed' : 'Changed')">Changed</span>:
+                                <strong th:text="${change.name}">Invoice</strong>
+                                <span class="text-muted" th:text="'(' + ${change.kind} + ')'">(Template)</span>
+                            </li>
+                            <li th:if="${readiness.changedForPeople.isEmpty() and status.latestVersion == null}">
+                                Everything in the catalog: this is its first version.
+                            </li>
+                        </ul>
                     </div>
 
-                    <!--/* The same gate the catalog page uses (CatalogReleaseReadiness): while a
-                           changed resource is not ready or a dependency is unresolved, the release
-                           would be refused, so the dialog says why instead of offering it. */-->
-                    <div th:replace="~{catalogs/next-release :: number-too-low(readiness=${readiness})}"></div>
-                    <div th:if="${readiness.releaseBlocked}" class="alert alert-warning" data-testid="release-blocked">
+                    <div th:if="${readiness.impact != null and readiness.impact.name() == 'BREAKING'}" class="alert alert-warning" data-testid="publish-impact-breaking">
                         <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
                         <div>
-                            <div class="alert-title">This catalog cannot be released yet.</div>
-                            <p th:if="${!readiness.notReady.isEmpty()}" style="margin: var(--ep-space-1) 0 0;"
-                               data-testid="release-blocked-resources">
-                                Not marked ready:
-                                <span th:text="${#strings.listJoin(readiness.notReady.![type + ' ' + slug], ', ')}"></span>.
-                            </p>
-                            <p th:if="${!readiness.unresolvedDependencies.isEmpty()}" style="margin: var(--ep-space-1) 0 0;"
-                               data-testid="release-blocked-dependencies">
-                                Dependencies matching no release:
-                                <span th:text="${#strings.listJoin(readiness.unresolvedDependencies.![namespace + '/' + catalogKey + '@' + version], ', ')}"></span>.
-                            </p>
+                            <div class="alert-title">This can break what is connected to it</div>
                             <p style="margin: var(--ep-space-1) 0 0;">
-                                Fix this on the
-                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalogId})}">catalog page</a>,
-                                under <em>Next release</em>.
+                                Systems that send data to these templates, or catalogs that use this one, may need to change
+                                before this version is made live:
+                            </p>
+                            <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
+                                <li th:each="reason : ${readiness.impactReasons}" th:text="${reason}">template 'invoice': variant 'en' removed</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <p th:if="${readiness.impact != null and readiness.impact.name() == 'ADDITIVE'}" data-testid="publish-impact-additive">
+                        Adds new things. Everything that works with the current version keeps working.
+                    </p>
+                    <p th:if="${readiness.impact != null and readiness.impact.name() == 'NONE'}" data-testid="publish-impact-none">
+                        Only corrections. Everything that works with the current version keeps working.
+                    </p>
+
+                    <p th:if="${readiness.publishVersion != null}" data-testid="publish-version">
+                        It will be published as <strong th:text="'v' + ${releaseVersion}">v1.1.0</strong>.
+                    </p>
+
+                    <!--/* What blocks publishing that publishing cannot do itself, in a sentence each. */-->
+                    <div th:if="${readiness.publishBlocked}" class="alert alert-warning" data-testid="release-blocked">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+                        <div>
+                            <div class="alert-title">This cannot be published yet</div>
+                            <p th:if="${!readiness.unresolvedDependencies.isEmpty()}" style="margin: var(--ep-space-1) 0 0;"
+                               data-testid="release-blocked-dependencies"
+                               th:text="'It uses ' + ${#strings.listJoin(readiness.unresolvedDependencies.![catalogKey], ', ')} + ', which has no published version that fits yet. Publish that first.'">
+                                It uses shared, which has no published version that fits yet. Publish that first.</p>
+                            <p th:if="${!readiness.notReady.isEmpty() and !readiness.mayMarkReady}" style="margin: var(--ep-space-1) 0 0;"
+                               data-testid="release-blocked-resources">
+                                Some changes still have to be marked ready by a content author.
                             </p>
                         </div>
                     </div>
 
-                    <!--/* A draft behind releases (released after its base, below its number)
-                           does not contain their changes. The contract releases it only when each
-                           is acknowledged (`acknowledgedBehind`), so the dialog names them, with
-                           what they changed, and asks for one confirmation apiece. */-->
-                    <th:block th:if="${readiness.draftVersion != null and !readiness.drafts.behind.isEmpty()}">
-                        <div th:replace="~{catalogs/drafts :: behind-list(bar=${readiness.drafts})}"></div>
-                        <div class="form-group" data-testid="release-acknowledge-behind">
-                            <span class="ep-label">Release without</span>
-                            <label th:each="release : ${readiness.drafts.behind}"
-                                   style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-1);">
+                    <!--/* A published fix that this work does not contain: said in plain words, with
+                           one confirmation each, because the contract releases it only when each is
+                           acknowledged (`acknowledgedBehind`). */-->
+                    <div th:if="${readiness.draftVersion != null and !readiness.drafts.behind.isEmpty()}" class="form-group" data-testid="release-acknowledge-behind">
+                        <span class="ep-label">Published since you started</span>
+                        <div th:each="release : ${readiness.drafts.behind}" style="margin-top: var(--ep-space-1);">
+                            <p style="margin: 0;">
+                                <strong th:text="'v' + ${release.version}">v1.0.1</strong> was published after you started, and its
+                                changes are not in this work<span th:unless="${release.changes.isEmpty()}"
+                                    th:text="': ' + ${#strings.listJoin(release.changes.![key], ', ')}"></span>.
+                            </p>
+                            <label style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-1);">
                                 <input type="checkbox" name="acknowledgedBehind" required
                                        th:value="${release.version}"
                                        th:checked="${acknowledgedBehind != null and acknowledgedBehind.contains(release.version)}"
                                        data-testid="release-acknowledge-behind-checkbox">
-                                <span th:text="'This draft may be released without the changes of v' + ${release.version}">This draft may be released without v1.0.1</span>
+                                <span>I have made these changes here too, or they are not needed</span>
                             </label>
                         </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="ep-label" for="release-notes">What changed, in your words <span class="text-muted">(optional)</span></label>
+                        <textarea id="release-notes" name="notes" class="ep-textarea" rows="3"
+                                  placeholder="For example: new address on the invoice letter"></textarea>
+                    </div>
+
+                    <details data-testid="publish-advanced">
+                        <summary>Advanced</summary>
+                        <div class="form-group" style="margin-top: var(--ep-space-2);">
+                            <label class="ep-label" for="release-version">Version number</label>
+                            <input type="text" id="release-version" name="version" class="ep-input"
+                                   required pattern="^\d+\.\d+\.\d+$" maxlength="50"
+                                   th:value="${releaseVersion}">
+                            <span class="form-hint">Picked from the kind of change: corrections raise the last number,
+                                additions the middle one, breaking changes the first.</span>
+                        </div>
+                    </details>
                     </th:block>
 
-                    <!--/* What this release will contain that the last one did not, named rather
-                           than counted — the same shape the upgrade dialog uses below, because it
-                           answers the same question from the other side. Releasing is the moment
-                           the content becomes immutable, so it is the moment to look. */-->
-                    <p th:if="${!changes.baselineAvailable}" class="form-hint">
-                        The last release was cut before Epistola recorded which resources a release
-                        contained, and that cannot be reconstructed — so this catalog cannot say what
-                        changed since. Releasing this version records it, and the next release will say.
-                    </p>
-                    <div class="form-group" th:if="${changes.baselineAvailable and changes.hasUnreleasedChanges}">
-                        <span class="ep-label">This release will</span>
-                        <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
-                            <li th:if="${!changes.added.isEmpty()}">
-                                add <strong th:text="${changes.added.size()}"></strong> new
-                                <span class="form-hint"
-                                      th:text="${'(' + #strings.listJoin(changes.added.![type + '/' + slug], ', ') + ')'}"></span>
-                            </li>
-                            <li th:if="${!changes.modified.isEmpty()}">
-                                update <strong th:text="${changes.modified.size()}"></strong> changed
-                                <span class="form-hint"
-                                      th:text="${'(' + #strings.listJoin(changes.modified.![type + '/' + slug], ', ') + ')'}"></span>
-                            </li>
-                            <li th:if="${!changes.removed.isEmpty()}">
-                                drop <strong th:text="${changes.removed.size()}"></strong>
-                                <span class="form-hint"
-                                      th:text="${'(' + #strings.listJoin(changes.removed.![type + '/' + slug], ', ') + ')'}"></span>
-                            </li>
-                            <li th:if="${!changes.released.isEmpty()}" class="text-muted">
-                                carry <span th:text="${changes.released.size()}"></span> over unchanged
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="form-group">
-                        <span class="ep-label">Bump</span>
-                        <!--/* The version field below is pre-filled with the draft's number; the
-                               bump it matches, if any, is pressed. aria-pressed is what says so — to
-                               the eye via .ep-btn[aria-pressed="true"], and to a screen reader. */-->
-                        <div class="ep-row" style="margin-top: var(--ep-space-1);" role="group" aria-label="Bump">
-                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                    th:attr="data-version=${status.suggestedNext.patch},aria-pressed=${status.suggestedNext.patch == releaseVersion}"
-                                    th:text="'Patch → ' + ${status.suggestedNext.patch}"></button>
-                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                    th:attr="data-version=${status.suggestedNext.minor},aria-pressed=${status.suggestedNext.minor == releaseVersion}"
-                                    th:text="'Minor → ' + ${status.suggestedNext.minor}"></button>
-                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                    th:attr="data-version=${status.suggestedNext.major},aria-pressed=${status.suggestedNext.major == releaseVersion}"
-                                    th:text="'Major → ' + ${status.suggestedNext.major}"></button>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="ep-label" for="release-version">Version</label>
-                        <input type="text" id="release-version" name="version" class="ep-input"
-                               required pattern="^\d+\.\d+\.\d+$" maxlength="50"
-                               th:value="${releaseVersion}">
-                        <span class="form-hint">Semantic version: MAJOR.MINOR.PATCH.
-                            <th:block th:if="${readiness.draftVersion != null}">The next release is numbered
-                            <span th:text="'v' + ${readiness.draftVersion}"></span>; another number renumbers it as it is released.</th:block></span>
-                    </div>
-                    <div class="form-group">
-                        <label class="ep-label" for="release-notes">Release notes</label>
-                        <textarea id="release-notes" name="notes" class="ep-textarea" rows="3"
-                                  placeholder="What changed in this release?"></textarea>
-                    </div>
                     <!--
                       Nothing to publish into. Offering the instruction anyway is what strands
                       someone: ticking it makes the namespace field required, and that field has no
@@ -350,8 +340,8 @@
                 <div class="ep-dialog-footer">
                     <button type="button" class="ep-btn ep-btn-ghost"
                             data-close-dialog="release-dialog">Cancel</button>
-                    <button th:if="${readiness.offerRelease}" type="submit" class="ep-btn ep-btn-primary"
-                            data-testid="release-submit">Release</button>
+                    <button th:if="${readiness.offerPublish}" type="submit" class="ep-btn ep-btn-primary"
+                            data-testid="release-submit" th:text="${readiness.drafts.fixing} ? 'Publish fix' : 'Publish'">Publish</button>
                 </div>
             </form>
         </dialog>

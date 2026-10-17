@@ -71,7 +71,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `release dialog says why it cannot release and offers no submit`() = fixture {
+    fun `the publish dialog does not hold back for ready marks, which publishing sets itself`() = fixture {
         lateinit var tenant: Tenant
 
         given {
@@ -83,16 +83,15 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
 
         then {
             val body = result<ResponseEntity<String>>().body!!
-            assertThat(body).contains("data-testid=\"release-blocked\"")
-            assertThat(body).contains("template letter")
-            assertThat(body).doesNotContain("data-testid=\"release-submit\"")
+            assertThat(body).doesNotContain("data-testid=\"release-blocked\"")
+            assertThat(body).contains("data-testid=\"release-submit\"")
             // The version field is pre-filled with the draft's number.
             assertThat(body).contains("value=\"1.0.0\"")
         }
     }
 
     @Test
-    fun `a release posted while a resource is not ready is refused with the reason`() = fixture {
+    fun `a publish posted while a resource is not ready marks it ready and publishes`() = fixture {
         lateinit var tenant: Tenant
 
         given {
@@ -103,9 +102,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
         whenever { postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.0.0")) }
 
         then {
-            val body = result<ResponseEntity<String>>().body!!
-            assertThat(body).contains("not ready")
-            assertThat(withMediator { GetCatalog(tenant.id, CatalogKey.of("letters")).query() }!!.releasedVersion).isNull()
+            assertThat(withMediator { GetCatalog(tenant.id, CatalogKey.of("letters")).query() }!!.releasedVersion).isEqualTo("1.0.0")
         }
     }
 
@@ -202,7 +199,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `the catalog page and the release dialog say when the draft's number is too low for its changes`() = fixture {
+    fun `the catalog page says when the draft's number is too low, and the publish dialog picks the number that fits`() = fixture {
         lateinit var tenant: Tenant
 
         given {
@@ -221,7 +218,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(page).contains("data-testid=\"catalog-number-too-low\"")
             assertThat(page).contains("but its changes need v2.0.0 or higher.")
             assertThat(page).contains("template &#39;letter&#39;: removed")
-            assertThat(getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!).contains("data-testid=\"catalog-number-too-low\"")
+            assertThat(getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!).contains("It will be published as <strong>v2.0.0</strong>")
 
             // Renumbered to the major its changes need, the warning goes.
             postForm("/tenants/${tenant.id}/catalogs/letters/renumber", mapOf("to" to "2.0.0"))

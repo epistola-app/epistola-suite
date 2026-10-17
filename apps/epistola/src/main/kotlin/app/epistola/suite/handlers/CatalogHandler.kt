@@ -28,6 +28,7 @@ import app.epistola.suite.catalog.commands.ForgetReleaseContent
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
@@ -396,7 +397,8 @@ class CatalogHandler {
             "status" to status,
             "changes" to readiness.changes,
             "readiness" to readiness,
-            "releaseVersion" to (version ?: readiness.draftVersion ?: status.suggestedNext.patch),
+            // The number picked for the person from the kind of change; "advanced" may override it.
+            "releaseVersion" to (version ?: readiness.publishVersion ?: status.suggestedNext.patch),
             "publication" to publication,
             "error" to error,
         )
@@ -442,6 +444,12 @@ class CatalogHandler {
         return try {
             if (publicationChoice == ReleasePublication.PUBLISH) {
                 chooseNamespaceIfOffered(request, tenantId.key, catalogKey)
+            }
+            // Publishing marks the changes ready itself (docs/catalog-workspace-navigation.md): to the
+            // person, publishing is the decision that they are ready. Only for someone who may mark.
+            val readiness = CatalogReleaseReadiness.of(draftBar(tenantId, segment))
+            if (readiness.marksReadyOnPublish) {
+                MarkCatalogReady(tenantId.key, catalogKey, catalogVersion = segment.ref(tenantId.key)).execute()
             }
             val result = ReleaseCatalogVersion(
                 tenantKey = tenantId.key,

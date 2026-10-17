@@ -383,7 +383,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         }
         whenever {
             val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters@1.0.1/release").body!!
-            assertThat(dialog).contains("value=\"1.0.1\"").contains("Release draft v1.0.1")
+            assertThat(dialog).contains("value=\"1.0.1\"").contains("Publish fix of Letters v1.0.0")
             postForm("/tenants/${tenant.id}/catalogs/letters@1.0.1/release", mapOf("version" to "1.0.1"))
         }
         then {
