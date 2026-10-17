@@ -20,20 +20,20 @@
         <div class="card" data-testid="environment-deployments"
              th:with="canDeploy=${auth.has('ENVIRONMENT_DEPLOY')}">
             <div class="card-header">
-                <h2>Serves</h2>
+                <h2>Live here</h2>
             </div>
             <div class="card-body">
                 <p th:if="${deployments.isEmpty()}" class="text-muted">
-                    This environment serves no catalog yet, so generation naming it fails.
-                    <th:block th:if="${canDeploy and !releaseGroups.isEmpty()}">Deploy a release below.</th:block>
+                    Nothing is live here yet, so documents made here fail.
+                    <th:block th:if="${canDeploy and !releaseGroups.isEmpty()}">Make a version live below.</th:block>
                 </p>
-                <div th:if="${!deployments.isEmpty()}" class="ep-table-scroll" role="region" aria-label="Served releases" tabindex="0">
+                <div th:if="${!deployments.isEmpty()}" class="ep-table-scroll" role="region" aria-label="Live here" tabindex="0">
                 <table class="ep-table">
                     <thead>
                         <tr>
                             <th>Catalog</th>
-                            <th>Release</th>
-                            <th>Since</th>
+                            <th>Version</th>
+                            <th>Live since</th>
                             <th th:if="${canDeploy}"></th>
                         </tr>
                     </thead>
@@ -52,10 +52,10 @@
                                     <button type="button"
                                             class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
                                             data-confirm-submit
-                                            data-confirm-submit-title="Undeploy this release"
-                                            th:attr="data-confirm-submit-message=${environment.name} + ' stops serving ' + ${row.catalogName} + ' v' + ${row.version} + '. Generation here renders the highest other release of it this environment serves, and fails for its templates when there is none.'"
-                                            data-confirm-submit-label="Undeploy"
-                                            data-confirm-submit-class="ep-btn-destructive">Undeploy</button>
+                                            data-confirm-submit-title="Take this version offline"
+                                            th:attr="data-confirm-submit-message=${environment.name} + ' stops using ' + ${row.catalogName} + ' v' + ${row.version} + '. Documents made here use another live version of it, or fail when there is none.'"
+                                            data-confirm-submit-label="Take offline"
+                                            data-confirm-submit-class="ep-btn-destructive">Take offline</button>
                                 </form>
                             </td>
                         </tr>
@@ -65,26 +65,26 @@
 
                 <!--/* The select only renders when there is something in it (ui-affordances). */-->
                 <p th:if="${releaseGroups.isEmpty()}" class="text-muted" style="margin-top: var(--ep-space-4);">
-                    Nothing can be deployed yet: no catalog has a release that kept its content.
-                    <a th:href="@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})}">Release a catalog</a> first.
+                    Nothing can be made live yet: no catalog has a published version.
+                    <a th:href="@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})}">Publish a catalog</a> first.
                 </p>
                 <p th:if="${!canDeploy and !releaseGroups.isEmpty()}" class="text-muted" style="margin-top: var(--ep-space-4);">
-                    Deploying needs the permission to publish templates.
+                    Making a version live needs the permission to deploy.
                 </p>
                 <form th:if="${canDeploy and !releaseGroups.isEmpty()}" method="post" data-testid="environment-deploy-form"
                       style="display: flex; gap: var(--ep-space-2); align-items: flex-end; margin-top: var(--ep-space-4);"
                       th:action="@{/tenants/{tenantId}/environments/{environmentId}/deployments(tenantId=${tenantId},environmentId=${environment.id})}">
                     <div class="form-group" style="margin: 0;">
-                        <label class="ep-label" for="release">Deploy a release</label>
+                        <label class="ep-label" for="release">Make a version live</label>
                         <select id="release" name="release" class="ep-select" required>
                             <optgroup th:each="group : ${releaseGroups}" th:label="${group.catalogName}">
                                 <option th:each="version : ${group.versions}"
                                         th:value="${group.catalogKey} + '@' + ${version}"
-                                        th:text="${group.catalogName} + ' v' + ${version} + (${group.servedVersions.contains(version)} ? ' (serving)' : '')">Letters v1.0.0</option>
+                                        th:text="${group.catalogName} + ' v' + ${version} + (${group.servedVersions.contains(version)} ? ' (live)' : '')">Letters v1.0.0</option>
                             </optgroup>
                         </select>
                     </div>
-                    <button type="submit" class="ep-btn ep-btn-primary">Deploy</button>
+                    <button type="submit" class="ep-btn ep-btn-primary">Make live</button>
                 </form>
             </div>
         </div>
@@ -95,7 +95,7 @@
                 <h2>History</h2>
             </div>
             <div class="card-body">
-                <p th:if="${history.isEmpty()}" class="text-muted">Nothing has been deployed to this environment yet.</p>
+                <p th:if="${history.isEmpty()}" class="text-muted">Nothing has been made live here yet.</p>
                 <div th:if="${!history.isEmpty()}" class="ep-table-scroll" role="region" aria-label="Deployment history" tabindex="0">
                 <table class="ep-table">
                     <thead>
@@ -111,13 +111,13 @@
                             <td th:text="${#temporals.format(entry.changedAt, 'yyyy-MM-dd HH:mm')}"></td>
                             <td>
                                 <th:block th:if="${entry.deployed}">
-                                    <span th:text="'Deployed ' + ${entry.catalogName} + ' v' + ${entry.version}">Deployed Letters v1.0.1</span>
+                                    <span th:text="'Made ' + ${entry.catalogName} + ' v' + ${entry.version} + ' live'">Made Letters v1.0.1 live</span>
                                     <!--/* Only a deploy from before an environment served several releases replaced one. */-->
                                     <span th:if="${entry.previousVersion != null}" class="text-muted"
                                           th:text="'replacing v' + ${entry.previousVersion}">replacing v1.0.0</span>
                                 </th:block>
                                 <span th:unless="${entry.deployed}"
-                                      th:text="'Undeployed ' + ${entry.catalogName} + ' v' + ${entry.version}">Undeployed Letters v1.0.0</span>
+                                      th:text="'Took ' + ${entry.catalogName} + ' v' + ${entry.version} + ' offline'">Took Letters v1.0.0 offline</span>
                             </td>
                             <td th:text="${entry.changedByName ?: 'System'}"></td>
                             <td class="actions" th:if="${canDeploy}">
@@ -125,7 +125,7 @@
                                       th:action="@{/tenants/{tenantId}/environments/{environmentId}/deployments(tenantId=${tenantId},environmentId=${environment.id})}">
                                     <input type="hidden" name="release" th:value="${entry.catalogKey} + '@' + ${entry.version}">
                                     <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm"
-                                            th:text="'Deploy v' + ${entry.version} + ' again'">Deploy v1.0.0 again</button>
+                                            th:text="'Make v' + ${entry.version} + ' live again'">Make v1.0.0 live again</button>
                                 </form>
                             </td>
                         </tr>

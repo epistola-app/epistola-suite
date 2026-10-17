@@ -62,14 +62,14 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
 
         val body = page(tenant, "production")
 
-        assertThat(body).contains("<h2>Serves</h2>").contains("<h2>History</h2>")
+        assertThat(body).contains("<h2>Live here</h2>").contains("<h2>History</h2>")
         assertThat(body).contains("data-catalog=\"letters\" data-version=\"1.0.1\"").contains("data-catalog=\"letters\" data-version=\"1.0.0\"")
         assertThat(body).contains("name=\"version\" value=\"1.0.1\"").contains("name=\"version\" value=\"1.0.0\"")
-        assertThat(body).contains("Deployed letters v1.0.1").doesNotContain("replacing v")
+        assertThat(body).contains("Made letters v1.0.1 live").doesNotContain("replacing v")
         // The deploy select lists the catalog's releases, marking each one served.
-        assertThat(body).contains("letters v1.0.1 (serving)").contains("letters v1.0.0 (serving)")
+        assertThat(body).contains("letters v1.0.1 (live)").contains("letters v1.0.0 (live)")
         assertThat(body).`as`("both are served, so neither is offered again")
-            .doesNotContain("Deploy v1.0.0 again").doesNotContain("Deploy v1.0.1 again")
+            .doesNotContain("Make v1.0.0 live again").doesNotContain("Make v1.0.1 live again")
     }
 
     @Test
@@ -95,7 +95,7 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
         post("/tenants/${tenant.id.value}/environments/production/deployments/letters/undeploy", "version" to "1.0.1")
 
         assertThat(withMediator { ListDeployments(tenant.id, environmentKey = production.key).query() }.map { it.version }).containsExactly("1.0.0")
-        assertThat(page(tenant, "production")).contains("Undeployed letters v1.0.1").contains("Deploy v1.0.1 again")
+        assertThat(page(tenant, "production")).contains("Took letters v1.0.1 offline").contains("Make v1.0.1 live again")
     }
 
     @Test
@@ -154,7 +154,7 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
 
         val body = page(tenant, "production")
 
-        assertThat(body).contains("Nothing can be deployed yet").contains("Nothing has been deployed to this environment yet")
+        assertThat(body).contains("Nothing can be made live yet").contains("Nothing has been made live here yet")
         assertThat(body).doesNotContain("name=\"release\"")
     }
 
