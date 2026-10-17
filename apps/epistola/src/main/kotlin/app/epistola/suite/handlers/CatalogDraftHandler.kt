@@ -105,7 +105,7 @@ class CatalogDraftHandler(
         } catch (e: ValidationException) {
             return refused(if (e.field == "from") "from" else "version", e.message)
         }
-        val target = CatalogPages.browse(tenantId, landing(tenantId, segment, version))
+        val target = CatalogPages.draft(tenantId, landing(tenantId, segment, version))
         return if (fromDialog) {
             request.htmx {
                 dialogLocation(target)
@@ -137,11 +137,12 @@ class CatalogDraftHandler(
     }
 
     /**
-     * `POST /{catalogId}/fixes` with `of`: starts a fix of published version `of`
-     * (docs/catalog-workspace-navigation.md) and lands on the catalog page in it, under the fix banner.
+     * `POST /{catalogId}/fixes` with `of`: starts a draft next to the next version from
+     * published version `of` — an in-between version (docs/catalog-workspace-navigation.md, use case
+     * 3) — and lands on its page.
      *
-     * A fix is a draft numbered as the next patch of `of`, copying its content. When your work holds
-     * that number — it usually does, as publishing opens your work as the next patch — your work moves
+     * It is a draft numbered as the next patch of `of`, copying its content. When the next version holds
+     * that number — it usually does, as publishing opens the next version as the next patch — it moves
      * up a minor first: people never see its number, which Publish picks from the kind of change.
      * Offered only on what [CatalogDraftBar.fixableVersions] allows; a fix already open is continued.
      */
@@ -151,7 +152,7 @@ class CatalogDraftHandler(
         val segment = request.catalogSegment().at(null)
         val of = request.param("of").orElse("").trim()
         val bar = bar(tenantId, segment)
-        bar.openFixOf[of]?.let { open -> return ServerResponse.status(303).header("Location", CatalogPages.browse(tenantId, segment.at(open))).build() }
+        bar.openFixOf[of]?.let { open -> return ServerResponse.status(303).header("Location", CatalogPages.draft(tenantId, segment.at(open))).build() }
         if (of !in bar.fixableVersions) return catalogs.browseWithError(request, segment, "v$of cannot be fixed: only the newest published version of a line, with its content kept, can.")
         val fix = SemVer.parse(of).bumpPatch().toString()
         val versions = bar.drafts + bar.releases
@@ -166,10 +167,10 @@ class CatalogDraftHandler(
         } catch (e: RuntimeException) {
             return catalogs.browseWithError(request, segment, e.message ?: "The fix could not be started.")
         }
-        return ServerResponse.status(303).header("Location", CatalogPages.browse(tenantId, segment.at(fix))).build()
+        return ServerResponse.status(303).header("Location", CatalogPages.draft(tenantId, segment.at(fix))).build()
     }
 
-    private fun bar(tenantId: TenantId, segment: CatalogSegment): CatalogDraftBar = CatalogDraftBar.of(tenantId.key, segment) { CatalogPages.browse(tenantId, it) }
+    private fun bar(tenantId: TenantId, segment: CatalogSegment): CatalogDraftBar = CatalogDraftBar.of(tenantId.key, segment) { CatalogPages.draft(tenantId, it) }
 
     /** The segment of draft [version] after it was opened: plain when it is the current (highest) draft. */
     private fun landing(tenantId: TenantId, segment: CatalogSegment, version: String): CatalogSegment {

@@ -54,6 +54,7 @@ import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.catalog.queries.ResourceStatus
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.catalog.versions.CatalogVersionBehindException
+import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
@@ -87,6 +88,7 @@ import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.requirePermission
 import app.epistola.suite.validation.FieldLimits
 import app.epistola.suite.validation.ValidationException
@@ -346,12 +348,19 @@ class CatalogHandler {
         val release = GetCatalogRelease(tenantId.key, catalogKey, version).query()
             ?: return listWithError(request, "Catalog '${catalogKey.value}' has no release $version.")
 
+        // What may be done with it: the same decisions the catalog page used to make per row.
+        val publication = GetCatalogPublicationState(tenantId.key, catalogKey).query()
+        val summary = ListCatalogReleases(tenantId.key, catalogKey).query().firstOrNull { it.version == version }
+        val bar = draftBar(tenantId, CatalogSegment(catalogKey, null))
         return ServerResponse.ok().page("catalogs/release") {
-            "pageTitle" to "${release.catalog.name} v$version - Release - Epistola"
+            "pageTitle" to "${release.catalog.name} v$version - Published version - Epistola"
             "tenantId" to tenantId.key
             "activeNavSection" to "catalogs"
             "catalogId" to catalogKey.value
             "release" to release
+            "releaseView" to summary?.let { releaseViews(listOf(it), publication).single() }
+            "draftBar" to bar
+            "liveIn" to bar.liveIn[version].orEmpty()
             "keywords" to release.catalog.keywords.sorted()
         }
     }
@@ -530,7 +539,7 @@ class CatalogHandler {
         return try {
             ForgetReleaseContent(tenantId.key, catalogKey, request.pathVariable("version")).execute()
             ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
+                .header("Location", CatalogPages.release(tenantId.key, catalogKey, request.pathVariable("version")))
                 .build()
         } catch (failure: ReleaseInUseException) {
             browse(request, error = failure.message)
@@ -737,28 +746,76 @@ class CatalogHandler {
         }
     }
 
-    fun browse(request: ServerRequest): ServerResponse = browse(request, error = null)
+    /**
+     * `GET /{catalogId}/browse`: the catalog page — the next version, every version, where each is
+     * live (docs/catalog-workspace-navigation.md). It is about the catalog, not one version, so a
+     * segment naming a version goes to that version's own page.
+     */
+    fun browse(request: ServerRequest): ServerResponse {
+        val segment = request.catalogSegment()
+        if (segment.version != null) {
+            return ServerResponse.status(303).header("Location", CatalogPages.draft(request.tenantId(), segment)).build()
+        }
+        return browse(request, error = null)
+    }
 
     /**
-     * The catalog page at [segment] with [message] shown in its Next release section: a draft action
-     * the catalog refused, such as discarding a draft that alone holds the tenant's default theme.
+     * `GET /{catalogId}/draft`: a draft's own page — what is not published yet, its contents and its
+     * details. A plain segment is the next version; `key@version` another draft. A published version
+     * has its own page, a subscribed catalog no drafts, and a catalog with nothing open its catalog
+     * page, which offers to start; each goes there instead.
      */
-    fun browseWithError(request: ServerRequest, segment: CatalogSegment, message: String): ServerResponse = browse(request, error = null, draftError = message, segmentOverride = segment)
+    fun draftPage(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val segment = request.catalogSegment()
+        val bar = try {
+            draftBar(tenantId, segment)
+        } catch (e: CatalogVersionReleasedException) {
+            return ServerResponse.status(303).header("Location", CatalogPages.release(tenantId.key, segment.key, segment.version!!)).build()
+        }
+        if (bar.chosen == null) return ServerResponse.status(303).header("Location", CatalogPages.browse(tenantId, segment)).build()
+        return catalogPage(request, "catalogs/version", segment, bar, error = null)
+    }
 
-    private fun draftBar(tenantId: TenantId, segment: CatalogSegment): CatalogDraftBar = CatalogDraftBar.of(tenantId.key, segment) { CatalogPages.browse(tenantId, it) }
+    /**
+     * The page a draft action refused on, with [message] shown: the draft's own page when [segment]
+     * names an open draft, such as discarding one that alone holds the tenant's default theme, else
+     * the catalog page.
+     */
+    fun browseWithError(request: ServerRequest, segment: CatalogSegment, message: String): ServerResponse {
+        val tenantId = request.tenantId()
+        val bar = draftBar(tenantId, segment)
+        return if (bar.chosen != null) {
+            catalogPage(request, "catalogs/version", segment, bar, error = null, draftError = message)
+        } else {
+            catalogPage(request, "catalogs/browse", segment.at(null), draftBar(tenantId, segment.at(null)), error = null, draftError = message)
+        }
+    }
+
+    private fun draftBar(tenantId: TenantId, segment: CatalogSegment): CatalogDraftBar = CatalogDraftBar.of(tenantId.key, segment) { CatalogPages.draft(tenantId, it) }
 
     private fun browse(
         request: ServerRequest,
         error: String?,
         deployRefusal: DeployRefusalView? = null,
-        draftError: String? = null,
-        segmentOverride: CatalogSegment? = null,
     ): ServerResponse {
         val tenantId = request.tenantId()
-        val segment = segmentOverride ?: request.catalogSegment()
+        val segment = request.catalogSegment().at(null)
+        return catalogPage(request, "catalogs/browse", segment, draftBar(tenantId, segment), error, deployRefusal)
+    }
+
+    /** The catalog page or a draft's page ([template]): both show the catalog at [segment]. */
+    private fun catalogPage(
+        request: ServerRequest,
+        template: String,
+        segment: CatalogSegment,
+        drafts: CatalogDraftBar,
+        error: String?,
+        deployRefusal: DeployRefusalView? = null,
+        draftError: String? = null,
+    ): ServerResponse {
+        val tenantId = request.tenantId()
         val catalogKey = segment.key
-        // Which draft the page works in: the route names it (`letters@2.0.0`), or the current one.
-        val drafts = draftBar(tenantId, segment)
         val version = drafts.ref
 
         return try {
@@ -779,25 +836,7 @@ class CatalogHandler {
             // Only a release that kept its content can be deployed; one cut before releases retained
             // content has nothing to render from. Newest first, as the list is.
             val deployableVersions = releases.filter { it.retained }.map { it.version }
-            // Each release with its two affordances already decided. The template gates on one
-            // name apiece rather than assembling the conjunction itself -- the catalog being able
-            // to publish at all, this release having content to send, and it not having been sent
-            // are three facts from three places, and a screen that ANDs them is a rule with no home.
-            val publishedVersions = publication?.publications.orEmpty().mapTo(HashSet()) { it.version }
-            val releaseViews = releases.map { release ->
-                CatalogReleaseView(
-                    release = release,
-                    published = release.version in publishedVersions,
-                    // Nothing to forget about a release that kept nothing, which is also the state
-                    // forgetting one leaves behind -- so the action disappears once it has been used.
-                    forgettable = release.retained,
-                    publishable = release.retained &&
-                        publication != null &&
-                        publication.canPublish &&
-                        publication.hasPublishableDestination &&
-                        release.version !in publishedVersions,
-                )
-            }
+            val releaseViews = releaseViews(releases, publication)
             // The catalog's page on Exchange, when it came from there. Null for a plain URL
             // subscription, a ZIP import, or an authored catalog — the view falls back to the text
             // it rendered before. Resolved once per page: the rows append to it themselves.
@@ -808,10 +847,31 @@ class CatalogHandler {
             // left the button offering to install what was already installed.
             val hasUninstalledResources = result.resources.any { it.status == ResourceStatus.AVAILABLE }
             // Only an authored catalog has a next release to prepare.
-            val readiness = if (result.catalog.type == CatalogType.AUTHORED) CatalogReleaseReadiness.of(drafts) else null
+            val authored = result.catalog.type == CatalogType.AUTHORED
+            val readiness = if (authored) CatalogReleaseReadiness.of(drafts) else null
+            val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
+            // From a new catalog to an application generating from it; until something is live.
+            val gettingStarted = if (authored) {
+                CatalogGettingStarted(
+                    catalogKey = catalogKey.value,
+                    templateKey = result.resources.firstOrNull { it.type == "template" }?.slug,
+                    published = releases.isNotEmpty(),
+                    environmentKeys = deployments.map { it.environmentKey },
+                    liveIn = deployments.filter { it.served.isNotEmpty() }.map { it.environmentKey },
+                    mayEdit = auth.has(Permission.TEMPLATE_EDIT),
+                    mayPublish = auth.has(Permission.CATALOG_RELEASE),
+                    mayDeploy = auth.has(Permission.ENVIRONMENT_DEPLOY),
+                )
+            } else {
+                null
+            }
 
-            ServerResponse.ok().page("catalogs/browse") {
-                "pageTitle" to "${result.catalog.name} - Catalog - Epistola"
+            ServerResponse.ok().page(template) {
+                "pageTitle" to if (template == "catalogs/version") {
+                    "${drafts.draftTitle} - ${result.catalog.name} - Epistola"
+                } else {
+                    "${result.catalog.name} - Catalog - Epistola"
+                }
                 "tenantId" to tenantId.key
                 "activeNavSection" to "catalogs"
                 "catalog" to result.catalog
@@ -819,6 +879,7 @@ class CatalogHandler {
                 "catalogId" to segment.value
                 "draftBar" to drafts
                 "readiness" to readiness
+                "gettingStarted" to gettingStarted
                 if (draftError != null) "nextReleaseError" to draftError
                 "exchangeCatalogUrl" to exchangeCatalogUrl
                 "publication" to publication
@@ -842,6 +903,30 @@ class CatalogHandler {
         } catch (e: Exception) {
             logger.warn("Failed to browse catalog: ${e.message}", e)
             listWithError(request, "Failed to fetch catalog. The remote server may be unavailable or the URL may be incorrect.")
+        }
+    }
+
+    /**
+     * Each release with its affordances already decided. The template gates on one name apiece rather
+     * than assembling the conjunction itself -- the catalog being able to publish at all, this release
+     * having content to send, and it not having been sent are three facts from three places, and a
+     * screen that ANDs them is a rule with no home.
+     */
+    private fun releaseViews(releases: List<CatalogReleaseSummary>, publication: CatalogPublicationState?): List<CatalogReleaseView> {
+        val publishedVersions = publication?.publications.orEmpty().mapTo(HashSet()) { it.version }
+        return releases.map { release ->
+            CatalogReleaseView(
+                release = release,
+                published = release.version in publishedVersions,
+                // Nothing to forget about a release that kept nothing, which is also the state
+                // forgetting one leaves behind -- so the action disappears once it has been used.
+                forgettable = release.retained,
+                publishable = release.retained &&
+                    publication != null &&
+                    publication.canPublish &&
+                    publication.hasPublishableDestination &&
+                    release.version !in publishedVersions,
+            )
         }
     }
 
@@ -902,8 +987,14 @@ class CatalogHandler {
                 license = if (section == CatalogMetadataSection.LICENSE) parseCatalogLicense(request) else current.license,
             ).execute()
 
+            // Details go out with a version, so they are edited on a draft's page: back to it.
+            val back = if (catalog.type == CatalogType.AUTHORED) {
+                CatalogPages.draft(tenantId, request.catalogSegment())
+            } else {
+                CatalogPages.browse(tenantId, request.catalogSegment())
+            }
             ServerResponse.noContent()
-                .header("HX-Redirect", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
+                .header("HX-Redirect", back)
                 .build()
         } catch (e: Exception) {
             logger.warn("Failed to update catalog metadata: {}", e.message)
@@ -1120,7 +1211,7 @@ class CatalogHandler {
         val imagesBySlug = images.associateBy { it.id.value }
 
         return request.htmx {
-            fragment("catalogs/browse", "resource-rows") {
+            fragment("catalogs/content", "resource-rows") {
                 "resources" to result.resources
                 "tenantId" to tenantId.key
                 "catalog" to result.catalog
@@ -1129,7 +1220,7 @@ class CatalogHandler {
                 if (successMessage != null) "successMessage" to successMessage
                 if (errorMessage != null) "errorMessage" to errorMessage
             }
-            oob("catalogs/browse", "metadata-card") {
+            oob("catalogs/content", "metadata-card") {
                 "tenantId" to tenantId.key
                 "catalog" to result.catalog
                 "hasImages" to images.isNotEmpty()

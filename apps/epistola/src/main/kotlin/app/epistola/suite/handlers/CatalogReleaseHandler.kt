@@ -287,5 +287,5 @@ class CatalogReleaseHandler {
 
     private fun draftVersion(tenantId: TenantId, segment: CatalogSegment): String? = drafts(tenantId, segment).chosen?.version
 
-    private fun browseUrl(tenantId: TenantId, segment: CatalogSegment) = CatalogPages.browse(tenantId, segment)
+    private fun browseUrl(tenantId: TenantId, segment: CatalogSegment) = CatalogPages.draft(tenantId, segment)
 }

@@ -9,16 +9,15 @@
            below go to the same page in another draft, and every link on the page carries the one
            chosen.
 
-           Usage:
-             catalog page   — inside "Next release":  ~{catalogs/drafts :: draft-bar(bar=${draftBar})}
-             content pages  — above the page header:  ~{catalogs/drafts :: content-draft-bar(bar=${draftBar})}
+           Usage, on content pages above the page header:
+             ~{catalogs/drafts :: content-draft-bar(bar=${draftBar})}
     */-->
 
     <!--/* The bar above every catalog content page (docs/catalog-workspace-navigation.md), in
-           the words of the people who use it: which catalog, and whether they are in their work,
-           in a fix of a published version, or looking at a catalog they cannot edit. One short
-           line; numbers, bases and drafts stay out of it. A fix is a banner on purpose, so nobody
-           edits a live version thinking it is their work.
+           the words of the people who use it: which catalog, and whether they are in the next
+           version, in another draft, or looking at a catalog they cannot edit. One short line; the
+           next version has no number. Another draft is a banner on purpose, so nobody edits it
+           thinking it is the next version.
 
            The publish dialog lands in the mount below and is opened on swap by the app-wide
            behaviour; the mount is part of the fragment so a page cannot take one without the other. */-->
@@ -29,15 +28,17 @@
             <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
             <div>
                 <div class="alert-title"
-                     th:text="${bar.fixOfLiveIn.isEmpty()} ? 'You are fixing ' + ${bar.catalogName} + ' v' + ${bar.fixOf}
-                              : 'You are fixing ' + ${bar.catalogName} + ' v' + ${bar.fixOf} + ', which is live in ' + ${#strings.listJoin(bar.fixOfLiveIn, ', ')}">You are fixing Letters v1.4.0</div>
-                <p style="margin: var(--ep-space-1) 0 0;">Changes here go only into this fix, not into your work.</p>
+                     th:text="'You are editing draft v' + ${bar.chosen.version} + ' of ' + ${bar.catalogName} + ', not the next version'">You are editing draft v1.4.1 of Letters</div>
+                <p style="margin: var(--ep-space-1) 0 0;"
+                   th:text="${bar.fixOfLiveIn.isEmpty()} ? 'It started from v' + ${bar.fixOf} + ' and is published on its own. Changes here are not in the next version.'
+                            : 'It started from v' + ${bar.fixOf} + ', which is live in ' + ${#strings.listJoin(bar.fixOfLiveIn, ', ')} + ', and is published on its own. Changes here are not in the next version.'">It started from v1.4.0.</p>
                 <div class="ep-row" style="gap: var(--ep-space-2); margin-top: var(--ep-space-2);">
                     <button th:if="${bar.offerRelease}" type="button" class="ep-btn ep-btn-primary ep-btn-sm"
                             data-testid="catalog-bar-publish"
                             th:hx-get="@{/tenants/{t}/catalogs/{c}/release(t=${bar.tenantKey},c=${bar.segmentValue})}"
-                            hx-target="#release-dialog-container" hx-swap="innerHTML">Publish fix…</button>
-                    <a class="ep-btn ep-btn-ghost ep-btn-sm" th:href="${bar.workHref}" data-testid="catalog-fix-back">Back to your work</a>
+                            hx-target="#release-dialog-container" hx-swap="innerHTML">Publish…</button>
+                    <a class="ep-btn ep-btn-ghost ep-btn-sm" th:href="${bar.draftPageHref}" data-testid="catalog-fix-draft">This draft's page</a>
+                    <a class="ep-btn ep-btn-ghost ep-btn-sm" th:href="${bar.workHref}" data-testid="catalog-fix-back">Go to the next version</a>
                 </div>
             </div>
         </div>
@@ -54,14 +55,15 @@
                     <span class="catalog-bar-state" data-testid="catalog-version-bar-version" th:text="'v' + ${bar.shown.version}">v2.0.0</span>
                     <span class="badge badge-default" data-testid="catalog-version-bar-read-only">can't be edited</span>
                 </th:block>
-                <span th:if="${bar.chosen != null}" class="catalog-bar-state" data-testid="catalog-version-bar-work">Your work</span>
-                <!--/* A published fix that your work lacks: said once, plainly; the publish dialog lists it. */-->
+                <a th:if="${bar.chosen != null}" class="catalog-bar-state" data-testid="catalog-version-bar-work"
+                   th:href="${bar.draftPageHref}" title="What is not published yet, and Publish">Next version</a>
+                <!--/* A version published after the next version started, which it lacks: said once, plainly; the publish dialog lists it. */-->
                 <span th:unless="${bar.behind.isEmpty()}" class="badge badge-warning" data-testid="catalog-draft-behind"
-                      th:title="'Published after you started; apply it here too if it belongs in your work.'"
-                      th:text="${bar.behind.size() == 1} ? 'Fix v' + ${bar.behind[0].version} + ' is not in your work yet' : ${bar.behind.size()} + ' published fixes are not in your work yet'">Fix v1.4.1 is not in your work yet</span>
+                      th:title="'Published after the next version started; make the same change here if it belongs in it.'"
+                      th:text="${bar.behind.size() == 1} ? 'v' + ${bar.behind[0].version} + ' is not in the next version yet' : ${bar.behind.size()} + ' published versions are not in the next version yet'">v1.4.1 is not in the next version yet</span>
                 <a th:each="fix : ${bar.openFixes}" th:href="${fix.href}" class="badge badge-outline" data-testid="catalog-open-fix"
-                   th:text="${fix.base != null} ? 'Fix of v' + ${fix.base} + ' in progress' : 'Fix v' + ${fix.version} + ' in progress'">Fix of v1.4.0 in progress</a>
-                <span th:if="${bar.noDraft}" class="catalog-bar-state" data-testid="catalog-draft-none">Nothing open to edit</span>
+                   th:text="'Draft v' + ${fix.version}" th:title="${fix.base != null} ? 'Another draft, based on v' + ${fix.base} : 'Another draft'">Draft v1.4.1</a>
+                <span th:if="${bar.noDraft}" class="catalog-bar-state" data-testid="catalog-draft-none">Nothing in progress</span>
             </div>
 
             <button th:if="${bar.offerRelease}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
@@ -75,7 +77,7 @@
                       th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts(tenantId=${bar.tenantKey},catalogId=${bar.catalogKey})}">
                     <input type="hidden" name="version" th:value="${bar.openDraftVersion}">
                     <input type="hidden" name="from" th:value="${bar.openDraftFrom}">
-                    <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="catalog-draft-open">Start editing</button>
+                    <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="catalog-draft-open">Start the next version</button>
                 </form>
                 <span th:if="${bar.openDraftWithheldNoContent}" class="form-hint" data-testid="catalog-draft-open-withheld">
                     Its latest published version kept no content to start from. Start from an older one on the catalog page.
@@ -88,71 +90,6 @@
         <div id="release-dialog-container" data-open-dialog-on-swap="release-dialog"></div>
         </th:block>
     </th:block>
-
-    <div th:fragment="draft-bar(bar)" class="catalog-bar" data-testid="catalog-draft-bar"
-         th:attr="data-catalog-version=${bar.chosen?.version}">
-        <div class="catalog-bar-context">
-            <span class="catalog-bar-label">Draft</span>
-            <th:block th:if="${bar.chosen != null}">
-                <strong data-testid="catalog-draft-chosen" th:text="'v' + ${bar.chosen.version}">v2.0.0</strong>
-                <span class="catalog-bar-state" data-testid="catalog-draft-base"
-                      th:text="${bar.chosen.base != null} ? 'based on v' + ${bar.chosen.base} : 'based on no release'">based on v1.0.0</span>
-                <!--/* Stated, not alarmed: being behind is a fact to act on when releasing. */-->
-                <span th:unless="${bar.behind.isEmpty()}" class="badge badge-warning" data-testid="catalog-draft-behind"
-                      th:text="'behind ' + ${#strings.listJoin(bar.behind.!['v' + version], ', ')}">behind v1.0.1</span>
-            </th:block>
-            <span th:if="${bar.noDraft}" class="catalog-bar-state" data-testid="catalog-draft-none">none open</span>
-
-            <nav th:if="${bar.severalDrafts}" class="ep-row" style="gap: var(--ep-space-1);" aria-label="Drafts"
-                 data-testid="catalog-draft-picker">
-                <a th:each="link : ${bar.draftLinks}" th:href="${link.href}"
-                   class="ep-btn ep-btn-sm" th:classappend="${link.active} ? 'ep-btn-primary' : 'ep-btn-ghost'"
-                   th:attr="aria-current=${link.active} ? 'page' : null,data-version=${link.version}"
-                   th:title="${link.base != null} ? 'Draft v' + ${link.version} + ', based on v' + ${link.base} : 'Draft v' + ${link.version}"
-                   data-testid="catalog-draft-link" th:text="'v' + ${link.version}">v1.0.1</a>
-            </nav>
-        </div>
-
-        <!--/* No draft: nothing can be edited until one is opened. Offered here, on every page that
-               would otherwise only fail, with the reason when it cannot be. */-->
-        <th:block th:if="${bar.noDraft}">
-            <form th:if="${bar.offerOpenDraft}" method="post" style="display: inline;"
-                  th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts(tenantId=${bar.tenantKey},catalogId=${bar.catalogKey})}">
-                <input type="hidden" name="version" th:value="${bar.openDraftVersion}">
-                <input type="hidden" name="from" th:value="${bar.openDraftFrom}">
-                <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="catalog-draft-open"
-                        th:text="${bar.openDraftFrom != null} ? 'Open draft v' + ${bar.openDraftVersion} + ' from v' + ${bar.openDraftFrom} : 'Open draft v' + ${bar.openDraftVersion}">Open draft</button>
-            </form>
-            <span th:if="${bar.openDraftWithheldNoContent}" class="form-hint" data-testid="catalog-draft-open-withheld">
-                Its latest release kept no content to copy. Open a draft from an older release on the catalog page.
-            </span>
-            <span th:if="${bar.draftControlsWithheld}" class="form-hint" data-testid="catalog-draft-open-withheld">
-                Opening a draft needs the content author role.
-            </span>
-        </th:block>
-    </div>
-
-    <!--/* What the chosen draft is behind: each release above its base and below its number, with
-           what it changed. Shown where the draft is released, so the acknowledgement is informed. */-->
-    <div th:fragment="behind-list(bar)" th:unless="${bar.behind.isEmpty()}" class="alert alert-warning"
-         data-testid="catalog-draft-behind-list">
-        <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
-        <div>
-            <div class="alert-title" th:text="'Draft v' + ${bar.chosen.version} + ' does not contain these releases'">Draft does not contain these releases</div>
-            <p style="margin: var(--ep-space-1) 0 0;">
-                They were released after the release this draft is based on. Apply their changes here
-                by hand if they belong in it; releasing asks you to confirm each one.
-            </p>
-            <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
-                <li th:each="release : ${bar.behind}" data-testid="catalog-draft-behind-release" th:data-version="${release.version}">
-                    <strong th:text="'v' + ${release.version}">v1.0.1</strong>:
-                    <span th:if="${release.changes.isEmpty()}" class="text-muted">no resource changes</span>
-                    <span th:unless="${release.changes.isEmpty()}"
-                          th:text="${#strings.listJoin(release.changes.![type + '/' + key + ' ' + change], ', ')}">theme/brand modified</span>
-                </li>
-            </ul>
-        </div>
-    </div>
 
     <!--/* Open a draft. The number is free text, the source a choice among the catalog's drafts and
            the releases that kept their content; without one, the draft copies its base (the highest

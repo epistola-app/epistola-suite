@@ -548,6 +548,15 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         assertThat(body.substringAfter("<h3>Default namespace</h3>")).contains("""name="namespace"""")
     }
 
+    private fun releasePage(tenant: Tenant, catalogKey: CatalogKey, version: String): String {
+        val response = restTemplate.getForEntity(
+            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/releases/$version",
+            String::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        return requireNotNull(response.body)
+    }
+
     private fun browsePage(tenant: Tenant, catalogKey: CatalogKey): String {
         val response = restTemplate.getForEntity(
             "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/browse",
@@ -602,7 +611,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
      * handler, and every term was being taken on trust.
      */
     @Test
-    fun `a retained release is offered to Exchange from its row, and marked once sent`() {
+    fun `a retained release is offered to Exchange from its page, and marked once sent`() {
         val tenant = createTenant("Row Publish")
         val catalogKey = CatalogKey.of("row-publish")
         withMediator {
@@ -617,19 +626,19 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
             ).execute()
         }
 
-        assertThat(browsePage(tenant, catalogKey))
+        assertThat(releasePage(tenant, catalogKey, "1.0.0"))
             .`as`("retained, somewhere to send it, not sent yet")
-            .contains("Publish v1.0.0 to Epistola Exchange")
+            .contains("data-testid=\"release-exchange-publish\"")
 
         withMediator { PublishCurrentCatalogRelease(tenant.id, catalogKey, version = "1.0.0").execute() }
 
-        val afterSending = browsePage(tenant, catalogKey)
+        val afterSending = releasePage(tenant, catalogKey, "1.0.0")
         assertThat(afterSending)
-            .`as`("sent once is sent: the row says so")
-            .contains("Already sent to Epistola Exchange")
+            .`as`("sent once is sent: the page says so")
+            .contains("On Epistola Exchange")
         assertThat(afterSending)
             .`as`("and does not offer to send it again")
-            .doesNotContain("Publish v1.0.0 to Epistola Exchange")
+            .doesNotContain("data-testid=\"release-exchange-publish\"")
     }
 
     /**

@@ -98,36 +98,37 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     private fun drafts(tenant: Tenant) = withMediator { ListCatalogVersions(tenant.id, letters, CatalogVersionStatus.DRAFT).query() }.map { it.version }
 
     @Test
-    fun `a catalog with one draft shows its number and no picker`() = fixture {
+    fun `the next version's page gives its number under Advanced, and the catalog page offers another draft`() = fixture {
         lateinit var tenant: Tenant
         given {
             tenant = tenant("Drafts One")
             released(tenant)
         }
-        whenever { get("/tenants/${tenant.id}/catalogs/letters/browse") }
+        whenever { get("/tenants/${tenant.id}/catalogs/letters/draft") to get("/tenants/${tenant.id}/catalogs/letters/browse") }
         then {
-            val body = result<ResponseEntity<String>>().body!!
-            assertThat(body).contains("data-testid=\"catalog-draft-version\"").contains("v1.0.1")
-            assertThat(body).doesNotContain("data-testid=\"catalog-draft-picker\"")
-            assertThat(body).doesNotContain("data-testid=\"catalog-draft-bar\"")
-            assertThat(body).contains("data-testid=\"catalog-draft-new\"")
+            val (draft, catalog) = result<Pair<ResponseEntity<String>, ResponseEntity<String>>>()
+            assertThat(draft.body!!).contains("data-testid=\"catalog-draft-version\"").contains("v1.0.1")
+            assertThat(catalog.body!!).contains("data-testid=\"catalog-draft-new\"")
         }
     }
 
     @Test
-    fun `with two drafts the catalog page offers both and works on the one its segment names`() = fixture {
+    fun `with two drafts the catalog page lists both, and a draft's page works on the one its segment names`() = fixture {
         lateinit var tenant: Tenant
         given {
             tenant = tenant("Drafts Picker")
             twoDrafts(tenant)
         }
-        whenever { get("/tenants/${tenant.id}/catalogs/letters@1.0.1/browse") }
+        whenever {
+            val catalog = get("/tenants/${tenant.id}/catalogs/letters/browse").body!!
+            // The next version is linked plainly, the other draft by its number.
+            assertThat(catalog).contains("href=\"/tenants/${tenant.id}/catalogs/letters/draft\"")
+            assertThat(catalog).contains("href=\"/tenants/${tenant.id}/catalogs/letters@1.0.1/draft\"")
+            get("/tenants/${tenant.id}/catalogs/letters@1.0.1/draft")
+        }
         then {
             val body = result<ResponseEntity<String>>().body!!
-            assertThat(body).contains("data-testid=\"catalog-draft-picker\"")
-            // Your work is linked plainly, the fix by its number.
-            assertThat(body).contains("href=\"/tenants/${tenant.id}/catalogs/letters/browse\"")
-            assertThat(body).contains("data-testid=\"catalog-draft-chosen\">v1.0.1<")
+            assertThat(body).contains("<span id=\"page-title-text\">Draft v1.0.1</span>")
             assertThat(body).contains("data-testid=\"catalog-draft-version\">v1.0.1<")
             // Its resources link into the draft, and its actions act on it.
             assertThat(body).contains("/tenants/${tenant.id}/templates/letters@1.0.1/invoice")
@@ -167,7 +168,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `the plain template page is your work, and names an open fix once there is one`() = fixture {
+    fun `the plain template page is the next version, and names another draft once there is one`() = fixture {
         lateinit var tenant: Tenant
         lateinit var several: String
         given {
@@ -182,7 +183,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             one
         }
         then {
-            assertThat(result<String>()).contains("data-testid=\"catalog-version-bar\"").contains(">Your work<")
+            assertThat(result<String>()).contains("data-testid=\"catalog-version-bar\"").contains(">Next version<")
                 .doesNotContain("data-testid=\"catalog-open-fix\"")
             assertThat(several).contains("Invoice two").contains("data-testid=\"catalog-open-fix\"").contains("/templates/letters@1.0.1/invoice")
         }
@@ -292,9 +293,9 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         }
         then {
             val response = result<ResponseEntity<String>>()
-            // 1.0.5 is now the highest draft, the current one, so it is linked plainly.
+            // 1.0.5 is now the highest draft, the next version, so it is linked plainly.
             assertThat(drafts(tenant)).containsExactly("1.0.5", "1.0.1")
-            assertThat(response.headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters/browse")
+            assertThat(response.headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters/draft")
         }
     }
 
@@ -308,7 +309,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         }
         whenever { postForm("/tenants/${tenant.id}/catalogs/letters/drafts", mapOf("version" to "1.1.0"), target = "create-draft-form") }
         then {
-            assertThat(result<ResponseEntity<String>>().headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters@1.1.0/browse")
+            assertThat(result<ResponseEntity<String>>().headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters@1.1.0/draft")
             assertThat(drafts(tenant)).containsExactly("2.0.0", "1.1.0", "1.0.1")
         }
     }
@@ -335,7 +336,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `discarding a draft that alone holds the tenant's default theme is refused on the catalog page`() = fixture {
+    fun `discarding a draft that alone holds the tenant's default theme is refused on its page`() = fixture {
         lateinit var tenant: Tenant
         given {
             tenant = tenant("Drafts Discard Held")
@@ -368,7 +369,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             postForm("/tenants/${tenant.id}/catalogs/letters@1.0.1/renumber", mapOf("to" to "1.0.2"))
         }
         then {
-            assertThat(result<ResponseEntity<String>>().headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters@1.0.2/browse")
+            assertThat(result<ResponseEntity<String>>().headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters@1.0.2/draft")
             assertThat(drafts(tenant)).containsExactly("2.0.0", "1.0.2")
         }
     }
@@ -383,7 +384,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         }
         whenever {
             val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters@1.0.1/release").body!!
-            assertThat(dialog).contains("value=\"1.0.1\"").contains("Publish fix of Letters v1.0.0")
+            assertThat(dialog).contains("value=\"1.0.1\"").contains("Publish draft v1.0.1 of Letters")
             postForm("/tenants/${tenant.id}/catalogs/letters@1.0.1/release", mapOf("version" to "1.0.1"))
         }
         then {
@@ -414,7 +415,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         whenever {
             val page = get("/tenants/${tenant.id}/catalogs/letters/browse").body!!
             assertThat(page).contains("data-testid=\"catalog-draft-behind-list\"")
-            assertThat(page).contains("is not in this work").contains(": it changed").contains("brand</span>")
+            assertThat(page).contains("is not in the next version").contains(": it changed").contains("brand</span>")
             val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
             assertThat(dialog).contains("data-testid=\"release-acknowledge-behind\"").contains("name=\"acknowledgedBehind\"").contains("value=\"1.0.1\"")
             val refused = postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "2.0.0"))
@@ -439,7 +440,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         whenever {
             val page = get("/tenants/${tenant.id}/catalogs/letters/browse")
             assertThat(page.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(page.body).contains("data-testid=\"catalog-draft-open\"").contains("Start editing")
+            assertThat(page.body).contains("data-testid=\"catalog-draft-open\"").contains("Start the next version")
             assertThat(page.body).doesNotContain("data-testid=\"catalog-release-open\"").doesNotContain("data-testid=\"catalog-mark-ready\"")
             postForm("/tenants/${tenant.id}/catalogs/letters/drafts", mapOf("version" to "1.0.1", "from" to "1.0.0"), htmx = false)
         }

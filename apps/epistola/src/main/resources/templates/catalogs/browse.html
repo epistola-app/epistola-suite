@@ -12,9 +12,13 @@
 
         <div id="catalog-alert"></div>
 
+        <!--/* An authored catalog: the way to a first document, the next version, every version. Each
+               version has its own page; this one is about the catalog (catalogs/overview.html). */-->
         <th:block th:if="${readiness != null}">
-            <div th:replace="~{catalogs/next-release :: next-release}"></div>
+            <div th:replace="~{catalogs/overview :: getting-started}"></div>
+            <div th:replace="~{catalogs/overview :: next-version}"></div>
         </th:block>
+        <div th:replace="~{catalogs/overview :: versions}"></div>
 
         <!--/* What each environment serves of this catalog: any number of releases. Deploying adds one;
                generation naming the environment renders the highest it serves, or the highest
@@ -99,388 +103,32 @@
             </div>
         </div>
 
-        <div class="card" th:if="${!resources.isEmpty()}">
-            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <h2>Contents</h2>
-                <!--/* A catalog installs whole (#850), so this is the only install action: there is
-                       no per-resource Install, and nothing to choose between. Offered only while
-                       something is left to install -- a fully installed catalog was still showing a
-                       button whose dialog listed nothing to do. Upgrading to a newer release is the
-                       separate action above. */-->
-                <button th:if="${catalog.type.name() == 'SUBSCRIBED' and hasUninstalledResources}"
-                        type="button" class="ep-btn ep-btn-primary ep-btn-sm"
-                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/install-preview(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}"
-                        hx-target="#install-preview-body"
-                        hx-swap="innerHTML"
-                        data-open-dialog="install-preview-dialog">Install catalog</button>
-            </div>
-            <div class="card-content">
-                <div class="ep-table-scroll" role="region" aria-label="Catalog resources table" tabindex="0"
-                     data-testid="fixed-table-scroll">
-                <table class="ep-table ep-table-fixed">
-                    <!--/* Authored catalogs omit the last two cols; the sub-100% total
-                           is fine — browsers scale percentage colgroups to fit. */-->
-                    <colgroup>
-                        <col style="width: 12%" /><!-- Type -->
-                        <col style="width: 20%" /><!-- Name -->
-                        <col style="width: 16%" /><!-- Slug -->
-                        <col style="width: 23%" /><!-- Description -->
-                        <col style="width: 8%" /><!-- Used by -->
-                        <col th:if="${catalog.type.name() == 'SUBSCRIBED'}" style="width: 11%" /><!-- Status -->
-                    </colgroup>
-                    <thead>
-                        <tr>
-                            <th>Type</th>
-                            <th>Name</th>
-                            <th>Slug</th>
-                            <th>Description</th>
-                            <th>Used by</th>
-                            <th th:if="${catalog.type.name() == 'SUBSCRIBED'}">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="resource-table" th:fragment="resource-rows">
-                        <tr th:each="resource : ${resources}">
-                            <td>
-                                <span th:if="${resource.type == 'template'}" class="badge badge-info">template</span>
-                                <span th:if="${resource.type == 'theme'}" class="badge badge-default">theme</span>
-                                <span th:if="${resource.type == 'stencil'}" class="badge badge-default">stencil</span>
-                                <span th:if="${resource.type == 'attribute'}" class="badge badge-default">attribute</span>
-                                <span th:if="${resource.type == 'image'}" class="badge badge-default">image</span>
-                                <span th:if="${resource.type == 'codeList'}" class="badge badge-default">code list</span>
-                                <span th:if="${resource.type == 'font'}" class="badge badge-default">font</span>
-                                <span th:if="${resource.type == 'image' and catalog.catalogMetadata.presentation != null and (resource.slug == catalog.catalogMetadata.presentation.iconImageKey or catalog.catalogMetadata.presentation.imageKeys.contains(resource.slug))}"
-                                      class="badge badge-info" title="Used in the catalog presentation">presentation</span>
-                            </td>
-                            <td th:title="${resource.name}">
-                                <!-- Authored: link to detail page for templates/themes/stencils -->
-                                <th:block th:if="${catalog.type.name() == 'AUTHORED'}">
-                                    <a th:if="${resource.type == 'template'}"
-                                       th:href="@{/tenants/{tenantId}/templates/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},slug=${resource.slug})}"
-                                       th:text="${resource.name}"></a>
-                                    <a th:if="${resource.type == 'theme'}"
-                                       th:href="@{/tenants/{tenantId}/themes/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},slug=${resource.slug})}"
-                                       th:text="${resource.name}"></a>
-                                    <a th:if="${resource.type == 'stencil'}"
-                                       th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},slug=${resource.slug})}"
-                                       th:text="${resource.name}"></a>
-                                    <a th:if="${resource.type == 'attribute'}"
-                                       th:href="@{/tenants/{tenantId}/attributes(tenantId=${tenantId},catalog=${catalogId ?: catalog.id})}"
-                                       th:text="${resource.name}"></a>
-                                    <a th:if="${resource.type == 'image'}"
-                                       th:href="@{/tenants/{tenantId}/images(tenantId=${tenantId},catalog=${catalogId ?: catalog.id})}"
-                                       th:text="${resource.name}"></a>
-                                </th:block>
-                                <!--/* Subscribed: the resource has no local page (it is a read-only
-                                       mirror), but a catalog installed from Exchange has one there —
-                                       /catalogs/{namespace}/{key}/resources/{type}/{slug}, built by
-                                       appending to the catalog root the handler resolved once. A
-                                       private catalog's page asks the reader to sign in, which is
-                                       Exchange's call to make, not ours to pre-empt. Everything else
-                                       subscribed stays plain text. */-->
-                                <th:block th:if="${catalog.type.name() == 'SUBSCRIBED'}">
-                                    <a th:if="${exchangeCatalogUrl != null}"
-                                       th:href="${exchangeCatalogUrl + '/resources/' + resource.type + '/' + resource.slug}"
-                                       th:text="${resource.name}"
-                                       target="_blank" rel="noopener noreferrer"
-                                       hx-boost="false"
-                                       th:title="'View ' + ${resource.name} + ' on Epistola Exchange'"></a>
-                                    <span th:if="${exchangeCatalogUrl == null}" th:text="${resource.name}"></span>
-                                </th:block>
-                            </td>
-                            <td th:title="${resource.slug}"><code th:text="${resource.slug}"></code></td>
-                            <td th:title="${resource.description}">
-                                <span th:if="${resource.description}" th:text="${resource.description}"></span>
-                                <span th:unless="${resource.description}" class="text-muted">-</span>
-                            </td>
-                            <td th:with="count=${usageCounts != null ? usageCounts.getOrDefault(resource.type + ':' + resource.slug, 0) : 0}">
-                                <button th:if="${count > 0}"
-                                        type="button" class="badge badge-default"
-                                        style="cursor: pointer; border: none; background: var(--ep-muted); padding: 2px 8px;"
-                                        th:text="${count}"
-                                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/usages(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},type=${resource.type},slug=${resource.slug})}"
-                                        hx-target="#usage-detail-body"
-                                        hx-swap="innerHTML"
-                                        data-open-dialog="usage-detail-dialog">
-                                </button>
-                                <span th:if="${count == 0}" class="text-muted">-</span>
-                            </td>
-                            <!--/* Status only for subscribed catalogs. After an install every row
-                                   reads Installed; Available means the catalog is registered but has
-                                   not been installed yet, or the resource arrived in a release newer
-                                   than the one installed here. There is no per-resource action. */-->
-                            <td th:if="${catalog.type.name() == 'SUBSCRIBED'}">
-                                <span th:if="${resource.status.name() == 'INSTALLED'}" class="badge badge-success">Installed</span>
-                                <span th:if="${resource.status.name() == 'AVAILABLE'}" class="badge">Available</span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-                </div>
-            </div>
-        </div>
+        <th:block th:if="${catalog.type.name() == 'SUBSCRIBED'}">
+            <th:block th:replace="~{catalogs/content :: contents}"></th:block>
+            <div th:replace="~{catalogs/content :: metadata-card}"></div>
+        </th:block>
 
-        <div class="card" th:if="${resources.isEmpty()}">
-            <div class="card-content">
-                <p class="text-muted">This catalog has no resources.</p>
-            </div>
-        </div>
-
-        <!--/* History: every published version (for a subscribed catalog, every installed one), where
-               each is live, and "Fix this version" for one a fix can start on. Publishing itself is
-               in Your work above, not here. */-->
-        <div class="card" data-testid="catalog-history"
-             th:with="canForget=${auth.has('CATALOG_MANAGE')}, bar=${readiness != null ? readiness.drafts : null}">
-            <div class="card-header">
-                <h2>History</h2>
-            </div>
-            <div class="card-body">
-                <p th:if="${releases.isEmpty()}" class="text-muted">
-                    Nothing published yet. Every version you publish is kept here, so you can look back at it,
-                    make it live, or fix it.
-                </p>
-                <div th:if="${!releases.isEmpty()}" class="ep-table-scroll" role="region" aria-label="Releases table" tabindex="0">
-                <table class="ep-table">
-                    <thead>
-                        <tr>
-                            <th>Version</th>
-                            <th>Published</th>
-                            <th>Live in</th>
-                            <th>Notes</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr th:each="row : ${releases}" th:with="release=${row.release}">
-                            <td style="font-weight: 500;">
-                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/releases/{version}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},version=${release.version})}"
-                                   th:text="'v' + ${release.version}" th:title="${release.fingerprint}">v1.0.0</a>
-                                <!--/* Retained or not decides both what this says and whether Export is
-                                       offered, so the two can never disagree. */-->
-                                <span th:unless="${release.retained}" class="text-muted" style="font-size: var(--ep-text-xs);"
-                                      title="Published before Epistola kept the content of a version, so it cannot be looked at, made live or fixed">contents not kept</span>
-                            </td>
-                            <td th:text="${#temporals.format(release.releasedAt, 'yyyy-MM-dd HH:mm')}"></td>
-                            <td th:with="live=${bar != null ? bar.liveIn.get(release.version) : null}" data-testid="catalog-history-live">
-                                <span th:if="${live == null or live.isEmpty()}" class="text-muted">—</span>
-                                <span th:unless="${live == null or live.isEmpty()}" th:text="${#strings.listJoin(live, ', ')}">production</span>
-                            </td>
-                            <td th:text="${release.notes}" th:title="${release.notes}"></td>
-                            <td class="actions">
-                                <!--/* Fixing a published version: continue the fix already open, or start one. */-->
-                                <a th:if="${bar != null and bar.openFixOf.containsKey(release.version)}"
-                                   class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-history-continue-fix"
-                                   th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id + '@' + bar.openFixOf.get(release.version)})}">Continue the fix</a>
-                                <form th:if="${bar != null and !bar.openFixOf.containsKey(release.version) and bar.fixableVersions.contains(release.version)}"
-                                      method="post" style="display: inline;"
-                                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/fixes(tenantId=${tenantId},catalogId=${catalog.id})}">
-                                    <input type="hidden" name="of" th:value="${release.version}">
-                                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-history-fix"
-                                            th:title="'Change v' + ${release.version} + ' without your other work, and publish it as a fix'">Fix this version</button>
-                                </form>
-                                <a th:if="${release.retained}"
-                                   class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
-                                   th:title="'Export v' + ${release.version} + ' exactly as it was released'"
-                                   th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},version=${release.version})}"
-                                   hx-boost="false" download>
-                                    <th:block th:replace="~{epistola-web/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
-                                </a>
-                                <!--/* Offered where it can be carried out: the catalog can publish
-                                       at all, this release kept content to send, and it has not
-                                       been sent already. Any release can go, not only the latest. */-->
-                                <form th:if="${row.publishable}"
-                                      method="post" style="display: inline;"
-                                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}">
-                                    <input type="hidden" name="version" th:value="${release.version}">
-                                    <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
-                                            th:title="'Publish v' + ${release.version} + ' to Epistola Exchange'">
-                                        <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
-                                    </button>
-                                </form>
-                                <span th:if="${row.published}"
-                                      class="text-muted" style="font-size: var(--ep-text-xs);"
-                                      title="Already sent to Epistola Exchange">published</span>
-                                <!--/* The only way to reclaim what a release holds. Offered while
-                                       there is content to drop, so it disappears once used -- the
-                                       row then reads "not kept", the state a release cut before
-                                       Epistola retained content has always had. */-->
-                                <form th:if="${row.forgettable and canForget}"
-                                      method="post" style="display: inline;"
-                                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/releases/{version}/forget(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},version=${release.version})}">
-                                    <button type="button"
-                                            class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
-                                            th:title="'Forget the content of v' + ${release.version}"
-                                            data-confirm-submit
-                                            data-confirm-submit-title="Forget this release's content"
-                                            th:attr="data-confirm-submit-message='v' + ${release.version} + ' stays in the history with its version, date and fingerprint, but its content is deleted: it can no longer be exported or published, and this cannot be undone. Storage it holds is reclaimed.'"
-                                            data-confirm-submit-label="Forget content"
-                                            data-confirm-submit-class="ep-btn-destructive">
-                                        <th:block th:replace="~{epistola-web/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
-                                    </button>
-                                </form>
-                                <!--/* The stronger of the two: the release leaves the history
-                                       altogether. Offered whether or not it was published -- the
-                                       copy on Exchange is Exchange's and stays there -- and refused
-                                       by the command only while a send is actually in flight. */-->
-                                <form th:if="${canForget}"
-                                      method="post" style="display: inline;"
-                                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/releases/{version}/delete(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},version=${release.version})}">
-                                    <button type="button"
-                                            class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
-                                            th:title="'Delete v' + ${release.version} + ' from the history'"
-                                            data-confirm-submit
-                                            data-confirm-submit-title="Delete this release"
-                                            th:attr="data-confirm-submit-message='v' + ${release.version} + ' is removed from the history entirely, with its content, its notes and its fingerprint. Anything already published to Epistola Exchange stays there. This cannot be undone.'"
-                                            data-confirm-submit-label="Delete release"
-                                            data-confirm-submit-class="ep-btn-destructive">
-                                        <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-                </div>
-            </div>
-        </div>
-
-        <div id="catalog-metadata" th:fragment="metadata-card" class="ep-panel detail-section"
-             th:with="canEditMetadata=${catalog.type.name() == 'AUTHORED' and auth.has('CATALOG_MANAGE')}">
+        <!--/* What is the catalog's own, across its versions: its key. Name, description, keywords,
+               presentation and license go out with each version, so they are on a version's page. */-->
+        <div th:if="${catalog.type.name() == 'AUTHORED'}" class="ep-panel detail-section" data-testid="catalog-identity">
             <div class="detail-section-header catalog-detail-header">
-                <div>
-                    <div class="catalog-detail-heading">
-                        <h2>Catalog details</h2>
-                        <span th:if="${catalog.type.name() == 'AUTHORED'}" class="badge badge-info">Authored</span>
-                        <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-default">Subscribed</span>
-                    </div>
-                    <p class="text-muted text-sm" style="margin: var(--ep-space-1) 0 0;">Identity, discovery, presentation, and usage terms.</p>
+                <div class="catalog-detail-heading">
+                    <h2>Catalog</h2>
+                    <span class="badge badge-info">Authored</span>
                 </div>
-                <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='details')}"
-                        hx-target="#dialog-mount" hx-swap="innerHTML">Edit details</button>
             </div>
-
-            <div class="catalog-detail-summary"
-                 th:with="displayVersion=${catalog.type.name() == 'AUTHORED' ? (catalog.releasedVersion != null ? 'v' + catalog.releasedVersion : 'Unreleased') : (catalog.installedReleaseVersion != null ? 'v' + catalog.installedReleaseVersion : 'Unknown')}">
+            <div class="catalog-detail-summary">
                 <div class="catalog-detail-summary-item">
                     <span class="catalog-detail-label">Catalog ID</span>
                     <code class="catalog-detail-value" th:text="${catalog.id}"></code>
                 </div>
-                <div class="catalog-detail-summary-item">
-                    <span class="catalog-detail-label">Version</span>
-                    <p class="catalog-detail-value" th:text="${displayVersion}"></p>
-                </div>
-                <div th:if="${catalog.sourceUrl}" class="catalog-detail-summary-item catalog-detail-source">
-                    <span class="catalog-detail-label">Source</span>
-                    <a th:if="${exchangeCatalogUrl != null}"
-                       th:href="${exchangeCatalogUrl}"
-                       target="_blank" rel="noopener noreferrer"
-                       hx-boost="false"
-                       title="View this catalog on Epistola Exchange">
-                        <code class="catalog-detail-value" th:text="${catalog.sourceUrl}"></code>
-                    </a>
-                    <code th:if="${exchangeCatalogUrl == null}" class="catalog-detail-value" th:text="${catalog.sourceUrl}"></code>
-                </div>
             </div>
-
-
-            <div class="catalog-detail-grid">
-                <div class="catalog-detail-item">
-                    <div class="catalog-detail-item-header">
-                        <h3>Discovery attributes</h3>
-                        <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='attributes')}"
-                                hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
-                    </div>
-                    <div th:if="${!catalog.catalogMetadata.attributes.isEmpty()}" class="badge-list">
-                        <span th:each="attribute : ${catalog.catalogMetadata.attributes}" class="badge badge-outline"
-                              th:text="${attribute.catalogKey + '.' + attribute.key + ': ' + attribute.value}"
-                              th:title="${attribute.catalogKey + '.' + attribute.key + ': ' + attribute.value}"></span>
-                    </div>
-                    <p th:if="${catalog.catalogMetadata.attributes.isEmpty()}" class="text-muted text-sm" style="margin: 0;">No discovery attributes.</p>
-                </div>
-
-                <div class="catalog-detail-item">
-                    <div class="catalog-detail-item-header">
-                        <h3>Keywords</h3>
-                        <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='keywords')}"
-                                hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
-                    </div>
-                    <!--/* Order comes from the model, not the stored set - see CatalogKeywordOrder.
-                           title carries the full value, because .badge-list truncates a long one. */-->
-                    <div th:if="${!keywords.isEmpty()}" class="badge-list">
-                        <span th:each="keyword : ${keywords}" class="badge badge-outline"
-                              th:text="${keyword}" th:title="${keyword}"></span>
-                    </div>
-                    <p th:if="${keywords.isEmpty()}" class="text-muted text-sm" style="margin: 0;">No keywords.</p>
-                </div>
-
-                <div class="catalog-detail-item">
-                    <div class="catalog-detail-item-header">
-                        <h3>Presentation</h3>
-                        <!--
-                          There is nothing to present with until the catalog has an image, so the
-                          dialog would open on two empty pickers. Withheld, and the empty state
-                          below says where images come from (.agents/rules/ui-affordances.md).
-                        -->
-                        <button th:if="${canEditMetadata and hasImages}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='presentation')}"
-                                hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
-                    </div>
-                    <p th:if="${presentationIcon == null and presentationImages.isEmpty() and hasImages}"
-                       class="text-muted text-sm" style="margin: 0;">No icon or gallery images.</p>
-                    <p th:if="${presentationIcon == null and presentationImages.isEmpty() and !hasImages}"
-                       class="text-muted text-sm" style="margin: 0;">
-                        This catalog has no images yet. Add one under
-                        <a th:href="@{/tenants/{tenantId}/images(tenantId=${tenantId})}">Images</a>
-                        to choose an icon or build a gallery.
-                    </p>
-                    <div th:if="${presentationIcon != null}" style="margin-bottom: var(--ep-space-3);">
-                        <span class="catalog-detail-label">Icon</span>
-                        <img th:if="${presentationIcon.available}" alt="Catalog icon" class="catalog-presentation-icon"
-                             th:src="@{/tenants/{tenantId}/images/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},assetId=${presentationIcon.asset.id})}" />
-                        <div th:unless="${presentationIcon.available}" class="alert alert-warning">
-                            Catalog icon is unavailable until asset <code th:text="${presentationIcon.slug}"></code> is installed.
-                        </div>
-                    </div>
-                    <div th:if="${!presentationImages.isEmpty()}">
-                        <span class="catalog-detail-label">Gallery</span>
-                        <div class="ep-row ep-gap-3 ep-row-wrap">
-                            <div th:each="image : ${presentationImages}">
-                                <img th:if="${image.available}" th:alt="${image.asset.name}" class="catalog-presentation-image"
-                                     th:src="@{/tenants/{tenantId}/images/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},assetId=${image.asset.id})}" />
-                                <div th:unless="${image.available}" class="catalog-presentation-placeholder text-muted text-sm">
-                                    Unavailable until installed<br /><code th:text="${image.slug}"></code>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="catalog-detail-item">
-                    <div class="catalog-detail-item-header">
-                        <h3>License</h3>
-                        <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='license')}"
-                                hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
-                    </div>
-                    <p th:if="${catalog.catalogMetadata.license == null}" class="text-muted text-sm" style="margin: 0;">No license information.</p>
-                    <th:block th:if="${catalog.catalogMetadata.license != null}">
-                        <p class="catalog-detail-value">
-                            <a th:if="${catalog.catalogMetadata.license.url != null}"
-                               th:href="${catalog.catalogMetadata.license.url}" rel="noopener noreferrer"
-                               th:text="${catalog.catalogMetadata.license.name}"></a>
-                            <span th:unless="${catalog.catalogMetadata.license.url != null}"
-                                  th:text="${catalog.catalogMetadata.license.name}"></span>
-                        </p>
-                        <p th:if="${catalog.catalogMetadata.license.spdxExpression != null}" style="margin: var(--ep-space-2) 0 0;">
-                            <code th:text="${catalog.catalogMetadata.license.spdxExpression}"></code>
-                        </p>
-                        <p th:if="${catalog.catalogMetadata.license.copyrightText != null}" class="text-muted text-sm"
-                           style="margin: var(--ep-space-2) 0 0;" th:text="${catalog.catalogMetadata.license.copyrightText}"></p>
-                    </th:block>
-                </div>
-            </div>
+            <p class="text-muted text-sm" style="margin: var(--ep-space-2) 0 0;">
+                Its name, description, keywords, presentation and license go out with each version:
+                change them on the
+                <a th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenantId},c=${catalog.id})}">next version</a>,
+                see what a published version carried on its own page.
+            </p>
         </div>
 
         <div class="ep-panel detail-section" th:if="${publication != null}"

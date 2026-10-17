@@ -37,7 +37,7 @@ import org.springframework.util.LinkedMultiValueMap
 import org.springframework.util.MultiValueMap
 
 /**
- * The catalog page's "Next release" section and the release dialog on the 2.0 model: the draft's
+ * A draft's "Not published yet" section and the release dialog on the 2.0 model: the draft's
  * number with Renumber, the changes since the last release with Mark all ready, the declared
  * dependencies, and a Release that is withheld — with the reason — while anything blocks it.
  */
@@ -47,7 +47,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
     private lateinit var restTemplate: TestRestTemplate
 
     @Test
-    fun `the catalog page offers Publish, and says publishing marks the change that is not ready`() = fixture {
+    fun `the next version's page offers Publish, and says publishing marks the change that is not ready`() = fixture {
         lateinit var tenant: Tenant
 
         given {
@@ -55,7 +55,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             seedCatalogWithTemplate(tenant, "letters", "letter")
         }
 
-        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/browse", String::class.java) }
+        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/draft", String::class.java) }
 
         then {
             val body = result<ResponseEntity<String>>().body!!
@@ -198,7 +198,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `the catalog page says when the draft's number is too low, and the publish dialog picks the number that fits`() = fixture {
+    fun `the next version's page says when the draft's number is too low, and the publish dialog picks the number that fits`() = fixture {
         lateinit var tenant: Tenant
 
         given {
@@ -210,7 +210,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             }
         }
 
-        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/browse", String::class.java) }
+        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/draft", String::class.java) }
 
         then {
             val page = result<ResponseEntity<String>>().body!!
@@ -221,7 +221,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
 
             // Renumbered to the major its changes need, the warning goes.
             postForm("/tenants/${tenant.id}/catalogs/letters/renumber", mapOf("to" to "2.0.0"))
-            assertThat(restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/browse", String::class.java).body!!)
+            assertThat(restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/draft", String::class.java).body!!)
                 .doesNotContain("data-testid=\"catalog-number-too-low\"")
         }
     }

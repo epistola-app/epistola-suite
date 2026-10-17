@@ -3,18 +3,81 @@
 <body>
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='Release v' + ${release.version},
-            pageDescription=${release.catalog.name},
+            pageTitle='v' + ${release.version},
+            pageDescription=${release.catalog.name} + ' · published ' + ${#temporals.format(release.releasedAt, 'yyyy-MM-dd')},
             backLinkHref=@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalogId})},
-            backLinkLabel='Back to catalog',
+            backLinkLabel=${release.catalog.name},
             actions=~{::release-actions}
         )}"></div>
 
         <th:block th:fragment="release-actions">
-            <a th:if="${release.retained}" class="ep-btn ep-btn-primary"
+            <a th:if="${release.retained}" class="ep-btn ep-btn-outline"
                th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId},version=${release.version})}"
                hx-boost="false" download>Export as ZIP</a>
         </th:block>
+
+        <!--/* What a published version is for: where it is live, and what can still be done with it.
+               It never changes, so changing it means a draft that starts from it. */-->
+        <div class="card" data-testid="release-status"
+             th:with="bar=${draftBar}, canForget=${auth.has('CATALOG_MANAGE')}, version=${release.version}">
+            <div class="card-body">
+                <p style="margin-top: 0;" data-testid="release-live">
+                    <th:block th:if="${liveIn.isEmpty()}">Not live anywhere.</th:block>
+                    <th:block th:unless="${liveIn.isEmpty()}">Live in <strong th:text="${#strings.listJoin(liveIn, ', ')}">production</strong>.</th:block>
+                    <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalogId})} + '#catalog-deployments'">Make a version live or take it offline</a>
+                    on the catalog page.
+                </p>
+                <p class="form-hint">A published version does not change. To change it, start a draft from it and publish that.</p>
+
+                <div class="ep-row" style="gap: var(--ep-space-2); flex-wrap: wrap;">
+                    <a th:if="${bar.openFixOf.containsKey(version)}" class="ep-btn ep-btn-outline ep-btn-sm"
+                       data-testid="release-continue-draft"
+                       th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenantId},c=${catalogId + '@' + bar.openFixOf.get(version)})}"
+                       th:text="'Continue draft v' + ${bar.openFixOf.get(version)}">Continue draft v1.0.1</a>
+                    <form th:if="${!bar.openFixOf.containsKey(version) and bar.fixableVersions.contains(version)}"
+                          method="post" style="display: inline;"
+                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/fixes(tenantId=${tenantId},catalogId=${catalogId})}">
+                        <input type="hidden" name="of" th:value="${version}">
+                        <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="release-start-draft"
+                                th:title="'Change v' + ${version} + ' without the next version, and publish it on its own'">Start a draft from this version</button>
+                    </form>
+
+                    <!--/* Offered where it can be carried out: the catalog can publish at all, this
+                           release kept content to send, and it has not been sent already. */-->
+                    <form th:if="${releaseView != null and releaseView.publishable}" method="post" style="display: inline;"
+                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalogId})}">
+                        <input type="hidden" name="version" th:value="${version}">
+                        <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="release-exchange-publish">Send to Epistola Exchange</button>
+                    </form>
+                    <span th:if="${releaseView != null and releaseView.published}" class="badge badge-default"
+                          title="Already sent to Epistola Exchange">On Epistola Exchange</span>
+
+                    <!--/* The only way to reclaim what a release holds. Offered while there is content to drop. */-->
+                    <form th:if="${releaseView != null and releaseView.forgettable and canForget}" method="post" style="display: inline;"
+                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/releases/{version}/forget(tenantId=${tenantId},catalogId=${catalogId},version=${version})}">
+                        <button type="button" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm" data-testid="release-forget"
+                                data-confirm-submit
+                                data-confirm-submit-title="Forget this version's content"
+                                th:attr="data-confirm-submit-message='v' + ${version} + ' stays in the list of versions with its number, date and fingerprint, but its content is deleted: it can no longer be exported, made live or published, and this cannot be undone.'"
+                                data-confirm-submit-label="Forget content"
+                                data-confirm-submit-class="ep-btn-destructive">Forget content</button>
+                    </form>
+                    <!--/* The stronger of the two: the version leaves the list altogether. */-->
+                    <form th:if="${canForget}" method="post" style="display: inline;"
+                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/releases/{version}/delete(tenantId=${tenantId},catalogId=${catalogId},version=${version})}">
+                        <button type="button" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm" data-testid="release-delete"
+                                data-confirm-submit
+                                data-confirm-submit-title="Delete this version"
+                                th:attr="data-confirm-submit-message='v' + ${version} + ' is removed entirely, with its content, its notes and its fingerprint. Anything already sent to Epistola Exchange stays there. This cannot be undone.'"
+                                data-confirm-submit-label="Delete version"
+                                data-confirm-submit-class="ep-btn-destructive">Delete</button>
+                    </form>
+                </div>
+                <p th:if="${!release.retained}" class="form-hint" style="margin-bottom: 0;">
+                    It was published before Epistola kept the content of a version, so it cannot be made live, exported or changed.
+                </p>
+            </div>
+        </div>
 
         <!--/* Everything here is what the release froze, never the live catalog. A catalog's
                details are version-dependent, so reading them from the working copy would be the
@@ -24,19 +87,19 @@
             <div class="detail-section-header catalog-detail-header">
                 <div>
                     <div class="catalog-detail-heading">
-                        <h2>As released</h2>
+                        <h2>As published</h2>
                         <span class="badge badge-info" th:text="'v' + ${release.version}">v1.0.0</span>
                         <span th:unless="${release.retained}" class="badge badge-default">content not kept</span>
                     </div>
                     <p class="text-muted text-sm" style="margin: var(--ep-space-1) 0 0;">
-                        The catalog as this release carried it — not as it is now.
+                        The details and contents this version went out with — not as they are now.
                     </p>
                 </div>
             </div>
 
             <div class="catalog-detail-summary">
                 <div class="catalog-detail-summary-item">
-                    <span class="catalog-detail-label">Released</span>
+                    <span class="catalog-detail-label">Published</span>
                     <p class="catalog-detail-value" th:text="${#temporals.format(release.releasedAt, 'yyyy-MM-dd HH:mm')}"></p>
                 </div>
                 <div class="catalog-detail-summary-item">
@@ -91,7 +154,7 @@
                 </div>
 
                 <div th:if="${release.notes != null}" class="catalog-detail-item">
-                    <div class="catalog-detail-item-header"><h3>Release notes</h3></div>
+                    <div class="catalog-detail-item-header"><h3>Notes</h3></div>
                     <p class="text-muted text-sm" style="margin: 0;" th:text="${release.notes}"></p>
                 </div>
             </div>
@@ -99,15 +162,15 @@
 
         <div class="ep-panel detail-section">
             <div class="detail-section-header">
-                <h2>Resources</h2>
+                <h2>Contents</h2>
             </div>
             <div>
                 <!--/* A release that kept no content can still show its details -- the manifest
                        snapshot was always stored -- but it cannot list what it contained, and an
                        empty table would read as "this release was empty". */-->
                 <p th:if="${!release.retained}" class="text-muted">
-                    This release was cut before Epistola kept the content of a release, so what it
-                    contained cannot be listed. Its details above are what it was released with.
+                    This version was published before Epistola kept the content of a version, so what it
+                    contained cannot be listed. Its details above are what it was published with.
                 </p>
                 <div th:if="${release.retained}" class="ep-table-scroll" role="region" aria-label="Released resources" tabindex="0">
                 <table class="ep-table">

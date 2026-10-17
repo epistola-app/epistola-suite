@@ -109,6 +109,26 @@ The model people see, decided 17 October (see "Simple model" below): one working
   day: with one working copy a plain URL is not ambiguous.
 - The `catalog-context` toggle and `GetCatalogContext` are gone.
 
+### The catalog page, redone (17 October)
+
+People work in the **next version** 99% of the time: based on the latest published version, numbered
+only when it is published. The advanced cases are explicit, and every version has its own page.
+
+- **Catalog page** (`/catalogs/{c}/browse`): "From here to a document" until something is live (add a
+  template, publish, make live, use it from an application); **Next version** (what is not published
+  yet, Open, Publish…, and "Start an in-between version" for something that has to go out first);
+  **Versions** (every draft and published version, each linking to its page); **Live**; the catalog's
+  identity; Exchange.
+- **A draft's page** (`/catalogs/{c}/draft`, or `{c}@{v}/draft`): what is not published yet, its
+  contents and its details.
+- **A published version's page** (`/catalogs/{c}/releases/{v}`): what it went out with, where it is
+  live, export, "Start a draft from this version".
+- **Catalog details belong to a version.** A release freezes its own; a draft's are still the
+  catalog's, shared by every open draft — to move into the version in core.
+
+The use cases this is checked against: a new catalog to a first document an application makes; keep
+improving the next version; an in-between release while the next version is unfinished.
+
 ### Routes
 
 The context is in the path, so links, tabs and back buttons keep it, and the server never guesses:

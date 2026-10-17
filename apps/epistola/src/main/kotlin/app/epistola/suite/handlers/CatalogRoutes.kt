@@ -55,6 +55,8 @@ class CatalogRoutes(
             POST("/{catalogId}/publish-current", handler::publishCurrentRelease)
             POST("/{catalogId}/publications/{publicationId}/cancel", handler::cancelPublication)
             GET("/{catalogId}/browse", handler::browse)
+            // A draft's own page: the next version at a plain segment, another draft at key@version.
+            GET("/{catalogId}/draft", handler::draftPage)
             GET("/{catalogId}/releases/{version}", handler::releaseDetail)
             POST("/{catalogId}/releases/{version}/forget", handler::forgetReleaseContent)
             POST("/{catalogId}/releases/{version}/delete", handler::deleteRelease)

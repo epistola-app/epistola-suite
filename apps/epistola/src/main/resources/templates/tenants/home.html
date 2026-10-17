@@ -71,20 +71,21 @@
                     <div class="card-body">
                         <th:block th:if="${catalog.authored}">
                             <p th:if="${catalog.drafts.isEmpty()}" class="text-muted text-sm" data-testid="catalog-overview-no-draft">
-                                Nothing open to edit.
-                                <a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenant.id},c=${catalog.catalogKey})}">Start editing</a>
+                                Nothing in progress.
+                                <a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenant.id},c=${catalog.catalogKey})}">Start the next version</a>
                             </p>
                             <p th:unless="${catalog.drafts.isEmpty()}" class="text-sm" data-testid="catalog-overview-work">
-                                <a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenant.id},c=${catalog.catalogKey})}">Your work</a>
+                                <a th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenant.id},c=${catalog.catalogKey})}">Next version</a>
                                 <span th:if="${catalog.notReady != null and catalog.notReady > 0}" data-testid="catalog-overview-not-ready"
                                       th:text="${catalog.notReady == 1} ? '· 1 change not published yet' : '· ' + ${catalog.notReady} + ' changes not published yet'">· 2 changes not published yet</span>
                                 <span th:if="${catalog.notReady == null or catalog.notReady == 0}" class="text-muted">· everything published</span>
                                 <span th:unless="${catalog.drafts[0].behind.isEmpty()}" class="badge badge-warning" data-testid="catalog-overview-behind"
-                                      th:text="${catalog.drafts[0].behind.size() == 1} ? 'Fix v' + ${catalog.drafts[0].behind[0]} + ' not in your work yet' : ${catalog.drafts[0].behind.size()} + ' fixes not in your work yet'">Fix v1.4.1 not in your work yet</span>
+                                      th:text="${catalog.drafts[0].behind.size() == 1} ? 'v' + ${catalog.drafts[0].behind[0]} + ' not in it yet' : ${catalog.drafts[0].behind.size()} + ' published versions not in it yet'">v1.4.1 not in it yet</span>
                             </p>
                             <p th:each="fix, it : ${catalog.drafts}" th:if="${!it.first}" class="text-sm" data-testid="catalog-overview-fix">
-                                <a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenant.id},c=${catalog.catalogKey + '@' + fix.version})}"
-                                   th:text="${fix.base != null} ? 'Fix of v' + ${fix.base} + ' in progress' : 'Fix v' + ${fix.version} + ' in progress'">Fix of v1.4.0 in progress</a>
+                                <a th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenant.id},c=${catalog.catalogKey + '@' + fix.version})}"
+                                   th:text="'Draft v' + ${fix.version}">Draft v1.4.1</a>
+                                <span th:if="${fix.base != null}" class="text-muted" th:text="'· based on v' + ${fix.base}">· based on v1.4.0</span>
                             </p>
                         </th:block>
                         <p class="text-sm" data-testid="catalog-overview-release">

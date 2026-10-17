@@ -34,17 +34,18 @@ import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
 
 /**
- * Fixing a published version from the catalog's History (docs/catalog-workspace-navigation.md): the
- * fix opens as the next patch of that version, under a banner, and your work moves out of its way.
+ * Something has to be published before the next version is ready (docs/catalog-workspace-navigation.md,
+ * use case 3): an in-between version starts from the latest published version, without the unfinished
+ * changes, on its own page under a banner, while the next version stays as it is.
  */
-class CatalogFixHtmxTest : BaseIntegrationTest() {
+class CatalogInBetweenHtmxTest : BaseIntegrationTest() {
 
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
     private val letters = CatalogKey.of("letters")
 
-    /** Letters 1.0.0 published and live in production; your work is 1.0.1 with a new theme. */
+    /** Letters 1.0.0 published and live in production; the next version adds a theme. */
     private fun live(name: String): Tenant {
         lateinit var tenant: Tenant
         fixture {
@@ -65,42 +66,56 @@ class CatalogFixHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `History offers to fix the live version, and the fix opens as its next patch while your work moves up`() {
-        val tenant = live("Fix Start")
+    fun `the catalog page offers an in-between version, which opens on its own page while the next version moves out of its way`() {
+        val tenant = live("In Between Start")
 
-        val before = browse(tenant, "letters")
-        assertThat(before).contains("data-testid=\"catalog-history-fix\"")
-        assertThat(before.substringAfter("data-testid=\"catalog-history-live\"").substringBefore("</td>")).contains("production")
+        val before = get(tenant, "/catalogs/letters/browse").body!!
+        assertThat(before).contains("data-testid=\"catalog-in-between-start\"").contains("It starts from v1.0.0, without the changes above")
 
         val started = post(tenant, "/catalogs/letters/fixes", mapOf("of" to "1.0.0"))
         assertThat(started.statusCode).isEqualTo(HttpStatus.SEE_OTHER)
-        assertThat(started.headers.location.toString()).isEqualTo("/tenants/${tenant.id}/catalogs/letters@1.0.1/browse")
+        assertThat(started.headers.location.toString()).isEqualTo("/tenants/${tenant.id}/catalogs/letters@1.0.1/draft")
 
         val drafts = withMediator { ListCatalogVersions(tenant.id, letters, CatalogVersionStatus.DRAFT).query() }
         assertThat(drafts.map { it.version to it.base }).containsExactly("1.1.0" to "1.0.0", "1.0.1" to "1.0.0")
 
-        val fix = browse(tenant, "letters@1.0.1")
-        assertThat(fix).contains("data-testid=\"catalog-fix-banner\"").contains("You are fixing v1.0.0, which is live in production")
-        assertThat(fix).contains("<h2>Fix of v1.0.0</h2>")
+        val page = get(tenant, "/catalogs/letters@1.0.1/draft").body!!
+        assertThat(page).contains(">Draft v1.0.1<")
+        assertThat(page).contains("data-testid=\"catalog-fix-banner\"").contains("v1.0.0 is live in production")
 
-        val work = browse(tenant, "letters")
-        assertThat(work).contains("<h2>Your work</h2>").contains("data-testid=\"catalog-history-continue-fix\"")
-        assertThat(work).doesNotContain("data-testid=\"catalog-history-fix\"")
+        val after = get(tenant, "/catalogs/letters/browse").body!!
+        assertThat(after).contains("data-testid=\"catalog-in-between-continue\"").doesNotContain("data-testid=\"catalog-in-between-start\"")
+        assertThat(after).contains(">Draft v1.0.1<")
     }
 
     @Test
-    fun `starting a fix that is already open continues it`() {
-        val tenant = live("Fix Continue")
+    fun `starting an in-between version that is already open continues it`() {
+        val tenant = live("In Between Continue")
         post(tenant, "/catalogs/letters/fixes", mapOf("of" to "1.0.0"))
 
         val again = post(tenant, "/catalogs/letters/fixes", mapOf("of" to "1.0.0"))
 
-        assertThat(again.headers.location.toString()).isEqualTo("/tenants/${tenant.id}/catalogs/letters@1.0.1/browse")
+        assertThat(again.headers.location.toString()).isEqualTo("/tenants/${tenant.id}/catalogs/letters@1.0.1/draft")
         assertThat(withMediator { ListCatalogVersions(tenant.id, letters, CatalogVersionStatus.DRAFT).query() }).hasSize(2)
     }
 
-    private fun browse(tenant: Tenant, segment: String): String = restTemplate
-        .getForEntity("/tenants/${tenant.id}/catalogs/$segment/browse", String::class.java).body!!
+    @Test
+    fun `a published version's page says where it is live and starts a draft from it, or continues the one open`() {
+        val tenant = live("In Between Release Page")
+
+        val before = get(tenant, "/catalogs/letters/releases/1.0.0").body!!
+        assertThat(before.substringAfter("data-testid=\"release-live\"").substringBefore("</p>")).contains("Live in <strong>production</strong>")
+        assertThat(before).contains("data-testid=\"release-start-draft\"")
+
+        post(tenant, "/catalogs/letters/fixes", mapOf("of" to "1.0.0"))
+
+        val after = get(tenant, "/catalogs/letters/releases/1.0.0").body!!
+        assertThat(after).contains("data-testid=\"release-continue-draft\"").contains("Continue draft v1.0.1")
+        assertThat(after).doesNotContain("data-testid=\"release-start-draft\"")
+    }
+
+    private fun get(tenant: Tenant, path: String) = restTemplate.withRedirects(HttpRedirects.DONT_FOLLOW)
+        .getForEntity("/tenants/${tenant.id}$path", String::class.java)
 
     private fun post(tenant: Tenant, path: String, fields: Map<String, String>) = restTemplate.withRedirects(HttpRedirects.DONT_FOLLOW).postForEntity(
         "/tenants/${tenant.id}$path",

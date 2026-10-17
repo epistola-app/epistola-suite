@@ -688,7 +688,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `authored catalog metadata sections can be edited independently from the browse page`() = fixture {
+    fun `authored catalog metadata sections can be edited independently from the next version's page`() = fixture {
         lateinit var t: Tenant
         lateinit var otherCatalogImageSlug: String
         given {
@@ -739,7 +739,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
 
         whenever {
             val browseResponse = restTemplate.getForEntity(
-                "/tenants/${t.id}/catalogs/metadata/browse",
+                "/tenants/${t.id}/catalogs/metadata/draft",
                 String::class.java,
             )
             assertThat(browseResponse.statusCode).isEqualTo(HttpStatus.OK)
@@ -883,8 +883,9 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+            // Details go out with a version, so editing them goes back to the next version's page.
             assertThat(response.headers.getFirst("HX-Redirect"))
-                .isEqualTo("/tenants/${t.id}/catalogs/metadata/browse")
+                .isEqualTo("/tenants/${t.id}/catalogs/metadata/draft")
 
             val catalog = withMediator { GetCatalog(t.id, CatalogKey.of("metadata")).query() }!!
             assertThat(catalog.name).isEqualTo("Discoverable catalog")

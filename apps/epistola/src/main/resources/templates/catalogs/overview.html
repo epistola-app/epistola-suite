@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/* The catalog page of an authored catalog, as the people using it work
+           (docs/catalog-workspace-navigation.md): almost always in the next version, which has no
+           number until it is published; at times in an in-between version, when something has to
+           be published before the next version is ready; and from a new catalog, the way to a
+           document an application generates. Every version has its own page, linked from Versions.
+
+           Every control gates on one name of `draftBar` (CatalogDraftBar), `readiness`
+           (CatalogReleaseReadiness) or `gettingStarted` (CatalogGettingStarted). */-->
+
+    <!--/* From a new catalog to a document an application generates from it. Until something is live. */-->
+    <div th:fragment="getting-started" th:if="${gettingStarted != null and gettingStarted.show}" class="card"
+         data-testid="catalog-getting-started" th:with="gs=${gettingStarted}">
+        <div class="card-header">
+            <h2>From here to a document</h2>
+        </div>
+        <div class="card-body">
+            <p class="text-muted" style="margin-top: 0;">
+                An application such as GZAC makes documents from what is live in an environment. Four steps get it there.
+            </p>
+            <ol style="margin: 0; padding-left: var(--ep-space-5); display: grid; gap: var(--ep-space-3);">
+                <li data-testid="catalog-step" data-step="1" th:attr="data-done=${gs.hasTemplate}">
+                    <strong>Add a template</strong>
+                    <span th:if="${gs.hasTemplate}" class="badge badge-success">Done</span>
+                    <div th:unless="${gs.hasTemplate}">
+                        <a th:if="${gs.mayEdit}" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="catalog-step-add-template"
+                           th:href="@{/tenants/{t}/templates/new(t=${tenantId},catalog=${gs.catalogKey})}">New template</a>
+                        <span th:unless="${gs.mayEdit}" class="form-hint">Adding a template needs the content author role.</span>
+                    </div>
+                </li>
+                <li data-testid="catalog-step" data-step="2" th:attr="data-done=${gs.published}">
+                    <strong>Publish the first version</strong>
+                    <span th:if="${gs.published}" class="badge badge-success">Done</span>
+                    <div th:unless="${gs.published}" class="form-hint">
+                        A published version does not change, so what your application gets stays the same while you keep working.
+                    </div>
+                    <div th:if="${gs.current == 2}">
+                        <button th:if="${readiness.offerPublish}" type="button" class="ep-btn ep-btn-primary ep-btn-sm"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
+                                hx-target="#release-dialog-container" hx-swap="innerHTML"
+                                data-testid="catalog-step-publish">Publish…</button>
+                        <span th:unless="${gs.mayPublish}" class="form-hint">Publishing needs the publisher role.</span>
+                    </div>
+                </li>
+                <li data-testid="catalog-step" data-step="3" th:attr="data-done=${gs.live}">
+                    <strong>Make it live in an environment</strong>
+                    <div th:if="${gs.needsEnvironment}" class="form-hint" data-testid="catalog-step-no-environment">
+                        There is no environment yet.
+                        <a th:href="@{/tenants/{t}/environments(t=${tenantId})}">Add one</a>, such as <em>test</em>, first.
+                    </div>
+                    <div th:if="${!gs.needsEnvironment and gs.current == 3}" class="form-hint">
+                        <th:block th:if="${gs.mayDeploy}">Under <em>Live</em> below, choose the version and press <em>Make live</em>.</th:block>
+                        <th:block th:unless="${gs.mayDeploy}">Making a version live needs the permission to deploy.</th:block>
+                    </div>
+                </li>
+                <li data-testid="catalog-step" data-step="4">
+                    <strong>Use it from your application</strong>
+                    <div class="form-hint" data-testid="catalog-step-application">
+                        Your application asks for catalog <code th:text="${gs.catalogKey}">letters</code><th:block th:if="${gs.templateKey != null}">,
+                        template <code th:text="${gs.templateKey}">invoice</code></th:block><th:block th:if="${gs.exampleEnvironment != null}">
+                        and environment <code th:text="${gs.exampleEnvironment}">test</code></th:block>.
+                        It signs in with an <a th:href="@{/tenants/{t}/api-keys(t=${tenantId})}">API key</a>.
+                    </div>
+                </li>
+            </ol>
+        </div>
+    </div>
+
+    <!--/* The next version: where people work. Its number is picked when it is published. */-->
+    <div th:fragment="next-version" class="card" data-testid="catalog-next-version" th:with="bar=${readiness.drafts}">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: var(--ep-space-2);">
+            <h2>Next version</h2>
+            <div class="ep-row" style="gap: var(--ep-space-2);">
+                <a th:if="${bar.current != null}" class="ep-btn ep-btn-outline ep-btn-sm" th:href="${bar.workHref}"
+                   data-testid="catalog-next-version-open">Open</a>
+                <button th:if="${readiness.offerPublish}" type="button" class="ep-btn ep-btn-primary ep-btn-sm"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
+                        hx-target="#release-dialog-container" hx-swap="innerHTML"
+                        data-testid="catalog-release-open">Publish…</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div th:if="${nextReleaseError != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-3);"
+                 data-testid="catalog-next-release-error">
+                <span th:text="${nextReleaseError}"></span>
+            </div>
+
+            <th:block th:if="${bar.current != null}">
+                <p style="margin-top: 0;" data-testid="catalog-next-version-base"
+                   th:text="${bar.latestPublished != null} ? 'Based on v' + ${bar.latestPublished} + ', the latest published version. Its number is picked when you publish it.'
+                            : 'Nothing is published yet: this becomes the first version.'">Based on v1.2.0.</p>
+
+                <p th:if="${readiness.nothingToPublish}" class="text-muted" data-testid="catalog-next-version-changes">
+                    No changes yet. What you change shows up here.
+                </p>
+                <th:block th:unless="${readiness.nothingToPublish or readiness.changed.isEmpty()}">
+                    <p style="margin-bottom: var(--ep-space-1);" data-testid="catalog-next-version-changes"
+                       th:text="${readiness.changed.size() == 1} ? '1 change not published yet:' : ${readiness.changed.size()} + ' changes not published yet:'">3 changes not published yet:</p>
+                    <ul style="margin: 0; padding-left: var(--ep-space-5);">
+                        <li th:each="change, stat : ${readiness.changedForPeople}" th:if="${stat.index < 5}"
+                            data-testid="catalog-next-version-change">
+                            <span th:text="${change.name}">Invoice</span>
+                            <span class="text-muted" th:text="'(' + ${change.kind} + ', ' + (${change.state.name() == 'NEW'} ? 'added' : (${change.state.name() == 'REMOVED'} ? 'removed' : 'changed')) + ')'">(Template, added)</span>
+                        </li>
+                        <li th:if="${readiness.changed.size() > 5}" class="text-muted"
+                            th:text="'and ' + ${readiness.changed.size() - 5} + ' more'">and 2 more</li>
+                    </ul>
+                </th:block>
+
+                <!--/* Published in between and not in the next version: said plainly, with what changed. */-->
+                <div th:unless="${bar.behind.isEmpty()}" class="alert alert-warning" style="margin-top: var(--ep-space-3);"
+                     data-testid="catalog-draft-behind-list">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+                    <div>
+                        <p th:each="release : ${bar.behind}" style="margin: 0;"
+                           data-testid="catalog-draft-behind-release" th:data-version="${release.version}">
+                            <strong th:text="'v' + ${release.version}">v1.2.1</strong> was published in between and is not in the next version<span th:unless="${release.changes.isEmpty()}"
+                                th:text="': it changed ' + ${#strings.listJoin(release.changes.![key], ', ')}"></span>.
+                            Make the same change here if it belongs in it too.
+                        </p>
+                    </div>
+                </div>
+
+                <p th:if="${bar.publishWithheld}" class="form-hint" data-testid="catalog-publish-withheld">
+                    Publishing needs the publisher role.
+                </p>
+                <p th:if="${readiness.publishBlocked}" class="form-hint" data-testid="catalog-release-blocked">
+                    It cannot be published yet. <a th:href="${bar.workHref}">Open it</a> to see why.
+                </p>
+
+                <!--/* Something has to go out before the next version is ready (use case 3). */-->
+                <div th:if="${bar.latestPublished != null}" style="margin-top: var(--ep-space-4); padding-top: var(--ep-space-3); border-top: 1px solid var(--ep-border);"
+                     data-testid="catalog-in-between">
+                    <th:block th:if="${bar.openInBetween != null}">
+                        <p style="margin: 0;">
+                            An in-between version is open, based on <span th:text="'v' + ${bar.latestPublished}">v1.2.0</span>:
+                            <a th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenantId},c=${catalog.id + '@' + bar.openInBetween})}"
+                               data-testid="catalog-in-between-continue" th:text="'Draft v' + ${bar.openInBetween}">Draft v1.2.1</a>
+                        </p>
+                    </th:block>
+                    <form th:if="${readiness.offerInBetween}" method="post" class="ep-row" style="gap: var(--ep-space-3); align-items: center; flex-wrap: wrap;"
+                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/fixes(tenantId=${tenantId},catalogId=${catalog.id})}">
+                        <input type="hidden" name="of" th:value="${bar.latestPublished}">
+                        <span>Need to publish something before this is ready?</span>
+                        <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-in-between-start"
+                                th:title="'Starts from v' + ${bar.latestPublished} + ', without the changes above'">Start an in-between version</button>
+                        <span class="form-hint" style="flex-basis: 100%;"
+                              th:text="'It starts from v' + ${bar.latestPublished} + ', without the changes above, and is published on its own. The next version stays as it is.'">It starts from v1.2.0.</span>
+                    </form>
+                    <p th:if="${bar.inBetweenWithheldNoContent}" class="form-hint" style="margin: 0;" data-testid="catalog-in-between-withheld"
+                       th:text="'v' + ${bar.latestPublished} + ' was published before Epistola kept the contents of a version, so an in-between version cannot start from it.'"></p>
+                </div>
+            </th:block>
+
+            <!--/* Nothing in progress: every draft was discarded. Offer to start again. */-->
+            <th:block th:if="${bar.noDraft}">
+                <p class="text-muted" style="margin-top: 0;" data-testid="catalog-draft-none">Nothing is in progress.</p>
+                <form th:if="${bar.offerOpenDraft}" method="post" style="display: inline;"
+                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts(tenantId=${tenantId},catalogId=${catalog.id})}">
+                    <input type="hidden" name="version" th:value="${bar.openDraftVersion}">
+                    <input type="hidden" name="from" th:value="${bar.openDraftFrom}">
+                    <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="catalog-draft-open">Start the next version</button>
+                </form>
+                <p th:if="${bar.openDraftWithheldNoContent}" class="form-hint" data-testid="catalog-draft-open-withheld">
+                    The latest published version kept no content to start from. Start from an older one under Versions.
+                </p>
+                <p th:if="${bar.draftControlsWithheld}" class="form-hint" data-testid="catalog-draft-open-withheld">
+                    Editing needs the content author role.
+                </p>
+            </th:block>
+        </div>
+    </div>
+
+    <!--/* Every version, each linking to its own page: drafts first, the next version at the top. */-->
+    <div th:fragment="versions" class="card" data-testid="catalog-versions" th:with="bar=${draftBar}">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: var(--ep-space-2);">
+            <h2>Versions</h2>
+            <button th:if="${bar.offerCreateDraft}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
+                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts/new(tenantId=${tenantId},catalogId=${catalog.id})}"
+                    hx-target="#dialog-mount" hx-swap="innerHTML"
+                    title="For work published on its own, such as the next major next to the next minor"
+                    data-testid="catalog-draft-new">New draft…</button>
+        </div>
+        <div class="card-body">
+            <p th:if="${bar.versionRows.isEmpty()}" class="text-muted">This catalog has no versions.</p>
+            <div th:unless="${bar.versionRows.isEmpty()}" class="ep-table-scroll" role="region" aria-label="Versions" tabindex="0">
+                <table class="ep-table">
+                    <thead>
+                        <tr>
+                            <th>Version</th>
+                            <th>Status</th>
+                            <th>Live in</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="row : ${bar.versionRows}" data-testid="catalog-version-row"
+                            th:attr="data-version=${row.version},data-status=${row.draft} ? 'draft' : 'published'">
+                            <td style="font-weight: 500;">
+                                <a th:href="${row.href}" data-testid="catalog-version-link"
+                                   th:text="${row.next} ? 'Next version' : (${row.draft} ? 'Draft v' + ${row.version} : 'v' + ${row.version})">v1.0.0</a>
+                            </td>
+                            <td>
+                                <th:block th:if="${row.draft}">
+                                    <span class="badge badge-outline">Draft</span>
+                                    <span class="text-muted" th:text="${row.base != null} ? 'based on v' + ${row.base} : 'nothing published before it'">based on v1.0.0</span>
+                                </th:block>
+                                <th:block th:unless="${row.draft}">
+                                    <span th:text="'Published ' + ${#temporals.format(row.publishedAt, 'yyyy-MM-dd')}">Published 2026-10-01</span>
+                                    <span th:unless="${row.contentKept}" class="text-muted" style="font-size: var(--ep-text-xs);"
+                                          title="Published before Epistola kept the content of a version">contents not kept</span>
+                                </th:block>
+                            </td>
+                            <td data-testid="catalog-version-live">
+                                <span th:if="${row.liveIn.isEmpty()}" class="text-muted">—</span>
+                                <span th:unless="${row.liveIn.isEmpty()}" th:text="${#strings.listJoin(row.liveIn, ', ')}">production</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

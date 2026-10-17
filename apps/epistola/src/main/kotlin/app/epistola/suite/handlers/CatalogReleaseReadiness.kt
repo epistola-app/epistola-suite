@@ -120,6 +120,13 @@ data class CatalogReleaseReadiness(
     /** The viewer may publish and there is something to, but a dependency (or an unready change they may not mark) stops it. */
     val publishBlocked: Boolean get() = mayRelease && draftVersion != null && !nothingToPublish && !offerPublish
 
+    /**
+     * Whether to offer "Start an in-between version" on the catalog page: the catalog can start one
+     * ([CatalogDraftBar.offerInBetween]) and the next version holds changes to keep out of it. With
+     * none, publishing the next version is the same thing.
+     */
+    val offerInBetween: Boolean get() = drafts.offerInBetween && !nothingToPublish
+
     /** The changed resources, with a readable kind, for the "what changes" list. */
     val changedForPeople: List<PublishedChange>
         get() = changed.map { PublishedChange(typeLabel(it.type), it.name ?: it.slug, it.state) }

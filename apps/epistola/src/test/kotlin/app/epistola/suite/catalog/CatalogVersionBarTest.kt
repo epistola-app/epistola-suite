@@ -80,7 +80,7 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `every content page names its catalog and says you are in your work, with Publish`() {
+    fun `every content page names its catalog and says it is the next version, with Publish`() {
         val tenant = seed("Version Bar Pages")
 
         listOf(
@@ -95,31 +95,32 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
                 .`as`("$path puts the bar above the page header")
                 .isLessThan(body.indexOf("class=\"page-header\""))
             assertThat(body).`as`("$path names the catalog").contains(">Bar cat</a>")
-            assertThat(body).`as`("$path says it is your work").contains(">Your work<")
+            assertThat(body).`as`("$path says it is the next version").contains(">Next version</a>")
             assertThat(body).`as`("$path offers publishing").contains("data-testid=\"catalog-bar-publish\"")
-            assertThat(body).`as`("$path publishes your work").contains("/catalogs/bar-cat/release")
+            assertThat(body).`as`("$path publishes the next version").contains("/catalogs/bar-cat/release")
             assertThat(body).`as`("$path mounts the publish dialog").contains("id=\"release-dialog-container\"")
-            assertThat(body).`as`("$path shows no version number for your work").doesNotContain("Draft v")
+            assertThat(body).`as`("$path shows no number for the next version").doesNotContain("Draft v")
         }
     }
 
     @Test
-    fun `a fix of a published version is a banner that says what is fixed and where it is live`() {
+    fun `another draft is a banner that says it is not the next version, and where its base is live`() {
         val tenant = seed("Version Bar Fix")
         withMediator {
-            CreateCatalogVersion(tenant.id, catalogKey, "2.0.0").execute() // your work; 1.0.1 is now a fix of 1.0.0
+            CreateCatalogVersion(tenant.id, catalogKey, "2.0.0").execute() // the next version; 1.0.1 is now another draft
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
             DeployRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), catalogKey, "1.0.0", includeDependencies = true).execute()
         }
 
         val fix = get(tenant, "/themes/bar-cat@1.0.1/house")
         assertThat(fix).contains("data-testid=\"catalog-fix-banner\"").doesNotContain("data-testid=\"catalog-version-bar\"")
-        assertThat(fix).contains("You are fixing Bar cat v1.0.0, which is live in production")
-        assertThat(fix).contains("Publish fix…").contains("/catalogs/bar-cat@1.0.1/release")
+        assertThat(fix).contains("You are editing draft v1.0.1 of Bar cat, not the next version")
+        assertThat(fix).contains("It started from v1.0.0, which is live in production")
+        assertThat(fix).contains("Publish…").contains("/catalogs/bar-cat@1.0.1/release")
         assertThat(fix).contains("href=\"/tenants/${tenant.id.value}/themes/bar-cat/house\"")
 
         val work = get(tenant, "/themes/bar-cat/house")
-        assertThat(work).contains(">Your work<").contains("Fix of v1.0.0 in progress")
+        assertThat(work).contains(">Next version</a>").contains(">Draft v1.0.1</a>")
             .contains("href=\"/tenants/${tenant.id.value}/themes/bar-cat@1.0.1/house\"")
     }
 
@@ -133,7 +134,7 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
         assertThat(body).contains("data-testid=\"catalog-version-bar\"")
         assertThat(body).contains(">v$installed<")
         assertThat(body).contains("can't be edited")
-        assertThat(body).doesNotContain("data-testid=\"catalog-bar-publish\"").doesNotContain(">Your work<")
+        assertThat(body).doesNotContain("data-testid=\"catalog-bar-publish\"").doesNotContain(">Next version</a>")
     }
 
     private fun get(tenant: Tenant, path: String): String {

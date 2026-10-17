@@ -35,7 +35,7 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
     private lateinit var restTemplate: TestRestTemplate
 
     @Test
-    fun `the tenant home shows each catalog's work, open fixes, published version and where it is live`() {
+    fun `the tenant home shows each catalog's next version, other drafts, published version and where it is live`() {
         val tenant = createTenant("Home Overview")
         val letters = CatalogKey.of("letters")
         val catalog = CatalogId(letters, TenantId(tenant.id))
@@ -55,9 +55,10 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
         val body = response.body!!
         val card = body.substringAfter("data-catalog=\"letters\"").substringBefore("data-testid=\"catalog-overview-card\"")
         assertThat(card).contains(">Authored<")
-        assertThat(card).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/browse\"").contains(">Your work<")
-        assertThat(card).`as`("the lower draft is a fix of 1.0.0").contains("href=\"/tenants/${tenant.id.value}/catalogs/letters@1.0.1/browse\"")
-            .contains("Fix of v1.0.0 in progress")
+        assertThat(card).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/browse\"")
+        assertThat(card).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/draft\"").contains(">Next version<")
+        assertThat(card).`as`("the lower draft is another draft, based on 1.0.0").contains("href=\"/tenants/${tenant.id.value}/catalogs/letters@1.0.1/draft\"")
+            .contains(">Draft v1.0.1<").contains("based on v1.0.0")
         assertThat(card).contains("1 change not published yet")
         assertThat(card).contains("v1.0.0")
         assertThat(card).contains(">production</a>")

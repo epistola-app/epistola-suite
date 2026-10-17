@@ -192,21 +192,21 @@ class ListAffordancesTest : BaseIntegrationTest() {
         assertThat(body).contains("""name="iconAssetSlug"""")
     }
 
-    /** The catalog page withholds the button that opens that dialog, and says where images come from. */
+    /** The next version's page withholds the button that opens that dialog, and says where images come from. */
     @Test
-    fun `the catalog page withholds the presentation control until there is an image`() {
+    fun `the next version's page withholds the presentation control until there is an image`() {
         val tenant = createTenant("Presentation Card")
         val catalogKey = CatalogKey.of("presentation-card")
         withMediator { CreateCatalog(tenant.id, catalogKey, "Presentation card").execute() }
 
-        val body = get("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/browse")
+        val body = get("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/draft")
 
         assertThat(body).contains("This catalog has no images yet")
         assertThat(body).doesNotContain("section='presentation'")
     }
 
     @Test
-    fun `the catalog page and the edit dialog agree on keyword order`() {
+    fun `the next version's page and the edit dialog agree on keyword order`() {
         val tenant = createTenant("Keyword Order")
         val catalogKey = CatalogKey.of("keyword-order")
         withMediator {
@@ -222,7 +222,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
         val base = "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}"
 
         val onPage = Regex("""badge badge-outline"[^>]*>([^<]+)<""")
-            .findAll(get("$base/browse"))
+            .findAll(get("$base/draft").substringAfter("id=\"catalog-metadata\""))
             .map { it.groupValues[1] }
             .toList()
         val inDialog = get("$base/metadata?section=keywords")
