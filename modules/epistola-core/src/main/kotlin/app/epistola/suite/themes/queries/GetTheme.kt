@@ -4,7 +4,7 @@
 
 package app.epistola.suite.themes.queries
 
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -35,7 +35,7 @@ class GetThemeHandler(
             JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
             WHERE t.id = :id
               AND t.tenant_key = :tenantId
-              AND t.catalog_id = ${catalogAt("tenantId", "catalogKey")}
+              AND t.version_id = ${versionAt("tenantId", "catalogKey")}
             """,
         )
             .bind("id", query.id.key)

@@ -5,6 +5,7 @@
 package app.epistola.suite.templates.contracts.commands
 
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -84,7 +85,7 @@ class UpdateDataContractHandler(
                 """
                 UPDATE document_templates
                 SET data_model = CAST(:dataModel AS JSONB), data_examples = CAST(:dataExamples AS JSONB), updated_at = NOW()
-                WHERE tenant_key = :t AND resource_id = ${templateAtAddress("t", "c", "k")}
+                WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND resource_id = ${templateAtAddress("t", "c", "k")}
                 """,
             )
                 .bind("t", template.tenantKey)

@@ -8,7 +8,7 @@ import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.SvgContentPolicy
 import app.epistola.suite.assets.assetContentScope
 import app.epistola.suite.assets.commands.UploadAsset
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -74,7 +74,7 @@ class ImportAssetHandler(
             handle.createQuery(
                 """
                 SELECT COUNT(*) > 0 FROM assets
-                WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = :id
+                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND id = :id
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
@@ -97,7 +97,7 @@ class ImportAssetHandler(
                     """
                     UPDATE assets
                     SET name = :name, media_type = :mediaType, width = :width, height = :height, size_bytes = :sizeBytes, content_hash = :contentHash, sensitive = :sensitive
-                    WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = :id
+                    WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND id = :id
                     """,
                 )
                     .bind("tenantKey", command.tenantKey)

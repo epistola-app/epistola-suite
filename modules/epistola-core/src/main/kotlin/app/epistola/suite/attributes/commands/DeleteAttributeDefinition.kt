@@ -5,8 +5,9 @@
 package app.epistola.suite.attributes.commands
 
 import app.epistola.suite.attributes.AttributeReferences
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -48,6 +49,7 @@ class DeleteAttributeDefinitionHandler(
                 SELECT COUNT(*) FROM template_variants variants
                 ${templateJoin("variants")}
                 WHERE variants.tenant_key = :tenantId
+                  AND ${inCurrentVersion("variants")}
                   AND ${AttributeReferences.uses("variants")}
                 """,
             )
@@ -64,7 +66,7 @@ class DeleteAttributeDefinitionHandler(
             val rowsAffected = handle.createUpdate(
                 """
                 DELETE FROM variant_attribute_definitions
-                WHERE id = :id AND tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
+                WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
                 """,
             )
                 .bind("id", command.id.key)

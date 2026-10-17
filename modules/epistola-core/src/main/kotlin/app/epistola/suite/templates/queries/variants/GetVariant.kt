@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.queries.variants
 
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
@@ -38,7 +39,7 @@ class GetVariantHandler(
                 FROM template_variants tv
                 ${templateJoin("tv")}
                 WHERE tv.id = :variantId
-                  AND tv.tenant_key = :tenantId
+                  AND tv.tenant_key = :tenantId AND tv.version_id = ${versionAt("tenantId", "catalogKey")}
                   AND tv.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 """,
         )
@@ -74,11 +75,12 @@ class GetVariantSummariesHandler(
                     tv.is_default,
                     EXISTS (
                         SELECT 1 FROM resource_ready_marks m
-                        JOIN resource_content_digests d ON d.tenant_key = m.tenant_key AND d.resource_id = m.resource_id AND d.part = m.part
-                        WHERE m.tenant_key = tv.tenant_key AND m.resource_id = tv.template_resource_id AND m.part = tv.id AND m.digest = d.digest
+                        JOIN resource_content_digests d ON d.tenant_key = m.tenant_key AND d.version_id = m.version_id
+                                                         AND d.resource_id = m.resource_id AND d.part = m.part
+                        WHERE m.tenant_key = tv.tenant_key AND m.version_id = tv.version_id AND m.resource_id = tv.template_resource_id AND m.part = tv.id AND m.digest = d.digest
                     ) as ready
                 FROM template_variants tv
-                WHERE tv.tenant_key = :tenantId
+                WHERE tv.tenant_key = :tenantId AND tv.version_id = ${versionAt("tenantId", "catalogKey")}
                   AND tv.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 ORDER BY tv.is_default DESC, tv.created_at ASC
                 """,

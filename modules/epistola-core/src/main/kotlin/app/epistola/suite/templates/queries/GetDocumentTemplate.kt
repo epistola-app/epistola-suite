@@ -4,7 +4,8 @@
 
 package app.epistola.suite.templates.queries
 
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -35,8 +36,9 @@ class GetDocumentTemplateHandler(
                 FROM document_templates dt
                 JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.catalog_id = dt.catalog_id
                 LEFT JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
+                    AND (th.version_id = dt.version_id OR (th.catalog_id <> dt.catalog_id AND ${inCurrentVersion("th")}))
                 LEFT JOIN catalogs th_cat ON th_cat.tenant_key = th.tenant_key AND th_cat.catalog_id = th.catalog_id
-                WHERE dt.id = :id AND dt.tenant_key = :tenantId AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")}
+                WHERE dt.id = :id AND dt.tenant_key = :tenantId AND dt.version_id = ${versionAt("tenantId", "catalogKey")}
                 """,
         )
             .bind("id", query.id.key)

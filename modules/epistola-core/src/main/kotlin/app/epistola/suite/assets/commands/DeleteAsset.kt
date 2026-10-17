@@ -6,6 +6,7 @@ package app.epistola.suite.assets.commands
 
 import app.epistola.suite.assets.AssetInUseException
 import app.epistola.suite.assets.queries.FindAssetUsages
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -51,6 +52,7 @@ class DeleteAssetHandler(
                 SELECT c.catalog_key FROM assets a
                 JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id
                 WHERE a.tenant_key = :tenantId AND a.id = :assetId
+                  AND ${inCurrentVersion("a")}
                 """,
             )
                 .bind("tenantId", command.tenantId)
@@ -76,6 +78,7 @@ class DeleteAssetHandler(
                 DELETE FROM assets
                 WHERE id = :assetId
                   AND tenant_key = :tenantId
+                  AND ${inCurrentVersion("assets")}
                 """,
             )
                 .bind("assetId", command.assetId.value)

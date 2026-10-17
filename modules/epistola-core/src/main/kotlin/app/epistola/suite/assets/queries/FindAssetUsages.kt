@@ -5,6 +5,7 @@
 package app.epistola.suite.assets.queries
 
 import app.epistola.suite.assets.AssetUsage
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -40,9 +41,11 @@ class FindAssetUsagesHandler(
                     SELECT dt.name AS usage_name, tv.title AS variant_title
                     FROM template_variants tv
                     JOIN document_templates dt ON dt.tenant_key = tv.tenant_key
+                        AND dt.version_id = tv.version_id
                         AND dt.resource_id = tv.template_resource_id
                     CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
                     WHERE tv.tenant_key = :tenantId
+                      AND ${inCurrentVersion("tv")}
                       AND n.value -> 'props' ->> 'imageKey' = :assetId
 
                     UNION ALL

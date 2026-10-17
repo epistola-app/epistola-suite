@@ -4,6 +4,7 @@
 
 package app.epistola.suite.loadtest.queries
 
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.loadtest.model.LoadTestRun
 import app.epistola.suite.mediator.Query
@@ -51,7 +52,7 @@ class ListLoadTestRunsHandler(
                    r.p95_response_time_ms, r.p99_response_time_ms, r.requests_per_second,
                    r.success_rate_percent, r.error_summary, r.metrics, r.created_at, r.started_at, r.completed_at
             FROM load_test_runs r
-            JOIN document_templates template ON template.tenant_key = r.tenant_key AND template.resource_id = r.template_resource_id
+            JOIN document_templates template ON template.tenant_key = r.tenant_key AND template.resource_id = r.template_resource_id AND ${inCurrentVersion("template")}
             JOIN catalogs cat ON cat.tenant_key = template.tenant_key AND cat.catalog_id = template.catalog_id
             WHERE r.tenant_key = :tenantId
             ORDER BY r.created_at DESC

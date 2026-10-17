@@ -4,6 +4,7 @@
 
 package app.epistola.suite.quality.commands
 
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.QualityFindingKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -151,7 +152,7 @@ class SubmitQualityFindingsHandler(
             """
             SELECT md5(template_model::text)
             FROM template_variants
-            WHERE tenant_key = :tenantKey
+            WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
               AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND id = :variantKey
             """,
         )

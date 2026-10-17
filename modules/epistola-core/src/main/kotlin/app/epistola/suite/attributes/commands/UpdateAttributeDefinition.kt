@@ -7,8 +7,9 @@ package app.epistola.suite.attributes.commands
 import app.epistola.suite.attributes.AttributeReferences
 import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Command
@@ -74,7 +75,7 @@ class UpdateAttributeDefinitionHandler(
                 val currentAllowedValues = handle.createQuery(
                     """
                     SELECT allowed_values FROM variant_attribute_definitions
-                    WHERE id = :id AND tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
+                    WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
                     """,
                 )
                     .bind("id", command.id.key)
@@ -98,6 +99,7 @@ class UpdateAttributeDefinitionHandler(
                             SELECT COUNT(*) FROM template_variants variants
                             ${templateJoin("variants")}
                             WHERE variants.tenant_key = :tenantId
+                              AND ${inCurrentVersion("variants")}
                               AND ${AttributeReferences.usesValue("variants", "value")}
                             """,
                         )
@@ -124,7 +126,7 @@ class UpdateAttributeDefinitionHandler(
                     allowed_values         = :allowedValues::jsonb,
                     code_list_resource_id  = ${boundCodeListAtAddress("tenantId")},
                     updated_at          = NOW()
-                WHERE id = :id AND tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
+                WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
                 RETURNING id, tenant_key, display_name, allowed_values, created_at, updated_at,
                           (SELECT cat.catalog_key FROM catalogs cat
                             WHERE cat.tenant_key = variant_attribute_definitions.tenant_key
@@ -132,10 +134,12 @@ class UpdateAttributeDefinitionHandler(
                           (SELECT cl_cat.catalog_key FROM code_lists cl
                              JOIN catalogs cl_cat ON cl_cat.tenant_key = cl.tenant_key AND cl_cat.catalog_id = cl.catalog_id
                             WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
-                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id) AS code_list_catalog_key,
+                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id
+                              AND ${inCurrentVersion("cl")}) AS code_list_catalog_key,
                           (SELECT slug FROM code_lists cl
                             WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
-                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id) AS code_list_slug
+                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id
+                              AND ${inCurrentVersion("cl")}) AS code_list_slug
                 """,
             )
                 .bind("id", command.id.key)

@@ -5,8 +5,9 @@
 package app.epistola.suite.attributes.codelists.commands
 
 import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -47,9 +48,10 @@ class DeleteCodeListHandler(
         return jdbi.withHandle<Boolean, Exception> { handle ->
             val attributeCount = handle.createQuery(
                 """
-                SELECT COUNT(*) FROM variant_attribute_definitions
-                WHERE tenant_key = :tenantKey
-                  AND code_list_resource_id = $CODE_LIST_AT_ADDRESS
+                SELECT COUNT(*) FROM variant_attribute_definitions a
+                WHERE a.tenant_key = :tenantKey
+                  AND ${inCurrentVersion("a")}
+                  AND a.code_list_resource_id = $CODE_LIST_AT_ADDRESS
                 """,
             )
                 .bind("tenantKey", command.id.tenantKey)
@@ -66,7 +68,7 @@ class DeleteCodeListHandler(
             val rowsAffected = handle.createUpdate(
                 """
                 DELETE FROM code_lists
-                WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND slug = :slug
+                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug
                 """,
             )
                 .bind("tenantKey", command.id.tenantKey)

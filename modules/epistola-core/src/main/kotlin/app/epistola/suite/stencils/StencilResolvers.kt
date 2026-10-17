@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils
 
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.stencils.model.StencilInstances
@@ -45,6 +46,7 @@ class StencilResolvers(
             SELECT s.content::text, s.parameter_schema::text, s.reads_template_data
             FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id
             WHERE s.tenant_key = :tenantKey AND c.catalog_key = :catalogKey AND s.id = :stencilKey
+              AND s.version_id = ${versionAt("tenantKey", "catalogKey")}
             """,
         )
             .bind("tenantKey", tenantKey)

@@ -5,6 +5,7 @@
 package app.epistola.suite.stencils.queries
 
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TemplateKey
@@ -53,10 +54,12 @@ private val USAGE_CTE = """
                tv.id AS variant_key, tv.template_model::text AS template_model,
                COUNT(*) AS instance_count
         FROM template_variants tv
-        JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
+        JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id
+                                  AND dt.resource_id = tv.template_resource_id
         JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.catalog_id = dt.catalog_id
         CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS node(key, value)
         WHERE tv.tenant_key = :tenantId
+          AND ${inCurrentVersion("tv")}
           AND ${StencilReferences.usedBy("node", "dt")}
         GROUP BY dt.id, c.catalog_key, c.type, dt.name, tv.id, tv.template_model::text
     )

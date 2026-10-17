@@ -4,7 +4,8 @@
 
 package app.epistola.suite.fonts.queries
 
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.fonts.model.Font
@@ -47,10 +48,11 @@ class ListFontsHandler(
                 FROM fonts f
                 JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id
                 WHERE f.tenant_key = :tenantId
+                  AND ${inCurrentVersion("f")}
                 """,
             )
             if (query.catalogKey != null) {
-                append(" AND f.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
+                append(" AND f.version_id = ${versionAt("tenantId", "catalogKey")}")
             }
             append(" ORDER BY f.name ASC")
         }

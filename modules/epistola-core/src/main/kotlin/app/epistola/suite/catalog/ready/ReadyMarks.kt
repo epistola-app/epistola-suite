@@ -5,6 +5,8 @@
 package app.epistola.suite.catalog.ready
 
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.security.currentUserIdOrNull
@@ -31,7 +33,9 @@ class ReadyMarks {
                    bool_and(m.digest IS NOT NULL AND m.digest = d.digest) AS ready
             FROM catalog_resources r
             JOIN resource_content_digests d ON d.tenant_key = r.tenant_key AND d.resource_id = r.resource_id
-            LEFT JOIN resource_ready_marks m ON m.tenant_key = d.tenant_key AND m.resource_id = d.resource_id AND m.part = d.part
+                 AND d.version_id = ${versionAt("t", "c")}
+            LEFT JOIN resource_ready_marks m ON m.tenant_key = d.tenant_key AND m.version_id = d.version_id
+                 AND m.resource_id = d.resource_id AND m.part = d.part
             WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")}
             GROUP BY 1
             """,
@@ -48,8 +52,10 @@ class ReadyMarks {
             """
             SELECT COALESCE(bool_and(m.digest IS NOT NULL AND m.digest = d.digest), FALSE)
             FROM resource_content_digests d
-            LEFT JOIN resource_ready_marks m ON m.tenant_key = d.tenant_key AND m.resource_id = d.resource_id AND m.part = d.part
-            WHERE d.tenant_key = :t AND d.resource_id = :id
+            LEFT JOIN resource_ready_marks m ON m.tenant_key = d.tenant_key AND m.version_id = d.version_id
+                 AND m.resource_id = d.resource_id AND m.part = d.part
+            -- The resource's own catalog's current version: a resource lives in one catalog.
+            WHERE d.tenant_key = :t AND d.resource_id = :id AND ${inCurrentVersion("d")}
             """,
         )
         .bind("t", tenantKey)
@@ -61,12 +67,13 @@ class ReadyMarks {
     fun mark(handle: Handle, tenantKey: TenantKey, resourceId: UUID, part: String? = null) {
         handle.createUpdate(
             """
-            INSERT INTO resource_ready_marks (tenant_key, resource_id, part, digest, marked_by)
-            SELECT d.tenant_key, d.resource_id, d.part, d.digest, :by
+            INSERT INTO resource_ready_marks (tenant_key, version_id, resource_id, part, digest, marked_by)
+            SELECT d.tenant_key, d.version_id, d.resource_id, d.part, d.digest, :by
             FROM resource_content_digests d
-            WHERE d.tenant_key = :t AND d.resource_id = :id AND (CAST(:part AS TEXT) IS NULL OR d.part = :part)
+            WHERE d.tenant_key = :t AND d.resource_id = :id AND ${inCurrentVersion("d")}
+              AND (CAST(:part AS TEXT) IS NULL OR d.part = :part)
             ON CONFLICT (tenant_key, resource_id, part)
-            DO UPDATE SET digest = EXCLUDED.digest, marked_at = NOW(), marked_by = EXCLUDED.marked_by
+            DO UPDATE SET version_id = EXCLUDED.version_id, digest = EXCLUDED.digest, marked_at = NOW(), marked_by = EXCLUDED.marked_by
             """,
         )
             .bind("t", tenantKey)

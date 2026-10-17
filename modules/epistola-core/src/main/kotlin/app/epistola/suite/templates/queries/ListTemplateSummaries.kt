@@ -5,7 +5,8 @@
 package app.epistola.suite.templates.queries
 
 import app.epistola.suite.catalog.CatalogType
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -94,22 +95,23 @@ class ListTemplateSummariesHandler(
                     c.type AS catalog_type,
                     dt.name,
                     dt.updated_at,
-                    COALESCE((SELECT COUNT(*) FROM template_variants tv WHERE tv.tenant_key = dt.tenant_key AND tv.template_resource_id = dt.resource_id), 0)::int as variant_count,
+                    COALESCE((SELECT COUNT(*) FROM template_variants tv WHERE tv.tenant_key = dt.tenant_key AND tv.version_id = dt.version_id AND tv.template_resource_id = dt.resource_id), 0)::int as variant_count,
                     -- Ready when every variant's content is marked ready as it is now.
                     COALESCE((SELECT bool_and(m.digest IS NOT NULL AND m.digest = d.digest)
                               FROM resource_content_digests d
-                              LEFT JOIN resource_ready_marks m ON m.tenant_key = d.tenant_key AND m.resource_id = d.resource_id AND m.part = d.part
-                              WHERE d.tenant_key = dt.tenant_key AND d.resource_id = dt.resource_id), false) as ready,
+                              LEFT JOIN resource_ready_marks m ON m.tenant_key = d.tenant_key AND m.version_id = d.version_id
+                                                                AND m.resource_id = d.resource_id AND m.part = d.part
+                              WHERE d.tenant_key = dt.tenant_key AND d.version_id = dt.version_id AND d.resource_id = dt.resource_id), false) as ready,
                     -- Total matching rows before LIMIT/OFFSET; Postgres evaluates the
                     -- window over the full filtered set, so it cannot drift from the page.
                     COUNT(*) OVER()::int AS total_count
                 FROM document_templates dt
                 JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.catalog_id = dt.catalog_id
-                WHERE dt.tenant_key = :tenantId
+                WHERE dt.tenant_key = :tenantId AND ${inCurrentVersion("dt")}
                 """.trimIndent(),
             )
             if (query.catalogKey != null) {
-                append(" AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
+                append(" AND dt.version_id = ${versionAt("tenantId", "catalogKey")}")
             }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND dt.name ILIKE :searchTerm ESCAPE '\\'")

@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.ready.ReadyMarks
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.StencilKey
@@ -164,7 +165,7 @@ class ImportTemplatesHandler(
             """
                 SELECT COUNT(*) > 0
                 FROM document_templates
-                WHERE id = :id AND tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
+                WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
                 """,
         )
             .bind("id", templateId)
@@ -177,9 +178,9 @@ class ImportTemplatesHandler(
         val status: ImportStatus = if (!templateExists) {
             handle.createUpdate(
                 """
-                    INSERT INTO document_templates (id, tenant_key, catalog_id, name, theme_resource_id, pdfa_enabled, created_at, updated_at, created_by, updated_by)
-                    VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, :name, ${themeAtAddress("tenantId", "themeCatalogKey", "themeKey")}, :pdfaEnabled, NOW(), NOW(), :createdBy, :updatedBy)
-                    ON CONFLICT (tenant_key, catalog_id, id) DO UPDATE
+                    INSERT INTO document_templates (id, tenant_key, catalog_id, version_id, name, theme_resource_id, pdfa_enabled, created_at, updated_at, created_by, updated_by)
+                    VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :name, ${themeAtAddress("tenantId", "themeCatalogKey", "themeKey")}, :pdfaEnabled, NOW(), NOW(), :createdBy, :updatedBy)
+                    ON CONFLICT (tenant_key, version_id, id) DO UPDATE
                     SET name = :name, theme_resource_id = EXCLUDED.theme_resource_id,
                         pdfa_enabled = :pdfaEnabled, updated_at = NOW(), updated_by = :updatedBy
                     """,
@@ -200,7 +201,7 @@ class ImportTemplatesHandler(
                     UPDATE document_templates
                     SET name = :name, theme_resource_id = ${themeAtAddress("tenantId", "themeCatalogKey", "themeKey")},
                         pdfa_enabled = :pdfaEnabled, updated_at = NOW(), updated_by = :updatedBy
-                    WHERE id = :id AND tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
+                    WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
                     """,
             )
                 .bind("id", templateId)
@@ -219,7 +220,7 @@ class ImportTemplatesHandler(
         handle.createUpdate(
             """
                 UPDATE document_templates SET data_model = CAST(:dataModel AS JSONB), data_examples = CAST(:dataExamples AS JSONB)
-                WHERE tenant_key = :tenantId AND resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+                WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 """,
         )
             .bind("tenantId", tenantId.key)
@@ -233,7 +234,7 @@ class ImportTemplatesHandler(
         handle.createUpdate(
             """
                 UPDATE template_variants SET is_default = FALSE
-                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND is_default = TRUE
+                WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND is_default = TRUE
                 """,
         )
             .bind("tenantId", tenantId.key)
@@ -253,11 +254,11 @@ class ImportTemplatesHandler(
 
             handle.createUpdate(
                 """
-                    INSERT INTO template_variants (id, tenant_key, template_resource_id, title, attributes, is_default, template_model, referenced_paths,
+                    INSERT INTO template_variants (id, tenant_key, version_id, template_resource_id, title, attributes, is_default, template_model, referenced_paths,
                                                    created_at, updated_at, created_by, updated_by)
-                    VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :title, :attributes::jsonb, :isDefault,
+                    VALUES (:id, :tenantId, ${versionAt("tenantId", "catalogKey")}, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :title, :attributes::jsonb, :isDefault,
                             :templateModel::jsonb, :referencedPaths::jsonb, NOW(), NOW(), :createdBy, :updatedBy)
-                    ON CONFLICT (tenant_key, template_resource_id, id) DO UPDATE
+                    ON CONFLICT (tenant_key, version_id, template_resource_id, id) DO UPDATE
                     SET title = :title, attributes = :attributes::jsonb, is_default = :isDefault,
                         template_model = :templateModel::jsonb, referenced_paths = :referencedPaths::jsonb, updated_at = NOW(), updated_by = :updatedBy
                     """,
@@ -280,7 +281,7 @@ class ImportTemplatesHandler(
         handle.createUpdate(
             """
                 DELETE FROM template_variants
-                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+                WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                   AND id NOT IN (<variantIds>)
                 """,
         )

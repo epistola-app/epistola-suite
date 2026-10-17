@@ -4,7 +4,8 @@
 
 package app.epistola.suite.stencils.queries
 
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -37,9 +38,9 @@ class CountStencilsHandler(
 ) : QueryHandler<CountStencils, Long> {
     override fun handle(query: CountStencils): Long = jdbi.withHandle<Long, Exception> { handle ->
         val sql = buildString {
-            append("SELECT COUNT(*) FROM stencils s WHERE s.tenant_key = :tenantId")
+            append("SELECT COUNT(*) FROM stencils s WHERE s.tenant_key = :tenantId AND ${inCurrentVersion("s")}")
             if (query.catalogKey != null) {
-                append(" AND s.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
+                append(" AND s.version_id = ${versionAt("tenantId", "catalogKey")}")
             }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND (s.name ILIKE :searchTerm OR s.description ILIKE :searchTerm)")

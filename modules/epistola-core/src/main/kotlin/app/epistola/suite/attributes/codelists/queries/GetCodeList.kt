@@ -5,7 +5,7 @@
 package app.epistola.suite.attributes.codelists.queries
 
 import app.epistola.suite.attributes.codelists.model.CodeList
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -37,7 +37,7 @@ class GetCodeListHandler(
                    c.type AS catalog_type
             FROM code_lists cl
             JOIN catalogs c ON c.tenant_key = cl.tenant_key AND c.catalog_id = cl.catalog_id
-            WHERE cl.tenant_key = :tenantKey AND cl.catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND cl.slug = :slug
+            WHERE cl.tenant_key = :tenantKey AND cl.version_id = ${versionAt("tenantKey", "catalogKey")} AND cl.slug = :slug
             """,
         )
             .bind("tenantKey", query.id.tenantKey)

@@ -10,8 +10,8 @@ import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.codelists.service.CodeListClient
 import app.epistola.suite.catalog.AuthType
-import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.crypto.Secret
 import app.epistola.suite.mediator.Command
@@ -81,7 +81,7 @@ class UpdateCodeListHandler(
                     auth_type     = :authType,
                     credential    = :credential,
                     updated_at = NOW()
-                WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND slug = :slug
+                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug
                 RETURNING slug, tenant_key, (SELECT cat.catalog_key FROM catalogs cat
                             WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS catalog_key,
                           display_name, description,
@@ -110,7 +110,7 @@ class UpdateCodeListHandler(
                 handle.createUpdate(
                     """
                     DELETE FROM code_list_entries
-                    WHERE tenant_key = :tenantKey AND code_list_resource_id = $CODE_LIST_AT_ADDRESS
+                    WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND code_list_resource_id = $CODE_LIST_AT_ADDRESS
                     """,
                 )
                     .bind("tenantKey", command.id.tenantKey)
@@ -127,7 +127,7 @@ class UpdateCodeListHandler(
         handle.createQuery(
             """
             SELECT source_url FROM code_lists
-            WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND slug = :slug
+            WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug
             """,
         )
             .bind("tenantKey", command.id.tenantKey)

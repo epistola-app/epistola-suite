@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantId
@@ -77,7 +78,7 @@ class ImportStencilHandler(
                        AND parameter_schema IS NOT DISTINCT FROM :parameterSchema::jsonb
                        AND reads_template_data = :readsTemplateData
                 FROM stencils
-                WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = :id
+                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND id = :id
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
@@ -92,11 +93,11 @@ class ImportStencilHandler(
 
             handle.createUpdate(
                 """
-                INSERT INTO stencils (id, tenant_key, catalog_id, name, description, tags, content, parameter_schema, reads_template_data,
+                INSERT INTO stencils (id, tenant_key, catalog_id, version_id, name, description, tags, content, parameter_schema, reads_template_data,
                                       created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, :name, :description, :tags::jsonb, :content::jsonb,
+                VALUES (:id, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, ${versionAt("tenantKey", "catalogKey")}, :name, :description, :tags::jsonb, :content::jsonb,
                         :parameterSchema::jsonb, :readsTemplateData, NOW(), NOW(), :createdBy, :updatedBy)
-                ON CONFLICT (tenant_key, catalog_id, id) DO UPDATE
+                ON CONFLICT (tenant_key, version_id, id) DO UPDATE
                 SET name = :name, description = :description, tags = :tags::jsonb, content = :content::jsonb,
                     parameter_schema = :parameterSchema::jsonb, reads_template_data = :readsTemplateData,
                     updated_at = NOW(), updated_by = :updatedBy

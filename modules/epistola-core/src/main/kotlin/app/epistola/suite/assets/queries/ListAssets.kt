@@ -7,7 +7,8 @@ package app.epistola.suite.assets.queries
 import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CatalogType
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -50,11 +51,12 @@ class ListAssetsHandler(
             FROM assets a
             JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id
             WHERE a.tenant_key = :tenantId
+              AND ${inCurrentVersion("a")}
             """,
         )
 
         if (query.catalogKey != null) {
-            sql.append(" AND a.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
+            sql.append(" AND a.version_id = ${versionAt("tenantId", "catalogKey")}")
         }
         if (!query.searchTerm.isNullOrBlank()) {
             sql.append(" AND a.name ILIKE :searchTerm")

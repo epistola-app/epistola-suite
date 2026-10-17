@@ -4,7 +4,8 @@
 
 package app.epistola.suite.templates.queries
 
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -36,9 +37,10 @@ class CountDocumentTemplatesHandler(
 ) : QueryHandler<CountDocumentTemplates, Long> {
     override fun handle(query: CountDocumentTemplates): Long = jdbi.withHandle<Long, Exception> { handle ->
         val sql = buildString {
-            append("SELECT COUNT(*) FROM document_templates dt WHERE dt.tenant_key = :tenantId")
+            // Each catalog counts once, in its current version.
+            append("SELECT COUNT(*) FROM document_templates dt WHERE dt.tenant_key = :tenantId AND ${inCurrentVersion("dt")}")
             if (query.catalogKey != null) {
-                append(" AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
+                append(" AND dt.version_id = ${versionAt("tenantId", "catalogKey")}")
             }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND dt.name ILIKE :searchTerm")

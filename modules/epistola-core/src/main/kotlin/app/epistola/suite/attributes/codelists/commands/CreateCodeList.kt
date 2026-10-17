@@ -11,6 +11,7 @@ import app.epistola.suite.attributes.codelists.service.CodeListClient
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.crypto.Secret
 import app.epistola.suite.mediator.Command
@@ -79,10 +80,10 @@ class CreateCodeListHandler(
             jdbi.inTransaction<CodeList, Exception> { handle ->
                 val inserted = handle.createQuery(
                     """
-                    INSERT INTO code_lists (slug, tenant_key, catalog_id, display_name, description,
+                    INSERT INTO code_lists (slug, tenant_key, catalog_id, version_id, display_name, description,
                                             source_type, source_url, auth_type, credential,
                                             created_at, updated_at)
-                    VALUES (:slug, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, :displayName, :description,
+                    VALUES (:slug, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, ${versionAt("tenantKey", "catalogKey")}, :displayName, :description,
                             :sourceType, :sourceUrl, :authType, :credential,
                             NOW(), NOW())
                     RETURNING slug, tenant_key, (SELECT cat.catalog_key FROM catalogs cat

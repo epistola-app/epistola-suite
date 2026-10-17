@@ -5,6 +5,8 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -59,7 +61,7 @@ class ImportThemeHandler(
         val auditUser = currentUserIdOrNull()?.value
 
         val exists = jdbi.withHandle<Boolean, Exception> { handle ->
-            handle.createQuery("SELECT COUNT(*) > 0 FROM themes WHERE id = :id AND tenant_key = :tenantKey")
+            handle.createQuery("SELECT COUNT(*) > 0 FROM themes WHERE id = :id AND tenant_key = :tenantKey AND ${inCurrentVersion("themes")}")
                 .bind("id", themeKey)
                 .bind("tenantKey", command.tenantKey)
                 .mapTo(Boolean::class.java)
@@ -69,9 +71,9 @@ class ImportThemeHandler(
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO themes (id, tenant_key, catalog_id, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, :spacingUnit, NOW(), NOW(), :createdBy, :updatedBy)
-                ON CONFLICT (tenant_key, catalog_id, id) DO UPDATE
+                INSERT INTO themes (id, tenant_key, catalog_id, version_id, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, updated_at, created_by, updated_by)
+                VALUES (:id, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, ${versionAt("tenantKey", "catalogKey")}, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, :spacingUnit, NOW(), NOW(), :createdBy, :updatedBy)
+                ON CONFLICT (tenant_key, version_id, id) DO UPDATE
                 SET name = :name, description = :description, document_styles = :documentStyles::jsonb,
                     page_settings = :pageSettings::jsonb, block_style_presets = :blockStylePresets::jsonb,
                     spacing_unit = :spacingUnit, updated_at = NOW(), updated_by = :updatedBy

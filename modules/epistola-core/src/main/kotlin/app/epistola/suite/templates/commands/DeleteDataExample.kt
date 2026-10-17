@@ -5,6 +5,7 @@
 package app.epistola.suite.templates.commands
 
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -58,7 +59,7 @@ class DeleteDataExampleHandler(
                 """
                 UPDATE document_templates
                 SET data_examples = :dataExamples::jsonb, updated_at = NOW()
-                WHERE tenant_key = :tenantKey
+                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                   AND resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
                 """,
             )

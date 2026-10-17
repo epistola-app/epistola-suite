@@ -5,6 +5,7 @@
 package app.epistola.suite.templates.commands.variants
 
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.TemplateVariantNotFoundException
@@ -50,7 +51,7 @@ class UpdateVariantContentHandler(
                 UPDATE template_variants
                 SET template_model = :templateModel::jsonb, referenced_paths = :referencedPaths::jsonb, updated_at = NOW()
                 WHERE tenant_key = :tenantKey AND id = :variantKey
-                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
+                  AND version_id = ${versionAt("tenantKey", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
                 """,
             )
                 .bind("tenantKey", command.variantId.tenantKey)

@@ -6,6 +6,7 @@ package app.epistola.suite.themes.commands
 
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
@@ -56,8 +57,8 @@ class CreateThemeHandler(
             jdbi.withHandle<Theme, Exception> { handle ->
                 handle.createQuery(
                     """
-                INSERT INTO themes (id, tenant_key, catalog_id, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, :spacingUnit, NOW(), NOW(), :createdBy, :updatedBy)
+                INSERT INTO themes (id, tenant_key, catalog_id, version_id, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, updated_at, created_by, updated_by)
+                VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, :spacingUnit, NOW(), NOW(), :createdBy, :updatedBy)
                 RETURNING *, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = themes.tenant_key AND cat.catalog_id = themes.catalog_id) AS catalog_key
                 """,
                 )

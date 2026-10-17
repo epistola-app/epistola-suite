@@ -4,8 +4,8 @@
 
 package app.epistola.suite.themes.commands
 
-import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
@@ -135,7 +135,7 @@ class UpdateThemeHandler(
             SET ${updates.joinToString(", ")}
             WHERE id = :id
               AND tenant_key = :tenantId
-              AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
+              AND version_id = ${versionAt("tenantId", "catalogKey")}
             RETURNING *, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = themes.tenant_key AND cat.catalog_id = themes.catalog_id) AS catalog_key
         """
 
@@ -161,7 +161,7 @@ class UpdateThemeHandler(
             JOIN catalogs cat ON cat.tenant_key = t.tenant_key AND cat.catalog_id = t.catalog_id
             WHERE t.id = :id
               AND t.tenant_key = :tenantId
-              AND t.catalog_id = ${catalogAt("tenantId", "catalogKey")}
+              AND t.version_id = ${versionAt("tenantId", "catalogKey")}
             """,
         )
             .bind("id", id.key)

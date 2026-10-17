@@ -7,7 +7,8 @@ package app.epistola.suite.assets.queries
 import app.epistola.suite.assets.AssetContent
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.assetContentScope
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -92,7 +93,7 @@ private fun Handle.loadAssetMeta(tenantId: TenantKey, assetId: AssetKey, catalog
     JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id
     WHERE a.id = :assetId
       AND a.tenant_key = :tenantId
-      ${if (catalogKey != null) "AND a.catalog_id = ${catalogAt("tenantId", "catalogKey")}" else ""}
+      ${if (catalogKey != null) "AND a.version_id = ${versionAt("tenantId", "catalogKey")}" else "AND ${inCurrentVersion("a")}"}
     """,
 )
     .bind("assetId", assetId.value)

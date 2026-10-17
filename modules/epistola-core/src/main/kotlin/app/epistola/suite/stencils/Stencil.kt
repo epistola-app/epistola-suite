@@ -45,9 +45,13 @@ data class Stencil(
  */
 internal fun Stencil.withAbsentSchemaAsNull(): Stencil = if (parameterSchema?.isNull == true) copy(parameterSchema = null) else this
 
-/** The columns [Stencil] maps from, for a query over `stencils s JOIN catalogs c`. */
+/**
+ * The columns [Stencil] maps from, for a query over `stencils s JOIN catalogs c` ([STENCIL_FROM]).
+ */
 internal const val STENCIL_COLUMNS: String =
     "s.id, s.tenant_key, c.catalog_key AS catalog_key, c.type AS catalog_type, s.name, s.description, s.tags, " +
         "s.content, s.parameter_schema, s.reads_template_data, s.created_at, s.updated_at, s.created_by, s.updated_by"
 
-internal const val STENCIL_FROM: String = "FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id"
+/** Stencils with their catalog, each in its catalog's current version (`catalog_current_versions`). */
+internal const val STENCIL_FROM: String = """FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id
+    JOIN catalog_current_versions scv ON scv.tenant_key = s.tenant_key AND scv.version_id = s.version_id"""

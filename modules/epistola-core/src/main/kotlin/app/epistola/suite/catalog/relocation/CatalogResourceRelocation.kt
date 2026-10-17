@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.MissingDependencyDeclarer
 import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.AuditDetailed
 import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
@@ -160,7 +161,7 @@ class MoveCatalogResourcesHandler(
                 is JsonRewrite.VariantModel -> handle.createUpdate(
                     """
                     UPDATE template_variants SET template_model = :replacement::jsonb
-                    WHERE tenant_key = :tenantKey
+                    WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                       AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND id = :variantKey
                       AND template_model = :expected::jsonb
                     """,
@@ -174,7 +175,7 @@ class MoveCatalogResourcesHandler(
                     """
                     UPDATE stencils SET content = :replacement::jsonb
                     WHERE tenant_key = :tenantKey
-                      AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = :stencilKey
+                      AND version_id = ${versionAt("tenantKey", "catalogKey")} AND id = :stencilKey
                       AND content = :expected::jsonb
                     """,
                 )
@@ -187,7 +188,7 @@ class MoveCatalogResourcesHandler(
                     UPDATE themes
                     SET document_styles = :replacementDocumentStyles::jsonb,
                         block_style_presets = :replacementPresets::jsonb
-                    WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = :themeKey
+                    WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND id = :themeKey
                       AND document_styles = :expectedDocumentStyles::jsonb
                       AND block_style_presets IS NOT DISTINCT FROM :expectedPresets::jsonb
                     """,
@@ -204,7 +205,7 @@ class MoveCatalogResourcesHandler(
                 is JsonRewrite.VariantAttributes -> handle.createUpdate(
                     """
                     UPDATE template_variants SET attributes = :replacement::jsonb
-                    WHERE tenant_key = :tenantKey
+                    WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                       AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND id = :variantKey
                       AND attributes = :expected::jsonb
                     """,
@@ -225,12 +226,15 @@ class MoveCatalogResourcesHandler(
                 """
                 UPDATE ${movable.table}
                 SET catalog_id = ${catalogAt("tenantKey", "targetCatalogKey")},
+                    -- Into the destination's current version; children follow by trigger.
+                    version_id = ${versionAt("tenantKey", "targetCatalogKey")},
                     ${movable.keyColumn} = ${movable.keyColumnType?.let { "CAST(:targetKey AS $it)" } ?: ":targetKey"}
-                WHERE tenant_key = :tenantKey AND resource_id = :resourceId
+                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "sourceCatalogKey")} AND resource_id = :resourceId
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
                 .bind("resourceId", resourceId)
+                .bind("sourceCatalogKey", relocation.source.catalogKey)
                 .bind("targetCatalogKey", relocation.target.catalogKey)
                 .bind("targetKey", relocation.target.key)
                 .execute()

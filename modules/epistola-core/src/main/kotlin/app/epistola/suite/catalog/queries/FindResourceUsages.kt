@@ -6,6 +6,8 @@ package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -48,8 +50,9 @@ class FindResourceUsagesHandler(
                 JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
                 JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
                 WHERE dt.tenant_key = :tenantKey
-                  AND th.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+                  AND th.version_id = ${versionAt("tenantKey", "catalogKey")}
                   AND dt.catalog_id != ${catalogAt("tenantKey", "catalogKey")}
+                  AND ${inCurrentVersion("dt")}
                 """,
         )
             .bind("tenantKey", query.tenantKey)
@@ -72,11 +75,12 @@ class FindResourceUsagesHandler(
                     dt.name AS ref_name,
                     dc.catalog_key AS ref_catalog
                 FROM template_variants tv
-                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
+                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id AND dt.resource_id = tv.template_resource_id
                 JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
                 CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
                 WHERE tv.tenant_key = :tenantKey
                   AND dt.catalog_id != ${catalogAt("tenantKey", "catalogKey")}
+                  AND ${inCurrentVersion("dt")}
                   AND n.value ->> 'type' = 'stencil'
                   AND n.value -> 'props' ->> 'catalogKey' = :catalogKeyStr
                 """,
@@ -102,12 +106,13 @@ class FindResourceUsagesHandler(
                     dt.name AS ref_name,
                     dc.catalog_key AS ref_catalog
                 FROM template_variants tv
-                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
+                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id AND dt.resource_id = tv.template_resource_id
                 JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
                 CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
-                JOIN assets a ON a.tenant_key = tv.tenant_key AND a.catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND a.id::text = n.value -> 'props' ->> 'imageKey'
+                JOIN assets a ON a.tenant_key = tv.tenant_key AND a.version_id = ${versionAt("tenantKey", "catalogKey")} AND a.id::text = n.value -> 'props' ->> 'imageKey'
                 WHERE tv.tenant_key = :tenantKey
                   AND dt.catalog_id != ${catalogAt("tenantKey", "catalogKey")}
+                  AND ${inCurrentVersion("dt")}
                   AND n.value ->> 'type' = 'image'
                 """,
         )

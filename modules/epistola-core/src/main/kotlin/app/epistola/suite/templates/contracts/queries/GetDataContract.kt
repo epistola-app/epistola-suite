@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.contracts.queries
 
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -44,7 +45,7 @@ internal fun readDataContract(handle: Handle, objectMapper: ObjectMapper, templa
     .createQuery(
         """
         SELECT data_model::text AS data_model, data_examples::text AS data_examples FROM document_templates
-        WHERE tenant_key = :t AND resource_id = ${templateAtAddress("t", "c", "k")}
+        WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND resource_id = ${templateAtAddress("t", "c", "k")}
         ${if (forUpdate) "FOR UPDATE" else ""}
         """,
     )

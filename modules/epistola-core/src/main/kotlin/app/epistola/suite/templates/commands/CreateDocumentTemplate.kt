@@ -6,6 +6,7 @@ package app.epistola.suite.templates.commands
 
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
@@ -61,8 +62,8 @@ class CreateDocumentTemplateHandler(
                 // 1. Create the template
                 val template = handle.createQuery(
                     """
-                INSERT INTO document_templates (id, tenant_key, catalog_id, name, pdfa_enabled, created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, :name, TRUE, NOW(), NOW(), :createdBy, :updatedBy)
+                INSERT INTO document_templates (id, tenant_key, catalog_id, version_id, name, pdfa_enabled, created_at, updated_at, created_by, updated_by)
+                VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :name, TRUE, NOW(), NOW(), :createdBy, :updatedBy)
                 RETURNING id, tenant_key, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = document_templates.tenant_key AND cat.catalog_id = document_templates.catalog_id) AS catalog_key, name, NULL::text AS theme_key, pdfa_enabled, created_at, updated_at, created_by, updated_by
                 """,
                 )
@@ -86,9 +87,9 @@ class CreateDocumentTemplateHandler(
                 val prepared = templateDocumentPreparation.prepare(createDefaultTemplateModel(variantId), command.id.catalogKey)
                 handle.createUpdate(
                     """
-                INSERT INTO template_variants (id, tenant_key, template_resource_id, title, attributes, is_default, template_model, referenced_paths,
+                INSERT INTO template_variants (id, tenant_key, version_id, template_resource_id, title, attributes, is_default, template_model, referenced_paths,
                                                created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :title, '{}'::jsonb, TRUE,
+                VALUES (:id, :tenantId, ${versionAt("tenantId", "catalogKey")}, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :title, '{}'::jsonb, TRUE,
                         :templateModel::jsonb, :referencedPaths::jsonb, NOW(), NOW(), :createdBy, :updatedBy)
                 """,
                 )

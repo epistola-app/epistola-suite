@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.graph.TenantResourceGraphBuilder
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -329,7 +330,7 @@ class CatalogResourceMovePlanner(
             SELECT c.catalog_key::text, th.id::text theme_key, th.document_styles::text, th.block_style_presets::text presets
             FROM themes th
             JOIN catalogs c ON c.tenant_key = th.tenant_key AND c.catalog_id = th.catalog_id
-            WHERE th.tenant_key = :tenantKey
+            WHERE th.tenant_key = :tenantKey AND ${inCurrentVersion("th")}
             ORDER BY c.catalog_key, th.id
             """,
         )
@@ -432,7 +433,7 @@ class CatalogResourceMovePlanner(
             val answering = handle.createQuery(
                 """
                 SELECT id::text slug, COUNT(*) definitions FROM variant_attribute_definitions
-                WHERE tenant_key = :tenantKey AND id IN (<slugs>)
+                WHERE tenant_key = :tenantKey AND ${inCurrentVersion("variant_attribute_definitions")} AND id IN (<slugs>)
                 GROUP BY id
                 """,
             )
@@ -454,7 +455,7 @@ class CatalogResourceMovePlanner(
             ${templateJoin("variants")}
             JOIN catalogs template_catalog
               ON template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id
-            WHERE variants.tenant_key = :tenantKey
+            WHERE variants.tenant_key = :tenantKey AND ${inCurrentVersion("variants")}
               AND EXISTS (SELECT 1 FROM jsonb_object_keys(variants.attributes) named WHERE named IN (<keys>))
             ORDER BY template_catalog.catalog_key, template.id, variants.id
             """,
@@ -494,7 +495,7 @@ class CatalogResourceMovePlanner(
             ${templateJoin("variant")}
             JOIN catalogs template_catalog
               ON template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id
-            WHERE variant.tenant_key = :tenantKey ${ownerFilter(owners, "template.id", "template_catalog.catalog_key")}
+            WHERE variant.tenant_key = :tenantKey AND ${inCurrentVersion("variant")} ${ownerFilter(owners, "template.id", "template_catalog.catalog_key")}
             ORDER BY template_catalog.catalog_key, template.id, variant.id
             """,
         )
@@ -516,7 +517,7 @@ class CatalogResourceMovePlanner(
             FROM stencils stencil
             JOIN catalogs stencil_catalog
               ON stencil_catalog.tenant_key = stencil.tenant_key AND stencil_catalog.catalog_id = stencil.catalog_id
-            WHERE stencil.tenant_key = :tenantKey ${ownerFilter(owners, "stencil.id", "stencil_catalog.catalog_key")}
+            WHERE stencil.tenant_key = :tenantKey AND ${inCurrentVersion("stencil")} ${ownerFilter(owners, "stencil.id", "stencil_catalog.catalog_key")}
             ORDER BY stencil_catalog.catalog_key, stencil.id
             """,
         )

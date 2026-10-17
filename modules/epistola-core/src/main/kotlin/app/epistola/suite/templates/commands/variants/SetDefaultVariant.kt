@@ -5,6 +5,7 @@
 package app.epistola.suite.templates.commands.variants
 
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
@@ -45,7 +46,7 @@ class SetDefaultVariantHandler(
             """
                 SELECT EXISTS (
                     SELECT 1 FROM template_variants
-                    WHERE tenant_key = :tenantId AND id = :variantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+                    WHERE tenant_key = :tenantId AND id = :variantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 )
                 """,
         )
@@ -63,7 +64,7 @@ class SetDefaultVariantHandler(
             """
                 UPDATE template_variants
                 SET is_default = FALSE
-                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND is_default = TRUE
+                WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND is_default = TRUE
                 """,
         )
             .bind("tenantId", command.variantId.tenantKey)
@@ -77,7 +78,7 @@ class SetDefaultVariantHandler(
                 UPDATE template_variants
                 SET is_default = TRUE
                 WHERE tenant_key = :tenantId AND id = :variantId
-                  AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+                  AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 RETURNING *, CAST(:templateId AS TEXT) AS template_key
                 """,
         )

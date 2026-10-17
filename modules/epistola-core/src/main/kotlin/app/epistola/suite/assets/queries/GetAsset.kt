@@ -6,6 +6,7 @@ package app.epistola.suite.assets.queries
 
 import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -47,6 +48,7 @@ class GetAssetHandler(
             JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id
             WHERE a.id = :assetId
               AND a.tenant_key = :tenantId
+              AND ${inCurrentVersion("a")}
             """,
         )
             .bind("assetId", query.assetId.value)

@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.Catalog
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -46,16 +47,16 @@ data class CatalogListRow(
 internal val CATALOG_ACTIVITY_CTE = """
             WITH activity(catalog_id, ts) AS (
                 SELECT catalog_id, content_updated_at FROM catalogs                      WHERE tenant_key = :t
-                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM document_templates            WHERE tenant_key = :t GROUP BY catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM document_templates            WHERE tenant_key = :t AND ${inCurrentVersion("document_templates")} GROUP BY catalog_id
                 UNION ALL SELECT template.catalog_id, MAX(variants.updated_at)
                                  FROM template_variants variants ${templateJoin("variants")}
-                                 WHERE variants.tenant_key = :t GROUP BY template.catalog_id
-                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM themes               WHERE tenant_key = :t GROUP BY catalog_id
-                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM stencils             WHERE tenant_key = :t GROUP BY catalog_id
-                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM variant_attribute_definitions WHERE tenant_key = :t GROUP BY catalog_id
-                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM code_lists           WHERE tenant_key = :t GROUP BY catalog_id
-                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM fonts                WHERE tenant_key = :t GROUP BY catalog_id
-                UNION ALL SELECT catalog_id, MAX(created_at)   FROM assets               WHERE tenant_key = :t GROUP BY catalog_id
+                                 WHERE variants.tenant_key = :t AND ${inCurrentVersion("variants")} GROUP BY template.catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM themes               WHERE tenant_key = :t AND ${inCurrentVersion("themes")} GROUP BY catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM stencils             WHERE tenant_key = :t AND ${inCurrentVersion("stencils")} GROUP BY catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM variant_attribute_definitions WHERE tenant_key = :t AND ${inCurrentVersion("variant_attribute_definitions")} GROUP BY catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM code_lists           WHERE tenant_key = :t AND ${inCurrentVersion("code_lists")} GROUP BY catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM fonts                WHERE tenant_key = :t AND ${inCurrentVersion("fonts")} GROUP BY catalog_id
+                UNION ALL SELECT catalog_id, MAX(created_at)   FROM assets               WHERE tenant_key = :t AND ${inCurrentVersion("assets")} GROUP BY catalog_id
             )
 """
 

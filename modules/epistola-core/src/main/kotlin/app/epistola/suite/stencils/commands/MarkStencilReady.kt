@@ -6,6 +6,7 @@ package app.epistola.suite.stencils.commands
 
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -47,7 +48,7 @@ class MarkStencilReadyHandler(
         requireCatalogEditable(stencil.tenantKey, stencil.catalogKey)
         jdbi.useTransaction<Exception> { handle ->
             val row = handle.createQuery(
-                "SELECT resource_id, content::text AS content FROM stencils WHERE tenant_key = :t AND resource_id = ${stencilAtAddress("t", "c", "k")} FOR UPDATE",
+                "SELECT resource_id, content::text AS content FROM stencils WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND resource_id = ${stencilAtAddress("t", "c", "k")} FOR UPDATE",
             )
                 .bind("t", stencil.tenantKey)
                 .bind("c", stencil.catalogKey)

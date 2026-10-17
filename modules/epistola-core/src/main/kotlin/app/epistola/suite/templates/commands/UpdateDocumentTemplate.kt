@@ -4,8 +4,8 @@
 
 package app.epistola.suite.templates.commands
 
-import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
@@ -89,7 +89,7 @@ class UpdateDocumentTemplateHandler(
         val sql = """
             UPDATE document_templates
             SET ${updates.joinToString(", ")}
-            WHERE id = :id AND tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
+            WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
         """
 
         val rowsUpdated = jdbi.withHandle<Int, Exception> { handle ->
@@ -100,7 +100,7 @@ class UpdateDocumentTemplateHandler(
                     SELECT 1
                     FROM themes
                     WHERE tenant_key = :tenantId
-                      AND catalog_id = ${catalogAt("tenantId", "themeCatalogKey")}
+                      AND version_id = ${versionAt("tenantId", "themeCatalogKey")}
                       AND id = :themeId
                     FOR KEY SHARE
                     """,

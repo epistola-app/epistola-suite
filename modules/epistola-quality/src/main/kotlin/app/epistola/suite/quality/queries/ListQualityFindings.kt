@@ -17,7 +17,7 @@ import app.epistola.suite.quality.QualitySourceId
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.TEMPLATE_ADDRESS_COLUMNS
-import app.epistola.suite.templates.templateJoin
+import app.epistola.suite.templates.currentTemplateJoin
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -93,7 +93,7 @@ class ListQualityFindingsHandler(
                            (f.source_id <> :manualSourceId) AS reconciled,
                            COALESCE(c.comment_count, 0)::int AS comment_count
                     FROM quality_findings f
-                    ${templateJoin("f")}
+                    ${currentTemplateJoin("f")}
                     LEFT JOIN quality_finding_ignores i
                            ON i.tenant_key       = f.tenant_key
                           AND i.ignore_scope_urn = f.ignore_scope_urn

@@ -219,9 +219,9 @@ class CatalogContentBuilder(
                        ${if (published) PUBLISHED_CONTRACT_COLUMNS else "dt.data_model::text, dt.data_examples::text"}
                 FROM document_templates dt
                 ${if (published) PUBLISHED_CONTRACT_JOIN else ""}
-                LEFT JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
+                LEFT JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id AND ${inCurrentVersion("th")}
                 LEFT JOIN catalogs thc ON thc.tenant_key = th.tenant_key AND thc.catalog_id = th.catalog_id
-                WHERE dt.tenant_key = :tenantKey AND dt.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+                WHERE dt.tenant_key = :tenantKey AND dt.version_id = ${versionAt("tenantKey", "catalogKey")}
                 """,
             )
                 .bind("tenantKey", tenantKey)
@@ -248,7 +248,8 @@ class CatalogContentBuilder(
                            ${if (published) "pv.template_model::text" else "v.template_model::text"} AS template_model
                     FROM template_variants v
                     ${if (published) PUBLISHED_VARIANT_JOIN else ""}
-                    WHERE v.tenant_key = :tenantKey AND v.template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
+                    WHERE v.tenant_key = :tenantKey AND v.version_id = ${versionAt("tenantKey", "catalogKey")}
+                      AND v.template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
                     """,
                 )
                     .bind("tenantKey", tenantKey)
@@ -323,7 +324,7 @@ class CatalogContentBuilder(
             SELECT DISTINCT ON (s.id) s.id, sv.content::text AS content, sv.parameter_schema::text AS parameter_schema
             FROM stencils s
             JOIN stencil_versions sv ON sv.tenant_key = s.tenant_key AND sv.stencil_resource_id = s.resource_id AND sv.status = 'published'
-            WHERE s.tenant_key = :t AND s.catalog_id = ${catalogAt("t", "c")}
+            WHERE s.tenant_key = :t AND s.version_id = ${versionAt("t", "c")}
             ORDER BY s.id, sv.id DESC
             """,
         )

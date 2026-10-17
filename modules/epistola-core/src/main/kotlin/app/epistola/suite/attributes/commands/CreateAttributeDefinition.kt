@@ -7,7 +7,9 @@ package app.epistola.suite.attributes.commands
 import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Command
@@ -77,10 +79,10 @@ class CreateAttributeDefinitionHandler(
 
                 handle.createQuery(
                     """
-                INSERT INTO variant_attribute_definitions (id, tenant_key, catalog_id, display_name, allowed_values,
+                INSERT INTO variant_attribute_definitions (id, tenant_key, catalog_id, version_id, display_name, allowed_values,
                                                            code_list_resource_id,
                                                            created_at, updated_at)
-                VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, :displayName, :allowedValues::jsonb,
+                VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :displayName, :allowedValues::jsonb,
                         ${boundCodeListAtAddress("tenantId")},
                         NOW(), NOW())
                 RETURNING id, tenant_key, display_name, allowed_values, created_at, updated_at,
@@ -90,10 +92,12 @@ class CreateAttributeDefinitionHandler(
                           (SELECT cl_cat.catalog_key FROM code_lists cl
                              JOIN catalogs cl_cat ON cl_cat.tenant_key = cl.tenant_key AND cl_cat.catalog_id = cl.catalog_id
                             WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
-                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id) AS code_list_catalog_key,
+                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id
+                              AND ${inCurrentVersion("cl")}) AS code_list_catalog_key,
                           (SELECT slug FROM code_lists cl
                             WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
-                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id) AS code_list_slug
+                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id
+                              AND ${inCurrentVersion("cl")}) AS code_list_slug
                 """,
                 )
                     .bind("id", command.id.key)

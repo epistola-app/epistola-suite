@@ -4,6 +4,7 @@
 
 package app.epistola.suite.documents.queries
 
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -110,10 +111,12 @@ class ListDocumentsHandler(
  * by key alone, which is also what keeps a bare-key lookup meaning what it did before relocation
  * existed, and the gap closes by itself: partitions are monthly and retention is measured in
  * months, so every surviving row carries the identity within one window.
+ *
+ * The key a template has now is the one in its catalog's current version.
  */
-internal const val DOCUMENTS_OF_TEMPLATE = """
+internal val DOCUMENTS_OF_TEMPLATE = """
     AND (template_key = :templateId
          OR template_resource_id IN (
-             SELECT resource_id FROM document_templates
-             WHERE tenant_key = :tenantId AND id = :templateId))
+             SELECT dt.resource_id FROM document_templates dt
+             WHERE dt.tenant_key = :tenantId AND dt.id = :templateId AND ${inCurrentVersion("dt")}))
 """

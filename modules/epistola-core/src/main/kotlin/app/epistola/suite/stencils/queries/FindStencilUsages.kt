@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.queries
 
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -36,9 +37,11 @@ class FindStencilUsagesHandler(
             """
             SELECT DISTINCT dt.name
             FROM template_variants tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
+            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id
+                                      AND dt.resource_id = tv.template_resource_id
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
             WHERE tv.tenant_key = :tenantId
+              AND ${inCurrentVersion("tv")}
               AND ${StencilReferences.usedBy("n", "dt")}
             ORDER BY dt.name
             """,

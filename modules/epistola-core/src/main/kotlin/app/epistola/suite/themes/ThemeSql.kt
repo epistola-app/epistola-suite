@@ -4,7 +4,8 @@
 
 package app.epistola.suite.themes
 
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
 
 /**
  * The identity of the theme a caller named by address, for writing a binding.
@@ -21,7 +22,7 @@ internal fun themeAtAddress(tenantParam: String, catalogParam: String, keyParam:
     CASE WHEN CAST(:$keyParam AS TEXT) IS NULL THEN NULL
          ELSE COALESCE(
              (SELECT resource_id FROM themes
-               WHERE tenant_key = :$tenantParam AND catalog_id = ${catalogAt(tenantParam, catalogParam)} AND id = :$keyParam),
+               WHERE tenant_key = :$tenantParam AND version_id = ${versionAt(tenantParam, catalogParam)} AND id = :$keyParam),
              '00000000-0000-0000-0000-000000000000'::uuid)
     END
     """
@@ -35,8 +36,9 @@ internal const val TENANT_COLUMNS_WITH_THEME: String =
         " WHERE th_catalog.tenant_key = th.tenant_key AND th_catalog.catalog_id = th.catalog_id)" +
         " AS default_theme_catalog_key, th.id AS default_theme_key"
 
-internal const val TENANT_THEME_JOIN: String =
-    "LEFT JOIN themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id"
+/** The tenant's default theme, by its identity, in its catalog's current version. */
+internal val TENANT_THEME_JOIN: String =
+    "LEFT JOIN themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id AND ${inCurrentVersion("th")}"
 
 /** `RETURNING *` cannot reach the join, so the updated row is read back through it. */
 internal fun updateTenantReturningTenant(set: String, where: String): String =

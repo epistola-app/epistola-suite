@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.queries.variants
 
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -35,7 +36,7 @@ class ListVariantsHandler(
                 SELECT tv.id, tv.tenant_key, template.id AS template_key, tv.title, tv.description, tv.attributes, tv.is_default, tv.created_at, tv.updated_at, tv.created_by, tv.updated_by
                 FROM template_variants tv
                 ${templateJoin("tv")}
-                WHERE tv.tenant_key = :tenantId
+                WHERE tv.tenant_key = :tenantId AND tv.version_id = ${versionAt("tenantId", "catalogKey")}
                   AND tv.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 ORDER BY tv.is_default DESC, tv.created_at ASC
                 """,

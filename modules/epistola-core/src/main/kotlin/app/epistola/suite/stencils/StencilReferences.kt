@@ -62,8 +62,10 @@ object StencilReferences {
             OR NOT EXISTS (
                 SELECT 1 FROM stencils referenced
                 WHERE referenced.tenant_key = $templateAlias.tenant_key
-                  AND referenced.catalog_id = (
-                      SELECT referenced_catalog.catalog_id FROM catalogs referenced_catalog
+                  AND referenced.version_id = (
+                      SELECT referenced_version.version_id FROM catalog_current_versions referenced_version
+                      JOIN catalogs referenced_catalog ON referenced_catalog.tenant_key = referenced_version.tenant_key
+                       AND referenced_catalog.catalog_id = referenced_version.catalog_id
                       WHERE referenced_catalog.tenant_key = referenced.tenant_key
                         AND referenced_catalog.catalog_key = ${referencedCatalog(nodeAlias, templateAlias)}
                   )

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
@@ -36,7 +37,7 @@ class MarkTemplateReadyHandler(
         val template = command.templateId
         val variants = jdbi.withHandle<List<String>, Exception> { handle ->
             handle.createQuery(
-                "SELECT id FROM template_variants WHERE tenant_key = :t AND template_resource_id = ${templateAtAddress("t", "c", "k")} ORDER BY id",
+                "SELECT id FROM template_variants WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND template_resource_id = ${templateAtAddress("t", "c", "k")} ORDER BY id",
             )
                 .bind("t", template.tenantKey)
                 .bind("c", template.catalogKey)

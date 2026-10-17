@@ -12,7 +12,8 @@ import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.FontVariantEntry
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.ThemeResource
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -46,8 +47,8 @@ class ExportThemesHandler(
 
     override fun handle(query: ExportThemes): List<ThemeResource> = jdbi.withHandle<List<ThemeResource>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT id, name, description, document_styles::text, page_settings::text, block_style_presets::text, spacing_unit FROM themes WHERE tenant_key = :tenantKey")
-            if (query.catalogKey != null) append(" AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
+            append("SELECT id, name, description, document_styles::text, page_settings::text, block_style_presets::text, spacing_unit FROM themes WHERE tenant_key = :tenantKey AND ${inCurrentVersion("themes")}")
+            if (query.catalogKey != null) append(" AND version_id = ${versionAt("tenantKey", "catalogKey")}")
             if (query.slugs != null) append(" AND id IN (<slugs>)")
         }
         val q = handle.createQuery(sql).bind("tenantKey", query.tenantKey)
@@ -92,12 +93,13 @@ class ExportAttributesHandler(
                        clc.catalog_key AS code_list_catalog_key, cl.slug AS code_list_slug
                 FROM variant_attribute_definitions a
                 JOIN catalogs ac ON ac.tenant_key = a.tenant_key AND ac.catalog_id = a.catalog_id
-                LEFT JOIN code_lists cl ON cl.tenant_key = a.tenant_key AND cl.resource_id = a.code_list_resource_id
+                LEFT JOIN code_lists cl
+                  ON cl.tenant_key = a.tenant_key AND cl.resource_id = a.code_list_resource_id AND ${inCurrentVersion("cl")}
                 LEFT JOIN catalogs clc ON clc.tenant_key = cl.tenant_key AND clc.catalog_id = cl.catalog_id
-                WHERE a.tenant_key = :tenantKey
+                WHERE a.tenant_key = :tenantKey AND ${inCurrentVersion("a")}
                 """,
             )
-            if (query.catalogKey != null) append(" AND a.catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
+            if (query.catalogKey != null) append(" AND a.version_id = ${versionAt("tenantKey", "catalogKey")}")
             if (query.slugs != null) append(" AND a.id IN (<slugs>)")
         }
         val q = handle.createQuery(sql).bind("tenantKey", query.tenantKey)
@@ -159,10 +161,10 @@ class ExportCodeListsHandler(
                 SELECT c.catalog_key, l.slug, l.display_name, l.description
                 FROM code_lists l
                 JOIN catalogs c ON c.tenant_key = l.tenant_key AND c.catalog_id = l.catalog_id
-                WHERE l.tenant_key = :tenantKey
+                WHERE l.tenant_key = :tenantKey AND ${inCurrentVersion("l")}
                 """,
             )
-            if (query.catalogKey != null) append(" AND l.catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
+            if (query.catalogKey != null) append(" AND l.version_id = ${versionAt("tenantKey", "catalogKey")}")
             if (query.slugs != null) append(" AND l.slug IN (<slugs>)")
             append(" ORDER BY c.catalog_key, l.slug")
         }
@@ -187,10 +189,12 @@ class ExportCodeListsHandler(
                    entries.sort_order, entries.hidden
             FROM code_list_entries entries
             JOIN code_lists lists
-              ON lists.tenant_key = entries.tenant_key AND lists.resource_id = entries.code_list_resource_id
+              ON lists.tenant_key = entries.tenant_key AND lists.version_id = entries.version_id
+             AND lists.resource_id = entries.code_list_resource_id
             JOIN catalogs list_catalog
               ON list_catalog.tenant_key = lists.tenant_key AND list_catalog.catalog_id = lists.catalog_id
             WHERE entries.tenant_key = :tenantKey
+              AND ${inCurrentVersion("lists")}
               AND list_catalog.catalog_key IN (<catalogs>)
               AND lists.slug IN (<slugs>)
             ORDER BY list_catalog.catalog_key, lists.slug, entries.sort_order, entries.code
@@ -246,10 +250,10 @@ class ExportStencilsHandler(
                 SELECT s.id, s.name, s.description, s.tags::text,
                        s.content::text, s.parameter_schema::text, s.reads_template_data
                 FROM stencils s
-                WHERE s.tenant_key = :tenantKey
+                WHERE s.tenant_key = :tenantKey AND ${inCurrentVersion("s")}
                 """,
             )
-            if (query.catalogKey != null) append(" AND s.catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
+            if (query.catalogKey != null) append(" AND s.version_id = ${versionAt("tenantKey", "catalogKey")}")
             if (query.slugs != null) append(" AND s.id IN (<slugs>)")
         }
         val q = handle.createQuery(sql).bind("tenantKey", query.tenantKey)
@@ -302,10 +306,10 @@ class ExportFontsHandler(
                 SELECT c.catalog_key, f.slug, f.name, f.kind
                 FROM fonts f
                 JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id
-                WHERE f.tenant_key = :tenantKey
+                WHERE f.tenant_key = :tenantKey AND ${inCurrentVersion("f")}
                 """,
             )
-            if (query.catalogKey != null) append(" AND f.catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
+            if (query.catalogKey != null) append(" AND f.version_id = ${versionAt("tenantKey", "catalogKey")}")
             if (query.slugs != null) append(" AND f.slug IN (<slugs>)")
             append(" ORDER BY c.catalog_key, f.slug")
         }
@@ -330,13 +334,17 @@ class ExportFontsHandler(
                    faces.weight, faces.italic, binary_asset.id AS asset_key,
                    binary_asset.media_type, faces.content_hash
             FROM font_variants faces
-            JOIN fonts family ON family.tenant_key = faces.tenant_key AND family.resource_id = faces.font_resource_id
+            JOIN fonts family
+              ON family.tenant_key = faces.tenant_key AND family.version_id = faces.version_id
+             AND family.resource_id = faces.font_resource_id
             JOIN catalogs family_catalog
               ON family_catalog.tenant_key = family.tenant_key AND family_catalog.catalog_id = family.catalog_id
             JOIN assets binary_asset
               ON binary_asset.tenant_key = faces.tenant_key
              AND binary_asset.resource_id = faces.asset_resource_id
+             AND ${inCurrentVersion("binary_asset")}
             WHERE faces.tenant_key = :tenantKey
+              AND ${inCurrentVersion("family")}
               AND faces.source = 'ASSET'
               AND family_catalog.catalog_key IN (<catalogs>)
               AND family.slug IN (<slugs>)

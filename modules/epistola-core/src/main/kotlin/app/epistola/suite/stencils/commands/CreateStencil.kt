@@ -7,6 +7,7 @@ package app.epistola.suite.stencils.commands
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VersionKey
@@ -98,9 +99,9 @@ class CreateStencilHandler(
                     .let(objectMapper::writeValueAsString)
                 handle.createUpdate(
                     """
-                    INSERT INTO stencils (id, tenant_key, catalog_id, name, description, tags, content, parameter_schema, reads_template_data,
+                    INSERT INTO stencils (id, tenant_key, catalog_id, version_id, name, description, tags, content, parameter_schema, reads_template_data,
                                           created_at, updated_at, created_by, updated_by)
-                    VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, :name, :description, :tags::jsonb, :content::jsonb,
+                    VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :name, :description, :tags::jsonb, :content::jsonb,
                             :parameterSchema::jsonb, :readsTemplateData, NOW(), NOW(), :createdBy, :updatedBy)
                     """,
                 )
@@ -115,7 +116,7 @@ class CreateStencilHandler(
                     .bind("readsTemplateData", command.readsTemplateData)
                     .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                     .execute()
-                val stencil = handle.createQuery("SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :tenantId AND s.catalog_id = ${catalogAt("tenantId", "catalogKey")} AND s.id = :id")
+                val stencil = handle.createQuery("SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :tenantId AND s.version_id = ${versionAt("tenantId", "catalogKey")} AND s.id = :id")
                     .bind("id", command.id.key)
                     .bind("tenantId", command.id.tenantKey)
                     .bind("catalogKey", command.id.catalogKey)

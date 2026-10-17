@@ -5,8 +5,8 @@
 package app.epistola.suite.fonts.commands
 
 import app.epistola.suite.assets.commands.DeleteAsset
-import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.FontId
 import app.epistola.suite.fonts.FACES_OF_FAMILY_AT_ADDRESS
@@ -70,7 +70,7 @@ class DeleteFontHandler(
                 """
                 SELECT COUNT(*) > 0
                 FROM fonts
-                WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND slug = :slug
+                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug
                 """,
             )
                 .bind("tenantKey", tenantKey)
@@ -112,7 +112,7 @@ class DeleteFontHandler(
             handle.createUpdate(
                 """
                 DELETE FROM fonts
-                WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND slug = :slug
+                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug
                 """,
             )
                 .bind("tenantKey", tenantKey)

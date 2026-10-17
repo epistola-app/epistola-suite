@@ -8,6 +8,7 @@ import app.epistola.catalog.canonical.QualifiedCatalogFingerprint
 import app.epistola.catalog.protocol.CatalogDependency
 import app.epistola.suite.catalog.CatalogVersionSelector
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
@@ -61,7 +62,7 @@ class CatalogDependencyStore {
             """
             SELECT registry, namespace, dependency_key, version_selector, release_version, release_fingerprint
             FROM catalog_dependencies
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
+            WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
             ORDER BY position
             """,
         )
@@ -81,16 +82,16 @@ class CatalogDependencyStore {
 
     /** Replaces the declarations of [catalogKey] with [declarations], in that order. */
     fun replace(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, declarations: List<CatalogDependencyDeclaration>) {
-        handle.createUpdate("DELETE FROM catalog_dependencies WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
+        handle.createUpdate("DELETE FROM catalog_dependencies WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}")
             .bind("t", tenantKey)
             .bind("c", catalogKey)
             .execute()
         if (declarations.isEmpty()) return
         val batch = handle.prepareBatch(
             """
-            INSERT INTO catalog_dependencies (tenant_key, catalog_id, registry, namespace, dependency_key, version_selector, position,
-                                              release_version, release_fingerprint)
-            VALUES (:t, ${catalogAt("t", "c")}, :registry, :namespace, :key, :selector, :position, :releaseVersion, :releaseFingerprint)
+            INSERT INTO catalog_dependencies (tenant_key, catalog_id, version_id, registry, namespace, dependency_key, version_selector,
+                                              position, release_version, release_fingerprint)
+            VALUES (:t, ${catalogAt("t", "c")}, ${versionAt("t", "c")}, :registry, :namespace, :key, :selector, :position, :releaseVersion, :releaseFingerprint)
             """,
         )
         declarations.forEachIndexed { position, declaration ->

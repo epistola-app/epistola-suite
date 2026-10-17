@@ -4,6 +4,7 @@
 
 package app.epistola.suite.themes.queries
 
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -102,6 +103,7 @@ class GetThemeUsagePageHandler(
                 FROM template_variants variant
                 JOIN document_templates template
                   ON template.tenant_key = variant.tenant_key
+                 AND template.version_id = variant.version_id
                  AND template.resource_id = variant.template_resource_id
                 JOIN catalogs template_catalog
                   ON template_catalog.tenant_key = template.tenant_key
@@ -110,16 +112,19 @@ class GetThemeUsagePageHandler(
                 LEFT JOIN themes template_theme
                   ON template_theme.tenant_key = template.tenant_key
                  AND template_theme.resource_id = template.theme_resource_id
+                 AND ${inCurrentVersion("template_theme")}
                 LEFT JOIN catalogs template_theme_catalog
                   ON template_theme_catalog.tenant_key = template_theme.tenant_key
                  AND template_theme_catalog.catalog_id = template_theme.catalog_id
                 LEFT JOIN themes tenant_theme
                   ON tenant_theme.tenant_key = tenant.id
                  AND tenant_theme.resource_id = tenant.default_theme_resource_id
+                 AND ${inCurrentVersion("tenant_theme")}
                 LEFT JOIN catalogs tenant_theme_catalog
                   ON tenant_theme_catalog.tenant_key = tenant_theme.tenant_key
                  AND tenant_theme_catalog.catalog_id = tenant_theme.catalog_id
                 WHERE variant.tenant_key = :tenantKey
+                  AND ${inCurrentVersion("variant")}
             ),
             matching_usage AS (
                 SELECT *
@@ -134,6 +139,7 @@ class GetThemeUsagePageHandler(
                               FROM themes candidate
                               WHERE candidate.tenant_key = :tenantKey
                                 AND candidate.id = :themeKey
+                                AND ${inCurrentVersion("candidate")}
                           ) = 1
                       )
                   )

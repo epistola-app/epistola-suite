@@ -5,7 +5,8 @@
 package app.epistola.suite.attributes.codelists.queries
 
 import app.epistola.suite.attributes.codelists.model.CodeList
-import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Query
@@ -48,10 +49,11 @@ class ListCodeListsHandler(
                 FROM code_lists cl
                 JOIN catalogs c ON c.tenant_key = cl.tenant_key AND c.catalog_id = cl.catalog_id
                 WHERE cl.tenant_key = :tenantId
+                  AND ${inCurrentVersion("cl")}
                 """,
             )
             if (query.catalogKey != null) {
-                append(" AND cl.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
+                append(" AND cl.version_id = ${versionAt("tenantId", "catalogKey")}")
             }
             append(" ORDER BY cl.display_name ASC")
         }

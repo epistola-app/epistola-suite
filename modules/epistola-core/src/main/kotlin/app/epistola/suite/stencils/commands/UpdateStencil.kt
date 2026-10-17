@@ -4,9 +4,9 @@
 
 package app.epistola.suite.stencils.commands
 
-import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -129,7 +129,7 @@ class UpdateStencilHandler(
             if (setClauses.isEmpty()) {
                 // Nothing to update, just return current state
                 return@inTransaction handle.createQuery(
-                    "SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :tenantId AND s.catalog_id = ${catalogAt("tenantId", "catalogKey")} AND s.id = :id",
+                    "SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :tenantId AND s.version_id = ${versionAt("tenantId", "catalogKey")} AND s.id = :id",
                 )
                     .bind("tenantId", command.id.tenantKey)
                     .bind("catalogKey", command.id.catalogKey)
@@ -147,7 +147,7 @@ class UpdateStencilHandler(
             val update = handle.createUpdate(
                 """
                 UPDATE stencils SET ${setClauses.joinToString(", ")}
-                WHERE tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")} AND id = :id
+                WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND id = :id
                 """,
             )
                 .bind("tenantId", command.id.tenantKey)
@@ -156,7 +156,7 @@ class UpdateStencilHandler(
             bindings.forEach { (key, value) -> update.bind(key, value) }
             if (update.execute() == 0) return@inTransaction null
 
-            handle.createQuery("SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :tenantId AND s.catalog_id = ${catalogAt("tenantId", "catalogKey")} AND s.id = :id")
+            handle.createQuery("SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :tenantId AND s.version_id = ${versionAt("tenantId", "catalogKey")} AND s.id = :id")
                 .bind("tenantId", command.id.tenantKey)
                 .bind("catalogKey", command.id.catalogKey)
                 .bind("id", command.id.key)

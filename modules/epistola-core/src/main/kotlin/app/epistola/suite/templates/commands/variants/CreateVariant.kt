@@ -4,8 +4,8 @@
 
 package app.epistola.suite.templates.commands.variants
 
-import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
@@ -62,7 +62,7 @@ class CreateVariantHandler(
                     """
                 SELECT 1
                 FROM document_templates
-                WHERE id = :templateId AND tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
+                WHERE id = :templateId AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
                 """,
                 )
                     .bind("templateId", command.id.templateKey)
@@ -80,7 +80,7 @@ class CreateVariantHandler(
                 val existingCount = handle.createQuery(
                     """
                 SELECT COUNT(*) FROM template_variants
-                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+                WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 """,
                 )
                     .bind("tenantId", command.id.tenantKey)
@@ -94,9 +94,9 @@ class CreateVariantHandler(
                 val prepared = templateDocumentPreparation.prepare(createDefaultTemplateModel(command.id.key), command.id.catalogKey)
                 val variant = handle.createQuery(
                     """
-                INSERT INTO template_variants (id, tenant_key, template_resource_id, title, description, attributes, is_default, template_model, referenced_paths,
+                INSERT INTO template_variants (id, tenant_key, version_id, template_resource_id, title, description, attributes, is_default, template_model, referenced_paths,
                                                created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :title, :description, :attributes::jsonb, :isDefault,
+                VALUES (:id, :tenantId, ${versionAt("tenantId", "catalogKey")}, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :title, :description, :attributes::jsonb, :isDefault,
                         :templateModel::jsonb, :referencedPaths::jsonb, NOW(), NOW(), :createdBy, :updatedBy)
                 RETURNING *, CAST(:templateId AS TEXT) AS template_key
                 """,

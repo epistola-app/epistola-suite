@@ -4,6 +4,7 @@
 
 package app.epistola.suite.fonts.queries
 
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.FontId
 import app.epistola.suite.fonts.model.FontUsage
 import app.epistola.suite.mediator.Query
@@ -56,6 +57,7 @@ class FindFontUsagesHandler(
             SELECT t.name AS name
             FROM themes t
             WHERE t.tenant_key = :tenantKey
+              AND ${inCurrentVersion("t")}
               AND (
                 jsonb_path_exists(t.document_styles, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
                 OR jsonb_path_exists(COALESCE(t.block_style_presets, '{}'::jsonb), CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
@@ -73,8 +75,10 @@ class FindFontUsagesHandler(
             """
             SELECT DISTINCT dt.name AS name
             FROM template_variants tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
+            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id
+                                      AND dt.resource_id = tv.template_resource_id
             WHERE tv.tenant_key = :tenantKey
+              AND ${inCurrentVersion("tv")}
               AND jsonb_path_exists(tv.template_model, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
             ORDER BY dt.name
             """,

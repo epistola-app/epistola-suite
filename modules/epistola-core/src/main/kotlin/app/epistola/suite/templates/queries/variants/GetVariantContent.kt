@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.queries.variants
 
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
@@ -37,7 +38,7 @@ class GetVariantContentHandler(
         handle.createQuery(
             """
             SELECT template_model::text FROM template_variants
-            WHERE tenant_key = :t AND id = :v AND template_resource_id = ${templateAtAddress("t", "c", "k")}
+            WHERE tenant_key = :t AND id = :v AND version_id = ${versionAt("t", "c")} AND template_resource_id = ${templateAtAddress("t", "c", "k")}
             """,
         )
             .bind("t", query.variantId.tenantKey)

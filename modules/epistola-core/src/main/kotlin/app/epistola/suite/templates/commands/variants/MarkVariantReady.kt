@@ -6,6 +6,7 @@ package app.epistola.suite.templates.commands.variants
 
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.TemplateVariantNotFoundException
@@ -51,7 +52,7 @@ class MarkVariantReadyHandler(
             val row = handle.createQuery(
                 """
                 SELECT template_resource_id, template_model::text AS template_model FROM template_variants
-                WHERE tenant_key = :t AND id = :v AND template_resource_id = ${templateAtAddress("t", "c", "k")}
+                WHERE tenant_key = :t AND id = :v AND version_id = ${versionAt("t", "c")} AND template_resource_id = ${templateAtAddress("t", "c", "k")}
                 FOR UPDATE
                 """,
             )
