@@ -174,6 +174,12 @@ catalog's highest release.
 its installed release are the publisher's. An authored import takes them as its locks, and adopts the
 archive's release only when the tenant has every pinned release.
 
+**Upgrading from 1.x** declares what 1.x left undeclared: 1.x had no declarations, so its catalogs
+reference the system catalog and others without them. The upgrade queues every authored catalog that
+exists then (`catalog_dependency_backfill`), and a background task (`CatalogDependencyBackfillRunner`)
+gives each a declaration `*` for every catalog it references, locked to that catalog's highest
+release, as a move does. A catalog created after the upgrade is never queued.
+
 ## Ready marks
 
 Templates, stencils and every other resource are edited in place: a template variant has one
