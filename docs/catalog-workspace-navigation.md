@@ -29,6 +29,8 @@ catalog and which version it is in. The UI does not show that:
 
 ## Simple model (decided 17 October)
 
+> Superseded where they differ by [the working model](catalog-working-model.md) (18 October).
+
 The people using this are mostly not technical. What they need: change a letter, publish it, make it
 live, and now and then fix what is live. So the UI shows only:
 
