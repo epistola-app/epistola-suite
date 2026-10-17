@@ -16,6 +16,7 @@ import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogReleasePublicationPort
 import app.epistola.suite.catalog.CatalogReleasePublicationRequest
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.ContentSource
 import app.epistola.suite.catalog.ReleaseStencilCheck
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.catalogAt
@@ -59,6 +60,12 @@ data class ReleaseCatalogVersion(
     val version: String,
     val notes: String? = null,
     val publication: ReleasePublication = ReleasePublication.DEFAULT,
+    /**
+     * What the release contains. Only the 2.0 upgrade releases anything but the working copy
+     * ([ContentSource.PUBLISHED_BEFORE_2_0]): content that was published already, so it is not held
+     * to ready marks. Internal so no API can set it.
+     */
+    internal val source: ContentSource = ContentSource.WORKING_COPY,
 ) : Command<ReleaseCatalogVersionResult>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_PUBLISH
@@ -126,9 +133,9 @@ class ReleaseCatalogVersionHandler(
             )
         }
 
-        requireChangesReady(command.tenantKey, command.catalogKey)
+        if (command.source == ContentSource.WORKING_COPY) requireChangesReady(command.tenantKey, command.catalogKey)
         val pins = pinDependencies(command.tenantKey, command.catalogKey)
-        val content = contentBuilder.build(command.tenantKey, command.catalogKey)
+        val content = contentBuilder.build(command.tenantKey, command.catalogKey, command.source)
         fingerprintService.requirePublishable(content)
         stencilCheck.requireInstancesFit(command.tenantKey, command.catalogKey, content)
         val fingerprint = fingerprintService.fingerprint(content)

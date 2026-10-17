@@ -79,6 +79,21 @@ data class CatalogContent(
  * and [CatalogFingerprintService], so "the bytes you export" and "the bytes you
  * fingerprint" are identical by construction.
  */
+
+/** Where a catalog's templates, data contracts and stencils are read from. */
+enum class ContentSource {
+    /** The working copy: what authors edit, and what a release contains. */
+    WORKING_COPY,
+
+    /**
+     * What each was last published as before 2.0, kept in `template_versions`, `contract_versions`
+     * and `stencil_versions`: the content of the 2.0 upgrade's first release. A variant or stencil
+     * that was never published is left out, and so is a template whose default variant was not; a
+     * template that never published a data contract keeps its working one.
+     */
+    PUBLISHED_BEFORE_2_0,
+}
+
 @Component
 class CatalogContentBuilder(
     private val objectMapper: ObjectMapper,
@@ -86,13 +101,20 @@ class CatalogContentBuilder(
     private val dependencyStore: CatalogDependencyStore,
 ) {
 
-    fun build(tenantKey: TenantKey, catalogKey: CatalogKey): CatalogContent {
+    fun build(tenantKey: TenantKey, catalogKey: CatalogKey, source: ContentSource = ContentSource.WORKING_COPY): CatalogContent {
         val catalog = GetCatalog(tenantKey, catalogKey).query()
             ?: throw IllegalArgumentException("Catalog not found: $catalogKey")
 
-        val templates = loadTemplates(tenantKey, catalogKey)
+        val templates = loadTemplates(tenantKey, catalogKey, source)
         val themes = ExportThemes(tenantKey, catalogKey = catalogKey).query()
-        val stencils = ExportStencils(tenantKey, catalogKey = catalogKey).query().map { stencil ->
+        val published = if (source == ContentSource.PUBLISHED_BEFORE_2_0) publishedStencils(tenantKey, catalogKey) else null
+        val stencils = ExportStencils(tenantKey, catalogKey = catalogKey).query().mapNotNull { exported ->
+            val stencil = if (published == null) {
+                exported
+            } else {
+                val version = published[exported.key] ?: return@mapNotNull null
+                exported.copy(content = version.first, parameterSchema = version.second)
+            }
             stencil.copy(
                 content = relativized(objectMapper.valueToTree(stencil.content), catalogKey.value).let { objectMapper.treeToValue(it, TemplateDocument::class.java) },
             )
@@ -176,7 +198,9 @@ class CatalogContentBuilder(
     private fun loadTemplates(
         tenantKey: TenantKey,
         catalogKey: CatalogKey,
+        source: ContentSource,
     ): List<TemplateResource> {
+        val published = source == ContentSource.PUBLISHED_BEFORE_2_0
         data class TemplateRow(
             val id: String,
             val name: String,
@@ -192,8 +216,9 @@ class CatalogContentBuilder(
             handle.createQuery(
                 """
                 SELECT dt.id, dt.name, th.id AS theme_key, thc.catalog_key AS theme_catalog_key, dt.pdfa_enabled,
-                       dt.data_model::text, dt.data_examples::text
+                       ${if (published) PUBLISHED_CONTRACT_COLUMNS else "dt.data_model::text, dt.data_examples::text"}
                 FROM document_templates dt
+                ${if (published) PUBLISHED_CONTRACT_JOIN else ""}
                 LEFT JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
                 LEFT JOIN catalogs thc ON thc.tenant_key = th.tenant_key AND thc.catalog_id = th.catalog_id
                 WHERE dt.tenant_key = :tenantKey AND dt.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
@@ -219,8 +244,10 @@ class CatalogContentBuilder(
             val variants = jdbi.withHandle<List<VariantRow>, Exception> { handle ->
                 handle.createQuery(
                     """
-                    SELECT v.id, v.title, v.attributes::text, v.is_default, v.template_model::text AS template_model
+                    SELECT v.id, v.title, v.attributes::text, v.is_default,
+                           ${if (published) "pv.template_model::text" else "v.template_model::text"} AS template_model
                     FROM template_variants v
+                    ${if (published) PUBLISHED_VARIANT_JOIN else ""}
                     WHERE v.tenant_key = :tenantKey AND v.template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
                     """,
                 )
@@ -239,7 +266,10 @@ class CatalogContentBuilder(
                     .list()
             }
 
-            val defaultVariant = variants.firstOrNull { it.isDefault } ?: variants.firstOrNull()
+            val defaultVariant = variants.firstOrNull { it.isDefault }
+                // Before 2.0 a template rendered through its default variant, so one whose default was never
+                // published is left out of its published content.
+                ?: variants.firstOrNull()?.takeUnless { published }
                 ?: return@mapNotNull null // Skip templates without variants
 
             val defaultModel = defaultVariant.templateModel
@@ -284,6 +314,31 @@ class CatalogContentBuilder(
                 },
             )
         }
+    }
+
+    /** Each stencil's latest published version before 2.0: its content and parameter schema, by stencil key. */
+    private fun publishedStencils(tenantKey: TenantKey, catalogKey: CatalogKey): Map<String, Pair<TemplateDocument, Map<String, Any?>?>> = jdbi.withHandle<Map<String, Pair<TemplateDocument, Map<String, Any?>?>>, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT DISTINCT ON (s.id) s.id, sv.content::text AS content, sv.parameter_schema::text AS parameter_schema
+            FROM stencils s
+            JOIN stencil_versions sv ON sv.tenant_key = s.tenant_key AND sv.stencil_resource_id = s.resource_id AND sv.status = 'published'
+            WHERE s.tenant_key = :t AND s.catalog_id = ${catalogAt("t", "c")}
+            ORDER BY s.id, sv.id DESC
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("c", catalogKey)
+            .map { rs, _ ->
+                rs.getString("id") to (
+                    objectMapper.readValue(rs.getString("content"), TemplateDocument::class.java) to
+                        rs.getString("parameter_schema")?.let {
+                            objectMapper.readValue<Map<String, Any?>>(it, objectMapper.typeFactory.constructMapType(Map::class.java, String::class.java, Any::class.java))
+                        }
+                    )
+            }
+            .list()
+            .toMap()
     }
 
     /**
@@ -402,3 +457,19 @@ class CatalogContentBuilder(
         return dependencies.toList().ifEmpty { null }
     }
 }
+
+/** The template's latest published data contract before 2.0, or its working one when it published none. */
+private const val PUBLISHED_CONTRACT_COLUMNS =
+    "CASE WHEN pc.id IS NULL THEN dt.data_model ELSE pc.data_model END::text AS data_model, " +
+        "CASE WHEN pc.id IS NULL THEN dt.data_examples ELSE COALESCE(pc.data_examples, '[]'::jsonb) END::text AS data_examples"
+
+private const val PUBLISHED_CONTRACT_JOIN =
+    "LEFT JOIN LATERAL (SELECT cv.id, cv.data_model, cv.data_examples FROM contract_versions cv " +
+        "WHERE cv.tenant_key = dt.tenant_key AND cv.template_resource_id = dt.resource_id AND cv.status = 'published' " +
+        "ORDER BY cv.id DESC LIMIT 1) pc ON TRUE"
+
+/** A variant's latest published model before 2.0; a variant that never published one is left out. */
+private const val PUBLISHED_VARIANT_JOIN =
+    "JOIN LATERAL (SELECT tv.template_model FROM template_versions tv " +
+        "WHERE tv.tenant_key = v.tenant_key AND tv.template_resource_id = v.template_resource_id AND tv.variant_key = v.id " +
+        "AND tv.status = 'published' ORDER BY tv.id DESC LIMIT 1) pv ON TRUE"

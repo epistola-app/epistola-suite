@@ -174,11 +174,16 @@ catalog's highest release.
 its installed release are the publisher's. An authored import takes them as its locks, and adopts the
 archive's release only when the tenant has every pinned release.
 
-**Upgrading from 1.x** declares what 1.x left undeclared: 1.x had no declarations, so its catalogs
-reference the system catalog and others without them. The upgrade queues every authored catalog that
-exists then (`catalog_dependency_backfill`), and a background task (`CatalogDependencyBackfillRunner`)
+**Upgrading from 1.x** declares what 1.x left undeclared, and cuts each catalog's first release:
+1.x had no declarations, and no 1.x release kept its content. The upgrade queues every authored
+catalog that exists then (`catalog_upgrade_queue`), and a background task (`CatalogUpgradeRunner`)
 gives each a declaration `*` for every catalog it references, locked to that catalog's highest
-release, as a move does. A catalog created after the upgrade is never queued.
+release (as a move does), then releases it from what was last published before 2.0, numbered as its
+draft. A template whose default variant was never published, and a stencil never published, are left
+out of that release; unpublished work stays in the draft. Nothing is deployed: operators deploy the
+first releases. Catalogs are taken in rounds, so one is released after the catalogs it depends on;
+one that cannot be released yet stays queued with the reason (`last_error`) and is retried. A catalog
+created after the upgrade is never queued.
 
 ## Ready marks
 

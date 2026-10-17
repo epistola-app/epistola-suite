@@ -92,6 +92,15 @@ class TemplateContentV8MigrationTest {
     }
 
     @Test
+    fun `a stencil's published versions get the same v8 content and passed parameters as its working copy`() {
+        // The upgrade's first release is cut from each stencil's latest published version.
+        val published = connect().use {
+            mapper.readTree(single(it, "SELECT content::text FROM stencil_versions WHERE id = 2 AND stencil_resource_id = (SELECT resource_id FROM stencils WHERE id = 'letterhead')"))
+        }
+        assertThat(published["nodes"]["lh-body"]["props"]["passParameters"].asBoolean()).isTrue()
+    }
+
+    @Test
     fun `a stencil reads the template's data only if its own content does`() {
         connect().use {
             assertThat(single(it, "SELECT reads_template_data::text FROM stencils WHERE id = 'letterhead'")).isEqualTo("false")

@@ -416,6 +416,10 @@ class DataPreservationMigrationIT {
             assertThat(one("SELECT string_agg(c.catalog_key || '@' || d.version, ',' ORDER BY c.catalog_key) FROM catalog_drafts d JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id WHERE d.tenant_key = '$TENANT'"))
                 .isEqualTo("default@1.0.0,shared@1.0.0")
 
+            // Every authored 1.x catalog is queued for its declarations and first release (V20261017091832).
+            assertThat(one("SELECT string_agg(c.catalog_key, ',' ORDER BY c.catalog_key) FROM catalog_upgrade_queue q JOIN catalogs c ON c.tenant_key = q.tenant_key AND c.catalog_id = q.catalog_id WHERE q.tenant_key = '$TENANT'"))
+                .isEqualTo("default,shared")
+
             // Intentional scoped cleanup (V20260708110402, issue #668): the retired
             // stencil-parameters toggle's orphaned rows are gone, unrelated toggles survive.
             assertThat(one("SELECT count(*) FROM feature_toggles WHERE tenant_key = '$TENANT' AND feature_key = 'stencil-parameters'"))

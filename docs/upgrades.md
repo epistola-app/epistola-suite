@@ -77,6 +77,26 @@ chart's `job` or `initContainer` modes, or the standalone container in
 [`deployment.md`](deployment.md#run-the-migration-step-standalone-outside-helm--ci--one-off)) for
 anything substantial.
 
+## From 1.x to 2.0
+
+2.0 renders catalog releases deployed to environments, where 1.x rendered template versions
+activated per environment. Nothing of 1.x is lost (template, contract and stencil versions stay as
+history), but no 1.x release kept its content, so the upgrade cannot deploy anything for you:
+
+1. **Upgrade** as a breaking upgrade (above).
+2. **Wait for the first releases.** Within a few minutes of the first start, a background task gives
+   every authored catalog its dependency declarations and a first release, cut from what was last
+   published before the upgrade and numbered as the catalog's draft (see
+   [`catalog-versioning.md`](catalog-versioning.md#declared-dependencies)). The log names each
+   catalog it releases, and any it cannot release yet with the reason; those are retried every five
+   minutes.
+3. **Deploy those releases** to each environment. Until an environment has a release deployed, a
+   generation request for it is refused.
+4. **Resubmit** any generation request that was still queued at the upgrade: it named a template
+   version, which 2.0 no longer renders.
+
+Work that was unpublished in 1.x is in each catalog's draft, to be marked ready and released as usual.
+
 ## Backups and upgrades
 
 **Take a database-level backup before upgrading, and verify it restores.** It is the only rollback

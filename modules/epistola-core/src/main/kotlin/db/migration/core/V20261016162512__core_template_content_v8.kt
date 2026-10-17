@@ -32,8 +32,8 @@ import java.sql.ResultSet
  * A stencil whose own content reads anything but its parameters and `sys` declares
  * `reads_template_data`. Both detections err towards keeping the 1.x behaviour.
  *
- * Then every stored template document and stencil gets the wire-v8 renames and loses stencil
- * versions, by the contract's own [CatalogDocumentMigration], and theme styles their font renames.
+ * Then every stored template document, stencil and stencil version gets the wire-v8 renames and loses
+ * stencil version pins, by the contract's own [CatalogDocumentMigration], and theme styles their font renames.
  * What is reported is logged and kept in `app_metadata` under [REPORT_KEY].
  *
  * Works on JSON, not on the application's model, so that later code cannot change what it did.
@@ -95,6 +95,26 @@ class V20261016162512__core_template_content_v8 : BaseJavaMigration() {
                 update.setBoolean(2, readsTemplateData)
                 update.setString(3, stencil.tenantKey)
                 update.setString(4, stencil.resourceId)
+                update.addBatch()
+            }
+            update.executeBatch()
+        }
+
+        // Stencil history the same way: the upgrade's first release is cut from each stencil's latest
+        // published version (CatalogDependencyBackfillRunner), so that version must be v8 too, with the
+        // parameters its placeholders pass to the templates' fills.
+        connection.prepareStatement(
+            "UPDATE stencil_versions SET content = ?::jsonb WHERE tenant_key = ? AND stencil_resource_id = ?::uuid AND id = ?",
+        ).use { update ->
+            val byResource = stencils.values.associateBy { "${it.tenantKey}|${it.resourceId}" }
+            for ((key, stored) in versions) {
+                val (tenantKey, resourceId, id) = key.split("|")
+                val content = stored.deepCopy() as? ObjectNode ?: continue
+                byResource["$tenantKey|$resourceId"]?.passParameters?.forEach { name -> passParameters(content, name) }
+                update.setString(1, mapper.writeValueAsString(CatalogDocumentMigration.templateDocumentV7ToV8(content).document))
+                update.setString(2, tenantKey)
+                update.setString(3, resourceId)
+                update.setInt(4, id.toInt())
                 update.addBatch()
             }
             update.executeBatch()

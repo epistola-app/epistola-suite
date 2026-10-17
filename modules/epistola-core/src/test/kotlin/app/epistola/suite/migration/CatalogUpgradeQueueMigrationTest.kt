@@ -12,16 +12,16 @@ import org.junit.jupiter.api.Test
 import java.sql.DriverManager
 
 /**
- * `core_catalog_dependency_backfill` queues every authored catalog that exists at the upgrade, and
- * no subscribed one: a subscribed catalog's declarations come with the release it installs.
+ * `core_catalog_upgrade_queue` queues every authored catalog that exists at the upgrade, and
+ * no subscribed one: a subscribed catalog has the release it installed, and its declarations come with it.
  */
 @Tag("integration")
-class CatalogDependencyBackfillMigrationTest {
+class CatalogUpgradeQueueMigrationTest {
 
     @Test
     fun `the authored catalogs of the upgrade are queued, the subscribed ones are not`() {
         val postgres = TestRuntimeLifecycle.postgres()
-        val database = "catalog_dependency_backfill_migration"
+        val database = "catalog_upgrade_queue_migration"
         DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password).use { admin ->
             admin.createStatement().use {
                 it.execute("DROP DATABASE IF EXISTS \"$database\"")
@@ -56,7 +56,7 @@ class CatalogDependencyBackfillMigrationTest {
             val queued = connection.createStatement().use { st ->
                 st.executeQuery(
                     """
-                    SELECT c.catalog_key FROM catalog_dependency_backfill q
+                    SELECT c.catalog_key FROM catalog_upgrade_queue q
                     JOIN catalogs c ON c.tenant_key = q.tenant_key AND c.catalog_id = q.catalog_id
                     """,
                 ).use { rs -> buildList { while (rs.next()) add(rs.getString(1)) } }
@@ -66,7 +66,7 @@ class CatalogDependencyBackfillMigrationTest {
     }
 
     private companion object {
-        /** The migration before `core_catalog_dependency_backfill`. */
+        /** The migration before `core_catalog_upgrade_queue`. */
         const val BEFORE = "20261017001641"
     }
 }
