@@ -39,19 +39,19 @@ under its title. That banner, not this table, is authoritative.
 
 ## Authoring: templates and the document model
 
-| Doc                                                | Status  | What it covers                                                                                    |
-| -------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------- |
-| [Editor features](editor-features.md)              | Current | Components, styling and rendering features available in the template editor.                      |
-| [Component registry](component-registry.md)        | Current | How the TypeScript component vocabulary reaches the backend as a JSON snapshot.                   |
-| [Stencils](stencils.md)                            | Current | Reusable components templates use by reference: one working copy, checked on publish and release. |
-| [Stencil placeholders](stencil-placeholders.md)    | Current | The `placeholder` node: default and fill slots, lexical fill scope, passing parameters, nesting.  |
-| [Stencil parameters](stencil-parameters.md)        | Current | Parameter schemas, binding validation, and render-time parameter scope.                           |
-| [Variant attributes](attributes.md)                | Current | The tenant attribute registry and attribute-driven variant selection.                             |
-| [Code lists](code-lists.md)                        | Current | Named `{code, label}` collections that constrain attribute values.                                |
-| [Data contracts](data-contracts.md)                | Current | The JSON Schema a template accepts, plus example data.                                            |
-| [Contract schema versioning](schema-versioning.md) | Current | Draft/published lifecycle of contract versions and how versions bind to templates.                |
-| [Fonts](fonts.md)                                  | Current | Fonts as catalog resources: modelling, resolution and deterministic rendering.                    |
-| [Locale](locale.md)                                | Current | One BCP-47 locale per render, and the formatting tokens that follow from it.                      |
+| Doc                                                             | Status  | What it covers                                                                                              |
+| --------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------- |
+| [Editor features](editor-features.md)                           | Current | Components, styling and rendering features available in the template editor.                                |
+| [Component registry](component-registry.md)                     | Current | How the TypeScript component vocabulary reaches the backend as a JSON snapshot.                             |
+| [Stencils](stencils.md)                                         | Current | Reusable components templates use by reference: one working copy, checked when marked ready and on release. |
+| [Stencil placeholders](stencil-placeholders.md)                 | Current | The `placeholder` node: default and fill slots, lexical fill scope, passing parameters, nesting.            |
+| [Stencil parameters](stencil-parameters.md)                     | Current | Parameter schemas, binding validation, and render-time parameter scope.                                     |
+| [Variant attributes](attributes.md)                             | Current | The tenant attribute registry and attribute-driven variant selection.                                       |
+| [Code lists](code-lists.md)                                     | Current | Named `{code, label}` collections that constrain attribute values.                                          |
+| [Data contracts](data-contracts.md)                             | Current | The JSON Schema a template accepts, plus example data.                                                      |
+| [Data contract storage and compatibility](schema-versioning.md) | Current | How a template's data contract is stored, and the schema compatibility checks.                              |
+| [Fonts](fonts.md)                                               | Current | Fonts as catalog resources: modelling, resolution and deterministic rendering.                              |
+| [Locale](locale.md)                                             | Current | One BCP-47 locale per render, and the formatting tokens that follow from it.                                |
 
 ## Generating documents
 
@@ -70,7 +70,7 @@ under its title. That banner, not this table, is authoritative.
 | [Catalogs & resource exchange](exchange/README.md)                    | Current  | Architecture, data model and import/export flows. Root of the exchange docs.                       |
 | [Wire format v5](exchange/v5/README.md)                               | Current  | Current catalog wire contract, one page per resource part.                                         |
 | [Wire format v4](exchange/v4/README.md)                               | Current  | Previous wire contract, retained for compatibility.                                                |
-| [Catalog versioning](catalog-versioning.md)                           | Current  | How a catalog declares a version and how "is this new?" is decided.                                |
+| [Catalog versioning](catalog-versioning.md)                           | Current  | How a catalog declares a version, how "is this new?" is decided, and ready marks.                  |
 | [Catalog contract compatibility](catalog-contract-compatibility.md)   | Current  | Suite impact of adopting the portable `epistola-catalog` aggregate.                                |
 | [Resource reference graph](resource-reference-graph.md)               | Alpha    | Tenant-wide view of which resources depend on which.                                               |
 | [Resource relocation](catalog-resource-relocation.md)                 | Alpha    | Moving or renaming an authored resource; its old address stops working.                            |

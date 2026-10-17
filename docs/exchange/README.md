@@ -36,7 +36,7 @@ Import/export is a **wire format**: a `catalog.json` [manifest](v5/manifest.md) 
 | **Release version** (SemVer)     | the catalog _content_ at a point in time                        | `release.version`, `catalog_releases`                                  | [catalog-versioning.md](../catalog-versioning.md)         |
 | **Content fingerprint**          | content _identity_ (did anything change?)                       | `release.fingerprint`                                                  | [catalog-versioning.md](../catalog-versioning.md)         |
 
-These three are the **catalog-level** axes. For the full picture — including the editorial **template / contract / stencil** versions and how they do (and don't) relate to import/export — see [version-axes.md](../version-axes.md).
+These three are the **catalog-level** axes. For the full picture — including the template, contract and stencil versions 2.0 removed — see [version-axes.md](../version-axes.md).
 
 **Maintaining these docs:** the current wire shape lives under [`v5/`](v5/) — one file per part at catalog `schemaVersion` 5. A shape change that is **not** round-trip-compatible bumps `CATALOG_SCHEMA_VERSION`: copy the current folder, edit the changed part(s), and land a dedicated migration class in the single chain. Leave old version folders in place so the whole set diffs against the previous wire version.
 
@@ -66,7 +66,7 @@ Catalogs contain seven resource types, installed in dependency order (see [`RESO
 4. **Attributes** — Variant attribute definitions (e.g., language, region)
 5. **Themes** — Document styles, page settings, block style presets
 6. **Stencils** — Reusable content blocks with versioning
-7. **Templates** — Document templates with variants, versions, and data contracts
+7. **Templates** — Document templates with variants and a data contract, edited in place (no template or contract versions since 2.0)
 
 The wire contract of each (and the manifest) is documented per part under [Parts & contract versions](#parts--contract-versions).
 
@@ -169,7 +169,7 @@ Resources have `catalog_key` as part of their primary key:
 
 - `document_templates (tenant_key, catalog_key, id)`
 - `template_variants (tenant_key, catalog_key, template_key, id)`
-- `template_versions (tenant_key, catalog_key, template_key, variant_key, id)`
+- `template_versions (tenant_key, catalog_key, template_key, variant_key, id)` — history from before 2.0, no longer read
 - `themes (tenant_key, catalog_key, id)`
 - `stencils (tenant_key, catalog_key, id)`
 - `stencil_versions (tenant_key, catalog_key, stencil_key, id)`

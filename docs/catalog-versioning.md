@@ -5,8 +5,9 @@ how that flows across the web UI, REST, MCP, catalog exchange and the bundled
 catalogs. Companion to [`docs/exchange/README.md`](exchange/README.md).
 
 > This covers the **release version + content fingerprint** axis. For how it
-> relates to the other version concepts (template/contract/stencil publish, and
-> the wire-format `schemaVersion`), see [version-axes.md](version-axes.md).
+> relates to the other version concepts (the wire-format `schemaVersion`, and
+> the template, contract and stencil versions 2.0 removed), see
+> [version-axes.md](version-axes.md).
 
 ## Why
 
@@ -173,6 +174,39 @@ catalog's highest release.
 its installed release are the publisher's. An authored import takes them as its locks, and adopts the
 archive's release only when the tenant has every pinned release.
 
+## Ready marks
+
+Templates, stencils and every other resource are edited in place: a template variant has one
+working model (`template_variants.template_model`), a template one data contract
+(`document_templates.data_model` / `data_examples`). There are no template or contract versions; the
+catalog release is the only version (contract ADR 0002).
+
+What replaces publishing is a **ready mark**: a record that a resource's current content is
+reviewed. `MarkVariantReady`, `MarkTemplateReady` (every variant of a template), `MarkStencilReady`
+and `MarkCatalogReady` (every changed resource of the catalog) set them; MCP has a tool for each.
+
+- A mark stores the content digest the database computes for the resource (view
+  `resource_content_digests`, table `resource_ready_marks`). It holds while the digest is unchanged,
+  so any edit makes it stale without anything clearing it.
+- A template is marked per variant. A variant's readiness covers its template's shared fields and
+  data contract and which variants exist, so editing the contract or adding a variant makes every
+  variant of the template stale.
+- Marking a variant ready runs what publishing used to: the model must be publishable and every
+  stencil instance must fit its stencil. Marking a stencil ready checks the stencil's own instances.
+  Other resources are marked without a check.
+- A subscribed catalog is read-only: nothing in it can be marked.
+- An authored ZIP import marks everything it imported ready — it is released content.
+
+`ReleaseCatalogVersion` refuses with `CATALOG_RESOURCES_NOT_READY` while any resource that is new or
+modified since the last release — of any type — is not ready. `GetCatalogResourceChanges` (below)
+reports each resource's state and whether it is `ready`.
+
+The 2.0 upgrade (`V20261016232900__core_working_copy_without_versions.sql`) gives each variant its
+draft model, else its latest published, else its latest archived; each template its draft contract,
+else its latest published. What was publishable before is marked ready: a variant with no unfinished
+draft, a stencil without a draft, and every other resource. `template_versions` and
+`contract_versions` stay as history nobody reads.
+
 ## Cutting a release (AUTHORED)
 
 The web UI catalog list shows a **Release new version** action (AUTHORED only)
@@ -181,7 +215,8 @@ release notes, a drift line ("This working copy has unreleased changes" vs
 "No changes since the last release") and — named, not counted — what this
 release will add, update and drop. It dispatches
 [`ReleaseCatalogVersion`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/ReleaseCatalogVersion.kt):
-AUTHORED-only, parses + monotonic-checks the SemVer, computes the fingerprint,
+AUTHORED-only, refuses while a changed resource is not [ready](#ready-marks),
+parses + monotonic-checks the SemVer, computes the fingerprint,
 inserts the `catalog_releases` row (with the manifest snapshot and the
 per-resource digests) and advances the catalog pointer — one transaction.
 Releasing content byte-identical to a prior release is allowed (notes-only
@@ -196,11 +231,12 @@ is the shared primitive (latest version/fingerprint, working fingerprint,
 [`GetCatalogResourceChanges`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/GetCatalogResourceChanges.kt)
 diffs the working copy's per-resource digests against the `fingerprint` of each
 `release_entries` row of the latest release, giving each resource one of NEW,
-MODIFIED, RELEASED or REMOVED. Both sides come from the same canonicaliser that
-computes the catalog fingerprint, so a per-resource difference is exactly a
-fingerprint difference localised to one resource and the drift check and the
-detail cannot disagree. It is the authored mirror of the SUBSCRIBED upgrade
-diff, which reads `installed_resource_fingerprints` the same way.
+MODIFIED, RELEASED or REMOVED, and whether its current content is marked ready.
+Both sides come from the same canonicaliser that computes the catalog
+fingerprint, so a per-resource difference is exactly a fingerprint difference
+localised to one resource and the drift check and the detail cannot disagree. It
+is the authored mirror of the SUBSCRIBED upgrade diff, which reads
+`installed_resource_fingerprints` the same way.
 
 A release cut before those entries existed (migration `V20260923201010`) recorded
 no baseline, and none can be reconstructed — the manifest snapshot holds the
@@ -218,11 +254,10 @@ version, timestamp and fingerprint it was cut with, whatever the working copy ha
 export dialog offers the versions `ListRetainedReleases` reports, which is the same set the command
 will accept, so the offer cannot fail at download.
 
-Neither the stencil-version precheck nor `requirePublishable` runs for a release. Both describe the
-working copy; the release passed them when it was cut, it is immutable, and a rule that has tightened
-since must not retroactively make a published release unexportable. The fingerprint _is_ recomputed
-and a mismatch refuses the export — it should be impossible, and if it happens the retained content
-has been altered.
+`requirePublishable` does not run for a release. It describes the working copy; the release passed
+it when it was cut, it is immutable, and a rule that has tightened since must not retroactively make
+a published release unexportable. The fingerprint _is_ recomputed and a mismatch refuses the export
+— it should be impossible, and if it happens the retained content has been altered.
 
 Releases cut before `V20260923201010` retained no content and refuse with
 `CatalogReleaseNotRetainedException` rather than quietly substituting the working copy.
@@ -249,8 +284,8 @@ working copy drifted. This is a **cheap heuristic, not the fingerprint** (the
 export `-dev`/fingerprint stays authoritative): the catalog-management list
 query `ListCatalogsForManagement` returns each catalog as a `CatalogListRow`
 (the shared `Catalog` plus a list-only `pendingChanges` flag), the flag
-computed in one `LEFT JOIN` comparing `MAX(updated_at | published_at |
-created_at)` across the catalog's resource/version tables to the baseline
+computed in one `LEFT JOIN` comparing `MAX(updated_at | created_at)` across
+the catalog's resource tables to the baseline
 `GREATEST(released_at, imported_at)`. The flag is **not** on `Catalog` itself
 (browse/REST/MCP read that shared model and don't show drift); it is purely a
 list-page concern, so the list-page query owns it and the template reads
@@ -265,12 +300,13 @@ comparison is exact and not skewed by JVM↔DB clock drift.
 resource upserts, so ≥ their `updated_at`). It exists specifically so a no-op
 ZIP **re-import** — which bumps every resource's `updated_at` — advances the
 baseline in lockstep and is **not** mistaken for an edit. Column choice
-mirrors what the fingerprint sees: `updated_at` for live rows, `published_at`
-for `*_versions` (a draft-only edit doesn't change the published export, so it
-correctly stays clean), `created_at` for `assets`.
+mirrors what the fingerprint sees: `updated_at` for the live resource rows
+(templates, variants, themes, stencils, attributes, code lists, fonts), which
+hold the working copy a release and an export are built from, and `created_at`
+for `assets`.
 
 Conservative by construction: it can **over-warn** (edit-then-revert to
-byte-identical, a re-publish of unchanged content) and the only **under-warn**
+byte-identical, a re-save of unchanged content) and the only **under-warn**
 is a deletion-only change (no surviving row's timestamp moves) — in every case
 the export's `-dev` label/fingerprint is the authoritative backstop.
 
@@ -300,7 +336,7 @@ the one case where there is no authorship to protect:
   SemVer (not a `-dev`/legacy label), a `release.fingerprint` is present, and
   every resource imported. The ZIP round-trip fingerprint is deterministic, so
   the recorded release row is real and consistent — not fabricated. Result: the
-  catalog shows the published version, not "unreleased".
+  catalog shows the imported release, not "unreleased".
 - **Import into an _existing_ AUTHORED catalog** → an _edit_ to a catalog you
   already version. Release state is **never** fabricated or changed; the
   working copy shows as drift ("unreleased changes") and the owner releases

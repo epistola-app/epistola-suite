@@ -92,7 +92,7 @@ All Epistola groups live under a single root group:
 - `content-viewer` — read-only across the tenant
 - `content-author` — create/edit templates, themes, stencils, reference data (attributes, code lists, fonts)
 - `document-generator` — generate documents
-- `content-publisher` — publish/archive template and stencil versions
+- `content-publisher` — release catalogs and deploy releases to environments
 - `tenant-administrator` — tenant settings, users/API keys, catalog management, diagnostics, and destructive restore (does **not** include publish)
 
 **Platform roles**:
@@ -130,15 +130,15 @@ alias the old ones.
 
 Mapping (old → new):
 
-| Old wire name               | New wire name                  | Notes                                                                                   |
-| --------------------------- | ------------------------------ | --------------------------------------------------------------------------------------- |
-| `reader`                    | `content-viewer`               |                                                                                         |
-| `editor`                    | `content-author`               |                                                                                         |
-| `generator`                 | `document-generator`           |                                                                                         |
-| `manager`                   | `tenant-administrator`         | no longer grants publish (see below)                                                    |
-| —                           | `content-publisher`            | **new** — grant to users who publish/archive versions (previously implied by `manager`) |
-| `tenant-manager` (platform) | `tenant-manager`               | unchanged                                                                               |
-| —                           | `platform-observer` (platform) | **new**, optional — cross-tenant read-only                                              |
+| Old wire name               | New wire name                  | Notes                                                                           |
+| --------------------------- | ------------------------------ | ------------------------------------------------------------------------------- |
+| `reader`                    | `content-viewer`               |                                                                                 |
+| `editor`                    | `content-author`               |                                                                                 |
+| `generator`                 | `document-generator`           |                                                                                 |
+| `manager`                   | `tenant-administrator`         | no longer grants publish (see below)                                            |
+| —                           | `content-publisher`            | **new** — grant to users who release catalogs (previously implied by `manager`) |
+| `tenant-manager` (platform) | `tenant-manager`               | unchanged                                                                       |
+| —                           | `platform-observer` (platform) | **new**, optional — cross-tenant read-only                                      |
 
 **Hierarchical groups (Keycloak):** for every tenant, rename the leaf groups under
 `/epistola/tenants/{tenant}/` and `/epistola/global/` per the table; users keep their group

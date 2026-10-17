@@ -180,37 +180,39 @@ and the engine could not bound an expression's running time or memory, so one ex
 occupy a shared render worker indefinitely. It has been removed, together with the GraalVM
 polyglot dependencies. A JavaScript expression is never evaluated as another language:
 
-- **On write** — saving a draft in the editor, the REST API, catalog and ZIP import, and the MCP
+- **On write** — saving in the editor, the REST API, catalog and ZIP import, and the MCP
   authoring tools all run the template validator, which rejects a template or stencil containing
   one with `TEMPLATE_EXPRESSION_INVALID` ("JavaScript expressions are no longer supported. Rewrite
   the expression in JSONata.").
 - **On render** — a template stored by an earlier release still loads and can be opened and fixed
   in the editor, but previewing or generating it fails with the same message.
 
-Nothing is migrated or deleted. To find stored versions that still contain one, run this against
-the suite database (PostgreSQL), then rewrite each expression in JSONata and publish a new version:
+Nothing is migrated or deleted. To find working models that still contain one, run this against
+the suite database (PostgreSQL), then rewrite each expression in JSONata, mark the template ready and
+release its catalog:
 
 ```sql
--- Template versions
-SELECT t.tenant_key, c.catalog_key, t.id AS template, v.variant_key AS variant, v.id AS version, v.status
-FROM template_versions v
+-- Template variants
+SELECT t.tenant_key, c.catalog_key, t.id AS template, v.id AS variant
+FROM template_variants v
 JOIN document_templates t
   ON t.tenant_key = v.tenant_key AND t.resource_id = v.template_resource_id
 JOIN catalogs c
   ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
 WHERE jsonb_path_exists(v.template_model, '$.** ? (@.language like_regex "^\\s*javascript\\s*$" flag "i")')
-ORDER BY 1, 2, 3, 4, 5;
+ORDER BY 1, 2, 3, 4;
 
--- Stencil versions
-SELECT s.tenant_key, c.catalog_key, s.id AS stencil, sv.id AS version, sv.status
-FROM stencil_versions sv
-JOIN stencils s
-  ON s.tenant_key = sv.tenant_key AND s.resource_id = sv.stencil_resource_id
+-- Stencils
+SELECT s.tenant_key, c.catalog_key, s.id AS stencil
+FROM stencils s
 JOIN catalogs c
   ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id
-WHERE jsonb_path_exists(sv.content, '$.** ? (@.language like_regex "^\\s*javascript\\s*$" flag "i")')
-ORDER BY 1, 2, 3, 4;
+WHERE jsonb_path_exists(s.content, '$.** ? (@.language like_regex "^\\s*javascript\\s*$" flag "i")')
+ORDER BY 1, 2, 3;
 ```
+
+Releases keep the content they were cut with; a release cut before the rewrite still holds the
+JavaScript expression and fails to render until a new release replaces it.
 
 The template query is exercised by `JavaScriptExpressionRejectionIntegrationTest`; keep the two in
 step.
@@ -286,7 +288,8 @@ Where one sits decides which pages it applies to. The design and the alternative
 - **First-page variant**: two headers in a row at the start of a section; the first covers the
   section's first page, the second the pages after it.
 - **Positional model**: the rules before this change (at most two headers, both at the top of the
-  document; one footer on every page). Versions published before it still render that way.
+  document; one footer on every page). Releases cut against earlier rendering defaults still render
+  that way.
 
 **Page breaks divide the rendered flow into sections.** A page break inside a false conditional
 does not divide it, and one inside a loop divides it once per iteration. A block is _at the start
@@ -343,7 +346,7 @@ first-page variant with the second running to the end, and one footer anywhere c
 
 The iText behaviour this relies on is pinned by `PageBandItextProbeTest`.
 
-**Versions published before this model** (`RenderingDefaults` V1–V3) keep the positional model: at
+**Releases cut against earlier defaults** (`RenderingDefaults` V1–V3) keep the positional model: at
 most two root-level headers (first for page 1, second for pages 2–N) and one footer on every page,
 with the renderer rejecting anything else. `RenderingDefaults.sectionPageBands` selects the model;
 V4 turns it on.

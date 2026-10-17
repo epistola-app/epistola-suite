@@ -26,10 +26,9 @@ reference resolves by that key alone.
 
 A preview is required before execution and reports:
 
-- draft references that will be rewritten to the destination address;
-- published references that keep naming the old address, and so will stop resolving;
-- relative references inside the moving resource's own versions, published ones included, that
-  will be pinned to the catalog they resolve against today; and
+- references that will be rewritten to the destination address;
+- relative references inside the moving resource's own content that will be pinned to the catalog
+  they resolve against today; and
 - blockers such as a destination collision, subscribed catalogs, or an unsupported resource type;
   and warnings, which inform without stopping the move — currently a released source catalog.
 
@@ -41,22 +40,18 @@ while retaining its stable `resource_id`.
 
 Follows the move:
 
-- the resource's own rows — a template's variants, versions, contract versions, environment
-  activations, quality findings and load-test runs; a stencil's versions; a code list's entries;
-  a font's faces — because they name the resource by identity;
-- drafts that reference it, variant attribute keys, and theme styles naming a moved font, which
-  are rewritten as part of the move.
+- the resource's own rows — a template's variants, environment activations, quality findings and
+  load-test runs; a code list's entries; a font's faces — because they name the resource by
+  identity;
+- working models and stencils that reference it, variant attribute keys, and theme styles naming a
+  moved font, which are rewritten as part of the move.
 
 Does not follow the move, and fails once it has happened:
 
-- **Published versions** naming the old address. Content embedded or snapshotted at publish keeps
-  rendering — an inserted stencil, the frozen `resolved_theme` — but anything resolved by address
-  at render time does not: a moved font fails the font integrity check, and a moved image renders
-  without the image. Live resolution of a theme by an old address — a draft, a preview — falls back
-  to the tenant default theme.
-- **Export, release and snapshot** of a catalog whose latest published versions name a moved
-  resource: export validates the content it carries and refuses. Reopening each such template,
-  pointing its draft at the new address and publishing it makes the catalog exportable again.
+- **Catalog releases** cut before the move. A release holds its own content and is never
+  rewritten, so it keeps naming the old address; a reference into another catalog resolves in that
+  catalog's releases, not in its working copy. Releasing again from the rewritten working copy
+  brings a release up to date.
 - **External callers**: UI pages, REST and MCP answer for the address a resource occupies now; an
   old one is "not found". Bookmarks and integrations have to be updated. One known exception: a
   stencil's page looks the stencil up by key alone, ignoring the catalog in its URL (as in 1.1.0),
@@ -73,17 +68,16 @@ graph. Domain rows retain their current catalog-and-slug address and synchronize
 the registry, which is also what allocates each resource's `resource_id` and lets a snapshot
 restore keep it.
 
-Graph extraction resolves references against current addresses only, so a published reference to a
-moved resource shows as missing. A catalog export carries each template's latest published
-version as written and relativizes references to its own catalog; it does not rewrite a reference
-to where a resource lives now.
+Graph extraction resolves references against current addresses only. A catalog export carries
+each variant's working model as written and relativizes references to its own catalog; it does not
+rewrite a reference to where a resource lives now.
 
 ## Generation history does not move
 
-Moving a template carries its variants, versions, contract versions, environment activations,
-quality findings and load-test runs with it — those describe the template's current state. Its
-generation history does not: `documents` and `document_generation_requests` record the catalog the
-template lived in when a document was produced, and that stays true afterwards.
+Moving a template carries its variants, data contract, environment activations, quality findings and
+load-test runs with it — those describe the template's current state. Its generation history does
+not: `documents` and `document_generation_requests` record the catalog the template lived in when a
+document was produced, and that stays true afterwards.
 
 The consequence is deliberate: deleting a template no longer purges its generation history, because
 the foreign keys that used to cascade that deletion are the same ones that would have dragged the
@@ -107,24 +101,20 @@ written before it existed resolve through their recorded address instead.
   later release sees the resource gone rather than moved. Only the operator knows whether anyone
   consumes the catalog, and blocking made a catalog permanently unmovable after a single local
   release nobody ever pulled.
-- Immutable version JSON is never edited, with one exception: when a resource leaves a catalog, the
-  relative references inside its own versions — published ones included — are pinned to the catalog
-  they already resolve against. The bytes change; the meaning does not. The same pin covers a
-  published version's frozen theme snapshot (`resolved_theme`) when the theme it resolves fonts
-  through changes catalog: a font the snapshot names without a catalog is pinned, and its integrity
-  pin rekeyed. Publishes now freeze that catalog themselves, so only versions published before
-  that have anything to pin.
-- A theme's styles are live configuration, rewritten like a draft: moving a font re-points every
-  theme naming it, and a moving theme's own relative font references are pinned to the catalog they
-  resolve against.
+- Release content is never edited. When a resource leaves a catalog, the relative references in its
+  own working content are pinned to the catalog they already resolve against: the bytes change, the
+  meaning does not.
+- A theme's styles are live configuration, rewritten like any working content: moving a font
+  re-points every theme naming it, and a moving theme's own relative font references are pinned to
+  the catalog they resolve against.
 - A move that would leave two catalogs depending on each other is blocked. Catalog ordering is
   load-bearing for snapshot restore, which orders catalogs topologically and throws on a cycle, so
   an unchecked move could make a tenant's snapshots unrestorable. Only dependencies an export
   declares count: a font's face binaries travel inside the font, so where they are stored is not
   one.
-- References are qualified with their catalog when content is written, so a published reference
-  keeps its meaning after its owner moves. Content written before that rule is pinned the same way
-  when its owner moves, per the exception above.
+- References are qualified with their catalog when content is written, so a reference keeps its
+  meaning after its owner moves. Content written before that rule is pinned the same way when its
+  owner moves, per the rule above.
 - Export relativizes references back to their own catalog, so an exported catalog stays installable
   under a different key. Stored form is absolute, wire form is relative.
 - `/tenants/{tenantId}/catalogs/organise` is the product surface: a browser across catalogs that

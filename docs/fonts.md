@@ -7,8 +7,9 @@ How Epistola models, resolves and renders fonts.
 > face's bytes are either a bundled classpath file (system fonts) or an
 > uploaded `Asset` (customer fonts). The PDF renderer honours the selected
 > `fontFamily` everywhere — body text, bold/italic marks and headings —
-> resolving the nearest available weight. Published versions pin a per-family
-> content hash and **fail loudly** if the font bytes change.
+> resolving the nearest available weight. A catalog release holds its fonts'
+> faces by content hash, so re-uploading a font never changes what a release
+> renders.
 
 ## Model
 
@@ -135,14 +136,15 @@ The default tenant theme and the demo catalog reference
 
 ## Determinism
 
-A published template version snapshots a per-family **fingerprint** (digest
-over the family's sorted face `content_hash`es) in `ResolvedThemeSnapshot`.
-Before rendering a published version, `FontSnapshotVerifier` recomputes the
-live fingerprint; on any drift (a face added/removed/re-uploaded with
-different bytes) it throws `FontIntegrityException` rather than silently
-re-rendering different glyphs. Draft/live renders pin nothing and skip the
-check. Operationally: replacing a font under the same slug breaks affected
-published versions until they are republished — by design.
+Generation renders catalog releases. A release holds each font family as it
+was when the release was cut, its faces named by `content_hash`, and the bytes
+are read from the content-addressed store by that hash
+(`generation/release/ReleaseRenderSource.kt`). A font of another catalog comes
+from the release of that catalog the environment deploys, else its latest
+release that kept its content. Replacing a font under the same slug changes the
+working copy and previews only; it reaches documents with the next release.
+(Before 2.0 a published template version pinned per-family fingerprints in a
+theme snapshot instead; those snapshots are gone.)
 
 ## Surfaces
 
@@ -176,9 +178,9 @@ Instead, when this is built it will be an **ingest-time** feature:
 - Each instanced face is stored exactly like any other uploaded static face:
   an `Asset` + a `font_variants` row with its own `content_hash`.
 - Everything downstream is **unchanged**: `ResolveFontFace` nearest-weight
-  matching, `FontCache`, the byte cache, catalog export/import, and the
-  published-snapshot determinism (`FontSnapshotVerifier`) all operate on the
-  static outputs — none of the hard render-time/determinism problems arise.
+  matching, `FontCache`, the byte cache, catalog export/import, and release
+  rendering by content hash all operate on the static outputs — none of the hard
+  render-time/determinism problems arise.
 
 Why this cut: the only material gain of variable fonts for a document
 product is **upload friction** — foundries and Google Fonts ship variable

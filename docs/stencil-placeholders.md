@@ -121,7 +121,7 @@ collapse stores it back as `parametersAs` on the carrier.
 
 Because a template's fills are matched to the stencil as it is now, a template can end up filling a
 placeholder the stencil no longer has. Expanding reports it (`UNKNOWN_PLACEHOLDER`) and the fill is
-not rendered; publishing a template version and releasing a catalog refuse it. See
+not rendered; marking the variant ready and releasing a catalog refuse it. See
 [stencils.md](stencils.md#when-a-template-no-longer-fits).
 
 ## 6. Nesting and recursion
@@ -136,11 +136,11 @@ fills, because the fill is the template's content. Inside a stencil's own conten
 the stencil that owns it is recursion (`STENCIL_RECURSION`). Nesting deeper than 5 is refused
 (`STENCIL_NESTING_DEPTH_EXCEEDED`).
 
-| Layer     | What it does                                                                    | When it runs                     |
-| --------- | ------------------------------------------------------------------------------- | -------------------------------- |
-| Validator | Walks the stored document for recursion and depth                               | Every template and stencil write |
-| Expansion | Stops at a stencil already being inlined, or at the depth limit, and reports it | Editor context, publish, release |
-| Renderer  | Ancestor stencil set and depth counter; aborts with a diagnostic                | Every render                     |
+| Layer     | What it does                                                                    | When it runs                        |
+| --------- | ------------------------------------------------------------------------------- | ----------------------------------- |
+| Validator | Walks the stored document for recursion and depth                               | Every template and stencil write    |
+| Expansion | Stops at a stencil already being inlined, or at the depth limit, and reports it | Editor context, ready mark, release |
+| Renderer  | Ancestor stencil set and depth counter; aborts with a diagnostic                | Every render                        |
 
 ## 7. Upgrade from 1.x
 

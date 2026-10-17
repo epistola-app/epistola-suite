@@ -126,8 +126,9 @@ reserved name (`NODE_PARAMS_ALIAS_RESERVED`).
 
 **Against the stencil**, when the instance is expanded:
 
-- a required parameter with neither binding nor `default` blocks publishing a template version and
-  releasing the catalog (`NODE_PARAMETER_BINDING_MISSING_REQUIRED`); a draft may be saved with it;
+- a required parameter with neither binding nor `default` blocks marking the variant ready and
+  releasing the catalog (`NODE_PARAMETER_BINDING_MISSING_REQUIRED`); the template may be saved with
+  it;
 - a binding for a parameter the stencil does not declare is harmless: it is ignored when
   rendering and blocks nothing.
 
@@ -162,9 +163,9 @@ value). A single mapper emits the same `{ code, message, errors[] }` body on the
 A parameter that ends up with no value — its binding finds nothing in the data, or it is optional,
 unbound and has no default — is **absent** from `params`, so `$exists(params.medewerker)` is false
 for it, just as `$exists(medewerker)` is for template data. Test for a given value with
-`$exists(params.x)`, or for a non-empty one with `params.x` alone. Versions published before
-rendering defaults V5 keep the old behaviour, where every declared parameter is present (as null)
-and `$exists(params.x)` is always true.
+`$exists(params.x)`, or for a non-empty one with `params.x` alone. Releases cut against rendering
+defaults before V5 keep the old behaviour, where every declared parameter is present (as null) and
+`$exists(params.x)` is always true.
 
 `ParameterScope.push` is component-agnostic: the same call adds parameter support to any future
 renderer.
@@ -183,8 +184,8 @@ change applies to every template that uses the stencil at once.
 
 - A **renamed or removed** parameter leaves the old binding in place; it is ignored. A renamed
   parameter that is required is unbound until the template binds the new name.
-- A **new required** parameter without a default blocks publishing and releasing every template that
-  does not bind it.
+- A **new required** parameter without a default blocks marking ready, and releasing, every
+  template that does not bind it.
 - A **new default** applies to every instance that does not bind the parameter.
 
 The authoring and binding UI in the editor is being moved to this model.

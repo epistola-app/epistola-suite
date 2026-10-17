@@ -28,7 +28,7 @@ of each held role's grant. There is no implicit hierarchy — `content-author` d
 | `CONTENT_VIEWER`       | Read-only across the tenant.                                                           |
 | `CONTENT_AUTHOR`       | Create/edit templates, themes, stencils, and reference data.                           |
 | `DOCUMENT_GENERATOR`   | Generate documents.                                                                    |
-| `CONTENT_PUBLISHER`    | Publish/archive template & stencil versions. **Separate from admin.**                  |
+| `CONTENT_PUBLISHER`    | Release catalogs and deploy releases. **Separate from admin.**                         |
 | `TENANT_ADMINISTRATOR` | Tenant settings, users/API keys, catalogs, diagnostics, restore. **Does not publish.** |
 
 The split of `CONTENT_PUBLISHER` from `TENANT_ADMINISTRATOR` is deliberate: approving content

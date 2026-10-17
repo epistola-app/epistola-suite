@@ -22,10 +22,10 @@ Templates are the central concept. Each template defines:
   examples for testing. Editor-created schemas use Draft 7; schemas without an explicit dialect
   default to Draft 2020-12. See [Data Contracts](data-contracts.md) for editing and support details.
 - **Variants** — Presentation variations of the same template, tagged by language, brand, or audience (e.g. `en`, `nl`, `corporate`).
-- **Versions** — Each variant has immutable, numbered versions (1–200) with a three-state lifecycle:
-  - `DRAFT` — Editable work-in-progress (at most one per variant).
-  - `PUBLISHED` — Frozen snapshot ready for use.
-  - `ARCHIVED` — Retired version, preserved for audit.
+- **Ready marks and releases** — Each variant has one working model, edited in place. Marking a
+  variant (or a whole template, or the catalog) ready records that its current content is reviewed;
+  releasing the catalog captures every resource as it is, and a release is what documents are
+  generated from. See [Catalog versioning](catalog-versioning.md#ready-marks).
 
 ### Visual Template Editor
 
@@ -78,7 +78,7 @@ Server-side rendering via **iText Core 9.5.0** — direct PDF construction from 
 | Simple (text + table)                     | 10–50 ms            |
 | Complex (loops, conditionals, multi-page) | 50–200 ms           |
 
-The rendering pipeline: load template version → evaluate expressions against input data → traverse node/slot graph → map each node type to an iText element (Paragraph, Table, Div, AreaBreak, etc.) → apply resolved styles → write PDF bytes.
+The rendering pipeline: load the template variant from a catalog release → evaluate expressions against input data → traverse node/slot graph → map each node type to an iText element (Paragraph, Table, Div, AreaBreak, etc.) → apply resolved styles → write PDF bytes.
 
 Page headers and footers are rendered via iText event handlers so they repeat on every page automatically.
 
@@ -195,7 +195,7 @@ modules/
 
 Business logic is organised around **commands** (mutations) and **queries** (reads), dispatched through a central `Mediator` interface. Each domain (templates, themes, environments, documents) defines its own command/query handlers. This decouples the UI/API layer from business logic and makes operations independently testable.
 
-Examples: `CreateDocumentTemplate`, `PublishVersion`, `DeployRelease`, `GenerateDocument`, `ListDeployments`, `ListVersions`.
+Examples: `CreateDocumentTemplate`, `MarkVariantReady`, `ReleaseCatalogVersion`, `DeployRelease`, `GenerateDocument`, `ListDeployments`.
 
 ### UI Handlers vs REST API
 

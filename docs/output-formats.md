@@ -11,6 +11,11 @@
 > When a direction is actually chosen, that decision belongs in an ADR
 > (`docs/adr/`), and this document should be updated to point at it.
 
+> Superseded on template versions by contract ADR 0002 (2.0): the published-version pins discussed
+> below (theme snapshot, font fingerprints, per-version rendering defaults) are gone; a catalog
+> release carries its own content and `rendering_defaults_version`. See
+> [catalog versioning](catalog-versioning.md) and [rendering upgrades](rendering-upgrades.md).
+
 ## Why write this now
 
 Two reasons.

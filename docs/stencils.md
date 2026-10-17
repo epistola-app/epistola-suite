@@ -38,31 +38,35 @@ The commands live in `modules/epistola-core/src/main/kotlin/app/epistola/suite/s
 - `CreateStencil` — a new stencil with its working copy;
 - `UpdateStencil` — changes name, description, tags, `content`, `parameterSchema`
   (`clearParameterSchema` removes it) or `readsTemplateData`;
-- `ImportStencil` — a catalog import replaces the working copy with the imported stencil.
+- `ImportStencil` — a catalog import replaces the working copy with the imported stencil;
+- `MarkStencilReady` — records that the working copy is reviewed, so the next release may capture
+  it (see [ready marks](catalog-versioning.md#ready-marks)). Any later edit makes the mark stale.
 
 Content is validated as a stencil document on create and update; the parameter schema by
 `ParameterSchemaValidator`.
 
-**Editing a stencil changes every template that uses it**, at once: previews and draft renders read
-the working copy, and the next catalog release captures it. There is nothing to upgrade or move.
+**Editing a stencil changes every template that uses it**, at once: previews read the working copy,
+and the next catalog release captures it once the stencil is marked ready. There is nothing to
+upgrade or move.
 
 Over MCP the same operations are `list_stencils`, `get_stencil`, `list_stencil_usages`,
-`create_stencil` and `update_stencil`; see [mcp.md](mcp.md).
+`create_stencil`, `update_stencil` and `mark_stencil_ready`; see [mcp.md](mcp.md).
 
 The stencil page in the web UI and the template editor are still being moved to this model.
 
 ### Usage
 
-`GetStencilUsagePage` lists the template versions (draft and published) that use a stencil, and for
-each whether it still fits the stencil as it is now. A version that no longer fits is fixed in the
+`GetStencilUsagePage` lists the template variants that use a stencil, and for each whether its
+working model still fits the stencil as it is now. A variant that no longer fits is fixed in the
 template.
 
 ### When a template no longer fits
 
 Because a stencil can change after a template was written, the fit is checked where it matters:
 
-- **Publishing a template version** refuses an instance that does not fit the stencil's working
-  copy;
+- **Marking a variant ready** (`MarkVariantReady`) refuses an instance that does not fit the
+  stencil's working copy; **marking a stencil ready** (`MarkStencilReady`) checks the stencil's own
+  instances;
 - **Releasing a catalog** runs the same check over every template variant and every stencil's own
   content (`catalog/ReleaseStencilCheck.kt`). A stencil of the released catalog comes from the
   content being released; a stencil of another catalog from that catalog's latest release that kept
@@ -77,7 +81,7 @@ An instance does not fit when it:
 - nests stencils deeper than 5.
 
 A binding for a parameter the stencil does not declare is harmless: it is ignored when rendering and
-does not block. Draft saves do not run this check, and a preview renders an instance that does not
+does not block. Saves do not run this check, and a preview renders an instance that does not
 fit as far as it can, so a template stays usable while its author fixes it.
 
 ### Nesting
@@ -176,15 +180,15 @@ nullable) and `reads_template_data`, with tenant isolation (`tenant_key`) and it
   instance and the stencil's own (`{inst}:{nodeId}`), and puts each fill into the stencil's
   placeholder of the same name. Expanding the same document twice gives the same IDs; fill content
   keeps its own IDs. It also reports every way the document no longer fits (the findings behind
-  publishing and releasing).
+  marking ready and releasing).
 
 Expanding sets two transient props on the instance, `parameterSchemaSnapshot` and
 `readsTemplateData`, read by validation and rendering; collapse drops them again.
 
 Where the stencil comes from:
 
-- the editor context (`GetEditorContext`, also used by quality checks and MCP reads), previews and
-  draft renders expand from the working copies (`StencilResolvers`);
+- the editor context (`GetEditorContext`, also used by quality checks and MCP reads), and previews
+  expand from the working copies (`StencilResolvers`);
 - a release render expands from the stencils held by that release; a stencil of another catalog
   comes from the release of that catalog the request's environment deploys, else its latest release
   that kept its content (`generation/release/ReleaseRenderSource.kt`).
