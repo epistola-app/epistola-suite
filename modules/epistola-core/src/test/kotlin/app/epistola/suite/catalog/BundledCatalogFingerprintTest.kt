@@ -23,4 +23,10 @@ class BundledCatalogFingerprintTest {
     fun `system catalog committed fingerprint matches its content`() {
         BundledCatalogFingerprints.assertFingerprintMatches("classpath:epistola/catalogs/system/catalog.json")
     }
+
+    /** The testing module's fixture catalog, which many tests install: a stale fingerprint is a silent lie there too. */
+    @Test
+    fun `fixture catalog committed fingerprint matches its content`() {
+        BundledCatalogFingerprints.assertFingerprintMatches("classpath:epistola/catalogs/fixture/catalog.json")
+    }
 }
