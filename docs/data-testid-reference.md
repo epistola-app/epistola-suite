@@ -64,6 +64,27 @@ for that consumer.
 | `stencil-reads-template-data`         | Checkbox on `stencils/detail.html`            | Whether the stencil reads template data   |
 | `stencil-usage-row`                   | `<tr>` of the usage list                      | A variant using the stencil, with its fit |
 
+### Template editor: stencils
+
+Rendered by the editor bundle (`modules/editor`), not by a Thymeleaf template.
+
+| `data-testid`                 | Attached to                                                | Covers                                        |
+| ----------------------------- | ---------------------------------------------------------- | --------------------------------------------- |
+| `stencil-picker`              | The stencil picker `<dialog>`                              | Inserting a stencil                           |
+| `stencil-picker-card`         | A stencil in the picker list (`data-stencil-key` names it) | Choosing the stencil                          |
+| `stencil-picker-insert`       | The picker's Insert button                                 | Inserting the chosen stencil                  |
+| `stencil-picker-error`        | The picker's refusal callout                               | Why a stencil cannot go here (e.g. recursion) |
+| `stencil-start-editing`       | "Edit Stencil" in the stencil inspector                    | Editing the stencil in place                  |
+| `stencil-read-only`           | Why "Edit Stencil" is withheld (read-only catalog)         | The withheld edit control                     |
+| `stencil-missing`             | Warning that the instance's stencil no longer exists       | A dangling instance                           |
+| `stencil-define-parameters`   | "Define parameters…" while editing the stencil             | The stencil's parameter schema                |
+| `stencil-save`                | "Save Stencil"                                             | Saving the working copy                       |
+| `stencil-save-and-mark-ready` | "Save and Mark Ready"                                      | Saving and marking the stencil ready          |
+| `stencil-stop-editing`        | "Stop Editing"                                             | Back to the saved working copy                |
+| `stencil-detach`              | "Detach from Stencil"                                      | Turning the instance into plain content       |
+| `stencil-unlinked`            | Note on a stencil block that names no stencil              | An unlinked stencil block                     |
+| `stencil-message`             | The inspector's result callout                             | Outcome of the last stencil action            |
+
 ### Themes
 
 | `data-testid`         | Attached to                                       | Covers                             |

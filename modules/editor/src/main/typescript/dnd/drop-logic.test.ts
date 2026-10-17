@@ -20,6 +20,8 @@ import {
 } from '../engine/test-helpers.js';
 import type { NodeId, SlotId, TemplateDocument, Node, Slot } from '../types/index.js';
 import type { ComponentRegistry } from '../engine/registry.js';
+import { createStencilDefinition } from '../components/stencil/stencil-registration.js';
+import { StencilEditingState } from '../components/stencil/editing-state.js';
 
 beforeEach(() => {
   resetCounter();
@@ -356,43 +358,27 @@ describe('canDropHere', () => {
 
 describe('canDropHere — placeholder/stencil rules', () => {
   let registry: ComponentRegistry;
+  let editing: StencilEditingState;
 
   beforeEach(() => {
     // Stencil is normally registered by lib.ts, not createDefaultRegistry().
-    // Tests need it registered to exercise the placeholder/stencil rules.
-    // Mirror the production `locked` predicate so locked-stencil drop tests
-    // see a realistic registration.
+    // An instance's content is locked unless the author edits the stencil
+    // (`editing`), exactly as in production.
     registry = testRegistry();
-    registry.register({
-      type: 'stencil',
-      label: 'Stencil',
-      icon: 'puzzle',
-      category: 'layout',
-      slots: [
-        {
-          name: 'children',
-          locked: (node) =>
-            (node.props?.stencilId as string | null | undefined) != null &&
-            (node.props?.draftVersion as number | null | undefined) == null,
-        },
-      ],
-      allowedChildren: { mode: 'denylist', types: ['stencil'] },
-      applicableStyles: 'all',
-      inspector: [],
-      defaultProps: {},
-    });
+    editing = new StencilEditingState();
+    registry.register(createStencilDefinition({ callbacks: null, editing }));
   });
 
   /**
-   * Build a doc: root → stencil(stencilA, draft) → children slot.
+   * Build a doc: root → stencil(stencilA, being edited) → children slot.
    *
-   * Stencil is `draftVersion: 2` by default so the layout is editable — that's
+   * The stencil is being edited by default so the layout is editable — that's
    * the realistic shape for tests that exercise "drop X into a stencil's
-   * children." Published-stencil locks have their own dedicated tests below.
+   * children." Locks of a used stencil have their own dedicated tests below.
    */
   function docWithOneStencil(
-    stencilId = 'stencil-A',
-    draftVersion: number | undefined = 2,
+    stencilKey = 'stencil-A',
+    beingEdited = true,
   ): {
     doc: TemplateDocument;
     rootSlotId: SlotId;
@@ -412,7 +398,7 @@ describe('canDropHere — placeholder/stencil rules', () => {
           id: stencilNodeId,
           type: 'stencil',
           slots: [stencilSlotId],
-          props: { stencilId, version: 1, draftVersion },
+          props: { stencilKey },
         },
       },
       slots: {
@@ -431,25 +417,27 @@ describe('canDropHere — placeholder/stencil rules', () => {
       },
       themeRef: { type: 'inherit' },
     };
+    if (beingEdited) editing.start(stencilNodeId);
     return { doc, rootSlotId, stencilNodeId, stencilSlotId };
   }
 
+  /**
+   * root → stencil-0 → … → stencil-(depth-1) → container (target slot), every
+   * stencil being edited. The target is the innermost stencil's own content,
+   * so it is lexically inside all [depth] stencils. (A placeholder fill would
+   * not be: a fill is written outside the stencil that owns the placeholder.)
+   */
   function docWithStencilDepth(depth: number): {
     doc: TemplateDocument;
     targetFillSlotId: SlotId;
   } {
     const rootId = nodeId('root');
     const rootSlotId = slotId('root-slot');
-    const targetPlaceholderId = nodeId('target-placeholder');
-    const targetFillSlotId = slotId('target-fill');
+    const targetContainerId = nodeId('target-container');
+    const targetFillSlotId = slotId('target-slot');
     const nodes: Record<NodeId, Node> = {
       [rootId]: { id: rootId, type: 'root', slots: [rootSlotId] },
-      [targetPlaceholderId]: {
-        id: targetPlaceholderId,
-        type: 'placeholder',
-        slots: [targetFillSlotId],
-        props: { name: 'body' },
-      },
+      [targetContainerId]: { id: targetContainerId, type: 'container', slots: [targetFillSlotId] },
     };
     const slots: Record<SlotId, Slot> = {
       [rootSlotId]: {
@@ -460,8 +448,8 @@ describe('canDropHere — placeholder/stencil rules', () => {
       },
       [targetFillSlotId]: {
         id: targetFillSlotId,
-        nodeId: targetPlaceholderId,
-        name: 'fill',
+        nodeId: targetContainerId,
+        name: 'children',
         children: [],
       },
     };
@@ -469,13 +457,14 @@ describe('canDropHere — placeholder/stencil rules', () => {
     for (let index = 0; index < depth; index += 1) {
       const stencilNodeId = nodeId(`stencil-${index}`);
       const stencilSlotId = slotId(`stencil-${index}-slot`);
-      const nextChild = index === depth - 1 ? targetPlaceholderId : nodeId(`stencil-${index + 1}`);
+      const nextChild = index === depth - 1 ? targetContainerId : nodeId(`stencil-${index + 1}`);
       nodes[stencilNodeId] = {
         id: stencilNodeId,
         type: 'stencil',
         slots: [stencilSlotId],
-        props: { stencilId: `stencil-${index}`, version: 1, draftVersion: 2 },
+        props: { stencilKey: `stencil-${index}` },
       };
+      editing.start(stencilNodeId);
       slots[stencilSlotId] = {
         id: stencilSlotId,
         nodeId: stencilNodeId,
@@ -527,7 +516,7 @@ describe('canDropHere — placeholder/stencil rules', () => {
           id: stencilNodeId,
           type: 'stencil',
           slots: [stencilSlotId],
-          props: { stencilId: 'A', version: 1 },
+          props: { stencilKey: 'A' },
         },
         [phNodeId]: {
           id: phNodeId,
@@ -576,14 +565,14 @@ describe('canDropHere — placeholder/stencil rules', () => {
           id: outerId,
           type: 'stencil',
           slots: [outerSlot],
-          // Draft mode so the lock check doesn't fire before the recursion check.
-          props: { stencilId: 'A', version: 1, draftVersion: 2 },
+          // Being edited so the lock check doesn't fire before the recursion check.
+          props: { stencilKey: 'A' },
         },
         [innerId]: {
           id: innerId,
           type: 'stencil',
           slots: [innerSlot],
-          props: { stencilId: 'B', version: 1, draftVersion: 2 },
+          props: { stencilKey: 'B' },
         },
       },
       slots: {
@@ -594,15 +583,16 @@ describe('canDropHere — placeholder/stencil rules', () => {
       themeRef: { type: 'inherit' },
     };
 
-    // Try to move a *different* node (would-be stencil A) into innerSlot.
-    // Since the outer chain has stencilId 'A', dropping another A would recurse.
-    // We simulate by creating a separate phantom block drag carrying stencilId 'A'.
+    editing.start(outerId);
+    editing.start(innerId);
+    // Try to move a *different* node (an instance of A) into innerSlot.
+    // innerSlot is the content of B inside the content of A, so another A would recurse.
     const phantomA = 'phantomA' as NodeId;
     doc.nodes[phantomA] = {
       id: phantomA,
       type: 'stencil',
       slots: [],
-      props: { stencilId: 'A', version: 1, draftVersion: 2 },
+      props: { stencilKey: 'A' },
     };
     doc.slots[rootSlotId].children.push(phantomA);
     const indexes2 = buildIndexes(doc);
@@ -616,32 +606,22 @@ describe('canDropHere — placeholder/stencil rules', () => {
     expect(canDropHere(dragData, innerSlot, doc, indexes2, registry)).toBe(false);
   });
 
-  it('rejects palette drops into a published stencils children slot (locked layout)', () => {
-    const { doc, stencilSlotId } = docWithOneStencil('A');
-    // Mark the stencil as published (not draft).
-    const { draftVersion: _, ...publishedProps } = doc.nodes['stencil-1'].props ?? {};
-    doc.nodes['stencil-1'] = {
-      ...doc.nodes['stencil-1'],
-      props: publishedProps,
-    };
+  it('rejects palette drops into a used stencils children slot (locked layout)', () => {
+    const { doc, stencilSlotId } = docWithOneStencil('A', false);
     const indexes = buildIndexes(doc);
     const dragData: DragData = { source: 'palette', blockType: 'text' };
     expect(canDropHere(dragData, stencilSlotId, doc, indexes, registry)).toBe(false);
   });
 
-  it('accepts palette drops into a draft stencils children slot', () => {
+  it('accepts palette drops into the children slot of a stencil being edited', () => {
     const { doc, stencilSlotId } = docWithOneStencil('A');
-    doc.nodes['stencil-1'] = {
-      ...doc.nodes['stencil-1'],
-      props: { ...doc.nodes['stencil-1'].props, draftVersion: 2 },
-    };
     const indexes = buildIndexes(doc);
     const dragData: DragData = { source: 'palette', blockType: 'text' };
     expect(canDropHere(dragData, stencilSlotId, doc, indexes, registry)).toBe(true);
   });
 
-  it('rejects drops deeper inside a published stencils layout (e.g. into a column inside the stencil)', () => {
-    // root → stencil(published) → columns → column-0 (target).
+  it('rejects drops deeper inside a used stencils layout (e.g. into a column inside the stencil)', () => {
+    // root → stencil(used) → columns → column-0 (target).
     const rootId = nodeId('root');
     const rootSlotId = slotId('root-slot');
     const stencilNodeId = nodeId('stencil');
@@ -657,7 +637,7 @@ describe('canDropHere — placeholder/stencil rules', () => {
           id: stencilNodeId,
           type: 'stencil',
           slots: [stencilSlotId],
-          props: { stencilId: 'A', version: 1 },
+          props: { stencilKey: 'A' },
         },
         [columnsId]: { id: columnsId, type: 'columns', slots: [colSlotId], props: {} },
       },
@@ -683,8 +663,8 @@ describe('canDropHere — placeholder/stencil rules', () => {
     expect(canDropHere(dragData, colSlotId, doc, indexes, registry)).toBe(false);
   });
 
-  it('accepts drops inside a placeholder fill of a published stencil', () => {
-    // root → stencil(published) → placeholder(body) → fill (target).
+  it('accepts drops inside a placeholder fill of a used stencil', () => {
+    // root → stencil(used) → placeholder(body) → fill (target).
     const rootId = nodeId('root');
     const rootSlotId = slotId('root-slot');
     const stencilNodeId = nodeId('stencil');
@@ -700,7 +680,7 @@ describe('canDropHere — placeholder/stencil rules', () => {
           id: stencilNodeId,
           type: 'stencil',
           slots: [stencilSlotId],
-          props: { stencilId: 'A', version: 1 },
+          props: { stencilKey: 'A' },
         },
         [phNodeId]: {
           id: phNodeId,
@@ -753,7 +733,7 @@ describe('canDropHere — placeholder/stencil rules', () => {
       id: sB,
       type: 'stencil',
       slots: [sBSlot],
-      props: { stencilId: 'B', version: 1 },
+      props: { stencilKey: 'B' },
     };
     doc.slots[sBSlot] = { id: sBSlot, nodeId: sB, name: 'children', children: [] };
     doc.slots[rootSlotId].children.push(sB);
@@ -788,13 +768,13 @@ describe('canDropHere — placeholder/stencil rules', () => {
       id: outerId,
       type: 'stencil',
       slots: [outerSlotId],
-      props: { stencilId: 'moving-outer', version: 1, draftVersion: 2 },
+      props: { stencilKey: 'moving-outer' },
     };
     doc.nodes[innerId] = {
       id: innerId,
       type: 'stencil',
       slots: [innerSlotId],
-      props: { stencilId: 'moving-inner', version: 1, draftVersion: 2 },
+      props: { stencilKey: 'moving-inner' },
     };
     doc.slots[outerSlotId] = {
       id: outerSlotId,

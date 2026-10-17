@@ -23,8 +23,6 @@ import { createImageDefinition } from './components/image/image-registration.js'
 import type { AssetInfo, CatalogInfo } from './components/image/asset-picker-dialog.js';
 import { setFontCatalog, type FontInfo } from './engine/font-catalog.js';
 import { createStencilDefinition } from './components/stencil/stencil-registration.js';
-import { collectStencilUpgradeRefs } from './components/stencil/upgrade-refs.js';
-import { hydrateStencilDrafts } from './components/stencil/draft-hydration.js';
 import type { StencilCallbacks } from './components/stencil/types.js';
 import { validateCoreShortcutRegistriesOnStartup } from './shortcuts/startup-validation.js';
 import { nanoid } from 'nanoid';
@@ -36,17 +34,15 @@ export type { AssetInfo, CatalogInfo } from './components/image/asset-picker-dia
 export type { FontInfo } from './engine/font-catalog.js';
 export type {
   StencilCallbacks,
+  StencilRef,
   StencilSummary,
-  StencilVersionInfo,
+  StencilWorkingCopy,
+  StencilContentUpdate,
   SearchStencilsFn,
-  GetStencilVersionFn,
-  CheckStencilUpgradesFn,
+  GetStencilFn,
   CreateStencilFn,
-  UpdateStencilFn,
-  StartEditingFn,
-  PublishDraftFn,
-  ListStencilVersionsFn,
-  StencilVersionSummary,
+  SaveStencilFn,
+  MarkStencilReadyFn,
 } from './components/stencil/types.js';
 export { EditorEngine } from './engine/EditorEngine.js';
 export { createQualityPlugin } from './ui/quality-plugin.js';
@@ -118,7 +114,11 @@ export interface EditorOptions {
   fontOptions?: {
     listFonts: () => Promise<FontInfo[]>;
   };
-  /** Optional stencil support with search/get/upgrade callbacks. */
+  /**
+   * Optional stencil support: search, read the working copy, create, save and
+   * mark ready. Templates use stencils by reference; the template arrives
+   * with its instances expanded and is stored as references again.
+   */
   stencilOptions?: StencilCallbacks;
   /**
    * Optional feature state. The host page reads this from the backend's
@@ -268,46 +268,6 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   // Mount into the container
   container.innerHTML = '';
   container.appendChild(editorEl);
-
-  const checkStencilUpgrades = (document: TemplateDocument) => {
-    if (!options.stencilOptions?.checkUpgrades) return;
-    const stencilRefs = collectStencilUpgradeRefs(document);
-
-    if (stencilRefs.length > 0) {
-      options.stencilOptions.checkUpgrades(stencilRefs).then((upgrades) => {
-        if (upgrades.length > 0) {
-          const upgradeMap: Record<string, number> = {};
-          for (const u of upgrades) {
-            if (u.latestVersion > u.currentVersion) {
-              upgradeMap[u.stencilId] = u.latestVersion;
-            }
-          }
-          if (Object.keys(upgradeMap).length > 0) {
-            editorEl.engine?.setComponentState('stencil:upgrades', upgradeMap);
-          }
-        }
-      });
-    }
-  };
-
-  if (options.stencilOptions) {
-    const mountedDocument = editorEl.engine?.doc;
-    void hydrateStencilDrafts(structuredClone(doc), registry, options.stencilOptions).then(
-      ({ document, recovery }) => {
-        // Never replace edits made while hydration was in flight.
-        if (!editorEl.engine) return;
-        if (editorEl.engine.doc !== mountedDocument) {
-          checkStencilUpgrades(editorEl.engine.doc);
-          return;
-        }
-        editorEl.engine.replaceDocument(document, 'HydrateStencilDrafts');
-        editorEl.engine.setComponentState('stencil:draftRecovery', recovery);
-        checkStencilUpgrades(document);
-      },
-    );
-  } else {
-    checkStencilUpgrades(doc);
-  }
 
   return {
     unmount() {

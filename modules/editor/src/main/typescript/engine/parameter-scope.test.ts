@@ -21,9 +21,8 @@ function makeStencilNode(
     type: 'stencil',
     slots: [],
     props: {
-      stencilId: 'test',
+      stencilKey: 'test',
       catalogKey: 'default',
-      version: 1,
 
       parameterSchemaSnapshot: schema,
       ...(Object.keys(bindings).length > 0 ? { parameterBindings: bindings } : {}),

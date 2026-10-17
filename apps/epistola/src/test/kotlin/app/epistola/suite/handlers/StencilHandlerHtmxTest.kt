@@ -103,6 +103,43 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `JSON PUT content with clearParameterSchema removes the stored parameters`() = fixture {
+        lateinit var seeded: Seeded
+        val url = { s: Seeded -> "/tenants/${s.tenantId.key}/stencils/${s.catalogKey}/${s.stencilKey}/content" }
+        val headers = HttpHeaders().apply {
+            contentType = MediaType.APPLICATION_JSON
+            accept = listOf(MediaType.APPLICATION_JSON)
+        }
+
+        given {
+            seeded = seedStencil("Content Clear Schema", content = stencilV1())
+            val schema = mapOf("type" to "object", "properties" to mapOf("who" to mapOf("type" to "string")))
+            restTemplate.exchange(
+                url(seeded),
+                HttpMethod.PUT,
+                HttpEntity(mapOf("content" to stencilV1(), "parameterSchema" to schema), headers),
+                String::class.java,
+            )
+            assertThat(withMediator { GetStencil(seeded.stencilId).query() }!!.parameterSchema).isNotNull()
+        }
+
+        whenever {
+            restTemplate.exchange(
+                url(seeded),
+                HttpMethod.PUT,
+                HttpEntity(mapOf("content" to stencilV1(), "clearParameterSchema" to true), headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(withMediator { GetStencil(seeded.stencilId).query() }!!.parameterSchema).isNull()
+        }
+    }
+
+    @Test
     fun `detail page offers Mark ready for a stencil that is not ready`() = fixture {
         lateinit var seeded: Seeded
 

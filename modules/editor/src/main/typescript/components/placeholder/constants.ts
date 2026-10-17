@@ -31,3 +31,15 @@ export const PLACEHOLDER_PROP_DESCRIPTION = 'description';
 
 /** Prop key — kind of content allowed (only `'block'` in v1). */
 export const PLACEHOLDER_PROP_KIND = 'kind';
+
+/** Prop key — on a stencil's placeholder: the fill also sees the stencil's parameters. */
+export const PLACEHOLDER_PROP_PASS_PARAMETERS = 'passParameters';
+
+/**
+ * Prop key — the name passed parameters go by: on a stencil's placeholder the
+ * author's default, on a stored fill the using document's choice.
+ */
+export const PLACEHOLDER_PROP_PARAMETERS_AS = 'parametersAs';
+
+/** Prop key — the using document's `parametersAs`, carried on the placeholder while expanded. */
+export const PLACEHOLDER_PROP_FILL_PARAMETERS_AS = 'fillParametersAs';

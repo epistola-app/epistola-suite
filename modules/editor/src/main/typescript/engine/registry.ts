@@ -247,6 +247,12 @@ export interface ComponentDefinition {
    * - `string[]` = explicit allowlist of property keys (empty = no styles)
    */
   applicableStyles: 'all' | string[];
+  /**
+   * Props holding style maps for parts of the node that are not nodes (a table's cells, the
+   * columns of a columns node). Contract metadata only: projected into the registry dump so
+   * backend consumers see what the contract declares; the editor has no style-map inspector yet.
+   */
+  styleMaps?: import('@epistola.app/epistola-catalog').StyleMap[];
   inspector: InspectorField[];
   /** Default styles for this component type (lowest priority in the cascade). */
   defaultStyles?: Record<string, unknown>;
@@ -411,6 +417,7 @@ function withContractMetadata(def: ComponentDefinition): ComponentDefinition {
     slots,
     allowedChildren: contract.allowedChildren,
     applicableStyles: contract.applicableStyles,
+    styleMaps: contract.styleMaps,
     inspector,
     defaultStyles: contract.defaultStyles,
     defaultProps: contract.defaultProps,

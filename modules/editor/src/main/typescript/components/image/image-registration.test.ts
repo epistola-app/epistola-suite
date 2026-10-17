@@ -2,7 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
+// @vitest-environment happy-dom
+
 import { describe, it, expect } from 'vitest';
+import { render } from 'lit';
 import {
   createImageDefinition,
   resolveContentUrl,
@@ -29,7 +32,7 @@ const dummyOptions = {
     listAssets: async () => [],
     uploadAsset: async () => dummyAsset,
   },
-  contentUrlPattern: '/tenants/t1/images/{catalogId}/{assetId}/content',
+  contentUrlPattern: '/tenants/t1/images/{catalogId}/{imageKey}/content',
   defaultCatalogKey: 'epistola-demo',
 };
 
@@ -38,13 +41,46 @@ function imageDef(): ComponentDefinition {
 }
 
 // ---------------------------------------------------------------------------
+// The image reference (wire v8: `imageKey`, formerly `assetId`)
+// ---------------------------------------------------------------------------
+
+describe('image reference', () => {
+  it('names the image by imageKey', () => {
+    expect(imageDef().defaultProps).toMatchObject({ imageKey: null, catalogKey: null });
+    expect(imageDef().defaultProps).not.toHaveProperty('assetId');
+  });
+
+  it("renders the image named by the node's imageKey", () => {
+    const container = document.createElement('div');
+    const node = {
+      id: 'img',
+      type: 'image',
+      slots: [],
+      props: { imageKey: 'logo', catalogKey: 'system', alt: 'Logo' },
+    };
+    render(
+      imageDef().renderCanvas!({
+        node,
+        doc: {},
+        engine: { theme: undefined },
+        renderSlot: () => null,
+      } as never),
+      container,
+    );
+    expect(container.querySelector('img')?.getAttribute('src')).toBe(
+      '/tenants/t1/images/system/logo/content',
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
 // resolveContentUrl — cross-catalog content URL building
 // ---------------------------------------------------------------------------
 
 describe('resolveContentUrl', () => {
-  const pattern = '/tenants/t1/images/{catalogId}/{assetId}/content';
+  const pattern = '/tenants/t1/images/{catalogId}/{imageKey}/content';
 
-  it("substitutes the node's catalog key and asset id", () => {
+  it("substitutes the node's catalog key and image key", () => {
     expect(resolveContentUrl(pattern, 'a1', 'system', 'epistola-demo')).toBe(
       '/tenants/t1/images/system/a1/content',
     );

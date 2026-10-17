@@ -138,6 +138,7 @@ the stencil that owns it is recursion (`STENCIL_RECURSION`). Nesting deeper than
 
 | Layer     | What it does                                                                    | When it runs                        |
 | --------- | ------------------------------------------------------------------------------- | ----------------------------------- |
+| Editor    | Refuses an insert or move that would recurse or nest too deep, lexically        | Picker, drag and drop               |
 | Validator | Walks the stored document for recursion and depth                               | Every template and stencil write    |
 | Expansion | Stops at a stencil already being inlined, or at the depth limit, and reports it | Editor context, ready mark, release |
 | Renderer  | Ancestor stencil set and depth counter; aborts with a diagnostic                | Every render                        |

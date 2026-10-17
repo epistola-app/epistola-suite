@@ -22,7 +22,7 @@
  *     parameters?: { kind: 'dynamic' } | { kind: 'static', schema: JsonSchema }
  *   }
  *   - undefined: component has no parameter support
- *   - { kind: 'dynamic' }: dynamic per-instance (e.g. stencil — use get_stencil_version to fetch)
+ *   - { kind: 'dynamic' }: dynamic per-instance (e.g. stencil — use get_stencil to fetch)
  *   - { kind: 'static', schema }: static parameter schema (same for every instance)
  *
  * Non-serializable hooks (renderCanvas, renderInspector, callbacks) are
@@ -70,6 +70,7 @@ interface SerializedComponent {
   slots: Array<{ name: string; dynamic?: boolean }>;
   allowedChildren: ComponentDefinition['allowedChildren'];
   applicableStyles: 'all' | string[];
+  styleMaps?: ComponentDefinition['styleMaps'];
   inspector: ComponentDefinition['inspector'];
   defaultStyles?: Record<string, unknown>;
   defaultProps?: Record<string, unknown>;
@@ -95,6 +96,7 @@ function describe(def: ComponentDefinition): SerializedComponent {
     slots: def.slots,
     allowedChildren: def.allowedChildren,
     applicableStyles: def.applicableStyles,
+    styleMaps: def.styleMaps,
     inspector: def.inspector,
     defaultStyles: def.defaultStyles,
     defaultProps: def.defaultProps,

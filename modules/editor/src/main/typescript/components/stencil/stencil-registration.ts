@@ -5,69 +5,131 @@
 /**
  * Stencil component definition for the component registry.
  *
- * A stencil is a container-like node that wraps a copy of a published stencil
- * version's content. The node's props carry the stencil reference metadata
- * (stencilId + version) for tracking origin and detecting available upgrades.
+ * A stencil node is an instance of a stencil, used by reference (contract
+ * ADR 0006): it names the stencil (`stencilKey`, and `catalogKey`) and holds
+ * the template's parameter bindings and fills. The editor works on the
+ * expanded instance, with the stencil's working copy inlined in the
+ * `children` slot; that content is locked, except the `fill` slots of its
+ * placeholders, and except while the author edits the stencil in place (see
+ * `editing-state.ts`). The server stores the instance as a reference again.
  *
- * On the canvas, the stencil renders its children normally but with a visual
- * badge indicating the stencil name and version. When stencilId is null, the
- * stencil is "unpublished" — content lives only in the template until the user
- * explicitly publishes it.
+ * Stencils may contain stencils. Recursion is judged lexically: a stencil may
+ * not contain itself, directly, through another stencil, or in a fill written
+ * in its own content. The picker refuses such an insert before it happens.
  */
 
 import type { ComponentDefinition } from '../../engine/registry.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
-import type { Node, Slot, NodeId, SlotId, TemplateDocument } from '../../types/index.js';
-import type { StencilCallbacks } from './types.js';
-import { openStencilPickerDialog } from './stencil-picker-dialog.js';
-import { reKeyContent } from './rekey-content.js';
-import { computeAncestorScope } from './ancestry.js';
-import { buildParameterScope } from '../../engine/parameter-scope.js';
+import type { Node, NodeId, Slot, SlotId } from '../../types/index.js';
+import type { StencilCallbacks, StencilRef } from './types.js';
+import { openStencilPickerDialog, type PrepareStencilFn } from './stencil-picker-dialog.js';
 import {
-  STENCIL_TYPE,
-  STENCIL_SLOT_CHILDREN,
-  STENCIL_PROP_PARAMETER_SCHEMA_SNAPSHOT,
-} from './constants.js';
-import { isPublishedStencil, isStencil } from './node-types.js';
+  expandInstance,
+  fetchStencilTree,
+  lexicalScopeAt,
+  resolverOver,
+  scopeRefs,
+  type FetchedStencils,
+  type InstanceFinding,
+  type LexicalScope,
+} from './instances.js';
+import { buildParameterScope } from '../../engine/parameter-scope.js';
+import { STENCIL_TYPE, STENCIL_SLOT_CHILDREN } from './constants.js';
+import { isLinkedStencil, isStencil, stencilIdentity } from './node-types.js';
+import { StencilEditingState } from './editing-state.js';
 import './StencilInspector.js';
-import { nanoid } from 'nanoid';
 import { html } from 'lit';
 import { MAX_STENCIL_NESTING_DEPTH } from '@epistola.app/epistola-catalog';
 
 export interface StencilOptions {
   /** Null when stencil operations aren't wired — component still renders but browse is disabled. */
   callbacks: StencilCallbacks | null;
+  /** Which instances are being edited; one per editor. Defaults to a fresh state. */
+  editing?: StencilEditingState;
+}
+
+/** Transient insert props, read and removed by `createSubtree`. */
+const INSERT_FETCHED = '_fetched';
+const INSERT_SCOPE = '_scope';
+const INSERT_EDITING = '_editing';
+
+/** The sentence an author reads when a stencil cannot go where they put it. */
+export function nestingRefusal(picked: StencilRef, finding: InstanceFinding): string {
+  const name = `'${finding.ref.stencilKey}'`;
+  switch (finding.problem) {
+    case 'RECURSION':
+      return finding.ref.stencilKey === picked.stencilKey &&
+        finding.ref.catalogKey === picked.catalogKey
+        ? `'${picked.stencilKey}' cannot go here: this is already the content of ${name}, and a stencil cannot contain itself.`
+        : `'${picked.stencilKey}' cannot go here: it uses ${name}, which this is already the content of, and a stencil cannot contain itself.`;
+    case 'DEPTH_EXCEEDED':
+      return `'${picked.stencilKey}' cannot go here: stencils would be nested more than ${MAX_STENCIL_NESTING_DEPTH} deep.`;
+    case 'STENCIL_NOT_FOUND':
+      return finding.ref.stencilKey === picked.stencilKey
+        ? `Stencil ${name} no longer exists.`
+        : `'${picked.stencilKey}' uses stencil ${name}, which does not exist.`;
+    default:
+      return `'${picked.stencilKey}' cannot go here.`;
+  }
+}
+
+/**
+ * Fetch [ref] with everything it uses and check it may become content of
+ * [scope]: no recursion, not too deep, every stencil found.
+ */
+export async function prepareStencilInsert(
+  callbacks: StencilCallbacks,
+  ref: StencilRef,
+  scope: LexicalScope,
+): ReturnType<PrepareStencilFn> {
+  const fetched = await fetchStencilTree(ref, callbacks.getStencil);
+  const copy = fetched.get(stencilIdentity(ref));
+  if (!copy) return { ok: false, message: `Stencil '${ref.stencilKey}' no longer exists.` };
+  const probe: Node = {
+    id: '__probe__' as NodeId,
+    type: STENCIL_TYPE,
+    slots: [],
+    props: { stencilKey: ref.stencilKey, catalogKey: ref.catalogKey },
+  };
+  const { findings } = expandInstance(
+    probe,
+    { nodes: {}, slots: {} },
+    scope.catalogKey,
+    resolverOver(fetched),
+    scopeRefs(scope),
+  );
+  const blocking = findings.find((f) => f.problem !== 'UNKNOWN_PLACEHOLDER');
+  if (blocking) return { ok: false, message: nestingRefusal(ref, blocking) };
+  return { ok: true, prepared: { copy, fetched } };
 }
 
 export function createStencilDefinition(options: StencilOptions): ComponentDefinition {
+  const editing = options.editing ?? new StencilEditingState();
+
   return {
     type: STENCIL_TYPE,
     label: 'Stencil',
-    getLabel: (node, _eng) => {
-      if (!isStencil(node)) return 'Stencil';
-      const { stencilId, version, draftVersion } = node.props;
-
-      if (!stencilId) return 'Stencil';
-
-      if (draftVersion != null) return `${stencilId} draft v${draftVersion}`;
-      return `${stencilId} v${version}`;
+    getLabel: (node) => {
+      if (!isLinkedStencil(node)) return 'Stencil';
+      const key = node.props.stencilKey!;
+      return editing.isEditing(node.id) ? `${key} · editing` : key;
     },
     icon: 'puzzle',
     category: 'layout',
     slots: [
       {
         name: STENCIL_SLOT_CHILDREN,
-        // The stencil's children are frozen as soon as the stencil is
-        // published (linked via `stencilId` and not in draft mode). Inner
-        // placeholder fill slots opt out via their own `editable: true`.
-        locked: (node) => isPublishedStencil(node),
+        // An instance shows its stencil's working copy, so its content is
+        // locked unless the author is editing the stencil. Inner placeholder
+        // fill slots opt out via their own `editable: true`.
+        locked: (node) => isLinkedStencil(node) && !editing.isEditing(node.id),
       },
     ],
-    allowedChildren: { mode: 'denylist', types: ['stencil'] },
+    allowedChildren: { mode: 'denylist', types: ['root'] },
     applicableStyles: 'all',
     inspector: [],
     defaultProps: {
-      stencilId: null,
+      stencilKey: null,
       catalogKey: null,
     },
 
@@ -75,7 +137,7 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       {
         name: 'with-placeholder',
         description:
-          'A published stencil instance (as it appears inside a template) containing one placeholder named "body". The placeholder owns two slots: `default` (set by the stencil author at publish time) and `fill` (the template override; empty here, so the renderer falls back to the default). Replacing or adding to `fill` overrides the default; clearing `fill` reverts to the default.',
+          'A stencil instance (as it appears inside a template) containing one placeholder named "body". The placeholder owns two slots: `default` (set by the stencil author at publish time) and `fill` (the template override; empty here, so the renderer falls back to the default). Replacing or adding to `fill` overrides the default; clearing `fill` reverts to the default.',
         fragment: {
           rootNodeId: 'n-stencil-letter',
           nodes: {
@@ -84,16 +146,19 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
               type: 'stencil',
               slots: ['s-stencil-letter-children'],
               props: {
-                stencilId: 'letter-shell',
+                stencilKey: 'letter-shell',
                 catalogKey: 'epistola-demo',
-                version: 1,
               },
             },
             'n-stencil-letter-ph': {
               id: 'n-stencil-letter-ph',
               type: 'placeholder',
               slots: ['s-stencil-letter-ph-default', 's-stencil-letter-ph-fill'],
-              props: { name: 'body', description: 'Body content', kind: 'block' },
+              props: {
+                name: 'body',
+                description: 'Body content',
+                kind: 'block',
+              },
             },
             'n-stencil-letter-default-text': {
               id: 'n-stencil-letter-default-text',
@@ -105,7 +170,12 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
                   content: [
                     {
                       type: 'paragraph',
-                      content: [{ type: 'text', text: 'Default body text' }],
+                      content: [
+                        {
+                          type: 'text',
+                          text: 'Default body text',
+                        },
+                      ],
                     },
                   ],
                 },
@@ -146,16 +216,19 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
               type: 'stencil',
               slots: ['s-stencil-letter-ov-children'],
               props: {
-                stencilId: 'letter-shell',
+                stencilKey: 'letter-shell',
                 catalogKey: 'epistola-demo',
-                version: 1,
               },
             },
             'n-stencil-letter-ov-ph': {
               id: 'n-stencil-letter-ov-ph',
               type: 'placeholder',
               slots: ['s-stencil-letter-ov-ph-default', 's-stencil-letter-ov-ph-fill'],
-              props: { name: 'body', description: 'Body content', kind: 'block' },
+              props: {
+                name: 'body',
+                description: 'Body content',
+                kind: 'block',
+              },
             },
             'n-stencil-letter-ov-default-text': {
               id: 'n-stencil-letter-ov-default-text',
@@ -167,7 +240,12 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
                   content: [
                     {
                       type: 'paragraph',
-                      content: [{ type: 'text', text: 'Default body text' }],
+                      content: [
+                        {
+                          type: 'text',
+                          text: 'Default body text',
+                        },
+                      ],
                     },
                   ],
                 },
@@ -183,7 +261,12 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
                   content: [
                     {
                       type: 'paragraph',
-                      content: [{ type: 'text', text: 'Custom body — overridden' }],
+                      content: [
+                        {
+                          type: 'text',
+                          text: 'Custom body — overridden',
+                        },
+                      ],
                     },
                   ],
                 },
@@ -215,12 +298,12 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
     ],
 
     renderCanvas: ({ node, renderSlot }) => {
-      const isLocked = isPublishedStencil(node);
+      const isLocked = isLinkedStencil(node) && !editing.isEditing(node.id);
 
       // IMPORTANT: Template structure must be identical across all states.
       // Lit's template diffing caches by template string shape. The
-      // locked/editable difference is CSS-only. State info (name, version,
-      // upgrade indicator) is in the block header via getLabel.
+      // locked/editable difference is CSS-only. State info (key, editing)
+      // is in the block header via getLabel.
       return html`
         <div class=${isLocked ? 'canvas-stencil-locked' : 'canvas-stencil-content'}>
           ${node.slots.map((slotId) => renderSlot(slotId))}
@@ -234,37 +317,35 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
         .node=${node}
         .engine=${engine}
         .callbacks=${options.callbacks}
+        .editing=${editing}
       ></stencil-inspector>`;
     },
 
     onBeforeInsert: async (engineUnknown, context) => {
-      if (!options.callbacks) {
-        // No callbacks — create empty stencil container
-        return {};
-      }
+      const callbacks = options.callbacks;
+      // No callbacks — create an empty, unlinked stencil container.
+      if (!callbacks) return {};
 
-      // If we know the target slot, compute the ancestor stencil set so the
-      // picker can disable recursive choices, plus the available fields at
-      // the insertion point so the binding step can autocomplete from them.
-      let disabledStencilIds: Set<string> | undefined;
+      const engine = engineUnknown as EditorEngine;
+      // The palette inserts at the document root; elsewhere the target slot
+      // says which stencils the new instance would be the content of.
+      const targetSlotId = context?.targetSlotId;
+      const scope: LexicalScope = targetSlotId
+        ? lexicalScopeAt(engine.doc, targetSlotId, engine.indexes, callbacks.catalogKey)
+        : { entries: [], catalogKey: callbacks.catalogKey, outer: null };
+      if (scope.entries.length >= MAX_STENCIL_NESTING_DEPTH) return null;
+
       let fieldPaths: import('../../engine/schema-paths.js').FieldPath[] | undefined;
       let getExampleData: (() => Record<string, unknown> | undefined) | undefined;
-      const targetSlotId = context?.targetSlotId;
-      const engine = engineUnknown as EditorEngine;
-      if (targetSlotId) {
-        const scope = computeAncestorScope(engine.doc, targetSlotId, engine.indexes);
-        if (scope.stencilDepth >= MAX_STENCIL_NESTING_DEPTH) return null;
-        if (scope.stencilIds.size > 0) disabledStencilIds = scope.stencilIds;
-        const slot = engine.doc.slots[targetSlotId];
-        const parentNodeId = slot?.nodeId;
-        if (parentNodeId) {
-          fieldPaths = engine.getAvailableVariablesAt(parentNodeId);
-          getExampleData = () => engine.getEvaluationContextAt(parentNodeId);
-        }
+      const parentNodeId = targetSlotId ? engine.doc.slots[targetSlotId]?.nodeId : undefined;
+      if (parentNodeId) {
+        fieldPaths = engine.getAvailableVariablesAt(parentNodeId);
+        getExampleData = () => engine.getEvaluationContextAt(parentNodeId);
       }
 
-      const result = await openStencilPickerDialog(options.callbacks, {
-        disabledStencilIds,
+      const result = await openStencilPickerDialog(callbacks, {
+        prepare: (ref) => prepareStencilInsert(callbacks, ref, scope),
+        disabledStencils: new Set(scope.entries.map((e) => stencilIdentity(e.ref))),
         fieldPaths,
         getExampleData,
         locale: engine.locale,
@@ -272,30 +353,21 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       if (!result) return null; // Cancelled
 
       if (result.action === 'create-new') {
-        // Stencil entity created on backend — insert with stencilId in draft mode
+        // A new, empty stencil: insert it and start editing it in place.
         return {
-          stencilId: result.ref.stencilId,
+          stencilKey: result.ref.stencilKey,
           catalogKey: result.ref.catalogKey,
-          draftVersion: result.version,
+          [INSERT_EDITING]: true,
         };
       }
 
-      // Use existing stencil — store content temporarily for createSubtree.
-      // parameterSchemaSnapshot, paramsAlias, and parameterBindings (if any)
-      // come straight from the picker; they're persisted on the stencil node
-      // and read by ParameterScope at render time.
       const overrides: Record<string, unknown> = {
-        stencilId: result.versionInfo.ref.stencilId,
-        catalogKey: result.versionInfo.ref.catalogKey,
-        version: result.versionInfo.version,
-        _content: result.versionInfo.content,
+        stencilKey: result.prepared.copy.ref.stencilKey,
+        catalogKey: result.prepared.copy.ref.catalogKey,
+        [INSERT_FETCHED]: result.prepared.fetched,
+        [INSERT_SCOPE]: scope,
       };
-      if (result.versionInfo.parameterSchema) {
-        overrides[STENCIL_PROP_PARAMETER_SCHEMA_SNAPSHOT] = result.versionInfo.parameterSchema;
-      }
-      if (result.bindings && Object.keys(result.bindings).length > 0) {
-        overrides.parameterBindings = result.bindings;
-      }
+      if (Object.keys(result.bindings).length > 0) overrides.parameterBindings = result.bindings;
       if (result.paramsAlias && result.paramsAlias !== 'params') {
         overrides.paramsAlias = result.paramsAlias;
       }
@@ -303,40 +375,41 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
     },
 
     createSubtree: (nodeId: NodeId, props?: Record<string, unknown>) => {
-      const content = props?._content as TemplateDocument | undefined;
-
-      // Remove transient _content from persisted props
+      const fetched = props?.[INSERT_FETCHED] as FetchedStencils | undefined;
+      const scope = props?.[INSERT_SCOPE] as LexicalScope | undefined;
+      const startEditing = props?.[INSERT_EDITING] === true;
       if (props) {
-        delete props._content;
+        delete props[INSERT_FETCHED];
+        delete props[INSERT_SCOPE];
+        delete props[INSERT_EDITING];
       }
+      if (startEditing) editing.start(nodeId);
 
-      if (content) {
-        // Deep-copy the stencil version's content with fresh IDs
-        const reKeyed = reKeyContent(content);
-
-        const slotId = nanoid() as SlotId;
-        const parentSlot: Slot = {
-          id: slotId,
-          nodeId,
-          name: 'children',
-          children: reKeyed.childNodeIds,
-        };
-
+      const childrenSlotId = `${nodeId}:${STENCIL_SLOT_CHILDREN}` as SlotId;
+      if (fetched && typeof props?.stencilKey === 'string' && props.stencilKey) {
+        // Inline the stencil's working copy (and the stencils it uses) the way
+        // the server expands a stored instance, so a save and reload give the same IDs.
+        const expanded = expandInstance(
+          { id: nodeId, type: STENCIL_TYPE, slots: [], props: { ...props } },
+          { nodes: {}, slots: {} },
+          scope?.catalogKey ?? options.callbacks?.catalogKey ?? '',
+          resolverOver(fetched),
+          scope ? scopeRefs(scope) : [],
+        );
+        Object.assign(props, expanded.node.props);
         return {
-          slots: [parentSlot],
-          extraNodes: reKeyed.nodes,
-          extraSlots: reKeyed.slots,
+          slots: [expanded.childrenSlot],
+          extraNodes: expanded.descendants,
+          extraSlots: expanded.descendantSlots,
         };
       }
 
-      // Empty stencil — just create an empty slot
-      const slotId = nanoid() as SlotId;
       return {
         slots: [
           {
-            id: slotId,
+            id: childrenSlotId,
             nodeId,
-            name: 'children',
+            name: STENCIL_SLOT_CHILDREN,
             children: [] as NodeId[],
           },
         ],
@@ -345,14 +418,12 @@ export function createStencilDefinition(options: StencilOptions): ComponentDefin
       };
     },
 
-    // Stencils carry their parameter schema as a per-instance snapshot prop
-    // (`parameterSchemaSnapshot`), populated by the picker / upgrade replacer.
-    // The dynamic-function form lets static-parametrised components reuse the
-    // same field in the future by returning a constant.
+    // Stencils carry their parameter schema on the expanded instance
+    // (`parameterSchemaSnapshot`). The dynamic-function form lets
+    // static-parametrised components reuse the same field by returning a constant.
     parameters: (node: Node) => {
       if (!isStencil(node)) return null;
-      const snapshot = node.props.parameterSchemaSnapshot;
-      return snapshot ?? null;
+      return node.props.parameterSchemaSnapshot ?? null;
     },
 
     scopeProvider: buildParameterScope,

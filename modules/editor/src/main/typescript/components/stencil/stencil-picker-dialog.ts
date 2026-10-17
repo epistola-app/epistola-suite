@@ -3,25 +3,26 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- * Stencil picker dialog — modal for browsing, selecting stencils, and choosing a version.
+ * Stencil picker dialog — modal for browsing and picking a stencil to insert.
  *
- * Two-step flow:
- * 1. Search/browse stencils → select one
- * 2. Pick a version (published, draft, archived) → insert
+ * A template uses a stencil by reference, so there is nothing to choose but
+ * the stencil: its working copy is what the instance shows.
+ *
+ * Flow:
+ * 1. Search/browse stencils → select one → Insert (or double-click)
+ * 2. When the stencil declares parameters, bind them → Insert
+ *
+ * Or "Create New": a new, empty stencil to author in place.
  *
  * Uses native <dialog> element, same pattern as asset-picker-dialog.ts.
  */
 
-import type {
-  StencilCallbacks,
-  StencilRef,
-  StencilSummary,
-  StencilVersionSummary,
-  StencilVersionInfo,
-} from './types.js';
+import type { StencilCallbacks, StencilRef, StencilSummary, StencilWorkingCopy } from './types.js';
 import type { FieldPath } from '../../engine/schema-paths.js';
+import type { FetchedStencils } from './instances.js';
 import { renderBindingRow } from './binding-row.js';
 import { missingRequiredParameters } from './parameter-requirements.js';
+import { stencilIdentity } from './node-types.js';
 
 const HTML_ENTITIES: Record<string, string> = {
   '&': '&amp;',
@@ -36,58 +37,65 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => HTML_ENTITIES[c] ?? c);
 }
 
+/** A stencil ready to insert: its working copy and every stencil it uses. */
+export interface PreparedStencil {
+  copy: StencilWorkingCopy;
+  fetched: FetchedStencils;
+}
+
+/** Fetches what inserting a stencil needs, or says why it cannot go here. */
+export type PrepareStencilFn = (
+  ref: StencilRef,
+) => Promise<{ ok: true; prepared: PreparedStencil } | { ok: false; message: string }>;
+
 export type StencilPickerResult =
-  | { action: 'create-new'; ref: StencilRef; version: number }
+  | { action: 'create-new'; ref: StencilRef }
   | {
       action: 'use-existing';
-      versionInfo: StencilVersionInfo;
+      prepared: PreparedStencil;
       /**
-       * Map of parameter name → JSONata expression. Empty when the picked
-       * version declares no parameters or the user accepted the defaults.
+       * Map of parameter name → JSONata expression. Empty when the stencil
+       * declares no parameters or the user accepted the defaults.
        */
       bindings: Record<string, string>;
-      /**
-       * Namespace alias for the inserted stencil's parameters. Defaults to
-       * `'params'`. Configurable per insertion to avoid shadowing when nested
-       * inside another parametrised node.
-       */
+      /** Namespace alias for the inserted stencil's parameters. Defaults to `'params'`. */
       paramsAlias: string;
     }
   | null;
 
 export interface StencilPickerOptions {
   /**
-   * Stencil IDs that would cause recursion if inserted at the cursor's
-   * target slot. Cards for these stencils are rendered disabled with a
-   * tooltip; users cannot select or insert them.
+   * Fetches the picked stencil (and the stencils it uses) and checks it may
+   * go where it is being inserted. A refusal is shown in the dialog.
    */
-  disabledStencilIds?: Set<string>;
+  prepare: PrepareStencilFn;
+  /**
+   * Stencils ({@link stencilIdentity}) the insertion point is already the
+   * content of: inserting one would make it contain itself. Their cards are
+   * disabled, saying why.
+   */
+  disabledStencils?: Set<string>;
   /**
    * Variables visible at the insertion point (template data fields,
    * iteration scope, system parameters). Used to populate the
    * field-picker dropdowns and the advanced expression dialog when the
-   * user is binding parameters in step 4.
+   * user is binding parameters.
    */
   fieldPaths?: FieldPath[];
-  /**
-   * Example data for live preview inside the advanced expression dialog.
-   * Same callback shape the inspector uses.
-   */
+  /** Example data for live preview inside the advanced expression dialog. */
   getExampleData?: () => Record<string, unknown> | undefined;
-  /**
-   * BCP-47 locale passed through to the advanced expression dialog so its
-   * preview and number-format examples use the session's culture.
-   */
+  /** BCP-47 locale passed through to the advanced expression dialog. */
   locale?: string;
 }
 
 export async function openStencilPickerDialog(
   callbacks: StencilCallbacks,
-  options: StencilPickerOptions = {},
+  options: StencilPickerOptions,
 ): Promise<StencilPickerResult> {
   return new Promise((resolve) => {
     const dialog = document.createElement('dialog');
     dialog.className = 'stencil-picker-dialog';
+    dialog.dataset.testid = 'stencil-picker';
 
     dialog.innerHTML = `
       <div class="stencil-picker-content">
@@ -101,44 +109,34 @@ export async function openStencilPickerDialog(
           <div class="stencil-picker-search">
             <input type="text" id="stencil-search" class="ep-input" placeholder="Search stencils..." />
           </div>
+          <div id="stencil-picker-error" class="callout callout--error" data-testid="stencil-picker-error" style="display: none; margin: 0 var(--ep-space-6);"></div>
           <div class="stencil-picker-list" id="stencil-list">
             <div class="stencil-picker-loading">Loading stencils...</div>
           </div>
         </div>
 
-        <!-- Step 2: Create new stencil form (hidden initially) -->
+        <!-- Create new stencil form (hidden initially) -->
         <div id="stencil-step-create" style="display: none;">
           <div style="padding: var(--ep-space-3) var(--ep-space-6);">
             <button type="button" id="stencil-back-create" class="stencil-picker-btn" style="margin-bottom: var(--ep-space-2);">&larr; Back to stencils</button>
             <div style="font-weight: 500; font-size: var(--ep-text-sm); margin-bottom: var(--ep-space-3);">Create New Stencil</div>
             <div style="margin-bottom: var(--ep-space-2);">
               <label style="font-size: var(--ep-text-xs); font-weight: 500; display: block; margin-bottom: var(--ep-space-1);">Name</label>
-              <input type="text" id="create-stencil-name" class="ep-input" style="width: 100%;" placeholder="Corporate Header" />
+              <input type="text" id="create-stencil-name" class="ep-input" style="width: 100%;" maxlength="100" placeholder="Corporate Header" />
             </div>
             <div style="margin-bottom: var(--ep-space-2);">
-              <label style="font-size: var(--ep-text-xs); font-weight: 500; display: block; margin-bottom: var(--ep-space-1);">ID (slug)</label>
-              <input type="text" id="create-stencil-slug" class="ep-input" style="width: 100%;" placeholder="corporate-header" />
+              <label style="font-size: var(--ep-text-xs); font-weight: 500; display: block; margin-bottom: var(--ep-space-1);">Key</label>
+              <input type="text" id="create-stencil-slug" class="ep-input" style="width: 100%;" maxlength="50" placeholder="corporate-header" />
               <div style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); margin-top: 2px;">Lowercase letters, numbers, and hyphens only</div>
             </div>
             <div id="create-stencil-error" style="font-size: var(--ep-text-xs); color: var(--ep-destructive, #dc2626); display: none;"></div>
           </div>
         </div>
 
-        <!-- Step 3: Version picker (hidden initially) -->
-        <div id="stencil-step-versions" style="display: none;">
-          <div style="padding: var(--ep-space-3) var(--ep-space-6);">
-            <button type="button" id="stencil-back" class="stencil-picker-btn" style="margin-bottom: var(--ep-space-2);">&larr; Back to stencils</button>
-            <div id="stencil-version-title" style="font-weight: 500; font-size: var(--ep-text-sm);"></div>
-          </div>
-          <div class="stencil-picker-list" id="stencil-version-list">
-            <div class="stencil-picker-loading">Loading versions...</div>
-          </div>
-        </div>
-
-        <!-- Step 4: Parameter binding (hidden initially) -->
+        <!-- Step 2: Parameter binding (hidden initially) -->
         <div id="stencil-step-bindings" style="display: none;">
           <div style="padding: var(--ep-space-3) var(--ep-space-6);">
-            <button type="button" id="stencil-back-bindings" class="stencil-picker-btn" style="margin-bottom: var(--ep-space-2);">&larr; Back to versions</button>
+            <button type="button" id="stencil-back-bindings" class="stencil-picker-btn" style="margin-bottom: var(--ep-space-2);">&larr; Back to stencils</button>
             <div id="stencil-binding-title" style="font-weight: 500; font-size: var(--ep-text-sm); margin-bottom: var(--ep-space-2);"></div>
             <div style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground); margin-bottom: var(--ep-space-3);">Bind each parameter to a JSONata expression. Leave optional ones blank to use the default.</div>
             <div id="stencil-binding-rows"></div>
@@ -146,10 +144,10 @@ export async function openStencilPickerDialog(
         </div>
 
         <div class="stencil-picker-footer">
-          <button type="button" class="stencil-picker-btn create-new">Create New</button>
+          ${callbacks.createStencil ? '<button type="button" class="stencil-picker-btn create-new">Create New</button>' : ''}
           <div style="flex: 1;"></div>
           <button type="button" class="stencil-picker-btn cancel">Cancel</button>
-          <button type="button" class="stencil-picker-btn insert" disabled>Insert</button>
+          <button type="button" class="stencil-picker-btn insert" data-testid="stencil-picker-insert" disabled>Insert</button>
           <button type="button" class="stencil-picker-btn insert create-confirm" style="display: none;" disabled>Create</button>
         </div>
       </div>
@@ -157,19 +155,17 @@ export async function openStencilPickerDialog(
 
     const stepList = dialog.querySelector<HTMLElement>('#stencil-step-list')!;
     const stepCreate = dialog.querySelector<HTMLElement>('#stencil-step-create')!;
-    const stepVersions = dialog.querySelector<HTMLElement>('#stencil-step-versions')!;
     const stepBindings = dialog.querySelector<HTMLElement>('#stencil-step-bindings')!;
     const list = dialog.querySelector<HTMLElement>('#stencil-list')!;
-    const versionList = dialog.querySelector<HTMLElement>('#stencil-version-list')!;
-    const versionTitle = dialog.querySelector<HTMLElement>('#stencil-version-title')!;
+    const pickError = dialog.querySelector<HTMLElement>('#stencil-picker-error')!;
     const bindingRows = dialog.querySelector<HTMLElement>('#stencil-binding-rows')!;
     const bindingTitle = dialog.querySelector<HTMLElement>('#stencil-binding-title')!;
     const searchInput = dialog.querySelector<HTMLInputElement>('#stencil-search')!;
     const closeBtn = dialog.querySelector<HTMLElement>('.stencil-picker-close')!;
     const cancelBtn = dialog.querySelector<HTMLElement>('.cancel')!;
     const insertBtn = dialog.querySelector<HTMLButtonElement>('.insert')!;
-    const createNewBtn = dialog.querySelector<HTMLElement>('.create-new')!;
-    const backBtn = dialog.querySelector<HTMLElement>('#stencil-back')!;
+    const createNewBtn = dialog.querySelector<HTMLElement>('.create-new');
+    const createConfirmBtn = dialog.querySelector<HTMLButtonElement>('.create-confirm')!;
     const backCreateBtn = dialog.querySelector<HTMLElement>('#stencil-back-create')!;
     const backBindingsBtn = dialog.querySelector<HTMLElement>('#stencil-back-bindings')!;
     const createNameInput = dialog.querySelector<HTMLInputElement>('#create-stencil-name')!;
@@ -177,7 +173,8 @@ export async function openStencilPickerDialog(
     const createError = dialog.querySelector<HTMLElement>('#create-stencil-error')!;
 
     let selectedStencil: StencilSummary | null = null;
-    let selectedVersion: StencilVersionSummary | null = null;
+    let pendingPrepared: PreparedStencil | null = null;
+    let bindingValues: Record<string, string> = {};
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
     const close = (result: StencilPickerResult) => {
@@ -186,12 +183,23 @@ export async function openStencilPickerDialog(
       resolve(result);
     };
 
+    const refOf = (s: StencilSummary): StencilRef => ({
+      stencilKey: s.stencilKey,
+      catalogKey: s.catalogKey,
+    });
+
+    function showPickError(message: string | null) {
+      pickError.textContent = message ?? '';
+      pickError.style.display = message ? '' : 'none';
+    }
+
     // ── Step 1: Stencil list ──
 
     function renderStencilList(stencils: StencilSummary[]) {
       if (stencils.length === 0) {
-        list.innerHTML =
-          '<div class="stencil-picker-empty">No stencils found. Create a new one.</div>';
+        list.innerHTML = callbacks.createStencil
+          ? '<div class="stencil-picker-empty">No stencils found. Create a new one.</div>'
+          : '<div class="stencil-picker-empty">No stencils found.</div>';
         return;
       }
 
@@ -199,12 +207,14 @@ export async function openStencilPickerDialog(
       for (const stencil of stencils) {
         const card = document.createElement('div');
         card.className = 'stencil-picker-card';
-        card.dataset.stencilId = stencil.id;
+        card.dataset.stencilKey = stencil.stencilKey;
+        card.dataset.testid = 'stencil-picker-card';
 
-        const isRecursive = options.disabledStencilIds?.has(stencil.id) ?? false;
+        const isRecursive = options.disabledStencils?.has(stencilIdentity(refOf(stencil))) ?? false;
         if (isRecursive) {
           card.classList.add('stencil-picker-card--disabled');
-          card.title = 'Cannot insert: this stencil already appears in the ancestor chain';
+          card.setAttribute('aria-disabled', 'true');
+          card.title = 'Cannot insert here: this is the content of this stencil already';
         }
 
         const tags =
@@ -213,33 +223,32 @@ export async function openStencilPickerDialog(
                 .map((t) => `<span class="stencil-picker-tag">${escapeHtml(t)}</span>`)
                 .join('')
             : '';
-        const versionLabel = stencil.latestPublishedVersion
-          ? `v${stencil.latestPublishedVersion}`
-          : stencil.latestVersion
-            ? `v${stencil.latestVersion} (draft)`
-            : '<span class="text-muted">no versions</span>';
-
         const catalogBadge = stencil.catalogKey
-          ? `<span class="stencil-picker-tag">${stencil.catalogKey}</span>`
+          ? `<span class="stencil-picker-tag">${escapeHtml(stencil.catalogKey)}</span>`
           : '';
-
         const recursionBadge = isRecursive
-          ? '<span class="stencil-picker-tag" style="background:var(--ep-amber-50,#fffbeb);color:var(--ep-amber-700,#b45309);">would recurse</span>'
+          ? '<span class="stencil-picker-tag" style="background:var(--ep-amber-50,#fffbeb);color:var(--ep-amber-700,#b45309);">would contain itself</span>'
           : '';
 
         card.innerHTML = `
           <div class="stencil-picker-card-name">${escapeHtml(stencil.name)} ${catalogBadge}${recursionBadge}</div>
-          <div class="stencil-picker-card-meta">
-            <span class="stencil-picker-card-version">${versionLabel}</span>
-            ${tags ? `<span class="stencil-picker-card-tags">${tags}</span>` : ''}
-          </div>
+          ${tags ? `<div class="stencil-picker-card-meta"><span class="stencil-picker-card-tags">${tags}</span></div>` : ''}
           ${stencil.description ? `<div class="stencil-picker-card-desc">${escapeHtml(stencil.description)}</div>` : ''}
         `;
 
         if (!isRecursive) {
           card.addEventListener('click', () => {
+            list
+              .querySelectorAll('.stencil-picker-card')
+              .forEach((c) => c.classList.remove('selected'));
+            card.classList.add('selected');
             selectedStencil = stencil;
-            showVersionPicker(stencil);
+            showPickError(null);
+            insertBtn.disabled = false;
+          });
+          card.addEventListener('dblclick', () => {
+            selectedStencil = stencil;
+            void doInsert();
           });
         }
 
@@ -247,120 +256,43 @@ export async function openStencilPickerDialog(
       }
     }
 
-    // ── Step 2: Version picker ──
-
-    async function showVersionPicker(stencil: StencilSummary) {
-      stepList.style.display = 'none';
-      stepBindings.style.display = 'none';
-      stepVersions.style.display = '';
-      versionTitle.textContent = `Versions for "${stencil.name}"`;
-      versionList.innerHTML = '<div class="stencil-picker-loading">Loading versions...</div>';
-      insertBtn.disabled = true;
-      insertBtn.textContent = 'Insert';
-      selectedVersion = null;
-      pendingBindingVersionInfo = null;
-
-      try {
-        const versions = await callbacks.listVersions({
-          stencilId: stencil.id,
-          catalogKey: stencil.catalogKey ?? 'default',
-        });
-        renderVersionList(versions);
-      } catch {
-        versionList.innerHTML = '<div class="stencil-picker-empty">Failed to load versions.</div>';
-      }
-    }
-
-    function renderVersionList(versions: StencilVersionSummary[]) {
-      if (versions.length === 0) {
-        versionList.innerHTML = '<div class="stencil-picker-empty">No versions available.</div>';
-        return;
-      }
-
-      // Sort: draft first, then published (newest first), then archived
-      const sorted = [...versions].toSorted((a, b) => {
-        const order: Record<string, number> = { draft: 0, published: 1, archived: 2 };
-        if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
-        return b.version - a.version;
-      });
-
-      versionList.innerHTML = '';
-      for (const version of sorted) {
-        const card = document.createElement('div');
-        card.className = 'stencil-picker-card';
-
-        const statusBadge =
-          version.status === 'draft'
-            ? '<span class="stencil-picker-status stencil-picker-status--draft">draft</span>'
-            : version.status === 'published'
-              ? '<span class="stencil-picker-status stencil-picker-status--published">published</span>'
-              : '<span class="stencil-picker-status stencil-picker-status--archived">archived</span>';
-
-        card.innerHTML = `
-          <div class="stencil-picker-card-name">Version ${version.version} ${statusBadge}</div>
-          <div class="stencil-picker-card-meta">
-            <span>Created: ${new Date(version.createdAt).toLocaleDateString()}</span>
-            ${version.publishedAt ? `<span>Published: ${new Date(version.publishedAt).toLocaleDateString()}</span>` : ''}
-          </div>
-        `;
-
-        card.addEventListener('click', () => {
-          versionList
-            .querySelectorAll('.stencil-picker-card')
-            .forEach((c) => c.classList.remove('selected'));
-          card.classList.add('selected');
-          selectedVersion = version;
-          insertBtn.disabled = false;
-        });
-
-        card.addEventListener('dblclick', () => {
-          selectedVersion = version;
-          doInsert();
-        });
-
-        versionList.appendChild(card);
-      }
-    }
-
     function showStencilList() {
-      stepVersions.style.display = 'none';
       stepCreate.style.display = 'none';
       stepBindings.style.display = 'none';
       stepList.style.display = '';
-      insertBtn.disabled = true;
       insertBtn.style.display = '';
-      createNewBtn.style.display = '';
-      selectedVersion = null;
+      insertBtn.textContent = 'Insert';
+      insertBtn.disabled = selectedStencil === null;
+      createConfirmBtn.style.display = 'none';
+      if (createNewBtn) createNewBtn.style.display = '';
+      pendingPrepared = null;
+      bindingValues = {};
     }
 
-    // ── Step 4: Parameter binding ──
+    // ── Step 2: Parameter binding ──
 
-    let pendingBindingVersionInfo: StencilVersionInfo | null = null;
-    let bindingValues: Record<string, string> = {};
-
-    function showBindingStep(versionInfo: StencilVersionInfo) {
-      pendingBindingVersionInfo = versionInfo;
+    function showBindingStep(prepared: PreparedStencil) {
+      pendingPrepared = prepared;
       bindingValues = {};
-      const props = versionInfo.parameterSchema?.properties ?? {};
-      const required = new Set(versionInfo.parameterSchema?.required ?? []);
+      const schema = prepared.copy.parameterSchema;
+      const props = schema?.properties ?? {};
+      const required = new Set(schema?.required ?? []);
 
       stepList.style.display = 'none';
       stepCreate.style.display = 'none';
-      stepVersions.style.display = 'none';
       stepBindings.style.display = '';
-      createNewBtn.style.display = 'none';
+      if (createNewBtn) createNewBtn.style.display = 'none';
 
-      bindingTitle.textContent = `${versionInfo.stencilName} v${versionInfo.version} parameters`;
+      bindingTitle.textContent = `${prepared.copy.name} parameters`;
       bindingRows.innerHTML = '';
 
       const fieldPaths = options.fieldPaths ?? [];
-
       for (const [name, prop] of Object.entries(props)) {
         const row = renderBindingRow({
           name,
           prop,
           required: required.has(name),
-          initialValue: bindingValues[name] ?? '',
+          initialValue: '',
           fieldPaths,
           getExampleData: options.getExampleData,
           locale: options.locale,
@@ -380,36 +312,35 @@ export async function openStencilPickerDialog(
     }
 
     function updateBindingInsertState() {
-      if (!pendingBindingVersionInfo) {
+      if (!pendingPrepared) {
         insertBtn.disabled = true;
         return;
       }
-      const schema = pendingBindingVersionInfo.parameterSchema;
-      const allRequiredBound =
-        schema === undefined || missingRequiredParameters(schema, bindingValues).length === 0;
-      insertBtn.disabled = !allRequiredBound;
+      const schema = pendingPrepared.copy.parameterSchema;
+      insertBtn.disabled =
+        schema !== undefined && missingRequiredParameters(schema, bindingValues).length > 0;
     }
 
     // ── Create new stencil ──
 
     function showCreateForm() {
       stepList.style.display = 'none';
-      stepVersions.style.display = 'none';
+      stepBindings.style.display = 'none';
       stepCreate.style.display = '';
       insertBtn.style.display = 'none';
-      createNewBtn.style.display = 'none';
+      if (createNewBtn) createNewBtn.style.display = 'none';
+      createConfirmBtn.style.display = '';
       createNameInput.value = '';
       createSlugInput.value = '';
       createError.style.display = 'none';
+      updateCreateButtonState();
       createNameInput.focus();
     }
 
     let slugManuallyEdited = false;
 
     createNameInput.addEventListener('input', () => {
-      if (!slugManuallyEdited) {
-        createSlugInput.value = nameToSlug(createNameInput.value);
-      }
+      if (!slugManuallyEdited) createSlugInput.value = nameToSlug(createNameInput.value);
       updateCreateButtonState();
     });
 
@@ -419,12 +350,7 @@ export async function openStencilPickerDialog(
     });
 
     function updateCreateButtonState() {
-      const createBtn = dialog.querySelector<HTMLButtonElement>(
-        '.stencil-picker-btn.create-confirm',
-      );
-      if (createBtn) {
-        createBtn.disabled = !createNameInput.value.trim() || !createSlugInput.value.trim();
-      }
+      createConfirmBtn.disabled = !createNameInput.value.trim() || !createSlugInput.value.trim();
     }
 
     function nameToSlug(name: string): string {
@@ -437,67 +363,59 @@ export async function openStencilPickerDialog(
     async function doCreate() {
       if (!callbacks.createStencil) return;
       const name = createNameInput.value.trim();
-      const slug = createSlugInput.value.trim();
-      if (!name || !slug) return;
+      const key = createSlugInput.value.trim();
+      if (!name || !key) return;
 
       createError.style.display = 'none';
-      const createBtn = dialog.querySelector<HTMLButtonElement>(
-        '.stencil-picker-btn.create-confirm',
-      );
-      if (createBtn) {
-        createBtn.disabled = true;
-        createBtn.textContent = 'Creating...';
-      }
-
+      createConfirmBtn.disabled = true;
+      createConfirmBtn.textContent = 'Creating...';
       try {
-        const result = await callbacks.createStencil(slug, name);
-        close({
-          action: 'create-new',
-          ref: result.ref,
-          version: result.version,
-        });
+        const ref = await callbacks.createStencil(key, name);
+        close({ action: 'create-new', ref });
       } catch (e) {
         createError.textContent = (e as Error).message || 'Failed to create stencil';
         createError.style.display = '';
-        if (createBtn) {
-          createBtn.disabled = false;
-          createBtn.textContent = 'Create';
-        }
+        createConfirmBtn.disabled = false;
+        createConfirmBtn.textContent = 'Create';
       }
     }
 
     // ── Insert ──
 
     async function doInsert() {
-      if (!selectedStencil || !selectedVersion) return;
+      if (!selectedStencil) return;
       insertBtn.disabled = true;
       insertBtn.textContent = 'Loading...';
+      showPickError(null);
 
-      const ref: StencilRef = {
-        stencilId: selectedStencil.id,
-        catalogKey: selectedStencil.catalogKey ?? 'default',
-      };
-      const versionInfo = await callbacks.getStencilVersion(ref, selectedVersion.version);
-      if (!versionInfo) {
-        insertBtn.textContent = 'Insert';
+      const outcome = await options.prepare(refOf(selectedStencil)).catch((e: unknown) => ({
+        ok: false as const,
+        message: e instanceof Error ? e.message : 'Failed to load the stencil',
+      }));
+      insertBtn.textContent = 'Insert';
+      if (!outcome.ok) {
+        showPickError(outcome.message);
         insertBtn.disabled = false;
         return;
       }
 
-      // If the stencil has parameters declared, transition to the binding
-      // step. Otherwise insert immediately with empty bindings + default alias.
-      const props = versionInfo.parameterSchema?.properties;
-      const hasParams = !!(props && Object.keys(props).length > 0);
-      if (hasParams) {
-        showBindingStep(versionInfo);
+      // A stencil with parameters goes through the binding step; otherwise
+      // insert immediately with empty bindings and the default alias.
+      const props = outcome.prepared.copy.parameterSchema?.properties;
+      if (props && Object.keys(props).length > 0) {
+        showBindingStep(outcome.prepared);
         return;
       }
-      close({ action: 'use-existing', versionInfo, bindings: {}, paramsAlias: 'params' });
+      close({
+        action: 'use-existing',
+        prepared: outcome.prepared,
+        bindings: {},
+        paramsAlias: 'params',
+      });
     }
 
     // ── Event handlers ──
 
-    // Initial load
     callbacks
       .searchStencils('')
       .then((stencils) => renderStencilList(stencils))
@@ -505,7 +423,6 @@ export async function openStencilPickerDialog(
         list.innerHTML = '<div class="stencil-picker-empty">Failed to load stencils.</div>';
       });
 
-    // Search with debounce
     searchInput.addEventListener('input', () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
@@ -520,44 +437,23 @@ export async function openStencilPickerDialog(
 
     closeBtn.addEventListener('click', () => close(null));
     cancelBtn.addEventListener('click', () => close(null));
-    insertBtn.addEventListener('click', async () => {
+    insertBtn.addEventListener('click', () => {
       // On the binding step, "Insert" closes with the collected bindings.
-      // Elsewhere it kicks off the version-fetch + (conditional) binding flow.
-      if (pendingBindingVersionInfo && stepBindings.style.display !== 'none') {
+      if (pendingPrepared && stepBindings.style.display !== 'none') {
         close({
           action: 'use-existing',
-          versionInfo: pendingBindingVersionInfo,
+          prepared: pendingPrepared,
           bindings: { ...bindingValues },
           paramsAlias: 'params',
         });
         return;
       }
-      doInsert();
+      void doInsert();
     });
-    createNewBtn.addEventListener('click', () => {
-      if (callbacks.createStencil) {
-        showCreateForm();
-        // Show the create-confirm button, hide insert
-        const createConfirmBtn = dialog.querySelector<HTMLElement>('.create-confirm');
-        if (createConfirmBtn) createConfirmBtn.style.display = '';
-      } else {
-        // No create callback — insert empty (legacy fallback)
-        close({ action: 'create-new', ref: { stencilId: '', catalogKey: '' }, version: 0 });
-      }
-    });
-    const createConfirmBtn = dialog.querySelector<HTMLButtonElement>('.create-confirm');
-    createConfirmBtn?.addEventListener('click', () => doCreate());
-    backBtn.addEventListener('click', () => showStencilList());
+    createNewBtn?.addEventListener('click', () => showCreateForm());
+    createConfirmBtn.addEventListener('click', () => void doCreate());
     backCreateBtn.addEventListener('click', () => showStencilList());
-    backBindingsBtn.addEventListener('click', () => {
-      pendingBindingVersionInfo = null;
-      bindingValues = {};
-      if (selectedStencil) {
-        showVersionPicker(selectedStencil);
-      } else {
-        showStencilList();
-      }
-    });
+    backBindingsBtn.addEventListener('click', () => showStencilList());
 
     dialog.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {

@@ -5,31 +5,30 @@
 /**
  * StencilInspector — Lit component for stencil-specific inspector controls.
  *
- * Pure UI: renders contextual buttons based on stencil state, owns
- * busy-spinner / message state, and routes user clicks to functions in
- * `stencil-actions.ts`. All business logic (backend orchestration, content
- * swap, fill preservation, draft-version recovery) lives in that module.
+ * Pure UI: renders contextual buttons based on the instance's state, owns
+ * busy-spinner / message state, and routes clicks to `stencil-actions.ts`.
  *
- * State shown:
- * - Unlinked (no `stencilId`): no controls (publishing flows through other UI).
- * - Locked (`stencilId` and `version` set, no `draftVersion`): "Upgrade" (when available)
- *   or "Start Editing" + "Detach".
- * - Editing draft (`draftVersion` set): "Save to Draft", "Publish Draft",
- *   "Discard Changes", "Detach".
+ * A template uses a stencil by reference: the instance shows the stencil's
+ * working copy. States shown:
+ * - Unlinked (no `stencilKey`): says so; only parameters, if any.
+ * - Using the stencil: "Edit stencil" when its working copy can be edited
+ *   here (else why not), and "Detach from stencil".
+ * - Editing the stencil in place: "Define parameters…", "Save stencil",
+ *   "Save and mark ready", "Stop editing", "Detach from stencil".
  */
 
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { Node, NodeId } from '../../types/index.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
-import type { StencilCallbacks, StencilRef } from './types.js';
+import type { StencilCallbacks, StencilWorkingCopy } from './types.js';
 import * as stencilActions from './stencil-actions.js';
-import { isStencil } from './node-types.js';
+import { isLinkedStencil, isStencil } from './node-types.js';
+import { STENCIL_EDITING_STATE_KEY, type StencilEditingState } from './editing-state.js';
 import { openParameterDefinitionsDialog } from './parameter-definitions-dialog.js';
 import { openParameterBindingsDialog } from './parameter-bindings-dialog.js';
 import { STENCIL_BINDING_ERRORS_KEY, type BindingErrors } from './binding-errors.js';
 import { bindingsDeclaredBySchema, missingRequiredParameters } from './parameter-requirements.js';
-import type { DraftRecovery } from './draft-hydration.js';
 
 @customElement('stencil-inspector')
 export class StencilInspector extends LitElement {
@@ -40,29 +39,25 @@ export class StencilInspector extends LitElement {
   @property({ attribute: false }) node!: Node;
   @property({ attribute: false }) engine!: EditorEngine;
   @property({ attribute: false }) callbacks!: StencilCallbacks | null;
+  @property({ attribute: false }) editing!: StencilEditingState;
 
   @state() private _busy = false;
   @state() private _message = '';
   @state() private _messageFading = false;
   @state() private _messageType: 'info' | 'success' | 'error' = 'info';
-  @state() private _latestVersion: number | null = null;
-  @state() private _recovery: DraftRecovery | null = null;
+  /** The working copy, read once per instance to know its name and whether it can be edited. */
+  @state() private _copy: StencilWorkingCopy | null = null;
+  @state() private _copyMissing = false;
 
+  private _copyFor: string | null = null;
   private _unsubState?: () => void;
   private _messageTimer?: ReturnType<typeof setTimeout>;
   private _fadeTimer?: ReturnType<typeof setTimeout>;
 
   override connectedCallback(): void {
     super.connectedCallback();
-    this._readUpgradeState();
-    this._readRecoveryState();
-    this._checkForUpgrades();
     this._unsubState = this.engine.events.on('component-state:change', ({ key }) => {
-      if (key === 'stencil:upgrades') {
-        this._readUpgradeState();
-      } else if (key === 'stencil:draftRecovery') {
-        this._readRecoveryState();
-      }
+      if (key === STENCIL_EDITING_STATE_KEY) this.requestUpdate();
     });
   }
 
@@ -73,37 +68,18 @@ export class StencilInspector extends LitElement {
     super.disconnectedCallback();
   }
 
+  override willUpdate(): void {
+    this._loadWorkingCopy();
+  }
+
   // ── Computed state ──
 
-  private get _stencilId(): string | null {
-    return isStencil(this.node) ? this.node.props.stencilId : null;
+  private get _isLinked(): boolean {
+    return isLinkedStencil(this.node);
   }
 
-  private get _ref(): StencilRef | null {
-    if (!isStencil(this.node)) return null;
-    const { stencilId: id, catalogKey } = this.node.props;
-    return id && catalogKey ? { stencilId: id, catalogKey } : null;
-  }
-
-  private get _version(): number | null {
-    return isStencil(this.node) ? (this.node.props.version ?? null) : null;
-  }
-
-  private get _hasDraft(): boolean {
-    return isStencil(this.node) ? this.node.props.draftVersion != null : false;
-  }
-
-  private get _isLocked(): boolean {
-    return this._stencilId !== null && !this._hasDraft;
-  }
-
-  private get _hasUpgrade(): boolean {
-    return (
-      this._latestVersion != null &&
-      this._version != null &&
-      this._latestVersion > this._version &&
-      !this._hasDraft
-    );
+  private get _isEditing(): boolean {
+    return this._isLinked && (this.editing?.isEditing(this.node.id) ?? false);
   }
 
   /** Build the action context. Returns null when callbacks aren't configured. */
@@ -112,44 +88,33 @@ export class StencilInspector extends LitElement {
     return {
       engine: this.engine,
       callbacks: this.callbacks,
+      editing: this.editing,
       stencilNodeId: this.node.id,
     };
   }
 
-  // ── Background queries ──
-
-  /** Check for upgrades for this specific stencil on every selection. */
-  private async _checkForUpgrades() {
-    if (!this._ref || !this._version || this._hasDraft) return;
+  private _loadWorkingCopy() {
     const ctx = this._ctx();
-    if (!ctx) return;
-    const latest = await stencilActions.findLatestPublishedVersion(ctx);
-    if (latest != null && latest > this._version) {
-      const current =
-        this.engine.getComponentState<Record<string, number>>('stencil:upgrades') ?? {};
-      this.engine.setComponentState('stencil:upgrades', {
-        ...current,
-        [this._stencilId!]: latest,
+    const ref = ctx ? stencilActions.stencilRef(ctx) : null;
+    const key = ref ? `${this.node.id}|${ref.catalogKey}/${ref.stencilKey}` : null;
+    if (key === this._copyFor) return;
+    this._copyFor = key;
+    this._copy = null;
+    this._copyMissing = false;
+    if (!ref || !this.callbacks) return;
+    this.callbacks
+      .getStencil(ref)
+      .then((copy) => {
+        if (this._copyFor !== key) return;
+        this._copy = copy;
+        this._copyMissing = copy === null;
+      })
+      .catch(() => {
+        if (this._copyFor === key) this._copyMissing = true;
       });
-    }
   }
 
-  private _readUpgradeState() {
-    const upgrades = this.engine.getComponentState<Record<string, number>>('stencil:upgrades');
-    if (upgrades && this._stencilId) {
-      this._latestVersion = upgrades[this._stencilId] ?? null;
-    }
-  }
-
-  private _readRecoveryState() {
-    const recovery =
-      this.engine.getComponentState<Record<string, DraftRecovery>>('stencil:draftRecovery') ?? {};
-    this._recovery = recovery[this.node.id] ?? null;
-  }
-
-  /** Look up this node's parent node id, if any. Used to compute the outer
-   *  scope when binding parameters (the expressions evaluate against the
-   *  context surrounding the stencil, not its own params namespace). */
+  /** Look up this node's parent node id: bindings evaluate in the scope around the stencil. */
   private _parentNodeId(): NodeId | null {
     return this.engine.indexes.parentNodeByNodeId.get(this.node.id) ?? null;
   }
@@ -160,19 +125,20 @@ export class StencilInspector extends LitElement {
     return html`
       <div class="inspector-section">
         <div class="inspector-section-label">Stencil</div>
-
         ${
-          this._recovery
-            ? this._renderRecovery()
-            : html`
-                ${this._isLocked ? this._renderLocked() : nothing}
-                ${this._hasDraft ? this._renderDraft() : nothing}
-              `
+          !this._isLinked
+            ? html`<div class="stencil-hint" data-testid="stencil-unlinked">
+                This block is not linked to a stencil.
+              </div>`
+            : this._isEditing
+              ? this._renderEditing()
+              : this._renderUsing()
         }
         ${
           this._message
             ? html`<div
                 class=${`callout callout--${this._messageType}${this._messageFading ? ' is-fading' : ''}`}
+                data-testid="stencil-message"
               >
                 ${this._message}
               </div>`
@@ -183,23 +149,128 @@ export class StencilInspector extends LitElement {
     `;
   }
 
-  private _renderRecovery() {
+  // ── Using the stencil (content locked) ──
+
+  private _renderUsing() {
     return html`
-      <div class="callout callout--error">${this._recovery?.message}</div>
-      <div class="stencil-actions">
-        <button class="btn btn-primary" ?disabled=${this._busy} @click=${this._handleRecover}>
-          Recover embedded copy
+      ${this._copy ? html`<div class="stencil-hint">${this._copy.name}</div>` : nothing}
+      <div class="inspector-field stencil-actions">
+        ${this._renderEditAffordance()}
+        <button
+          class="ep-btn ep-btn-outline ep-btn-sm stencil-btn"
+          data-testid="stencil-detach"
+          @click=${this._handleDetach}
+        >
+          Detach from Stencil
+        </button>
+      </div>
+    `;
+  }
+
+  /** "Edit stencil" when it can be used here; otherwise the reason it is not offered. */
+  private _renderEditAffordance() {
+    if (!this.callbacks?.saveStencil) {
+      return html`<div class="stencil-hint">
+        This editor cannot save stencils, so the stencil's content is read-only here.
+      </div>`;
+    }
+    if (this._copyMissing) {
+      return html`<div class="callout callout--warning" data-testid="stencil-missing">
+        This stencil no longer exists. Detach it to keep its content in this template, or remove it.
+      </div>`;
+    }
+    if (!this._copy) return nothing; // still loading
+    if (!this._copy.editable) {
+      return html`<div class="stencil-hint" data-testid="stencil-read-only">
+        This stencil belongs to the read-only catalog '${this._copy.ref.catalogKey}', so it cannot
+        be edited here. Detach it to customise its content in this template.
+      </div>`;
+    }
+    return html`<button
+      class="ep-btn ep-btn-primary ep-btn-sm stencil-btn"
+      data-testid="stencil-start-editing"
+      ?disabled=${this._busy}
+      @click=${this._handleStartEditing}
+    >
+      ${this._busy ? 'Loading...' : 'Edit Stencil'}
+    </button>`;
+  }
+
+  // ── Editing the stencil in place ──
+
+  private _renderEditing() {
+    const schema = isStencil(this.node) ? this.node.props.parameterSchemaSnapshot : undefined;
+    const paramCount = schema?.properties ? Object.keys(schema.properties).length : 0;
+    const missingRequired = schema
+      ? missingRequiredParameters(
+          schema,
+          isStencil(this.node) ? (this.node.props.parameterBindings ?? {}) : {},
+        )
+      : [];
+
+    return html`
+      <div class="stencil-hint">
+        You are editing the stencil itself. Saving changes it in every template that uses it.
+      </div>
+      <div class="inspector-field" style="margin-bottom: var(--ep-space-2);">
+        <button
+          class="ep-btn ep-btn-outline ep-btn-sm stencil-btn"
+          data-testid="stencil-define-parameters"
+          @click=${this._handleEditDefinitions}
+          style="width: 100%;"
+        >
+          Define parameters… (${paramCount})
+        </button>
+      </div>
+
+      <div class="inspector-field stencil-actions">
+        <button
+          class="ep-btn ep-btn-primary ep-btn-sm stencil-btn"
+          data-testid="stencil-save"
+          ?disabled=${this._busy}
+          @click=${this._handleSave}
+        >
+          ${this._busy ? 'Saving...' : 'Save Stencil'}
         </button>
         ${
-          this._version != null
-            ? html`<button class="btn" ?disabled=${this._busy} @click=${this._handleDiscard}>
-                Discard to v${this._version}
+          this.callbacks?.markStencilReady
+            ? html`<button
+                class="ep-btn ep-btn-outline ep-btn-sm stencil-btn"
+                data-testid="stencil-save-and-mark-ready"
+                ?disabled=${this._busy || missingRequired.length > 0}
+                @click=${this._handleSaveAndMarkReady}
+              >
+                Save and Mark Ready
               </button>`
             : nothing
         }
-        <button class="btn" ?disabled=${this._busy} @click=${this._handleDetach}>
-          Detach embedded copy
+        <button
+          class="ep-btn ep-btn-outline ep-btn-sm stencil-btn"
+          data-testid="stencil-stop-editing"
+          ?disabled=${this._busy}
+          @click=${this._handleStopEditing}
+        >
+          Stop Editing
         </button>
+        <button
+          class="ep-btn ep-btn-outline ep-btn-sm stencil-btn"
+          data-testid="stencil-detach"
+          @click=${this._handleDetach}
+        >
+          Detach from Stencil
+        </button>
+        <div class="stencil-hint">
+          Stop editing shows the stencil as it was last saved; changes you did not save are dropped.
+        </div>
+        ${
+          missingRequired.length > 0 && this.callbacks?.markStencilReady
+            ? html`<div class="callout callout--warning">
+                Configure required ${missingRequired.length === 1 ? 'parameter' : 'parameters'}
+                before marking the stencil ready: ${missingRequired.join(', ')}. You can still save
+                it.
+              </div>`
+            : nothing
+        }
       </div>
     `;
   }
@@ -247,16 +318,11 @@ export class StencilInspector extends LitElement {
     if (!isStencil(this.node)) return;
     const schema = this.node.props.parameterSchemaSnapshot;
     if (!schema) return;
-    // Compute the available scope at the stencil node's *parent* (bindings
-    // are evaluated against the outer context, not the stencil's own scope).
+    // Bindings are evaluated against the context around the stencil, not its own scope.
     const parentNodeId = this._parentNodeId();
-    const fieldPaths = parentNodeId
-      ? this.engine.getAvailableVariablesAt(parentNodeId)
-      : this.engine.getAvailableVariablesAt(this.node.id);
-    const getExampleData = () =>
-      parentNodeId
-        ? this.engine.getEvaluationContextAt(parentNodeId)
-        : this.engine.getEvaluationContextAt(this.node.id);
+    const at = parentNodeId ?? this.node.id;
+    const fieldPaths = this.engine.getAvailableVariablesAt(at);
+    const getExampleData = () => this.engine.getEvaluationContextAt(at);
     // Retrieve any stored binding errors from a failed save and clear them
     const bindingErrors = this.engine.getComponentState<BindingErrors>(STENCIL_BINDING_ERRORS_KEY);
     this.engine.setComponentState(STENCIL_BINDING_ERRORS_KEY, null);
@@ -273,140 +339,19 @@ export class StencilInspector extends LitElement {
     if (!result) return;
 
     const next = { ...this.node.props } as Record<string, unknown>;
-    if (Object.keys(result.bindings).length > 0) {
-      next.parameterBindings = result.bindings;
-    } else {
-      delete next.parameterBindings;
-    }
-    if (result.paramsAlias && result.paramsAlias !== 'params') {
+    if (Object.keys(result.bindings).length > 0) next.parameterBindings = result.bindings;
+    else delete next.parameterBindings;
+    if (result.paramsAlias && result.paramsAlias !== 'params')
       next.paramsAlias = result.paramsAlias;
-    } else {
-      delete next.paramsAlias;
-    }
-    this.engine.dispatch({
-      type: 'UpdateNodeProps',
-      nodeId: this.node.id,
-      props: next,
-    });
+    else delete next.paramsAlias;
+    this.engine.dispatch({ type: 'UpdateNodeProps', nodeId: this.node.id, props: next });
   };
-
-  // ── Locked: published version, not editing ──
-
-  private _renderLocked() {
-    return html`
-      <div class="inspector-field stencil-actions">
-        ${
-          this._hasUpgrade
-            ? html`<button
-                  class="ep-btn ep-btn-primary ep-btn-sm stencil-btn"
-                  ?disabled=${this._busy}
-                  @click=${this._handleUpgrade}
-                >
-                  ${this._busy ? 'Upgrading...' : `Upgrade to v${this._latestVersion}`}
-                </button>
-                <div class="callout callout--warning">
-                  Upgrade to v${this._latestVersion} before editing — editing the stale
-                  v${this._version} content here would overwrite the newer published version when
-                  you save.
-                </div>`
-            : this.callbacks?.startEditing
-              ? html`<button
-                  class="ep-btn ep-btn-primary ep-btn-sm stencil-btn"
-                  ?disabled=${this._busy}
-                  @click=${this._handleStartEditing}
-                >
-                  ${this._busy ? 'Loading...' : 'Start Editing'}
-                </button>`
-              : nothing
-        }
-
-        <button class="ep-btn ep-btn-outline ep-btn-sm stencil-btn" @click=${this._handleDetach}>
-          Detach from Stencil
-        </button>
-      </div>
-    `;
-  }
-
-  // ── Draft: editing mode ──
-
-  private _renderDraft() {
-    const schema = isStencil(this.node) ? this.node.props.parameterSchemaSnapshot : undefined;
-    const paramCount = schema?.properties ? Object.keys(schema.properties).length : 0;
-    const missingRequired = schema
-      ? missingRequiredParameters(
-          schema,
-          isStencil(this.node) ? (this.node.props.parameterBindings ?? {}) : {},
-        )
-      : [];
-
-    return html`
-      <div class="inspector-field" style="margin-bottom: var(--ep-space-2);">
-        <button
-          class="ep-btn ep-btn-outline ep-btn-sm stencil-btn"
-          @click=${this._handleEditDefinitions}
-          style="width: 100%;"
-        >
-          Define parameters… (${paramCount})
-        </button>
-      </div>
-
-      <div class="inspector-field stencil-actions">
-        ${
-          this.callbacks?.updateStencil
-            ? html`<button
-                class="ep-btn ep-btn-primary ep-btn-sm stencil-btn"
-                ?disabled=${this._busy}
-                @click=${this._handleSaveDraft}
-              >
-                ${this._busy ? 'Saving...' : 'Save to Draft'}
-              </button>`
-            : nothing
-        }
-        ${
-          this.callbacks?.publishDraft
-            ? html`<button
-                class="ep-btn ep-btn-outline ep-btn-sm stencil-btn"
-                ?disabled=${this._busy || missingRequired.length > 0}
-                @click=${this._handlePublishDraft}
-              >
-                ${this._busy ? 'Publishing...' : 'Publish Draft'}
-              </button>`
-            : nothing
-        }
-        ${
-          this.callbacks?.getStencilVersion
-            ? html`<button
-                class="ep-btn ep-btn-outline ep-btn-destructive ep-btn-sm stencil-btn"
-                ?disabled=${this._busy}
-                @click=${this._handleDiscard}
-              >
-                Discard Changes
-              </button>`
-            : nothing
-        }
-
-        <button class="ep-btn ep-btn-outline ep-btn-sm stencil-btn" @click=${this._handleDetach}>
-          Detach from Stencil
-        </button>
-        ${
-          missingRequired.length > 0
-            ? html`<div class="callout callout--warning">
-                Configure required ${missingRequired.length === 1 ? 'parameter' : 'parameters'}
-                before publishing: ${missingRequired.join(', ')}. You can still save this as a
-                draft.
-              </div>`
-            : nothing
-        }
-      </div>
-    `;
-  }
 
   private _handleEditDefinitions = async () => {
     if (!isStencil(this.node)) return;
     const result = await openParameterDefinitionsDialog(this.node.props.parameterSchemaSnapshot);
     if (!result) return;
-    // Empty-properties schemas drop the snapshot entirely so the stencil
-    // reads as "no parameters".
+    // Empty-properties schemas drop the schema entirely so the stencil reads as "no parameters".
     const hasProps = result.properties && Object.keys(result.properties).length > 0;
     const next = { ...this.node.props } as Record<string, unknown>;
     if (hasProps) next.parameterSchemaSnapshot = result;
@@ -415,79 +360,46 @@ export class StencilInspector extends LitElement {
       hasProps ? result : undefined,
       this.node.props.parameterBindings ?? {},
     );
-    if (Object.keys(retainedBindings).length > 0) {
-      next.parameterBindings = retainedBindings;
-    } else {
-      delete next.parameterBindings;
-    }
-    this.engine.dispatch({
-      type: 'UpdateNodeProps',
-      nodeId: this.node.id,
-      props: next,
-    });
+    if (Object.keys(retainedBindings).length > 0) next.parameterBindings = retainedBindings;
+    else delete next.parameterBindings;
+    this.engine.dispatch({ type: 'UpdateNodeProps', nodeId: this.node.id, props: next });
   };
 
   // ── Click handlers — thin wrappers around stencil-actions ──
 
   private _handleStartEditing = () =>
     this._run(async (ctx) => {
-      const r = await stencilActions.startEditing(ctx);
-      return `Editing exact draft v${r.version} — your template overrides are preserved`;
+      await stencilActions.startEditing(ctx);
+      return 'Editing the stencil — your fills in this template are kept';
     }, 'info');
 
-  private _handleSaveDraft = () =>
+  private _handleSave = () =>
     this._run(async (ctx) => {
-      const r = await stencilActions.saveDraft(ctx);
-      return `Draft v${r.version} saved`;
+      await stencilActions.saveStencil(ctx);
+      return 'Stencil saved';
     });
 
-  private _handlePublishDraft = () =>
+  private _handleSaveAndMarkReady = () =>
     this._run(async (ctx) => {
-      const r = await stencilActions.publishDraft(ctx);
-      return `Published v${r.version}`;
+      await stencilActions.saveAndMarkReady(ctx);
+      return 'Stencil saved and marked ready';
     });
 
-  private _handleDiscard = () =>
+  private _handleStopEditing = () =>
     this._run(async (ctx) => {
-      if (this._version == null) throw new Error('No published version to revert to');
-      await stencilActions.discard(ctx, this._version);
-      this._clearRecovery();
-      return 'Changes discarded — reverted to published version';
-    });
-
-  private _handleRecover = () =>
-    this._run(async (ctx) => {
-      const result = await stencilActions.recoverDraft(ctx);
-      this._clearRecovery();
-      return `Recovered embedded copy as draft v${result.version}`;
-    });
-
-  private _handleUpgrade = () =>
-    this._run(async (ctx) => {
-      if (this._latestVersion == null) throw new Error('No upgrade available');
-      const r = await stencilActions.upgrade(ctx, this._latestVersion);
-      this._latestVersion = null;
-      return `Upgraded to v${r.version}`;
-    });
+      await stencilActions.stopEditing(ctx);
+      return 'Stopped editing — showing the saved stencil';
+    }, 'info');
 
   private _handleDetach = () => {
     // Detach works even without callbacks — it's a pure local operation.
     stencilActions.detach({
       engine: this.engine,
-      callbacks: this.callbacks ?? ({} as StencilCallbacks),
       stencilNodeId: this.node.id,
+      editing: this.editing,
     });
     this._setMessage('Converted to container', 'success');
-    this._clearRecovery();
   };
-
-  private _clearRecovery() {
-    const recovery = {
-      ...this.engine.getComponentState<Record<string, DraftRecovery>>('stencil:draftRecovery'),
-    };
-    delete recovery[this.node.id];
-    this.engine.setComponentState('stencil:draftRecovery', recovery);
-  }
 
   private _setMessage(msg: string, type: 'info' | 'success' | 'error' = 'info') {
     clearTimeout(this._messageTimer);

@@ -9,6 +9,7 @@ import { render, html } from 'lit';
 import { EditorEngine } from '../../engine/EditorEngine.js';
 import { createDefaultRegistry } from '../../engine/registry.js';
 import { createStencilDefinition } from '../stencil/stencil-registration.js';
+import { StencilEditingState } from '../stencil/editing-state.js';
 import './PlaceholderInspector.js';
 import type { Node, NodeId, SlotId, TemplateDocument } from '../../types/index.js';
 
@@ -16,12 +17,17 @@ import type { Node, NodeId, SlotId, TemplateDocument } from '../../types/index.j
  * Build a minimal doc where a placeholder lives inside a stencil with the
  * given props. Returns the engine and the placeholder node.
  */
-function setupEngineWithPlaceholder(stencilProps: Record<string, unknown>): {
+function setupEngineWithPlaceholder(
+  stencilProps: Record<string, unknown>,
+  options: { editing?: boolean } = {},
+): {
   engine: EditorEngine;
   placeholder: Node;
 } {
   const registry = createDefaultRegistry();
-  registry.register(createStencilDefinition({ callbacks: null }));
+  const editing = new StencilEditingState();
+  if (options.editing) editing.start('stencil');
+  registry.register(createStencilDefinition({ callbacks: null, editing }));
   const doc: TemplateDocument = {
     modelVersion: 1,
     root: 'root' as NodeId,
@@ -80,12 +86,11 @@ describe('PlaceholderInspector — context-aware rendering', () => {
     document.body.appendChild(container);
   });
 
-  it('renders editable inputs when the surrounding stencil is in draft mode', async () => {
-    const { engine, placeholder } = setupEngineWithPlaceholder({
-      stencilId: 'A',
-      version: 1,
-      draftVersion: 2,
-    });
+  it('renders editable inputs while the surrounding stencil is being edited', async () => {
+    const { engine, placeholder } = setupEngineWithPlaceholder(
+      { stencilKey: 'A' },
+      { editing: true },
+    );
     render(
       html`<placeholder-inspector .node=${placeholder} .engine=${engine}></placeholder-inspector>`,
       container,
@@ -99,11 +104,8 @@ describe('PlaceholderInspector — context-aware rendering', () => {
     expect(nameInput!.value).toBe('body');
   });
 
-  it('renders read-only display when the surrounding stencil is published', async () => {
-    const { engine, placeholder } = setupEngineWithPlaceholder({
-      stencilId: 'A',
-      version: 1,
-    });
+  it('renders read-only display when the surrounding stencil is used, not edited', async () => {
+    const { engine, placeholder } = setupEngineWithPlaceholder({ stencilKey: 'A' });
     render(
       html`<placeholder-inspector .node=${placeholder} .engine=${engine}></placeholder-inspector>`,
       container,
@@ -118,11 +120,8 @@ describe('PlaceholderInspector — context-aware rendering', () => {
     expect(container.textContent).toContain('Managed by the stencil definition');
   });
 
-  it('renders editable when the surrounding stencil is unlinked (no stencilId)', async () => {
-    const { engine, placeholder } = setupEngineWithPlaceholder({
-      stencilId: null,
-      version: 1,
-    });
+  it('renders editable when the surrounding stencil is unlinked (no stencilKey)', async () => {
+    const { engine, placeholder } = setupEngineWithPlaceholder({ stencilKey: null });
     render(
       html`<placeholder-inspector .node=${placeholder} .engine=${engine}></placeholder-inspector>`,
       container,
@@ -162,7 +161,7 @@ describe('PlaceholderInspector — name uniqueness scoping', () => {
           id: 'stencil-a' as NodeId,
           type: 'stencil',
           slots: ['stencil-a-slot' as SlotId],
-          props: { stencilId: 'A', version: 1 },
+          props: { stencilKey: 'A' },
         },
         'stencil-b': {
           id: 'stencil-b' as NodeId,
@@ -234,10 +233,9 @@ describe('PlaceholderInspector — name uniqueness scoping', () => {
   }
 
   it('allows the same placeholder name in a sibling stencil', async () => {
+    // B is unlinked, so its placeholder is editable.
     const { engine, placeholder } = setupTwoStencilsWith('body', 'placeholder-1', {
-      stencilId: 'B',
-      version: 1,
-      draftVersion: 2,
+      stencilKey: null,
     });
     render(
       html`<placeholder-inspector .node=${placeholder} .engine=${engine}></placeholder-inspector>`,
@@ -264,7 +262,7 @@ describe('PlaceholderInspector — name uniqueness scoping', () => {
           id: 'stencil-b' as NodeId,
           type: 'stencil',
           slots: ['stencil-b-slot' as SlotId],
-          props: { stencilId: 'B', version: 1, draftVersion: 2 },
+          props: { stencilKey: null },
         },
         'ph-x': {
           id: 'ph-x' as NodeId,

@@ -51,8 +51,12 @@ class ExpressionClipboardPlaywrightUiTest : BasePlaywrightTest() {
         val clipboardText = page.evaluate("() => navigator.clipboard.readText()") as String
         assertThatJ(clipboardText.withoutWhitespace()).contains("Before{{customer.name}}after")
 
-        // A normal click collapses the range and places the caret before the rich paste.
+        // A normal click collapses the range and places the caret before the rich paste. Wait for
+        // the collapse to land: ProseMirror takes the browser selection over from its
+        // selectionchange handling, and a paste that arrives first replaces the old range instead
+        // of inserting at the caret.
         selectionEnd.click()
+        page.waitForFunction("() => window.getSelection()?.isCollapsed === true")
         page.keyboard().press("End")
         page.keyboard().press("$shortcutModifier+V")
         assertThat(expressionChips).hasCount(2)

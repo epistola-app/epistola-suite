@@ -188,7 +188,9 @@ change applies to every template that uses the stencil at once.
   template that does not bind it.
 - A **new default** applies to every instance that does not bind the parameter.
 
-The authoring and binding UI in the editor is being moved to this model.
+In the editor, an instance's **Configure parameters…** binds them; while the author edits the stencil
+in place, **Define parameters…** changes the schema, which **Save Stencil** writes with the content
+(see [stencils.md](stencils.md#in-the-template-editor)).
 
 ## 7. Critical files
 

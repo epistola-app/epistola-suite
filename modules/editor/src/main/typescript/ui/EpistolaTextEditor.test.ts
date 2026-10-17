@@ -60,9 +60,9 @@ function hydratedDocument(): TemplateDocument {
         type: 'stencil',
         slots: ['stencil-slot' as SlotId],
         props: {
-          stencilId: 'repro',
+          // Unlinked, so its content is editable.
+          stencilKey: null,
           catalogKey: 'default',
-          draftVersion: 2,
           parameterSchemaSnapshot: {
             type: 'object',
             properties: { param1: { type: 'string', default: 'Hydrated value' } },
@@ -110,7 +110,7 @@ describe('EpistolaTextEditor expression scope callbacks', () => {
     document.body.appendChild(editor);
     await editor.updateComplete;
 
-    engine.replaceDocument(hydratedDocument(), 'HydrateStencilDrafts');
+    engine.replaceDocument(hydratedDocument());
     editor.nodeId = 'hydrated-text' as NodeId;
     editor.content = EXPRESSION_CONTENT;
     await editor.updateComplete;

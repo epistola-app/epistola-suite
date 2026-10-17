@@ -559,8 +559,9 @@ class StencilHandler(
     }
 
     /**
-     * `PUT …/content` (JSON `{ content, parameterSchema? }`): saves the working copy from the
-     * template editor. An absent `parameterSchema` keeps the stored one.
+     * `PUT …/content` (JSON `{ content, parameterSchema?, clearParameterSchema? }`): saves the working
+     * copy from the template editor. An absent `parameterSchema` keeps the stored one;
+     * `clearParameterSchema` removes it, for a stencil whose author removed every parameter.
      */
     fun updateContent(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -570,6 +571,7 @@ class StencilHandler(
         data class ContentRequest(
             val content: app.epistola.template.model.TemplateDocument,
             val parameterSchema: tools.jackson.databind.JsonNode? = null,
+            val clearParameterSchema: Boolean = false,
         )
 
         val body = request.body(String::class.java)
@@ -578,7 +580,8 @@ class StencilHandler(
         UpdateStencil(
             id = stencilId,
             content = req.content,
-            parameterSchema = req.parameterSchema,
+            parameterSchema = req.parameterSchema.takeUnless { req.clearParameterSchema },
+            clearParameterSchema = req.clearParameterSchema,
         ).execute() ?: return ServerResponse.notFound().build()
 
         return ServerResponse.ok()

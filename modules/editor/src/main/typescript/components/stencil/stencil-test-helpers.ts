@@ -3,23 +3,22 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- * Shared test helpers for the stencil + placeholder test suites.
- *
- * Used by:
- *   - extract-subtree.test.ts
- *   - replace-content.test.ts
- *   - stencil-state.test.ts
- *   - stencil-callbacks.test.ts
- *   - stencil-actions.test.ts
+ * Shared test helpers for the stencil + placeholder test suites: a compact
+ * document builder, stencil working copies, mock callbacks and an engine.
  */
 
 import { vi } from 'vitest';
 import { EditorEngine } from '../../engine/EditorEngine.js';
 import { createDefaultRegistry, type ComponentRegistry } from '../../engine/registry.js';
-import { createTestDocument, nodeId, slotId } from '../../engine/test-helpers.js';
-import { createStencilDefinition } from './stencil-registration.js';
-import type { TemplateDocument, NodeId, SlotId } from '../../types/index.js';
-import type { StencilCallbacks } from './types.js';
+import { createStencilDefinition, prepareStencilInsert } from './stencil-registration.js';
+import { StencilEditingState } from './editing-state.js';
+import { lexicalScopeAt } from './instances.js';
+import type { Node, NodeId, Slot, SlotId, TemplateDocument } from '../../types/index.js';
+import type { JsonSchema } from '../../data-contract/types.js';
+import type { StencilCallbacks, StencilRef, StencilWorkingCopy } from './types.js';
+import { stencilIdentity } from './node-types.js';
+
+export const CATALOG = 'cat';
 
 export function richText(text: string) {
   return {
@@ -40,41 +39,160 @@ export function richTextValue(value: unknown): string | undefined {
   return typeof text === 'object' && text !== null ? (text as { text?: string }).text : undefined;
 }
 
-export function createMockCallbacks(overrides?: Partial<StencilCallbacks>): StencilCallbacks {
+// ---------------------------------------------------------------------------
+// Compact document builder. Slot IDs are `{nodeId}:{slotName}`.
+// ---------------------------------------------------------------------------
+
+export interface Spec {
+  id: string;
+  type: string;
+  props?: Record<string, unknown>;
+  slots?: Record<string, Spec[]>;
+}
+
+export const text = (id: string, value = id): Spec => ({
+  id,
+  type: 'text',
+  props: { content: richText(value) },
+});
+
+export const container = (id: string, children: Spec[] = []): Spec => ({
+  id,
+  type: 'container',
+  slots: { children },
+});
+
+/** A stencil's own placeholder (both slots). */
+export const placeholder = (
+  id: string,
+  name: string,
+  slots: { default?: Spec[]; fill?: Spec[] } = {},
+  props: Record<string, unknown> = {},
+): Spec => ({
+  id,
+  type: 'placeholder',
+  props: { name, ...props },
+  slots: { default: slots.default ?? [], fill: slots.fill ?? [] },
+});
+
+/** A stored instance: a reference with one fill carrier per fill. */
+export const storedInstance = (
+  id: string,
+  stencilKey: string,
+  fills: Record<string, Spec[]> = {},
+  props: Record<string, unknown> = {},
+): Spec => ({
+  id,
+  type: 'stencil',
+  props: { stencilKey, catalogKey: CATALOG, ...props },
+  slots: {
+    children: Object.entries(fills).map(([name, children]) => ({
+      id: `${id}:fill:${name}`,
+      type: 'placeholder',
+      props: { name },
+      slots: { fill: children },
+    })),
+  },
+});
+
+export function buildDocument(children: Spec[]): TemplateDocument {
+  const nodes: Record<string, Node> = {};
+  const slots: Record<string, Slot> = {};
+  const add = (spec: Spec): NodeId => {
+    const slotIds = Object.entries(spec.slots ?? {}).map(([name, kids]) => {
+      const sid = `${spec.id}:${name}` as SlotId;
+      slots[sid] = { id: sid, nodeId: spec.id as NodeId, name, children: kids.map(add) };
+      return sid;
+    });
+    nodes[spec.id] = {
+      id: spec.id as NodeId,
+      type: spec.type,
+      slots: slotIds,
+      ...(spec.props ? { props: spec.props } : {}),
+    };
+    return spec.id as NodeId;
+  };
+  add({ id: 'root', type: 'root', slots: { children } });
   return {
-    searchStencils: vi.fn().mockResolvedValue([]),
-    listVersions: vi.fn().mockResolvedValue([]),
-    getStencilVersion: vi.fn().mockResolvedValue(null),
-    updateStencil: vi.fn().mockResolvedValue({ version: 2 }),
-    startEditing: vi.fn().mockResolvedValue({
-      ref: { stencilId: 'header', catalogKey: 'default' },
-      stencilName: 'Header',
-      version: 2,
-      status: 'draft',
-      content: createSampleContent(),
-    }),
-    publishDraft: vi.fn().mockResolvedValue({ version: 2 }),
+    modelVersion: 1,
+    root: 'root' as NodeId,
+    nodes: nodes as TemplateDocument['nodes'],
+    slots: slots as TemplateDocument['slots'],
+    themeRef: { type: 'inherit' },
+  };
+}
+
+/** A stencil's working copy whose content is [children]. */
+export function workingCopy(
+  stencilKey: string,
+  children: Spec[],
+  options: { parameterSchema?: JsonSchema; readsTemplateData?: boolean; editable?: boolean } = {},
+): StencilWorkingCopy {
+  return {
+    ref: { stencilKey, catalogKey: CATALOG },
+    name: stencilKey,
+    editable: options.editable ?? true,
+    content: buildDocument(children),
+    parameterSchema: options.parameterSchema,
+    readsTemplateData: options.readsTemplateData ?? false,
+  };
+}
+
+/** Mock callbacks serving [copies] (mutable: tests may replace a stencil's copy). */
+export function createMockCallbacks(
+  copies: StencilWorkingCopy[] = [],
+  overrides?: Partial<StencilCallbacks>,
+): StencilCallbacks & { copies: Map<string, StencilWorkingCopy> } {
+  const map = new Map(copies.map((c) => [stencilIdentity(c.ref), c]));
+  return {
+    copies: map,
+    catalogKey: CATALOG,
+    searchStencils: vi
+      .fn()
+      .mockResolvedValue(copies.map((c) => ({ ...c.ref, name: c.name, tags: [] }))),
+    getStencil: vi.fn(async (ref: StencilRef) =>
+      structuredClone(map.get(stencilIdentity(ref)) ?? null),
+    ),
+    createStencil: vi.fn(async (stencilKey: string) => ({ stencilKey, catalogKey: CATALOG })),
+    saveStencil: vi.fn().mockResolvedValue(undefined),
+    markStencilReady: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
 
-export function setupEngine(callbacks?: StencilCallbacks) {
+export function setupEngine(callbacks: StencilCallbacks | null, document?: TemplateDocument) {
   const registry = createDefaultRegistry();
-  registry.register(createStencilDefinition({ callbacks: callbacks ?? createMockCallbacks() }));
-  const doc = createTestDocument();
+  const editing = new StencilEditingState();
+  registry.register(createStencilDefinition({ callbacks, editing }));
+  const doc = document ?? buildDocument([]);
   const engine = new EditorEngine(doc, registry);
-  const rootSlotId = doc.nodes[doc.root].slots[0];
-  return { engine, registry, rootSlotId };
+  const rootSlotId = engine.doc.nodes[engine.doc.root].slots[0];
+  return { engine, registry, rootSlotId, editing };
 }
 
-export function insertStencil(
+/**
+ * Insert an instance of [ref] into [targetSlotId] the way the picker does:
+ * fetch the stencil tree, check it may go there, expand it. Throws the
+ * refusal when it may not.
+ */
+export async function insertInstance(
   engine: EditorEngine,
-  registry: ComponentRegistry,
+  callbacks: StencilCallbacks,
   targetSlotId: SlotId,
-  overrideProps?: Record<string, unknown>,
-): NodeId {
-  const { node, slots, extraNodes } = registry.createNode('stencil', overrideProps);
-  engine.dispatch({
+  stencilKey: string,
+  extraProps: Record<string, unknown> = {},
+): Promise<NodeId> {
+  const scope = lexicalScopeAt(engine.doc, targetSlotId, engine.indexes, callbacks.catalogKey);
+  const outcome = await prepareStencilInsert(callbacks, { stencilKey, catalogKey: CATALOG }, scope);
+  if (!outcome.ok) throw new Error(outcome.message);
+  const { node, slots, extraNodes } = engine.registry.createNode('stencil', {
+    stencilKey,
+    catalogKey: CATALOG,
+    _fetched: outcome.prepared.fetched,
+    _scope: scope,
+    ...extraProps,
+  });
+  const result = engine.dispatch({
     type: 'InsertNode',
     node,
     slots,
@@ -82,6 +200,7 @@ export function insertStencil(
     index: -1,
     _restoreNodes: extraNodes,
   });
+  if (!result.ok) throw new Error(result.error);
   return node.id;
 }
 
@@ -95,35 +214,23 @@ export function insertText(
     'text',
     content ? { content: richText(content) } : undefined,
   );
-  engine.dispatch({
-    type: 'InsertNode',
-    node,
-    slots,
-    targetSlotId,
-    index: -1,
-  });
+  const result = engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId, index: -1 });
+  if (!result.ok) throw new Error(result.error);
   return node.id;
 }
 
-export function getStencilSlot(engine: EditorEngine, stencilNodeId: NodeId): SlotId {
-  return engine.doc.nodes[stencilNodeId].slots[0];
+/** The children of [slotId] (by slot name of node [nodeId] when a name is given). */
+export function childrenOf(engine: EditorEngine, nodeId: string, slotName: string): NodeId[] {
+  const node = engine.doc.nodes[nodeId as NodeId];
+  const slot = node?.slots.map((s) => engine.doc.slots[s]).find((s) => s?.name === slotName);
+  return slot ? [...slot.children] : [];
 }
 
-export function createSampleContent(): TemplateDocument {
-  const rootId = nodeId('sample-root');
-  const rootSlot = slotId('sample-root-slot');
-  const textId = nodeId('sample-text');
-
-  return {
-    modelVersion: 1,
-    root: rootId,
-    nodes: {
-      [rootId]: { id: rootId, type: 'root', slots: [rootSlot] },
-      [textId]: { id: textId, type: 'text', slots: [], props: { content: richText('Sample') } },
-    },
-    slots: {
-      [rootSlot]: { id: rootSlot, nodeId: rootId, name: 'children', children: [textId] },
-    },
-    themeRef: { type: 'inherit' },
-  };
+/** The text of a text node. */
+export function textOf(
+  engine: EditorEngine | TemplateDocument,
+  nodeId: string,
+): string | undefined {
+  const doc = 'doc' in engine ? engine.doc : engine;
+  return richTextValue(doc.nodes[nodeId as NodeId]?.props?.content);
 }

@@ -56,8 +56,37 @@ In the web UI the stencil page shows the stencil's details, whether its content 
 template's data (a toggle), its parameter schema, whether its working copy is ready (with **Mark
 ready** while it is not), and the variants that use it, each with whether it still fits and why
 not. Content is edited in the template editor, which reads and saves the working copy through
-`GET`/`PUT /tenants/{tenant}/stencils/{catalog}/{stencil}/content`. The editor itself is still
-being moved to this model.
+`GET`/`PUT /tenants/{tenant}/stencils/{catalog}/{stencil}/content` (see
+[In the template editor](#in-the-template-editor)).
+
+### In the template editor
+
+The editor works on the expanded template (see [Collapse and expand](#collapse-and-expand)) and
+inserts stencils by reference too:
+
+- **Inserting.** The stencil picker lists stencils, not versions: picking one reads its working copy,
+  and the stencils that one uses, and inlines them under the new instance with the same IDs the
+  server's expansion gives (`{inst}:{nodeId}`). A stencil with parameters goes through a binding step
+  first. **Create New** (offered only when the host can create stencils) makes an empty stencil and
+  starts editing it in place.
+- **Using.** An instance's content is the stencil's and is locked; only its placeholders' fills are
+  the template's to edit. Saving the template stores the reference, its bindings and its fills.
+- **Editing a stencil in place.** **Edit Stencil** (offered when the stencil's catalog is authored;
+  otherwise the inspector says why not) unlocks the instance's content. **Save Stencil** writes the
+  working copy — without the template's fills, with the stencils it uses stored by reference — and
+  refreshes every other instance of the stencil in the document. **Save and Mark Ready** also marks it
+  ready; **Stop Editing** shows the saved working copy again, dropping what was not saved. Editing is
+  a state of the editor session, never stored with the template.
+- **Recursion.** The editor refuses, before it happens, an insert or a move that would make a stencil
+  contain itself: the picker disables the stencils the insertion point is already the content of, and
+  refuses a picked stencil that uses one of them further down, saying which. The check is lexical, as
+  the server's: a template's fill may hold the stencil it fills.
+
+The host implements the editor's stencil callbacks (`StencilCallbacks` in
+`modules/editor/src/main/typescript/components/stencil/types.ts`): `searchStencils`, `getStencil`,
+`createStencil`, `saveStencil` and `markStencilReady`, plus the document's `catalogKey`. The app's
+implementation is `apps/epistola/src/main/resources/static/js/editor-boot.js`; `saveStencil` sends
+`clearParameterSchema` when the author removed every parameter.
 
 ### Usage
 
