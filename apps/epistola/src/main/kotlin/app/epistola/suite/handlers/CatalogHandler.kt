@@ -904,6 +904,8 @@ class CatalogHandler {
                 "draftBar" to drafts
                 "readiness" to readiness
                 "gettingStarted" to gettingStarted
+                // What the version holds, by kind, with a way to add each kind there.
+                if (authored) "contents" to CatalogContents.of(tenantId.key, segment, result.resources) { auth.has(it) }
                 if (draftError != null) "nextReleaseError" to draftError
                 "exchangeCatalogUrl" to exchangeCatalogUrl
                 "publication" to publication

@@ -17,6 +17,7 @@
         <th:block th:if="${readiness != null}">
             <div th:replace="~{catalogs/overview :: getting-started}"></div>
             <div th:replace="~{catalogs/overview :: next-version}"></div>
+            <div th:if="${readiness.drafts.current != null}" th:replace="~{catalogs/content :: grouped(title='In the next version')}"></div>
         </th:block>
         <div th:replace="~{catalogs/overview :: versions}"></div>
 

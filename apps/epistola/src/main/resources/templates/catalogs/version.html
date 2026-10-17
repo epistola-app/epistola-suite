@@ -34,7 +34,7 @@
 
         <div th:replace="~{catalogs/next-release :: next-release}"></div>
 
-        <th:block th:replace="~{catalogs/content :: contents}"></th:block>
+        <div th:replace="~{catalogs/content :: grouped(title='Contents')}"></div>
 
         <div th:replace="~{catalogs/content :: metadata-card}"></div>
 

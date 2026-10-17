@@ -131,6 +131,20 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
             .isEqualTo("/tenants/${tenant.id}/catalogs/letters/releases/1.0.0")
     }
 
+    @Test
+    fun `the catalog page shows what the next version holds, grouped by kind, with a New for each kind on this catalog`() {
+        val tenant = catalog("Page Contents") { _, catalog -> invoice(catalog) }
+
+        val contents = get(tenant, "/catalogs/letters/browse").body!!.substringAfter("data-testid=\"catalog-contents\"")
+
+        assertThat(contents).contains("<h2>In the next version</h2>")
+        val templates = contents.substringAfter("data-type=\"template\"").substringBefore("</section>")
+        assertThat(templates).contains("href=\"/tenants/${tenant.id}/templates/letters/invoice\"").contains(">Invoice<")
+        assertThat(templates).contains("hx-get=\"/tenants/${tenant.id}/templates/new?catalog=letters\"")
+        assertThat(contents.substringAfter("data-type=\"stencil\"").substringBefore("</section>")).contains("None yet.")
+            .contains("hx-get=\"/tenants/${tenant.id}/stencils/new?catalog=letters\"")
+    }
+
     private fun step(page: String, number: Int): String = page.substringAfter("data-step=\"$number\"").substringBefore("</li>")
 
     private fun get(tenant: Tenant, path: String) = restTemplate.withRedirects(HttpRedirects.DONT_FOLLOW)

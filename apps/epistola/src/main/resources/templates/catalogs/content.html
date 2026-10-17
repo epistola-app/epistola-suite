@@ -9,6 +9,49 @@
            Model: `tenantId`, `catalogId` (the segment), `catalog`, `resources`, `usageCounts`,
            `exchangeCatalogUrl`, `hasUninstalledResources`, and for the details `keywords`,
            `hasImages`, `presentationIcon`, `presentationImages`. */-->
+    <!--/* An authored catalog version's contents, grouped by kind, each with a way to add one there
+           (CatalogContents). Each "New" opens that kind's own create dialog in #dialog-mount, on this
+           catalog version, without leaving the page. Model: `contents`, `usageCounts`, `tenantId`,
+           `catalogId`. */-->
+    <div th:fragment="grouped(title)" class="card" data-testid="catalog-contents">
+        <div class="card-header">
+            <h2 th:text="${title}">Contents</h2>
+        </div>
+        <div class="card-body">
+            <div class="ep-auto-grid">
+                <section th:each="group : ${contents.groups}" class="ep-panel" data-testid="catalog-contents-group"
+                         th:attr="data-type=${group.type}">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: var(--ep-space-2);">
+                        <h3 style="margin: 0;">
+                            <span th:text="${group.label}">Templates</span>
+                            <span class="text-muted" th:text="${group.items.size()}">3</span>
+                        </h3>
+                        <button th:if="${group.mayCreate}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
+                                th:hx-get="${group.newHref}" hx-target="#dialog-mount" hx-swap="innerHTML"
+                                data-testid="catalog-contents-new" th:text="${group.newLabel}">New template</button>
+                    </div>
+                    <ul th:unless="${group.items.isEmpty()}" style="margin: var(--ep-space-2) 0 0; padding-left: var(--ep-space-5);">
+                        <li th:each="item : ${group.items}" data-testid="catalog-contents-item" th:attr="data-slug=${item.slug}"
+                            th:with="count=${usageCounts != null ? usageCounts.getOrDefault(item.type + ':' + item.slug, 0) : 0}">
+                            <a th:href="${item.href}" th:text="${item.name}" th:title="${item.description}">Invoice</a>
+                            <button th:if="${count > 0}" type="button" class="badge badge-default"
+                                    style="cursor: pointer; border: none;"
+                                    th:title="'Used in ' + ${count} + ' places'"
+                                    th:text="'used ' + ${count} + '×'"
+                                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/usages(tenantId=${tenantId},catalogId=${catalogId},type=${item.type},slug=${item.slug})}"
+                                    hx-target="#usage-detail-body" hx-swap="innerHTML"
+                                    data-open-dialog="usage-detail-dialog">used 2×</button>
+                        </li>
+                    </ul>
+                    <p th:if="${group.items.isEmpty()}" class="text-muted text-sm" style="margin: var(--ep-space-2) 0 0;">None yet.</p>
+                    <p th:if="${group.createWithheld}" class="form-hint" style="margin: var(--ep-space-1) 0 0;"
+                       data-testid="catalog-contents-new-withheld"
+                       th:text="'Adding ' + ${group.label.toLowerCase()} + ' needs a role that may edit them.'">Adding templates needs a role that may edit them.</p>
+                </section>
+            </div>
+        </div>
+    </div>
+
     <th:block th:fragment="contents">
         <div class="card" th:if="${!resources.isEmpty()}">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">

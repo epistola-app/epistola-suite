@@ -1,0 +1,49 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package app.epistola.suite.handlers
+
+import app.epistola.suite.catalog.queries.BrowseResource
+import app.epistola.suite.catalog.queries.ResourceStatus
+import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.htmx.CatalogSegment
+import app.epistola.suite.security.Permission
+import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Test
+
+/** A catalog version's contents, grouped by kind, with a way to add each kind there. */
+class CatalogContentsTest {
+
+    private val acme = TenantKey.of("acme")
+
+    private fun resource(type: String, slug: String, name: String) = BrowseResource(type, slug, name, null, ResourceStatus.INSTALLED)
+
+    @Test
+    fun `every kind is listed, templates first, each resource linked into the version and sorted by name`() {
+        val contents = CatalogContents.of(
+            acme,
+            CatalogSegment(CatalogKey.of("letters"), "1.2.1"),
+            listOf(resource("theme", "brand", "Brand"), resource("template", "reminder", "Reminder"), resource("template", "invoice", "Invoice")),
+        ) { true }
+
+        assertThat(contents.groups.map { it.type }).containsExactly("template", "stencil", "theme", "image", "font", "attribute", "codeList")
+        val templates = contents.groups.first()
+        assertThat(templates.items.map { it.name }).containsExactly("Invoice", "Reminder")
+        assertThat(templates.items.first().href).isEqualTo("/tenants/acme/templates/letters@1.2.1/invoice")
+        assertThat(templates.newHref).isEqualTo("/tenants/acme/templates/new?catalog=letters@1.2.1")
+        assertThat(contents.groups.first { it.type == "stencil" }.items).isEmpty()
+    }
+
+    @Test
+    fun `a kind without a page of its own links to its list on the catalog, and New is withheld without the permission`() {
+        val contents = CatalogContents.of(acme, CatalogSegment(CatalogKey.of("letters")), listOf(resource("image", "logo", "Logo"))) {
+            it != Permission.TENANT_SETTINGS
+        }
+
+        assertThat(contents.groups.first { it.type == "image" }.items.single().href).isEqualTo("/tenants/acme/images?catalog=letters")
+        assertThat(contents.groups.first { it.type == "codeList" }.createWithheld).isTrue()
+        assertThat(contents.groups.first { it.type == "template" }.mayCreate).isTrue()
+    }
+}

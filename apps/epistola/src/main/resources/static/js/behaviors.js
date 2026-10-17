@@ -206,12 +206,18 @@ document.addEventListener('htmx:load', function (event) {
 // Capture the full list URL when a mount-dialog trigger is clicked so the close
 // listener below can put that query back when it restores the list URL.
 let dialogReturnUrl = null;
+// A create dialog opened in place, from a page that is not its list (the catalog page's "New
+// template"), pushes no URL, so closing it must leave the address bar alone: restoring the list
+// URL would put /templates in the bar over the catalog page.
+let dialogOpenedInPlace = false;
 document.addEventListener(
   'click',
   function (event) {
-    const trigger =
-      event.target.closest && event.target.closest('[hx-target="#dialog-mount"][hx-push-url]');
-    if (trigger) dialogReturnUrl = window.location.href;
+    if (!event.target.closest) return;
+    const trigger = event.target.closest('[hx-target="#dialog-mount"]');
+    if (!trigger) return;
+    dialogOpenedInPlace = !trigger.hasAttribute('hx-push-url');
+    if (!dialogOpenedInPlace) dialogReturnUrl = window.location.href;
   },
   true,
 );
@@ -223,7 +229,7 @@ document.addEventListener(
     if (!dialog || !dialog.matches || !dialog.matches('dialog')) return;
     if (!dialog.closest('[data-dialog-mount]')) return;
     const closeUrl = dialog.getAttribute('data-close-url');
-    if (closeUrl) {
+    if (closeUrl && !dialogOpenedInPlace) {
       const target = new URL(closeUrl, window.location.origin);
       // data-close-url is the bare list path; the list's query string lives only in
       // the URL we captured at open time. Restore it when it's for the same path so
@@ -240,6 +246,7 @@ document.addEventListener(
       }
     }
     dialogReturnUrl = null;
+    dialogOpenedInPlace = false;
     dialog.remove();
   },
   true,
