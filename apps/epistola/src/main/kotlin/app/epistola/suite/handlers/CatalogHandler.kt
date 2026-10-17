@@ -895,6 +895,8 @@ class CatalogHandler {
                 null
             }
 
+            // Inside the model builder `to` means a model entry, so the map is built out here.
+            val changeStates = readiness?.changes?.resources.orEmpty().associateBy({ "${it.type}/${it.slug}" }, { it.state })
             ServerResponse.ok().page(template) {
                 "pageTitle" to if (template == "catalogs/version") {
                     "${drafts.draftTitle} - ${result.catalog.name} - Epistola"
@@ -910,7 +912,14 @@ class CatalogHandler {
                 "readiness" to readiness
                 "gettingStarted" to gettingStarted
                 // What the version holds, by kind, with a way to add each kind there.
-                if (authored) "contents" to CatalogContents.of(tenantId.key, segment, result.resources) { auth.has(it) }
+                if (authored) {
+                    "contents" to CatalogContents.of(
+                        tenantId.key,
+                        segment,
+                        result.resources,
+                        changeStates,
+                    ) { auth.has(it) }
+                }
                 if (draftError != null) "nextReleaseError" to draftError
                 "exchangeCatalogUrl" to exchangeCatalogUrl
                 "publication" to publication

@@ -125,15 +125,15 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         assertThat(body).contains("id=\"release-dialog-container\"")
     }
 
-    /** Never released, so the empty state says how to cut the first one rather than only why. */
+    /** Never released and empty, so the page points at the first template rather than at publishing nothing. */
     @Test
-    fun `a catalog with no releases points at the action`() {
+    fun `a catalog with no releases and no template points at its first template`() {
         val tenant = tenantWithCatalog("hist-none")
 
         val body = browse(tenant.id.value, "hist-none")
 
-        assertThat(body).contains("Nothing is published yet")
-        assertThat(body).contains("data-testid=\"catalog-release-open\"")
+        assertThat(body).contains("Start with a template.").contains("data-testid=\"catalog-status-new-template\"")
+        assertThat(body).doesNotContain("data-testid=\"catalog-release-open\"")
     }
 
     @Test

@@ -58,36 +58,39 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `a new catalog starts with adding a template, and its next version becomes the first version`() {
+    fun `a new catalog says to start with a template, and offers it, not publishing nothing`() {
         val tenant = catalog("Page New")
 
-        val page = get(tenant, "/catalogs/letters/browse").body!!
+        val status = status(get(tenant, "/catalogs/letters/browse").body!!)
 
-        assertThat(page).contains("data-testid=\"catalog-getting-started\"")
-        assertThat(step(page, 1)).contains("data-done=\"false\"").contains("/tenants/${tenant.id}/templates/new?catalog=letters")
-        assertThat(page).contains("Nothing is published yet: this becomes the first version.")
-        assertThat(page.substringAfter("data-testid=\"catalog-versions\"")).contains(">Next version<")
+        assertThat(status).contains("Start with a template.")
+        assertThat(status).contains("data-testid=\"catalog-status-new-template\"").contains("hx-get=\"/tenants/${tenant.id}/templates/new?catalog=letters\"")
+        assertThat(status).doesNotContain("data-testid=\"catalog-release-open\"")
+        assertThat(status).contains("Not live anywhere yet.").contains("data-testid=\"catalog-step-no-environment\"")
     }
 
     @Test
-    fun `with a template the next step is publishing and making it live, in an environment there has to be first`() {
-        val tenant = catalog("Page Steps") { _, catalog -> invoice(catalog) }
+    fun `with a template the box offers Publish, and once published says where it is live and how to make it live`() {
+        val tenant = catalog("Page Steps") { tenant, catalog ->
+            invoice(catalog)
+            CreateEnvironment(EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant.id)), "Test").execute()
+        }
 
-        val unpublished = get(tenant, "/catalogs/letters/browse").body!!
-        assertThat(step(unpublished, 1)).contains("data-done=\"true\"")
-        assertThat(step(unpublished, 2)).contains("data-testid=\"catalog-step-publish\"")
-        assertThat(step(unpublished, 3)).contains("template <code>invoice</code>")
+        val unpublished = status(get(tenant, "/catalogs/letters/browse").body!!)
+        assertThat(unpublished).contains("Not published yet.").contains("data-testid=\"catalog-release-open\"")
+        assertThat(unpublished).doesNotContain("data-testid=\"catalog-status-make-live\"")
 
         withMediator { mediator.releaseNext(CatalogId(letters, TenantId(tenant.id))) }
 
         val published = get(tenant, "/catalogs/letters/browse").body!!
-        assertThat(step(published, 2)).`as`("published, not live yet").contains("data-done=\"false\"")
-            .contains("data-testid=\"catalog-step-no-environment\"")
+        assertThat(status(published)).contains("Everything is published, as v1.0.0.").doesNotContain("data-testid=\"catalog-release-open\"")
+        assertThat(status(published)).contains("Not live anywhere yet.").contains("href=\"#catalog-deployments\"")
+        assertThat(published).contains("id=\"catalog-deployments\"")
         assertThat(published).contains("href=\"/tenants/${tenant.id}/catalogs/letters/releases/1.0.0\"")
     }
 
     @Test
-    fun `once something is live the steps make way, and the next version says what it is based on`() {
+    fun `once live the box says where, and what an application asks for`() {
         val tenant = catalog("Page Live") { tenant, catalog ->
             invoice(catalog)
             mediator.releaseNext(catalog)
@@ -95,13 +98,29 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
             DeployRelease(EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant.id)), letters, "1.0.0", includeDependencies = true).execute()
         }
 
+        val status = status(get(tenant, "/catalogs/letters/browse").body!!)
+
+        assertThat(status).contains("Test (v1.0.0)")
+        assertThat(status).contains("catalog <code>letters</code>").contains("template <code>invoice</code>").contains("environment <code>test</code>")
+    }
+
+    @Test
+    fun `templates come first and say what is not published yet, the other kinds below with one line to add the rest`() {
+        val tenant = catalog("Page Contents") { _, catalog ->
+            invoice(catalog)
+            mediator.releaseNext(catalog)
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("reminder"), catalog), "Reminder").execute().withRequiredDataExample()
+        }
+
         val page = get(tenant, "/catalogs/letters/browse").body!!
 
-        assertThat(page).doesNotContain("data-testid=\"catalog-getting-started\"")
-        assertThat(page).contains("Based on v1.0.0, the latest published version.")
-        assertThat(page).contains("No changes yet.")
-        val published = page.substringAfter("data-version=\"1.0.0\"").substringBefore("</tr>")
-        assertThat(published).contains("Published").contains("test")
+        val templates = page.substringAfter("data-testid=\"catalog-templates\"").substringBefore("data-testid=\"catalog-contents\"")
+        assertThat(templates).contains("href=\"/tenants/${tenant.id}/templates/letters/invoice\"")
+        assertThat(templates.substringAfter("data-slug=\"reminder\"")).contains(">New<")
+        assertThat(templates.substringAfter("data-slug=\"invoice\"").substringBefore("data-slug=\"reminder\"")).doesNotContain(">New<").doesNotContain(">Changed<")
+        assertThat(templates).contains("hx-get=\"/tenants/${tenant.id}/templates/new?catalog=letters\"")
+        val add = page.substringAfter("data-testid=\"catalog-contents-add\"").substringBefore("</div>")
+        assertThat(add).contains("hx-get=\"/tenants/${tenant.id}/stencils/new?catalog=letters\"")
     }
 
     @Test
@@ -131,23 +150,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
             .isEqualTo("/tenants/${tenant.id}/catalogs/letters/releases/1.0.0")
     }
 
-    @Test
-    fun `the catalog page shows what the next version holds, grouped by kind, with a New for each kind on this catalog`() {
-        val tenant = catalog("Page Contents") { _, catalog -> invoice(catalog) }
-
-        val contents = get(tenant, "/catalogs/letters/browse").body!!.substringAfter("data-testid=\"catalog-contents\"")
-
-        assertThat(contents).contains("<h2>In the next version</h2>")
-        val templates = contents.substringAfter("data-type=\"template\"").substringBefore("data-testid=\"catalog-contents-add\"")
-        assertThat(templates).contains("href=\"/tenants/${tenant.id}/templates/letters/invoice\"").contains(">Invoice<")
-        assertThat(templates).contains("hx-get=\"/tenants/${tenant.id}/templates/new?catalog=letters\"")
-        // A kind with nothing yet is one button on the "add" line, not a box of its own.
-        val add = contents.substringAfter("data-testid=\"catalog-contents-add\"").substringBefore("</div>")
-        assertThat(add).contains("Add something else:").contains("hx-get=\"/tenants/${tenant.id}/stencils/new?catalog=letters\"")
-        assertThat(contents.substringBefore("data-testid=\"catalog-contents-add\"")).doesNotContain("data-type=\"stencil\"")
-    }
-
-    private fun step(page: String, number: Int): String = page.substringAfter("data-step=\"$number\"").substringBefore("</li>")
+    private fun status(page: String): String = page.substringAfter("data-testid=\"catalog-status\"").substringBefore("data-testid=\"catalog-templates\"")
 
     private fun get(tenant: Tenant, path: String) = restTemplate.withRedirects(HttpRedirects.DONT_FOLLOW)
         .getForEntity("/tenants/${tenant.id}$path", String::class.java)

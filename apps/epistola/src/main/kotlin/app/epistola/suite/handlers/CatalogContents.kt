@@ -5,6 +5,7 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.queries.BrowseResource
+import app.epistola.suite.catalog.queries.CatalogResourceState
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.security.Permission
@@ -34,11 +35,20 @@ data class CatalogContents(val groups: List<Group>) {
         val createWithheld: Boolean get() = !mayCreate
     }
 
-    /** One resource, linked to where it is edited. */
-    data class Item(val type: String, val slug: String, val name: String, val description: String?, val href: String)
+    /**
+     * One resource, linked to where it is edited. [change] says how it differs from the last
+     * published version, in people's words — "New" or "Changed" — and is null when it does not.
+     */
+    data class Item(val type: String, val slug: String, val name: String, val description: String?, val href: String, val change: String? = null)
 
     /** Nothing at all yet, for the empty state. */
     val isEmpty: Boolean get() = groups.all { it.items.isEmpty() }
+
+    /** The templates: what people make documents from, so the page lists them first and on their own. */
+    val templates: Group get() = groups.first { it.type == "template" }
+
+    /** Everything else a template is built from, which the page shows below the templates. */
+    val parts: CatalogContents get() = CatalogContents(groups.filter { it.type != "template" })
 
     /** The kinds that hold something, each shown as a row. */
     val filled: List<Group> get() = groups.filter { it.items.isNotEmpty() }
@@ -75,7 +85,14 @@ data class CatalogContents(val groups: List<Group>) {
          * The contents of the catalog version at [segment], from [resources]; [may] says whether the
          * viewer holds a permission. Resources of a kind not listed above are left out.
          */
-        fun of(tenantKey: TenantKey, segment: CatalogSegment, resources: List<BrowseResource>, may: (Permission) -> Boolean): CatalogContents {
+        fun of(
+            tenantKey: TenantKey,
+            segment: CatalogSegment,
+            resources: List<BrowseResource>,
+            /** How each resource differs from the last published version, by `type/slug`. */
+            changes: Map<String, CatalogResourceState> = emptyMap(),
+            may: (Permission) -> Boolean,
+        ): CatalogContents {
             val base = "/tenants/${tenantKey.value}"
             val catalog = segment.value
             return CatalogContents(
@@ -93,6 +110,11 @@ data class CatalogContents(val groups: List<Group>) {
                                 name = resource.name,
                                 description = resource.description,
                                 href = if (kind.ownPage) "$base/${kind.area}/$catalog/${resource.slug}" else "$base/${kind.area}?catalog=$catalog",
+                                change = when (changes["${resource.type}/${resource.slug}"]) {
+                                    CatalogResourceState.NEW -> "New"
+                                    CatalogResourceState.MODIFIED -> "Changed"
+                                    else -> null
+                                },
                             )
                         },
                     )

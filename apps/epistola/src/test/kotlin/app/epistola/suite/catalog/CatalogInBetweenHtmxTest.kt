@@ -70,7 +70,7 @@ class CatalogInBetweenHtmxTest : BaseIntegrationTest() {
         val tenant = live("In Between Start")
 
         val before = get(tenant, "/catalogs/letters/browse").body!!
-        assertThat(before).contains("data-testid=\"catalog-in-between-start\"").contains("It starts from v1.0.0, without the changes above")
+        assertThat(before).contains("data-testid=\"catalog-in-between-start\"").contains("It starts from v1.0.0, without the changes in the next version")
 
         val started = post(tenant, "/catalogs/letters/fixes", mapOf("of" to "1.0.0"))
         assertThat(started.statusCode).isEqualTo(HttpStatus.SEE_OTHER)

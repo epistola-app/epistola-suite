@@ -12,23 +12,24 @@
 
         <div id="catalog-alert"></div>
 
-        <!--/* An authored catalog: the way to a first document, the next version, every version. Each
-               version has its own page; this one is about the catalog (catalogs/overview.html). */-->
+        <!--/* An authored catalog, as people use it (docs/catalog-workspace-navigation.md): what to do
+               now, the templates, what they are built from, and where it is live. Everything else is
+               under More at the bottom. */-->
         <th:block th:if="${readiness != null}">
-            <div th:replace="~{catalogs/overview :: getting-started}"></div>
-            <div th:replace="~{catalogs/overview :: next-version}"></div>
-            <!--/* th:replace outranks th:if on one element, so the condition wraps them. */-->
+            <div th:replace="~{catalogs/overview :: status}"></div>
             <th:block th:if="${readiness.drafts.current != null}">
-                <div th:replace="~{catalogs/content :: grouped(title='In the next version')}"></div>
-                <div th:replace="~{catalogs/content :: borrowed}"></div>
+                <div th:replace="~{catalogs/content :: templates}"></div>
+                <div th:replace="~{catalogs/content :: parts}"></div>
             </th:block>
         </th:block>
-        <div th:replace="~{catalogs/overview :: versions}"></div>
+        <th:block th:if="${readiness == null}">
+            <div th:replace="~{catalogs/overview :: versions}"></div>
+        </th:block>
 
         <!--/* What each environment serves of this catalog: any number of releases. Deploying adds one;
                generation naming the environment renders the highest it serves, or the highest
                satisfying the request's version selector. Each served release has its own Undeploy. */-->
-        <div class="ep-panel detail-section" data-testid="catalog-deployments"
+        <div id="catalog-deployments" class="ep-panel detail-section" data-testid="catalog-deployments"
              th:with="canDeploy=${auth.has('ENVIRONMENT_DEPLOY')}">
             <div class="detail-section-header">
                 <h2>Live</h2>
@@ -113,264 +114,274 @@
             <div th:replace="~{catalogs/content :: metadata-card}"></div>
         </th:block>
 
+        <!--/* Everything that is not today's work, folded away: every version (and an in-between
+               version), what comes from other catalogs, the catalog's own settings, and Exchange. */-->
+        <details th:if="${readiness != null}" class="detail-section" data-testid="catalog-more"
+                 th:attr="open=${publicationError != null} ? 'open' : null">
+            <summary class="ep-btn ep-btn-ghost" style="margin-bottom: var(--ep-space-3);">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
+                More: versions, other catalogs, settings and Exchange
+            </summary>
+            <div th:replace="~{catalogs/overview :: versions}"></div>
+            <div th:replace="~{catalogs/content :: borrowed}"></div>
         <!--/* What is the catalog's own, across its versions: its key. Name, description, keywords,
-               presentation and license go out with each version, so they are on a version's page. */-->
-        <div th:if="${catalog.type.name() == 'AUTHORED'}" class="ep-panel detail-section" data-testid="catalog-identity">
-            <div class="detail-section-header catalog-detail-header">
-                <div class="catalog-detail-heading">
-                    <h2>Catalog</h2>
-                    <span class="badge badge-info">Authored</span>
-                </div>
-            </div>
-            <div class="catalog-detail-summary">
-                <div class="catalog-detail-summary-item">
-                    <span class="catalog-detail-label">Catalog ID</span>
-                    <code class="catalog-detail-value" th:text="${catalog.id}"></code>
-                </div>
-            </div>
-            <p class="text-muted text-sm detail-section-body" style="margin: 0; padding-top: 0;">
-                Its name, description, keywords, presentation and license go out with each version:
-                change them on the
-                <a th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenantId},c=${catalog.id})}">next version</a>,
-                see what a published version carried on its own page.
-            </p>
-        </div>
-
-        <div class="ep-panel detail-section" th:if="${publication != null}"
-             th:with="canEditMetadata=${catalog.type.name() == 'AUTHORED' and auth.has('CATALOG_MANAGE')}">
-            <div class="detail-section-header catalog-detail-header">
-                <div>
+                   presentation and license go out with each version, so they are on a version's page. */-->
+            <div th:if="${catalog.type.name() == 'AUTHORED'}" class="ep-panel detail-section" data-testid="catalog-identity">
+                <div class="detail-section-header catalog-detail-header">
                     <div class="catalog-detail-heading">
-                        <h2>Exchange publication</h2>
-                    </div>
-                    <p class="text-muted" style="margin: var(--ep-space-1) 0 0; font-size: var(--ep-text-sm);">
-                        Where this catalog publishes, and every release that has been queued for it.
-                    </p>
-                </div>
-                <!--
-                  A control appears only when it can be used (.agents/rules/ui-affordances.md).
-                  hasPublishableDestination is the single name for "a release could actually reach
-                  Exchange right now". Gating on canPublishCurrentRelease alone renders this form
-                  with a required namespace select that has no options, so pressing the button only
-                  produces the browser's own "please select an item in the list".
-                -->
-                <div class="ep-row ep-gap-3"
-                     th:if="${publication.hasPublishableDestination
-                              && (publication.canPublishCurrentRelease || publication.needsNamespaceChoice)}">
-                    <form th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}"
-                          method="post" class="ep-row ep-gap-3">
-                        <select th:if="${publication.needsNamespaceChoice}" class="ep-select ep-select-sm"
-                                name="chosenNamespace" required aria-label="Publish to namespace">
-                            <option value="" th:if="${publication.suggestedNamespace == null}">Choose a namespace</option>
-                            <option th:each="option : ${publication.availableNamespaces}"
-                                    th:value="${option}" th:text="${option}"
-                                    th:selected="${option == publication.suggestedNamespace}">community</option>
-                        </select>
-                        <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm"
-                                th:text="${publication.isRetry} ? 'Retry publication' : 'Publish current release'">
-                            Publish current release
-                        </button>
-                    </form>
-                </div>
-            </div>
-            <div class="detail-section-body">
-                <div class="alert alert-error" th:if="${publicationError != null}" th:text="${publicationError}"></div>
-
-                <div class="alert alert-warning"
-                     th:if="${publication.namespaceRevoked && publication.connected}">
-                    <div>
-                        <div class="alert-title"
-                             th:text="'Exchange no longer grants the namespace ' + ${publication.boundNamespace}">
-                            Exchange no longer grants this namespace
-                        </div>
-                        <p style="margin: var(--ep-space-1) 0 0;" th:if="${publication.noNamespacesGranted}">
-                            This tenant has no namespaces at all right now, so there is nowhere to move the
-                            catalog to. Its organization has to grant one before it can publish again.
-                        </p>
-                        <p style="margin: var(--ep-space-1) 0 0;"
-                           th:if="${!publication.noNamespacesGranted && !publication.namespaceLocked}">
-                            Nothing has published from this catalog yet, so point it at one of the namespaces this
-                            tenant still holds and it will carry on.
-                        </p>
-                        <p style="margin: var(--ep-space-1) 0 0;"
-                           th:if="${!publication.noNamespacesGranted && publication.namespaceLocked}">
-                            Versions already published stay where they are. Moving the catalog to a namespace this
-                            tenant still holds lets future releases continue, and is a deliberate change &mdash;
-                            anyone following the old namespace will not see them.
-                        </p>
+                        <h2>Catalog</h2>
+                        <span class="badge badge-info">Authored</span>
                     </div>
                 </div>
-
-                <div class="alert alert-warning" th:if="${publication.unpublishableRelease != null}">
-                    <div>
-                        <div class="alert-title"
-                             th:text="'v' + ${publication.unpublishableRelease} + ' can no longer be published'">
-                            v1.0.0 can no longer be published
-                        </div>
-                        <p style="margin: var(--ep-space-1) 0 0;">
-                            It was never sent to Exchange, and the catalog has changed since it was released. A
-                            release is published exactly as it was cut, so this one cannot be reproduced now.
-                            Release the current state as a new version and publish that instead.
-                        </p>
+                <div class="catalog-detail-summary">
+                    <div class="catalog-detail-summary-item">
+                        <span class="catalog-detail-label">Catalog ID</span>
+                        <code class="catalog-detail-value" th:text="${catalog.id}"></code>
                     </div>
                 </div>
-
-                <div class="alert alert-warning" th:if="${!publication.stalledPublications.isEmpty()}">
-                    <div>
-                        <div class="alert-title"
-                             th:with="stalled=${#lists.size(publication.stalledPublications)}"
-                             th:text="${stalled == 1
-                                 ? 'A release has been waiting to publish for over an hour'
-                                 : stalled + ' releases have been waiting to publish for over an hour'}">
-                            A release has been waiting to publish for over an hour
-                        </div>
-                        <p style="margin: var(--ep-space-1) 0 0;">
-                            Publishing normally takes seconds once a release is queued, so this is a connection,
-                            namespace or Exchange problem rather than a slow one. Each attempt below records what
-                            it is waiting for; &quot;View on Exchange&quot; shows what Exchange itself made of it.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="alert alert-warning"
-                     th:if="${publication.needsNamespaceChoice && publication.hasPublishableDestination}">
-                    <div>
-                        <div class="alert-title">This catalog has no Exchange namespace yet</div>
-                        <p style="margin: var(--ep-space-1) 0 0;">
-                            Choose one when you publish. Nothing is queued until it has one, so releases are
-                            simply not sent rather than held up.
-                        </p>
-                    </div>
-                </div>
-
-                <!--
-                  Nowhere to publish into. The publish control above is withheld in this state, so
-                  name the reason and where it is fixed rather than leaving the group silently
-                  actionless. A revoked namespace has its own alert above; these are the other two
-                  ways to have no destination. Same three reasons as catalogs/list.html.
-                -->
-                <div class="alert alert-warning"
-                     th:if="${publication.available && publication.canPublish
-                              && !publication.hasPublishableDestination
-                              && !(publication.namespaceRevoked && publication.connected)}">
-                    <div>
-                        <div class="alert-title">This catalog has nowhere to publish yet</div>
-                        <p style="margin: var(--ep-space-1) 0 0;" th:if="${!publication.connected}">
-                            This tenant is not connected to Epistola Exchange. Connect it under
-                            <a th:href="@{/tenants/{tenantId}/exchange(tenantId=${tenantId})}">Settings &rarr; Exchange</a>,
-                            and publishing becomes available here.
-                        </p>
-                        <p style="margin: var(--ep-space-1) 0 0;" th:if="${publication.connected}">
-                            This tenant's Exchange organization has not granted it a namespace to publish
-                            into. It has to grant one before anything from this catalog can be published.
-                        </p>
-                        <p style="margin: var(--ep-space-1) 0 0;">
-                            Releasing is unaffected: versions are created either way.
-                        </p>
-                    </div>
-                </div>
-
-                <dl class="description-list">
-                    <dt>Policy</dt>
-                    <dd>
-                        <span th:text="${publication.policy.label}">Inherit tenant default</span>
-                        <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                style="margin-left: var(--ep-space-3);"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='publication')}"
-                                hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
-                    </dd>
-                    <dt>Namespace</dt>
-                    <dd>
-                        <code th:if="${publication.boundNamespace != null}" th:text="${publication.boundNamespace}">namespace</code>
-                        <span th:if="${publication.boundNamespace == null}" class="text-muted">Not chosen yet</span>
-                        <span th:if="${publication.namespaceLocked}" class="text-muted">
-                            — already published here; moving affects future releases only</span>
-                    </dd>
-                </dl>
-                <p class="text-muted" style="margin: var(--ep-space-4) 0 0; font-size: var(--ep-text-sm);"
-                   th:if="${publication.publications.isEmpty()}">
-                    Nothing has been queued for Exchange yet.
+                <p class="text-muted text-sm detail-section-body" style="margin: 0; padding-top: 0;">
+                    Its name, description, keywords, presentation and license go out with each version:
+                    change them on the
+                    <a th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenantId},c=${catalog.id})}">next version</a>,
+                    see what a published version carried on its own page.
                 </p>
             </div>
-            <div class="ep-table-scroll" th:unless="${publication.publications.isEmpty()}"
-                 role="region" aria-label="Exchange publication history" tabindex="0">
-                <table class="ep-table">
-                    <thead>
-                    <tr><th>Version</th><th>Namespace</th><th>Status</th><th>Attempts</th><th>Updated</th><th></th></tr>
-                    </thead>
-                    <tbody>
-                    <tr th:each="entry : ${publication.publications}">
-                        <td th:text="'v' + ${entry.version}">v1.0.0</td>
-                        <td>
-                            <code th:if="${entry.namespace != null}" th:text="${entry.namespace}">namespace</code>
-                            <span th:if="${entry.namespace == null}" class="text-muted">Not yet bound</span>
-                        </td>
-                        <td>
-                            <span th:class="${'badge ' + entry.status.badgeClass}" th:text="${entry.status.label}">Ready</span>
-                            <div th:if="${entry.failure?.message != null}" class="text-muted"
-                                 style="font-size: var(--ep-text-sm);" th:text="${entry.failure.message}"></div>
-                            <!--
-                              What Exchange actually said. Suite's own sentence explains the kind of
-                              failure; only this says which release rule was broken, and a refusal
-                              nobody can act on is the one thing worse than no refusal at all.
-                            -->
-                            <div th:if="${entry.failure?.supportingDetail != null}" class="text-muted"
-                                 style="font-size: var(--ep-text-sm);"
-                                 th:text="'Exchange reported: ' + ${entry.failure.supportingDetail}"></div>
-                            <!--
-                              The one rejection somebody can undo, so it gets a way to. The link
-                              proposes this installation as the catalog's publisher; the transfer
-                              itself is an administrator's decision on Exchange, which is why this
-                              leads there rather than doing anything here.
-                            -->
-                            <a th:if="${entry.failure != null and entry.failure.needsAuthorityTransfer and publication.exchangeAuthorityUrl != null}"
-                               th:href="${publication.exchangeAuthorityUrl}"
-                               class="ep-btn ep-btn-ghost ep-btn-sm"
-                               style="margin-top: var(--ep-space-1);"
-                               target="_blank" rel="noopener noreferrer"
-                               hx-boost="false">
-                                <th:block th:replace="~{epistola-web/icon :: icon(name='external-link', class='ep-icon ep-icon-sm')}" />
-                                <span>Reappoint the publisher on Exchange</span>
-                            </a>
-                        </td>
-                        <td th:text="${entry.attempts}">0</td>
-                        <td th:text="${#temporals.format(entry.updatedAt, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</td>
-                        <td class="actions">
-                            <!--
-                              Straight to this submission on Exchange. Exchange is the only side that
-                              knows what became of it, and a publication that is stuck or refused is
-                              exactly when that matters - so this links to the submission, which
-                              exists in every state, not the release, which exists only in one.
-                            -->
-                            <a th:if="${publication.exchangeUrl(entry) != null}"
-                               th:href="${publication.exchangeUrl(entry)}"
-                               class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
-                               title="View this submission on Exchange"
-                               target="_blank" rel="noopener noreferrer"
-                               hx-boost="false">
-                                <th:block th:replace="~{epistola-web/icon :: icon(name='external-link', class='ep-icon ep-icon-sm')}" />
-                            </a>
-                            <form th:if="${entry.status.isCancellable}"
-                                  th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publications/{publicationId}/cancel(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},publicationId=${entry.id})}"
-                                  method="post">
-                                <button type="button"
-                                        class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
-                                        title="Withdraw this publication"
-                                        data-confirm-submit
-                                        data-confirm-submit-title="Withdraw this publication"
-                                        data-confirm-submit-message="This release will not be published to Exchange. You can queue it again later while the working copy still matches."
-                                        data-confirm-submit-label="Withdraw"
-                                        data-confirm-submit-class="ep-btn-warning">
-                                    <th:block th:replace="~{epistola-web/icon :: icon(name='undo-2', class='ep-icon ep-icon-sm')}" />
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                    </tbody>
-                </table>
+    
+            <div class="ep-panel detail-section" th:if="${publication != null}"
+                 th:with="canEditMetadata=${catalog.type.name() == 'AUTHORED' and auth.has('CATALOG_MANAGE')}">
+                <div class="detail-section-header catalog-detail-header">
+                    <div>
+                        <div class="catalog-detail-heading">
+                            <h2>Exchange publication</h2>
+                        </div>
+                        <p class="text-muted" style="margin: var(--ep-space-1) 0 0; font-size: var(--ep-text-sm);">
+                            Where this catalog publishes, and every release that has been queued for it.
+                        </p>
+                    </div>
+                    <!--
+                      A control appears only when it can be used (.agents/rules/ui-affordances.md).
+                      hasPublishableDestination is the single name for "a release could actually reach
+                      Exchange right now". Gating on canPublishCurrentRelease alone renders this form
+                      with a required namespace select that has no options, so pressing the button only
+                      produces the browser's own "please select an item in the list".
+                    -->
+                    <div class="ep-row ep-gap-3"
+                         th:if="${publication.hasPublishableDestination
+                                  && (publication.canPublishCurrentRelease || publication.needsNamespaceChoice)}">
+                        <form th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}"
+                              method="post" class="ep-row ep-gap-3">
+                            <select th:if="${publication.needsNamespaceChoice}" class="ep-select ep-select-sm"
+                                    name="chosenNamespace" required aria-label="Publish to namespace">
+                                <option value="" th:if="${publication.suggestedNamespace == null}">Choose a namespace</option>
+                                <option th:each="option : ${publication.availableNamespaces}"
+                                        th:value="${option}" th:text="${option}"
+                                        th:selected="${option == publication.suggestedNamespace}">community</option>
+                            </select>
+                            <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm"
+                                    th:text="${publication.isRetry} ? 'Retry publication' : 'Publish current release'">
+                                Publish current release
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                <div class="detail-section-body">
+                    <div class="alert alert-error" th:if="${publicationError != null}" th:text="${publicationError}"></div>
+    
+                    <div class="alert alert-warning"
+                         th:if="${publication.namespaceRevoked && publication.connected}">
+                        <div>
+                            <div class="alert-title"
+                                 th:text="'Exchange no longer grants the namespace ' + ${publication.boundNamespace}">
+                                Exchange no longer grants this namespace
+                            </div>
+                            <p style="margin: var(--ep-space-1) 0 0;" th:if="${publication.noNamespacesGranted}">
+                                This tenant has no namespaces at all right now, so there is nowhere to move the
+                                catalog to. Its organization has to grant one before it can publish again.
+                            </p>
+                            <p style="margin: var(--ep-space-1) 0 0;"
+                               th:if="${!publication.noNamespacesGranted && !publication.namespaceLocked}">
+                                Nothing has published from this catalog yet, so point it at one of the namespaces this
+                                tenant still holds and it will carry on.
+                            </p>
+                            <p style="margin: var(--ep-space-1) 0 0;"
+                               th:if="${!publication.noNamespacesGranted && publication.namespaceLocked}">
+                                Versions already published stay where they are. Moving the catalog to a namespace this
+                                tenant still holds lets future releases continue, and is a deliberate change &mdash;
+                                anyone following the old namespace will not see them.
+                            </p>
+                        </div>
+                    </div>
+    
+                    <div class="alert alert-warning" th:if="${publication.unpublishableRelease != null}">
+                        <div>
+                            <div class="alert-title"
+                                 th:text="'v' + ${publication.unpublishableRelease} + ' can no longer be published'">
+                                v1.0.0 can no longer be published
+                            </div>
+                            <p style="margin: var(--ep-space-1) 0 0;">
+                                It was never sent to Exchange, and the catalog has changed since it was released. A
+                                release is published exactly as it was cut, so this one cannot be reproduced now.
+                                Release the current state as a new version and publish that instead.
+                            </p>
+                        </div>
+                    </div>
+    
+                    <div class="alert alert-warning" th:if="${!publication.stalledPublications.isEmpty()}">
+                        <div>
+                            <div class="alert-title"
+                                 th:with="stalled=${#lists.size(publication.stalledPublications)}"
+                                 th:text="${stalled == 1
+                                     ? 'A release has been waiting to publish for over an hour'
+                                     : stalled + ' releases have been waiting to publish for over an hour'}">
+                                A release has been waiting to publish for over an hour
+                            </div>
+                            <p style="margin: var(--ep-space-1) 0 0;">
+                                Publishing normally takes seconds once a release is queued, so this is a connection,
+                                namespace or Exchange problem rather than a slow one. Each attempt below records what
+                                it is waiting for; &quot;View on Exchange&quot; shows what Exchange itself made of it.
+                            </p>
+                        </div>
+                    </div>
+    
+                    <div class="alert alert-warning"
+                         th:if="${publication.needsNamespaceChoice && publication.hasPublishableDestination}">
+                        <div>
+                            <div class="alert-title">This catalog has no Exchange namespace yet</div>
+                            <p style="margin: var(--ep-space-1) 0 0;">
+                                Choose one when you publish. Nothing is queued until it has one, so releases are
+                                simply not sent rather than held up.
+                            </p>
+                        </div>
+                    </div>
+    
+                    <!--
+                      Nowhere to publish into. The publish control above is withheld in this state, so
+                      name the reason and where it is fixed rather than leaving the group silently
+                      actionless. A revoked namespace has its own alert above; these are the other two
+                      ways to have no destination. Same three reasons as catalogs/list.html.
+                    -->
+                    <div class="alert alert-warning"
+                         th:if="${publication.available && publication.canPublish
+                                  && !publication.hasPublishableDestination
+                                  && !(publication.namespaceRevoked && publication.connected)}">
+                        <div>
+                            <div class="alert-title">This catalog has nowhere to publish yet</div>
+                            <p style="margin: var(--ep-space-1) 0 0;" th:if="${!publication.connected}">
+                                This tenant is not connected to Epistola Exchange. Connect it under
+                                <a th:href="@{/tenants/{tenantId}/exchange(tenantId=${tenantId})}">Settings &rarr; Exchange</a>,
+                                and publishing becomes available here.
+                            </p>
+                            <p style="margin: var(--ep-space-1) 0 0;" th:if="${publication.connected}">
+                                This tenant's Exchange organization has not granted it a namespace to publish
+                                into. It has to grant one before anything from this catalog can be published.
+                            </p>
+                            <p style="margin: var(--ep-space-1) 0 0;">
+                                Releasing is unaffected: versions are created either way.
+                            </p>
+                        </div>
+                    </div>
+    
+                    <dl class="description-list">
+                        <dt>Policy</dt>
+                        <dd>
+                            <span th:text="${publication.policy.label}">Inherit tenant default</span>
+                            <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                    style="margin-left: var(--ep-space-3);"
+                                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='publication')}"
+                                    hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
+                        </dd>
+                        <dt>Namespace</dt>
+                        <dd>
+                            <code th:if="${publication.boundNamespace != null}" th:text="${publication.boundNamespace}">namespace</code>
+                            <span th:if="${publication.boundNamespace == null}" class="text-muted">Not chosen yet</span>
+                            <span th:if="${publication.namespaceLocked}" class="text-muted">
+                                — already published here; moving affects future releases only</span>
+                        </dd>
+                    </dl>
+                    <p class="text-muted" style="margin: var(--ep-space-4) 0 0; font-size: var(--ep-text-sm);"
+                       th:if="${publication.publications.isEmpty()}">
+                        Nothing has been queued for Exchange yet.
+                    </p>
+                </div>
+                <div class="ep-table-scroll" th:unless="${publication.publications.isEmpty()}"
+                     role="region" aria-label="Exchange publication history" tabindex="0">
+                    <table class="ep-table">
+                        <thead>
+                        <tr><th>Version</th><th>Namespace</th><th>Status</th><th>Attempts</th><th>Updated</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="entry : ${publication.publications}">
+                            <td th:text="'v' + ${entry.version}">v1.0.0</td>
+                            <td>
+                                <code th:if="${entry.namespace != null}" th:text="${entry.namespace}">namespace</code>
+                                <span th:if="${entry.namespace == null}" class="text-muted">Not yet bound</span>
+                            </td>
+                            <td>
+                                <span th:class="${'badge ' + entry.status.badgeClass}" th:text="${entry.status.label}">Ready</span>
+                                <div th:if="${entry.failure?.message != null}" class="text-muted"
+                                     style="font-size: var(--ep-text-sm);" th:text="${entry.failure.message}"></div>
+                                <!--
+                                  What Exchange actually said. Suite's own sentence explains the kind of
+                                  failure; only this says which release rule was broken, and a refusal
+                                  nobody can act on is the one thing worse than no refusal at all.
+                                -->
+                                <div th:if="${entry.failure?.supportingDetail != null}" class="text-muted"
+                                     style="font-size: var(--ep-text-sm);"
+                                     th:text="'Exchange reported: ' + ${entry.failure.supportingDetail}"></div>
+                                <!--
+                                  The one rejection somebody can undo, so it gets a way to. The link
+                                  proposes this installation as the catalog's publisher; the transfer
+                                  itself is an administrator's decision on Exchange, which is why this
+                                  leads there rather than doing anything here.
+                                -->
+                                <a th:if="${entry.failure != null and entry.failure.needsAuthorityTransfer and publication.exchangeAuthorityUrl != null}"
+                                   th:href="${publication.exchangeAuthorityUrl}"
+                                   class="ep-btn ep-btn-ghost ep-btn-sm"
+                                   style="margin-top: var(--ep-space-1);"
+                                   target="_blank" rel="noopener noreferrer"
+                                   hx-boost="false">
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='external-link', class='ep-icon ep-icon-sm')}" />
+                                    <span>Reappoint the publisher on Exchange</span>
+                                </a>
+                            </td>
+                            <td th:text="${entry.attempts}">0</td>
+                            <td th:text="${#temporals.format(entry.updatedAt, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</td>
+                            <td class="actions">
+                                <!--
+                                  Straight to this submission on Exchange. Exchange is the only side that
+                                  knows what became of it, and a publication that is stuck or refused is
+                                  exactly when that matters - so this links to the submission, which
+                                  exists in every state, not the release, which exists only in one.
+                                -->
+                                <a th:if="${publication.exchangeUrl(entry) != null}"
+                                   th:href="${publication.exchangeUrl(entry)}"
+                                   class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
+                                   title="View this submission on Exchange"
+                                   target="_blank" rel="noopener noreferrer"
+                                   hx-boost="false">
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='external-link', class='ep-icon ep-icon-sm')}" />
+                                </a>
+                                <form th:if="${entry.status.isCancellable}"
+                                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publications/{publicationId}/cancel(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},publicationId=${entry.id})}"
+                                      method="post">
+                                    <button type="button"
+                                            class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
+                                            title="Withdraw this publication"
+                                            data-confirm-submit
+                                            data-confirm-submit-title="Withdraw this publication"
+                                            data-confirm-submit-message="This release will not be published to Exchange. You can queue it again later while the working copy still matches."
+                                            data-confirm-submit-label="Withdraw"
+                                            data-confirm-submit-class="ep-btn-warning">
+                                        <th:block th:replace="~{epistola-web/icon :: icon(name='undo-2', class='ep-icon ep-icon-sm')}" />
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
-
+        </details>
         <!-- HTMX host for catalog metadata and other URL-addressable dialogs. -->
         <div id="dialog-mount" data-dialog-mount></div>
 
