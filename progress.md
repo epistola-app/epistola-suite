@@ -673,6 +673,10 @@ and generation's `version` as a selector combinable with `environmentKey` (contr
 
 ## Open decisions
 
+- ~~May MCP release and discard drafts?~~ **Yes** (user, 17 October): MCP may release a catalog version
+  and create, renumber and delete drafts, under the same permissions as the UI. Deploying stays in the
+  UI (`docs/mcp.md`).
+
 - Registry and namespace for the bundled system and demo catalogs (e.g. `exchange.epistola.app` / `epistola`)?
 
 - Keep `paramsAlias` now that lexical scope makes it unnecessary for nesting?
