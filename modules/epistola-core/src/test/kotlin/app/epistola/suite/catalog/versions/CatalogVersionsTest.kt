@@ -59,6 +59,15 @@ class CatalogVersionsTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a new tenant's default catalog starts on draft 1_0_0`() {
+        val tenant = withMediator { createTenant("versions-default").id }
+
+        val versions = withMediator { ListCatalogVersions(tenant, CatalogKey.DEFAULT).query() }
+
+        assertThat(versions.map { it.version to it.status }).containsExactly("1.0.0" to CatalogVersionStatus.DRAFT)
+    }
+
+    @Test
     fun `a draft can be renumbered above every release, and a release of it keeps that number`() {
         val tenant = catalog("versions-renumber")
         withMediator { mediator.releaseNext(CatalogId(letters, TenantId(tenant))) }

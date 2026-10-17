@@ -21,6 +21,8 @@ import app.epistola.suite.catalog.relocation.MoveCatalogResources
 import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
 import app.epistola.suite.catalog.relocation.movedTo
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
+import app.epistola.suite.catalog.versions.CatalogVersionStatus
+import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -126,6 +128,10 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
             val restoredTenant = GetTenant(tenant.id).query()
             assertThat(restoredTenant!!.defaultThemeKey?.value).isEqualTo("brand")
             assertThat(restoredTenant.defaultThemeCatalogKey?.value).isEqualTo("main")
+
+            // A restored authored catalog has a draft to keep working in.
+            assertThat(ListCatalogVersions(tenant.id, main).query().map { it.version to it.status })
+                .containsExactly("1.0.0" to CatalogVersionStatus.DRAFT)
 
             // The restored tenant is content-identical to the snapshot.
             val rebuilt = BuildTenantSnapshot(tenant.id).execute()

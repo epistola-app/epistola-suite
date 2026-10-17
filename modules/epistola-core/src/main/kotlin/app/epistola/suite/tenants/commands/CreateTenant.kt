@@ -6,7 +6,9 @@ package app.epistola.suite.tenants.commands
 
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.system.InstallSystemCatalog
+import app.epistola.suite.catalog.versions.CatalogDrafts
 import app.epistola.suite.common.EntityIdentifiable
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -43,6 +45,7 @@ data class CreateTenant(
 class CreateTenantHandler(
     private val jdbi: Jdbi,
     private val identity: CatalogIdentityProperties,
+    private val drafts: CatalogDrafts,
 ) : CommandHandler<CreateTenant, Tenant> {
     @Transactional
     override fun handle(command: CreateTenant): Tenant = executeOrThrowDuplicate("tenant", command.id.value) {
@@ -75,6 +78,8 @@ class CreateTenantHandler(
                 .bind("registry", identity.defaultRegistry)
                 .bind("namespace", CatalogIdentityProperties.defaultNamespace(command.id))
                 .execute()
+            // Its working copy is its first draft (contract ADR 0002), as for any authored catalog.
+            drafts.open(handle, command.id, CatalogKey.DEFAULT, CatalogDrafts.FIRST, base = null)
 
             inserted
         }

@@ -14,6 +14,7 @@ import app.epistola.suite.catalog.identity.TenantResourceIdentities
 import app.epistola.suite.catalog.identity.TenantResourceIdentityStore
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
 import app.epistola.suite.catalog.system.InstallSystemCatalog
+import app.epistola.suite.catalog.versions.CatalogDrafts
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -73,6 +74,7 @@ class RestoreTenantSnapshotHandler(
     private val identityStore: TenantResourceIdentityStore,
     private val jdbi: Jdbi,
     private val schemaMigrator: CatalogSchemaMigrator,
+    private val drafts: CatalogDrafts,
 ) : CommandHandler<RestoreTenantSnapshot, RestoreResult> {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -127,7 +129,7 @@ class RestoreTenantSnapshotHandler(
     private fun createCatalogRow(tenantKey: TenantKey, entry: SnapshotCatalogEntry, zip: ByteArray) {
         val catalog = schemaMigrator.migrateAndBindManifest(catalogJson(zip), tenantKey.value).manifest.catalog
         jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
+            val inserted = handle.createUpdate(
                 """
                 INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, type)
                 VALUES (:catalogKey, :tenantKey, :registry, :namespace, :name, :type)
@@ -141,6 +143,12 @@ class RestoreTenantSnapshotHandler(
                 .bind("name", entry.name)
                 .bind("type", entry.type)
                 .execute()
+            // A restore keeps no releases, so an authored catalog's draft starts again where a new
+            // catalog's does, on the next patch after the release the snapshot was taken at.
+            if (inserted > 0 && entry.type == CatalogType.AUTHORED.name) {
+                val draft = entry.version?.let(CatalogDrafts::nextAfter) ?: CatalogDrafts.FIRST
+                drafts.open(handle, tenantKey, CatalogKey.of(entry.catalogKey), draft, base = null)
+            }
         }
     }
 
