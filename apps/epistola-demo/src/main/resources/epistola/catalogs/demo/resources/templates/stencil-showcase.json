@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 8,
+  "resource": {
+    "type": "template",
+    "key": "stencil-showcase",
+    "name": "Stencil Showcase",
+    "pdfaEnabled": false,
+    "themeKey": "corporate",
+    "dataModel": {
+      "type": "object",
+      "properties": {
+        "companyName": {
+          "type": "string",
+          "description": "Company that sends the letter"
+        },
+        "customer": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "street": {
+              "type": "string"
+            },
+            "postalCode": {
+              "type": "string"
+            },
+            "city": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "dataExamples": [
+      {
+        "key": "default",
+        "name": "Default",
+        "data": {
+          "companyName": "Globex Corporation",
+          "customer": {
+            "name": "Ada Lovelace",
+            "street": "Keizersgracht 123",
+            "postalCode": "1015 CJ",
+            "city": "Amsterdam"
+          }
+        }
+      }
+    ],
+    "templateModel": {
+      "modelVersion": 1,
+      "root": "n-root",
+      "themeRef": {
+        "type": "inherit"
+      },
+      "nodes": {
+        "n-root": {
+          "id": "n-root",
+          "type": "root",
+          "slots": [
+            "s-root-children"
+          ]
+        },
+        "n-greeting": {
+          "id": "n-greeting",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Dear "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "customer.name"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": ","
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-body-text": {
+          "id": "n-body-text",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "This letter is laid out by the Letter Shell stencil of "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "shell.companyName"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": ". The shell's letterhead is a stencil inside a stencil; this paragraph sits in the shell's body and reads the company name the shell passes to it."
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-address": {
+          "id": "n-address",
+          "type": "stencil",
+          "slots": [
+            "s-address-children"
+          ],
+          "props": {
+            "stencilKey": "customer-address"
+          }
+        },
+        "n-fill-body": {
+          "id": "n-fill-body",
+          "type": "placeholder",
+          "slots": [
+            "s-fill-body-fill"
+          ],
+          "props": {
+            "name": "body",
+            "parametersAs": "shell"
+          }
+        },
+        "n-shell": {
+          "id": "n-shell",
+          "type": "stencil",
+          "slots": [
+            "s-shell-children"
+          ],
+          "props": {
+            "stencilKey": "letter-shell",
+            "parameterBindings": {
+              "companyName": "companyName"
+            }
+          }
+        }
+      },
+      "slots": {
+        "s-root-children": {
+          "id": "s-root-children",
+          "nodeId": "n-root",
+          "name": "children",
+          "children": [
+            "n-shell"
+          ]
+        },
+        "s-address-children": {
+          "id": "s-address-children",
+          "nodeId": "n-address",
+          "name": "children",
+          "children": []
+        },
+        "s-fill-body-fill": {
+          "id": "s-fill-body-fill",
+          "nodeId": "n-fill-body",
+          "name": "fill",
+          "children": [
+            "n-address",
+            "n-greeting",
+            "n-body-text"
+          ]
+        },
+        "s-shell-children": {
+          "id": "s-shell-children",
+          "nodeId": "n-shell",
+          "name": "children",
+          "children": [
+            "n-fill-body"
+          ]
+        }
+      }
+    },
+    "variants": [
+      {
+        "key": "default",
+        "title": "Default",
+        "attributes": {},
+        "isDefault": true
+      }
+    ]
+  }
+}

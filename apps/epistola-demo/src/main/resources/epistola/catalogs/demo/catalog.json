@@ -30,10 +30,20 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "6.0.0",
+    "version": "6.1.0",
     "releasedAt": "2026-10-17T00:00:00Z",
-    "fingerprint": "v5:8f0f1bc239d8268a525e90bba738979dd135cadd113599b927ee818827b76b08"
+    "fingerprint": "v5:8d49cf71e438485aa4ccccd35f5cad90b98fc80db0e42137bd120ae168e4df00"
   },
+  "catalogDependencies": [
+    {
+      "registry": "exchange.epistola.app",
+      "namespace": "epistola",
+      "catalogKey": "system",
+      "version": "^2.0.0",
+      "releaseVersion": "2.0.0",
+      "releaseFingerprint": "v5:ca81faf3377fd558f5b634b7e566f59f520ef4b6380ae0ee991cf7e7d060f808"
+    }
+  ],
   "resources": [
     {
       "type": "image",
@@ -79,8 +89,8 @@
       "type": "stencil",
       "key": "letter-shell",
       "name": "Letter Shell",
-      "description": "A simple letter shell with a body placeholder that templates fill. Demonstrates the placeholder default/fill pattern.",
-      "updatedAt": "2026-05-16T00:00:00Z",
+      "description": "A letter shell built from the Letterhead stencil, with a body that templates fill. Its company name reaches the letterhead and, through the body placeholder, the template's fill.",
+      "updatedAt": "2026-10-17T00:00:00Z",
       "detailUrl": "./resources/stencils/letter-shell.json"
     },
     {
@@ -90,6 +100,14 @@
       "description": "A page header and footer that travel with the stencil: its header applies from where it is placed, its footer covers that section.",
       "updatedAt": "2026-09-29T00:00:00Z",
       "detailUrl": "./resources/stencils/letterhead.json"
+    },
+    {
+      "type": "stencil",
+      "key": "customer-address",
+      "name": "Customer Address",
+      "description": "An address block that reads the using template's data (customer.name, customer.street, customer.postalCode, customer.city) instead of taking parameters.",
+      "updatedAt": "2026-10-17T00:00:00Z",
+      "detailUrl": "./resources/stencils/customer-address.json"
     },
     {
       "type": "template",
@@ -154,6 +172,14 @@
       "description": "One letter per recipient in a single document: a loop repeats a page header, footer and page break, so each letter gets its own header and footer with that recipient's data.",
       "updatedAt": "2026-09-29T00:00:00Z",
       "detailUrl": "./resources/templates/batch-letters.json"
+    },
+    {
+      "type": "template",
+      "key": "stencil-showcase",
+      "name": "Stencil Showcase",
+      "description": "A letter built from stencils: a shell that contains the letterhead stencil, a body fill reading the parameters the shell passes, and an address stencil that reads the template's data.",
+      "updatedAt": "2026-10-17T00:00:00Z",
+      "detailUrl": "./resources/templates/stencil-showcase.json"
     }
   ]
 }
