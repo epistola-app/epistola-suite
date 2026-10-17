@@ -16,9 +16,12 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -125,6 +128,45 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
 
         val released = withMediator { ListCatalogVersions(tenant.id, letters, CatalogVersionStatus.RELEASED).query().map { it.version } }
         assertThat(released).contains("1.1.0")
+    }
+
+    @Test
+    fun `publishing makes the new version live in the environment ticked, so a changed template reaches the application in one go`() {
+        val tenant = published("Publish Live")
+        withMediator {
+            CreateEnvironment(EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant.id)), "Test").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant.id))), "Invoice")
+                .execute().withRequiredDataExample()
+        }
+
+        val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
+        assertThat(dialog).contains("data-testid=\"publish-live\"")
+        assertThat(dialog.substringAfter("data-environment=\"test\"").substringBefore("</label>"))
+            .`as`("the only environment is ticked").contains("checked")
+
+        postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.1.0", "liveIn" to "test"))
+
+        val live = withMediator { ListCatalogVersions(tenant.id, letters, CatalogVersionStatus.RELEASED).query() }.first { it.version == "1.1.0" }.deployedTo
+        assertThat(live).containsExactly("test")
+    }
+
+    @Test
+    fun `with several environments none is ticked, and publishing without one makes nothing live`() {
+        val tenant = published("Publish Not Live")
+        withMediator {
+            CreateEnvironment(EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant.id)), "Test").execute()
+            CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant.id))), "Invoice")
+                .execute().withRequiredDataExample()
+        }
+
+        val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
+        assertThat(dialog.substringAfter("data-testid=\"publish-live\"").substringBefore("</div>")).doesNotContain("checked")
+
+        postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.1.0"))
+
+        val released = withMediator { ListCatalogVersions(tenant.id, letters, CatalogVersionStatus.RELEASED).query() }.first { it.version == "1.1.0" }
+        assertThat(released.deployedTo).isEmpty()
     }
 
     private fun getHtmx(url: String): ResponseEntity<String> = restTemplate.exchange(

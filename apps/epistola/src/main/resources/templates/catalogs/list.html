@@ -232,11 +232,11 @@
                            one confirmation each, because the contract releases it only when each is
                            acknowledged (`acknowledgedBehind`). */-->
                     <div th:if="${readiness.draftVersion != null and !readiness.drafts.behind.isEmpty()}" class="form-group" data-testid="release-acknowledge-behind">
-                        <span class="ep-label">Published since you started</span>
+                        <span class="ep-label">Published in between</span>
                         <div th:each="release : ${readiness.drafts.behind}" style="margin-top: var(--ep-space-1);">
                             <p style="margin: 0;">
-                                <strong th:text="'v' + ${release.version}">v1.0.1</strong> was published after you started, and its
-                                changes are not in this work<span th:unless="${release.changes.isEmpty()}"
+                                <strong th:text="'v' + ${release.version}">v1.0.1</strong> was published after this draft started, and its
+                                changes are not in it<span th:unless="${release.changes.isEmpty()}"
                                     th:text="': ' + ${#strings.listJoin(release.changes.![key], ', ')}"></span>.
                             </p>
                             <label style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-1);">
@@ -254,6 +254,24 @@
                         <textarea id="release-notes" name="notes" class="ep-textarea" rows="3"
                                   placeholder="For example: new address on the invoice letter"></textarea>
                     </div>
+
+                    <!--/* Publish and make live in one go: the common case of changing a template and
+                           having the application use it (PublishLiveChoice). */-->
+                    <div th:if="${live.offer}" class="form-group" data-testid="publish-live">
+                        <span class="ep-label">Make it live in</span>
+                        <label th:each="target : ${live.environments}" style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-1);"
+                               data-testid="publish-live-target" th:attr="data-environment=${target.key}">
+                            <input type="checkbox" name="liveIn" th:value="${target.key}" th:checked="${live.checked(target.key)}">
+                            <span>
+                                <span th:text="${target.name}">Test</span>
+                                <span class="text-muted" th:text="${target.liveNow.isEmpty()} ? '(nothing live yet)' : '(now v' + ${#strings.listJoin(target.liveNow, ', v')} + ')'">(now v1.0.0)</span>
+                            </span>
+                        </label>
+                        <p class="form-hint">Applications using an environment get the new version straight away. Leave it unticked to make it live later.</p>
+                    </div>
+                    <p th:if="${live.withheld}" class="form-hint" data-testid="publish-live-withheld">
+                        Making it live needs the permission to deploy; someone who has it can do that on the catalog page.
+                    </p>
 
                     <details data-testid="publish-advanced">
                         <summary>Advanced</summary>

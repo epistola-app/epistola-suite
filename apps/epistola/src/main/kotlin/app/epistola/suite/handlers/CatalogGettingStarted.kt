@@ -6,9 +6,9 @@ package app.epistola.suite.handlers
 
 /**
  * The steps from a new catalog to a document an application such as GZAC generates from it
- * (docs/catalog-workspace-navigation.md, use case 1): add a template, publish the first version, make
- * it live in an environment, and point the application at it. Shown on the catalog page until
- * something is live, each step marked done once the catalog has reached it.
+ * (docs/catalog-workspace-navigation.md, use case 1): add a template, publish it and make it live in
+ * an environment — one step, as the publish dialog does both — and point the application at it.
+ * Shown on the catalog page until something is live, each step marked done once reached.
  *
  * An application asks an environment for documents and gets what is live there, so being live is
  * the end of the road; publishing alone is not.
@@ -37,16 +37,15 @@ data class CatalogGettingStarted(
     /** Whether to show the steps at all: until a version of the catalog is live somewhere. */
     val show: Boolean get() = !live
 
-    /** The step to do now, 1 to 4; the steps before it are done. */
+    /** The step to do now, 1 to 3; the steps before it are done. */
     val current: Int
         get() = when {
             !hasTemplate -> 1
-            !published -> 2
-            !live -> 3
-            else -> 4
+            !live -> 2
+            else -> 3
         }
 
-    /** There is no environment to make a version live in; step 3 says to add one first. */
+    /** There is no environment to make a version live in; step 2 says to add one first. */
     val needsEnvironment: Boolean get() = environmentKeys.isEmpty()
 
     /** The environment the application example names: the one it is live in, or else the first. */

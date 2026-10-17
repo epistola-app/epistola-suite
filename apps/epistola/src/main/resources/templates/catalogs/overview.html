@@ -18,7 +18,7 @@
         </div>
         <div class="card-body">
             <p class="text-muted" style="margin-top: 0;">
-                An application such as GZAC makes documents from what is live in an environment. Four steps get it there.
+                An application such as GZAC makes documents from what is live in an environment. Three steps get it there.
             </p>
             <ol style="margin: 0; padding-left: var(--ep-space-5); display: grid; gap: var(--ep-space-3);">
                 <li data-testid="catalog-step" data-step="1" th:attr="data-done=${gs.hasTemplate}">
@@ -30,32 +30,28 @@
                         <span th:unless="${gs.mayEdit}" class="form-hint">Adding a template needs the content author role.</span>
                     </div>
                 </li>
-                <li data-testid="catalog-step" data-step="2" th:attr="data-done=${gs.published}">
-                    <strong>Publish the first version</strong>
-                    <span th:if="${gs.published}" class="badge badge-success">Done</span>
-                    <div th:unless="${gs.published}" class="form-hint">
-                        A published version does not change, so what your application gets stays the same while you keep working.
+                <li data-testid="catalog-step" data-step="2" th:attr="data-done=${gs.live}">
+                    <strong>Publish it and make it live</strong>
+                    <div class="form-hint">
+                        Publishing fixes what your application gets, so it stays the same while you keep working; the
+                        publish dialog makes it live in the environment you tick.
+                    </div>
+                    <div th:if="${gs.needsEnvironment}" class="form-hint" data-testid="catalog-step-no-environment">
+                        There is no environment to make it live in yet.
+                        <a th:href="@{/tenants/{t}/environments(t=${tenantId})}">Add one</a>, such as <em>test</em>, first.
                     </div>
                     <div th:if="${gs.current == 2}">
                         <button th:if="${readiness.offerPublish}" type="button" class="ep-btn ep-btn-primary ep-btn-sm"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
                                 hx-target="#release-dialog-container" hx-swap="innerHTML"
                                 data-testid="catalog-step-publish">Publish…</button>
+                        <span th:if="${gs.published and !readiness.offerPublish and gs.mayDeploy and !gs.needsEnvironment}" class="form-hint">
+                            It is published: under <em>Live</em> below, choose the version and press <em>Make live</em>.
+                        </span>
                         <span th:unless="${gs.mayPublish}" class="form-hint">Publishing needs the publisher role.</span>
                     </div>
                 </li>
-                <li data-testid="catalog-step" data-step="3" th:attr="data-done=${gs.live}">
-                    <strong>Make it live in an environment</strong>
-                    <div th:if="${gs.needsEnvironment}" class="form-hint" data-testid="catalog-step-no-environment">
-                        There is no environment yet.
-                        <a th:href="@{/tenants/{t}/environments(t=${tenantId})}">Add one</a>, such as <em>test</em>, first.
-                    </div>
-                    <div th:if="${!gs.needsEnvironment and gs.current == 3}" class="form-hint">
-                        <th:block th:if="${gs.mayDeploy}">Under <em>Live</em> below, choose the version and press <em>Make live</em>.</th:block>
-                        <th:block th:unless="${gs.mayDeploy}">Making a version live needs the permission to deploy.</th:block>
-                    </div>
-                </li>
-                <li data-testid="catalog-step" data-step="4">
+                <li data-testid="catalog-step" data-step="3">
                     <strong>Use it from your application</strong>
                     <div class="form-hint" data-testid="catalog-step-application">
                         Your application asks for catalog <code th:text="${gs.catalogKey}">letters</code><th:block th:if="${gs.templateKey != null}">,

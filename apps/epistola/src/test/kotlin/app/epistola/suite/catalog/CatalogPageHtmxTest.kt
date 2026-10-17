@@ -70,19 +70,19 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `with a template the next step is publishing, then making it live in an environment there has to be first`() {
+    fun `with a template the next step is publishing and making it live, in an environment there has to be first`() {
         val tenant = catalog("Page Steps") { _, catalog -> invoice(catalog) }
 
         val unpublished = get(tenant, "/catalogs/letters/browse").body!!
         assertThat(step(unpublished, 1)).contains("data-done=\"true\"")
         assertThat(step(unpublished, 2)).contains("data-testid=\"catalog-step-publish\"")
-        assertThat(step(unpublished, 4)).contains("template <code>invoice</code>")
+        assertThat(step(unpublished, 3)).contains("template <code>invoice</code>")
 
         withMediator { mediator.releaseNext(CatalogId(letters, TenantId(tenant.id))) }
 
         val published = get(tenant, "/catalogs/letters/browse").body!!
-        assertThat(step(published, 2)).contains("data-done=\"true\"")
-        assertThat(step(published, 3)).contains("data-testid=\"catalog-step-no-environment\"")
+        assertThat(step(published, 2)).`as`("published, not live yet").contains("data-done=\"false\"")
+            .contains("data-testid=\"catalog-step-no-environment\"")
         assertThat(published).contains("href=\"/tenants/${tenant.id}/catalogs/letters/releases/1.0.0\"")
     }
 

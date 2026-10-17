@@ -18,10 +18,10 @@ class CatalogGettingStartedTest {
     ) = CatalogGettingStarted("letters", templateKey, published, environments, liveIn, mayEdit = true, mayPublish = true, mayDeploy = true)
 
     @Test
-    fun `the steps go template, publish, make live, and stop showing once something is live`() {
+    fun `the steps go template, then publish and make live as one, and stop showing once something is live`() {
         assertThat(steps().current).isEqualTo(1)
         assertThat(steps(templateKey = "invoice").current).isEqualTo(2)
-        assertThat(steps(templateKey = "invoice", published = true).current).isEqualTo(3)
+        assertThat(steps(templateKey = "invoice", published = true).current).`as`("published but not live: still step 2").isEqualTo(2)
 
         val live = steps(templateKey = "invoice", published = true, liveIn = listOf("test"))
         assertThat(live.show).isFalse()

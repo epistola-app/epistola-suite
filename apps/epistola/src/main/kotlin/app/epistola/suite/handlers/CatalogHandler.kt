@@ -394,10 +394,18 @@ class CatalogHandler {
         error: String? = null,
         version: String? = null,
         acknowledged: Set<String> = emptySet(),
+        liveChosen: Set<String>? = null,
     ): Map<String, Any?> {
         val readiness = CatalogReleaseReadiness.of(draftBar(tenantId, segment))
         val status = GetLatestCatalogRelease(tenantId.key, segment.key).query()
+        val live = PublishLiveChoice(
+            environments = deploymentRows(tenantId.key, segment.key).map { PublishLiveChoice.Target(it.environmentKey, it.environmentName, it.served.map { s -> s.version }) },
+            mayDeploy = AuthContext.from(SecurityContext.current(), tenantId.key).has(Permission.ENVIRONMENT_DEPLOY),
+            chosen = liveChosen,
+        )
         return mapOf(
+            // Where publishing makes the new version live, ticked in the dialog.
+            "live" to live,
             "tenantId" to tenantId.key,
             // The catalog segment: the dialog releases the draft the page works in.
             "catalogId" to segment.value,
@@ -433,10 +441,12 @@ class CatalogHandler {
         // The releases this draft is behind that the author confirmed it may be (contract
         // `acknowledgedBehind`): one checkbox per release in the dialog.
         val acknowledged = request.params()["acknowledgedBehind"].orEmpty().map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+        // The environments to make the new version live in, ticked in the dialog.
+        val liveIn = request.params()["liveIn"].orEmpty().map { it.trim() }.filter { it.isNotEmpty() }.toCollection(LinkedHashSet())
 
         fun reRenderWithError(message: String): ServerResponse = ServerResponse.ok().render(
             "catalogs/list :: release-dialog",
-            releaseDialogModel(tenantId, segment, publication, error = message, version = form.formData["version"]?.ifBlank { null }, acknowledged = acknowledged),
+            releaseDialogModel(tenantId, segment, publication, error = message, version = form.formData["version"]?.ifBlank { null }, acknowledged = acknowledged, liveChosen = liveIn),
         )
 
         if (form.hasErrors()) {
@@ -469,6 +479,20 @@ class CatalogHandler {
                 acknowledgedBehind = acknowledged,
                 catalogVersion = segment.ref(tenantId.key),
             ).execute()
+
+            // Then live where it was ticked. Published already, so a refusal says that it is, and
+            // where it is not live yet, instead of reading as a failed publish.
+            if (liveIn.isNotEmpty()) requirePermission(tenantId.key, Permission.ENVIRONMENT_DEPLOY)
+            liveIn.forEach { environment ->
+                try {
+                    DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, result.version, includeDependencies = true).execute()
+                } catch (e: ValidationException) {
+                    return reRenderWithError("Published v${result.version}, but it could not be made live in $environment: ${e.message} Make it live under Live on the catalog page.")
+                } catch (e: RuntimeException) {
+                    logger.warn("Making v{} of '{}' live in {} failed: {}", result.version, catalogKey.value, environment, e.message)
+                    return reRenderWithError("Published v${result.version}, but it could not be made live in $environment: ${e.message ?: "it was refused."} Make it live under Live on the catalog page.")
+                }
+            }
 
             // Releasing is the start of something to watch, not the end of a dialog: publication
             // runs in the background, so land on the catalog where its progress is shown — in the
