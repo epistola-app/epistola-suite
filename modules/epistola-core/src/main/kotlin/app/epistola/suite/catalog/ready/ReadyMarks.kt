@@ -4,8 +4,8 @@
 
 package app.epistola.suite.catalog.ready
 
-import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.security.currentUserIdOrNull
 import org.jdbi.v3.core.Handle

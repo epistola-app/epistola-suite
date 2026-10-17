@@ -4,7 +4,7 @@
 
 package app.epistola.suite.catalog.versions
 
-import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.common.ids.CatalogKey
 
 /** The catalog has no version with that number. */
 class CatalogVersionNotFoundException(val catalogKey: CatalogKey, val version: String) : RuntimeException("Catalog '${catalogKey.value}' has no version $version")

@@ -78,7 +78,7 @@ object ApiProblemTypes {
     val RELEASE_NOT_FOUND = problem("RELEASE_NOT_FOUND", "Release Not Found", HttpStatus.NOT_FOUND, "The catalog has no such release, or it kept no content to render.", listOf("catalogId", "releaseVersion"))
     val NO_RELEASE_DEPLOYED = problem("NO_RELEASE_DEPLOYED", "No Release Deployed", HttpStatus.NOT_FOUND, "The environment serves no release of the template's catalog; deploy one first.", listOf("environmentId", "catalogId"))
     val RELEASE_NOT_DEPLOYABLE = problem("RELEASE_NOT_DEPLOYABLE", "Release Not Deployable", HttpStatus.CONFLICT, "The release does not exist or kept no content to render from.", listOf("catalogId", "releaseVersion"))
-    val RELEASE_IN_USE = problem("RELEASE_IN_USE", "Release In Use", HttpStatus.CONFLICT, "The release is deployed to an environment.", listOf("catalogId", "releaseVersion", "environments"))
+    val RELEASE_IN_USE = problem("RELEASE_IN_USE", "Release In Use", HttpStatus.CONFLICT, "The release is deployed to an environment, or another catalog's release renders with it.", listOf("catalogId", "releaseVersion", "environments", "pinnedBy"))
     val CATALOG_NOT_RELEASED = problem("CATALOG_NOT_RELEASED", "Catalog Not Released", HttpStatus.NOT_FOUND, "The catalog has no release to generate from; release it first.", listOf("tenantId", "catalogId"))
     val TEMPLATE_NOT_IN_RELEASE = problem("TEMPLATE_NOT_IN_RELEASE", "Template Not In Release", HttpStatus.NOT_FOUND, "The release being generated from does not contain the requested template or variant.", listOf("tenantId", "catalogId", "releaseVersion", "templateId", "variantId"))
     val DEFAULT_VARIANT_NOT_FOUND = problem("DEFAULT_VARIANT_NOT_FOUND", "Default Variant Not Found", HttpStatus.NOT_FOUND, "The requested template has no default variant.", listOf("tenantId", "templateId"))
@@ -89,6 +89,11 @@ object ApiProblemTypes {
     val ENVIRONMENT_IN_USE = problem("ENVIRONMENT_IN_USE", "Environment In Use", HttpStatus.CONFLICT, "The environment cannot be deleted while it serves catalog releases.", listOf("environmentId", "deploymentCount"))
     val CATALOG_READ_ONLY = problem("CATALOG_READ_ONLY", "Catalog Read Only", HttpStatus.CONFLICT, "The catalog is subscribed/read-only and cannot be modified through this API.", emptyList())
     val CATALOG_NOT_FOUND = problem("CATALOG_NOT_FOUND", "Catalog Not Found", HttpStatus.NOT_FOUND, "The requested catalog does not exist or is not visible to the caller.", listOf("catalogId"))
+    val CATALOG_VERSION_NOT_FOUND = problem("CATALOG_VERSION_NOT_FOUND", "Catalog Version Not Found", HttpStatus.NOT_FOUND, "The catalog has no version with this number.", listOf("catalogKey", "version"))
+    val CATALOG_VERSION_RELEASED = problem("CATALOG_VERSION_RELEASED", "Catalog Version Released", HttpStatus.CONFLICT, "The catalog version is released and cannot change; change a draft.", listOf("catalogKey", "version"))
+    val CATALOG_VERSION_IN_USE = problem("CATALOG_VERSION_IN_USE", "Catalog Version In Use", HttpStatus.CONFLICT, "The catalog already has a version with this number.", listOf("catalogKey", "version"))
+    val SINGLE_CATALOG_DRAFT = problem("SINGLE_CATALOG_DRAFT", "Single Catalog Draft", HttpStatus.CONFLICT, "A catalog has one draft: a second cannot be opened, and the one cannot be discarded or numbered below a release.", listOf("catalogKey"))
+    val RENUMBER_WARNINGS_NOT_ACKNOWLEDGED = problem("RENUMBER_WARNINGS_NOT_ACKNOWLEDGED", "Renumber Warnings Not Acknowledged", HttpStatus.CONFLICT, "Renumbering the draft has consequences; retry with acknowledgeWarnings=true to accept them.", listOf("warnings"))
     val CATALOG_NOT_UPGRADEABLE = problem("CATALOG_NOT_UPGRADEABLE", "Catalog Not Upgradeable", HttpStatus.CONFLICT, "The requested catalog is not in a state that supports upgrade operations.", listOf("catalogId"))
     val CATALOG_RELEASE_VERSION_INVALID = problem("CATALOG_RELEASE_VERSION_INVALID", "Invalid Catalog Release Version", HttpStatus.BAD_REQUEST, "The requested catalog release version is invalid or does not advance the current version.", emptyList())
     val CATALOG_UPGRADE_CONFLICT = problem("CATALOG_UPGRADE_CONFLICT", "Catalog Upgrade Conflict", HttpStatus.CONFLICT, "The catalog upgrade would remove resources that are still in use.", listOf("conflicts"))
@@ -103,18 +108,10 @@ object ApiProblemTypes {
     val TEMPLATE_NOT_FOUND = problem("TEMPLATE_NOT_FOUND", "Template Not Found", HttpStatus.NOT_FOUND, "The requested template does not exist or is not visible to the caller.", listOf("tenantId", "templateId"))
     val STENCIL_NOT_FOUND = problem("STENCIL_NOT_FOUND", "Stencil Not Found", HttpStatus.NOT_FOUND, "The requested stencil does not exist or is not visible to the caller.", listOf("tenantId", "stencilId"))
     val STENCIL_VERSION_NOT_FOUND = problem("STENCIL_VERSION_NOT_FOUND", "Stencil Version Not Found", HttpStatus.NOT_FOUND, "The requested stencil version does not exist or is not visible to the caller.", listOf("tenantId", "catalogId", "stencilId", "versionId"))
-    val STENCIL_VERSION_NOT_DRAFT = problem("STENCIL_VERSION_NOT_DRAFT", "Stencil Version Not Draft", HttpStatus.CONFLICT, "The requested stencil version is not a draft and cannot be modified.", listOf("tenantId", "catalogId", "stencilId", "versionId"))
-    val STENCIL_VERSION_NOT_PUBLISHED = problem("STENCIL_VERSION_NOT_PUBLISHED", "Stencil Version Not Published", HttpStatus.CONFLICT, "The requested stencil version is not published and cannot be archived.", listOf("tenantId", "catalogId", "stencilId", "versionId"))
     val FONT_NOT_FOUND = problem("FONT_NOT_FOUND", "Font Not Found", HttpStatus.NOT_FOUND, "The requested font does not exist or is not visible to the caller.", listOf("tenantId", "catalogId", "fontId"))
     val GENERATION_JOB_NOT_FOUND = problem("GENERATION_JOB_NOT_FOUND", "Generation Job Not Found", HttpStatus.NOT_FOUND, "The requested generation job does not exist or is not visible to the caller.", listOf("tenantId", "requestId"))
     val GENERATION_JOB_NOT_CANCELLABLE = problem("GENERATION_JOB_NOT_CANCELLABLE", "Generation Job Not Cancellable", HttpStatus.CONFLICT, "The generation job cannot be cancelled because it is already completed, failed, or cancelled.", listOf("tenantId", "requestId"))
     val DOCUMENT_NOT_FOUND = problem("DOCUMENT_NOT_FOUND", "Document Not Found", HttpStatus.NOT_FOUND, "The requested document does not exist or is not visible to the caller.", listOf("tenantId", "documentId"))
-    val DRAFT_NOT_FOUND = problem("DRAFT_NOT_FOUND", "Draft Not Found", HttpStatus.NOT_FOUND, "No draft exists for the requested variant.", listOf("tenantId", "variantId"))
-    val DRAFT_HAS_NO_PUBLISHED_BASE = problem("DRAFT_HAS_NO_PUBLISHED_BASE", "Draft Has No Published Base", HttpStatus.CONFLICT, "The draft cannot be discarded because the variant has no published version to revert to.", listOf("tenantId", "variantId"))
-    val VERSION_NOT_DRAFT = problem("VERSION_NOT_DRAFT", "Version Not Draft", HttpStatus.CONFLICT, "The version is not a draft and cannot be modified.", listOf("tenantId", "versionId"))
-    val VERSION_NOT_PUBLISHED = problem("VERSION_NOT_PUBLISHED", "Version Not Published", HttpStatus.CONFLICT, "The version is not published and cannot be archived.", listOf("tenantId", "versionId"))
-    val VERSION_ARCHIVED = problem("VERSION_ARCHIVED", "Version Archived", HttpStatus.CONFLICT, "The version is archived and cannot be published.", listOf("tenantId", "versionId"))
-    val CONTRACT_PUBLISH_CONFLICT = problem("CONTRACT_PUBLISH_CONFLICT", "Contract Publish Conflict", HttpStatus.CONFLICT, "The data-model change is backwards-incompatible and was not confirmed; retry with forceUpdate=true to publish it.", listOf("breakingChanges"))
 
     val all: List<ApiProblemType> = listOf(
         BATCH_VALIDATION_ERROR,
@@ -163,6 +160,11 @@ object ApiProblemTypes {
         ENVIRONMENT_IN_USE,
         CATALOG_READ_ONLY,
         CATALOG_NOT_FOUND,
+        CATALOG_VERSION_NOT_FOUND,
+        CATALOG_VERSION_RELEASED,
+        CATALOG_VERSION_IN_USE,
+        SINGLE_CATALOG_DRAFT,
+        RENUMBER_WARNINGS_NOT_ACKNOWLEDGED,
         CATALOG_NOT_UPGRADEABLE,
         CATALOG_RELEASE_VERSION_INVALID,
         CATALOG_UPGRADE_CONFLICT,
@@ -177,18 +179,10 @@ object ApiProblemTypes {
         TEMPLATE_NOT_FOUND,
         STENCIL_NOT_FOUND,
         STENCIL_VERSION_NOT_FOUND,
-        STENCIL_VERSION_NOT_DRAFT,
-        STENCIL_VERSION_NOT_PUBLISHED,
         FONT_NOT_FOUND,
         GENERATION_JOB_NOT_FOUND,
         GENERATION_JOB_NOT_CANCELLABLE,
         DOCUMENT_NOT_FOUND,
-        DRAFT_NOT_FOUND,
-        DRAFT_HAS_NO_PUBLISHED_BASE,
-        VERSION_NOT_DRAFT,
-        VERSION_NOT_PUBLISHED,
-        VERSION_ARCHIVED,
-        CONTRACT_PUBLISH_CONFLICT,
     ) + ValidationCode.entries.map { validationProblemType(it) }
 
     val bySlug: Map<String, ApiProblemType> = all.associateBy { it.slug }

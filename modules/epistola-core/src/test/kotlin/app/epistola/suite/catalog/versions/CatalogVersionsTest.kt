@@ -15,8 +15,11 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.themes.commands.CreateTheme
@@ -24,6 +27,7 @@ import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import java.util.UUID
 
 /**
  * A catalog consists of versions (contract ADR 0002): released ones and, for an authored catalog,
@@ -115,5 +119,30 @@ class CatalogVersionsTest : IntegrationTestBase() {
             .isInstanceOf(CatalogNotFoundException::class.java)
         assertThatThrownBy { withMediator { ResolveCatalogVersion(tenant, null, namespace, letters, "9.9.9").query() } }
             .isInstanceOf(CatalogVersionNotFoundException::class.java)
+    }
+
+    @Test
+    fun `resolving an address needs membership only, so an author can write without CATALOG_VIEW`() {
+        val tenant = catalog("versions-membership")
+        val namespace = withMediator { GetCatalog(tenant, letters).query()!! }.namespace
+        fun member(of: TenantKey, roles: Set<TenantRole>) = UUID.randomUUID().let { id ->
+            EpistolaPrincipal(
+                userId = UserKey.of(id),
+                externalId = "apikey:$id",
+                email = "apikey-$id@npa.epistola",
+                displayName = "Key",
+                tenantMemberships = mapOf(of to roles),
+                globalRoles = emptySet(),
+                platformRoles = emptySet(),
+                currentTenantId = of,
+            )
+        }
+
+        val resolved = runAs(member(tenant, setOf(TenantRole.CONTENT_AUTHOR))) { ResolveCatalogVersion(tenant, null, namespace, letters, "1.0.0").query() }
+        assertThat(resolved.isDraft).isTrue()
+
+        val other = createTenant("versions-outsider").id
+        assertThatThrownBy { runAs(member(other, TenantRole.entries.toSet())) { ResolveCatalogVersion(tenant, null, namespace, letters, "1.0.0").query() } }
+            .isNotInstanceOf(CatalogVersionNotFoundException::class.java)
     }
 }

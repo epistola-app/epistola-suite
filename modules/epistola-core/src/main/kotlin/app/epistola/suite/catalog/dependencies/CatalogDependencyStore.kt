@@ -6,9 +6,9 @@ package app.epistola.suite.catalog.dependencies
 
 import app.epistola.catalog.canonical.QualifiedCatalogFingerprint
 import app.epistola.catalog.protocol.CatalogDependency
-import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogVersionSelector
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
 import org.springframework.stereotype.Component

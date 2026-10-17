@@ -7,14 +7,16 @@ package app.epistola.suite.catalog.versions
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogIdentityProperties
-import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
+import app.epistola.suite.common.TenantScoped
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresAuthentication
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -38,16 +40,20 @@ data class ResolvedCatalogVersion(
  * 0002/0003): the tenant's catalog with that name, and its version with that number. [registry]
  * null, or `~`, is the installation's default registry. A catalog whose key matches but whose name
  * does not is another catalog, and not found.
+ *
+ * Membership is enough: resolving an address only finds what the operation using it then checks
+ * its own permission for, so an author's key need not also hold `CATALOG_VIEW` to write.
  */
 data class ResolveCatalogVersion(
-    override val tenantKey: TenantKey,
+    val tenantKey: TenantKey,
     val registry: String?,
     val namespace: String,
     val catalogKey: CatalogKey,
     val version: String,
 ) : Query<ResolvedCatalogVersion>,
-    RequiresPermission {
-    override val permission get() = Permission.CATALOG_VIEW
+    RequiresAuthentication,
+    TenantScoped {
+    override val tenantId: TenantKey get() = tenantKey
 }
 
 @Component

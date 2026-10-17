@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.commands.DeleteCatalogRelease
 import app.epistola.suite.catalog.commands.ForgetReleaseContent
 import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.declareDependency
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.common.ids.CatalogId
@@ -151,6 +152,11 @@ class CatalogDeploymentTest : IntegrationTestBase() {
         }
 
         val history = withMediator { ListDeploymentHistory(production).query() }
+        val catalog = withMediator { GetCatalog(production.tenantKey, letters.key).query()!! }
+        assertThat(history).allSatisfy {
+            assertThat(it.registry).isEqualTo(catalog.registry)
+            assertThat(it.namespace).isEqualTo(catalog.namespace)
+        }
         assertThat(history.map { Triple(it.action, it.version, it.previousVersion) }).containsExactly(
             Triple(DeploymentAction.UNDEPLOYED, null, "1.0.0"),
             Triple(DeploymentAction.DEPLOYED, "1.0.0", "1.0.1"),

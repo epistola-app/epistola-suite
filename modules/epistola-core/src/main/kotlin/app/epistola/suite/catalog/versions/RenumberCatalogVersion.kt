@@ -4,9 +4,9 @@
 
 package app.epistola.suite.catalog.versions
 
-import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler

@@ -9,6 +9,7 @@ import app.epistola.api.model.CodeListEntryDto
 import app.epistola.suite.attributes.codelists.model.CodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
+import app.epistola.suite.catalog.Catalog
 
 /**
  * Map domain `CodeList` → public `CodeListDto`. Hides the internal `CLASSPATH`
@@ -17,10 +18,12 @@ import app.epistola.suite.attributes.codelists.model.CodeListSource
  * for now; this matches the catalog-protocol view where classpath-sourced
  * lists arrive as inline rows in the import path.
  */
-internal fun CodeList.toDto() = CodeListDto(
+internal fun CodeList.toDto(catalog: Catalog) = CodeListDto(
     key = slug.value,
-    tenantId = tenantKey.value,
-    catalog = catalogKey.value,
+    tenantKey = tenantKey.value,
+    registry = catalog.registry,
+    namespace = catalog.namespace,
+    catalogKey = catalogKey.value,
     displayName = displayName,
     sourceType = when (sourceType) {
         CodeListSource.URL -> CodeListDto.SourceType.URL

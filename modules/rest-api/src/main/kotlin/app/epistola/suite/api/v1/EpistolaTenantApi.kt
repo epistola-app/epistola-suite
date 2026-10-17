@@ -12,7 +12,6 @@ import app.epistola.api.model.AttributeListResponse
 import app.epistola.api.model.CreateAttributeRequest
 import app.epistola.api.model.CreateEnvironmentRequest
 import app.epistola.api.model.CreateTenantRequest
-import app.epistola.api.model.DeployReleaseRequest
 import app.epistola.api.model.DeploymentDto
 import app.epistola.api.model.DeploymentEventDto
 import app.epistola.api.model.DeploymentHistoryResponse
@@ -24,18 +23,34 @@ import app.epistola.api.model.TenantListResponse
 import app.epistola.api.model.UpdateAttributeRequest
 import app.epistola.api.model.UpdateEnvironmentRequest
 import app.epistola.api.model.UpdateTenantRequest
+import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
+import app.epistola.suite.api.v1.shared.catalogAt
+import app.epistola.suite.api.v1.shared.catalogId
+import app.epistola.suite.api.v1.shared.catalogVersionAt
+import app.epistola.suite.api.v1.shared.draftAt
+import app.epistola.suite.api.v1.shared.releasedResource
+import app.epistola.suite.api.v1.shared.releasedResources
+import app.epistola.suite.api.v1.shared.tenantKey
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.attributes.AttributeNotFoundException
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.commands.DeleteAttributeDefinition
 import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
+import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
+import app.epistola.suite.catalog.Catalog
+import app.epistola.suite.catalog.CatalogIdentityProperties
+import app.epistola.suite.catalog.CatalogName
+import app.epistola.suite.catalog.catalogName
+import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.versions.GetCatalogNames
+import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
-import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
@@ -73,8 +88,9 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/api")
-class EpistolaTenantApi :
-    TenantsApi,
+class EpistolaTenantApi(
+    private val identity: CatalogIdentityProperties,
+) : TenantsApi,
     AttributesApi,
     EnvironmentsApi {
 
@@ -103,7 +119,7 @@ class EpistolaTenantApi :
         createTenantRequest: CreateTenantRequest,
     ): ResponseEntity<TenantDto> {
         val tenant = CreateTenant(
-            id = TenantKey.of(createTenantRequest.id),
+            id = TenantKey.of(createTenantRequest.key),
             name = createTenantRequest.name,
         ).execute()
 
@@ -113,19 +129,19 @@ class EpistolaTenantApi :
     }
 
     override fun getTenant(
-        tenantId: String,
+        tenantKey: String,
     ): ResponseEntity<TenantDto> {
-        val typedTenantId = TenantKey.of(tenantId)
+        val typedTenantId = TenantKey.of(tenantKey)
         val tenant = GetTenant(id = typedTenantId).query()
             ?: throw TenantNotFoundException(typedTenantId)
         return ResponseEntity.ok(tenant.toDto())
     }
 
     override fun updateTenant(
-        tenantId: String,
+        tenantKey: String,
         updateTenantRequest: UpdateTenantRequest,
     ): ResponseEntity<TenantDto> {
-        val typedTenantId = TenantKey.of(tenantId)
+        val typedTenantId = TenantKey.of(tenantKey)
         // `name` is the only mutable field in the contract; a null name is a no-op
         // update that still returns the current tenant (or 404 if it doesn't exist).
         val name = updateTenantRequest.name
@@ -138,21 +154,24 @@ class EpistolaTenantApi :
     }
 
     override fun deleteTenant(
-        tenantId: String,
+        tenantKey: String,
     ): ResponseEntity<Unit> {
-        val deleted = DeleteTenant(id = TenantKey.of(tenantId)).execute()
+        val deleted = DeleteTenant(id = TenantKey.of(tenantKey)).execute()
         return if (deleted) {
             ResponseEntity.noContent().build()
         } else {
-            throw TenantNotFoundException(TenantKey.of(tenantId))
+            throw TenantNotFoundException(TenantKey.of(tenantKey))
         }
     }
 
     // ================== Attribute operations ==================
 
     override fun listAttributes(
-        tenantId: String,
-        catalogId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
         page: Int,
         size: Int,
         sort: String?,
@@ -160,101 +179,133 @@ class EpistolaTenantApi :
     ): ResponseEntity<AttributeListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val attributes = ListAttributeDefinitions(tenantId = tenantIdComposite, catalogKey = CatalogKey.of(catalogId)).query()
-        val slice = Pagination.paginate(attributes, page, size)
-        return ResponseEntity.ok(AttributeListResponse(items = slice.items.map { it.toDto() }, page = slice.page))
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val items = if (at.isDraft) {
+            val bindingCatalogs = bindingCatalogsOf(at)
+            ListAttributeDefinitions(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey).query()
+                .map { it.toDto(at.catalog, it.codeListCatalogKey?.let(bindingCatalogs::get)) }
+        } else {
+            // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
+            at.releasedResources<AttributeResource>(ATTRIBUTE).map { it.toDto(at) }
+        }
+        val slice = Pagination.paginate(items, page, size)
+        return ResponseEntity.ok(AttributeListResponse(items = slice.items, page = slice.page))
     }
 
     override fun createAttribute(
-        tenantId: String,
-        catalogId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
         createAttributeRequest: CreateAttributeRequest,
     ): ResponseEntity<AttributeDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val catalogIdComposite = CatalogId(CatalogKey.of(catalogId), tenantIdComposite)
-        val attributeIdComposite = AttributeId(AttributeKey.of(createAttributeRequest.key), catalogIdComposite)
-        // The `codeListBinding` ref always carries an explicit catalog —
-        // it's the wire form, no defaulting. The constraint XOR check
-        // (allowedValues vs codeListBinding) is enforced in
+        // An attribute keeps no description; refuse it rather than drop it.
+        if (createAttributeRequest.description != null) throw ApiOperationNotImplementedException("createAttribute.description")
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        // The constraint XOR check (allowedValues vs codeListBinding) is enforced in
         // `CreateAttributeDefinition.init { … }` and surfaces as a 4xx.
         val codeListId = createAttributeRequest.codeListBinding?.let { binding ->
-            CodeListId(
-                key = CodeListKey.of(binding.key),
-                catalogId = CatalogId(CatalogKey.of(binding.catalog), tenantIdComposite),
-            )
+            draft.codeListAt(binding.registry, binding.namespace, binding.catalogKey, binding.key)
         }
         val attribute = CreateAttributeDefinition(
-            id = attributeIdComposite,
+            id = draft.attributeId(createAttributeRequest.key),
             displayName = createAttributeRequest.displayName,
             allowedValues = createAttributeRequest.allowedValues ?: emptyList(),
             codeListId = codeListId,
         ).execute()
-        return ResponseEntity.status(HttpStatus.CREATED).body(attribute.toDto())
+        return ResponseEntity.status(HttpStatus.CREATED).body(attribute.toDto(draft))
     }
 
     override fun getAttribute(
-        tenantId: String,
-        catalogId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
         attributeKey: String,
     ): ResponseEntity<AttributeDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val attribute = GetAttributeDefinition(id = attributeIdComposite).query()
-            ?: throw AttributeNotFoundException(attributeIdComposite.tenantKey, attributeIdComposite.catalogKey, attributeIdComposite.key)
-        return ResponseEntity.ok(attribute.toDto())
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val attribute = if (at.isDraft) {
+            GetAttributeDefinition(id = at.attributeId(attributeKey)).query()?.toDto(at)
+        } else {
+            at.releasedResource<AttributeResource>(ATTRIBUTE, attributeKey)?.toDto(at)
+        } ?: throw at.attributeNotFound(attributeKey)
+        return ResponseEntity.ok(attribute)
     }
 
     override fun updateAttribute(
-        tenantId: String,
-        catalogId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
         attributeKey: String,
         updateAttributeRequest: UpdateAttributeRequest,
     ): ResponseEntity<AttributeDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val catalogIdComposite = CatalogId(CatalogKey.of(catalogId), tenantIdComposite)
-        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), catalogIdComposite)
+        // An attribute keeps no description; refuse it rather than drop it.
+        if (updateAttributeRequest.description != null) throw ApiOperationNotImplementedException("updateAttribute.description")
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val id = draft.attributeId(attributeKey)
         // PATCH semantics: pull the current definition so we can write a
         // full UpdateAttributeDefinition that only changes the fields the
         // client sent. UpdateAttributeDefinition isn't itself partial.
-        val current = GetAttributeDefinition(id = attributeIdComposite).query()
-            ?: throw AttributeNotFoundException(attributeIdComposite.tenantKey, attributeIdComposite.catalogKey, attributeIdComposite.key)
-        val codeListId = if (updateAttributeRequest.codeListBinding != null) {
-            CodeListId(
-                key = CodeListKey.of(updateAttributeRequest.codeListBinding!!.key),
-                catalogId = CatalogId(CatalogKey.of(updateAttributeRequest.codeListBinding!!.catalog), tenantIdComposite),
-            )
-        } else {
-            current.codeListId
-        }
+        val current = GetAttributeDefinition(id = id).query() ?: throw draft.attributeNotFound(attributeKey)
+        val codeListId = updateAttributeRequest.codeListBinding?.let { binding ->
+            draft.codeListAt(binding.registry, binding.namespace, binding.catalogKey, binding.key)
+        } ?: current.codeListId
         val attribute = UpdateAttributeDefinition(
-            id = attributeIdComposite,
+            id = id,
             displayName = updateAttributeRequest.displayName ?: current.displayName,
             allowedValues = updateAttributeRequest.allowedValues ?: current.allowedValues,
             codeListId = codeListId,
-        ).execute() ?: throw AttributeNotFoundException(attributeIdComposite.tenantKey, attributeIdComposite.catalogKey, attributeIdComposite.key)
-        return ResponseEntity.ok(attribute.toDto())
+        ).execute() ?: throw draft.attributeNotFound(attributeKey)
+        return ResponseEntity.ok(attribute.toDto(draft))
     }
 
     override fun deleteAttribute(
-        tenantId: String,
-        catalogId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
         attributeKey: String,
     ): ResponseEntity<Unit> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val deleted = DeleteAttributeDefinition(id = attributeIdComposite).execute()
-        return if (deleted) {
-            ResponseEntity.noContent().build()
-        } else {
-            throw AttributeNotFoundException(attributeIdComposite.tenantKey, attributeIdComposite.catalogKey, attributeIdComposite.key)
-        }
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        if (!DeleteAttributeDefinition(id = draft.attributeId(attributeKey)).execute()) throw draft.attributeNotFound(attributeKey)
+        return ResponseEntity.noContent().build()
     }
+
+    private fun ResolvedCatalogVersion.attributeId(key: String) = AttributeId(AttributeKey.of(key), catalogId)
+
+    private fun ResolvedCatalogVersion.attributeNotFound(key: String) = AttributeNotFoundException(catalog.tenantKey, catalogKey, AttributeKey.of(key))
+
+    /**
+     * The code list a binding names. A binding's registry and namespace left out are the attribute's
+     * own catalog's; the catalog must exist by that name.
+     */
+    private fun ResolvedCatalogVersion.codeListAt(registry: String?, namespace: String?, catalogKey: String, key: String): CodeListId {
+        val catalog = catalogAt(
+            tenantKey.value,
+            registry ?: this.catalog.registry,
+            namespace ?: this.catalog.namespace,
+            catalogKey,
+        )
+        return CodeListId(key = CodeListKey.of(key), catalogId = catalog.catalogId)
+    }
+
+    /** The catalogs the draft's attributes bind code lists from, by key. */
+    private fun bindingCatalogsOf(at: ResolvedCatalogVersion): Map<CatalogKey, Catalog> = ListCatalogs(at.catalog.tenantKey).query().associateBy { it.id }
+
+    private fun VariantAttributeDefinition.toDto(at: ResolvedCatalogVersion) = toDto(
+        at.catalog,
+        codeListCatalogKey?.let { key -> if (key == at.catalogKey) at.catalog else GetCatalog(at.catalog.tenantKey, key).query() },
+    )
 
     // ================== Environment operations ==================
 
     override fun listEnvironments(
-        tenantId: String,
+        tenantKey: String,
         page: Int,
         size: Int,
         sort: String?,
@@ -262,117 +313,127 @@ class EpistolaTenantApi :
     ): ResponseEntity<EnvironmentListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val environments = ListEnvironments(tenantId = tenantIdComposite).query()
+        val environments = ListEnvironments(tenantId = TenantId(TenantKey.of(tenantKey))).query()
         val slice = Pagination.paginate(environments, page, size)
         return ResponseEntity.ok(EnvironmentListResponse(items = slice.items.map { it.toDto() }, page = slice.page))
     }
 
     override fun createEnvironment(
-        tenantId: String,
+        tenantKey: String,
         createEnvironmentRequest: CreateEnvironmentRequest,
     ): ResponseEntity<EnvironmentDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val environmentIdComposite = EnvironmentId(EnvironmentKey.of(createEnvironmentRequest.id), tenantIdComposite)
         val environment = CreateEnvironment(
-            id = environmentIdComposite,
+            id = EnvironmentId(EnvironmentKey.of(createEnvironmentRequest.key), TenantId(TenantKey.of(tenantKey))),
             name = createEnvironmentRequest.name,
         ).execute()
         return ResponseEntity.status(HttpStatus.CREATED).body(environment.toDto())
     }
 
     override fun getEnvironment(
-        tenantId: String,
-        environmentId: String,
+        tenantKey: String,
+        environmentKey: String,
     ): ResponseEntity<EnvironmentDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val environmentIdComposite = EnvironmentId(EnvironmentKey.of(environmentId), tenantIdComposite)
-        val environment = GetEnvironment(id = environmentIdComposite).query()
-            ?: throw EnvironmentNotFoundException(tenantIdComposite.key, environmentIdComposite.key)
+        val id = environmentId(tenantKey, environmentKey)
+        val environment = GetEnvironment(id = id).query()
+            ?: throw EnvironmentNotFoundException(id.tenantKey, id.key)
         return ResponseEntity.ok(environment.toDto())
     }
 
     override fun updateEnvironment(
-        tenantId: String,
-        environmentId: String,
+        tenantKey: String,
+        environmentKey: String,
         updateEnvironmentRequest: UpdateEnvironmentRequest,
     ): ResponseEntity<EnvironmentDto> {
         val name = updateEnvironmentRequest.name
             ?: throw ValidationException(field = "name", message = "Environment name is required")
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val environmentIdComposite = EnvironmentId(EnvironmentKey.of(environmentId), tenantIdComposite)
-        val environment = UpdateEnvironment(
-            id = environmentIdComposite,
-            name = name,
-        ).execute() ?: throw EnvironmentNotFoundException(tenantIdComposite.key, environmentIdComposite.key)
+        val id = environmentId(tenantKey, environmentKey)
+        val environment = UpdateEnvironment(id = id, name = name).execute()
+            ?: throw EnvironmentNotFoundException(id.tenantKey, id.key)
         return ResponseEntity.ok(environment.toDto())
     }
 
     override fun deleteEnvironment(
-        tenantId: String,
-        environmentId: String,
+        tenantKey: String,
+        environmentKey: String,
     ): ResponseEntity<Unit> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val environmentIdComposite = EnvironmentId(EnvironmentKey.of(environmentId), tenantIdComposite)
-        val deleted = DeleteEnvironment(id = environmentIdComposite).execute()
-        return if (deleted) {
-            ResponseEntity.noContent().build()
-        } else {
-            throw EnvironmentNotFoundException(tenantIdComposite.key, environmentIdComposite.key)
-        }
+        val id = environmentId(tenantKey, environmentKey)
+        if (!DeleteEnvironment(id = id).execute()) throw EnvironmentNotFoundException(id.tenantKey, id.key)
+        return ResponseEntity.noContent().build()
     }
 
     // ================== Deployments ==================
+    //
+    // An environment serves one release of each catalog: deploying a release replaces the one it
+    // served of that catalog. The contract's environment may serve several, and deploy a release's
+    // dependencies with it; neither exists yet.
 
     override fun listEnvironmentDeployments(
-        tenantId: String,
-        environmentId: String,
+        tenantKey: String,
+        environmentKey: String,
     ): ResponseEntity<DeploymentListResponse> {
-        val environment = existingEnvironment(tenantId, environmentId)
+        val environment = existingEnvironment(tenantKey, environmentKey)
         val deployments = ListDeployments(environment.tenantKey, environmentKey = environment.key).query()
-        return ResponseEntity.ok(DeploymentListResponse(items = deployments.map { it.toDto() }))
+        val catalogs = GetCatalogNames(environment.tenantKey, deployments.map { it.catalogKey }).query()
+        return ResponseEntity.ok(
+            DeploymentListResponse(items = deployments.mapNotNull { deployment -> catalogs[deployment.catalogKey]?.let { deployment.toDto(it) } }),
+        )
     }
 
     override fun deployRelease(
-        tenantId: String,
-        environmentId: String,
-        catalogId: String,
-        deployReleaseRequest: DeployReleaseRequest,
+        tenantKey: String,
+        environmentKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        releaseVersion: String,
+        includeDependencies: Boolean,
     ): ResponseEntity<DeploymentDto> {
-        val environment = EnvironmentId(EnvironmentKey.of(environmentId), TenantId(TenantKey.of(tenantId)))
-        val deployment = DeployRelease(environment, CatalogKey.of(catalogId), deployReleaseRequest.releaseVersion).execute()
-        return ResponseEntity.ok(deployment.toDto())
+        // A release is deployed on its own: deploying its dependencies with it is not supported yet.
+        if (includeDependencies) throw ApiOperationNotImplementedException("deployRelease.includeDependencies")
+        val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
+        val deployment = DeployRelease(environmentId(tenantKey, environmentKey), catalog.id, releaseVersion).execute()
+        return ResponseEntity.ok(deployment.toDto(catalog.catalogName))
     }
 
+    /** Stops serving the release; 404 when the environment does not serve that release of the catalog. */
     override fun undeployRelease(
-        tenantId: String,
-        environmentId: String,
-        catalogId: String,
+        tenantKey: String,
+        environmentKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        releaseVersion: String,
     ): ResponseEntity<Unit> {
-        val environment = existingEnvironment(tenantId, environmentId)
-        val catalog = CatalogKey.of(catalogId)
-        if (!UndeployRelease(environment, catalog).execute()) {
-            throw NoReleaseDeployedException(environment.tenantKey, environment.key, catalog)
+        val environment = existingEnvironment(tenantKey, environmentKey)
+        val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
+        val served = ListDeployments(environment.tenantKey, catalogKey = catalog.id, environmentKey = environment.key).query()
+        if (served.none { it.version == releaseVersion } || !UndeployRelease(environment, catalog.id).execute()) {
+            throw NoReleaseDeployedException(environment.tenantKey, environment.key, catalog.id)
         }
         return ResponseEntity.noContent().build()
     }
 
     override fun listDeploymentHistory(
-        tenantId: String,
-        environmentId: String,
+        tenantKey: String,
+        environmentKey: String,
         page: Int,
         size: Int,
     ): ResponseEntity<DeploymentHistoryResponse> {
-        val environment = existingEnvironment(tenantId, environmentId)
+        val environment = existingEnvironment(tenantKey, environmentKey)
         val history = ListDeploymentHistory(environment, limit = Pagination.limitOf(size), offset = Pagination.offsetOf(page, size)).query()
+        val catalogs by lazy { GetCatalogNames(environment.tenantKey, history.map { it.catalogKey }).query() }
         return ResponseEntity.ok(
             DeploymentHistoryResponse(
                 items = history.map { entry ->
+                    // An entry recorded the catalog's name; one from before it did reads the catalog's current name.
+                    val catalog = if (entry.registry == null || entry.namespace == null) catalogs[entry.catalogKey] else null
                     DeploymentEventDto(
-                        catalogId = entry.catalogKey.value,
+                        registry = entry.registry ?: catalog?.registry ?: identity.defaultRegistry,
+                        namespace = entry.namespace ?: catalog?.namespace ?: CatalogIdentityProperties.defaultNamespace(environment.tenantKey),
+                        catalogKey = entry.catalogKey.value,
                         action = if (entry.action == DeploymentAction.DEPLOYED) DeploymentEventDto.Action.DEPLOYED else DeploymentEventDto.Action.UNDEPLOYED,
-                        releaseVersion = entry.version,
-                        previousReleaseVersion = entry.previousVersion,
+                        // An undeploy names the release it stopped serving.
+                        releaseVersion = entry.version ?: entry.previousVersion.orEmpty(),
                         changedAt = entry.changedAt,
                         changedBy = entry.changedByName,
                     )
@@ -382,15 +443,23 @@ class EpistolaTenantApi :
         )
     }
 
-    private fun existingEnvironment(tenantId: String, environmentId: String): EnvironmentId {
-        val id = EnvironmentId(EnvironmentKey.of(environmentId), TenantId(TenantKey.of(tenantId)))
+    private fun environmentId(tenantKey: String, environmentKey: String) = EnvironmentId(EnvironmentKey.of(environmentKey), TenantId(TenantKey.of(tenantKey)))
+
+    private fun existingEnvironment(tenantKey: String, environmentKey: String): EnvironmentId {
+        val id = environmentId(tenantKey, environmentKey)
         GetEnvironment(id = id).query() ?: throw EnvironmentNotFoundException(id.tenantKey, id.key)
         return id
     }
 
-    private fun CatalogDeployment.toDto() = DeploymentDto(
-        catalogId = catalogKey.value,
+    private fun CatalogDeployment.toDto(catalog: CatalogName) = DeploymentDto(
+        registry = catalog.registry,
+        namespace = catalog.namespace,
+        catalogKey = catalogKey.value,
         releaseVersion = version,
         deployedAt = deployedAt,
     )
+
+    private companion object {
+        const val ATTRIBUTE = "attribute"
+    }
 }

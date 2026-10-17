@@ -21,6 +21,7 @@ import app.epistola.suite.stencils.model.StencilUsageDetail
 import app.epistola.suite.stencils.model.StencilUsagePage
 import app.epistola.suite.stencils.model.describe
 import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -30,14 +31,20 @@ private const val USAGE_PAGE_SIZE = 100
 /**
  * A page of the template variants that use a stencil, each with whether its working model still
  * fits the stencil's working copy. Pagination is in SQL; the fit is checked for the page.
+ * [page] is 1-based and clamped to the pages there are; [pageSize] is at most [USAGE_PAGE_SIZE].
  */
 data class GetStencilUsagePage(
     val stencilId: StencilId,
     val page: Int = 1,
+    val pageSize: Int = USAGE_PAGE_SIZE,
 ) : Query<StencilUsagePage>,
     RequiresPermission {
     override val permission = Permission.STENCIL_VIEW
     override val tenantKey: TenantKey get() = stencilId.tenantKey
+
+    init {
+        validate("pageSize", pageSize in 1..USAGE_PAGE_SIZE) { "Page size must be between 1 and $USAGE_PAGE_SIZE" }
+    }
 }
 
 private val USAGE_CTE = """
@@ -68,7 +75,7 @@ class GetStencilUsagePageHandler(
             .bind(StencilReferences.CATALOG_PARAM, query.stencilId.catalogKey.value)
             .mapTo(Int::class.java)
             .one()
-        val totalPages = if (total == 0) 1 else (total + USAGE_PAGE_SIZE - 1) / USAGE_PAGE_SIZE
+        val totalPages = if (total == 0) 1 else (total + query.pageSize - 1) / query.pageSize
         val current = query.page.coerceIn(1, totalPages)
         val resolver = stencilResolvers.workingCopies(query.stencilId.tenantKey)
 
@@ -83,8 +90,8 @@ class GetStencilUsagePageHandler(
             .bind("tenantId", query.stencilId.tenantKey)
             .bind(StencilReferences.KEY_PARAM, query.stencilId.key.value)
             .bind(StencilReferences.CATALOG_PARAM, query.stencilId.catalogKey.value)
-            .bind("limit", USAGE_PAGE_SIZE)
-            .bind("offset", (current - 1) * USAGE_PAGE_SIZE)
+            .bind("limit", query.pageSize)
+            .bind("offset", (current - 1) * query.pageSize)
             .map { rs, _ ->
                 val catalogKey = rs.getString("catalog_key")
                 val document = objectMapper.readValue(rs.getString("template_model"), TemplateDocument::class.java)

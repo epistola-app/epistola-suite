@@ -4,9 +4,9 @@
 
 package app.epistola.suite.catalog.versions
 
-import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
 import org.springframework.stereotype.Component

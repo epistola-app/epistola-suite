@@ -21,6 +21,8 @@ enum class DeploymentAction { DEPLOYED, UNDEPLOYED }
  * @property previousVersion the release served before it; null when nothing was.
  * @property changedByName the display name of who made the change; null for a system change or a
  *   user since removed.
+ * @property registry the catalog's registry when the change was made (contract ADR 0003).
+ * @property namespace the catalog's namespace when the change was made.
  */
 data class DeploymentLogEntry(
     val environmentKey: EnvironmentKey,
@@ -30,6 +32,8 @@ data class DeploymentLogEntry(
     val previousVersion: String?,
     val changedAt: OffsetDateTime,
     val changedByName: String?,
+    val registry: String? = null,
+    val namespace: String? = null,
 )
 
 /**

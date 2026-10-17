@@ -9,14 +9,17 @@ import app.epistola.api.model.CreateThemeRequest
 import app.epistola.api.model.ThemeDto
 import app.epistola.api.model.ThemeListResponse
 import app.epistola.api.model.UpdateThemeRequest
+import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
+import app.epistola.suite.api.v1.shared.catalogId
+import app.epistola.suite.api.v1.shared.catalogVersionAt
+import app.epistola.suite.api.v1.shared.draftAt
+import app.epistola.suite.api.v1.shared.releasedResource
+import app.epistola.suite.api.v1.shared.releasedResources
 import app.epistola.suite.api.v1.shared.toDomainPresets
 import app.epistola.suite.api.v1.shared.toDto
-import app.epistola.suite.common.ids.CatalogId
-import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
@@ -37,8 +40,11 @@ import org.springframework.web.bind.annotation.RestController
 class EpistolaThemeApi : ThemesApi {
 
     override fun listThemes(
-        tenantId: String,
-        catalogId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
         q: String?,
         page: Int,
         size: Int,
@@ -47,31 +53,30 @@ class EpistolaThemeApi : ThemesApi {
     ): ResponseEntity<ThemeListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val themes = ListThemes(
-            tenantId = tenantIdComposite,
-            searchTerm = q,
-            catalogKey = CatalogKey.of(catalogId),
-        ).query()
-        val slice = Pagination.paginate(themes, page, size)
-
-        return ResponseEntity.ok(
-            ThemeListResponse(
-                items = slice.items.map { it.toDto() },
-                page = slice.page,
-            ),
-        )
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val items = if (at.isDraft) {
+            ListThemes(tenantId = TenantId(at.catalog.tenantKey), searchTerm = q, catalogKey = at.catalogKey).query().map { it.toDto() }
+        } else {
+            // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
+            at.releasedResources<ThemeResource>("theme")
+                .filter { q.isNullOrBlank() || it.name.contains(q, ignoreCase = true) }
+                .map { it.toDto(at) }
+        }
+        val slice = Pagination.paginate(items, page, size)
+        return ResponseEntity.ok(ThemeListResponse(items = slice.items, page = slice.page))
     }
 
     override fun createTheme(
-        tenantId: String,
-        catalogId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
         createThemeRequest: CreateThemeRequest,
     ): ResponseEntity<ThemeDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val themeIdComposite = ThemeId(ThemeKey.of(createThemeRequest.id), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val theme = CreateTheme(
-            id = themeIdComposite,
+            id = ThemeId(ThemeKey.of(createThemeRequest.key), draft.catalogId),
             name = createThemeRequest.name,
             description = createThemeRequest.description,
             documentStyles = createThemeRequest.documentStyles ?: emptyMap(),
@@ -86,55 +91,59 @@ class EpistolaThemeApi : ThemesApi {
     }
 
     override fun getTheme(
-        tenantId: String,
-        catalogId: String,
-        themeId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        themeKey: String,
     ): ResponseEntity<ThemeDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val themeIdComposite = ThemeId(ThemeKey.of(themeId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val theme = GetTheme(
-            id = themeIdComposite,
-        ).query() ?: throw ThemeNotFoundException(ThemeKey.of(themeId))
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val key = ThemeKey.of(themeKey)
+        val theme = if (at.isDraft) {
+            GetTheme(id = ThemeId(key, at.catalogId)).query()?.toDto()
+        } else {
+            at.releasedResource<ThemeResource>("theme", themeKey)?.toDto(at)
+        } ?: throw ThemeNotFoundException(key)
 
-        return ResponseEntity.ok(theme.toDto())
+        return ResponseEntity.ok(theme)
     }
 
     override fun updateTheme(
-        tenantId: String,
-        catalogId: String,
-        themeId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        themeKey: String,
         updateThemeRequest: UpdateThemeRequest,
     ): ResponseEntity<ThemeDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val themeIdComposite = ThemeId(ThemeKey.of(themeId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val key = ThemeKey.of(themeKey)
         val theme = UpdateTheme(
-            id = themeIdComposite,
+            id = ThemeId(key, draft.catalogId),
             name = updateThemeRequest.name,
             description = updateThemeRequest.description,
             documentStyles = updateThemeRequest.documentStyles,
             pageSettings = updateThemeRequest.pageSettings,
             blockStylePresets = updateThemeRequest.blockStylePresets.toDomainPresets(),
             spacingUnit = updateThemeRequest.spacingUnit?.toFloat(),
-        ).execute() ?: throw ThemeNotFoundException(ThemeKey.of(themeId))
+        ).execute() ?: throw ThemeNotFoundException(key)
 
         return ResponseEntity.ok(theme.toDto())
     }
 
     override fun deleteTheme(
-        tenantId: String,
-        catalogId: String,
-        themeId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        themeKey: String,
     ): ResponseEntity<Unit> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val themeIdComposite = ThemeId(ThemeKey.of(themeId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val deleted = DeleteTheme(
-            id = themeIdComposite,
-        ).execute()
-
-        return if (deleted) {
-            ResponseEntity.noContent().build()
-        } else {
-            throw ThemeNotFoundException(ThemeKey.of(themeId))
-        }
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val key = ThemeKey.of(themeKey)
+        if (!DeleteTheme(id = ThemeId(key, draft.catalogId)).execute()) throw ThemeNotFoundException(key)
+        return ResponseEntity.noContent().build()
     }
 }

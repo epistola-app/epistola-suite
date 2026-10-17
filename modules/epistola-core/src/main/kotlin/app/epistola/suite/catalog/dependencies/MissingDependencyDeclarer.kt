@@ -5,8 +5,8 @@
 package app.epistola.suite.catalog.dependencies
 
 import app.epistola.suite.catalog.CatalogContentBuilder
-import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component

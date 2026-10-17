@@ -8,16 +8,20 @@ import app.epistola.api.FontsApi
 import app.epistola.api.model.FontDto
 import app.epistola.api.model.FontListResponse
 import app.epistola.api.model.FontVariantDto
+import app.epistola.catalog.protocol.FontResource
 import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
+import app.epistola.suite.api.v1.shared.catalogId
+import app.epistola.suite.api.v1.shared.catalogVersionAt
+import app.epistola.suite.api.v1.shared.releasedResource
+import app.epistola.suite.api.v1.shared.releasedResources
 import app.epistola.suite.api.v1.shared.toDto
-import app.epistola.suite.common.ids.CatalogId
-import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
 import app.epistola.suite.common.ids.FontId
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.FontNotFoundException
+import app.epistola.suite.fonts.model.Font
 import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
 import app.epistola.suite.mediator.query
@@ -26,27 +30,25 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 /**
- * Read-only REST surface for tenant + catalog font families.
+ * Read-only REST surface for a catalog version's font families.
  *
- * Implements the generated `FontsApi` interface from `epistola-contract`
- * (tag `Fonts`, ops `listFonts` / `getFont`) — the DTO shape is contract-owned,
- * exactly like every other v1 controller (e.g. [EpistolaCodeListApi]).
+ * **Deliberately read-only — list + get only.** This mirrors the asset precedent: font-face
+ * binaries (like image assets) are managed through the UI and catalog exchange, never
+ * created/updated/deleted over the REST API. The contract therefore exposes no font write operations.
  *
- * **Deliberately read-only — list + get only.** This mirrors the asset
- * precedent: font-face binaries (like image assets) are managed through the UI
- * and catalog exchange, never created/updated/deleted over the REST API. The
- * contract therefore exposes no font write operations.
- *
- * Thin pass-through to the existing `ListFonts` / `GetFontVariants` queries —
- * no domain logic in the controller.
+ * A draft reads the working copy (`ListFonts` / `GetFontVariants`); a released version reads the
+ * fonts the release holds.
  */
 @RestController
 @RequestMapping("/api")
 class EpistolaFontApi : FontsApi {
 
     override fun listFonts(
-        tenantId: String,
-        catalogId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
         page: Int,
         size: Int,
         sort: String?,
@@ -54,33 +56,39 @@ class EpistolaFontApi : FontsApi {
     ): ResponseEntity<FontListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val catalogKey = CatalogKey.of(catalogId)
-        val fonts = ListFonts(tenantId = tenantIdComposite, catalogKey = catalogKey).query()
-        val slice = Pagination.paginate(fonts, page, size)
-        val items = slice.items.map { font ->
-            val variants = GetFontVariants(
-                fontId = FontId(font.slug, CatalogId(catalogKey, tenantIdComposite)),
-            ).query().map { FontVariantDto(it.weight, it.italic) }
-            font.toDto(variants)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        if (!at.isDraft) {
+            // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
+            val slice = Pagination.pageOfRelease(at.releasedResources<FontResource>("font"), page, size)
+            return ResponseEntity.ok(FontListResponse(items = slice.items.map { it.toDto(at) }, page = slice.page))
         }
-        return ResponseEntity.ok(FontListResponse(items = items, page = slice.page))
+        val fonts = ListFonts(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey).query()
+        val slice = Pagination.paginate(fonts, page, size)
+        return ResponseEntity.ok(FontListResponse(items = slice.items.map { it.toDto(at) }, page = slice.page))
     }
 
     override fun getFont(
-        tenantId: String,
-        catalogId: String,
-        fontSlug: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        fontKey: String,
     ): ResponseEntity<FontDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val catalogKey = CatalogKey.of(catalogId)
-        val slug = FontKey.of(fontSlug)
-        val font = ListFonts(tenantId = tenantIdComposite, catalogKey = catalogKey).query()
-            .firstOrNull { it.slug == slug }
-            ?: throw FontNotFoundException(tenantIdComposite.key, catalogKey, slug)
-        val variants = GetFontVariants(
-            fontId = FontId(slug, CatalogId(catalogKey, tenantIdComposite)),
-        ).query().map { FontVariantDto(it.weight, it.italic) }
-        return ResponseEntity.ok(font.toDto(variants))
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val key = FontKey.of(fontKey)
+        val font = if (at.isDraft) {
+            ListFonts(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey).query()
+                .firstOrNull { it.slug == key }
+                ?.toDto(at)
+        } else {
+            at.releasedResource<FontResource>("font", fontKey)?.toDto(at)
+        } ?: throw FontNotFoundException(at.catalog.tenantKey, at.catalogKey, key)
+        return ResponseEntity.ok(font)
+    }
+
+    private fun Font.toDto(at: ResolvedCatalogVersion): FontDto {
+        val variants = GetFontVariants(fontId = FontId(slug, at.catalogId)).query().map { FontVariantDto(it.weight, it.italic) }
+        return toDto(at.catalog, variants)
     }
 }

@@ -10,14 +10,12 @@ import app.epistola.api.model.StencilDto
 import app.epistola.api.model.StencilSummaryDto
 import app.epistola.api.model.StencilUsageDto
 import app.epistola.suite.stencils.Stencil
-import app.epistola.suite.stencils.StencilSummaryWithVersionInfo
-import app.epistola.suite.stencils.model.StencilVersion
-import app.epistola.suite.stencils.queries.StencilInstance
+import app.epistola.suite.stencils.model.StencilUsageDetail
 import tools.jackson.databind.node.ObjectNode
 
 internal fun Stencil.toDto(status: ResourceStatus) = StencilDto(
     key = id.value,
-    tenantId = tenantKey.value,
+    tenantKey = tenantKey.value,
     name = name,
     description = description,
     tags = tags.ifEmpty { null },
@@ -28,7 +26,7 @@ internal fun Stencil.toDto(status: ResourceStatus) = StencilDto(
 
 internal fun Stencil.toSummaryDto(status: ResourceStatus) = StencilSummaryDto(
     key = id.value,
-    tenantId = tenantKey.value,
+    tenantKey = tenantKey.value,
     name = name,
     description = description,
     tags = tags.ifEmpty { null },
@@ -37,29 +35,23 @@ internal fun Stencil.toSummaryDto(status: ResourceStatus) = StencilSummaryDto(
     lastModified = updatedAt,
 )
 
-internal fun StencilSummaryWithVersionInfo.toSummaryDto(status: ResourceStatus) = StencilSummaryDto(
-    key = id.value,
-    tenantId = tenantKey.value,
-    name = name,
-    description = description,
-    tags = tags.ifEmpty { null },
-    status = status,
-    createdAt = createdAt,
-    lastModified = updatedAt,
-)
-
-internal fun StencilVersion.toContentDto(status: ResourceStatus) = StencilContentDto(
-    stencilId = stencilKey.value,
+/** The stencil's working copy. The time it was marked ready is not recorded where this reads it. */
+internal fun Stencil.toContentDto(status: ResourceStatus) = StencilContentDto(
+    stencilKey = id.value,
     content = content,
     parameterSchema = parameterSchema as? ObjectNode,
     status = status,
-    lastModified = publishedAt ?: createdAt,
-    readyAt = if (status == ResourceStatus.READY) publishedAt else null,
+    lastModified = updatedAt,
+    readyAt = null,
 )
 
-internal fun StencilInstance.toUsageDto() = StencilUsageDto(
-    templateId = templateKey.value,
+/**
+ * A variant using the stencil. An instance is held back when the variant's working model no longer
+ * fits the stencil's working copy: that is what [StencilUsageDetail.problems] lists.
+ */
+internal fun StencilUsageDetail.toUsageDto() = StencilUsageDto(
+    templateKey = templateId.value,
     templateName = templateName,
-    variantId = variantKey.value,
-    heldBack = heldBack,
+    variantKey = variantId.value,
+    heldBack = problems.isNotEmpty(),
 )

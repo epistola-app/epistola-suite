@@ -13,6 +13,8 @@ import app.epistola.api.model.GenerationJobDetail
 import app.epistola.api.model.GenerationJobResponse
 import app.epistola.api.model.PreviewDocumentRequest
 import app.epistola.api.model.VariantSelectionAttribute
+import app.epistola.suite.catalog.Catalog
+import app.epistola.suite.catalog.CatalogName
 import app.epistola.suite.common.ids.BatchKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
@@ -25,19 +27,24 @@ import app.epistola.suite.documents.queries.GenerationJobResult
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.templates.services.VariantSelectionCriteria
 import app.epistola.suite.time.EpistolaClock
+import app.epistola.suite.validation.ValidationException
 import tools.jackson.databind.ObjectMapper
 
-/**
+/*
  * Extension functions for mapping between domain models and API DTOs.
  */
 
 // ==================== Document ====================
 
-internal fun DocumentMetadata.toDto() = DocumentDto(
+/** [catalog] names the document's catalog in full; null when it no longer exists. */
+internal fun DocumentMetadata.toDto(catalog: CatalogName?) = DocumentDto(
     id = id.value,
-    tenantId = tenantId.value,
-    templateId = templateId.value,
-    variantId = variantId.value,
+    tenantKey = tenantId.value,
+    registry = catalog?.registry,
+    namespace = catalog?.namespace,
+    catalogKey = catalogKey.value,
+    templateKey = templateId.value,
+    variantKey = variantId.value,
     releaseVersion = releaseVersion,
     filename = filename,
     correlationId = correlationId,
@@ -82,12 +89,15 @@ internal fun BatchKey.toJobResponse() = GenerationJobResponse(
 // ==================== Document Generation Item ====================
 // NOTE: In the flattened structure, each request IS an item. Mapping a request to an ItemDto for API compatibility.
 
-internal fun DocumentGenerationRequest.toItemDto(objectMapper: ObjectMapper) = DocumentGenerationItemDto(
+internal fun DocumentGenerationRequest.toItemDto(objectMapper: ObjectMapper, catalog: CatalogName?) = DocumentGenerationItemDto(
     id = id.value,
-    templateId = templateKey.value,
-    variantId = variantKey.value,
+    registry = catalog?.registry,
+    namespace = catalog?.namespace,
+    catalogKey = catalogKey.value,
+    templateKey = templateKey.value,
+    variantKey = variantKey.value,
     releaseVersion = releaseVersion,
-    environmentId = environmentKey?.value,
+    environmentKey = environmentKey?.value,
     data = objectMapper.valueToTree(data),
     filename = filename,
     correlationId = correlationId,
@@ -101,28 +111,33 @@ internal fun DocumentGenerationRequest.toItemDto(objectMapper: ObjectMapper) = D
 
 // ==================== Generation Job Result ====================
 
-internal fun GenerationJobResult.toDto(objectMapper: ObjectMapper) = GenerationJobDetail(
+internal fun GenerationJobResult.toDto(objectMapper: ObjectMapper, catalogs: Map<CatalogKey, CatalogName>) = GenerationJobDetail(
     request = request.toJobDto(),
-    items = items.map { it.toItemDto(objectMapper) },
+    items = items.map { it.toItemDto(objectMapper, catalogs[it.catalogKey]) },
 )
 
 // ==================== Request DTOs to Commands ====================
 
+/**
+ * A generation request names its template's catalog in full (registry, namespace, key); the suite
+ * finds the catalog by that name. [catalogAt] resolves it, and 404s a name the tenant has no catalog by.
+ */
 internal fun GenerateDocumentRequest.toCommand(
-    tenantId: String,
-    objectMapper: ObjectMapper,
+    tenantKey: String,
+    catalogAt: (registry: String?, namespace: String, catalogKey: String) -> Catalog,
 ): app.epistola.suite.documents.commands.GenerateDocument {
-    require(variantId == null || attributes == null) {
-        "Cannot specify both variantId and attributes"
+    require(variantKey == null || attributes == null) {
+        "Cannot specify both variantKey and attributes"
     }
+    val catalog = catalogAt(registry, namespace, catalogKey)
     return app.epistola.suite.documents.commands.GenerateDocument(
-        tenantId = TenantKey.of(tenantId),
-        catalogKey = CatalogKey.of(catalogId),
-        templateId = TemplateKey.of(templateId),
-        variantId = variantId?.let { VariantKey.of(it) },
-        variantSelectionCriteria = attributes?.toSelectionCriteria(),
-        releaseVersion = releaseVersion,
-        environmentId = environmentId?.let { EnvironmentKey.of(it) },
+        tenantId = TenantKey.of(tenantKey),
+        catalogKey = catalog.id,
+        templateId = TemplateKey.of(templateKey),
+        variantId = variantKey?.let { VariantKey.of(it) },
+        variantSelectionCriteria = attributes?.toSelectionCriteria(catalog, catalogAt),
+        releaseVersion = version,
+        environmentId = environmentKey?.let { EnvironmentKey.of(it) },
         data = data,
         filename = filename,
         correlationId = correlationId,
@@ -131,18 +146,19 @@ internal fun GenerateDocumentRequest.toCommand(
 }
 
 internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
-    objectMapper: ObjectMapper,
+    catalogAt: (registry: String?, namespace: String, catalogKey: String) -> Catalog,
 ): app.epistola.suite.documents.commands.BatchGenerationItem {
-    require(variantId == null || attributes == null) {
-        "Cannot specify both variantId and attributes"
+    require(variantKey == null || attributes == null) {
+        "Cannot specify both variantKey and attributes"
     }
+    val catalog = catalogAt(registry, namespace, catalogKey)
     return app.epistola.suite.documents.commands.BatchGenerationItem(
-        catalogKey = CatalogKey.of(catalogId),
-        templateId = TemplateKey.of(templateId),
-        variantId = variantId?.let { VariantKey.of(it) },
-        variantSelectionCriteria = attributes?.toSelectionCriteria(),
-        releaseVersion = releaseVersion,
-        environmentId = environmentId?.let { EnvironmentKey.of(it) },
+        catalogKey = catalog.id,
+        templateId = TemplateKey.of(templateKey),
+        variantId = variantKey?.let { VariantKey.of(it) },
+        variantSelectionCriteria = attributes?.toSelectionCriteria(catalog, catalogAt),
+        releaseVersion = version,
+        environmentId = environmentKey?.let { EnvironmentKey.of(it) },
         data = data,
         filename = filename,
         correlationId = correlationId,
@@ -150,11 +166,14 @@ internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
     )
 }
 
-private fun List<VariantSelectionAttribute>.toSelectionCriteria(): VariantSelectionCriteria {
+private fun List<VariantSelectionAttribute>.toSelectionCriteria(
+    template: Catalog,
+    catalogAt: (registry: String?, namespace: String, catalogKey: String) -> Catalog,
+): VariantSelectionCriteria {
     val required = mutableMapOf<String, String>()
     val optional = mutableMapOf<String, String>()
     for (attr in this) {
-        val storageKey = attr.toStorageKey()
+        val storageKey = attr.toStorageKey(template, catalogAt)
         if (attr.required != false) {
             required[storageKey] = attr.value
         } else {
@@ -171,42 +190,64 @@ private fun List<VariantSelectionAttribute>.toSelectionCriteria(): VariantSelect
  * Resolve the storage key for a `VariantSelectionAttribute`.
  *
  * The variant attribute map is stored as `Map<String, String>` keyed by
- * either a qualified `"<catalog>.<slug>"` form or a bare slug. We accept
+ * either a qualified `"<catalogKey>.<key>"` form or a bare key. We accept
  * three input shapes (in order of preference):
  *
- *  1. Explicit `catalog` field — produces the qualified form.
- *  2. Dotted `key` (`"<catalog>.<slug>"`) — already qualified, used as-is.
- *  3. Bare slug — kept as-is for the legacy tenant-wide lookup path.
+ *  1. Explicit `catalogKey` — produces the qualified form. A `namespace` (and `registry`) names a
+ *     catalog other than the template's, which must exist; omitted, they are the template's.
+ *  2. Dotted `key` (`"<catalogKey>.<key>"`) — already qualified, used as-is.
+ *  3. Bare key — kept as-is for the legacy tenant-wide lookup path.
  *
- * Catalog slugs match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$` (no `.`), so the
+ * Catalog keys match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$` (no `.`), so the
  * dotted-form split is unambiguous.
  */
-private fun VariantSelectionAttribute.toStorageKey(): String = when {
-    catalog != null -> "$catalog.$key"
-    else -> key
+private fun VariantSelectionAttribute.toStorageKey(
+    template: Catalog,
+    catalogAt: (registry: String?, namespace: String, catalogKey: String) -> Catalog,
+): String {
+    val qualifier = catalogKey ?: return key
+    val catalog = if (namespace == null) {
+        qualifier
+    } else {
+        catalogAt(registry ?: template.registry, namespace!!, qualifier).id.value
+    }
+    return "$catalog.$key"
 }
 
 internal fun GenerateBatchRequest.toCommand(
-    tenantId: String,
-    objectMapper: ObjectMapper,
+    tenantKey: String,
+    catalogAt: (registry: String?, namespace: String, catalogKey: String) -> Catalog,
 ) = app.epistola.suite.documents.commands.GenerateDocumentBatch(
-    tenantId = TenantKey.of(tenantId),
-    items = items.map { it.toBatchItem(objectMapper) },
+    tenantId = TenantKey.of(tenantKey),
+    items = items.map { it.toBatchItem(catalogAt) },
     batchRoutingKey = routingKey,
 )
 
 // ==================== Preview ====================
 
+/**
+ * A preview renders a release (`version`, `environmentKey`) or, with `draftVersion`, the draft of that
+ * number: the working copy. [draftAt] resolves the draft and refuses a version that is not one.
+ */
 internal fun PreviewDocumentRequest.toQuery(
-    tenantId: String,
-) = PreviewDocument(
-    tenantId = TenantKey.of(tenantId),
-    catalogKey = CatalogKey.of(catalogId),
-    templateId = TemplateKey.of(templateId),
-    variantId = variantId?.let { VariantKey.of(it) },
-    variantSelectionCriteria = attributes?.toSelectionCriteria(),
-    data = data,
-    releaseVersion = releaseVersion,
-    workingCopy = workingCopy ?: false,
-    environmentId = environmentId?.let { EnvironmentKey.of(it) },
-)
+    tenantKey: String,
+    catalogAt: (registry: String?, namespace: String, catalogKey: String) -> Catalog,
+    requireDraft: (catalog: Catalog, version: String) -> Unit,
+): PreviewDocument {
+    if (draftVersion != null && (version != null || environmentKey != null)) {
+        throw ValidationException(field = "draftVersion", message = "draftVersion cannot be combined with version or environmentKey")
+    }
+    val catalog = catalogAt(registry, namespace, catalogKey)
+    draftVersion?.let { requireDraft(catalog, it) }
+    return PreviewDocument(
+        tenantId = TenantKey.of(tenantKey),
+        catalogKey = catalog.id,
+        templateId = TemplateKey.of(templateKey),
+        variantId = variantKey?.let { VariantKey.of(it) },
+        variantSelectionCriteria = attributes?.toSelectionCriteria(catalog, catalogAt),
+        data = data,
+        releaseVersion = version,
+        workingCopy = draftVersion != null,
+        environmentId = environmentKey?.let { EnvironmentKey.of(it) },
+    )
+}

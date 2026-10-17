@@ -1,0 +1,230 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package app.epistola.suite.api.v1.shared
+
+import app.epistola.api.model.AttributeDto
+import app.epistola.api.model.AttributeDtoCodeListBinding
+import app.epistola.api.model.CodeListDto
+import app.epistola.api.model.CodeListEntryDto
+import app.epistola.api.model.DataExampleDto
+import app.epistola.api.model.FontDto
+import app.epistola.api.model.FontVariantDto
+import app.epistola.api.model.ImageDto
+import app.epistola.api.model.ResourceStatus
+import app.epistola.api.model.StencilContentDto
+import app.epistola.api.model.StencilDto
+import app.epistola.api.model.StencilSummaryDto
+import app.epistola.api.model.TemplateDto
+import app.epistola.api.model.TemplateSummaryDto
+import app.epistola.api.model.ThemeDto
+import app.epistola.api.model.VariantContentDto
+import app.epistola.api.model.VariantDto
+import app.epistola.api.model.VariantSummaryDto
+import app.epistola.catalog.protocol.AttributeResource
+import app.epistola.catalog.protocol.CatalogKeys
+import app.epistola.catalog.protocol.CodeListResource
+import app.epistola.catalog.protocol.FontResource
+import app.epistola.catalog.protocol.ImageResource
+import app.epistola.catalog.protocol.StencilResource
+import app.epistola.catalog.protocol.TemplateResource
+import app.epistola.catalog.protocol.ThemeResource
+import app.epistola.catalog.protocol.VariantEntry
+import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ObjectNode
+
+/*
+ * Resources of a released catalog version, as the release holds them (wire form), mapped to the
+ * contract's DTOs. Everything a release holds is `released`, and its timestamps are the release's
+ * (see [releasedAt]): a release records none per resource.
+ */
+
+internal fun TemplateResource.toSummaryDto(at: ResolvedCatalogVersion) = TemplateSummaryDto(
+    key = key,
+    tenantKey = at.tenantKey.value,
+    name = name,
+    createdAt = at.releasedAt,
+    lastModified = at.releasedAt,
+    description = description,
+)
+
+internal fun TemplateResource.toDto(at: ResolvedCatalogVersion, objectMapper: ObjectMapper): TemplateDto {
+    val taken = mutableSetOf<String>()
+    return TemplateDto(
+        key = key,
+        tenantKey = at.tenantKey.value,
+        name = name,
+        description = description,
+        schema = null,
+        dataModel = dataModel?.let { objectMapper.valueToTree<ObjectNode>(it) },
+        dataExamples = dataExamples?.map { example ->
+            val exampleKey = example.key ?: CatalogKeys.deriveDataExampleKey(example.name, taken)
+            taken += exampleKey
+            DataExampleDto(key = exampleKey, name = example.name, data = objectMapper.valueToTree(example.data))
+        },
+        variants = variants.map {
+            VariantSummaryDto(
+                key = it.key,
+                title = it.title ?: it.key,
+                attributes = it.attributes.orEmpty(),
+                isDefault = it.isDefault,
+                status = ResourceStatus.RELEASED,
+            )
+        },
+        createdAt = at.releasedAt,
+        lastModified = at.releasedAt,
+    )
+}
+
+internal fun VariantEntry.toDto(template: TemplateResource, at: ResolvedCatalogVersion) = VariantDto(
+    key = key,
+    templateKey = template.key,
+    title = title ?: key,
+    attributes = attributes.orEmpty(),
+    isDefault = isDefault,
+    status = ResourceStatus.RELEASED,
+    createdAt = at.releasedAt,
+    lastModified = at.releasedAt,
+    description = null,
+)
+
+/** A variant without a model of its own renders the template's. */
+internal fun VariantEntry.toContentDto(template: TemplateResource, at: ResolvedCatalogVersion) = VariantContentDto(
+    variantKey = key,
+    templateModel = templateModel ?: template.templateModel,
+    status = ResourceStatus.RELEASED,
+    lastModified = at.releasedAt,
+    readyAt = null,
+)
+
+internal fun StencilResource.toDto(at: ResolvedCatalogVersion) = StencilDto(
+    key = key,
+    tenantKey = at.tenantKey.value,
+    name = name,
+    status = ResourceStatus.RELEASED,
+    createdAt = at.releasedAt,
+    lastModified = at.releasedAt,
+    description = description,
+    tags = tags.ifEmpty { null },
+)
+
+internal fun StencilResource.toSummaryDto(at: ResolvedCatalogVersion) = StencilSummaryDto(
+    key = key,
+    tenantKey = at.tenantKey.value,
+    name = name,
+    status = ResourceStatus.RELEASED,
+    createdAt = at.releasedAt,
+    lastModified = at.releasedAt,
+    description = description,
+    tags = tags.ifEmpty { null },
+)
+
+internal fun StencilResource.toContentDto(at: ResolvedCatalogVersion, objectMapper: ObjectMapper) = StencilContentDto(
+    stencilKey = key,
+    content = content,
+    status = ResourceStatus.RELEASED,
+    lastModified = at.releasedAt,
+    parameterSchema = parameterSchema?.let { objectMapper.valueToTree<ObjectNode>(it) },
+    readyAt = null,
+)
+
+internal fun ThemeResource.toDto(at: ResolvedCatalogVersion) = ThemeDto(
+    key = key,
+    tenantKey = at.tenantKey.value,
+    name = name,
+    documentStyles = documentStyles.orEmpty().mapNotNull { (key, value) -> value?.let { key to it } }.toMap(),
+    createdAt = at.releasedAt,
+    lastModified = at.releasedAt,
+    description = description,
+    pageSettings = pageSettings,
+    blockStylePresets = blockStylePresets,
+    spacingUnit = spacingUnit?.toBigDecimal(),
+)
+
+/** A binding that names no catalog, or no namespace, is to the attribute's own catalog's. */
+internal fun AttributeResource.toDto(at: ResolvedCatalogVersion) = AttributeDto(
+    key = key,
+    tenantKey = at.tenantKey.value,
+    registry = at.catalog.registry,
+    namespace = at.catalog.namespace,
+    catalogKey = at.catalogKey.value,
+    displayName = name,
+    allowedValues = allowedValues,
+    catalogType = at.catalog.type.toAttributeCatalogType(),
+    readOnly = true,
+    createdAt = at.releasedAt,
+    lastModified = at.releasedAt,
+    description = null,
+    codeListBinding = codeListBinding?.let { binding ->
+        AttributeDtoCodeListBinding(
+            registry = binding.registry ?: at.catalog.registry,
+            namespace = binding.namespace ?: at.catalog.namespace,
+            catalogKey = binding.catalogKey ?: at.catalogKey.value,
+            key = binding.key,
+        )
+    },
+)
+
+/** A release holds a code list's entries as they were, whatever its source: it reads as inline. */
+internal fun CodeListResource.toDto(at: ResolvedCatalogVersion) = CodeListDto(
+    key = key,
+    tenantKey = at.tenantKey.value,
+    registry = at.catalog.registry,
+    namespace = at.catalog.namespace,
+    catalogKey = at.catalogKey.value,
+    displayName = name,
+    sourceType = CodeListDto.SourceType.INLINE,
+    authType = CodeListDto.AuthType.NONE,
+    catalogType = when (at.catalog.type) {
+        CatalogType.AUTHORED -> CodeListDto.CatalogType.AUTHORED
+        CatalogType.SUBSCRIBED -> CodeListDto.CatalogType.SUBSCRIBED
+    },
+    readOnly = true,
+    createdAt = at.releasedAt,
+    lastModified = at.releasedAt,
+    description = description,
+)
+
+internal fun CodeListResource.entryDtos(includeHidden: Boolean) = entries
+    .filter { includeHidden || !it.hidden }
+    .sortedWith(compareBy({ it.sortOrder }, { it.code }))
+    .map { CodeListEntryDto(code = it.code, label = it.label, sortOrder = it.sortOrder, hidden = it.hidden) }
+
+internal fun FontResource.toDto(at: ResolvedCatalogVersion) = FontDto(
+    key = key,
+    name = name,
+    kind = FontDto.Kind.forValue(kind),
+    registry = at.catalog.registry,
+    namespace = at.catalog.namespace,
+    catalogKey = at.catalogKey.value,
+    catalogType = when (at.catalog.type) {
+        CatalogType.AUTHORED -> FontDto.CatalogType.AUTHORED
+        CatalogType.SUBSCRIBED -> FontDto.CatalogType.SUBSCRIBED
+    },
+    readOnly = true,
+    variants = variants.map { FontVariantDto(weight = it.weight, italic = it.italic) },
+    createdAt = at.releasedAt,
+    lastModified = at.releasedAt,
+)
+
+internal fun ImageResource.toDto(at: ResolvedCatalogVersion, sizeBytes: Long) = ImageDto(
+    key = key,
+    tenantKey = at.tenantKey.value,
+    registry = at.catalog.registry,
+    namespace = at.catalog.namespace,
+    catalogKey = at.catalogKey.value,
+    catalogType = when (at.catalog.type) {
+        CatalogType.AUTHORED -> ImageDto.CatalogType.AUTHORED
+        CatalogType.SUBSCRIBED -> ImageDto.CatalogType.SUBSCRIBED
+    },
+    readOnly = true,
+    name = name,
+    mediaType = mediaType,
+    sizeBytes = sizeBytes,
+    createdAt = at.releasedAt,
+    width = width,
+    height = height,
+)

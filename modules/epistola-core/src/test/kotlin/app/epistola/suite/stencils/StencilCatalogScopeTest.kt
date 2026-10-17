@@ -156,4 +156,25 @@ class StencilCatalogScopeTest : IntegrationTestBase() {
             assertThat(GetStencil(f.brandBLetterhead).query()!!.name).isEqualTo("brand-b letterhead")
         }
     }
+
+    @Test
+    fun `the usage page takes a page size, and a page past the end is the last one`() {
+        val f = setUp("first-instance" to brandB.value)
+        withMediator {
+            repeat(2) {
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(f.tenantId))
+                CreateDocumentTemplate(id = templateId, name = "Letter $it").execute()
+                UpdateVariantContent(VariantId(VariantKey.INITIAL, templateId), templateEmbedding("instance-$it" to brandB.value)).execute()
+            }
+
+            val all = GetStencilUsagePage(f.brandBLetterhead).query()
+            assertThat(all.total).isEqualTo(3)
+            assertThat(all.items).hasSize(3)
+
+            val second = GetStencilUsagePage(f.brandBLetterhead, page = 2, pageSize = 2).query()
+            assertThat(second.totalPages).isEqualTo(2)
+            assertThat(second.items.map { it.templateName }).containsExactly(all.items[2].templateName)
+            assertThat(GetStencilUsagePage(f.brandBLetterhead, page = 9, pageSize = 2).query().page).isEqualTo(2)
+        }
+    }
 }

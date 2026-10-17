@@ -4,10 +4,10 @@
 
 package app.epistola.suite.mcp.tools
 
-import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateId

@@ -15,9 +15,11 @@ import app.epistola.api.model.TenantDto
 import app.epistola.api.model.VariantDto
 import app.epistola.api.model.VariantSummaryDto
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
+import app.epistola.suite.catalog.Catalog
+import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.environments.Environment
 import app.epistola.suite.templates.DocumentTemplate
-import app.epistola.suite.templates.contracts.model.ContractVersion
+import app.epistola.suite.templates.model.DataContract
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.VariantSummary
 import app.epistola.suite.tenants.Tenant
@@ -29,59 +31,78 @@ internal fun Tenant.toDto() = TenantDto(
     createdAt = createdAt,
 )
 
-internal fun VariantAttributeDefinition.toDto() = AttributeDto(
+internal fun CatalogType.toAttributeCatalogType() = when (this) {
+    CatalogType.AUTHORED -> AttributeDto.CatalogType.AUTHORED
+    CatalogType.SUBSCRIBED -> AttributeDto.CatalogType.SUBSCRIBED
+}
+
+/**
+ * An attribute of the working copy. [bindingCatalog] is the catalog of its code list binding, which
+ * the binding names in full.
+ */
+internal fun VariantAttributeDefinition.toDto(catalog: Catalog, bindingCatalog: Catalog?) = AttributeDto(
     key = id.value,
-    tenantId = tenantKey.value,
-    catalog = catalogKey.value,
+    tenantKey = tenantKey.value,
+    registry = catalog.registry,
+    namespace = catalog.namespace,
+    catalogKey = catalog.id.value,
     displayName = displayName,
     allowedValues = allowedValues,
-    catalogType = when (catalogType) {
-        app.epistola.suite.catalog.CatalogType.AUTHORED -> AttributeDto.CatalogType.AUTHORED
-        app.epistola.suite.catalog.CatalogType.SUBSCRIBED -> AttributeDto.CatalogType.SUBSCRIBED
-    },
-    readOnly = catalogType == app.epistola.suite.catalog.CatalogType.SUBSCRIBED,
+    catalogType = catalogType.toAttributeCatalogType(),
+    readOnly = catalogType == CatalogType.SUBSCRIBED,
     createdAt = createdAt,
     lastModified = updatedAt,
+    // Attributes keep no description.
     description = null,
     codeListBinding = codeListId?.let { id ->
-        AttributeDtoCodeListBinding(catalog = id.catalogKey.value, key = id.key.value)
+        AttributeDtoCodeListBinding(
+            registry = bindingCatalog?.registry ?: catalog.registry,
+            namespace = bindingCatalog?.namespace ?: catalog.namespace,
+            catalogKey = id.catalogKey.value,
+            key = id.key.value,
+        )
     },
 )
 
 internal fun Environment.toDto() = EnvironmentDto(
     key = id.value,
-    tenantId = tenantKey.value,
+    tenantKey = tenantKey.value,
     name = name,
     createdAt = createdAt,
 )
 
 internal fun DocumentTemplate.toSummaryDto() = TemplateSummaryDto(
     key = id.value,
-    tenantId = tenantKey.value,
+    tenantKey = tenantKey.value,
     name = name,
     createdAt = createdAt,
     lastModified = updatedAt,
+    // Templates keep no description.
+    description = null,
 )
 
+/** A template of the working copy, with its variants' statuses and its data contract. */
 internal fun DocumentTemplate.toDto(
     objectMapper: ObjectMapper,
     variantSummaries: List<VariantSummary>,
-    contractVersion: ContractVersion? = null,
-    status: WorkingCopyStatus,
+    contract: DataContract?,
+    statuses: ResourceStatuses,
 ) = TemplateDto(
     key = id.value,
-    tenantId = tenantKey.value,
+    tenantKey = tenantKey.value,
     name = name,
-    schema = contractVersion?.schema?.let { objectMapper.valueToTree(it) },
-    dataModel = contractVersion?.dataModel?.let { objectMapper.valueToTree(it) },
-    dataExamples = contractVersion?.dataExamples?.map { example ->
+    description = null,
+    // The contract's `schema` (input parameters) has no counterpart in the suite: the data model is the schema.
+    schema = null,
+    dataModel = contract?.dataModel,
+    dataExamples = contract?.dataExamples?.map { example ->
         DataExampleDto(
-            id = example.id,
+            key = example.key ?: example.id,
             name = example.name,
             data = objectMapper.valueToTree(example.data),
         )
     },
-    variants = variantSummaries.map { it.toDto(status.of("template", id.value, it.hasDraft, it.publishedVersions.isNotEmpty())) },
+    variants = variantSummaries.map { it.toDto(statuses.of("template", id.value, it.ready)) },
     createdAt = createdAt,
     lastModified = updatedAt,
 )
@@ -96,7 +117,7 @@ internal fun VariantSummary.toDto(status: ResourceStatus) = VariantSummaryDto(
 
 internal fun TemplateVariant.toDto(status: ResourceStatus) = VariantDto(
     key = id.value,
-    templateId = templateKey.value,
+    templateKey = templateKey.value,
     title = title,
     description = description,
     attributes = attributes,
