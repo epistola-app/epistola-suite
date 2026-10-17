@@ -50,16 +50,18 @@ internal object DeploymentLog {
         catalogKey: CatalogKey,
         action: DeploymentAction,
         version: String,
+        /** The version a deploy replaced, so the history reads "made v1.1.0 live, replacing v1.0.0". */
+        previousVersion: String? = null,
     ) {
         handle.createUpdate(
             """
             INSERT INTO environment_deployment_log
-                (tenant_key, environment_key, catalog_key, registry, namespace, action, version, changed_at, changed_by)
+                (tenant_key, environment_key, catalog_key, registry, namespace, action, version, previous_version, changed_at, changed_by)
             VALUES (
                 :t, :e, :c,
                 (SELECT registry FROM catalogs WHERE tenant_key = :t AND catalog_key = :c),
                 (SELECT namespace FROM catalogs WHERE tenant_key = :t AND catalog_key = :c),
-                :action, :v, NOW(), :by
+                :action, :v, :previous, NOW(), :by
             )
             """,
         )
@@ -68,6 +70,7 @@ internal object DeploymentLog {
             .bind("c", catalogKey)
             .bind("action", action.name)
             .bind("v", version)
+            .bind("previous", previousVersion)
             .bind("by", currentUserIdOrNull()?.value)
             .execute()
     }

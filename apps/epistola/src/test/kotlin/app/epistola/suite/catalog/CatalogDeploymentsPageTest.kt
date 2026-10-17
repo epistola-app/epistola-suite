@@ -102,6 +102,31 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `making a version live on the catalog page replaces the one that was live there`() {
+        val tenant = tenantWithCatalog("dep-replace")
+        val key = CatalogKey.of("dep-replace")
+        withMediator {
+            val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id))
+            CreateEnvironment(production, "Production").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
+            MarkCatalogReady(tenant.id, key).execute()
+            ReleaseCatalogVersion(tenant.id, key, version = "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("second"), catalog(tenant)), "Second").execute()
+            MarkCatalogReady(tenant.id, key).execute()
+            ReleaseCatalogVersion(tenant.id, key, version = "1.1.0").execute()
+            DeployRelease(production, key, "1.0.0").execute()
+        }
+
+        restTemplate.postForEntity(
+            "/tenants/${tenant.id.value}/catalogs/dep-replace/deployments",
+            form("environmentId" to "production", "version" to "1.1.0"),
+            String::class.java,
+        )
+
+        assertThat(withMediator { ListDeployments(tenant.id, key).query() }.map { it.version }).containsExactly("1.1.0")
+    }
+
+    @Test
     fun `a deploy refused for a missing dependency shows it on the card, offering to deploy it along`() {
         val tenant = tenantWithCatalog("dep-deps")
         val key = CatalogKey.of("dep-deps")

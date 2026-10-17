@@ -129,6 +129,39 @@ class ReleaseDependencies(
         return found
     }
 
+    /** Every release [environmentKey] serves, as catalog and version. */
+    fun served(handle: Handle, tenantKey: TenantKey, environmentKey: EnvironmentKey): List<Pair<CatalogKey, String>> = handle
+        .createQuery(
+            """
+            SELECT cat.catalog_key, d.version FROM environment_catalog_deployments d
+            JOIN catalogs cat ON cat.tenant_key = d.tenant_key AND cat.catalog_id = d.catalog_id
+            WHERE d.tenant_key = :t AND d.environment_key = :e
+            """,
+        )
+        .bind("t", tenantKey)
+        .bind("e", environmentKey)
+        .map { rs, _ -> CatalogKey.of(rs.getString("catalog_key")) to rs.getString("version") }
+        .list()
+
+    /**
+     * The releases of other catalogs that [releases] render with, direct and transitive, as catalog
+     * and version: what an environment serving [releases] has to keep serving.
+     */
+    fun needed(handle: Handle, tenantKey: TenantKey, releases: List<Pair<CatalogKey, String>>): Set<Pair<CatalogKey, String>> {
+        val needed = mutableSetOf<Pair<CatalogKey, String>>()
+        val queue = ArrayDeque(releases)
+        while (queue.isNotEmpty()) {
+            val (fromCatalog, fromVersion) = queue.removeFirst()
+            for (pin in dependencyStore.releasePins(handle, tenantKey, fromCatalog, fromVersion)) {
+                val pinnedVersion = pin.releaseVersion ?: continue
+                val catalog = dependencyStore.catalogNamed(handle, tenantKey, pin) ?: continue
+                if (catalog == fromCatalog) continue
+                if (needed.add(catalog to pinnedVersion)) queue.addLast(catalog to pinnedVersion)
+            }
+        }
+        return needed
+    }
+
     private data class Release(val contentRetained: Boolean, val fingerprint: String)
 
     private fun release(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): Release? = handle

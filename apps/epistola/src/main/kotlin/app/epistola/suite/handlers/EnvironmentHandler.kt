@@ -253,7 +253,8 @@ class EnvironmentHandler {
         if (catalogKey == null || version.isEmpty()) return detail(request, error = "Choose a release to deploy.")
         val includeDependencies = request.param("includeDependencies").orElse("") == "true"
         return try {
-            DeployRelease(environmentId, catalogKey, version, includeDependencies).execute()
+            // One live version per catalog per environment in the UI: making one live replaces the others.
+            DeployRelease(environmentId, catalogKey, version, includeDependencies, replace = true).execute()
             redirectTo(environmentId)
         } catch (failure: ReleaseNotDeployableException) {
             detail(request, error = failure.message)

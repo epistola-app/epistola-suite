@@ -47,7 +47,14 @@ import org.springframework.stereotype.Component
  *   one without content stays `CONTENT_NOT_RETAINED`. It is all or nothing: when any remains,
  *   the deployment is refused with those, and nothing is deployed.
  *
- * Every release deployed is logged in `environment_deployment_log`, in the same transaction.
+ * With [replace], the release takes the place of the catalog's other releases in the environment:
+ * they stop being served, in the same transaction — the UI's "make live", which shows one live
+ * version per catalog per environment. A release another release served there still renders with
+ * (a dependency pin) stays served, since taking it away would break that one. Without it the release
+ * is served beside them, as the contract's `deployRelease` does.
+ *
+ * Every release deployed or replaced is logged in `environment_deployment_log`, in the same
+ * transaction.
  *
  * Permission: `ENVIRONMENT_DEPLOY` (contract `deployRelease`).
  *
@@ -58,6 +65,7 @@ data class DeployRelease(
     val catalogKey: CatalogKey,
     val version: String,
     val includeDependencies: Boolean = false,
+    val replace: Boolean = false,
 ) : Command<CatalogDeployment>,
     RequiresPermission {
     override val permission get() = Permission.ENVIRONMENT_DEPLOY
@@ -83,7 +91,11 @@ class DeployReleaseHandler(
         if (!environmentExists) throw EnvironmentNotFoundException(tenantKey, environmentKey)
 
         requireDeployable(handle, tenantKey, command.catalogKey, command.version)
-        served(handle, command, command.catalogKey, command.version)?.let { return@inTransaction it }
+        served(handle, command, command.catalogKey, command.version)?.let { deployment ->
+            // Already live: replacing only takes the others away, each logged as taken offline.
+            if (command.replace) replaceable(handle, command).forEach { stopServing(handle, command, it, log = true) }
+            return@inTransaction deployment
+        }
 
         val missing = dependencies.missing(handle, tenantKey, environmentKey, command.catalogKey, command.version)
         if (missing.isNotEmpty()) {
@@ -98,7 +110,53 @@ class DeployReleaseHandler(
             }
             missing.forEach { deploy(handle, command, it.tenantCatalogKey, it.releaseVersion) }
         }
-        deploy(handle, command, command.catalogKey, command.version)
+        // Replacing: the others stop being served first, so the release is logged as replacing the
+        // one it took the place of ("made v1.1.0 live, replacing v1.0.0"); more than one replaced
+        // are each logged as taken offline.
+        val replaced = if (command.replace) replaceable(handle, command) else emptyList()
+        replaced.forEach { stopServing(handle, command, it, log = replaced.size > 1) }
+        deploy(handle, command, command.catalogKey, command.version, previousVersion = replaced.singleOrNull())
+    }
+
+    /**
+     * The catalog's other releases the environment serves that [command] replaces: all of them,
+     * except one that a release staying there renders with.
+     */
+    private fun replaceable(handle: Handle, command: DeployRelease): List<String> {
+        val tenantKey = command.environmentId.tenantKey
+        val environmentKey = command.environmentId.key
+        val others = handle.createQuery(
+            """
+            SELECT d.version FROM environment_catalog_deployments d
+            WHERE d.tenant_key = :t AND d.environment_key = :e AND d.catalog_id = ${catalogAt("t", "c")} AND d.version <> :v
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("e", environmentKey)
+            .bind("c", command.catalogKey)
+            .bind("v", command.version)
+            .mapTo<String>()
+            .list()
+        if (others.isEmpty()) return emptyList()
+        // What stays: everything served but these, plus the release being made live and what it
+        // brought along (not served yet when this runs, so added by hand).
+        val staying = dependencies.served(handle, tenantKey, environmentKey).filterNot { it.first == command.catalogKey && it.second in others } +
+            (command.catalogKey to command.version)
+        val needed = dependencies.needed(handle, tenantKey, staying)
+        return others.filterNot { (command.catalogKey to it) in needed }
+    }
+
+    private fun stopServing(handle: Handle, command: DeployRelease, version: String, log: Boolean) {
+        val tenantKey = command.environmentId.tenantKey
+        handle.createUpdate(
+            "DELETE FROM environment_catalog_deployments WHERE tenant_key = :t AND environment_key = :e AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
+        )
+            .bind("t", tenantKey)
+            .bind("e", command.environmentId.key)
+            .bind("c", command.catalogKey)
+            .bind("v", version)
+            .execute()
+        if (log) DeploymentLog.record(handle, tenantKey, command.environmentId.key, command.catalogKey, DeploymentAction.UNDEPLOYED, version)
     }
 
     /** Refuses a release that does not exist or kept no content to render from. */
@@ -136,7 +194,7 @@ class DeployReleaseHandler(
         .orElse(null)
 
     /** Serves the release in the environment and logs it. */
-    private fun deploy(handle: Handle, command: DeployRelease, catalogKey: CatalogKey, version: String): CatalogDeployment {
+    private fun deploy(handle: Handle, command: DeployRelease, catalogKey: CatalogKey, version: String, previousVersion: String? = null): CatalogDeployment {
         val tenantKey = command.environmentId.tenantKey
         val deployment = handle.createQuery(
             """
@@ -156,7 +214,7 @@ class DeployReleaseHandler(
             .bind("by", currentUserIdOrNull()?.value)
             .mapTo<CatalogDeployment>()
             .one()
-        DeploymentLog.record(handle, tenantKey, command.environmentId.key, catalogKey, DeploymentAction.DEPLOYED, version)
+        DeploymentLog.record(handle, tenantKey, command.environmentId.key, catalogKey, DeploymentAction.DEPLOYED, version, previousVersion)
         return deployment
     }
 }

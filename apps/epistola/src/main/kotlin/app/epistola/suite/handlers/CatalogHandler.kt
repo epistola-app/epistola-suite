@@ -490,7 +490,7 @@ class CatalogHandler {
             if (liveIn.isNotEmpty()) requirePermission(tenantId.key, Permission.ENVIRONMENT_DEPLOY)
             liveIn.forEach { environment ->
                 try {
-                    DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, result.version, includeDependencies = true).execute()
+                    DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, result.version, includeDependencies = true, replace = true).execute()
                 } catch (e: ValidationException) {
                     return reRenderWithError("Published v${result.version}, but it could not be made live in $environment: ${e.message} Make it live under Live on the catalog page.")
                 } catch (e: RuntimeException) {
@@ -592,7 +592,8 @@ class CatalogHandler {
         if (environment.isEmpty() || version.isEmpty()) return browse(request, error = "Choose an environment and a release to deploy.")
         val includeDependencies = request.param("includeDependencies").orElse("") == "true"
         return try {
-            DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, version, includeDependencies).execute()
+            // One live version per catalog per environment in the UI: making one live replaces the others.
+            DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, version, includeDependencies, replace = true).execute()
             ServerResponse.status(303)
                 .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
                 .build()

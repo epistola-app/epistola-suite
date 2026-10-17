@@ -73,15 +73,16 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `deploying from the page adds the release and logs it`() {
+    fun `making a version live from the page replaces the live one, and the history says which`() {
         val (tenant, production) = tenantWithReleases("env-deploy")
         withMediator { DeployRelease(production, LETTERS, "1.0.1").execute() }
 
         val response = post("/tenants/${tenant.id.value}/environments/production/deployments", "release" to "letters@1.0.0")
 
         assertThat(response.statusCode.is2xxSuccessful).`as`("the redirect lands back on the environment").isTrue()
-        assertThat(withMediator { ListDeployments(tenant.id, environmentKey = production.key).query() }.map { it.version }).containsExactly("1.0.1", "1.0.0")
+        assertThat(withMediator { ListDeployments(tenant.id, environmentKey = production.key).query() }.map { it.version }).containsExactly("1.0.0")
         assertThat(withMediator { ListDeploymentHistory(production).query() }.first().version).isEqualTo("1.0.0")
+        assertThat(page(tenant, "production")).contains("Made letters v1.0.0 live").contains("replacing v1.0.1")
     }
 
     @Test

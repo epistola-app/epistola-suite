@@ -50,14 +50,20 @@ There are four, and only four:
 3. **Published versions never change.** Changing one means side work started from it.
 4. **Live is per environment, one version per catalog**, with a history; going back is making an
    older version live again.
-5. **While working, catalogs see each other's work.** Letters' next version previews with Shared's
-   next version (this is already how the editor and preview work).
+5. **While working, a catalog follows or stays on each catalog it uses**, chosen per catalog:
+   - **Follow Shared's work** (default for authored catalogs in the tenant): Letters previews with
+     Shared's next version (already how the editor and preview work), and publishing Letters
+     publishes Shared along when it uses unpublished changes from it (rule 7).
+   - **Stay on Shared v2.3** (default for subscribed catalogs): Letters previews and publishes with
+     v2.3 exactly; a newer one shows as "Shared v2.4 is available: what changed · Use it".
 6. **Side work started from a published version sees what that version used.** A fix of what is in
    production previews with the versions of Shared that production uses — otherwise "fix production"
    would preview something production never had. It can deliberately switch to newer.
 7. **Publishing ties a version to exact published versions of what it uses**, and **publishes along
-   what it needs**: when Letters uses changes in Shared that are not published yet, publishing Letters
-   publishes Shared too, in one go — all or nothing.
+   what it needs**: when Letters follows Shared and uses changes in Shared that are not published yet,
+   publishing Letters publishes Shared too, in one go — all or nothing. Shared's next version may hold
+   unrelated unfinished changes; the dialog lists all of them and offers to stay on the published
+   Shared instead, unless Letters uses something that exists only in Shared's work.
 8. **Changes published from side work flow back.** After a fix is published, the next version is
    offered to take it over. Per resource: unchanged in the next version → taken over automatically;
    changed in both → the person chooses (keep mine / take the fix / compare).
@@ -136,13 +142,20 @@ and must be above every published one) or made the next version (scenario 5).
 What stays: immutable releases, fingerprints and locks, ready marks (set by publishing), several drafts
 in core and REST — the UI just names them and gives each a purpose.
 
+## Decided
+
+- **One live version per catalog per environment** (18 October). Making a version live replaces the
+  one that was live, in one transaction, logged as "made v1.1.0 live, replacing v1.0.0". A version
+  another live catalog still renders with stays served. The API keeps serving several when asked
+  (`deployRelease` without replace). Built: `DeployRelease(replace = true)`, used by every "make live"
+  in the UI.
+- **Follow or stay per catalog used** (18 October), rule 5.
+
 ## Open questions
 
-1. **One live version per environment.** Today an environment can serve several versions of a catalog
-   (and a request may select one). Keep that for the API, but show and manage one in the UI?
-2. **Fix from what is live, or from any published version?** Starting from "what is live in X" is what
+1. **Fix from what is live, or from any published version?** Starting from "what is live in X" is what
    people mean; any published version can stay available under More.
-3. **Merge granularity.** Per resource (a template as a whole) is simple and predictable; per variant
+2. **Merge granularity.** Per resource (a template as a whole) is simple and predictable; per variant
    or per block would merge more but is harder to explain. Proposal: per resource first.
-4. **Who may make live in production?** A separate permission exists (`ENVIRONMENT_DEPLOY`); an
+3. **Who may make live in production?** A separate permission exists (`ENVIRONMENT_DEPLOY`); an
    approval step is not proposed here.
