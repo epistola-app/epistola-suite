@@ -10,8 +10,11 @@ import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
+import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.InstallFromCatalog
+import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.catalog.upgrade.CatalogUpgradeRunner
@@ -42,6 +45,7 @@ import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.stencils.stencilDocument
 import app.epistola.suite.stencils.texts
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
@@ -187,6 +191,71 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         val released = withMediator { GetReleasedResource(catalog.tenantKey, catalog.key, "1.0.0", "stencil", "letterhead").query() } as StencilResource
         assertThat(released.content.texts()).containsExactly("stencil published")
         assertThat(withMediator { GetStencil(stencil).query()!! }.content.texts()).containsExactly("stencil draft")
+    }
+
+    // ── Subscribed catalogs ──
+
+    /**
+     * A catalog a tenant subscribed to under 1.x: installed, with the publisher's legacy fingerprint,
+     * and no release recorded, since 1.x kept none. The install is done with today's commands, then
+     * its recorded release is removed and the legacy fingerprint put back, as 1.x left it.
+     */
+    private fun subscribedIn1x(tenant: TenantKey): CatalogId {
+        val catalog = CatalogId(CatalogKey.of("epistola-demo"), TenantId(tenant))
+        withMediator {
+            RegisterCatalog(tenantKey = tenant, sourceUrl = "classpath:epistola/catalogs/fixture/catalog.json", authType = AuthType.NONE).execute()
+            InstallFromCatalog(tenantKey = tenant, catalogKey = catalog.key).execute()
+        }
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate("DELETE FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
+                .bind("t", tenant).bind("c", catalog.key).execute()
+            handle.createUpdate("UPDATE catalogs SET installed_fingerprint = :fp WHERE tenant_key = :t AND catalog_key = :c")
+                .bind("fp", "0".repeat(64)).bind("t", tenant).bind("c", catalog.key).execute()
+        }
+        return catalog
+    }
+
+    private fun releases(catalog: CatalogId): List<Pair<String, String>> = jdbi.withHandle<List<Pair<String, String>>, Exception> { handle ->
+        handle.createQuery("SELECT version, fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND content_retained")
+            .bind("t", catalog.tenantKey).bind("c", catalog.key)
+            .map { rs, _ -> rs.getString(1) to rs.getString(2) }
+            .list()
+    }
+
+    @Test
+    fun `a subscribed catalog gets its installed release recorded, with a fingerprint that can be pinned`() {
+        val subscribed = subscribedIn1x(tenant("upgrade-subscribed"))
+        assertThat(releases(subscribed)).isEmpty()
+        queue(subscribed)
+
+        runUpgrade()
+
+        val recorded = releases(subscribed)
+        assertThat(recorded.map { it.first }).containsExactly("5.17.2")
+        assertThat(recorded.single().second).`as`("qualified, so a dependent can lock to it").startsWith("v5:")
+        assertThat(queueRow(subscribed)).isNull()
+    }
+
+    @Test
+    fun `an authored catalog that uses a subscribed one is released after it is recorded, in one run`() {
+        val tenantKey = tenant("upgrade-subscribed-dependent")
+        val subscribed = subscribedIn1x(tenantKey)
+        val letters = catalog(tenantKey, letters)
+        val invoice = TemplateId(TemplateKey.of("invoice"), letters)
+        withMediator {
+            CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
+            UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("corporate"), themeCatalogKey = subscribed.key).execute()
+        }
+        published1x("template_versions", "template_resource_id", resourceId(letters, "template", "invoice"), mapOf("variant_key" to VariantKey.INITIAL.value), document("published"))
+        // 'epistola-demo' sorts first, but queue the dependent first to be sure the order comes from the rounds.
+        queue(letters)
+        queue(subscribed)
+
+        runUpgrade()
+
+        assertThat(versions(letters)).contains("1.0.0" to CatalogVersionStatus.RELEASED)
+        assertThat(withMediator { ListCatalogDependencies(letters.tenantKey, letters.key).query() }.map { it.catalogKey to it.releaseVersion })
+            .contains("epistola-demo" to "5.17.2")
     }
 
     // ── Order and retries ──

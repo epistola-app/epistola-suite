@@ -189,7 +189,9 @@ draft. A template whose default variant was never published, and a stencil never
 out of that release; unpublished work stays in the draft. Nothing is deployed: operators deploy the
 first releases. Catalogs are taken in rounds, so one is released after the catalogs it depends on;
 one that cannot be released yet stays queued with the reason (`last_error`) and is retried. A catalog
-created after the upgrade is never queued.
+created after the upgrade is never queued. A subscribed catalog with an installed release is queued too, and gets
+that release recorded as one it can render from; a legacy fingerprint is replaced by the qualified one
+of the installed content, so dependents can lock to it.
 
 ## Ready marks
 

@@ -12,14 +12,15 @@ import org.junit.jupiter.api.Test
 import java.sql.DriverManager
 
 /**
- * `core_catalog_upgrade_queue` queues every authored catalog that exists at the upgrade, and
- * no subscribed one: a subscribed catalog has the release it installed, and its declarations come with it.
+ * `core_catalog_upgrade_queue` queues every authored catalog that exists at the upgrade, and every
+ * subscribed one with an installed release, which still has to be recorded as a release it can
+ * render from. A subscribed catalog that never installed one has nothing to record.
  */
 @Tag("integration")
 class CatalogUpgradeQueueMigrationTest {
 
     @Test
-    fun `the authored catalogs of the upgrade are queued, the subscribed ones are not`() {
+    fun `the authored catalogs and the installed subscribed ones are queued`() {
         val postgres = TestRuntimeLifecycle.postgres()
         val database = "catalog_upgrade_queue_migration"
         DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password).use { admin ->
@@ -46,6 +47,8 @@ class CatalogUpgradeQueueMigrationTest {
                     VALUES ('default', 'acme', 'exchange.epistola.app', 'acme', 'Default', 'AUTHORED'),
                            ('letters', 'acme', 'exchange.epistola.app', 'acme', 'Letters', 'AUTHORED'),
                            ('system', 'acme', 'exchange.epistola.app', 'epistola', 'System', 'SUBSCRIBED');
+                    INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, type, installed_release_version)
+                    VALUES ('forms', 'acme', 'exchange.epistola.app', 'acme', 'Forms', 'SUBSCRIBED', '3.1.0');
                     """.trimIndent(),
                 )
             }
@@ -61,7 +64,7 @@ class CatalogUpgradeQueueMigrationTest {
                     """,
                 ).use { rs -> buildList { while (rs.next()) add(rs.getString(1)) } }
             }
-            assertThat(queued).containsExactlyInAnyOrder("default", "letters")
+            assertThat(queued).containsExactlyInAnyOrder("default", "letters", "forms")
         }
     }
 

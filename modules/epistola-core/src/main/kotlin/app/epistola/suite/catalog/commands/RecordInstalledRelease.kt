@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.catalog.canonical.QualifiedCatalogFingerprint
 import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.catalog.CatalogContentBuilder
@@ -34,7 +35,8 @@ import java.time.OffsetDateTime
  * Generation renders releases, so a subscribed catalog needs one: its publisher's release arrives
  * as an installed mirror, and this is what turns the mirror into a release that can be rendered.
  * The release carries the publisher's version and fingerprint, not a recomputation over the mirror,
- * so it is recognisably the publisher's release.
+ * so it is recognisably the publisher's release; only a legacy fingerprint, which names no algorithm,
+ * is replaced by the qualified one of the installed content.
  *
  * Idempotent: a release already recorded for the installed version is left alone. Does nothing for
  * an authored catalog, which releases itself, or one with no installed version.
@@ -91,7 +93,12 @@ class RecordInstalledReleaseHandler(
         if (exists) return version
 
         val content = contentBuilder.build(command.tenantKey, command.catalogKey)
-        val fingerprint = catalog.installedFingerprint ?: fingerprintService.fingerprint(content)
+        // The publisher's fingerprint when it names its algorithm. A legacy one (a catalog from wire v7
+        // or earlier, or installed under 1.x) cannot be checked against this wire-v8 content, and a
+        // release whose fingerprint names no algorithm cannot be locked to or pinned by a dependent
+        // (contract ADR 0003), so such a release records the qualified fingerprint of what it holds.
+        val fingerprint = catalog.installedFingerprint?.takeIf { QualifiedCatalogFingerprint.parse(it) != null }
+            ?: fingerprintService.fingerprint(content)
         // The publisher's per-resource digests where the install recorded them; a resource the
         // manifest does not carry (the system catalog's seeded fonts) gets its own.
         val resourceFingerprints = fingerprintService.perResourceFingerprints(content) + catalog.installedResourceFingerprints.orEmpty()

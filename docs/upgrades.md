@@ -86,7 +86,8 @@ history), but no 1.x release kept its content, so the upgrade cannot deploy anyt
 1. **Upgrade** as a breaking upgrade (above).
 2. **Wait for the first releases.** Within a few minutes of the first start, a background task gives
    every authored catalog its dependency declarations and a first release, cut from what was last
-   published before the upgrade and numbered as the catalog's draft (see
+   published before the upgrade, and every subscribed catalog its installed release as one it can
+   render from and numbered as the catalog's draft (see
    [`catalog-versioning.md`](catalog-versioning.md#declared-dependencies)). The log names each
    catalog it releases, and any it cannot release yet with the reason; those are retried every five
    minutes.

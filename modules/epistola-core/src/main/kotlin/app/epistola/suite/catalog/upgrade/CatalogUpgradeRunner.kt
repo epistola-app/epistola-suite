@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.upgrade
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.ContentSource
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.commands.RecordInstalledRelease
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.dependencies.MissingDependencyDeclarer
@@ -28,8 +29,9 @@ import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 
 /**
- * The 2.0 upgrade of each authored catalog of a 1.x installation, queued by the upgrade migration
- * (`catalog_upgrade_queue`). For each catalog:
+ * The 2.0 upgrade of each catalog of a 1.x installation, queued by the upgrade migration
+ * (`catalog_upgrade_queue`). A subscribed catalog gets its installed release recorded as a release it
+ * can render from ([RecordInstalledRelease]): 1.x kept none. For each authored catalog:
  *
  * 1. **Declarations.** 1.x had none, so its catalogs reference others (the system catalog's fonts
  *    and attributes, a shared theme) undeclared, and 2.0 refuses to release that (contract ADR 0003).
@@ -74,7 +76,7 @@ class CatalogUpgradeRunner(
 
     override fun handle(task: ClusterScheduledTask) = run()
 
-    private data class Queued(val tenantKey: TenantKey, val catalogKey: CatalogKey)
+    private data class Queued(val tenantKey: TenantKey, val catalogKey: CatalogKey, val subscribed: Boolean)
 
     /** Upgrades every queued catalog it can; a no-op once the queue is empty. */
     fun run() {
@@ -102,6 +104,12 @@ class CatalogUpgradeRunner(
     }
 
     private fun upgrade(catalog: Queued) = SecurityContext.runWithPrincipal(SystemUser.principalForTenant(catalog.tenantKey)) {
+        if (catalog.subscribed) {
+            // Its declarations and content are the publisher's: only the release is missing.
+            RecordInstalledRelease(catalog.tenantKey, catalog.catalogKey).execute()
+                ?.let { logger.info("Catalog {}/{} recorded its installed release {}", catalog.tenantKey.value, catalog.catalogKey.value, it) }
+            return@runWithPrincipal
+        }
         val declared = declarer.declareMissing(catalog.tenantKey, catalog.catalogKey)
         if (declared.isNotEmpty()) {
             logger.info("Catalog {}/{} now declares {}", catalog.tenantKey.value, catalog.catalogKey.value, declared.joinToString())
@@ -127,13 +135,13 @@ class CatalogUpgradeRunner(
     private fun queued(): List<Queued> = jdbi.withHandle<List<Queued>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT q.tenant_key, c.catalog_key
+            SELECT q.tenant_key, c.catalog_key, c.type = 'SUBSCRIBED' AS subscribed
             FROM catalog_upgrade_queue q
             JOIN catalogs c ON c.tenant_key = q.tenant_key AND c.catalog_id = q.catalog_id
             ORDER BY q.tenant_key, c.catalog_key
             """,
         )
-            .map { rs, _ -> Queued(TenantKey.of(rs.getString(1)), CatalogKey.of(rs.getString(2))) }
+            .map { rs, _ -> Queued(TenantKey.of(rs.getString(1)), CatalogKey.of(rs.getString(2)), rs.getBoolean(3)) }
             .list()
     }
 
