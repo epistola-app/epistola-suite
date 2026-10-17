@@ -307,6 +307,57 @@ class CatalogIntegrationTest : IntegrationTestBase() {
         }
     }
 
+    /**
+     * A catalog installed from a URL is held to what a ZIP import is: every rule a valid catalog
+     * keeps, here that each catalog its content references is declared (contract ADR 0003). Before,
+     * only a ZIP import checked, so a URL install succeeded and the catalog could not be exported.
+     */
+    @Test
+    fun `a URL catalog that references another catalog without declaring it is refused whole`(@TempDir tmp: Path) {
+        val tenant = createTenant("Install Undeclared Test")
+        val sourceUrl = writeCatalogReferencingSystemUndeclared(tmp)
+
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
+
+            assertThatThrownBy { InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("undeclared-test")).execute() }
+                .isInstanceOf(CatalogImportValidationException::class.java)
+                .hasMessageContaining("which catalogDependencies does not declare")
+            assertThat(ListThemes(TenantId(tenant.id)).query().map { it.id.value }).doesNotContain("undeclared-theme")
+        }
+    }
+
+    private fun writeCatalogReferencingSystemUndeclared(dir: Path): String {
+        dir.resolve("catalog.json").writeText(
+            """
+            {
+              "schemaVersion": 8,
+              "catalog": { "key": "undeclared-test", "registry": "exchange.epistola.app", "namespace": "test-publisher", "name": "Undeclared Test Catalog" },
+              "publisher": { "name": "Test" },
+              "release": { "version": "1.0.0" },
+              "resources": [
+                { "type": "theme", "key": "undeclared-theme", "name": "Undeclared Theme", "detailUrl": "./resources/themes/undeclared-theme.json" }
+              ]
+            }
+            """.trimIndent(),
+        )
+        dir.resolve("resources/themes").createDirectories()
+        dir.resolve("resources/themes/undeclared-theme.json").writeText(
+            """
+            {
+              "schemaVersion": 8,
+              "resource": {
+                "type": "theme",
+                "key": "undeclared-theme",
+                "name": "Undeclared Theme",
+                "documentStyles": { "fontFamily": { "key": "inter", "catalogKey": "system" } }
+              }
+            }
+            """.trimIndent(),
+        )
+        return dir.resolve("catalog.json").toUri().toString()
+    }
+
     private fun writeCatalogWithBrokenTemplate(dir: Path): String {
         val manifest = """
             {

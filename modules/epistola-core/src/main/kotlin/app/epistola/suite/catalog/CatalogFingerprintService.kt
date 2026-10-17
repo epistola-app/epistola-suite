@@ -59,6 +59,8 @@ class CatalogFingerprintService(
 
     fun requirePublishable(content: CatalogContent) = canonicalizer.requirePublishable(content)
 
+    fun publishability(content: CatalogContent) = canonicalizer.publishability(content)
+
     /**
      * Fingerprint of a catalog fetched from a source URL. Used to verify the
      * committed fingerprint of bundled catalogs has not drifted.

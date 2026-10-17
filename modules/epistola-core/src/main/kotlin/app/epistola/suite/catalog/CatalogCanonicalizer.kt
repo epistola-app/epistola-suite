@@ -18,6 +18,7 @@ import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.catalog.protocol.ResourceEntry
 import app.epistola.catalog.validation.CatalogValidationPolicy
+import app.epistola.catalog.validation.CatalogValidationReport
 import app.epistola.catalog.validation.CatalogValidator
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
@@ -84,23 +85,24 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         }
     }
 
+    /** What the portable validator says of [content] as an archive, the fingerprint aside. */
+    fun publishability(content: CatalogContent): CatalogValidationReport = archive(
+        content.catalog,
+        content.resourceDetails.mapValues { (_, detail) -> objectMapper.writeValueAsBytes(detail) },
+        content.dependencies,
+        content.catalogDependencies,
+        content.resourceEntries,
+    ) { contentPath ->
+        content.assetContents[contentPath]
+    }.use { archive -> CatalogValidator.validate(archive, CatalogValidationPolicy(verifyFingerprint = false)) }
+
     fun requirePublishable(content: CatalogContent) {
-        archive(
-            content.catalog,
-            content.resourceDetails.mapValues { (_, detail) -> objectMapper.writeValueAsBytes(detail) },
-            content.dependencies,
-            content.catalogDependencies,
-            content.resourceEntries,
-        ) { contentPath ->
-            content.assetContents[contentPath]
-        }.use { archive ->
-            val report = CatalogValidator.validate(archive, CatalogValidationPolicy(verifyFingerprint = false))
-            require(report.valid) {
-                report.findings.joinToString(
-                    prefix = "Catalog contains non-publishable content: ",
-                    separator = "; ",
-                ) { "${it.path}: ${it.message}" }
-            }
+        val report = publishability(content)
+        require(report.valid) {
+            report.findings.joinToString(
+                prefix = "Catalog contains non-publishable content: ",
+                separator = "; ",
+            ) { "${it.path}: ${it.message}" }
         }
     }
 

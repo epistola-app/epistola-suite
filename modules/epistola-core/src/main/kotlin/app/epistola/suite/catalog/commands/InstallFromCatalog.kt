@@ -86,6 +86,7 @@ class InstallFromCatalogHandler(
     private val dependencyResolver: DependencyResolver,
     private val protocolMapper: ProtocolMapper,
     private val sizeLimits: CatalogSizeLimits,
+    private val installedCatalogCheck: InstalledCatalogCheck,
     transactionManager: PlatformTransactionManager,
 ) : CommandHandler<InstallFromCatalog, List<InstallResult>> {
 
@@ -165,6 +166,10 @@ class InstallFromCatalogHandler(
             }
             if (results.any { it.status == InstallStatus.FAILED }) {
                 status.setRollbackOnly()
+            } else if (!InstalledReleaseRecording.isDeferred) {
+                // A caller that defers recording the release completes the content first (the system
+                // catalog seeds its fonts) and checks it then.
+                installedCatalogCheck.requireValid(command.tenantKey, command.catalogKey)
             }
             results
         }

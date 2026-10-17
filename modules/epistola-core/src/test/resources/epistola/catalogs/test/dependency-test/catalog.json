@@ -12,6 +12,16 @@
   "release": {
     "version": "1.0"
   },
+  "catalogDependencies": [
+    {
+      "registry": "exchange.epistola.app",
+      "namespace": "epistola",
+      "catalogKey": "system",
+      "version": "^2.0.0",
+      "releaseVersion": "2.0.0",
+      "releaseFingerprint": "v5:ca81faf3377fd558f5b634b7e566f59f520ef4b6380ae0ee991cf7e7d060f808"
+    }
+  ],
   "resources": [
     {
       "type": "image",
