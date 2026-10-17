@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+    An authored catalog's next release: the draft's version number, what changed since the last
+    release and whether each change is ready, and the catalogs it declares it depends on. Rendered
+    on the catalog page (catalogs/browse) and re-rendered in place after "Mark all ready",
+    "Resolve to latest" or a dependency edit.
+
+    Every control gates on one name of `readiness` (CatalogReleaseReadiness), the same model the
+    release dialog gates on, so the page and the dialog cannot disagree about whether a release is
+    possible. A withheld Release says why and links to where it is fixed.
+
+    Model it needs: `tenantId`, `catalogId`, `readiness`, optionally `nextReleaseError`.
+    -->
+    <div th:fragment="next-release" id="catalog-next-release" class="card" data-testid="catalog-next-release"
+         th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: var(--ep-space-2);">
+            <h2>
+                Next release
+                <span th:if="${readiness.draftVersion != null}" data-testid="catalog-draft-version"
+                      th:text="'v' + ${readiness.draftVersion}">v1.0.1</span>
+            </h2>
+            <div class="ep-row" style="gap: var(--ep-space-2);">
+                <button th:if="${readiness.offerRenumber}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/renumber(tenantId=${tenantId},catalogId=${catalogId})}"
+                        hx-target="#dialog-mount" hx-swap="innerHTML"
+                        data-testid="catalog-renumber-open">Renumber</button>
+                <form th:if="${readiness.offerMarkAllReady}" style="display: inline;"
+                      th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/ready(tenantId=${tenantId},catalogId=${catalogId})}"
+                      hx-target="#catalog-next-release" hx-swap="outerHTML">
+                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-mark-ready">Mark all ready</button>
+                </form>
+                <button th:if="${readiness.offerRelease}" type="button" class="ep-btn ep-btn-primary ep-btn-sm"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
+                        hx-target="#release-dialog-container" hx-swap="innerHTML"
+                        data-testid="catalog-release-open">Release</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div th:if="${nextReleaseError != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-3);"
+                 data-testid="catalog-next-release-error">
+                <span th:text="${nextReleaseError}"></span>
+            </div>
+
+            <!--/* Why Release is not offered, one sentence per reason, each pointing at where it is
+                   fixed. */-->
+            <div th:if="${readiness.releaseBlocked}" class="alert alert-warning" style="margin-bottom: var(--ep-space-3);"
+                 data-testid="catalog-release-blocked">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+                <div>
+                    <div class="alert-title">This catalog cannot be released yet.</div>
+                    <p th:if="${!readiness.notReady.isEmpty()}" style="margin: var(--ep-space-1) 0 0;"
+                       data-testid="catalog-release-blocked-resources">
+                        <span th:text="${readiness.notReady.size() == 1} ? '1 changed resource is not marked ready' : ${readiness.notReady.size()} + ' changed resources are not marked ready'"></span>:
+                        <span th:text="${#strings.listJoin(readiness.notReady.![type + ' ' + slug], ', ')}"></span>.
+                        Review them below and mark them ready, on their own page or with <em>Mark all ready</em>.
+                    </p>
+                    <p th:if="${!readiness.unresolvedDependencies.isEmpty()}" style="margin: var(--ep-space-1) 0 0;"
+                       data-testid="catalog-release-blocked-dependencies">
+                        <span th:text="${readiness.unresolvedDependencies.size() == 1} ? '1 declared dependency matches no release' : ${readiness.unresolvedDependencies.size()} + ' declared dependencies match no release'"></span>:
+                        <span th:text="${#strings.listJoin(readiness.unresolvedDependencies.![namespace + '/' + catalogKey + '@' + version], ', ')}"></span>.
+                        Release that catalog, or widen the range under <a href="#catalog-dependencies">Dependencies</a>.
+                    </p>
+                </div>
+            </div>
+
+            <p th:if="${!readiness.changes.baselineAvailable}" class="form-hint">
+                The last release was cut before Epistola recorded which resources a release contained,
+                so this catalog cannot say what changed since. Every resource is listed; the next release
+                records it.
+            </p>
+            <p th:if="${readiness.changed.isEmpty()}" class="text-muted" data-testid="catalog-no-changes">
+                No changes since the last release.
+            </p>
+            <div th:unless="${readiness.changed.isEmpty()}" class="ep-table-scroll" role="region" aria-label="Changes since the last release" tabindex="0">
+                <table class="ep-table ep-table-compact">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Resource</th>
+                            <th>Change</th>
+                            <th>Ready</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="change : ${readiness.changed}" data-testid="catalog-change-row"
+                            th:data-resource="${change.type + '/' + change.slug}">
+                            <td th:text="${change.type}">template</td>
+                            <td>
+                                <a th:if="${change.type == 'template' and change.state.name() != 'REMOVED'}"
+                                   th:href="@{/tenants/{tenantId}/templates/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
+                                   th:text="${change.name ?: change.slug}"></a>
+                                <a th:if="${change.type == 'stencil' and change.state.name() != 'REMOVED'}"
+                                   th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
+                                   th:text="${change.name ?: change.slug}"></a>
+                                <a th:if="${change.type == 'theme' and change.state.name() != 'REMOVED'}"
+                                   th:href="@{/tenants/{tenantId}/themes/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
+                                   th:text="${change.name ?: change.slug}"></a>
+                                <span th:unless="${(change.type == 'template' or change.type == 'stencil' or change.type == 'theme') and change.state.name() != 'REMOVED'}"
+                                      th:text="${change.name ?: change.slug}"></span>
+                                <code class="text-muted" style="font-size: var(--ep-text-xs); margin-left: var(--ep-space-1);" th:text="${change.slug}"></code>
+                            </td>
+                            <td th:switch="${change.state.name()}">
+                                <span th:case="'NEW'" class="badge badge-info">New</span>
+                                <span th:case="'MODIFIED'" class="badge badge-outline">Modified</span>
+                                <span th:case="'REMOVED'" class="badge badge-default">Removed</span>
+                                <span th:case="*" class="badge badge-outline">Changed</span>
+                            </td>
+                            <td>
+                                <span th:if="${change.state.name() == 'REMOVED'}" class="text-muted">—</span>
+                                <span th:if="${change.state.name() != 'REMOVED' and change.ready}" class="badge badge-success">Ready</span>
+                                <span th:if="${change.blocksRelease}" class="badge badge-warning">Not ready</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Dependencies: the catalogs this one declares it uses, and the release each is locked to. -->
+        <div id="catalog-dependencies" class="card-body" style="border-top: 1px solid var(--ep-border);"
+             data-testid="catalog-dependencies">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--ep-space-2);">
+                <h3 style="margin: 0;">Dependencies</h3>
+                <div class="ep-row" style="gap: var(--ep-space-2);">
+                    <form th:if="${readiness.offerResolveDependencies}" style="display: inline;"
+                          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/dependencies/resolve(tenantId=${tenantId},catalogId=${catalogId})}"
+                          hx-target="#catalog-next-release" hx-swap="outerHTML">
+                        <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-dependencies-resolve">Resolve to latest</button>
+                    </form>
+                    <button th:if="${readiness.mayRelease}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                            th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/dependencies/edit(tenantId=${tenantId},catalogId=${catalogId})}"
+                            hx-target="#dialog-mount" hx-swap="innerHTML"
+                            data-testid="catalog-dependencies-edit">Edit dependencies</button>
+                </div>
+            </div>
+            <p th:if="${readiness.dependencies.isEmpty()}" class="text-muted">
+                This catalog declares no dependencies. Declare a catalog here when its templates use
+                that catalog's resources, so each release records which release of it they were made with.
+            </p>
+            <table th:unless="${readiness.dependencies.isEmpty()}" class="ep-table ep-table-compact">
+                <thead>
+                    <tr>
+                        <th>Catalog</th>
+                        <th>Range</th>
+                        <th>Locked to</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="dependency : ${readiness.dependencies}" data-testid="catalog-dependency-row">
+                        <td><code th:text="${dependency.namespace + '/' + dependency.catalogKey}"></code></td>
+                        <td><code th:text="${dependency.version}"></code></td>
+                        <td>
+                            <span th:if="${dependency.locked}" th:text="'v' + ${dependency.releaseVersion}"></span>
+                            <span th:unless="${dependency.locked}" class="badge badge-warning">No matching release</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!--
+    Renumber the draft. On submit the handler previews the renumber: warnings come back in the
+    dialog with an acknowledgement box, refusals as field errors.
+    Model: `tenantId`, `catalogId`, `draftVersion`, and on re-render `formData`/`errors`/`warnings`.
+    -->
+    <th:block th:fragment="renumber-dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='renumber-catalog-dialog',
+            title='Renumber the next release',
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalogId})},
+            content=~{::renumber-form})}"></div>
+    </th:block>
+
+    <form th:fragment="renumber-form" id="renumber-catalog-form"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/renumber(tenantId=${tenantId},catalogId=${catalogId})}"
+          hx-target="#renumber-catalog-form" hx-swap="outerHTML">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='renumber-catalog-error')}"></div>
+        <div class="ep-dialog-body">
+            <p class="form-hint">
+                The next release is <strong th:text="'v' + ${draftVersion}">v1.0.1</strong>. Its content
+                stays as it is; only the number changes. It must stay above every release.
+            </p>
+            <div class="form-group" th:classappend="${errors?.containsKey('to')} ? 'error' : ''">
+                <label class="ep-label" for="renumber-to">New version</label>
+                <input type="text" id="renumber-to" name="to" class="ep-input" required maxlength="50"
+                       pattern="^\d+\.\d+\.\d+$"
+                       th:value="${formData?.to ?: draftVersion}">
+                <span class="form-hint">Semantic version: MAJOR.MINOR.PATCH</span>
+                <span class="form-error" th:if="${errors?.containsKey('to')}" th:text="${errors.to}"
+                      data-testid="renumber-error"></span>
+            </div>
+            <div th:if="${warnings != null and !warnings.isEmpty()}" class="alert alert-warning" data-testid="renumber-warnings">
+                <div>
+                    <div class="alert-title">Renumbering needs a second look</div>
+                    <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
+                        <li th:each="warning : ${warnings}" th:text="${warning.message}"></li>
+                    </ul>
+                    <label style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-2);">
+                        <input type="checkbox" name="acknowledgeWarnings" value="true" required>
+                        Renumber anyway
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="renumber-catalog-dialog">Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="renumber-submit">Renumber</button>
+        </div>
+    </form>
+
+    <!--
+    Edit the declared dependencies: one row per declaration plus an empty one to add another.
+    Clearing a row's catalog removes it. Refusals come back as field errors on the row.
+    Model: `tenantId`, `catalogId`, `rows` (DependencyRowView), `dependencyOptions`, and on
+    re-render `errors`.
+    -->
+    <th:block th:fragment="dependencies-dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='catalog-dependencies-dialog',
+            title='Dependencies',
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalogId})},
+            content=~{::dependencies-form})}"></div>
+    </th:block>
+
+    <form th:fragment="dependencies-form" id="catalog-dependencies-form"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/dependencies(tenantId=${tenantId},catalogId=${catalogId})}"
+          hx-target="#catalog-dependencies-form" hx-swap="outerHTML">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='catalog-dependencies-error')}"></div>
+        <div class="ep-dialog-body">
+            <!--/* Without another catalog there is nothing to depend on: say so instead of offering an
+                   empty picker. */-->
+            <p th:if="${dependencyOptions.isEmpty()}" class="text-muted" data-testid="catalog-dependencies-none">
+                This tenant has no other catalog to depend on.
+                <a th:href="@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})}">Create or subscribe to one</a> first.
+            </p>
+            <th:block th:unless="${dependencyOptions.isEmpty()}">
+                <p class="form-hint">
+                    Choose a catalog and an npm version range (for example <code>^1.2.0</code> or <code>*</code>).
+                    Each declaration is locked to the highest release that matches. Leave the catalog empty to remove a row.
+                </p>
+                <div th:each="row, stat : ${rows}" class="ep-row" style="gap: var(--ep-space-2); align-items: flex-start;"
+                     data-testid="catalog-dependency-input-row">
+                    <div class="form-group" style="flex: 2;" th:classappend="${errors?.containsKey('dependencies[' + stat.index + ']')} ? 'error' : ''">
+                        <label class="ep-label" th:for="'dependency-catalog-' + ${stat.index}">Catalog</label>
+                        <select th:id="'dependency-catalog-' + ${stat.index}" name="catalog" class="ep-select">
+                            <option value="">—</option>
+                            <option th:each="option : ${dependencyOptions}" th:value="${option.value}" th:text="${option.label}"
+                                    th:selected="${option.value == row.catalog}"></option>
+                        </select>
+                        <span class="form-error" th:if="${errors?.containsKey('dependencies[' + stat.index + ']')}"
+                              th:text="${errors.get('dependencies[' + stat.index + ']')}" data-testid="catalog-dependency-error"></span>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label class="ep-label" th:for="'dependency-version-' + ${stat.index}">Range</label>
+                        <input type="text" th:id="'dependency-version-' + ${stat.index}" name="version" class="ep-input"
+                               maxlength="100" placeholder="^1.0.0" th:value="${row.version}">
+                    </div>
+                </div>
+            </th:block>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="catalog-dependencies-dialog">Cancel</button>
+            <button th:unless="${dependencyOptions.isEmpty()}" type="submit" class="ep-btn ep-btn-primary"
+                    data-testid="catalog-dependencies-submit">Save</button>
+        </div>
+    </form>
+</body>
+</html>

@@ -32,6 +32,10 @@ import java.util.zip.ZipOutputStream
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 
+private const val EMPTY_MODEL = """{ "modelVersion": 1, "root": "n-root", "themeRef": { "type": "inherit" },
+  "nodes": { "n-root": { "id": "n-root", "type": "root", "slots": ["s-root"] } },
+  "slots": { "s-root": { "id": "s-root", "nodeId": "n-root", "name": "children", "children": [] } } }"""
+
 private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/fixture/catalog.json"
 
 /**
@@ -140,13 +144,13 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
         dir.resolve("catalog.json").writeText(
             """
             {
-              "schemaVersion": 6,
-              "catalog": { "slug": "diff-test", "name": "Diff Test Catalog" },
+              "schemaVersion": 8,
+              "catalog": { "key": "diff-test", "registry": "exchange.epistola.app", "namespace": "tests", "name": "Diff Test Catalog" },
               "publisher": { "name": "Test" },
               "release": { "version": "$version", "fingerprint": "${"0".repeat(64)}" },
               "resources": [
-                { "type": "theme", "slug": "house", "name": "House", "detailUrl": "./resources/themes/house.json" },
-                { "type": "template", "slug": "$templateSlug", "name": "Letter", "detailUrl": "./resources/templates/$templateSlug.json" }
+                { "type": "theme", "key": "house", "name": "House", "detailUrl": "./resources/themes/house.json" },
+                { "type": "template", "key": "$templateSlug", "name": "Letter", "detailUrl": "./resources/templates/$templateSlug.json" }
               ]
             }
             """.trimIndent(),
@@ -154,10 +158,10 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
         dir.resolve("resources/themes/house.json").writeText(
             """
             {
-              "schemaVersion": 6,
+              "schemaVersion": 8,
               "resource": {
                 "type": "theme",
-                "slug": "house",
+                "key": "house",
                 "name": "House",
                 "documentStyles": { "fontSize": "$themeSize" }
               }
@@ -167,19 +171,14 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
         dir.resolve("resources/templates/$templateSlug.json").writeText(
             """
             {
-              "schemaVersion": 6,
+              "schemaVersion": 8,
               "resource": {
                 "type": "template",
-                "slug": "$templateSlug",
+                "key": "$templateSlug",
                 "name": "Letter",
-                "templateModel": {
-                  "modelVersion": 1,
-                  "root": "n-root",
-                  "themeRef": { "type": "inherit" },
-                  "nodes": { "n-root": { "id": "n-root", "type": "root", "slots": ["s-root"] } },
-                  "slots": { "s-root": { "id": "s-root", "nodeId": "n-root", "name": "children", "children": [] } }
-                },
-                "variants": [ { "slug": "default", "title": "Default", "attributes": {}, "isDefault": true } ]
+                "dataExamples": [ { "key": "example-1", "name": "Example 1", "data": {} } ],
+                "templateModel": $EMPTY_MODEL,
+                "variants": [ { "key": "default", "title": "Default", "attributes": {}, "isDefault": true, "templateModel": $EMPTY_MODEL } ]
               }
             }
             """.trimIndent(),
@@ -314,7 +313,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             val manifest = dir.resolve("catalog.json")
             Files.writeString(
                 manifest,
-                """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"catalog":{"slug":"moving-source","name":"Moving Source"},""" +
+                """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"catalog":{"key":"moving-source","registry":"exchange.epistola.app","namespace":"tests","name":"Moving Source"},""" +
                     """"publisher":{"name":"P"},"release":{"version":"1.0.0"},"resources":[]}""",
             )
             withMediator {
@@ -323,7 +322,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             }
             Files.writeString(
                 manifest,
-                """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"catalog":{"slug":"moving-source","name":"Moving Source"},""" +
+                """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"catalog":{"key":"moving-source","registry":"exchange.epistola.app","namespace":"tests","name":"Moving Source"},""" +
                     """"publisher":{"name":"P"},"release":{"version":"1.1.0"},"resources":[]}""",
             )
         }
@@ -367,7 +366,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             val manifest = dir.resolve("catalog.json")
             Files.writeString(
                 manifest,
-                """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"catalog":{"slug":"new-source","name":"New Source"},""" +
+                """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"catalog":{"key":"new-source","registry":"exchange.epistola.app","namespace":"tests","name":"New Source"},""" +
                     """"publisher":{"name":"P"},"release":{"version":"1.0.0"},"resources":[]}""",
             )
             withMediator {
@@ -376,7 +375,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             // Source advances to a wire schema newer than this instance supports.
             Files.writeString(
                 manifest,
-                """{"schemaVersion":99,"catalog":{"slug":"new-source","name":"New Source"},""" +
+                """{"schemaVersion":99,"catalog":{"key":"new-source","registry":"exchange.epistola.app","namespace":"tests","name":"New Source"},""" +
                     """"publisher":{"name":"P"},"release":{"version":"2.0.0"},"resources":[]}""",
             )
         }

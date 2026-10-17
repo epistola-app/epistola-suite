@@ -12,7 +12,7 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.template.model.Node
@@ -121,7 +121,7 @@ class ExpressionClipboardPlaywrightUiTest : BasePlaywrightTest() {
             ),
             themeRef = ThemeRef.Inherit,
         )
-        UpdateDraft(variantId = variantId, templateModel = body).execute()
+        UpdateVariantContent(variantId = variantId, templateModel = body).execute()
 
         return "/tenants/${tenant.id}/templates/default/${template.id}/variants/${variant.id}/editor"
     }

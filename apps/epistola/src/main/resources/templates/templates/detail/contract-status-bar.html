@@ -2,23 +2,16 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div id="contract-status-bar"
-             th:data-status-url="@{/tenants/{tenantId}/templates/{catalogId}/{id}/contract/status-bar(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},edit=${editMode})}"
-             class="contract-status-bar">
-
-            <!-- Version + status -->
-            <span th:if="${contractVersionId != null}">
-                <strong th:text="'Contract v' + ${contractVersionId}"></strong>
-                <span th:if="${contractVersionStatus == 'draft'}" class="badge badge-primary" style="margin-left: var(--ep-space-1);">Draft</span>
-                <span th:if="${contractVersionStatus == 'published'}" class="badge badge-success" style="margin-left: var(--ep-space-1);">Published</span>
-            </span>
+        <!--/* A template has one data contract, edited in place and released with its catalog: no
+               draft to publish, no history to browse. */-->
+        <div id="contract-status-bar" class="contract-status-bar">
+            <strong>Data contract</strong>
 
             <!-- Editor-owned save state and actions are rendered here. -->
             <div th:if="${editMode && editable}" id="contract-save-controls" hx-preserve
                  class="contract-status-save-controls" role="region"
                  aria-label="Data contract save controls"></div>
 
-            <!-- Edit mode: leave editing without publishing. -->
             <th:block th:if="${editMode}">
                 <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
                    class="ep-btn ep-btn-outline ep-btn-sm" hx-boost="false">
@@ -26,50 +19,14 @@
                 </a>
             </th:block>
 
-            <!-- View mode actions -->
-            <th:block th:if="${!editMode}">
-                <!-- Publish button -->
-                <th:block th:if="${editable && hasDraftContract}">
-                    <button type="button" class="ep-btn ep-btn-primary ep-btn-sm"
-                            th:attr="hx-post=@{/tenants/{tenantId}/templates/{catalogId}/{id}/contract/publish(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
-                            hx-target="#contract-breaking-body"
-                            hx-swap="innerHTML">
-                        Publish
-                    </button>
-                </th:block>
-
-                <!-- Edit button -->
-                <th:block th:if="${editable}">
-                    <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},edit=true)}"
-                       class="ep-btn ep-btn-outline ep-btn-sm" hx-boost="false">
-                        Edit
-                    </a>
-                </th:block>
+            <th:block th:if="${!editMode && editable && auth.has('TEMPLATE_EDIT')}">
+                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},edit=true)}"
+                   class="ep-btn ep-btn-outline ep-btn-sm" hx-boost="false">
+                    Edit
+                </a>
             </th:block>
 
             <span class="contract-status-spacer"></span>
-
-            <!-- Usage + History (always visible) -->
-            <th:block th:if="${hasOutdatedVersions}">
-                <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" style="color: var(--ep-amber-700);"
-                        data-open-dialog="contract-usage-dialog">
-                    <span class="badge badge-warning" style="margin-right: var(--ep-space-1);">!</span>
-                    Outdated versions
-                </button>
-            </th:block>
-            <th:block th:if="${!hasOutdatedVersions && !#lists.isEmpty(allTemplateVersions)}">
-                <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
-                        data-open-dialog="contract-usage-dialog">
-                    Usage
-                </button>
-            </th:block>
-
-            <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
-                    th:hx-get="@{/tenants/{tenantId}/templates/{catalogId}/{id}/contract/versions/history(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
-                    hx-target="#contract-history-body" hx-swap="innerHTML"
-                    data-open-dialog="contract-history-dialog">
-                History
-            </button>
         </div>
     </th:block>
 </body>

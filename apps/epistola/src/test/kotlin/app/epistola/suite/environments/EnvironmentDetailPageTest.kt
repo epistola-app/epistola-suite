@@ -7,6 +7,7 @@ package app.epistola.suite.environments
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ForgetReleaseContent
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -135,9 +136,11 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
             CreateEnvironment(production, "Production").execute()
             val catalog = CatalogId(LETTERS, TenantId(tenant.id))
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = LETTERS, version = "1.0.0").execute()
+            MarkCatalogReady(tenant.id, LETTERS).execute()
+            ReleaseCatalogVersion(tenant.id, LETTERS, version = "1.0.0").execute()
             CreateTheme(ThemeId(ThemeKey.of("second"), catalog), "Second").execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = LETTERS, version = "1.0.1").execute()
+            MarkCatalogReady(tenant.id, LETTERS).execute()
+            ReleaseCatalogVersion(tenant.id, LETTERS, version = "1.0.1").execute()
         }
         return tenant to production
     }

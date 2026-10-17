@@ -12,18 +12,12 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.CreateVersion
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
@@ -52,7 +46,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
 
     @Test
     fun `escape reverts the rename input to the latest committed name`() {
-        val (tenant, template) = withMediator { createPublishedTemplateWithDraft() }
+        val (tenant, template) = withMediator { createTemplate() }
 
         gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/settings")
 
@@ -74,7 +68,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
 
     @Test
     fun `a failed rename reverts the input to the persisted name`() {
-        val (tenant, template) = withMediator { createPublishedTemplateWithDraft() }
+        val (tenant, template) = withMediator { createTemplate() }
 
         gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/settings")
         failEveryRequestTo("**/templates/**/name")
@@ -92,7 +86,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
     @Test
     fun `a failed PDF-A toggle reverts the checkbox`() {
         val (tenant, template) = withMediator {
-            val seeded = createPublishedTemplateWithDraft()
+            val seeded = createTemplate()
             // Pin the starting state instead of leaning on the create-time
             // default: the revert has to restore whatever the server holds.
             UpdateDocumentTemplate(
@@ -118,7 +112,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
     @Test
     fun `a theme deleted after page load shows an error and the selector reverts`() {
         val (tenant, template, staleTheme) = withMediator {
-            val seeded = createPublishedTemplateWithDraft()
+            val seeded = createTemplate()
             val tenantId = TenantId(seeded.first.id)
             val catalogId = CatalogId.default(tenantId)
             val currentTheme = ThemeId(ThemeKey.of("current-theme"), catalogId)
@@ -160,7 +154,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
         }
     }
 
-    private fun createPublishedTemplateWithDraft(): Pair<Tenant, DocumentTemplate> {
+    private fun createTemplate(): Pair<Tenant, DocumentTemplate> {
         val tenant = CreateTenant(
             id = TenantKey.of("settings-ui-${System.nanoTime()}"),
             name = "Settings UI Tenant",
@@ -175,10 +169,6 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
             id = EnvironmentId(EnvironmentKey.of("prod"), tenantId),
             name = "Production",
         ).execute()
-        val variantId = VariantId(VariantKey.INITIAL, TemplateId(template.id, CatalogId.default(tenantId)))
-        val draft = GetDraft(variantId).query()!!
-        PublishVersion(versionId = VersionId(draft.id, variantId)).execute()
-        CreateVersion(variantId = variantId).execute()
         return tenant to template
     }
 }

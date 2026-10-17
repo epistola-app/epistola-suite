@@ -14,238 +14,135 @@
             backLinkLabel='Stencils'
         )}"></div>
 
-        <!-- Details -->
+        <!-- Details: swapped as a whole after a settings change or "Mark ready" -->
+        <div id="stencil-details">
+            <th:block th:fragment="details">
+                <div class="ep-panel detail-section" style="margin-bottom: var(--ep-space-6);">
+                    <div class="detail-section-body">
+                        <div th:if="${readinessError != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);"
+                             data-testid="stencil-readiness-error">
+                            <span th:text="${readinessError}"></span>
+                        </div>
+                        <dl class="description-list">
+                            <dt>ID</dt>
+                            <dd><code th:text="${stencil.id}"></code></dd>
+                            <!--/* No Catalog row: the bar above names it, links to it and says where it
+                                   stands. Saying it twice invites the two to disagree. */-->
+                            <dt>Description</dt>
+                            <dd>
+                                <span th:if="${stencil.description != null}" th:text="${stencil.description}"></span>
+                                <span th:unless="${stencil.description != null}" class="text-muted">No description</span>
+                            </dd>
+                            <dt>Tags</dt>
+                            <dd>
+                                <span th:if="${!stencil.tags.isEmpty()}" th:each="tag : ${stencil.tags}" class="badge badge-outline" th:text="${tag}" style="margin-right: var(--ep-space-1);"></span>
+                                <span th:if="${stencil.tags.isEmpty()}" class="text-muted">No tags</span>
+                            </dd>
+                            <dt>Template data</dt>
+                            <dd>
+                                <form th:if="${stencilEditable}"
+                                      th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/settings(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id})}"
+                                      hx-trigger="change" hx-target="#stencil-details" hx-swap="innerHTML">
+                                    <label style="display: flex; align-items: center; gap: var(--ep-space-2); cursor: pointer;">
+                                        <input type="checkbox" class="ep-checkbox" name="readsTemplateData" value="true"
+                                               style="width: auto; height: auto;"
+                                               th:checked="${stencil.readsTemplateData}" data-testid="stencil-reads-template-data">
+                                        Its content also reads the using template's data
+                                    </label>
+                                </form>
+                                <th:block th:unless="${stencilEditable}">
+                                    <span th:if="${stencil.readsTemplateData}">Its content also reads the using template's data</span>
+                                    <span th:unless="${stencil.readsTemplateData}" class="text-muted">Its content reads only its parameters</span>
+                                </th:block>
+                            </dd>
+                            <th:block th:if="${readiness.state != null}">
+                                <dt>Readiness</dt>
+                                <dd>
+                                    <span th:if="${readiness.ready}" class="badge badge-success" data-testid="stencil-ready">Ready</span>
+                                    <span th:unless="${readiness.ready}" class="badge badge-warning" data-testid="stencil-not-ready">Not ready</span>
+                                    <span th:if="${readiness.blocksRelease}" class="text-muted" style="margin-left: var(--ep-space-2);">
+                                        Changed since the last release; the catalog cannot be released until it is marked ready.
+                                    </span>
+                                    <form th:if="${readiness.offerMarkReady}" style="display: inline; margin-left: var(--ep-space-2);"
+                                          th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/ready(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id})}"
+                                          hx-target="#stencil-details" hx-swap="innerHTML">
+                                        <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="stencil-mark-ready">Mark ready</button>
+                                    </form>
+                                </dd>
+                            </th:block>
+                            <dt>Created</dt>
+                            <dd th:text="${#temporals.format(stencil.createdAt, 'yyyy-MM-dd HH:mm')}"></dd>
+                            <dt>Last Modified</dt>
+                            <dd th:text="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}"></dd>
+                        </dl>
+                    </div>
+                </div>
+            </th:block>
+        </div>
+
+        <!-- Content and parameters: the content is edited in the template editor, inside a template
+             that uses the stencil; this page shows what an instance binds. -->
         <div class="ep-panel detail-section" style="margin-bottom: var(--ep-space-6);">
-            <div class="detail-section-body">
-                <dl class="description-list">
-                    <dt>ID</dt>
-                    <dd><code th:text="${stencil.id}"></code></dd>
-                    <!--/* No Catalog row: the bar above names it, links to it and says where it
-                           stands. Saying it twice invites the two to disagree. */-->
-                    <dt>Description</dt>
-                    <dd>
-                        <span th:if="${stencil.description != null}" th:text="${stencil.description}"></span>
-                        <span th:unless="${stencil.description != null}" class="text-muted">No description</span>
-                    </dd>
-                    <dt>Tags</dt>
-                    <dd>
-                        <span th:if="${!stencil.tags.isEmpty()}" th:each="tag : ${stencil.tags}" class="badge badge-outline" th:text="${tag}" style="margin-right: var(--ep-space-1);"></span>
-                        <span th:if="${stencil.tags.isEmpty()}" class="text-muted">No tags</span>
-                    </dd>
-                    <dt>Created</dt>
-                    <dd th:text="${#temporals.format(stencil.createdAt, 'yyyy-MM-dd HH:mm')}"></dd>
-                    <dt>Last Modified</dt>
-                    <dd th:text="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}"></dd>
-                </dl>
-            </div>
-        </div>
-
-        <!-- Versions section -->
-        <div class="ep-panel detail-section">
             <div class="detail-section-header">
-                <h3>Versions</h3>
+                <h3>Parameters</h3>
             </div>
-            <div class="detail-section-body" id="version-list">
-                <th:block th:fragment="versions">
-                    <div th:if="${#lists.isEmpty(versions)}" class="empty-state" style="padding: var(--ep-space-6);">
-                        <div class="empty-state-title">No versions yet</div>
-                        <div class="empty-state-description">Add a stencil block in the template editor to create content.</div>
-                    </div>
-
-                    <div th:if="${!#lists.isEmpty(versions)}">
-                        <table class="ep-table ep-table-compact">
-                            <thead>
-                                <tr>
-                                    <th>Version</th>
-                                    <th>Status</th>
-                                    <th>Created</th>
-                                    <th>Published</th>
-                                    <th title="Times this version is embedded across draft and published templates">Uses</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr th:each="version : ${versions}">
-                                    <td><strong th:text="'v' + ${version.id}"></strong></td>
-                                    <td>
-                                        <span class="badge"
-                                              th:classappend="${version.status.name() == 'PUBLISHED'} ? 'badge-success' : (${version.status.name() == 'DRAFT'} ? 'badge-warning' : 'badge-muted')"
-                                              th:text="${version.status.name().toLowerCase()}"></span>
-                                    </td>
-                                    <td th:text="${#temporals.format(version.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
-                                    <td>
-                                        <span th:if="${version.publishedAt != null}" th:text="${#temporals.format(version.publishedAt, 'yyyy-MM-dd HH:mm')}"></span>
-                                        <span th:unless="${version.publishedAt != null}" class="text-muted">-</span>
-                                    </td>
-                                    <td th:with="uses=${versionUsage != null ? versionUsage.getOrDefault(version.id, 0) : 0}">
-                                        <span th:if="${uses > 0}" th:text="${uses}"></span>
-                                        <span th:unless="${uses > 0}" class="text-muted">—</span>
-                                    </td>
-                                    <td class="actions">
-                                        <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'DRAFT' and stencil.catalogType.name() == 'AUTHORED'}"
-                                              th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions/{versionId}/publish(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},versionId=${version.id})}"
-                                              hx-target="#version-list" hx-swap="innerHTML" style="display: inline;">
-                                            <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" title="Publish">Publish</button>
-                                        </form>
-                                        <form th:if="${auth.has('STENCIL_PUBLISH') and version.status.name() == 'PUBLISHED' and stencil.catalogType.name() == 'AUTHORED'}"
-                                              th:hx-post="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/versions/{versionId}/archive(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},versionId=${version.id})}"
-                                              hx-target="#version-list" hx-swap="innerHTML"
-                                              hx-confirm="Archive version? It can no longer be inserted into templates. Templates already using it keep working; a draft still pinned to it must be upgraded before it can be published."
-                                              style="display: inline;">
-                                            <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" title="Archive">Archive</button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </th:block>
+            <div class="detail-section-body">
+                <pre th:if="${parameterSchemaJson != null}" style="font-size: var(--ep-text-sm); overflow-x: auto; margin: 0;" data-testid="stencil-parameter-schema"
+                     th:text="${parameterSchemaJson}"></pre>
+                <p th:unless="${parameterSchemaJson != null}" class="text-muted">
+                    This stencil takes no parameters. Define them in the template editor, on an instance of the stencil.
+                </p>
             </div>
         </div>
 
-        <!-- Usage section -->
-        <div class="ep-panel detail-section" th:if="${usagePage != null and usagePage.totalAll > 0}">
+        <!-- Usage section: the variants that use the stencil, each with whether it still fits -->
+        <div class="ep-panel detail-section" th:if="${usagePage != null and usagePage.total > 0}">
             <div class="detail-section-header">
                 <h3>Templates using this stencil</h3>
             </div>
             <div class="detail-section-body" id="usage-list">
                 <th:block th:fragment="usage">
-                    <!-- Toolbar: version picker + apply button -->
-                    <div th:if="${auth.has('TEMPLATE_EDIT')}" class="ep-row ep-gap-3" style="margin-bottom: var(--ep-space-3);">
-                        <label class="ep-label" style="margin: 0; white-space: nowrap;">Upgrade to:</label>
-                        <select id="upgrade-version-select" class="ep-select form-control-auto" style="min-width: 10rem;">
-                            <th:block th:with="publishedVersions=${versions.?[status.name() == 'PUBLISHED']},
-                                               draftVersions=${versions.?[status.name() == 'DRAFT']}">
-                                <th:block th:each="v, stat : ${publishedVersions}">
-                                    <option th:value="${v.id}"
-                                            th:text="'v' + ${v.id} + ' (published)'"
-                                            th:selected="${stat.first}"></option>
-                                </th:block>
-                                <th:block th:each="v : ${draftVersions}">
-                                    <option th:value="${v.id}"
-                                            th:text="'v' + ${v.id} + ' (draft)'"></option>
-                                </th:block>
-                            </th:block>
-                        </select>
-                        <!-- data-apply-upgrade: runs the bulk upgrade (pages/stencil-detail.js);
-                             data-upgrade-url is the per-template POST endpoint it calls. -->
-                        <button type="button" class="ep-btn ep-btn-primary ep-btn-sm" id="apply-upgrade-btn"
-                                data-apply-upgrade
-                                th:attr="data-upgrade-url=@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/upgrade(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id})}">
-                            Apply to selected
-                        </button>
-                        <span id="upgrade-status" style="font-size: var(--ep-text-sm); color: var(--ep-muted-foreground);"></span>
-                    </div>
-
-                    <div th:if="${auth.has('TEMPLATE_EDIT')}" class="alert alert-info" style="margin-bottom: var(--ep-space-3);">
-                        <th:block th:replace="~{epistola-web/icon :: icon(name='info', class='ep-icon ep-icon-lg')}" />
-                        <div>
-                            <div class="alert-title">Upgrading creates a draft — you must publish it yourself</div>
-                            <p style="margin: var(--ep-space-1) 0 0; font-size: var(--ep-text-sm);">
-                                Upgrading a published template lands the change in a <strong>new draft</strong>; its
-                                live version stays unchanged until <strong>you open that template and publish the
-                                draft</strong> (existing drafts are modified in place). The upgrade alone does
-                                <strong>not</strong> change what the template renders, and templates that are
-                                deployed to an environment also need to be <strong>published to that environment</strong>
-                                again. Up to 100 templates can be upgraded at a time.
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- Filter (plain HTMX): the select re-requests the fragment on change,
-                         carrying its value as ?filter=…. The hidden state element lets
-                         pages/stencil-detail.js re-fetch the same view after an upgrade. -->
-                    <span id="usage-state" hidden
-                          th:data-page="${usagePage.page}"
-                          th:data-filter="${usagePage.filter}"
-                          th:data-usage-url="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id})}"></span>
-                    <div class="ep-row ep-gap-3" style="margin-bottom: var(--ep-space-3); align-items: center;">
-                        <label class="ep-label" style="margin: 0; white-space: nowrap;">Show:</label>
-                        <select name="filter" class="ep-select form-control-auto"
-                                th:hx-get="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id})}"
-                                hx-target="#usage-list" hx-swap="innerHTML">
-                            <option value="both" th:selected="${usagePage.filter == 'both'}">All</option>
-                            <option value="upgradable" th:selected="${usagePage.filter == 'upgradable'}">Upgradable</option>
-                            <option value="not-upgradable" th:selected="${usagePage.filter == 'not-upgradable'}">Not upgradable</option>
-                        </select>
-                        <span class="text-muted" style="font-size: var(--ep-text-sm);"
-                              th:text="${usagePage.upgradableCount} + ' of ' + ${usagePage.totalAll} + ' upgradable'"></span>
-                    </div>
-
-                    <div th:if="${#lists.isEmpty(usage)}" class="empty-state" style="padding: var(--ep-space-4);">
-                        <div class="empty-state-description"
-                             th:text="${usagePage.filter == 'upgradable'} ? 'No upgradable templates.' :
-                                      (${usagePage.filter == 'not-upgradable'} ? 'No templates are blocked from upgrade.' :
-                                      'No templates use this stencil.')"></div>
-                    </div>
-
-                    <table th:unless="${#lists.isEmpty(usage)}" class="ep-table ep-table-compact">
+                    <table class="ep-table ep-table-compact">
                         <thead>
                             <tr>
-                                <th style="width: 2rem;">
-                                    <input type="checkbox" id="select-all-usage" data-select-all-usage title="Select all editable rows">
-                                </th>
                                 <th>Template</th>
                                 <th>Catalog</th>
                                 <th>Variant</th>
-                                <th>Version</th>
-                                <th>Status</th>
-                                <th>Stencil Version</th>
                                 <th>Instances</th>
+                                <th>Fits</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr th:each="u : ${usage}"
-                                th:classappend="${u.upgradable} ? 'usage-row-selectable' : ''"
-                                th:style="${u.catalogType.name() == 'SUBSCRIBED'} ? 'opacity: 0.5;' : ''">
-                                <td>
-                                    <input th:if="${u.upgradable}"
-                                           type="checkbox" class="usage-select"
-                                           th:data-template-id="${u.templateId}"
-                                           th:data-variant-id="${u.variantId}"
-                                           th:data-catalog-key="${u.catalogKey}">
-                                    <span th:unless="${u.upgradable}"
-                                          class="text-muted"
-                                          style="cursor: help; display: inline-flex;"
-                                          tabindex="0"
-                                          th:with="reasonText=${u.upgradeBlockReason == null ? 'This template cannot be upgraded.' :
-                                              (u.upgradeBlockReason.name() == 'SUBSCRIBED' ? 'This stencil belongs to a subscribed catalog and is read-only.' :
-                                              (u.upgradeBlockReason.name() == 'HAS_DRAFT' ? 'This variant already has an open draft. Upgrade it on the draft row instead.' :
-                                              (u.upgradeBlockReason.name() == 'UP_TO_DATE' ? 'This template already uses the latest stencil version.' :
-                                              'Only the latest version of a variant can be upgraded.')))}"
-                                          th:title="${reasonText}"
-                                          th:aria-label="${reasonText}">
-                                        <th:block th:replace="~{epistola-web/icon :: icon(name='info', class='ep-icon ep-icon-sm')}" />
-                                    </span>
-                                </td>
+                            <tr th:each="u : ${usage}" data-testid="stencil-usage-row">
                                 <td>
                                     <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{templateId}(tenantId=${tenantId},catalogId=${u.catalogKey},templateId=${u.templateId})}"
                                        th:text="${u.templateName}" style="font-weight: 500;"></a>
                                 </td>
                                 <td><span class="badge badge-default" th:text="${u.catalogKey}"></span></td>
                                 <td th:text="${u.variantId}"></td>
-                                <td th:text="'v' + ${u.versionId}"></td>
-                                <td>
-                                    <span class="badge"
-                                          th:classappend="${u.versionStatus == 'published'} ? 'badge-success' : (${u.versionStatus == 'draft'} ? 'badge-warning' : 'badge-muted')"
-                                          th:text="${u.versionStatus}"></span>
-                                </td>
-                                <td th:text="${u.stencilVersion > 0} ? ('v' + ${u.stencilVersion}) : 'unlinked'"></td>
                                 <td th:text="${u.instanceCount}"></td>
+                                <td>
+                                    <span th:if="${u.fits}" class="badge badge-success">Fits</span>
+                                    <th:block th:unless="${u.fits}">
+                                        <span class="badge badge-warning">Does not fit</span>
+                                        <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4); font-size: var(--ep-text-sm);">
+                                            <li th:each="problem : ${u.problems}" th:text="${problem}"></li>
+                                        </ul>
+                                    </th:block>
+                                </td>
                             </tr>
                         </tbody>
                     </table>
 
-                    <!-- Pagination (page size 100, matching the per-run upgrade cap) -->
                     <div th:if="${usagePage.totalPages > 1}" class="ep-row" style="margin-top: var(--ep-space-3); align-items: center;">
                         <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},filter=${usagePage.filter},page=${usagePage.page - 1})}"
+                                th:hx-get="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},page=${usagePage.page - 1})}"
                                 hx-target="#usage-list" hx-swap="innerHTML"
                                 th:disabled="${usagePage.page le 1}">Previous</button>
                         <span class="text-muted" style="font-size: var(--ep-text-sm);"
                               th:text="'Page ' + ${usagePage.page} + ' of ' + ${usagePage.totalPages}"></span>
                         <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},filter=${usagePage.filter},page=${usagePage.page + 1})}"
+                                th:hx-get="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogId},stencilId=${stencil.id},page=${usagePage.page + 1})}"
                                 hx-target="#usage-list" hx-swap="innerHTML"
                                 th:disabled="${usagePage.page >= usagePage.totalPages}">Next</button>
                     </div>

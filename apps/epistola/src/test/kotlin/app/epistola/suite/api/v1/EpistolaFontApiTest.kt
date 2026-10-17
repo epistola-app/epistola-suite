@@ -70,7 +70,7 @@ class EpistolaFontApiTest : IntegrationTestBase() {
     fun `list system fonts returns the nine bundled families with readOnly=true`() {
         val (tenantKey, key) = seedTenantAndKey()
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/system/fonts",
+            "${versionPath(tenantKey, "system")}/fonts",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -78,7 +78,7 @@ class EpistolaFontApiTest : IntegrationTestBase() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!
-        val slugs: List<String> = JsonPath.read(body, "$.items[*].slug")
+        val slugs: List<String> = JsonPath.read(body, "$.items[*].key")
         assertThat(slugs).hasSize(9)
         assertThat(slugs).contains("inter", "roboto", "jetbrains-mono", "liberation-sans")
         val readOnly: List<Boolean> = JsonPath.read(body, "$.items[*].readOnly")
@@ -91,7 +91,7 @@ class EpistolaFontApiTest : IntegrationTestBase() {
     fun `get single system font returns its variants`() {
         val (tenantKey, key) = seedTenantAndKey()
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/system/fonts/inter",
+            "${versionPath(tenantKey, "system")}/fonts/inter",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -99,8 +99,8 @@ class EpistolaFontApiTest : IntegrationTestBase() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.slug")).isEqualTo("inter")
-        assertThat(JsonPath.read<String>(body, "$.catalog")).isEqualTo("system")
+        assertThat(JsonPath.read<String>(body, "$.key")).isEqualTo("inter")
+        assertThat(JsonPath.read<String>(body, "$.catalogKey")).isEqualTo("system")
         assertThat(JsonPath.read<Boolean>(body, "$.readOnly")).isTrue
         val weights: List<Int> = JsonPath.read(body, "$.variants[*].weight")
         assertThat(weights).containsExactlyInAnyOrder(400, 700, 400, 700)
@@ -132,15 +132,15 @@ class EpistolaFontApiTest : IntegrationTestBase() {
         }
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/fonts",
+            "${versionPath(tenantKey, "default")}/fonts",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
         )
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!
-        assertThat(JsonPath.read<List<String>>(body, "$.items[*].slug")).contains("acme-sans")
-        val acmeReadOnly: List<Boolean> = JsonPath.read(body, "$.items[?(@.slug == 'acme-sans')].readOnly")
+        assertThat(JsonPath.read<List<String>>(body, "$.items[*].key")).contains("acme-sans")
+        val acmeReadOnly: List<Boolean> = JsonPath.read(body, "$.items[?(@.key == 'acme-sans')].readOnly")
         assertThat(acmeReadOnly).allMatch { !it }
     }
 
@@ -148,7 +148,7 @@ class EpistolaFontApiTest : IntegrationTestBase() {
     fun `creating a font over REST is not supported`() {
         val (tenantKey, key) = seedTenantAndKey()
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/fonts",
+            "${versionPath(tenantKey, "default")}/fonts",
             HttpMethod.POST,
             HttpEntity("{}", baseHeaders(key)),
             String::class.java,
@@ -161,7 +161,7 @@ class EpistolaFontApiTest : IntegrationTestBase() {
     fun `unauthenticated request is rejected`() {
         val (tenantKey, _) = seedTenantAndKey()
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/system/fonts",
+            "${versionPath(tenantKey, "system")}/fonts",
             HttpMethod.GET,
             HttpEntity<String>(null, HttpHeaders()),
             String::class.java,
@@ -176,6 +176,9 @@ class EpistolaFontApiTest : IntegrationTestBase() {
         set("X-EP-Node-Id", "test-node-${UUID.randomUUID()}")
         set("X-API-Key", apiKey)
     }
+
+    /** The catalog version an address names: the open draft of an authored catalog, the installed release of a subscribed one. */
+    private fun versionPath(tenantKey: TenantKey, catalogKey: String): String = withMediator { CatalogApiPaths.version(tenantKey, catalogKey) }
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("ft-${UUID.randomUUID().toString().take(8)}")

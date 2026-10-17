@@ -22,7 +22,7 @@
     <th:block th:fragment="usage">
         <div class="theme-usage-summary">
             <div>
-                <strong th:text="${usageTotal} + ' versions'"></strong>
+                <strong th:text="${usageTotal} + ' variants'"></strong>
                 <span>use this theme through the effective theme cascade.</span>
             </div>
             <span class="badge badge-default" th:text="${theme.catalogKey}"></span>
@@ -39,18 +39,12 @@
         </div>
 
         <div th:unless="${#lists.isEmpty(usage)}">
-            <div class="theme-usage-note">
-                Published versions marked <span class="badge badge-muted">Frozen</span>
-                keep their saved theme snapshot when this theme changes.
-            </div>
             <div class="theme-usage-table-wrap">
                 <table class="ep-table ep-table-compact theme-usage-table">
                     <thead>
                         <tr>
                             <th>Template</th>
                             <th>Variant</th>
-                            <th>Version</th>
-                            <th>Status</th>
                             <th>Applied via</th>
                         </tr>
                     </thead>
@@ -67,13 +61,6 @@
                             <td>
                                 <span th:text="${item.variantTitle}"></span>
                                 <code class="theme-usage-variant-key" th:text="${item.variantKey}"></code>
-                            </td>
-                            <td><strong th:text="'v' + ${item.versionKey}"></strong></td>
-                            <td>
-                                <span class="badge"
-                                      th:classappend="${item.versionStatus.name() == 'DRAFT'} ? 'badge-warning' : 'badge-success'"
-                                      th:text="${item.versionStatus.name().toLowerCase()}"></span>
-                                <span th:if="${item.frozenSnapshot}" class="badge badge-muted">Frozen</span>
                             </td>
                             <td>
                                 <span class="badge badge-outline"

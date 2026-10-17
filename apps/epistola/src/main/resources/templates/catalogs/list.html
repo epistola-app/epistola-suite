@@ -141,8 +141,7 @@
         <!-- Upgrade preview dialog is loaded here on demand (hx-get) -->
         <div id="upgrade-dialog-container" data-open-dialog-on-swap="upgrade-dialog"></div>
 
-        <!-- The export precheck loads either a confirmation dialog or a blocking
-             stencil-version conflict dialog into this generic dialog mount. -->
+        <!-- The export dialog is loaded into this generic dialog mount. -->
         <div id="export-dialog-container" data-dialog-mount></div>
 
         <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
@@ -169,6 +168,31 @@
                             <span class="form-hint" th:if="${status.latestVersion != null and changes.hasUnreleasedChanges}">· this working copy has unreleased changes</span>
                             <span class="form-hint" th:if="${status.latestVersion != null and !changes.hasUnreleasedChanges}">· no changes since the last release</span>
                         </p>
+                    </div>
+
+                    <!--/* The same gate the catalog page uses (CatalogReleaseReadiness): while a
+                           changed resource is not ready or a dependency is unresolved, the release
+                           would be refused, so the dialog says why instead of offering it. */-->
+                    <div th:if="${readiness.releaseBlocked}" class="alert alert-warning" data-testid="release-blocked">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+                        <div>
+                            <div class="alert-title">This catalog cannot be released yet.</div>
+                            <p th:if="${!readiness.notReady.isEmpty()}" style="margin: var(--ep-space-1) 0 0;"
+                               data-testid="release-blocked-resources">
+                                Not marked ready:
+                                <span th:text="${#strings.listJoin(readiness.notReady.![type + ' ' + slug], ', ')}"></span>.
+                            </p>
+                            <p th:if="${!readiness.unresolvedDependencies.isEmpty()}" style="margin: var(--ep-space-1) 0 0;"
+                               data-testid="release-blocked-dependencies">
+                                Dependencies matching no release:
+                                <span th:text="${#strings.listJoin(readiness.unresolvedDependencies.![namespace + '/' + catalogKey + '@' + version], ', ')}"></span>.
+                            </p>
+                            <p style="margin: var(--ep-space-1) 0 0;">
+                                Fix this on the
+                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalogId})}">catalog page</a>,
+                                under <em>Next release</em>.
+                            </p>
+                        </div>
                     </div>
 
                     <!--/* What this release will contain that the last one did not, named rather
@@ -205,27 +229,29 @@
                     </div>
                     <div class="form-group">
                         <span class="ep-label">Bump</span>
-                        <!--/* Patch is pre-selected because the version field below is pre-filled
-                               with it. aria-pressed is what says so — to the eye via
-                               .ep-btn[aria-pressed="true"], and to a screen reader. */-->
+                        <!--/* The version field below is pre-filled with the draft's number; the
+                               bump it matches, if any, is pressed. aria-pressed is what says so — to
+                               the eye via .ep-btn[aria-pressed="true"], and to a screen reader. */-->
                         <div class="ep-row" style="margin-top: var(--ep-space-1);" role="group" aria-label="Bump">
-                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" aria-pressed="true"
-                                    th:attr="data-version=${status.suggestedNext.patch}"
+                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                    th:attr="data-version=${status.suggestedNext.patch},aria-pressed=${status.suggestedNext.patch == releaseVersion}"
                                     th:text="'Patch → ' + ${status.suggestedNext.patch}"></button>
-                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" aria-pressed="false"
-                                    th:attr="data-version=${status.suggestedNext.minor}"
+                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                    th:attr="data-version=${status.suggestedNext.minor},aria-pressed=${status.suggestedNext.minor == releaseVersion}"
                                     th:text="'Minor → ' + ${status.suggestedNext.minor}"></button>
-                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm" aria-pressed="false"
-                                    th:attr="data-version=${status.suggestedNext.major}"
+                            <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                    th:attr="data-version=${status.suggestedNext.major},aria-pressed=${status.suggestedNext.major == releaseVersion}"
                                     th:text="'Major → ' + ${status.suggestedNext.major}"></button>
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="ep-label" for="release-version">Version</label>
                         <input type="text" id="release-version" name="version" class="ep-input"
-                               required pattern="^\d+\.\d+\.\d+$"
-                               th:value="${status.suggestedNext.patch}">
-                        <span class="form-hint">Semantic version: MAJOR.MINOR.PATCH</span>
+                               required pattern="^\d+\.\d+\.\d+$" maxlength="50"
+                               th:value="${releaseVersion}">
+                        <span class="form-hint">Semantic version: MAJOR.MINOR.PATCH.
+                            <th:block th:if="${readiness.draftVersion != null}">The next release is numbered
+                            <span th:text="'v' + ${readiness.draftVersion}"></span>; another number renumbers it as it is released.</th:block></span>
                     </div>
                     <div class="form-group">
                         <label class="ep-label" for="release-notes">Release notes</label>
@@ -304,7 +330,8 @@
                 <div class="ep-dialog-footer">
                     <button type="button" class="ep-btn ep-btn-ghost"
                             data-close-dialog="release-dialog">Cancel</button>
-                    <button type="submit" class="ep-btn ep-btn-primary">Release</button>
+                    <button th:if="${readiness.offerRelease}" type="submit" class="ep-btn ep-btn-primary"
+                            data-testid="release-submit">Release</button>
                 </div>
             </form>
         </dialog>
@@ -313,8 +340,7 @@
     <!-- Returned on a successful release: empties the container (removing the
          open dialog) while #catalog-list updates via OOB. -->
 
-    <!-- Export confirmation — rendered by `exportCheck` after the catalog
-         passes its stencil-version conflict precheck. -->
+    <!-- Export confirmation — rendered by `exportCheck`. -->
     <th:block th:fragment="export-confirmation-dialog">
         <dialog id="export-confirmation-dialog" class="ep-dialog">
             <div class="ep-dialog-header">
@@ -342,8 +368,8 @@
                 <div class="alert alert-info">
                     <th:block th:replace="~{epistola-web/icon :: icon(name='info', class='ep-icon ep-icon-lg')}" />
                     <div>
-                        Only the latest published version of versioned resources will be included.
-                        Drafts and older published versions will not be exported.
+                        The working copy is exported as it is now, including changes that are not
+                        released or marked ready yet.
                     </div>
                 </div>
             </div>
@@ -354,55 +380,6 @@
                         data-close-dialog="export-confirmation-dialog">Export as ZIP</button>
             </div>
             </form>
-        </dialog>
-    </th:block>
-
-    <!-- Export conflict dialog — rendered by `exportCheck` when published
-         templates in the catalog pin an outdated own-catalog stencil version. -->
-    <th:block th:fragment="export-conflict-dialog">
-        <dialog id="export-conflict-dialog" class="ep-dialog">
-            <div class="ep-dialog-header">
-                <h3>Cannot export catalog</h3>
-            </div>
-            <div class="ep-dialog-body">
-                <div class="alert alert-error">
-                    <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
-                    <div>
-                        <div class="alert-title">
-                            Can't export '<span th:text="${catalogId}"></span>' yet — some templates
-                            pin an outdated stencil version.
-                        </div>
-                        <p style="margin: var(--ep-space-1) 0 0;">
-                            An export ships only each stencil's latest published version, so a template
-                            that pins an older version would break when this catalog is imported
-                            elsewhere. For each template variant below, open the template, upgrade the
-                            stencil <strong>to its latest version, and publish it</strong> — then export
-                            again.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <span class="ep-label">Templates to update</span>
-                    <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-5);">
-                        <li th:each="s : ${stencilVersionExportConflicts}" style="margin-bottom: var(--ep-space-2);">
-                            <strong th:text="${s.name}"></strong>
-                            (<span class="text-muted" th:text="${s.slug}"></span>)
-                            — latest published is <strong th:text="${s.latestPublishedVersion}"></strong>
-                            <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
-                                <li th:each="p : ${s.pins}">
-                                    <span th:text="${p.templateLabel}"></span>
-                                    pins <strong th:text="${p.pinned}"></strong>
-                                </li>
-                            </ul>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-            <div class="ep-dialog-footer">
-                <button type="button" class="ep-btn ep-btn-primary"
-                        data-close-dialog="export-conflict-dialog">Close</button>
-            </div>
         </dialog>
     </th:block>
 

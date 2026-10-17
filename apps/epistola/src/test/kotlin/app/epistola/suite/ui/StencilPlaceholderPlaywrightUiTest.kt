@@ -14,12 +14,10 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.CreateStencilVersion
-import app.epistola.suite.stencils.commands.PublishStencilVersion
-import app.epistola.suite.stencils.commands.UpdateStencilInTemplate
+import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.template.model.Node
@@ -31,7 +29,7 @@ import org.junit.jupiter.api.Test
 
 /**
  * Browser-level sentinel for the canonical stencil/placeholder regression:
- * a user-authored fill override must survive a stencil edit-and-publish cycle.
+ * a user-authored fill override must survive an edit of the stencil it fills.
  *
  * The data path is exercised by [StencilPlaceholderIntegrationTest]; this
  * test adds the missing rung — that the rendered canvas shows the override
@@ -57,7 +55,7 @@ class StencilPlaceholderPlaywrightUiTest : BasePlaywrightTest() {
     )
 
     @Test
-    fun `template fill override is preserved and rendered after stencil edit-and-publish`() {
+    fun `template fill override is preserved and rendered after the stencil is edited`() {
         val variantUrl = withMediator { setupOverrideSurvivingPublish() }
 
         gotoAndReady(variantUrl)
@@ -74,9 +72,9 @@ class StencilPlaceholderPlaywrightUiTest : BasePlaywrightTest() {
     }
 
     /**
-     * Creates a tenant, publishes stencil v1 with a placeholder + default,
-     * embeds it in a template with a user fill override, publishes stencil
-     * v2 with a different default, and runs the upgrade command. Returns the
+     * Creates a tenant and a stencil with a placeholder + default, embeds it
+     * in a template with a user fill override, then edits the stencil to a
+     * different default. Returns the
      * relative URL to the variant editor (so the test can navigate to it).
      */
     private fun setupOverrideSurvivingPublish(): String {
@@ -114,7 +112,6 @@ class StencilPlaceholderPlaywrightUiTest : BasePlaywrightTest() {
             themeRef = ThemeRef.Inherit,
         )
         CreateStencil(id = sId, name = "Letter Body", content = v1).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), sId)).execute()
 
         // Template + variant; embed the stencil with a user fill override.
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
@@ -136,7 +133,7 @@ class StencilPlaceholderPlaywrightUiTest : BasePlaywrightTest() {
                     id = "stencil-instance",
                     type = "stencil",
                     slots = listOf("stencil-children"),
-                    props = mapOf("stencilId" to sId.key.value, "version" to 1),
+                    props = mapOf("stencilKey" to sId.key.value, "version" to 1),
                 ),
                 "embedded-ph" to Node(
                     id = "embedded-ph",
@@ -180,7 +177,7 @@ class StencilPlaceholderPlaywrightUiTest : BasePlaywrightTest() {
             ),
             themeRef = ThemeRef.Inherit,
         )
-        UpdateDraft(variantId = variantId, templateModel = templateBody).execute()
+        UpdateVariantContent(variantId = variantId, templateModel = templateBody).execute()
 
         // v2: same placeholder name, different default.
         val v2 = TemplateDocument(
@@ -208,14 +205,8 @@ class StencilPlaceholderPlaywrightUiTest : BasePlaywrightTest() {
             ),
             themeRef = ThemeRef.Inherit,
         )
-        CreateStencilVersion(stencilId = sId, content = v2).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), sId)).execute()
-
-        UpdateStencilInTemplate(
-            variantId = variantId,
-            stencilId = sId,
-            newVersion = 2,
-        ).execute()
+        // The stencil is used by reference: editing its working copy reaches the template as is.
+        UpdateStencil(id = sId, content = v2).execute()
 
         return "/tenants/${tenant.id}/templates/default/${template.id}/variants/${variant.id}/editor"
     }

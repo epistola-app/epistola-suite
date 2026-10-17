@@ -35,13 +35,13 @@ class DriftRatchetTest {
     private val handlerClass = Regex("""class\s+[A-Za-z0-9]*Handler\b""")
 
     private val counters = listOf(
-        Counter("onNonHtmx {} call sites outside epistola-web", 106, "onFullPage {}") {
+        Counter("onNonHtmx {} call sites outside epistola-web", 99, "onFullPage {}") {
             mainLines(Regex("""\bonNonHtmx\b""")) { !it.startsWith("modules/epistola-web/") }
         },
-        Counter("raw ServerResponse.ok().render(", 39, "page() or htmx { fragment() }") {
+        Counter("raw ServerResponse.ok().render(", 37, "page() or htmx { fragment() }") {
             mainLines(Regex("""ServerResponse\.ok\(\)\.render\("""))
         },
-        Counter("val tenantId: TenantKey", 66, "val tenantKey: TenantKey") {
+        Counter("val tenantId: TenantKey", 62, "val tenantKey: TenantKey") {
             mainLines(Regex("""\bval tenantId: TenantKey\b"""))
         },
         Counter("handler files using require(", 23, "validate(...) with a ValidationCode") {
@@ -55,7 +55,7 @@ class DriftRatchetTest {
         },
         // Migration tests are left out: they seed the schema as it was before the migration under
         // test, which no command of today can write.
-        Counter("INSERT INTO in test sources outside migration tests", 47, "commands or the fixture DSL") {
+        Counter("INSERT INTO in test sources outside migration tests", 45, "commands or the fixture DSL") {
             RepoSources.testKotlinFiles().filterNot { "/migration/" in RepoSources.relativize(it) }.sumOf { path ->
                 Files.readString(path).lineSequence().count { "INSERT INTO" in it }
             }
@@ -71,7 +71,7 @@ class DriftRatchetTest {
         Counter("Pagination.paginate( in rest-api", 9, "database LIMIT/OFFSET") {
             mainLines(Regex("""Pagination\.paginate\(""")) { it.startsWith("modules/rest-api/") }
         },
-        Counter("handlers/*.kt declaring another package", 24, "directory matches package") {
+        Counter("handlers/*.kt declaring another package", 21, "directory matches package") {
             RepoSources.mainKotlinFiles().count { path ->
                 val relative = RepoSources.relativize(path)
                 // Appendix F scopes this to the host app, where the flat handlers package lives.

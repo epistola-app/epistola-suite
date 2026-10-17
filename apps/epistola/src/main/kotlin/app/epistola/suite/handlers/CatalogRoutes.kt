@@ -15,6 +15,7 @@ class CatalogRoutes(
     private val handler: CatalogHandler,
     private val exchange: ExchangeCatalogHandler,
     private val organise: CatalogOrganiseHandler,
+    private val nextRelease: CatalogReleaseHandler,
 ) {
     @Bean
     fun catalogRouterFunction(): RouterFunction<ServerResponse> = router {
@@ -36,6 +37,13 @@ class CatalogRoutes(
             POST("/{catalogId}/delete", handler::unregister)
             GET("/{catalogId}/release", handler::releaseDialog)
             POST("/{catalogId}/release", handler::release)
+            // Preparing the next release: readiness, the draft's number, declared dependencies
+            POST("/{catalogId}/ready", nextRelease::markReady)
+            GET("/{catalogId}/renumber", nextRelease::renumberForm)
+            POST("/{catalogId}/renumber", nextRelease::renumber)
+            GET("/{catalogId}/dependencies/edit", nextRelease::dependenciesForm)
+            POST("/{catalogId}/dependencies", nextRelease::updateDependencies)
+            POST("/{catalogId}/dependencies/resolve", nextRelease::resolveDependencies)
             POST("/{catalogId}/publish-current", handler::publishCurrentRelease)
             POST("/{catalogId}/publications/{publicationId}/cancel", handler::cancelPublication)
             GET("/{catalogId}/browse", handler::browse)

@@ -12,6 +12,7 @@ import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
@@ -36,11 +37,8 @@ import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.CreateStencilVersion
-import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
@@ -328,8 +326,8 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             manifest.writeText(
                 """
                 {
-                  "schemaVersion": 7,
-                  "catalog": { "slug": "epistola-demo", "name": "Epistola Demo Catalog" },
+                  "schemaVersion": 8,
+                  "catalog": { "key": "epistola-demo", "registry": "exchange.epistola.app", "namespace": "epistola", "name": "Epistola Demo Catalog" },
                   "publisher": { "name": "Test" },
                   "release": { "version": "1.0.0", "fingerprint": "${"0".repeat(64)}" },
                   "resources": []
@@ -449,13 +447,15 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                 val clean = CatalogKey.of("clean-cat")
                 CreateCatalog(tenantKey = t.id, id = clean, name = "Clean Cat").execute()
                 CreateTheme(id = ThemeId(ThemeKey.of("ct1"), CatalogId(clean, TenantId(t.id))), name = "C1").execute()
-                ReleaseCatalogVersion(tenantKey = t.id, catalogKey = clean, version = "1.0.0").execute()
+                MarkCatalogReady(t.id, clean).execute()
+                ReleaseCatalogVersion(t.id, clean, version = "1.0.0").execute()
 
                 // Drifted: released, then edited.
                 val drift = CatalogKey.of("drift-cat")
                 CreateCatalog(tenantKey = t.id, id = drift, name = "Drift Cat").execute()
                 CreateTheme(id = ThemeId(ThemeKey.of("dt1"), CatalogId(drift, TenantId(t.id))), name = "D1").execute()
-                ReleaseCatalogVersion(tenantKey = t.id, catalogKey = drift, version = "2.0.0").execute()
+                MarkCatalogReady(t.id, drift).execute()
+                ReleaseCatalogVersion(t.id, drift, version = "2.0.0").execute()
                 CreateTheme(id = ThemeId(ThemeKey.of("dt2"), CatalogId(drift, TenantId(t.id))), name = "D2 (post-release)").execute()
             }
         }
@@ -478,7 +478,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `export-check confirms that only published resource versions are exported`() = fixture {
+    fun `export-check confirms that the working copy is exported as it is`() = fixture {
         lateinit var t: Tenant
         given {
             t = tenant("Export Confirmation Dialog")
@@ -506,8 +506,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(response.headers.getFirst("HX-Redirect")).isNull()
             val body = response.body!!
             assertThat(body).contains("id=\"export-confirmation-dialog\"")
-            assertThat(body).contains("Only the latest published version of versioned resources will be included.")
-            assertThat(body).contains("Drafts and older published versions will not be exported.")
+            assertThat(body).contains("The working copy is exported as it is now")
             assertThat(body).contains("action=\"/tenants/${t.id}/catalogs/exportable-cat/export\"")
             assertThat(body).contains("hx-boost=\"false\"")
             assertThat(body).contains("Export as ZIP")
@@ -525,7 +524,8 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                 val catalogKey = CatalogKey.of("released-cat")
                 CreateCatalog(tenantKey = t.id, id = catalogKey, name = "Released Cat").execute()
                 CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalogKey, TenantId(t.id))), name = "Brand").execute()
-                ReleaseCatalogVersion(tenantKey = t.id, catalogKey = catalogKey, version = "1.0.0").execute()
+                MarkCatalogReady(t.id, catalogKey).execute()
+                ReleaseCatalogVersion(t.id, catalogKey, version = "1.0.0").execute()
             }
         }
 
@@ -553,57 +553,6 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(download.headers.getFirst("Content-Disposition"))
                 .`as`("the filename names the release, not a -dev working copy")
                 .contains("released-cat-1.0.0.zip")
-        }
-    }
-
-    @Test
-    fun `export-check dialog names the templates that pin an outdated stencil version`() = fixture {
-        lateinit var t: Tenant
-        given {
-            t = tenant("Export Conflict Dialog")
-            withMediator {
-                val catalogKey = CatalogKey.of("conflict-cat")
-                val catalogId = CatalogId(catalogKey, TenantId(t.id))
-                CreateCatalog(tenantKey = t.id, id = catalogKey, name = "Conflict Cat").execute()
-
-                // Stencil with two published versions (latest is v2).
-                val stencilKey = StencilKey.of("shared-stencil")
-                val stencilId = StencilId(stencilKey, catalogId)
-                CreateStencil(id = stencilId, name = "Shared Stencil", content = stencilContent()).execute()
-                PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
-                CreateStencilVersion(stencilId = stencilId, content = stencilContent()).execute()
-                PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), stencilId)).execute()
-
-                // "Letter A" pins the stale v1; "Letter B" is already on the latest v2.
-                publishTemplatePinningStencil(catalogId, "letter-a", "Letter A", stencilKey, 1)
-                publishTemplatePinningStencil(catalogId, "letter-b", "Letter B", stencilKey, 2)
-            }
-        }
-
-        whenever {
-            restTemplate.exchange(
-                "/tenants/${t.id}/catalogs/conflict-cat/export-check",
-                HttpMethod.GET,
-                HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
-                String::class.java,
-            )
-        }
-
-        then {
-            val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            val body = response.body!!
-            // The dialog names the offending template + its stale pin, and the
-            // stencil's latest version. It must NOT list "Letter B" (already on v2).
-            assertThat(body).contains("Templates to update")
-            assertThat(body).contains("Letter A")
-            assertThat(body).contains("pins")
-            assertThat(body).contains("v1")
-            assertThat(body).contains("v2")
-            assertThat(body).doesNotContain("Letter B")
-            // And it tells the user to publish after upgrading.
-            assertThat(body).contains("publish")
-            assertThat(body).doesNotContain("Export as ZIP")
         }
     }
 
@@ -948,48 +897,4 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(catalog.catalogMetadata.license?.spdxExpression).isEqualTo("CC-BY-4.0")
         }
     }
-
-    private fun publishTemplatePinningStencil(
-        catalogId: CatalogId,
-        slug: String,
-        name: String,
-        stencilKey: StencilKey,
-        stencilVersion: Int,
-    ) {
-        val templateId = TemplateId(TemplateKey.of(slug), catalogId)
-        CreateDocumentTemplate(id = templateId, name = name).execute().withRequiredDataExample()
-        val variantId = VariantId(VariantKey.INITIAL, templateId)
-        UpdateDraft(
-            variantId = variantId,
-            templateModel = templateEmbeddingStencil(stencilKey, stencilVersion),
-        ).execute()
-        PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
-    }
-
-    private fun stencilContent(): TemplateDocument = TemplateDocument(
-        modelVersion = 1,
-        root = "root",
-        nodes = mapOf("root" to Node(id = "root", type = "root", slots = listOf("root-slot"))),
-        slots = mapOf("root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = emptyList())),
-        themeRef = ThemeRef.Inherit,
-    )
-
-    private fun templateEmbeddingStencil(stencilKey: StencilKey, version: Int): TemplateDocument = TemplateDocument(
-        modelVersion = 1,
-        root = "root",
-        nodes = mapOf(
-            "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-            "stencil-instance" to Node(
-                id = "stencil-instance",
-                type = "stencil",
-                slots = listOf("stencil-children"),
-                props = mapOf("stencilId" to stencilKey.value, "version" to version),
-            ),
-        ),
-        slots = mapOf(
-            "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("stencil-instance")),
-            "stencil-children" to Slot(id = "stencil-children", nodeId = "stencil-instance", name = "children", children = emptyList()),
-        ),
-        themeRef = ThemeRef.Inherit,
-    )
 }

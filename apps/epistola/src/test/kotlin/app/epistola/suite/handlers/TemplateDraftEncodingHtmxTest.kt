@@ -15,7 +15,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplate
-import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.template.model.Node
@@ -42,7 +42,7 @@ import java.nio.charset.StandardCharsets
  * Two save surfaces are covered, each replicating the exact wire shape a browser
  * produces:
  *
- *  - The **editor draft save** — a JSON `PUT` of the template model. The body is
+ *  - The **editor content save** — a JSON `PUT` of the template model. The body is
  *    raw UTF-8 bytes under a bare `application/json` header (per RFC 8259 JSON is
  *    always UTF-8, so browsers send no charset parameter).
  *  - The **template create form** — an `application/x-www-form-urlencoded` `POST`
@@ -65,7 +65,7 @@ class TemplateDraftEncodingHtmxTest : BaseIntegrationTest() {
     private val diacritics = "Café — naïve Größe ñ ë œuvre Žluťoučký kůň úpěl ďábelské ódy"
 
     @Test
-    fun `PUT draft preserves diacritics when the body is UTF-8 under a bare application json content type`() = fixture {
+    fun `PUT content preserves diacritics when the body is UTF-8 under a bare application json content type`() = fixture {
         data class Seed(val tenantKey: String, val catalogKey: String, val templateKey: String, val variantId: VariantId)
         lateinit var seed: Seed
 
@@ -89,7 +89,7 @@ class TemplateDraftEncodingHtmxTest : BaseIntegrationTest() {
             val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
             val entity = HttpEntity(body.toByteArray(StandardCharsets.UTF_8), headers)
             restTemplate.exchange(
-                "/tenants/${seed.tenantKey}/templates/${seed.catalogKey}/${seed.templateKey}/variants/${seed.variantId.key}/draft",
+                "/tenants/${seed.tenantKey}/templates/${seed.catalogKey}/${seed.templateKey}/variants/${seed.variantId.key}/content",
                 HttpMethod.PUT,
                 entity,
                 String::class.java,
@@ -100,9 +100,9 @@ class TemplateDraftEncodingHtmxTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
 
-            val draft = withMediator { GetDraft(variantId = seed.variantId).query() }
-            assertThat(draft).isNotNull
-            val stored = draft!!.templateModel.nodes["text-1"]?.props?.get("content")
+            val model = withMediator { GetVariantContent(variantId = seed.variantId).query() }
+            assertThat(model).isNotNull
+            val stored = model!!.nodes["text-1"]?.props?.get("content")
             assertThat(stored).isEqualTo(richText(diacritics))
         }
     }

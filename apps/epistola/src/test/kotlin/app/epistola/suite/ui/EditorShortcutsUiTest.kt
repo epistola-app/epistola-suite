@@ -298,7 +298,7 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
                 data = JsonNodeFactory.instance.objectNode().put("name", "Test"),
             ),
         )
-        app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+        app.epistola.suite.templates.contracts.commands.UpdateDataContract(
             templateId = templateId,
             dataExamples = examples,
         ).execute()

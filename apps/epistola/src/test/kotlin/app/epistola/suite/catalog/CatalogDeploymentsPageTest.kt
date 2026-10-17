@@ -7,6 +7,7 @@ package app.epistola.suite.catalog
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ForgetReleaseContent
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -46,7 +47,8 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         withMediator {
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = CatalogKey.of("dep-page"), version = "1.0.0").execute()
+            MarkCatalogReady(tenant.id, CatalogKey.of("dep-page")).execute()
+            ReleaseCatalogVersion(tenant.id, CatalogKey.of("dep-page"), version = "1.0.0").execute()
         }
 
         val before = browse(tenant, "dep-page")
@@ -81,7 +83,8 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         withMediator {
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = CatalogKey.of("dep-norelease"), version = "1.0.0").execute()
+            MarkCatalogReady(tenant.id, CatalogKey.of("dep-norelease")).execute()
+            ReleaseCatalogVersion(tenant.id, CatalogKey.of("dep-norelease"), version = "1.0.0").execute()
             ForgetReleaseContent(tenant.id, CatalogKey.of("dep-norelease"), "1.0.0").execute()
         }
 
@@ -98,7 +101,8 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id))
             CreateEnvironment(production, "Production").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = CatalogKey.of("dep-guard"), version = "1.0.0").execute()
+            MarkCatalogReady(tenant.id, CatalogKey.of("dep-guard")).execute()
+            ReleaseCatalogVersion(tenant.id, CatalogKey.of("dep-guard"), version = "1.0.0").execute()
             DeployRelease(production, CatalogKey.of("dep-guard"), "1.0.0").execute()
         }
 

@@ -8,57 +8,6 @@
         <!-- Status bar (adapts to view/edit mode) -->
         <th:block th:replace="~{templates/detail/contract-status-bar :: content}" />
 
-        <!-- Dialogs -->
-        <dialog id="contract-breaking-dialog" class="ep-dialog" style="max-width: 600px;">
-            <div class="ep-dialog-header">
-                <h3>Breaking Contract Changes</h3>
-                <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
-                        data-close-dialog="contract-breaking-dialog">&times;</button>
-            </div>
-            <!-- data-show-dialog-on-swap: the app-wide open-on-swap routine in
-                 static/js/behaviors.js opens the enclosing dialog after HTMX
-                 swaps content into this body. -->
-            <div class="ep-dialog-body" id="contract-breaking-body" data-show-dialog-on-swap></div>
-        </dialog>
-
-        <dialog id="contract-usage-dialog" class="ep-dialog" style="max-width: 700px;">
-            <div class="ep-dialog-header">
-                <h3>Contract Usage</h3>
-                <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
-                        data-close-dialog="contract-usage-dialog">&times;</button>
-            </div>
-            <div class="ep-dialog-body" style="padding: var(--ep-space-3);">
-                <table th:if="${!#lists.isEmpty(allTemplateVersions)}" class="ep-table" style="font-size: var(--ep-text-xs); width: 100%;">
-                    <thead><tr><th>Variant</th><th>Version</th><th>Status</th><th>Contract</th><th>Deployed</th></tr></thead>
-                    <tbody>
-                        <tr th:each="v : ${allTemplateVersions}">
-                            <td th:text="${v.variantKey}"></td>
-                            <td><strong th:text="'v' + ${v.versionId}"></strong></td>
-                            <td>
-                                <span th:if="${v.status == 'draft'}" class="badge badge-primary">Draft</span>
-                                <span th:if="${v.status == 'published'}" class="badge badge-success">Published</span>
-                            </td>
-                            <td>
-                                <th:block th:if="${v.contractVersion != null}">
-                                    <span th:if="${v.contractVersion == latestPublishedContractId}" class="badge badge-success" th:text="'v' + ${v.contractVersion}"></span>
-                                    <span th:if="${v.contractVersion != latestPublishedContractId && latestPublishedContractId != null}" class="badge badge-warning" th:text="'v' + ${v.contractVersion}"></span>
-                                    <span th:if="${latestPublishedContractId == null}" class="badge badge-outline" th:text="'v' + ${v.contractVersion}"></span>
-                                </th:block>
-                                <span th:if="${v.contractVersion == null}" class="text-muted">-</span>
-                            </td>
-                            <td>
-                                <span th:if="${!#lists.isEmpty(v.activeEnvironments)}" th:text="${#strings.listJoin(v.activeEnvironments, ', ')}"></span>
-                                <span th:if="${#lists.isEmpty(v.activeEnvironments)}" class="text-muted">-</span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-                <p th:if="${#lists.isEmpty(allTemplateVersions)}" class="text-muted" style="text-align: center;">No template versions yet.</p>
-            </div>
-        </dialog>
-
-        <dialog id="contract-history-dialog" class="ep-dialog ep-dialog-wide"><div id="contract-history-body"></div></dialog>
-
         <!-- ================================================================ -->
         <!-- VIEW MODE (default) -->
         <!-- ================================================================ -->

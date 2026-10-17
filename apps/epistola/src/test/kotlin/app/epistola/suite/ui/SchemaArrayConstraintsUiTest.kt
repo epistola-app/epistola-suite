@@ -10,8 +10,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.contracts.commands.CreateContractVersion
-import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
+import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
@@ -35,8 +34,7 @@ class SchemaArrayConstraintsUiTest : BasePlaywrightTest() {
                 id = templateId,
                 name = "Array Constraints UI Template",
             ).execute()
-            CreateContractVersion(templateId = templateId).execute()
-            UpdateContractVersion(
+            UpdateDataContract(
                 templateId = templateId,
                 dataExamples = listOf(
                     DataExample(
@@ -108,8 +106,7 @@ class SchemaArrayConstraintsUiTest : BasePlaywrightTest() {
                 id = templateId,
                 name = "Default Value UI Template",
             ).execute()
-            CreateContractVersion(templateId = templateId).execute()
-            UpdateContractVersion(
+            UpdateDataContract(
                 templateId = templateId,
                 dataExamples = listOf(
                     DataExample(
@@ -165,8 +162,7 @@ class SchemaArrayConstraintsUiTest : BasePlaywrightTest() {
                 id = templateId,
                 name = "Default Datetime UI Template",
             ).execute()
-            CreateContractVersion(templateId = templateId).execute()
-            UpdateContractVersion(
+            UpdateDataContract(
                 templateId = templateId,
                 dataExamples = listOf(
                     DataExample(

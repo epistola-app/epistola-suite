@@ -74,8 +74,8 @@
                     <div class="catalog-detail-item-header"><h3>Discovery attributes</h3></div>
                     <div th:if="${!release.catalog.attributes.isEmpty()}" class="badge-list">
                         <span th:each="attribute : ${release.catalog.attributes}" class="badge badge-outline"
-                              th:text="${attribute.catalog + '.' + attribute.key + ': ' + attribute.value}"
-                              th:title="${attribute.catalog + '.' + attribute.key + ': ' + attribute.value}"></span>
+                              th:text="${attribute.catalogKey + '.' + attribute.key + ': ' + attribute.value}"
+                              th:title="${attribute.catalogKey + '.' + attribute.key + ': ' + attribute.value}"></span>
                     </div>
                     <p th:if="${release.catalog.attributes.isEmpty()}" class="text-muted text-sm" style="margin: 0;">No discovery attributes.</p>
                 </div>

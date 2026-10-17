@@ -5,7 +5,9 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
@@ -82,6 +84,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
                 val key = CatalogKey.of(slug)
                 CreateCatalog(tenant.id, key, slug).execute()
                 SetCatalogPublicationNamespace(tenant.id, key, "public-services").execute()
+                MarkCatalogReady(tenant.id, key).execute()
                 ReleaseCatalogVersion(tenant.id, key, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             }
         }
@@ -173,6 +176,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Stalled").execute()
             SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            MarkCatalogReady(tenant.id, catalogKey).execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
         }
 
@@ -212,6 +216,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Deep link").execute()
             SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            MarkCatalogReady(tenant.id, catalogKey).execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             // Only once Exchange has taken it does a page exist there to link to.
             worker.run()
@@ -248,6 +253,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Refusal reason").execute()
             SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            MarkCatalogReady(tenant.id, catalogKey).execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
         }
@@ -274,6 +280,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
             // hide a button, it returns 500 for every catalog page that has ever published.
             CreateCatalog(tenant.id, healthyKey, "Healthy").execute()
             SetCatalogPublicationNamespace(tenant.id, healthyKey, "public-services").execute()
+            MarkCatalogReady(tenant.id, healthyKey).execute()
             ReleaseCatalogVersion(tenant.id, healthyKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
 
@@ -290,6 +297,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
             }
             CreateCatalog(tenant.id, refusedKey, "Refused").execute()
             SetCatalogPublicationNamespace(tenant.id, refusedKey, "public-services").execute()
+            MarkCatalogReady(tenant.id, refusedKey).execute()
             ReleaseCatalogVersion(tenant.id, refusedKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
         }
@@ -324,6 +332,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Drifted").execute()
             SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            MarkCatalogReady(tenant.id, catalogKey).execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.SKIP).execute()
             UpdateCatalogMetadata(
                 tenantKey = tenant.id,
@@ -637,8 +646,10 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Row version").execute()
             SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            MarkCatalogReady(tenant.id, catalogKey).execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.SKIP).execute()
             UpdateCatalogMetadata(tenant.id, catalogKey, name = "Row version edited", description = null).execute()
+            MarkCatalogReady(tenant.id, catalogKey).execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.1.0", publication = ReleasePublication.SKIP).execute()
         }
 
@@ -657,7 +668,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
 
     private fun queuedVersions(tenant: Tenant, catalogKey: CatalogKey): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
         handle.createQuery(
-            "SELECT version FROM catalog_release_publications WHERE tenant_key = :t AND catalog_key = :c ORDER BY version",
+            "SELECT version FROM catalog_release_publications WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} ORDER BY version",
         )
             .bind("t", tenant.id)
             .bind("c", catalogKey)

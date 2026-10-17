@@ -25,16 +25,11 @@ class StencilRoutes(private val handler: StencilHandler) {
                 PATCH("", handler::update)
                 POST("/delete", handler::delete)
                 GET("/usage", handler::usageDetails)
-                POST("/upgrade", handler::upgradeInTemplate)
-
-                "/versions".nest {
-                    GET("", handler::listVersions)
-                    POST("", handler::createVersion)
-                    GET("/{versionId}", handler::getVersion)
-                    PUT("/{versionId}", handler::updateDraft)
-                    POST("/{versionId}/publish", handler::publishVersion)
-                    POST("/{versionId}/archive", handler::archiveVersion)
-                }
+                POST("/settings", handler::updateSettings)
+                POST("/ready", handler::markReady)
+                // The working copy, read and saved by the template editor (JSON)
+                GET("/content", handler::getContent)
+                PUT("/content", handler::updateContent)
             }
         }
     }

@@ -9,6 +9,7 @@ import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.InstallFromCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
@@ -62,33 +63,37 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
     private lateinit var restTemplate: TestRestTemplate
 
     @Test
-    fun `release catalog cuts authored catalog version`() {
+    fun `releasing the draft cuts it under its own number and opens the next`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val catalogSlug = "rel-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/$catalogSlug/release",
+            "${versionPath(tenantKey, catalogSlug)}/release",
             HttpMethod.POST,
-            HttpEntity("""{"releaseVersion":"1.0.0","notes":"first cut"}""", baseHeaders(apiKey)),
+            HttpEntity("""{"notes":"first cut"}""", baseHeaders(apiKey)),
             String::class.java,
         )
 
         assertThat(response.statusCode).describedAs(response.body).isEqualTo(HttpStatus.OK)
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.version")).isEqualTo("1.0.0")
-        assertThat(JsonPath.read<String>(body, "$.fingerprint")).isNotBlank()
+        assertThat(JsonPath.read<String>(body, "$.catalogVersion.version")).isEqualTo("1.0.0")
+        assertThat(JsonPath.read<String>(body, "$.catalogVersion.status")).isEqualTo("released")
+        assertThat(JsonPath.read<String>(body, "$.catalogVersion.fingerprint")).isNotBlank()
+        assertThat(JsonPath.read<String>(body, "$.catalogVersion.notes")).isEqualTo("first cut")
         assertThat(JsonPath.read<Boolean>(body, "$.unchangedContent")).isFalse
+        assertThat(JsonPath.read<String>(body, "$.openedDraft")).isEqualTo("1.0.1")
     }
 
     @Test
     fun `release missing catalog returns catalog not found problem details`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
+        val namespace = withMediator { CatalogApiPaths.namespace(tenantKey) }
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/missing-catalog/release",
+            "/api/tenants/${tenantKey.value}/catalogs/~/$namespace/missing-catalog/versions/1.0.0/release",
             HttpMethod.POST,
-            HttpEntity("""{"releaseVersion":"1.0.0"}""", baseHeaders(apiKey)),
+            HttpEntity("{}", baseHeaders(apiKey)),
             String::class.java,
         )
 
@@ -100,7 +105,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `release rejects a non-advancing version with actionable problem details`() {
+    fun `releasing a released version again is refused with actionable problem details`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val catalogSlug = "rel-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
@@ -113,17 +118,40 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         }
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/$catalogSlug/release",
+            "${versionPath(tenantKey, catalogSlug, "1.0.0")}/release",
             HttpMethod.POST,
-            HttpEntity("""{"releaseVersion":"1.0.0"}""", baseHeaders(apiKey)),
+            HttpEntity("{}", baseHeaders(apiKey)),
             String::class.java,
         )
 
-        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/catalog-release-version-invalid")
-        assertThat(JsonPath.read<String>(body, "$.detail")).contains("greater than")
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/catalog-version-released")
+        assertThat(JsonPath.read<String>(body, "$.version")).isEqualTo("1.0.0")
+    }
+
+    @Test
+    fun `renumbering the draft to a version that does not advance past the last release is refused`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val catalogSlug = "rel-${UUID.randomUUID().toString().take(8)}"
+        seedAuthoredCatalog(tenantKey, catalogSlug)
+        withMediator {
+            ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.0.0").execute()
+        }
+
+        val response = restTemplate.exchange(
+            versionPath(tenantKey, catalogSlug),
+            HttpMethod.PATCH,
+            HttpEntity("""{"version":"0.9.0"}""", baseHeaders(apiKey)),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
+        val body = response.body!!
+        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/single-catalog-draft")
+        assertThat(JsonPath.read<String>(body, "$.detail")).contains("is not above 1.0.0")
     }
 
     @Test
@@ -131,18 +159,20 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         withMediator {
             RegisterCatalog(tenantKey = tenantKey, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
+            InstallFromCatalog(tenantKey = tenantKey, catalogKey = CatalogKey.of("epistola-demo")).execute()
         }
 
+        // A subscribed catalog has no draft: its versions are the releases it installed.
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/epistola-demo/release",
+            "${versionPath(tenantKey, "epistola-demo")}/release",
             HttpMethod.POST,
-            HttpEntity("""{"releaseVersion":"1.0.0"}""", baseHeaders(apiKey)),
+            HttpEntity("{}", baseHeaders(apiKey)),
             String::class.java,
         )
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
-        assertThat(JsonPath.read<String>(response.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-read-only")
+        assertThat(JsonPath.read<String>(response.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-version-released")
     }
 
     @Test
@@ -154,7 +184,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         }
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/epistola-demo/upgrade",
+            "${withMediator { CatalogApiPaths.catalog(tenantKey, "epistola-demo") }}/upgrade",
             HttpMethod.POST,
             HttpEntity("{}", baseHeaders(apiKey)),
             String::class.java,
@@ -175,7 +205,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         seedAuthoredCatalog(tenantKey, catalogSlug)
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/$catalogSlug/upgrade",
+            "${withMediator { CatalogApiPaths.catalog(tenantKey, catalogSlug) }}/upgrade",
             HttpMethod.POST,
             HttpEntity("{}", baseHeaders(apiKey)),
             String::class.java,
@@ -188,11 +218,15 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(body, "$.catalogId")).isEqualTo(catalogSlug)
     }
 
+    private fun versionPath(tenantKey: TenantKey, catalogKey: String, version: String? = null): String = withMediator { CatalogApiPaths.version(tenantKey, catalogKey, version) }
+
     private fun seedAuthoredCatalog(tenantKey: TenantKey, slug: String) = withMediator {
         val tenantId = TenantId(tenantKey)
         val catalogKey = CatalogKey.of(slug)
         CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Rel $slug").execute()
         CreateTheme(id = ThemeId(ThemeKey.of("tha"), CatalogId(catalogKey, tenantId)), name = "Th").execute()
+        // A release takes what is marked ready, so the theme is marked ready to be releasable.
+        MarkCatalogReady(tenantKey, catalogKey).execute()
     }
 
     private fun baseHeaders(apiKey: String): HttpHeaders = HttpHeaders().apply {

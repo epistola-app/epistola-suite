@@ -66,11 +66,13 @@ class McpWriteToolsHttpIT : IntegrationTestBase() {
         val tools = session.rpc("tools/list").get("result").get("tools").values().associateBy { it.get("name").asString() }
 
         assertThat(tools.keys).contains(
-            "create_template", "update_template", "create_variant", "update_variant", "update_template_draft",
-            "update_data_contract", "create_stencil", "update_stencil", "update_stencil_draft", "create_theme",
-            "update_theme", "upload_image", "upload_font", "get_authoring_schemas", "publish_stencil_version",
-            "upgrade_stencil_in_template", "publish_data_contract", "publish_template_version",
+            "create_template", "update_template", "create_variant", "update_variant", "update_variant_content",
+            "update_data_contract", "create_stencil", "update_stencil", "create_theme",
+            "update_theme", "upload_image", "upload_font", "get_authoring_schemas",
+            "mark_variant_ready", "mark_template_ready", "mark_stencil_ready", "mark_catalog_ready",
         )
+        // No versions any more: nothing to publish or upgrade.
+        assertThat(tools.keys).noneMatch { it.startsWith("publish_") || it.startsWith("upgrade_stencil") || it.endsWith("_draft") }
         val stencilArgs = tools.getValue("create_stencil").get("inputSchema")
         assertThat(stencilArgs.get("properties").get("tags").get("type").asString()).isEqualTo("array")
         assertThat(stencilArgs.get("required").values().map { it.asString() })
@@ -93,7 +95,7 @@ class McpWriteToolsHttpIT : IntegrationTestBase() {
             .get(0).get("id").asString()
 
         val draft = session.callTool(
-            "update_template_draft",
+            "update_variant_content",
             mapOf("catalogId" to "default", "templateId" to "welcome", "variantId" to variant, "content" to DOCUMENT),
         )
         assertThat(draft.get("isError")?.asBoolean() ?: false).isFalse

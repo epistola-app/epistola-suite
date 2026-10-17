@@ -5,7 +5,9 @@
 package app.epistola.suite.catalog
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -46,9 +48,11 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         withMediator {
             val catalog = CatalogId(CatalogKey.of("hist-cat"), TenantId(tenant.id))
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalog.key, version = "1.0.0", notes = "first cut").execute()
+            MarkCatalogReady(tenant.id, catalog.key).execute()
+            ReleaseCatalogVersion(tenant.id, catalog.key, version = "1.0.0", notes = "first cut").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second").execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalog.key, version = "1.10.0").execute()
+            MarkCatalogReady(tenant.id, catalog.key).execute()
+            ReleaseCatalogVersion(tenant.id, catalog.key, version = "1.10.0").execute()
         }
 
         val body = browse(tenant.id.value, "hist-cat")
@@ -69,7 +73,8 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         withMediator {
             val catalog = CatalogId(CatalogKey.of("hist-legacy"), TenantId(tenant.id))
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalog.key, version = "1.0.0").execute()
+            MarkCatalogReady(tenant.id, catalog.key).execute()
+            ReleaseCatalogVersion(tenant.id, catalog.key, version = "1.0.0").execute()
         }
         forgetRetainedContent(tenant.id.value, "hist-legacy")
 
@@ -106,6 +111,8 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         withMediator {
             val catalog = CatalogId(CatalogKey.of("hist-cut"), TenantId(tenant.id))
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
+            // Release is offered once nothing changed is unready (CatalogReleaseReadiness).
+            MarkCatalogReady(tenant.id, catalog.key).execute()
         }
 
         val body = browse(tenant.id.value, "hist-cut")
@@ -135,7 +142,8 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         withMediator {
             val catalog = CatalogId(CatalogKey.of("hist-publish"), TenantId(tenant.id))
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalog.key, version = "1.0.0").execute()
+            MarkCatalogReady(tenant.id, catalog.key).execute()
+            ReleaseCatalogVersion(tenant.id, catalog.key, version = "1.0.0").execute()
         }
 
         val body = browse(tenant.id.value, "hist-publish")
@@ -158,7 +166,8 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         withMediator {
             val catalog = CatalogId(CatalogKey.of("hist-forget"), TenantId(tenant.id))
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalog.key, version = "1.0.0").execute()
+            MarkCatalogReady(tenant.id, catalog.key).execute()
+            ReleaseCatalogVersion(tenant.id, catalog.key, version = "1.0.0").execute()
         }
 
         assertThat(browse(tenant.id.value, "hist-forget"))
@@ -198,9 +207,11 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         withMediator {
             val catalog = CatalogId(CatalogKey.of("hist-delete"), TenantId(tenant.id))
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalog.key, version = "1.0.0").execute()
+            MarkCatalogReady(tenant.id, catalog.key).execute()
+            ReleaseCatalogVersion(tenant.id, catalog.key, version = "1.0.0").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second").execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalog.key, version = "1.1.0").execute()
+            MarkCatalogReady(tenant.id, catalog.key).execute()
+            ReleaseCatalogVersion(tenant.id, catalog.key, version = "1.1.0").execute()
         }
 
         assertThat(browse(tenant.id.value, "hist-delete")).contains("Delete v1.1.0 from the history")
@@ -240,9 +251,9 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
      * is a deliberate second copy rather than an oversight.
      */
     private fun forgetRetainedContent(tenantKey: String, catalogKey: String) = jdbi.useHandle<Exception> { handle ->
-        handle.createUpdate("DELETE FROM release_entries WHERE tenant_key = :t AND catalog_key = :c")
+        handle.createUpdate("DELETE FROM release_entries WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", tenantKey).bind("c", catalogKey).execute()
-        handle.createUpdate("UPDATE catalog_releases SET content_retained = FALSE WHERE tenant_key = :t AND catalog_key = :c")
+        handle.createUpdate("UPDATE catalog_releases SET content_retained = FALSE WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", tenantKey).bind("c", catalogKey).execute()
     }
 

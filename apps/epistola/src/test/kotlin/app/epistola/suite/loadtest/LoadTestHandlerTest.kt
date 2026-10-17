@@ -9,18 +9,18 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
-import app.epistola.suite.templates.commands.versions.CreateVersion
+import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
-import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
-import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -38,27 +38,16 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var objectMapper: ObjectMapper
 
-    @Autowired
-    private lateinit var jdbi: Jdbi
-
     /**
      * Inserts a draft contract version with the given data examples into contract_versions.
      */
     private fun insertDraftContractWithExamples(tenantKey: String, templateKey: String, dataExamplesJson: String) {
-        jdbi.withHandle<Unit, Exception> { handle ->
-            handle.createUpdate(
-                """
-                INSERT INTO contract_versions (id, tenant_key, template_resource_id, data_examples, status, created_at)
-                VALUES (1, :tenantKey, ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}, :dataExamples::jsonb, 'draft', NOW())
-                ON CONFLICT (tenant_key, template_resource_id) WHERE status = 'draft'
-                DO UPDATE SET data_examples = :dataExamples::jsonb
-                """,
-            )
-                .bind("tenantKey", tenantKey)
-                .bind("catalogKey", "default")
-                .bind("templateKey", templateKey)
-                .bind("dataExamples", dataExamplesJson)
-                .execute()
+        val examples = objectMapper.readValue(dataExamplesJson, Array<DataExample>::class.java).toList()
+        withMediator {
+            UpdateDataContract(
+                templateId = TemplateId(TemplateKey.of(templateKey), CatalogId.default(TenantId(TenantKey.of(tenantKey)))),
+                dataExamples = examples,
+            ).execute()
         }
     }
 
@@ -158,9 +147,6 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 val tenantId = TenantId(testTenant.id)
                 val tplId = TemplateId(template.id, CatalogId.default(tenantId))
                 templateId = "default/${template.id.value}"
-                CreateVersion(
-                    variantId = VariantId(VariantKey.INITIAL, tplId),
-                ).execute()
                 val envKey = TestIdHelpers.nextEnvironmentId()
                 CreateEnvironment(id = EnvironmentId(envKey, tenantId), name = "Production").execute()
             }
@@ -207,9 +193,6 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 templateId = "default/${template.id.value}"
                 defaultVariantKey = VariantKey.INITIAL.value
                 val defaultVariantId = VariantKey.of(defaultVariantKey)
-                CreateVersion(
-                    variantId = VariantId(defaultVariantId, tplId),
-                ).execute()
                 CreateEnvironment(id = EnvironmentId(EnvironmentKey.of("production"), tenantId), name = "Production").execute()
             }
 

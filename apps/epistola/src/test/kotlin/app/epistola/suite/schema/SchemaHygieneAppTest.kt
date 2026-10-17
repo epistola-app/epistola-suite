@@ -179,7 +179,7 @@ class SchemaHygieneAppTest : BaseIntegrationTest() {
             assertThat(uniques[table].orEmpty())
                 .describedAs("$table must still enforce its address, just not key on it")
                 .anySatisfy { columns ->
-                    assertThat(columns).startsWith("tenant_key", "catalog_key").hasSize(3)
+                    assertThat(columns).startsWith("tenant_key", "catalog_id").hasSize(3)
                 }
         }
     }
@@ -304,7 +304,7 @@ class SchemaHygieneAppTest : BaseIntegrationTest() {
         assertThat(columnsByTable().keys).describedAs("tables").doesNotContain("catalog_resource_aliases")
         assertThat(uniqueConstraintColumns()["catalog_resources"].orEmpty())
             .describedAs("catalog_resources unique constraints")
-            .containsExactly(listOf("tenant_key", "resource_type", "catalog_key", "resource_key"))
+            .containsExactly(listOf("tenant_key", "resource_type", "catalog_id", "resource_key"))
     }
 
     // ---------------------------------------------------------------- helpers

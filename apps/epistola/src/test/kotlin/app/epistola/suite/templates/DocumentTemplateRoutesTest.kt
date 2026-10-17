@@ -11,6 +11,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantKey
@@ -20,18 +21,14 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.contracts.commands.CreateContractVersion
-import app.epistola.suite.templates.contracts.commands.PublishContractVersion
-import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
-import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.contracts.commands.UpdateDataContract
+import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.ListDocumentTemplatesHandler
-import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
-import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -54,11 +51,10 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var objectMapper: ObjectMapper
 
-    @Autowired
-    private lateinit var jdbi: Jdbi
-
     /**
-     * Inserts a draft contract version with the given data model and/or examples.
+     * Sets the template's data contract through the command, as an author would. `forceUpdate`
+     * because some tests seed examples that do not satisfy the schema on purpose; an empty
+     * example list keeps the examples the template has, or gives it an empty one.
      */
     private fun insertDraftContract(
         tenantKey: String,
@@ -66,28 +62,23 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         dataModel: String? = null,
         dataExamples: String = "[]",
     ) {
-        jdbi.withHandle<Unit, Exception> { handle ->
-            handle.createUpdate(
-                """
-                INSERT INTO contract_versions (id, tenant_key, template_resource_id, data_model, data_examples, status, created_at)
-                VALUES (1, :tenantKey, ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}, :dataModel::jsonb, :dataExamples::jsonb, 'draft', NOW())
-                ON CONFLICT (tenant_key, template_resource_id) WHERE status = 'draft'
-                DO UPDATE SET data_model = :dataModel::jsonb, data_examples = :dataExamples::jsonb
-                """,
-            )
-                .bind("tenantKey", tenantKey)
-                .bind("catalogKey", "default")
-                .bind("templateKey", templateKey)
-                .bind("dataModel", dataModel)
-                .bind("dataExamples", dataExamples)
-                .execute()
+        val examples = objectMapper.readValue(dataExamples, Array<DataExample>::class.java).toList()
+        withMediator {
+            val templateId = TemplateId(TemplateKey.of(templateKey), CatalogId.default(TenantId(TenantKey.of(tenantKey))))
+            // A contract needs an example; a test that gives none gets an empty one.
+            val current = GetDataContract(templateId).query()?.dataExamples.orEmpty()
+            UpdateDataContract(
+                templateId = templateId,
+                dataModel = dataModel?.let { objectMapper.readValue(it, tools.jackson.databind.node.ObjectNode::class.java) },
+                dataExamples = examples.ifEmpty { current.ifEmpty { listOf(DataExample("example-1", "Example 1", objectMapper.createObjectNode())) } },
+                forceUpdate = true,
+            ).execute()
         }
     }
 
     private fun createDraftContractWithExample(tenant: Tenant, template: DocumentTemplate) = withMediator {
         val templateId = TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))
-        CreateContractVersion(templateId = templateId).execute()
-        UpdateContractVersion(
+        UpdateDataContract(
             templateId = templateId,
             dataExamples = listOf(
                 DataExample(
@@ -1051,10 +1042,10 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("Updated John")
 
                 // Verify the other example is unchanged via contract version
-                val contractVersion = mediator.query(GetLatestContractVersion(templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))
-                assertThat(contractVersion).isNotNull
-                assertThat(contractVersion!!.dataExamples).hasSize(2)
-                assertThat(contractVersion.dataExamples.find { it.id == "example-2" }?.name).isEqualTo("Example 2")
+                val contract = mediator.query(GetDataContract(templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))
+                assertThat(contract).isNotNull
+                assertThat(contract!!.dataExamples).hasSize(2)
+                assertThat(contract.dataExamples.find { it.id == "example-2" }?.name).isEqualTo("Example 2")
             }
         }
 
@@ -1293,59 +1284,10 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
 
                 // Verify example-1 is gone, example-2 remains
-                val contractVersion = mediator.query(GetLatestContractVersion(templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))
-                assertThat(contractVersion).isNotNull
-                assertThat(contractVersion!!.dataExamples).hasSize(1)
-                assertThat(contractVersion.dataExamples[0].id).isEqualTo("example-2")
-            }
-        }
-
-        @Test
-        fun `DELETE data-example creates a draft from the published contract before deleting`() = fixture {
-            lateinit var testTenant: Tenant
-            lateinit var template: DocumentTemplate
-            lateinit var templateId: TemplateId
-
-            given {
-                testTenant = tenant("Test Tenant")
-                template = template(testTenant, "Test Template")
-                templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))
-
-                CreateContractVersion(templateId = templateId).execute()
-                UpdateContractVersion(
-                    templateId = templateId,
-                    dataExamples = listOf(
-                        DataExample(
-                            id = "example-1",
-                            name = "Example 1",
-                            data = objectMapper.createObjectNode(),
-                        ),
-                        DataExample(
-                            id = "example-2",
-                            name = "Example 2",
-                            data = objectMapper.createObjectNode(),
-                        ),
-                    ),
-                ).execute()
-                PublishContractVersion(templateId = templateId, confirmed = true).execute()
-            }
-
-            whenever {
-                restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
-                    HttpMethod.DELETE,
-                    null,
-                    String::class.java,
-                )
-            }
-
-            then {
-                val response = result<org.springframework.http.ResponseEntity<String>>()
-                assertThat(response.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
-
-                val contractVersion = mediator.query(GetLatestContractVersion(templateId = templateId))
-                assertThat(contractVersion!!.status.name).isEqualTo("DRAFT")
-                assertThat(contractVersion.dataExamples.map { it.id }).containsExactly("example-2")
+                val contract = mediator.query(GetDataContract(templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))
+                assertThat(contract).isNotNull
+                assertThat(contract!!.dataExamples).hasSize(1)
+                assertThat(contract.dataExamples[0].id).isEqualTo("example-2")
             }
         }
 
@@ -1388,12 +1330,12 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("/data-example-required")
                 assertThat(response.body).contains("At least one data example is required")
 
-                val contractVersion = mediator.query(
-                    GetLatestContractVersion(
+                val contract = mediator.query(
+                    GetDataContract(
                         templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
                     ),
                 )
-                assertThat(contractVersion!!.dataExamples).hasSize(1)
+                assertThat(contract!!.dataExamples).hasSize(1)
             }
         }
 
@@ -1487,28 +1429,23 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("class=\"contract-status-bar\"")
                 assertThat(response.body).contains("id=\"contract-save-controls\"")
                 assertThat(response.body).contains("Done editing")
-                assertThat(response.body).contains("contract/status-bar?edit=true")
             }
         }
 
         @Test
-        fun `GET contract status bar preserves edit mode during HTMX refresh`() = fixture {
+        fun `GET data contract view mode offers Edit and no publishing or history`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
 
             given {
-                testTenant = tenant("Status Bar Edit Tenant")
-                template = template(testTenant, "Status Bar Edit Template")
+                testTenant = tenant("Data Contract View Tenant")
+                template = template(testTenant, "Data Contract View Template")
                 createDraftContractWithExample(testTenant, template)
             }
 
             whenever {
-                val headers = HttpHeaders()
-                headers.set("HX-Request", "true")
-                restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/contract/status-bar?edit=true",
-                    HttpMethod.GET,
-                    HttpEntity<Unit>(headers),
+                restTemplate.getForEntity(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-contract",
                     String::class.java,
                 )
             }
@@ -1516,42 +1453,72 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             then {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-                assertThat(response.body).contains("id=\"contract-save-controls\"")
-                assertThat(response.body).contains("Done editing")
-                assertThat(response.body).doesNotContain(">Publish</button>")
-                assertThat(response.body).doesNotContain(">Edit</a>")
-            }
-        }
-
-        @Test
-        fun `GET contract status bar keeps publish and edit actions in view mode`() = fixture {
-            lateinit var testTenant: Tenant
-            lateinit var template: DocumentTemplate
-
-            given {
-                testTenant = tenant("Status Bar View Tenant")
-                template = template(testTenant, "Status Bar View Template")
-                createDraftContractWithExample(testTenant, template)
-            }
-
-            whenever {
-                val headers = HttpHeaders()
-                headers.set("HX-Request", "true")
-                restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/contract/status-bar",
-                    HttpMethod.GET,
-                    HttpEntity<Unit>(headers),
-                    String::class.java,
-                )
-            }
-
-            then {
-                val response = result<org.springframework.http.ResponseEntity<String>>()
-                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-                assertThat(response.body).contains("Publish")
-                assertThat(response.body).contains("Edit")
+                assertThat(response.body).contains(">Edit")
+                assertThat(response.body).doesNotContain("contract/publish")
+                assertThat(response.body).doesNotContain("History")
                 assertThat(response.body).doesNotContain("id=\"contract-save-controls\"")
-                assertThat(response.body).doesNotContain("Done editing")
+            }
+        }
+
+        @Test
+        fun `PATCH contract updates the schema and examples in place`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+
+            given {
+                testTenant = tenant("Contract Patch Tenant")
+                template = template(testTenant, "Contract Patch Template")
+            }
+
+            whenever {
+                val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
+                val body = """{"dataModel": {"type": "object", "properties": {"name": {"type": "string"}}},
+                    "dataExamples": [{"id": "ex-1", "name": "Example", "data": {"name": "Ada"}}]}"""
+                restTemplate.exchange(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/contract",
+                    HttpMethod.PATCH,
+                    HttpEntity(body, headers),
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).contains("\"success\":true")
+                val contract = mediator.query(GetDataContract(TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))!!
+                assertThat(contract.dataModel?.get("properties")?.has("name")).isTrue()
+                assertThat(contract.dataExamples.map { it.id }).containsExactly("ex-1")
+            }
+        }
+
+        @Test
+        fun `PATCH contract refuses examples that break the schema unless forced, then warns`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
+            val body = { force: Boolean ->
+                """{"dataModel": {"type": "object", "properties": {"age": {"type": "integer"}}},
+                    "dataExamples": [{"id": "ex-1", "name": "Example", "data": {"age": "old"}}], "forceUpdate": $force}"""
+            }
+
+            given {
+                testTenant = tenant("Contract Force Tenant")
+                template = template(testTenant, "Contract Force Template")
+            }
+
+            whenever {
+                val url = "/tenants/${testTenant.id}/templates/default/${template.id}/contract"
+                restTemplate.exchange(url, HttpMethod.PATCH, HttpEntity(body(false), headers), String::class.java) to
+                    restTemplate.exchange(url, HttpMethod.PATCH, HttpEntity(body(true), headers), String::class.java)
+            }
+
+            then {
+                val (refused, forced) = result<Pair<org.springframework.http.ResponseEntity<String>, org.springframework.http.ResponseEntity<String>>>()
+                assertThat(refused.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+                assertThat(refused.body).contains("Example data does not match the schema")
+                assertThat(forced.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(forced.body).contains("\"warnings\"")
             }
         }
     }
@@ -1812,7 +1779,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                             "type" to "stencil",
                             "slots" to emptyList<String>(),
                             "props" to mapOf(
-                                "stencilId" to "address-block",
+                                "stencilKey" to "address-block",
                                 "version" to 2,
                                 "draftVersion" to 2,
                                 "parameterSchemaSnapshot" to mapOf(
@@ -2098,7 +2065,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     inner class DraftSaveEndpointTest {
 
         @Test
-        fun `PUT draft returns validation error message for invalid stencil parameter binding`() = fixture {
+        fun `PUT content returns validation error message for invalid stencil parameter binding`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
             var variantId: VariantKey? = null
@@ -2123,7 +2090,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                                 "type": "stencil",
                                 "slots": [],
                                 "props": {
-                                    "stencilId": "letter",
+                                    "stencilKey": "letter",
                                     "version": 1,
                                     "parameterSchemaSnapshot": {
                                         "type": "object",
@@ -2142,7 +2109,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 }"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/draft",
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/content",
                     HttpMethod.PUT,
                     request,
                     String::class.java,

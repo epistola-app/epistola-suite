@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates
 
+import app.epistola.suite.handlers.VariantContentHandler
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.servlet.function.RouterFunction
@@ -14,12 +15,10 @@ import org.springframework.web.servlet.function.router
 class DocumentTemplateRoutes(
     private val handler: DocumentTemplateHandler,
     private val variantHandler: VariantRouteHandler,
-    private val versionHandler: VersionRouteHandler,
+    private val contentHandler: VariantContentHandler,
     private val previewHandler: TemplatePreviewHandler,
     private val settingsTabHandler: SettingsTabHandler,
     private val dataContractTabHandler: DataContractTabHandler,
-    private val versionComparisonHandler: VersionComparisonHandler,
-    private val contractVersionHandler: ContractVersionHandler,
 ) {
     @Bean
     fun templateRoutes(): RouterFunction<ServerResponse> = router {
@@ -43,13 +42,10 @@ class DocumentTemplateRoutes(
             GET("/{catalogId}/{id}/api", handler::get)
             POST("/{catalogId}/{id}/validate-schema", handler::validateSchema)
 
-            // Contract version routes
-            POST("/{catalogId}/{id}/contract/draft", contractVersionHandler::createDraft)
-            PATCH("/{catalogId}/{id}/contract/draft", contractVersionHandler::updateDraft)
-            POST("/{catalogId}/{id}/contract/publish", contractVersionHandler::publish)
-            GET("/{catalogId}/{id}/contract/versions", contractVersionHandler::listVersions)
-            GET("/{catalogId}/{id}/contract/versions/history", contractVersionHandler::versionHistory)
-            GET("/{catalogId}/{id}/contract/status-bar", contractVersionHandler::statusBar)
+            POST("/{catalogId}/{id}/ready", variantHandler::markTemplateReady)
+
+            // Data contract: one schema and its examples, edited in place
+            PATCH("/{catalogId}/{id}/contract", dataContractTabHandler::update)
 
             // Data example routes
             PATCH("/{catalogId}/{id}/data-examples/{exampleId}", handler::updateDataExample)
@@ -62,11 +58,7 @@ class DocumentTemplateRoutes(
             POST("/{catalogId}/{id}/variants/{variantId}/delete", variantHandler::deleteVariant)
             POST("/{catalogId}/{id}/variants/{variantId}/set-default", variantHandler::setDefaultVariant)
 
-            // Version comparison
-            GET("/{catalogId}/{id}/variants/{variantId}/compare", versionComparisonHandler::compareDialog)
-
-            // Variant version history
-            GET("/{catalogId}/{id}/variants/{variantId}/versions", versionHandler::listVersions)
+            POST("/{catalogId}/{id}/variants/{variantId}/ready", variantHandler::markVariantReady)
 
             // Editor route
             GET("/{catalogId}/{id}/variants/{variantId}/editor", handler::editor)
@@ -74,14 +66,8 @@ class DocumentTemplateRoutes(
             // PDF preview
             POST("/{catalogId}/{id}/variants/{variantId}/preview", previewHandler::preview)
 
-            // Draft creation, updates, and publish
-            POST("/{catalogId}/{id}/variants/{variantId}/draft", versionHandler::createDraft)
-            PUT("/{catalogId}/{id}/variants/{variantId}/draft", versionHandler::updateDraft)
-            POST("/{catalogId}/{id}/variants/{variantId}/draft/publish", versionHandler::publishDraft)
-            POST("/{catalogId}/{id}/variants/{variantId}/draft/discard", versionHandler::discardDraft)
-
-            // Version lifecycle
-            POST("/{catalogId}/{id}/variants/{variantId}/versions/{versionId}/archive", versionHandler::archiveVersion)
+            // The variant's working model, saved by the editor
+            PUT("/{catalogId}/{id}/variants/{variantId}/content", contentHandler::updateContent)
         }
     }
 }

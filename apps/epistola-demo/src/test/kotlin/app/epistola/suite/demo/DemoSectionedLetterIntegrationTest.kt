@@ -14,7 +14,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.testing.IntegrationTestBase
 import com.itextpdf.kernel.pdf.PdfDocument
 import com.itextpdf.kernel.pdf.PdfReader
@@ -42,7 +42,7 @@ class DemoSectionedLetterIntegrationTest : IntegrationTestBase() {
 
     private fun previewPages(tenantKey: TenantKey, template: TemplateKey, example: String): List<String> {
         val data = withMediator {
-            GetLatestContractVersion(TemplateId(template, CatalogId(demoCatalog, TenantId(tenantKey)))).query()
+            GetDataContract(TemplateId(template, CatalogId(demoCatalog, TenantId(tenantKey)))).query()
         }!!.dataExamples.single { it.name == example }.data
         val pdf = withMediator {
             PreviewDocument(tenantId = tenantKey, catalogKey = demoCatalog, templateId = template, data = data).query()

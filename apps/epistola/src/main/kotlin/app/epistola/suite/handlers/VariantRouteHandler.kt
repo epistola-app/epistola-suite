@@ -5,6 +5,7 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
+import app.epistola.suite.catalog.queries.IsCatalogEditable
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -23,18 +24,22 @@ import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.templates.commands.MarkTemplateReady
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.DefaultVariantDeletionException
 import app.epistola.suite.templates.commands.variants.DeleteVariant
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
 import app.epistola.suite.templates.commands.variants.SetDefaultVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariant
-import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.validation.DuplicateIdException
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
+import app.epistola.suite.validation.ValidationException
 import app.epistola.suite.validation.formMessage
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -145,35 +150,7 @@ class VariantRouteHandler {
             attributes = readAttributesFromForm(request, tenantId),
         ).execute()
 
-        val variants = GetVariantSummaries(templateId = templateId).query()
-        val template = GetDocumentTemplate(id = templateId).query()
-            ?: return ServerResponse.notFound().build()
-        val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId).query()
-        val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)
-        val attributeOptions = buildAttributeOptions(attributeDefinitions)
-        val decoratedVariants = decorateVariants(variants, attributeDescriptors)
-        val usedDescriptors = filterToUsedDescriptors(attributeDescriptors, decoratedVariants)
-        val editable = app.epistola.suite.catalog.queries.IsCatalogEditable(tenantId.key, catalogId).query()
-        val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
-        val contractVersion = GetLatestContractVersion(templateId = templateId).query()
-
-        return request.htmx {
-            fragment("templates/detail/variants", "variants-section") {
-                "tenantId" to tenantId.key.value
-                "catalogId" to catalogId.value
-                "template" to template
-                "variants" to decoratedVariants
-                "attributeDescriptors" to attributeDescriptors
-                "usedAttributeDescriptors" to usedDescriptors
-                "attributeDefinitions" to attributeDefinitions
-                "attributeOptions" to attributeOptions
-                "editable" to editable
-                "auth" to auth
-                "contractDataExamples" to contractVersion?.dataExamples
-            }
-            trigger("closeDialog")
-            onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/$catalogId/${templateId.key}") }
-        }
+        return renderVariantsSection(request, tenantId, templateId)
     }
 
     fun setDefaultVariant(request: ServerRequest): ServerResponse {
@@ -204,8 +181,6 @@ class VariantRouteHandler {
         return renderVariantsSection(request, tenantId, templateId)
     }
 
-    private val logger = org.slf4j.LoggerFactory.getLogger(javaClass)
-
     /**
      * OOB-swaps an error into the dialog's form-error slot with no primary swap, so the
      * dialog stays open with the user's input instead of the list swapping and closing.
@@ -224,6 +199,41 @@ class VariantRouteHandler {
         }
     }
 
+    /**
+     * Marks one variant's working model ready. A refusal (the model is not publishable, or a
+     * stencil instance in it does not fit) re-renders the variants with the reason.
+     */
+    fun markVariantReady(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val templateId = request.templateId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+        val variantId = request.variantId(templateId)
+            ?: return ServerResponse.badRequest().build()
+
+        val error = try {
+            MarkVariantReady(variantId = variantId).execute()
+            null
+        } catch (e: ValidationException) {
+            e.message
+        }
+        return renderVariantsSection(request, tenantId, templateId, error)
+    }
+
+    /** Marks every variant of the template ready; a refusal is shown like [markVariantReady]'s. */
+    fun markTemplateReady(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val templateId = request.templateId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+
+        val error = try {
+            MarkTemplateReady(templateId = templateId).execute()
+            null
+        } catch (e: ValidationException) {
+            e.message
+        }
+        return renderVariantsSection(request, tenantId, templateId, error)
+    }
+
     internal fun renderVariantsSection(
         request: ServerRequest,
         tenantId: TenantId,
@@ -231,32 +241,20 @@ class VariantRouteHandler {
         errorMessage: String? = null,
     ): ServerResponse {
         val catalogId = request.catalogId()
-        val variants = GetVariantSummaries(templateId = templateId).query()
         val template = GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
-        val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId).query()
-        val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)
-        val attributeOptions = buildAttributeOptions(attributeDefinitions)
-        val decoratedVariants = decorateVariants(variants, attributeDescriptors)
-        val usedDescriptors = filterToUsedDescriptors(attributeDescriptors, decoratedVariants)
-        val editable = app.epistola.suite.catalog.queries.IsCatalogEditable(tenantId.key, catalogId).query()
-        logger.info("renderVariantsSection: variants={}, editable={}, catalogId={}, isHtmx={}", variants.size, editable, catalogId, request.isHtmx)
+        val editable = IsCatalogEditable(tenantId.key, catalogId).query()
         val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
-        val contractVersion = GetLatestContractVersion(templateId = templateId).query()
+        val variants = variantsModel(templateId, editable, auth)
 
         return request.htmx {
             fragment("templates/detail/variants", "variants-section") {
                 "tenantId" to tenantId.key.value
                 "catalogId" to catalogId.value
                 "template" to template
-                "variants" to decoratedVariants
-                "attributeDescriptors" to attributeDescriptors
-                "usedAttributeDescriptors" to usedDescriptors
-                "attributeDefinitions" to attributeDefinitions
-                "attributeOptions" to attributeOptions
+                putAll(variants)
                 "editable" to editable
                 "auth" to auth
-                "contractDataExamples" to contractVersion?.dataExamples
                 if (errorMessage != null) {
                     "error" to errorMessage
                 }
@@ -294,4 +292,28 @@ class VariantRouteHandler {
         }
         return attributes
     }
+}
+
+/**
+ * The model the variants tab renders: the variants with their attributes and readiness, the
+ * attribute pickers, and the data examples the preview uses.
+ *
+ * `offerMarkAllReady` is the one name the template gates "Mark all variants ready" on: the viewer
+ * may mark (`TEMPLATE_EDIT`), the catalog is editable, and a variant is not ready yet.
+ */
+internal fun variantsModel(templateId: TemplateId, editable: Boolean, auth: AuthContext): Map<String, Any?> {
+    val variants = GetVariantSummaries(templateId = templateId).query()
+    val attributeDefinitions = ListAttributeDefinitions(tenantId = templateId.tenantId).query()
+    val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)
+    val markReadyAllowed = editable && auth.has(Permission.TEMPLATE_EDIT)
+    val decoratedVariants = decorateVariants(variants, attributeDescriptors, markReadyAllowed)
+    return mapOf(
+        "variants" to decoratedVariants,
+        "offerMarkAllReady" to (markReadyAllowed && variants.any { !it.ready }),
+        "attributeDescriptors" to attributeDescriptors,
+        "usedAttributeDescriptors" to filterToUsedDescriptors(attributeDescriptors, decoratedVariants),
+        "attributeDefinitions" to attributeDefinitions,
+        "attributeOptions" to buildAttributeOptions(attributeDefinitions),
+        "contractDataExamples" to GetDataContract(templateId = templateId).query()?.dataExamples,
+    )
 }

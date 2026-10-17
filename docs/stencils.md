@@ -52,7 +52,12 @@ upgrade or move.
 Over MCP the same operations are `list_stencils`, `get_stencil`, `list_stencil_usages`,
 `create_stencil`, `update_stencil` and `mark_stencil_ready`; see [mcp.md](mcp.md).
 
-The stencil page in the web UI and the template editor are still being moved to this model.
+In the web UI the stencil page shows the stencil's details, whether its content reads the using
+template's data (a toggle), its parameter schema, whether its working copy is ready (with **Mark
+ready** while it is not), and the variants that use it, each with whether it still fits and why
+not. Content is edited in the template editor, which reads and saves the working copy through
+`GET`/`PUT /tenants/{tenant}/stencils/{catalog}/{stencil}/content`. The editor itself is still
+being moved to this model.
 
 ### Usage
 

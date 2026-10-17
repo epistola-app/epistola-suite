@@ -17,7 +17,6 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
 import app.epistola.suite.catalog.CatalogPublicationPolicy
 import app.epistola.suite.catalog.CatalogType
-import app.epistola.suite.catalog.MultipleStencilVersionsInUseException
 import app.epistola.suite.catalog.commands.AuthoredImportMode
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
@@ -29,12 +28,10 @@ import app.epistola.suite.catalog.commands.ForgetReleaseContent
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
-import app.epistola.suite.catalog.commands.OnStencilConflict
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.commands.SetCatalogPublicationSettings
-import app.epistola.suite.catalog.commands.StencilVersionImportConflictsException
 import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.catalog.commands.UpgradeCatalog
@@ -45,7 +42,6 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.CatalogReleaseSummary
 import app.epistola.suite.catalog.queries.FindResourceUsages
-import app.epistola.suite.catalog.queries.FindStencilVersionExportConflicts
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogRelease
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
@@ -371,22 +367,31 @@ class CatalogHandler {
      * What the release dialog renders from.
      *
      * The release pointer and the working-copy changes are read separately because only the second
-     * builds the catalog: [GetCatalogResourceChanges] already answers whether anything is
-     * unreleased, so asking [GetCatalogReleaseStatus] as well would build it twice for one dialog.
+     * builds the catalog: [CatalogReleaseReadiness] reads [GetCatalogResourceChanges], which already
+     * answers whether anything is unreleased, so asking [GetCatalogReleaseStatus] as well would
+     * build it twice for one dialog. The readiness is what the dialog gates Release on, the same
+     * names the catalog page gates on.
      */
     private fun releaseDialogModel(
         tenantId: TenantId,
         catalogKey: CatalogKey,
         publication: CatalogPublicationState?,
         error: String? = null,
-    ): Map<String, Any?> = mapOf(
-        "tenantId" to tenantId.key,
-        "catalogId" to catalogKey.value,
-        "status" to GetLatestCatalogRelease(tenantId.key, catalogKey).query(),
-        "changes" to GetCatalogResourceChanges(tenantId.key, catalogKey).query(),
-        "publication" to publication,
-        "error" to error,
-    )
+        version: String? = null,
+    ): Map<String, Any?> {
+        val readiness = CatalogReleaseReadiness.of(tenantId.key, catalogKey)
+        val status = GetLatestCatalogRelease(tenantId.key, catalogKey).query()
+        return mapOf(
+            "tenantId" to tenantId.key,
+            "catalogId" to catalogKey.value,
+            "status" to status,
+            "changes" to readiness.changes,
+            "readiness" to readiness,
+            "releaseVersion" to (version ?: readiness.draftVersion ?: status.suggestedNext.patch),
+            "publication" to publication,
+            "error" to error,
+        )
+    }
 
     fun release(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -406,7 +411,7 @@ class CatalogHandler {
 
         fun reRenderWithError(message: String): ServerResponse = ServerResponse.ok().render(
             "catalogs/list :: release-dialog",
-            releaseDialogModel(tenantId, catalogKey, publication, error = message),
+            releaseDialogModel(tenantId, catalogKey, publication, error = message, version = form.formData["version"]?.ifBlank { null }),
         )
 
         if (form.hasErrors()) {
@@ -733,33 +738,21 @@ class CatalogHandler {
             // subscription, a ZIP import, or an authored catalog — the view falls back to the text
             // it rendered before. Resolved once per page: the rows append to it themselves.
             val exchangeCatalogUrl = GetExchangeCatalogLink(tenantId.key, result.catalog.sourceUrl).query()
-            // Per-stencil version-conflict map (slug → "v1, v2 still pinned by N
-            // template(s) (latest v3)"). Empty when the catalog is exportable. Used by
-            // the browse view to flag stencils that block export — mirrors the precheck
-            // the export endpoint runs. The check also fires when templates pin a single
-            // stale version (not just multi-version usage), hence the explicit `latest`
-            // callout.
-            val stencilVersionConflicts = FindStencilVersionExportConflicts(
-                tenantKey = tenantId.key,
-                catalogKey = catalogKey,
-            ).query().associate { c ->
-                val staleVersions = c.pins.map { it.pinnedVersion }.distinct().sorted()
-                    .joinToString(", v", prefix = "v")
-                c.stencilKey.value to
-                    "$staleVersions still pinned by ${c.pins.size} template(s) (latest v${c.latestPublishedVersion})"
-            }
-
             // Installing a subscribed catalog installs the whole manifest (#850), so the action
             // means something only while the manifest holds something this installation does not.
             // Gated on that rather than on the catalog being subscribed, which was always true and
             // left the button offering to install what was already installed.
             val hasUninstalledResources = result.resources.any { it.status == ResourceStatus.AVAILABLE }
+            // Only an authored catalog has a next release to prepare.
+            val readiness = if (result.catalog.type == CatalogType.AUTHORED) CatalogReleaseReadiness.of(tenantId.key, catalogKey) else null
 
             ServerResponse.ok().page("catalogs/browse") {
                 "pageTitle" to "${result.catalog.name} - Catalog - Epistola"
                 "tenantId" to tenantId.key
                 "activeNavSection" to "catalogs"
                 "catalog" to result.catalog
+                "catalogId" to catalogKey.value
+                "readiness" to readiness
                 "exchangeCatalogUrl" to exchangeCatalogUrl
                 "publication" to publication
                 "releases" to releaseViews
@@ -769,13 +762,12 @@ class CatalogHandler {
                 "resources" to result.resources
                 "hasUninstalledResources" to hasUninstalledResources
                 "usageCounts" to usageCounts
-                "stencilVersionConflicts" to stencilVersionConflicts
                 "hasImages" to images.isNotEmpty()
                 "keywords" to result.catalog.catalogMetadata.keywords.inDisplayOrder()
-                "presentationImages" to result.catalog.catalogMetadata.presentation?.imageAssetSlugs.orEmpty().map {
+                "presentationImages" to result.catalog.catalogMetadata.presentation?.imageKeys.orEmpty().map {
                     CatalogPresentationAssetView(it, imagesBySlug[it])
                 }
-                "presentationIcon" to result.catalog.catalogMetadata.presentation?.iconAssetSlug?.let {
+                "presentationIcon" to result.catalog.catalogMetadata.presentation?.iconImageKey?.let {
                     CatalogPresentationAssetView(it, imagesBySlug[it])
                 }
             }
@@ -863,7 +855,7 @@ class CatalogHandler {
         require(params.keys.none { it.startsWith("attribute_") && it != fieldName }) {
             "Only the locale discovery attribute can be changed."
         }
-        val preserved = current.filterNot { "${it.catalog}.${it.key}" == CATALOG_LOCALE_ATTRIBUTE }
+        val preserved = current.filterNot { "${it.catalogKey}.${it.key}" == CATALOG_LOCALE_ATTRIBUTE }
         val locale = params[fieldName]?.firstOrNull()?.trim()?.ifBlank { null }
         return if (locale == null) preserved else preserved + AttributeAssignment("system", "locale", locale)
     }
@@ -908,11 +900,11 @@ class CatalogHandler {
         section: CatalogMetadataSection,
     ): Map<String, Any?> {
         val catalog = catalogForMetadata(tenantKey, catalogKey)
-        val currentAttributes = catalog.catalogMetadata.attributes.associate { "${it.catalog}.${it.key}" to it.value }
+        val currentAttributes = catalog.catalogMetadata.attributes.associate { "${it.catalogKey}.${it.key}" to it.value }
         val descriptors = buildAttributeDescriptors(ListAttributeDefinitions(app.epistola.suite.common.ids.TenantId(tenantKey)).query())
             .filter { it.qualifiedKey == CATALOG_LOCALE_ATTRIBUTE }
         val images = catalogImages(tenantKey, catalogKey)
-        val gallery = catalog.catalogMetadata.presentation?.imageAssetSlugs.orEmpty()
+        val gallery = catalog.catalogMetadata.presentation?.imageKeys.orEmpty()
 
         return mapOf(
             "tenantId" to tenantKey,
@@ -1073,10 +1065,10 @@ class CatalogHandler {
                 "catalog" to result.catalog
                 "hasImages" to images.isNotEmpty()
                 "keywords" to result.catalog.catalogMetadata.keywords.inDisplayOrder()
-                "presentationImages" to result.catalog.catalogMetadata.presentation?.imageAssetSlugs.orEmpty().map {
+                "presentationImages" to result.catalog.catalogMetadata.presentation?.imageKeys.orEmpty().map {
                     CatalogPresentationAssetView(it, imagesBySlug[it])
                 }
-                "presentationIcon" to result.catalog.catalogMetadata.presentation?.iconAssetSlug?.let {
+                "presentationIcon" to result.catalog.catalogMetadata.presentation?.iconImageKey?.let {
                     CatalogPresentationAssetView(it, imagesBySlug[it])
                 }
             }
@@ -1090,10 +1082,10 @@ class CatalogHandler {
                     "resources" to result.resources
                     "hasImages" to images.isNotEmpty()
                     "keywords" to result.catalog.catalogMetadata.keywords.inDisplayOrder()
-                    "presentationImages" to result.catalog.catalogMetadata.presentation?.imageAssetSlugs.orEmpty().map {
+                    "presentationImages" to result.catalog.catalogMetadata.presentation?.imageKeys.orEmpty().map {
                         CatalogPresentationAssetView(it, imagesBySlug[it])
                     }
-                    "presentationIcon" to result.catalog.catalogMetadata.presentation?.iconAssetSlug?.let {
+                    "presentationIcon" to result.catalog.catalogMetadata.presentation?.iconImageKey?.let {
                         CatalogPresentationAssetView(it, imagesBySlug[it])
                     }
                     if (successMessage != null) "successMessage" to successMessage
@@ -1152,14 +1144,6 @@ class CatalogHandler {
         }?.let { runCatching { AuthoredImportMode.valueOf(it) }.getOrNull() }
             ?: AuthoredImportMode.MERGE
 
-        // Opt-in: install conflicting stencil versions at MAX(version)+1 and
-        // rewrite stencil-node pins in the same ZIP's templates. Only meaningful
-        // for AUTHORED MERGE — the ImportCatalogZip handler rejects it elsewhere.
-        val onStencilConflict = multipartData["onStencilConflict"]?.firstOrNull()?.let {
-            String(it.inputStream.readAllBytes()).trim()
-        }?.let { runCatching { OnStencilConflict.valueOf(it) }.getOrNull() }
-            ?: OnStencilConflict.FAIL
-
         // Set when the operator confirmed updating an AUTHORED ZIP that is below the
         // current catalog schema version but migratable (re-submitted from the
         // "update?" prompt).
@@ -1173,7 +1157,6 @@ class CatalogHandler {
                 zipBytes = zipBytes,
                 catalogType = catalogType,
                 authoredMode = authoredMode,
-                onStencilConflict = onStencilConflict,
                 confirmMigration = confirmMigration,
             ).execute()
 
@@ -1186,30 +1169,10 @@ class CatalogHandler {
                     .header("Location", "/tenants/${tenantId.key}/catalogs/${result.catalogKey}/browse")
                     .build()
             }
-        } catch (e: StencilVersionImportConflictsException) {
-            // Render a structured dialog listing every conflicting stencil
-            // version so the operator can see the full picture and choose
-            // whether to retry with the "Allow renumber" option enabled.
-            logger.warn("Import blocked by stencil-version conflicts: ${e.message}")
-            val conflicts = e.conflicts.map { c ->
-                StencilImportConflictView(
-                    name = c.stencilName,
-                    slug = c.stencilKey.value,
-                    version = "v${c.version}",
-                )
-            }
-            ServerResponse.ok().render(
-                "catalogs/import :: import-conflict-content",
-                mapOf(
-                    "catalogId" to e.catalogKey.value,
-                    "stencilImportConflicts" to conflicts,
-                ),
-            )
         } catch (e: CatalogSchemaException) {
             // The uploaded catalog's wire format is too new, too old, or
             // unrecognised — the migrator rejected it before binding. Render the
-            // actionable remediation message inline (same alert-error slot as the
-            // stencil-conflict report), so the operator knows whether to upgrade
+            // actionable remediation message inline, so the operator knows whether to upgrade
             // this instance or re-export from a current source.
             logger.warn("Import blocked by catalog wire-format version: ${e.message}")
             val title = when (e) {
@@ -1243,16 +1206,10 @@ class CatalogHandler {
         }
     }
 
-    data class StencilImportConflictView(
-        val name: String,
-        val slug: String,
-        val version: String,
-    )
-
     /**
      * Plain single-message import failures go through the global form-error
      * slot (shaped 422; see HtmxDsl.globalFormError). The structured import
-     * responses (conflict report, schema error, migration confirm) keep
+     * responses (schema error, migration confirm) keep
      * rendering into the form's dedicated #import-error target instead — the
      * text-only slot cannot hold them. Because the shaped response's primary
      * swap is `none`, stale structured content in #import-error is OOB-reset
@@ -1276,50 +1233,20 @@ class CatalogHandler {
         }
     }
 
-    /**
-     * HTMX precheck for the export button. Runs the cheap conflict query and
-     * either:
-     *  - returns the export-conflict dialog fragment when conflicts exist;
-     *  - returns the export confirmation dialog when the catalog is exportable.
-     * The `MultipleStencilVersionsInUseException` thrown by [ExportCatalogZip]
-     * is the backstop for callers that bypass this UI precheck.
-     */
+    /** The export dialog: the working copy, or a release that kept its content, as it was released. */
     fun exportCheck(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
-
-        val conflicts = FindStencilVersionExportConflicts(tenantId.key, catalogKey).query()
-        if (conflicts.isEmpty()) {
-            return ServerResponse.ok().render(
-                "catalogs/list :: export-confirmation-dialog",
-                mapOf(
-                    "tenantId" to tenantId.key,
-                    "catalogId" to catalogKey.value,
-                    // Only releases that retained their content can be handed over as released;
-                    // the dialog offers exactly these, so the choice cannot fail at download.
-                    "retainedReleases" to ListRetainedReleases(tenantId.key, catalogKey).query(),
-                ),
-            )
-        }
-
-        val model = mapOf(
-            "tenantId" to tenantId.key,
-            "catalogId" to catalogKey.value,
-            "stencilVersionExportConflicts" to conflicts.map { s ->
-                StencilConflictView(
-                    name = s.stencilName,
-                    slug = s.stencilKey.value,
-                    latestPublishedVersion = "v${s.latestPublishedVersion}",
-                    pins = s.pins.map { p ->
-                        StencilConflictView.PinView(
-                            templateLabel = p.displayLabel,
-                            pinned = "v${p.pinnedVersion}",
-                        )
-                    },
-                )
-            },
+        return ServerResponse.ok().render(
+            "catalogs/list :: export-confirmation-dialog",
+            mapOf(
+                "tenantId" to tenantId.key,
+                "catalogId" to catalogKey.value,
+                // Only releases that retained their content can be handed over as released;
+                // the dialog offers exactly these, so the choice cannot fail at download.
+                "retainedReleases" to ListRetainedReleases(tenantId.key, catalogKey).query(),
+            ),
         )
-        return ServerResponse.ok().render("catalogs/list :: export-conflict-dialog", model)
     }
 
     fun export(request: ServerRequest): ServerResponse {
@@ -1337,14 +1264,6 @@ class CatalogHandler {
                 .header("Content-Type", "application/zip")
                 .header("Content-Disposition", "attachment; filename=\"${result.filename}\"")
                 .body(result.zipBytes)
-        } catch (e: MultipleStencilVersionsInUseException) {
-            // The UI calls `exportCheck` first, so this path is only reached
-            // when a non-UI client (REST/MCP) hits /export directly without
-            // having run the precheck. Surface a plain JSON 400.
-            logger.warn("Export blocked: ${e.message}")
-            ServerResponse.badRequest()
-                .header("Content-Type", "application/json")
-                .body(mapOf("error" to e.message))
         } catch (e: Exception) {
             logger.warn("Failed to export catalog: ${e.message}", e)
             ServerResponse.badRequest()
@@ -1371,19 +1290,6 @@ class CatalogHandler {
         /** There is retained content to drop, so forgetting it would actually reclaim something. */
         val forgettable: Boolean,
     )
-
-    data class StencilConflictView(
-        val name: String,
-        val slug: String,
-        val latestPublishedVersion: String,
-        /** The published template-variants that still pin an outdated version. */
-        val pins: List<PinView>,
-    ) {
-        data class PinView(
-            val templateLabel: String,
-            val pinned: String,
-        )
-    }
 
     /**
      * The catalog list as every full-page render of it needs it: the list, plus whether the

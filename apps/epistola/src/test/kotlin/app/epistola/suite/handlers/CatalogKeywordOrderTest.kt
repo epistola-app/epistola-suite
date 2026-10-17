@@ -44,7 +44,7 @@ class CatalogKeywordOrderTest {
         val keywords = setOf("zaken", "1-loket", "Brieven", "aanslag", "2024")
 
         val onTheWire = CatalogInfo.create(
-            slug = "order",
+            key = "order",
             name = "Order",
             keywords = keywords,
         ).keywords.toList()

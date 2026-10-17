@@ -16,7 +16,7 @@ import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
@@ -127,7 +127,7 @@ class GenerationHistoryRoutesTest : BaseIntegrationTest() {
             templateKey = CreateDocumentTemplate(id = templateId, name = "Billing Invoice").execute().id
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
             val variant = CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()).execute()!!
-            UpdateDraft(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Billing Invoice")).execute()!!
+            UpdateVariantContent(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Billing Invoice")).execute()
             // Generation renders billing's latest release.
             mediator.publishAndRelease(variantId)
             GenerateDocument(

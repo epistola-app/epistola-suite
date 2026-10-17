@@ -7,6 +7,7 @@ package app.epistola.suite.catalog
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
@@ -306,7 +307,8 @@ class ExchangeCatalogHandlerTest : ExchangeHandlerTestBase() {
                 id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher))),
                 name = "Theme $version",
             ).execute()
-            ReleaseCatalogVersion(tenantKey = publisher, catalogKey = catalogKey, version = version).execute()
+            MarkCatalogReady(publisher, catalogKey).execute()
+            ReleaseCatalogVersion(publisher, catalogKey, version = version).execute()
             ExportCatalogZip(tenantKey = publisher, catalogKey = catalogKey).execute().zipBytes
         }
     }

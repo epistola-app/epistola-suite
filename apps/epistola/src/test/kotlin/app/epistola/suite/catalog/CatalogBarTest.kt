@@ -9,6 +9,7 @@ import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -66,7 +67,8 @@ class CatalogBarTest : BaseIntegrationTest() {
                     CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Context cat").execute()
                     CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice")
                         .execute().withRequiredDataExample()
-                    ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.0.0").execute()
+                    MarkCatalogReady(tenant.id, catalogKey).execute()
+                    ReleaseCatalogVersion(tenant.id, catalogKey, version = "1.0.0").execute()
                     // Edited after releasing, which is the state the bar exists to report.
                     CreateDocumentTemplate(TemplateId(TemplateKey.of("later"), catalog), "Later")
                         .execute().withRequiredDataExample()
@@ -109,7 +111,8 @@ class CatalogBarTest : BaseIntegrationTest() {
                     CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Clean cat").execute()
                     CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice")
                         .execute().withRequiredDataExample()
-                    ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.0.0").execute()
+                    MarkCatalogReady(tenant.id, catalogKey).execute()
+                    ReleaseCatalogVersion(tenant.id, catalogKey, version = "1.0.0").execute()
                 }
             }
         }
@@ -144,7 +147,8 @@ class CatalogBarTest : BaseIntegrationTest() {
                         sourceType = CodeListSource.INLINE,
                         entries = listOf(CodeListEntry("en", "English")),
                     ).execute()
-                    ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalogKey, version = "2.1.0").execute()
+                    MarkCatalogReady(tenant.id, catalogKey).execute()
+                    ReleaseCatalogVersion(tenant.id, catalogKey, version = "2.1.0").execute()
                 }
             }
         }
@@ -201,7 +205,8 @@ class CatalogBarTest : BaseIntegrationTest() {
                     CreateStencil(id = StencilId(StencilKey.of("address"), catalog), name = "Address").execute()
                     CreateTheme(id = ThemeId(ThemeKey.of("house"), catalog), name = "House").execute()
                     // Released and then edited: the state that would produce the loudest bar.
-                    ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.0.0").execute()
+                    MarkCatalogReady(tenant.id, catalogKey).execute()
+                    ReleaseCatalogVersion(tenant.id, catalogKey, version = "1.0.0").execute()
                     CreateDocumentTemplate(TemplateId(TemplateKey.of("later"), catalog), "Later")
                         .execute().withRequiredDataExample()
                 }

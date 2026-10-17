@@ -16,8 +16,8 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.UpdateDraft
-import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
+import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
@@ -132,7 +132,7 @@ class PreviewDocumentApiIT : IntegrationTestBase() {
         "/api/tenants/${tenantKey.value}/documents/preview",
         HttpMethod.POST,
         HttpEntity(
-            """{"catalogId": "default", "templateId": "$TEMPLATE", "data": $data}""",
+            """{"namespace": "${withMediator { CatalogApiPaths.namespace(tenantKey) }}", "catalogKey": "default", "templateKey": "$TEMPLATE", "data": $data}""",
             HttpHeaders().apply {
                 contentType = MediaType.parseMediaType("application/vnd.epistola.v1+json")
                 accept = listOf(MediaType.APPLICATION_PDF, MediaType.APPLICATION_PROBLEM_JSON)
@@ -147,7 +147,7 @@ class PreviewDocumentApiIT : IntegrationTestBase() {
     private fun seedPublishedTemplate(tenantKey: TenantKey) = withMediator {
         val templateId = TemplateId(TemplateKey.of(TEMPLATE), CatalogId.default(TenantId(tenantKey)))
         CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
-        UpdateContractVersion(
+        UpdateDataContract(
             templateId = templateId,
             dataModel = json(
                 """
@@ -164,7 +164,7 @@ class PreviewDocumentApiIT : IntegrationTestBase() {
             ),
         ).execute()
         val variantId = VariantId(VariantKey.INITIAL, templateId)
-        UpdateDraft(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal()).execute()!!
+        UpdateVariantContent(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal()).execute()
         // Preview renders the catalog's latest release.
         mediator.publishAndRelease(variantId)
     }

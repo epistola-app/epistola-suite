@@ -12,7 +12,6 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.CreateVersion
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
@@ -51,7 +50,6 @@ class GlobalFormErrorUiTest : BasePlaywrightTest() {
             val tKey = TestIdHelpers.nextTemplateId()
             val templateId = TemplateId(tKey, catalogId)
             CreateDocumentTemplate(id = templateId, name = "Load Test Template").execute()
-            CreateVersion(variantId = VariantId(VariantKey.INITIAL, templateId)).execute()
             templateKey = tKey.value
         }
 

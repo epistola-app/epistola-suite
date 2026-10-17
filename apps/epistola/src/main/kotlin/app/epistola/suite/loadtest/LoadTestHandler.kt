@@ -28,7 +28,7 @@ import app.epistola.suite.loadtest.queries.GetLoadTestRun
 import app.epistola.suite.loadtest.queries.ListLoadTestRuns
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.templates.model.DataExamples
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
@@ -100,8 +100,8 @@ class LoadTestHandler(
 
         // Template selected - prepare cascade data
         val variants = ListVariants(templateId = templateId).query()
-        val contractVersion = GetLatestContractVersion(templateId = templateId).query()
-        val dataExamples = contractVersion?.dataExamples ?: DataExamples.EMPTY
+        val dataContract = GetDataContract(templateId = templateId).query()
+        val dataExamples = dataContract?.dataExamples ?: DataExamples.EMPTY
         val environments = ListEnvironments(tenantId = tenantId).query()
 
         val triggerName = request.htmxTriggerName

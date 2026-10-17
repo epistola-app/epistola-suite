@@ -5,7 +5,6 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.api.v1.toValidationProblemBody
-import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
@@ -18,10 +17,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
-import app.epistola.suite.handlers.buildAttributeDescriptors
-import app.epistola.suite.handlers.buildAttributeOptions
-import app.epistola.suite.handlers.decorateVariants
-import app.epistola.suite.handlers.filterToUsedDescriptors
+import app.epistola.suite.handlers.AuthContext
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.executeOrFormError
@@ -37,21 +33,20 @@ import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.requirePermission
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.DeleteDataExample
 import app.epistola.suite.templates.commands.DeleteDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDataExample
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.contracts.commands.CreateContractVersion
-import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.DataExamples
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.templates.queries.ListTemplateSummaries
 import app.epistola.suite.templates.queries.TemplateSort
-import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.MigrationSuggestion
@@ -135,7 +130,7 @@ internal val EDITOR_FEATURES: Map<String, FeatureKey> = mapOf(
 /**
  * Handles core template CRUD operations and template detail views.
  * Variant operations are handled by [VariantRouteHandler].
- * Version lifecycle operations are handled by [VersionRouteHandler].
+ * Saving a variant's working model is handled by `VariantContentHandler`.
  * Preview generation is handled by [TemplatePreviewHandler].
  */
 @Component
@@ -470,7 +465,7 @@ class DocumentTemplateHandler(
         val template = GetDocumentTemplate(id = templateId).query()
             ?: return ServerResponse.notFound().build()
 
-        val contractVersion = GetLatestContractVersion(templateId = templateId).query()
+        val dataContract = GetDataContract(templateId = templateId).query()
 
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
@@ -478,8 +473,8 @@ class DocumentTemplateHandler(
                 mapOf(
                     "id" to template.id,
                     "name" to template.name,
-                    "dataModel" to contractVersion?.dataModel,
-                    "dataExamples" to (contractVersion?.dataExamples ?: DataExamples.EMPTY),
+                    "dataModel" to dataContract?.dataModel,
+                    "dataExamples" to (dataContract?.dataExamples ?: DataExamples.EMPTY),
                     "createdAt" to template.createdAt,
                     "updatedAt" to template.updatedAt,
                 ),
@@ -643,9 +638,9 @@ class DocumentTemplateHandler(
         val validateRequest = objectMapper.readValue(body, ValidateSchemaRequest::class.java)
 
         // Get existing contract version to use its examples if not provided in request
-        val contractVersion = GetLatestContractVersion(templateId = templateId).query()
+        val dataContract = GetDataContract(templateId = templateId).query()
 
-        val examplesToValidate = validateRequest.examples ?: contractVersion?.dataExamples ?: DataExamples.EMPTY
+        val examplesToValidate = validateRequest.examples ?: dataContract?.dataExamples ?: DataExamples.EMPTY
 
         val result = jsonSchemaValidator.analyzeCompatibility(
             schema = validateRequest.schema,
@@ -708,11 +703,6 @@ class DocumentTemplateHandler(
             ?: return ServerResponse.badRequest().build()
         val exampleId = request.pathVariable("exampleId")
 
-        // The editor can show examples from the latest published contract when no draft exists yet.
-        // Materialize that published contract as a draft before applying the deletion.
-        CreateContractVersion(templateId = templateId).execute()
-            ?: return ServerResponse.notFound().build()
-
         val result = try {
             DeleteDataExample(
                 templateId = templateId,
@@ -734,26 +724,8 @@ class DocumentTemplateHandler(
     fun detail(request: ServerRequest): ServerResponse {
         val ctx = detailHelper.loadContext(request) ?: return ServerResponse.notFound().build()
 
-        val variants = GetVariantSummaries(templateId = ctx.templateId).query()
-        val attributeDefinitions = ListAttributeDefinitions(tenantId = ctx.templateId.tenantId).query()
-        val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)
-        val attributeOptions = buildAttributeOptions(attributeDefinitions)
-        val decoratedVariants = decorateVariants(variants, attributeDescriptors)
-        val usedDescriptors = filterToUsedDescriptors(attributeDescriptors, decoratedVariants)
-        val contractVersion = GetLatestContractVersion(templateId = ctx.templateId).query()
-
-        return detailHelper.renderDetailPage(
-            ctx,
-            "variants",
-            mapOf(
-                "variants" to decoratedVariants,
-                "attributeDescriptors" to attributeDescriptors,
-                "usedAttributeDescriptors" to usedDescriptors,
-                "attributeDefinitions" to attributeDefinitions,
-                "attributeOptions" to attributeOptions,
-                "contractDataExamples" to contractVersion?.dataExamples,
-            ),
-        )
+        val auth = AuthContext.from(SecurityContext.current(), ctx.templateId.tenantKey)
+        return detailHelper.renderDetailPage(ctx, "variants", variantsModel(ctx.templateId, ctx.editable, auth))
     }
 
     fun delete(request: ServerRequest): ServerResponse {

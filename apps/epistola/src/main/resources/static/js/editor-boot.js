@@ -82,186 +82,99 @@ async function mount(container) {
         return await resp.json();
       },
     },
-    stencilOptions: {
-      checkUpgrades: async (refs) => {
-        const uniqueKeys = [...new Set(refs.map((r) => r.catalogKey + '/' + r.stencilId))];
-        const results = [];
-        for (const key of uniqueKeys) {
-          const [cat, sid] = key.split('/');
-          const resp = await fetch(
-            '/tenants/' + tenantId + '/stencils/' + cat + '/' + sid + '/versions',
-            {
-              headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
-            },
-          );
-          if (!resp.ok) continue;
-          const data = await resp.json();
-          const versions = data.items ?? data;
-          const latestPublished = versions
-            .filter((v) => v.status === 'published')
-            .toSorted((a, b) => b.version - a.version)[0];
-          if (latestPublished) {
-            const currentVersions = refs.filter((r) => r.stencilId === sid && r.catalogKey === cat);
-            for (const ref of currentVersions) {
-              if (latestPublished.version > ref.version) {
-                results.push({
-                  stencilId: sid,
-                  currentVersion: ref.version,
-                  latestVersion: latestPublished.version,
-                });
-              }
-            }
-          }
-        }
-        return results;
-      },
-      searchStencils: async (query) => {
-        const params = new URLSearchParams();
-        if (query) params.set('q', query);
-        const resp = await fetch('/tenants/' + tenantId + '/stencils/search?' + params, {
-          headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
-        });
-        if (!resp.ok) return [];
-        const data = await resp.json();
-        return data.items ?? data;
-      },
-      listVersions: async (ref) => {
-        const resp = await fetch(
-          '/tenants/' +
-            tenantId +
-            '/stencils/' +
-            ref.catalogKey +
-            '/' +
-            ref.stencilId +
-            '/versions',
-          {
-            headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
-          },
-        );
-        if (!resp.ok) return [];
-        const data = await resp.json();
-        return data.items ?? data;
-      },
-      getStencilVersion: async (ref, version) => {
-        const resp = await fetch(
-          '/tenants/' +
-            tenantId +
-            '/stencils/' +
-            ref.catalogKey +
-            '/' +
-            ref.stencilId +
-            '/versions/' +
-            version,
-          {
-            headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
-          },
-        );
+    // A stencil has one working copy and no versions (contract ADR 0002/0006): templates use it by
+    // reference. Until the editor drops its version-shaped stencil callbacks, they are answered from
+    // the working copy: every "version" is the working copy, nothing is ever upgradable, editing
+    // needs no draft, and "publish" marks the stencil ready.
+    stencilOptions: (() => {
+      const jsonHeaders = () => ({
+        Accept: 'application/json',
+        'X-XSRF-TOKEN': window.getCsrfToken(),
+      });
+      const stencilUrl = (ref) =>
+        '/tenants/' + tenantId + '/stencils/' + ref.catalogKey + '/' + ref.stencilId;
+      const errorMessage = async (resp, fallback) => {
+        const err = await resp.json().catch(() => ({}));
+        return err.detail || err.message || err.error || fallback;
+      };
+      const workingCopy = async (ref, version, status) => {
+        const resp = await fetch(stencilUrl(ref) + '/content', { headers: jsonHeaders() });
         if (!resp.ok) return null;
-        const v = await resp.json();
-        return {
-          ref,
-          stencilName: ref.stencilId,
-          version: v.id ?? version,
-          status: v.status,
-          content: v.content,
-          parameterSchema: v.parameterSchema ?? undefined,
-        };
-      },
-      createStencil: async (slug, name) => {
-        const resp = await fetch('/tenants/' + tenantId + '/stencils', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
-          body: JSON.stringify({ id: slug, name, catalogKey: catalogId }),
-        });
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({}));
-          throw new Error(
-            err.detail || err.message || err.error || 'Stencil ID already exists or invalid',
-          );
-        }
-        const data = await resp.json();
-        return {
-          ref: { stencilId: data.stencilId, catalogKey: data.catalogKey },
-          version: data.version,
-        };
-      },
-      startEditing: async (ref) => {
-        const resp = await fetch(
-          '/tenants/' +
-            tenantId +
-            '/stencils/' +
-            ref.catalogKey +
-            '/' +
-            ref.stencilId +
-            '/versions',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Accept: 'application/problem+json',
-              'X-XSRF-TOKEN': window.getCsrfToken(),
-            },
-            body: '{}',
-          },
-        );
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({}));
-          const message =
-            err.type === 'https://epistola.app/errors/catalog-read-only'
-              ? `Stencil '${ref.stencilId}' belongs to read-only catalog '${ref.catalogKey}'. Detach it to customize it in this template.`
-              : err.detail || err.message || err.error || 'Failed to start editing';
-          throw new Error(message);
-        }
         const data = await resp.json();
         return {
           ref,
-          stencilName: ref.stencilId,
-          version: data.version,
-          status: data.status,
+          stencilName: data.name ?? ref.stencilId,
+          version: version ?? 1,
+          status: status,
           content: data.content,
           parameterSchema: data.parameterSchema ?? undefined,
         };
-      },
-      publishDraft: async (ref, version) => {
-        const resp = await fetch(
-          '/tenants/' +
-            tenantId +
-            '/stencils/' +
-            ref.catalogKey +
-            '/' +
-            ref.stencilId +
-            '/versions/' +
-            version +
-            '/publish',
-          {
+      };
+      return {
+        checkUpgrades: async () => [],
+        searchStencils: async (query) => {
+          const params = new URLSearchParams();
+          if (query) params.set('q', query);
+          const resp = await fetch('/tenants/' + tenantId + '/stencils/search?' + params, {
+            headers: jsonHeaders(),
+          });
+          if (!resp.ok) return [];
+          const data = await resp.json();
+          return data.items ?? data;
+        },
+        listVersions: async () => [],
+        getStencilVersion: async (ref, version) => workingCopy(ref, version, 'published'),
+        createStencil: async (slug, name) => {
+          const resp = await fetch('/tenants/' + tenantId + '/stencils', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
-          },
-        );
-        if (!resp.ok) throw new Error('Failed to publish draft');
-        return await resp.json();
-      },
-      updateStencil: async (ref, draftVersion, content, parameterSchema) => {
-        const body = parameterSchema !== undefined ? { content, parameterSchema } : { content };
-        const resp = await fetch(
-          '/tenants/' +
-            tenantId +
-            '/stencils/' +
-            ref.catalogKey +
-            '/' +
-            ref.stencilId +
-            '/versions/' +
-            draftVersion,
-          {
+            body: JSON.stringify({ id: slug, name, catalogKey: catalogId }),
+          });
+          if (!resp.ok) {
+            throw new Error(await errorMessage(resp, 'Stencil ID already exists or invalid'));
+          }
+          const data = await resp.json();
+          return { ref: { stencilId: data.stencilId, catalogKey: data.catalogKey }, version: 1 };
+        },
+        startEditing: async (ref) => {
+          const resp = await fetch(stencilUrl(ref) + '/content', { headers: jsonHeaders() });
+          if (!resp.ok) throw new Error(await errorMessage(resp, 'Failed to start editing'));
+          const data = await resp.json();
+          if (!data.editable) {
+            throw new Error(
+              `Stencil '${ref.stencilId}' belongs to read-only catalog '${ref.catalogKey}'. Detach it to customize it in this template.`,
+            );
+          }
+          return {
+            ref,
+            stencilName: data.name ?? ref.stencilId,
+            version: 1,
+            status: 'draft',
+            content: data.content,
+            parameterSchema: data.parameterSchema ?? undefined,
+          };
+        },
+        publishDraft: async (ref, version) => {
+          const resp = await fetch(stencilUrl(ref) + '/ready', {
+            method: 'POST',
+            headers: jsonHeaders(),
+          });
+          if (!resp.ok)
+            throw new Error(await errorMessage(resp, 'Failed to mark the stencil ready'));
+          return { version: version ?? 1, status: 'published' };
+        },
+        updateStencil: async (ref, _version, content, parameterSchema) => {
+          const body = parameterSchema !== undefined ? { content, parameterSchema } : { content };
+          const resp = await fetch(stencilUrl(ref) + '/content', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
             body: JSON.stringify(body),
-          },
-        );
-        if (!resp.ok) throw new Error('Failed to update stencil');
-        return await resp.json();
-      },
-    },
+          });
+          if (!resp.ok) throw new Error(await errorMessage(resp, 'Failed to update stencil'));
+          return { version: 1 };
+        },
+      };
+    })(),
     onSave: async (template) => {
       const response = await fetch(
         '/tenants/' +
@@ -272,7 +185,7 @@ async function mount(container) {
           templateId +
           '/variants/' +
           variantId +
-          '/draft',
+          '/content',
         {
           method: 'PUT',
           headers: {
@@ -285,7 +198,7 @@ async function mount(container) {
       );
 
       if (!response.ok) {
-        let message = response.statusText || 'Failed to save draft';
+        let message = response.statusText || 'Failed to save';
         let type = null;
         let field = null;
         const text = await response.text().catch(() => '');
@@ -293,7 +206,7 @@ async function mount(container) {
           try {
             const body = JSON.parse(text);
             // `detail` = problem+json (unexpected errors); `message` =
-            // the draft validation envelope; `error` = legacy UI envelope.
+            // the validation envelope; `error` = legacy UI envelope.
             message = body.detail || body.message || body.error || message;
             type = body.type || null;
             field = (body.errors && body.errors[0] && body.errors[0].field) || null;

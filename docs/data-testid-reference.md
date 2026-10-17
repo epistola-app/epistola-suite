@@ -46,10 +46,23 @@ for that consumer.
 
 ### Template Variants
 
-| `data-testid`           | Attached to                                                | Covers                               |
-| ----------------------- | ---------------------------------------------------------- | ------------------------------------ |
-| `variant-create-open`   | "+ New Variant" button on `templates/detail/variants.html` | Opening the create-variant dialog    |
-| `variant-create-submit` | Submit button inside `#create-variant-dialog`              | Submitting the variant creation form |
+| `data-testid`           | Attached to                                                | Covers                                        |
+| ----------------------- | ---------------------------------------------------------- | --------------------------------------------- |
+| `variant-create-open`   | "+ New Variant" button on `templates/detail/variants.html` | Opening the create-variant dialog             |
+| `variant-create-submit` | Submit button inside `#create-variant-dialog`              | Submitting the variant creation form          |
+| `variant-ready`         | "Ready" badge on a variant card                            | A variant whose working model is marked ready |
+| `variant-not-ready`     | "Not ready" badge on a variant card                        | A variant with unmarked changes               |
+| `variant-mark-ready`    | "Mark ready" button on a variant card                      | Marking one variant ready                     |
+| `template-mark-ready`   | "Mark all variants ready" button above the variant grid    | Marking every variant of the template ready   |
+
+### Stencils
+
+| `data-testid`                         | Attached to                                   | Covers                                    |
+| ------------------------------------- | --------------------------------------------- | ----------------------------------------- |
+| `stencil-ready` / `stencil-not-ready` | Readiness badge on `stencils/detail.html`     | Whether the working copy is marked ready  |
+| `stencil-mark-ready`                  | "Mark ready" button on `stencils/detail.html` | Marking the stencil ready                 |
+| `stencil-reads-template-data`         | Checkbox on `stencils/detail.html`            | Whether the stencil reads template data   |
+| `stencil-usage-row`                   | `<tr>` of the usage list                      | A variant using the stencil, with its fit |
 
 ### Themes
 
@@ -66,10 +79,20 @@ for that consumer.
 
 ### Catalogs
 
-| `data-testid`           | Attached to                                  | Covers                               |
-| ----------------------- | -------------------------------------------- | ------------------------------------ |
-| `catalog-create-open`   | "New Catalog" button on `catalogs/list.html` | Opening the create-catalog dialog    |
-| `catalog-create-submit` | Submit button inside `#create-dialog`        | Submitting the catalog creation form |
+| `data-testid`                                                | Attached to                                                                  | Covers                                       |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------- | -------------------------------------------- |
+| `catalog-create-open`                                        | "New Catalog" button on `catalogs/list.html`                                 | Opening the create-catalog dialog            |
+| `catalog-create-submit`                                      | Submit button inside `#create-dialog`                                        | Submitting the catalog creation form         |
+| `catalog-next-release`                                       | "Next release" card on `catalogs/browse.html` (`catalogs/next-release.html`) | The draft, its changes and dependencies      |
+| `catalog-draft-version`                                      | The draft's version in that card                                             | The number the next release gets             |
+| `catalog-renumber-open`                                      | "Renumber" button                                                            | Opening the renumber dialog                  |
+| `catalog-mark-ready`                                         | "Mark all ready" button                                                      | Marking every changed resource ready         |
+| `catalog-release-open`                                       | "Release" button (only while nothing blocks it)                              | Opening the release dialog                   |
+| `catalog-release-blocked`                                    | Alert saying why Release is withheld                                         | Unready resources / unresolved dependencies  |
+| `catalog-change-row`                                         | `<tr>` per changed resource (paired with `data-resource`)                    | A resource's state and readiness             |
+| `catalog-dependencies-edit` / `catalog-dependencies-resolve` | Dependency actions                                                           | Editing declarations / resolving locks       |
+| `catalog-dependency-row`                                     | `<tr>` per declared dependency                                               | A declaration and its lock                   |
+| `release-submit`                                             | Submit button of the release dialog                                          | Present only when the release can go through |
 
 ### Feature Toggles
 

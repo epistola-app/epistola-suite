@@ -7,6 +7,7 @@ package app.epistola.suite.catalog
 import app.epistola.catalog.protocol.AttributeAssignment
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.common.ids.CatalogId
@@ -53,7 +54,8 @@ class CatalogReleaseDetailTest : BaseIntegrationTest() {
                         keywords = setOf("frozen-keyword"),
                     ).execute()
                     CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand theme").execute()
-                    ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.0.0", notes = "the first").execute()
+                    MarkCatalogReady(tenant.id, catalogKey).execute()
+                    ReleaseCatalogVersion(tenant.id, catalogKey, version = "1.0.0", notes = "the first").execute()
 
                     // Everything the release recorded, changed afterwards.
                     UpdateCatalogMetadata(

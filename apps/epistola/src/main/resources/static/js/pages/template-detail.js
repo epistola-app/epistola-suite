@@ -9,7 +9,7 @@
 // `document` so it works for content present at load AND content swapped in
 // later by HTMX (the shell uses hx-boost, so page navigation is a body swap).
 //
-// Hooks (declared by templates/templates/** and fragments/version-comparison.html):
+// Hooks (declared by templates/templates/**):
 //   [data-template-name-input]   settings: keyboard UX for the rename input (Enter
 //                                commits, Escape reverts); the rename itself is a
 //                                native hx-patch in the template
@@ -19,10 +19,6 @@
 //                                [data-attr-rows] scope
 //   select[data-filter-key]      variants tab (#variant-filter-bar): attribute filter
 //                                for the variant card grid
-//   [data-compare-versions]      version-comparison dialog: runs the side-by-side compare
-//   [data-show-dialog-on-swap]   after an HTMX swap targets this element, its
-//                                enclosing <dialog> is opened — handled app-wide
-//                                in behaviors.js (not here)
 //   [data-contract-editor]       data-contract tab: mounts the data-contract editor on
 //                                htmx:load (idempotent via data-editor-mounted)
 //   [data-pdf-preview]           handled by /js/pdf-preview.js
@@ -110,135 +106,11 @@
     if (select) filterVariants();
   });
 
-  // Re-apply the active filters after the variant grid is swapped (publish,
-  // discard, set-default, delete all target #variants-section).
+  // Re-apply the active filters after the variant grid is swapped (mark ready,
+  // set-default, delete all target #variants-section).
   document.addEventListener('htmx:afterSwap', function (event) {
     if (event.detail.target && event.detail.target.id === 'variants-section') filterVariants();
   });
-
-  // ── Version comparison (dialog in fragments/version-comparison.html) ──────
-  let comparisonBlobUrls = [];
-
-  function cleanupBlobUrls() {
-    comparisonBlobUrls.forEach(function (url) {
-      URL.revokeObjectURL(url);
-    });
-    comparisonBlobUrls = [];
-  }
-
-  // Opening the comparison dialog is plain HTMX (hx-get on the trigger) plus
-  // the app-wide data-open-dialog hook in behaviors.js — no JS here. Running
-  // the compare stays below: the previews are PDF blobs, which HTMX can't swap.
-
-  document.addEventListener('click', function (event) {
-    const button = event.target.closest && event.target.closest('[data-compare-versions]');
-    if (button) compareVersions();
-  });
-
-  // <dialog> `close` does not bubble; a capture-phase listener on document
-  // still sees it, so this works however the dialog gets closed.
-  document.addEventListener(
-    'close',
-    function (event) {
-      if (event.target && event.target.id === 'version-comparison-dialog') cleanupBlobUrls();
-    },
-    true,
-  );
-
-  async function compareVersions() {
-    const config = JSON.parse(document.getElementById('comparison-config').textContent);
-    const versionA = document.getElementById('compare-version-a').value;
-    const versionB = document.getElementById('compare-version-b').value;
-
-    const exampleSelect = document.getElementById('compare-example');
-    let exampleData = {};
-    if (exampleSelect) {
-      const exampleId = exampleSelect.value;
-      const dataScript = document.querySelector(
-        '.comparison-example-data[data-example-id="' + exampleId + '"]',
-      );
-      if (dataScript) {
-        try {
-          exampleData = JSON.parse(dataScript.textContent);
-        } catch (_) {
-          exampleData = {};
-        }
-      }
-    }
-
-    cleanupBlobUrls();
-
-    ['a', 'b'].forEach(function (side) {
-      document.getElementById('comparison-empty-' + side).style.display = 'none';
-      document.getElementById('comparison-loading-' + side).style.display = 'flex';
-      document.getElementById('comparison-frame-' + side).style.display = 'none';
-    });
-
-    document.getElementById('comparison-label-a').textContent = 'v' + versionA;
-    document.getElementById('comparison-label-b').textContent = 'v' + versionB;
-
-    const previewUrl =
-      '/tenants/' +
-      config.tenantId +
-      '/templates/' +
-      config.catalogId +
-      '/' +
-      config.templateId +
-      '/variants/' +
-      config.variantId +
-      '/preview';
-
-    try {
-      const results = await Promise.all([
-        fetch(previewUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken() },
-          body: JSON.stringify({ data: exampleData, versionId: parseInt(versionA) }),
-        }),
-        fetch(previewUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken() },
-          body: JSON.stringify({ data: exampleData, versionId: parseInt(versionB) }),
-        }),
-      ]);
-
-      if (!results[0].ok || !results[1].ok) {
-        const errorSide = !results[0].ok ? 'A' : 'B';
-        const errorResponse = !results[0].ok ? results[0] : results[1];
-        const errorText = await errorResponse.text();
-        throw new Error(
-          'Failed to generate Version ' +
-            errorSide +
-            ': ' +
-            (errorText || 'HTTP ' + errorResponse.status),
-        );
-      }
-
-      const blobs = await Promise.all([results[0].blob(), results[1].blob()]);
-      const urlA = URL.createObjectURL(blobs[0]);
-      const urlB = URL.createObjectURL(blobs[1]);
-      comparisonBlobUrls.push(urlA, urlB);
-
-      document.getElementById('comparison-frame-a').src = urlA;
-      document.getElementById('comparison-frame-b').src = urlB;
-
-      ['a', 'b'].forEach(function (side) {
-        document.getElementById('comparison-loading-' + side).style.display = 'none';
-        document.getElementById('comparison-frame-' + side).style.display = 'block';
-      });
-    } catch (error) {
-      console.error('Version comparison failed:', error);
-      alert('Failed to compare versions: ' + error.message);
-      ['a', 'b'].forEach(function (side) {
-        document.getElementById('comparison-loading-' + side).style.display = 'none';
-        document.getElementById('comparison-empty-' + side).style.display = 'flex';
-      });
-    }
-  }
-
-  // [data-show-dialog-on-swap] (data-contract "breaking changes" dialog) is
-  // handled by the single app-wide open-on-swap routine in behaviors.js — no
-  // per-page listener here anymore.
 
   // ── Data-contract tab: mount the data-contract editor ─────────────────────
   function parseJsonScript(id, fallback) {
@@ -260,23 +132,12 @@
     if (!tenantId || !catalogId || !templateId) return;
     container.dataset.editorMounted = 'true';
 
-    const statusBar = document.getElementById('contract-status-bar');
-    const statusBarUrl = statusBar && statusBar.dataset ? statusBar.dataset.statusUrl : undefined;
-
-    async function refreshStatusBar() {
-      if (statusBarUrl && typeof htmx !== 'undefined') {
-        await htmx.ajax('GET', statusBarUrl, {
-          target: '#contract-status-bar',
-          swap: 'outerHTML',
-        });
-      }
-    }
-
     const initialSchema = parseJsonScript('data-contract-schema', null);
     const initialExamples = parseJsonScript('data-contract-examples', []);
     const { mountDataContractEditor } = await import('/editor/data-contract-editor.js');
 
-    const contractBasePath = `/tenants/${tenantId}/templates/${catalogId}/${templateId}/contract`;
+    // The template's one data contract, edited in place (PATCH).
+    const contractUrl = `/tenants/${tenantId}/templates/${catalogId}/${templateId}/contract`;
     const jsonHeaders = { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken() };
 
     mountDataContractEditor({
@@ -294,7 +155,7 @@
               try {
                 const body = { dataModel: schema, forceUpdate };
                 if (dataExamples) body.dataExamples = dataExamples;
-                const response = await fetch(`${contractBasePath}/draft`, {
+                const response = await fetch(contractUrl, {
                   method: 'PATCH',
                   headers: jsonHeaders,
                   body: JSON.stringify(body),
@@ -309,7 +170,6 @@
                   };
                 }
                 const result = await response.json();
-                await refreshStatusBar();
                 return { success: true, warnings: result.warnings };
               } catch (e) {
                 return { success: false, error: e.message };
@@ -317,7 +177,7 @@
             },
             onSaveDataExamples: async (examples) => {
               try {
-                const response = await fetch(`${contractBasePath}/draft`, {
+                const response = await fetch(contractUrl, {
                   method: 'PATCH',
                   headers: jsonHeaders,
                   body: JSON.stringify({ dataExamples: examples }),
@@ -332,7 +192,6 @@
                   };
                 }
                 const result = await response.json();
-                await refreshStatusBar();
                 return { success: true, warnings: result.warnings };
               } catch (e) {
                 return { success: false };

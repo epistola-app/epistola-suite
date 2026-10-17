@@ -76,7 +76,7 @@
                 <select id="catalog-icon" class="ep-input" name="iconAssetSlug">
                     <option value="">No icon</option>
                     <option th:each="image : ${images}" th:value="${image.id}" th:text="${image.name}"
-                            th:selected="${catalog.catalogMetadata.presentation != null and image.id.toString() == catalog.catalogMetadata.presentation.iconAssetSlug}"></option>
+                            th:selected="${catalog.catalogMetadata.presentation != null and image.id.toString() == catalog.catalogMetadata.presentation.iconImageKey}"></option>
                 </select>
 
                 <div style="margin-top: var(--ep-space-3);">

@@ -209,11 +209,16 @@ draft, a stencil without a draft, and every other resource. `template_versions` 
 
 ## Cutting a release (AUTHORED)
 
-The web UI catalog list shows a **Release new version** action (AUTHORED only)
-opening a dialog: Patch / Minor / Major quick-picks, an editable SemVer field,
-release notes, a drift line ("This working copy has unreleased changes" vs
-"No changes since the last release") and — named, not counted — what this
-release will add, update and drop. It dispatches
+An authored catalog's page has a **Next release** section (`catalogs/next-release.html`): the
+draft's version number with **Renumber** (a dialog; warnings are shown to acknowledge, refusals —
+a number in use, or not above every release — as a field error), every resource that changed since
+the last release with its state and whether it is ready, **Mark all ready**, and the declared
+**Dependencies** with their locks (edited in a dialog: a catalog and an npm range per row; **Resolve
+to latest** moves the locks). **Release** is offered only while nothing blocks it; otherwise the
+section says which resources are not ready or which dependencies match no release, and where to fix
+it. The page and the release dialog gate on the same read model, `CatalogReleaseReadiness`. The
+dialog (also reachable from the catalog list) pre-fills the draft's number, offers Patch / Minor /
+Major quick-picks and release notes, and names what this release will add, update and drop. It dispatches
 [`ReleaseCatalogVersion`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/ReleaseCatalogVersion.kt):
 AUTHORED-only, refuses while a changed resource is not [ready](#ready-marks),
 parses + monotonic-checks the SemVer, computes the fingerprint,

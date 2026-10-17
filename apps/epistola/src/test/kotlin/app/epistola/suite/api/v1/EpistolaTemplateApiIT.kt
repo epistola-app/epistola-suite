@@ -24,8 +24,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.model.VersionStatus
-import app.epistola.suite.templates.queries.versions.ListVersions
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestcontainersConfiguration
@@ -79,9 +78,9 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val (tenantKey, key) = seedTenantAndKey()
         val slug = "test-${randomSuffix()}"
 
-        val body = """{"id": "$slug", "name": "Test Template"}"""
+        val body = """{"key": "$slug", "name": "Test Template"}"""
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
             HttpEntity(body, baseHeaders(key)),
             String::class.java,
@@ -89,9 +88,9 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED)
         val json = response.body!!
-        assertThat(JsonPath.read<String>(json, "$.slug")).isEqualTo(slug)
+        assertThat(JsonPath.read<String>(json, "$.key")).isEqualTo(slug)
         assertThat(JsonPath.read<String>(json, "$.name")).isEqualTo("Test Template")
-        assertThat(JsonPath.read<String>(json, "$.tenantId")).isEqualTo(tenantKey.value)
+        assertThat(JsonPath.read<String>(json, "$.tenantKey")).isEqualTo(tenantKey.value)
         val variants: List<Any> = JsonPath.read(json, "$.variants")
         assertThat(variants).hasSize(1)
         assertThat(JsonPath.read<Boolean>(json, "$.variants[0].isDefault")).isTrue
@@ -115,7 +114,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         // A move leaves nothing behind: an integration configured against the old address has to be
         // updated. That is the crude move's accepted cost, and why the move preview warns about it.
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            "${draft(tenantKey)}/templates/$slug",
             HttpMethod.GET,
             HttpEntity<Void>(baseHeaders(key)),
             String::class.java,
@@ -138,14 +137,14 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         }
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Replacement"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Replacement"}""", baseHeaders(key)),
             String::class.java,
         )
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED)
-        assertThat(JsonPath.read<String>(response.body!!, "$.slug")).isEqualTo(slug)
+        assertThat(JsonPath.read<String>(response.body!!, "$.key")).isEqualTo(slug)
     }
 
     @Test
@@ -154,9 +153,9 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "denied-${randomSuffix()}"
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Should Be Denied"}""", baseHeaders(viewerKey)),
+            HttpEntity("""{"key": "$slug", "name": "Should Be Denied"}""", baseHeaders(viewerKey)),
             String::class.java,
         )
 
@@ -179,14 +178,14 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
 
         // Create a template first
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "List Test"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "List Test"}""", baseHeaders(key)),
             String::class.java,
         )
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -194,7 +193,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val json = response.body!!
-        val ids: List<String> = JsonPath.read(json, "$.items[*].slug")
+        val ids: List<String> = JsonPath.read(json, "$.items[*].key")
         assertThat(ids).contains(slug)
         val names: List<String> = JsonPath.read(json, "$.items[*].name")
         assertThat(names).contains("List Test")
@@ -206,14 +205,14 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "get-${randomSuffix()}"
 
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Get Test"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Get Test"}""", baseHeaders(key)),
             String::class.java,
         )
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            "${draft(tenantKey)}/templates/$slug",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -221,9 +220,9 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val json = response.body!!
-        assertThat(JsonPath.read<String>(json, "$.slug")).isEqualTo(slug)
+        assertThat(JsonPath.read<String>(json, "$.key")).isEqualTo(slug)
         assertThat(JsonPath.read<String>(json, "$.name")).isEqualTo("Get Test")
-        assertThat(JsonPath.read<String>(json, "$.tenantId")).isEqualTo(tenantKey.value)
+        assertThat(JsonPath.read<String>(json, "$.tenantKey")).isEqualTo(tenantKey.value)
     }
 
     @Test
@@ -232,14 +231,14 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "upd-${randomSuffix()}"
 
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Original"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Original"}""", baseHeaders(key)),
             String::class.java,
         )
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            "${draft(tenantKey)}/templates/$slug",
             HttpMethod.PATCH,
             HttpEntity("""{"name": "Updated"}""", baseHeaders(key)),
             String::class.java,
@@ -255,18 +254,18 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "dm-${randomSuffix()}"
 
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Has Model"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Has Model"}""", baseHeaders(key)),
             String::class.java,
         )
 
         val dataModel = """{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}"""
         val patch = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            "${draft(tenantKey)}/templates/$slug",
             HttpMethod.PATCH,
             HttpEntity(
-                """{"dataModel": $dataModel, "dataExamples": [{"id":"ex1","name":"Example 1","data":{"name":"Ada"}}]}""",
+                """{"dataModel": $dataModel, "dataExamples": [{"key":"ex1","name":"Example 1","data":{"name":"Ada"}}]}""",
                 baseHeaders(key),
             ),
             String::class.java,
@@ -275,7 +274,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(patch.body!!, "$.dataModel.type")).isEqualTo("object")
 
         val get = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            "${draft(tenantKey)}/templates/$slug",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -291,14 +290,14 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "required-example-${randomSuffix()}"
 
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Required Example"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Required Example"}""", baseHeaders(key)),
             String::class.java,
         )
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            "${draft(tenantKey)}/templates/$slug",
             HttpMethod.PATCH,
             HttpEntity("""{"dataModel":{"type":"object"}}""", baseHeaders(key)),
             String::class.java,
@@ -318,17 +317,17 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "inv-${randomSuffix()}"
 
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Invalid Examples"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Invalid Examples"}""", baseHeaders(key)),
             String::class.java,
         )
 
         // Schema requires "name"; the example omits it → incompatible.
         val dataModel = """{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}"""
-        val examples = """[{"id":"ex1","name":"Bad","data":{"unexpected":"value"}}]"""
+        val examples = """[{"key":"ex1","name":"Bad","data":{"unexpected":"value"}}]"""
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            "${draft(tenantKey)}/templates/$slug",
             HttpMethod.PATCH,
             HttpEntity("""{"dataModel": $dataModel, "dataExamples": $examples}""", baseHeaders(key)),
             String::class.java,
@@ -351,16 +350,16 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "force-${randomSuffix()}"
 
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Forced"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Forced"}""", baseHeaders(key)),
             String::class.java,
         )
 
         val dataModel = """{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}"""
-        val examples = """[{"id":"ex1","name":"Bad","data":{"unexpected":"value"}}]"""
+        val examples = """[{"key":"ex1","name":"Bad","data":{"unexpected":"value"}}]"""
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            "${draft(tenantKey)}/templates/$slug",
             HttpMethod.PATCH,
             HttpEntity("""{"dataModel": $dataModel, "dataExamples": $examples, "forceUpdate": true}""", baseHeaders(key)),
             String::class.java,
@@ -370,50 +369,41 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `update template with a breaking schema change is rejected without forceUpdate`() {
+    fun `a breaking schema change is saved to the draft without forceUpdate`() {
+        // A draft is never rendered, so no caller can be broken by editing it: what a breaking
+        // change costs is decided when the draft is numbered and released (contract ADR 0002).
         val (tenantKey, key) = seedTenantAndKey()
         val slug = "brk-${randomSuffix()}"
 
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Breaking"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Breaking"}""", baseHeaders(key)),
             String::class.java,
         )
-        // Publish v1 with name:string.
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            "${draft(tenantKey)}/templates/$slug",
             HttpMethod.PATCH,
             HttpEntity(
-                """{"dataModel":{"type":"object","properties":{"name":{"type":"string"}}},"dataExamples":[{"id":"ex1","name":"Example 1","data":{"name":"Ada"}}]}""",
+                """{"dataModel":{"type":"object","properties":{"name":{"type":"string"}}},"dataExamples":[{"key":"ex1","name":"Example 1","data":{"name":"Ada"}}]}""",
                 baseHeaders(key),
             ),
             String::class.java,
         )
 
-        // Change name:string -> name:integer is a breaking type change.
-        val breaking =
-            """{"dataModel":{"type":"object","properties":{"name":{"type":"integer"}}},"dataExamples":[{"id":"ex1","name":"Example 1","data":{"name":42}}]}"""
-        val rejected = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+        // name:string -> name:integer is a breaking type change.
+        val breaking = restTemplate.exchange(
+            "${draft(tenantKey)}/templates/$slug",
             HttpMethod.PATCH,
-            HttpEntity(breaking, baseHeaders(key)),
+            HttpEntity(
+                """{"dataModel":{"type":"object","properties":{"name":{"type":"integer"}}},"dataExamples":[{"key":"ex1","name":"Example 1","data":{"name":42}}]}""",
+                baseHeaders(key),
+            ),
             String::class.java,
         )
-        assertThat(rejected.statusCode).isEqualTo(HttpStatus.CONFLICT)
-        assertThat(rejected.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
-        assertThat(JsonPath.read<String>(rejected.body!!, "$.type"))
-            .isEqualTo("https://epistola.app/errors/contract-publish-conflict")
-        assertThat(JsonPath.read<List<Any>>(rejected.body!!, "$.breakingChanges")).isNotEmpty
 
-        // The previously published model is unchanged.
-        val get = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
-            HttpMethod.GET,
-            HttpEntity<String>(null, baseHeaders(key)),
-            String::class.java,
-        )
-        assertThat(JsonPath.read<String>(get.body!!, "$.dataModel.properties.name.type")).isEqualTo("string")
+        assertThat(breaking.statusCode).`as`(breaking.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(breaking.body!!, "$.dataModel.properties.name.type")).isEqualTo("integer")
     }
 
     @Test
@@ -422,25 +412,25 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "brkf-${randomSuffix()}"
 
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Breaking Forced"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Breaking Forced"}""", baseHeaders(key)),
             String::class.java,
         )
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            "${draft(tenantKey)}/templates/$slug",
             HttpMethod.PATCH,
             HttpEntity(
-                """{"dataModel":{"type":"object","properties":{"name":{"type":"string"}}},"dataExamples":[{"id":"ex1","name":"Example 1","data":{"name":"Ada"}}]}""",
+                """{"dataModel":{"type":"object","properties":{"name":{"type":"string"}}},"dataExamples":[{"key":"ex1","name":"Example 1","data":{"name":"Ada"}}]}""",
                 baseHeaders(key),
             ),
             String::class.java,
         )
 
         val breaking =
-            """{"dataModel":{"type":"object","properties":{"name":{"type":"integer"}}},"dataExamples":[{"id":"ex1","name":"Example 1","data":{"name":42}}],"forceUpdate":true}"""
+            """{"dataModel":{"type":"object","properties":{"name":{"type":"integer"}}},"dataExamples":[{"key":"ex1","name":"Example 1","data":{"name":42}}],"forceUpdate":true}"""
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            "${draft(tenantKey)}/templates/$slug",
             HttpMethod.PATCH,
             HttpEntity(breaking, baseHeaders(key)),
             String::class.java,
@@ -450,55 +440,48 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `a rejected breaking change leaves no draft, so data validation still uses the published model`() {
-        // Regression: the create -> update -> publish steps each commit separately, so a
-        // publish rejected as breaking must not leave a dangling draft holding the rejected
-        // schema. validate-data reads the draft-preferred contract, so it would observe such
-        // a leak: data valid under the published model would be rejected by the leaked draft.
+    fun `a breaking change in the draft does not reach data validation until it is released`() {
+        // validate-data checks the release generation renders, not the draft being edited.
         val (tenantKey, key) = seedTenantAndKey()
         val slug = "leak-${randomSuffix()}"
 
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "No Leak"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "No Leak"}""", baseHeaders(key)),
             String::class.java,
         )
-        // Publish v1 with name:string.
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            "${draft(tenantKey)}/templates/$slug",
             HttpMethod.PATCH,
             HttpEntity(
-                """{"dataModel":{"type":"object","properties":{"name":{"type":"string"}}},"dataExamples":[{"id":"ex1","name":"Example 1","data":{"name":"Ada"}}]}""",
+                """{"dataModel":{"type":"object","properties":{"name":{"type":"string"}}},"dataExamples":[{"key":"ex1","name":"Example 1","data":{"name":"Ada"}}]}""",
                 baseHeaders(key),
             ),
             String::class.java,
         )
-
-        // Breaking change name:string -> name:integer without forceUpdate is rejected (409).
-        val rejected = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
-            HttpMethod.PATCH,
-            HttpEntity(
-                """{"dataModel":{"type":"object","properties":{"name":{"type":"integer"}}},"dataExamples":[{"id":"ex1","name":"Example 1","data":{"name":42}}]}""",
-                baseHeaders(key),
-            ),
-            String::class.java,
-        )
-        assertThat(rejected.statusCode).isEqualTo(HttpStatus.CONFLICT)
-
-        // Validation checks the release generation would render. Marking the template ready and
-        // releasing would carry a leaked draft (name:integer) into that release, and a string name
-        // would then be invalid.
         markReadyAndRelease(tenantKey, key, slug)
+
+        // The next draft takes name:integer.
+        val breaking = restTemplate.exchange(
+            "${draft(tenantKey)}/templates/$slug",
+            HttpMethod.PATCH,
+            HttpEntity(
+                """{"dataModel":{"type":"object","properties":{"name":{"type":"integer"}}},"dataExamples":[{"key":"ex1","name":"Example 1","data":{"name":42}}]}""",
+                baseHeaders(key),
+            ),
+            String::class.java,
+        )
+        assertThat(breaking.statusCode).`as`(breaking.body).isEqualTo(HttpStatus.OK)
+
         val validate = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/validate",
+            "${catalog(tenantKey)}/templates/$slug/validate",
             HttpMethod.POST,
             HttpEntity("""{"data": {"name": "hello"}}""", baseHeaders(key)),
             String::class.java,
         )
         assertThat(validate.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<Boolean>(validate.body!!, "$.valid")).isTrue
+        assertThat(JsonPath.read<Boolean>(validate.body!!, "$.valid")).`as`("the release still has name:string").isTrue
     }
 
     @Test
@@ -510,16 +493,16 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "default-${randomSuffix()}"
 
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Default Value"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Default Value"}""", baseHeaders(key)),
             String::class.java,
         )
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            "${draft(tenantKey)}/templates/$slug",
             HttpMethod.PATCH,
             HttpEntity(
-                """{"dataModel":{"type":"object","properties":{"discount":{"type":"integer","default":0}},"required":["discount"]},"dataExamples":[{"id":"ex1","name":"Example 1","data":{"discount":5}}]}""",
+                """{"dataModel":{"type":"object","properties":{"discount":{"type":"integer","default":0}},"required":["discount"]},"dataExamples":[{"key":"ex1","name":"Example 1","data":{"discount":5}}]}""",
                 baseHeaders(key),
             ),
             String::class.java,
@@ -527,7 +510,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         markReadyAndRelease(tenantKey, key, slug)
 
         val validate = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/validate",
+            "${catalog(tenantKey)}/templates/$slug/validate",
             HttpMethod.POST,
             HttpEntity("""{"data": {}}""", baseHeaders(key)),
             String::class.java,
@@ -542,14 +525,14 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "del-${randomSuffix()}"
 
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Delete Me"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Delete Me"}""", baseHeaders(key)),
             String::class.java,
         )
 
         val deleteResp = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            "${draft(tenantKey)}/templates/$slug",
             HttpMethod.DELETE,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -557,7 +540,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(deleteResp.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
 
         val getResp = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            "${draft(tenantKey)}/templates/$slug",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -572,7 +555,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(problem, "$.templateId")).isEqualTo(slug)
         assertThat(JsonPath.read<String>(problem, "$.tenantId")).isEqualTo(tenantKey.value)
         assertThat(JsonPath.read<String>(problem, "$.instance"))
-            .isEqualTo("/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug")
+            .isEqualTo("${draft(tenantKey)}/templates/$slug")
     }
 
     @Test
@@ -580,7 +563,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val (tenantKey, key) = seedTenantAndKey()
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/non-existent",
+            "${draft(tenantKey)}/templates/non-existent",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -598,7 +581,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val (tenantKey, key) = seedTenantAndKey()
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/non-existent",
+            "${draft(tenantKey)}/templates/non-existent",
             HttpMethod.DELETE,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -615,7 +598,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     fun `unauthenticated request returns 401`() {
         val (tenantKey, _) = seedTenantAndKey()
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.GET,
             HttpEntity<String>(null, HttpHeaders()),
             String::class.java,
@@ -630,9 +613,9 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "iso-${randomSuffix()}"
 
         restTemplate.exchange(
-            "/api/tenants/${tenantA.value}/catalogs/default/templates",
+            "${draft(tenantA)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Tenant A Template"}""", baseHeaders(keyA)),
+            HttpEntity("""{"key": "$slug", "name": "Tenant A Template"}""", baseHeaders(keyA)),
             String::class.java,
         )
 
@@ -641,18 +624,18 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
 
         // Tenant B should not see tenant A's template
         val listResponse = restTemplate.exchange(
-            "/api/tenants/${tenantB.value}/catalogs/default/templates",
+            "${draft(tenantB)}/templates",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(keyB)),
             String::class.java,
         )
         assertThat(listResponse.statusCode).isEqualTo(HttpStatus.OK)
-        val ids: List<String> = JsonPath.read(listResponse.body!!, "$.items[*].slug")
+        val ids: List<String> = JsonPath.read(listResponse.body!!, "$.items[*].key")
         assertThat(ids).doesNotContain(slug)
 
         // Tenant B should not be able to get tenant A's template (using B's key on A's URL)
         val getResponse = restTemplate.exchange(
-            "/api/tenants/${tenantA.value}/catalogs/default/templates/$slug",
+            "${draft(tenantA)}/templates/$slug",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(keyB)),
             String::class.java,
@@ -661,7 +644,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
 
         // Tenant B should not be able to access via its own tenant path
         val crossGet = restTemplate.exchange(
-            "/api/tenants/${tenantB.value}/catalogs/default/templates/$slug",
+            "${draft(tenantB)}/templates/$slug",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(keyB)),
             String::class.java,
@@ -673,7 +656,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     fun `list templates returns empty items for tenant with no templates`() {
         val (tenantKey, key) = seedTenantAndKey()
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -690,27 +673,27 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
 
         // Create two templates with distinct names
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "alpha-$suffix", "name": "Alpha Template"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "alpha-$suffix", "name": "Alpha Template"}""", baseHeaders(key)),
             String::class.java,
         )
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "beta-$suffix", "name": "Beta Template"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "beta-$suffix", "name": "Beta Template"}""", baseHeaders(key)),
             String::class.java,
         )
 
         // Search for "Beta" should only return beta template
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates?q=Beta",
+            "${draft(tenantKey)}/templates?q=Beta",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
         )
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        val ids: List<String> = JsonPath.read(response.body!!, "$.items[*].slug")
+        val ids: List<String> = JsonPath.read(response.body!!, "$.items[*].key")
         assertThat(ids).containsExactly("beta-$suffix")
     }
 
@@ -725,36 +708,36 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val secondSlug = "second-${randomSuffix()}"
 
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$defaultSlug", "name": "Default Catalog Template"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$defaultSlug", "name": "Default Catalog Template"}""", baseHeaders(key)),
             String::class.java,
         )
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/$secondCatalog/templates",
+            "${draft(tenantKey, secondCatalog)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$secondSlug", "name": "Second Catalog Template"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$secondSlug", "name": "Second Catalog Template"}""", baseHeaders(key)),
             String::class.java,
         )
 
         val defaultList = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
         )
         assertThat(defaultList.statusCode).isEqualTo(HttpStatus.OK)
-        val defaultIds: List<String> = JsonPath.read(defaultList.body!!, "$.items[*].slug")
+        val defaultIds: List<String> = JsonPath.read(defaultList.body!!, "$.items[*].key")
         assertThat(defaultIds).contains(defaultSlug).doesNotContain(secondSlug)
 
         val secondList = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/$secondCatalog/templates",
+            "${draft(tenantKey, secondCatalog)}/templates",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
         )
         assertThat(secondList.statusCode).isEqualTo(HttpStatus.OK)
-        val secondIds: List<String> = JsonPath.read(secondList.body!!, "$.items[*].slug")
+        val secondIds: List<String> = JsonPath.read(secondList.body!!, "$.items[*].key")
         assertThat(secondIds).contains(secondSlug).doesNotContain(defaultSlug)
     }
 
@@ -768,13 +751,13 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "ver-${randomSuffix()}"
 
         val create = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Version Model"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Version Model"}""", baseHeaders(key)),
             String::class.java,
         )
         assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
-        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].slug")
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].key")
 
         val templateModel = """
             {
@@ -801,7 +784,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             }
         """.trimIndent()
         val draftUrl =
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/content"
+            "${draft(tenantKey)}/templates/$slug/variants/$variantId/content"
 
         val upsert = restTemplate.exchange(
             draftUrl,
@@ -845,13 +828,13 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "js-${randomSuffix()}"
 
         val create = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "JavaScript Model"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "JavaScript Model"}""", baseHeaders(key)),
             String::class.java,
         )
         assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
-        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].slug")
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].key")
 
         val templateModel = """
             {
@@ -875,7 +858,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         """.trimIndent()
 
         val rejected = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/content",
+            "${draft(tenantKey)}/templates/$slug/variants/$variantId/content",
             HttpMethod.PUT,
             HttpEntity("""{"templateModel": $templateModel}""", baseHeaders(key)),
             String::class.java,
@@ -892,29 +875,30 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "wc-life-${randomSuffix()}"
 
         val create = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Working Copy Lifecycle"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Working Copy Lifecycle"}""", baseHeaders(key)),
             String::class.java,
         )
         assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
-        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].slug")
-        val contentUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/content"
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].key")
+        val firstDraft = draft(tenantKey)
+        fun contentUrl(version: String) = "$version/templates/$slug/variants/$variantId/content"
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug",
+            "$firstDraft/templates/$slug",
             HttpMethod.PATCH,
-            HttpEntity("""{"dataExamples":[{"id":"ex1","name":"Example 1","data":{}}]}""", baseHeaders(key)),
+            HttpEntity("""{"dataExamples":[{"key":"ex1","name":"Example 1","data":{}}]}""", baseHeaders(key)),
             String::class.java,
         )
-        fun status(): String = JsonPath.read(
-            restTemplate.exchange(contentUrl, HttpMethod.GET, HttpEntity<String>(null, baseHeaders(key)), String::class.java).body!!,
+        fun status(version: String): String = JsonPath.read(
+            restTemplate.exchange(contentUrl(version), HttpMethod.GET, HttpEntity<String>(null, baseHeaders(key)), String::class.java).body!!,
             "$.status",
         )
 
-        assertThat(status()).`as`("never released, never marked ready").isEqualTo("new")
+        assertThat(status(firstDraft)).`as`("never released, never marked ready").isEqualTo("new")
 
         val ready = restTemplate.exchange(
-            contentUrl.removeSuffix("/content") + "/mark-ready",
+            contentUrl(firstDraft).removeSuffix("/content") + "/mark-ready",
             HttpMethod.POST,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -923,16 +907,29 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(ready.body!!, "$.status")).isEqualTo("ready")
 
         val release = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/release",
+            "$firstDraft/release",
             HttpMethod.POST,
-            HttpEntity("""{"releaseVersion": "1.0.0"}""", baseHeaders(key)),
+            HttpEntity("{}", baseHeaders(key)),
             String::class.java,
         )
         assertThat(release.statusCode).`as`(release.body).isEqualTo(HttpStatus.OK)
-        assertThat(status()).isEqualTo("released")
+        assertThat(JsonPath.read<String>(release.body!!, "$.catalogVersion.version")).isEqualTo("1.0.0")
+        assertThat(JsonPath.read<String>(release.body!!, "$.openedDraft")).isEqualTo("1.0.1")
+        assertThat(status(firstDraft)).`as`("the released version").isEqualTo("released")
+        val nextDraft = draft(tenantKey)
+        assertThat(nextDraft).endsWith("/versions/1.0.1")
+        assertThat(status(nextDraft)).`as`("the next draft, unchanged since the release").isEqualTo("released")
+
+        val editReleased = restTemplate.exchange(
+            contentUrl(firstDraft),
+            HttpMethod.PUT,
+            HttpEntity("""{"templateModel": ${validTemplateModel("body", "edited")}}""", baseHeaders(key)),
+            String::class.java,
+        )
+        assertThat(editReleased.statusCode).`as`("a released version does not change").isEqualTo(HttpStatus.CONFLICT)
 
         val edit = restTemplate.exchange(
-            contentUrl,
+            contentUrl(nextDraft),
             HttpMethod.PUT,
             HttpEntity("""{"templateModel": ${validTemplateModel("body", "edited")}}""", baseHeaders(key)),
             String::class.java,
@@ -941,7 +938,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(edit.body!!, "$.status")).isEqualTo("modified")
 
         val variant = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId",
+            "$nextDraft/templates/$slug/variants/$variantId",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -955,14 +952,14 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "cycle-${randomSuffix()}"
 
         val create = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Cycle Guard"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Cycle Guard"}""", baseHeaders(key)),
             String::class.java,
         )
         assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
-        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].slug")
-        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/content"
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].key")
+        val draftUrl = "${draft(tenantKey)}/templates/$slug/variants/$variantId/content"
 
         val validModel = """
             {
@@ -1052,14 +1049,14 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "root-shape-${randomSuffix()}"
 
         val create = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Root Shape Guard"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Root Shape Guard"}""", baseHeaders(key)),
             String::class.java,
         )
         assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
-        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].slug")
-        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/content"
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].key")
+        val draftUrl = "${draft(tenantKey)}/templates/$slug/variants/$variantId/content"
 
         val valid = restTemplate.exchange(
             draftUrl,
@@ -1125,14 +1122,14 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "unknown-node-${randomSuffix()}"
 
         val create = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Unknown Node"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Unknown Node"}""", baseHeaders(key)),
             String::class.java,
         )
         assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
-        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].slug")
-        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/content"
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].key")
+        val draftUrl = "${draft(tenantKey)}/templates/$slug/variants/$variantId/content"
 
         val model = """
             {
@@ -1167,14 +1164,14 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val slug = "race-${randomSuffix()}"
 
         val create = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Race Guard"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Race Guard"}""", baseHeaders(key)),
             String::class.java,
         )
         assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
-        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].slug")
-        val draftUrl = "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants/$variantId/content"
+        val variantId = JsonPath.read<String>(create.body!!, "$.variants[0].key")
+        val draftUrl = "${draft(tenantKey)}/templates/$slug/variants/$variantId/content"
 
         val executor = java.util.concurrent.Executors.newFixedThreadPool(6)
         val start = java.util.concurrent.CountDownLatch(1)
@@ -1226,11 +1223,11 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             executor.shutdownNow()
         }
 
-        // Concurrent edits and marks never leave two drafts behind one working copy.
-        val statuses = withMediator {
-            ListVersions(variantId = VariantId(VariantKey.of(variantId), TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenantKey))))).query()
-        }.map { it.status }
-        assertThat(statuses.count { it == VersionStatus.DRAFT }).isLessThanOrEqualTo(1)
+        // Concurrent edits and marks leave the variant with one readable working model.
+        val model = withMediator {
+            GetVariantContent(variantId = VariantId(VariantKey.of(variantId), TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenantKey))))).query()
+        }
+        assertThat(model).isNotNull()
     }
 
     /**
@@ -1245,16 +1242,16 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val (tenantKey, key) = seedTenantAndKey()
         val slug = "notitle-${randomSuffix()}"
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "No Title"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "No Title"}""", baseHeaders(key)),
             String::class.java,
         )
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants",
+            "${draft(tenantKey)}/templates/$slug/variants",
             HttpMethod.POST,
-            HttpEntity("""{"id": "english"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "english"}""", baseHeaders(key)),
             String::class.java,
         )
 
@@ -1271,16 +1268,16 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val (tenantKey, key) = seedTenantAndKey()
         val slug = "blank-${randomSuffix()}"
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Blank Title"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Blank Title"}""", baseHeaders(key)),
             String::class.java,
         )
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants",
+            "${draft(tenantKey)}/templates/$slug/variants",
             HttpMethod.POST,
-            HttpEntity("""{"id": "english", "title": "   "}""", baseHeaders(key)),
+            HttpEntity("""{"key": "english", "title": "   "}""", baseHeaders(key)),
             String::class.java,
         )
 
@@ -1293,18 +1290,18 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val (tenantKey, key) = seedTenantAndKey()
         val slug = "wrongtype-${randomSuffix()}"
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Wrong Type"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Wrong Type"}""", baseHeaders(key)),
             String::class.java,
         )
 
         // attributes is Map<String,String>; a scalar cannot bind. This is a *type* failure, not a
         // missing one — it must still name the field, and must not claim the field is "required".
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants",
+            "${draft(tenantKey)}/templates/$slug/variants",
             HttpMethod.POST,
-            HttpEntity("""{"id": "english", "title": "English", "attributes": 42}""", baseHeaders(key)),
+            HttpEntity("""{"key": "english", "title": "English", "attributes": 42}""", baseHeaders(key)),
             String::class.java,
         )
 
@@ -1317,16 +1314,16 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val (tenantKey, key) = seedTenantAndKey()
         val slug = "valid-${randomSuffix()}"
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "$slug", "name": "Valid Title"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "$slug", "name": "Valid Title"}""", baseHeaders(key)),
             String::class.java,
         )
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/variants",
+            "${draft(tenantKey)}/templates/$slug/variants",
             HttpMethod.POST,
-            HttpEntity("""{"id": "english", "title": "English Invoice"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "english", "title": "English Invoice"}""", baseHeaders(key)),
             String::class.java,
         )
 
@@ -1340,15 +1337,15 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         // Seed three templates so a size=2 page splits into two pages.
         repeat(3) { i ->
             restTemplate.exchange(
-                "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+                "${draft(tenantKey)}/templates",
                 HttpMethod.POST,
-                HttpEntity("""{"id": "page-$i-${randomSuffix()}", "name": "Page $i"}""", baseHeaders(key)),
+                HttpEntity("""{"key": "page-$i-${randomSuffix()}", "name": "Page $i"}""", baseHeaders(key)),
                 String::class.java,
             )
         }
 
         val first = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates?page=0&size=2",
+            "${draft(tenantKey)}/templates?page=0&size=2",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -1362,7 +1359,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<Int>(firstJson, "$.page.totalPages")).isEqualTo(2)
 
         val second = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates?page=1&size=2",
+            "${draft(tenantKey)}/templates?page=1&size=2",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -1381,15 +1378,15 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         // so the assertions prove the sort is applied rather than incidental.
         listOf("Cherry" to "cherry", "Apple" to "apple", "Banana" to "banana").forEach { (name, id) ->
             restTemplate.exchange(
-                "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+                "${draft(tenantKey)}/templates",
                 HttpMethod.POST,
-                HttpEntity("""{"id": "$id-$suffix", "name": "$name"}""", baseHeaders(key)),
+                HttpEntity("""{"key": "$id-$suffix", "name": "$name"}""", baseHeaders(key)),
                 String::class.java,
             )
         }
 
         val asc = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=name&direction=asc",
+            "${draft(tenantKey)}/templates?sort=name&direction=asc",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -1399,7 +1396,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             .containsExactly("Apple", "Banana", "Cherry")
 
         val desc = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=name&direction=desc",
+            "${draft(tenantKey)}/templates?sort=name&direction=desc",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -1419,15 +1416,15 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val suffix = randomSuffix()
         listOf("banana" to "banana", "Apple" to "apple", "cherry" to "cherry").forEach { (name, id) ->
             restTemplate.exchange(
-                "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+                "${draft(tenantKey)}/templates",
                 HttpMethod.POST,
-                HttpEntity("""{"id": "$id-$suffix", "name": "$name"}""", baseHeaders(key)),
+                HttpEntity("""{"key": "$id-$suffix", "name": "$name"}""", baseHeaders(key)),
                 String::class.java,
             )
         }
 
         val asc = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=name&direction=asc",
+            "${draft(tenantKey)}/templates?sort=name&direction=asc",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -1443,9 +1440,9 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val suffix = randomSuffix()
         listOf("Cherry" to "cherry", "Apple" to "apple", "Banana" to "banana").forEach { (name, id) ->
             restTemplate.exchange(
-                "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+                "${draft(tenantKey)}/templates",
                 HttpMethod.POST,
-                HttpEntity("""{"id": "$id-$suffix", "name": "$name"}""", baseHeaders(key)),
+                HttpEntity("""{"key": "$id-$suffix", "name": "$name"}""", baseHeaders(key)),
                 String::class.java,
             )
         }
@@ -1453,7 +1450,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         // Mixed-case 'Name'/'ASC' must be honored, not silently dropped to the default order —
         // the sort field resolves case-insensitively, matching the direction parameter.
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=Name&direction=ASC",
+            "${draft(tenantKey)}/templates?sort=Name&direction=ASC",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -1468,9 +1465,9 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val (tenantKey, key) = seedTenantAndKey()
         val suffix = randomSuffix()
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "only-$suffix", "name": "Only"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "only-$suffix", "name": "Only"}""", baseHeaders(key)),
             String::class.java,
         )
 
@@ -1478,7 +1475,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         // (400) rather than being silently reinterpreted as the contract default. The problem body
         // enumerates the supported directions.
         val resp = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=name&direction=sideways",
+            "${draft(tenantKey)}/templates?sort=name&direction=sideways",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -1508,15 +1505,15 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             "Zebra" to "b-zebra",
         ).forEach { (name, id) ->
             restTemplate.exchange(
-                "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+                "${draft(tenantKey)}/templates",
                 HttpMethod.POST,
-                HttpEntity("""{"id": "$id-$suffix", "name": "$name"}""", baseHeaders(key)),
+                HttpEntity("""{"key": "$id-$suffix", "name": "$name"}""", baseHeaders(key)),
                 String::class.java,
             )
         }
         // Bump the second-created row so updated order diverges from created order too.
         val patch = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/a-apple-$suffix",
+            "${draft(tenantKey)}/templates/a-apple-$suffix",
             HttpMethod.PATCH,
             HttpEntity("""{"name": "Apple Updated"}""", baseHeaders(key)),
             String::class.java,
@@ -1524,24 +1521,24 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(patch.statusCode).isEqualTo(HttpStatus.OK)
 
         val byCreated = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=createdAt&direction=asc",
+            "${draft(tenantKey)}/templates?sort=createdAt&direction=asc",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
         )
         // Pure creation order — differs from both name-asc and id-asc above.
-        assertThat(JsonPath.read<List<String>>(byCreated.body!!, "$.items[*].slug"))
+        assertThat(JsonPath.read<List<String>>(byCreated.body!!, "$.items[*].key"))
             .containsExactly("c-mango-$suffix", "a-apple-$suffix", "b-zebra-$suffix")
 
         val byUpdated = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=lastModified&direction=asc",
+            "${draft(tenantKey)}/templates?sort=lastModified&direction=asc",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
         )
         // 'apple' was updated most recently, so ascending updated_at puts it last —
         // an order created_at could never produce, proving the two columns are distinct.
-        assertThat(JsonPath.read<List<String>>(byUpdated.body!!, "$.items[*].slug"))
+        assertThat(JsonPath.read<List<String>>(byUpdated.body!!, "$.items[*].key"))
             .containsExactly("c-mango-$suffix", "b-zebra-$suffix", "a-apple-$suffix")
     }
 
@@ -1554,21 +1551,21 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val ids = (0..4).map { "same-$it-$suffix" }
         ids.forEach { id ->
             restTemplate.exchange(
-                "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+                "${draft(tenantKey)}/templates",
                 HttpMethod.POST,
-                HttpEntity("""{"id": "$id", "name": "Same Name"}""", baseHeaders(key)),
+                HttpEntity("""{"key": "$id", "name": "Same Name"}""", baseHeaders(key)),
                 String::class.java,
             )
         }
 
         val paged = (0..2).flatMap { page ->
             val resp = restTemplate.exchange(
-                "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=name&direction=asc&page=$page&size=2",
+                "${draft(tenantKey)}/templates?sort=name&direction=asc&page=$page&size=2",
                 HttpMethod.GET,
                 HttpEntity<String>(null, baseHeaders(key)),
                 String::class.java,
             )
-            JsonPath.read<List<String>>(resp.body!!, "$.items[*].slug")
+            JsonPath.read<List<String>>(resp.body!!, "$.items[*].key")
         }
 
         // Every id appears exactly once, in the id-ascending order the tiebreaker guarantees.
@@ -1585,16 +1582,16 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val suffix = randomSuffix()
         listOf("first", "second", "third").forEach { id ->
             restTemplate.exchange(
-                "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+                "${draft(tenantKey)}/templates",
                 HttpMethod.POST,
-                HttpEntity("""{"id": "$id-$suffix", "name": "Template $id"}""", baseHeaders(key)),
+                HttpEntity("""{"key": "$id-$suffix", "name": "Template $id"}""", baseHeaders(key)),
                 String::class.java,
             )
         }
         // Bump 'first' so newest-updated order differs from insertion order — otherwise
         // the assertion couldn't tell a real sort from incidental ordering.
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/first-$suffix",
+            "${draft(tenantKey)}/templates/first-$suffix",
             HttpMethod.PATCH,
             HttpEntity("""{"name": "First Updated"}""", baseHeaders(key)),
             String::class.java,
@@ -1602,14 +1599,14 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
 
         // No sort/direction query params at all: the contract defaults (updated, desc) apply.
         val resp = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
         )
         assertThat(resp.statusCode).isEqualTo(HttpStatus.OK)
         // Newest-updated first: 'first' (just patched), then third, then second.
-        assertThat(JsonPath.read<List<String>>(resp.body!!, "$.items[*].slug"))
+        assertThat(JsonPath.read<List<String>>(resp.body!!, "$.items[*].key"))
             .containsExactly("first-$suffix", "third-$suffix", "second-$suffix")
     }
 
@@ -1621,14 +1618,14 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val (tenantKey, key) = seedTenantAndKey()
         val suffix = randomSuffix()
         restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates",
+            "${draft(tenantKey)}/templates",
             HttpMethod.POST,
-            HttpEntity("""{"id": "only-$suffix", "name": "Only"}""", baseHeaders(key)),
+            HttpEntity("""{"key": "only-$suffix", "name": "Only"}""", baseHeaders(key)),
             String::class.java,
         )
 
         val resp = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates?sort=title",
+            "${draft(tenantKey)}/templates?sort=title",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -1671,19 +1668,25 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
 
     private fun randomSuffix(): String = UUID.randomUUID().toString().take(8)
 
-    /** Marks the template ready and releases the default catalog: what generation and validation read. */
-    private fun markReadyAndRelease(tenantKey: TenantKey, key: String, slug: String, version: String = "1.0.0") {
+    /** The default catalog's open draft (or [catalogKey]'s): where every write goes. */
+    private fun draft(tenantKey: TenantKey, catalogKey: String = CatalogKey.DEFAULT.value): String = withMediator { CatalogApiPaths.version(tenantKey, catalogKey) }
+
+    /** The default catalog's own address, without a version. */
+    private fun catalog(tenantKey: TenantKey): String = withMediator { CatalogApiPaths.catalog(tenantKey) }
+
+    /** Marks the template ready and releases the default catalog's draft: what generation and validation read. */
+    private fun markReadyAndRelease(tenantKey: TenantKey, key: String, slug: String) {
         val ready = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/templates/$slug/mark-ready",
+            "${draft(tenantKey)}/templates/$slug/mark-ready",
             HttpMethod.POST,
             HttpEntity<Void>(baseHeaders(key)),
             String::class.java,
         )
         assertThat(ready.statusCode).`as`(ready.body).isEqualTo(HttpStatus.OK)
         val released = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/release",
+            "${draft(tenantKey)}/release",
             HttpMethod.POST,
-            HttpEntity("""{"releaseVersion": "$version"}""", baseHeaders(key)),
+            HttpEntity("{}", baseHeaders(key)),
             String::class.java,
         )
         assertThat(released.statusCode).`as`(released.body).isEqualTo(HttpStatus.OK)

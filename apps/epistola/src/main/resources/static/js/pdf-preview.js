@@ -3,12 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- * PDF Preview functionality for template versions.
+ * PDF Preview functionality for template variants.
  * Fetches PDF from preview endpoint and opens in a new browser tab.
  *
  * Templates opt in with a `data-pdf-preview` attribute on the button
  * (plus the data-tenant-id/-catalog-id/-template-id/-variant-id and
- * optional data-version-id/-test-data carriers previewPdf reads). The
+ * optional data-release-version/-test-data carriers previewPdf reads;
+ * without a release version the variant's working model is rendered). The
  * click handler is delegated on `document` so it also works for
  * HTMX-swapped content (ADR 0010: no inline on*= handlers).
  */
@@ -23,7 +24,7 @@ async function previewPdf(button) {
   const catalogId = button.dataset.catalogId;
   const templateId = button.dataset.templateId;
   const variantId = button.dataset.variantId;
-  const versionId = button.dataset.versionId;
+  const releaseVersion = button.dataset.releaseVersion;
   const testDataJson = button.dataset.testData || '{}';
 
   const url = `/tenants/${tenantId}/templates/${catalogId}/${templateId}/variants/${variantId}/preview`;
@@ -35,8 +36,8 @@ async function previewPdf(button) {
   try {
     const testData = JSON.parse(testDataJson);
     const body = { data: testData };
-    if (versionId) {
-      body.versionId = parseInt(versionId, 10);
+    if (releaseVersion) {
+      body.releaseVersion = releaseVersion;
     }
 
     // Get CSRF token from cookie (set by Spring Security CookieCsrfTokenRepository)
