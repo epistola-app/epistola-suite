@@ -94,6 +94,22 @@ class CatalogDraftBarVersionsTest {
     }
 
     @Test
+    fun `a fix of an older version published after the next version started is named, once, and not its base`() {
+        val earlier = OffsetDateTime.parse("2026-10-01T10:00:00Z")
+        val base = CatalogVersion("1.1.0", CatalogVersionStatus.RELEASED, releasedAt = earlier, contentRetained = true)
+        val olderFix = CatalogVersion("1.0.1", CatalogVersionStatus.RELEASED, releasedAt = earlier.plusDays(2), contentRetained = true)
+        val older = CatalogVersion("1.0.0", CatalogVersionStatus.RELEASED, releasedAt = earlier.minusDays(5), contentRetained = true)
+
+        val bar = bar(listOf(draft("1.1.1", "1.1.0")), listOf(base, olderFix, older))
+
+        assertThat(bar.publishedSince.map { it.version }).containsExactly("1.0.1")
+        assertThat(bar.newerPatchOf("1.0.0")).`as`("why 1.0.0 cannot be fixed").isEqualTo("1.0.1")
+        assertThat(bar.newerPatchOf("1.1.0")).isNull()
+        assertThat(bar(listOf(draft("1.1.1", "1.1.0"), draft("1.0.2", "1.0.1")), listOf(base, olderFix, older), CatalogSegment(letters, "1.0.2")).publishedSince)
+            .`as`("only the next version is told").isEmpty()
+    }
+
+    @Test
     fun `no in-between version without a published version, the right to edit, or its content`() {
         assertThat(bar(listOf(draft("1.0.0", null)), emptyList()).offerInBetween).isFalse()
         assertThat(bar(listOf(draft("1.2.1", "1.2.0")), listOf(release("1.2.0")), mayEdit = false).offerInBetween).isFalse()

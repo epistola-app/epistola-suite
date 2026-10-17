@@ -6,6 +6,9 @@ package app.epistola.suite.catalog
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
+import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionStatus
 import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.CatalogId
@@ -112,6 +115,32 @@ class CatalogInBetweenHtmxTest : BaseIntegrationTest() {
         val after = get(tenant, "/catalogs/letters/releases/1.0.0").body!!
         assertThat(after).contains("data-testid=\"release-continue-draft\"").contains("Continue draft v1.0.1")
         assertThat(after).doesNotContain("data-testid=\"release-start-draft\"")
+    }
+
+    @Test
+    fun `fixing what is live in production starts from that version, and once published the next version says it lacks the fix`() {
+        val tenant = live("Hotfix Production")
+        // A newer version is published after the one production serves; the next version moves on from it.
+        withMediator {
+            MarkCatalogReady(tenant.id, letters).execute()
+            ReleaseCatalogVersion(tenant.id, letters, "1.1.0").execute()
+        }
+
+        val page = get(tenant, "/catalogs/letters/browse").body!!
+        val production = page.substringAfter("data-environment=\"production\"").substringBefore("</tr>")
+        assertThat(production).contains("data-testid=\"catalog-live-fix\"").contains("name=\"of\" value=\"1.0.0\"")
+
+        val started = post(tenant, "/catalogs/letters/fixes", mapOf("of" to "1.0.0"))
+        assertThat(started.headers.location.toString()).isEqualTo("/tenants/${tenant.id}/catalogs/letters@1.0.1/draft")
+
+        withMediator {
+            MarkCatalogReady(tenant.id, letters, catalogVersion = CatalogVersionRef(tenant.id, letters, "1.0.1")).execute()
+            ReleaseCatalogVersion(tenant.id, letters, "1.0.1", catalogVersion = CatalogVersionRef(tenant.id, letters, "1.0.1")).execute()
+        }
+
+        val after = get(tenant, "/catalogs/letters/browse").body!!
+        assertThat(after.substringAfter("data-testid=\"catalog-published-since\"").substringBefore("</div>"))
+            .contains(">v1.0.1<").contains("was published after the next version started, and is not in it")
     }
 
     private fun get(tenant: Tenant, path: String) = restTemplate.withRedirects(HttpRedirects.DONT_FOLLOW)

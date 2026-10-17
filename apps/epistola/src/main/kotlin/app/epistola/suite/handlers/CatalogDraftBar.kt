@@ -128,6 +128,16 @@ data class CatalogDraftBar(
             },
         )
 
+    /**
+     * The newer patch of [version]'s line, when there is one: why a fix of [version] is not offered —
+     * fixing it would fork the line beside that patch. Null when [version] is the newest of its line.
+     */
+    fun newerPatchOf(version: String): String? {
+        val number = SemVer.parseOrNull(version) ?: return null
+        return releases.mapNotNull { release -> SemVer.parseOrNull(release.version)?.takeIf { it.major == number.major && it.minor == number.minor && it > number } }
+            .maxOrNull()?.toString()
+    }
+
     /** Per published version with a fix open, the fix's number: "Continue the fix" instead of starting another. */
     val openFixOf: Map<String, String> get() = drafts.drop(1).mapNotNull { draft -> draft.base?.let { it to draft.version } }.toMap()
 
@@ -214,6 +224,20 @@ data class CatalogDraftBar(
 
     /** The releases the chosen draft is behind, lowest first, each with what it changed. */
     val behind get() = chosen?.behind.orEmpty()
+
+    /**
+     * Versions published after the next version started that are not in it and that [behind] does
+     * not already name: a fix of an older version (what was live in production), published from side
+     * work. [behind] only covers releases numbered between the draft's base and its own number, so a
+     * fix of an older line would otherwise go unmentioned. Newest first.
+     */
+    val publishedSince: List<CatalogVersion>
+        get() {
+            val draft = chosen?.takeIf { isNext } ?: return emptyList()
+            val since = releases.firstOrNull { it.version == draft.base }?.releasedAt ?: return emptyList()
+            val named = behind.map { it.version }.toSet()
+            return releases.filter { it.version != draft.base && it.version !in named && it.releasedAt?.isAfter(since) == true }
+        }
 
     /** Whether to offer opening another draft. */
     val offerCreateDraft: Boolean get() = authored && mayOpenDrafts

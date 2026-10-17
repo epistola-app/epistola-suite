@@ -92,6 +92,19 @@
                 </div>
             </div>
 
+            <!--/* A fix published from side work after the next version started, which is not in it. */-->
+            <div th:unless="${bar.publishedSince.isEmpty()}" class="alert alert-warning" style="margin-top: var(--ep-space-3);"
+                 data-testid="catalog-published-since">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+                <div>
+                    <p th:each="release : ${bar.publishedSince}" style="margin: 0;" th:data-version="${release.version}">
+                        <a th:href="@{/tenants/{t}/catalogs/{c}/releases/{v}(t=${tenantId},c=${catalog.id},v=${release.version})}"
+                           th:text="'v' + ${release.version}">v1.0.1</a>
+                        was published after the next version started, and is not in it. Make the same change here if it belongs in the next version too.
+                    </p>
+                </div>
+            </div>
+
             <!--/* Another draft open next to the next version, such as an in-between version. */-->
             <p th:if="${bar.openInBetween != null}" style="margin: var(--ep-space-3) 0 0;" data-testid="catalog-in-between">
                 <span th:text="'Draft v' + ${bar.openInBetween} + ' is open next to it, to publish on its own.'">Draft v1.2.1 is open next to it.</span>

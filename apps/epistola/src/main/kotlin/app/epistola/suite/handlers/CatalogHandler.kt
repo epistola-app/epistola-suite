@@ -193,13 +193,12 @@ class CatalogHandler {
             }
         }
 
-        // Success: close the dialog + OOB-refresh the list (the catalog-list
-        // fragment toggles hx-swap-oob via the `oob` flag dialogSuccess injects).
+        // Success: on to the new catalog's page, where its next step is waiting (New template)
+        // rather than back to the list it was created from.
+        val created = CatalogPages.browse(tenantId, CatalogSegment(CatalogKey.of(form["slug"])))
         return request.htmx {
-            dialogSuccess("catalogs/list", "catalog-list", "/tenants/${tenantId.key}/catalogs") {
-                catalogListModel(request)
-            }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs?saved=true") }
+            dialogLocation(created)
+            onNonHtmx { redirect(created) }
         }
     }
 

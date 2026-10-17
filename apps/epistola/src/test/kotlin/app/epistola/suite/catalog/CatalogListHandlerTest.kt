@@ -141,7 +141,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `HTMX POST create valid closes the dialog and OOB-refreshes the list`() = fixture {
+    fun `HTMX POST create valid goes on to the new catalog's page`() = fixture {
         lateinit var t: Tenant
         given { t = tenant("Catalog Create Valid") }
 
@@ -159,15 +159,8 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            // Stay-on-list: close the dialog + OOB-refresh the list region (the
-            // extra dialogSuccess event drives the app-shell search-box reset).
-            assertThat(response.headers.getFirst("HX-Trigger"))
-                .isEqualTo("""{"closeDialog": null, "dialogSuccess": null}""")
-            assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
-            val body = response.body!!
-            assertThat(body).contains("id=\"catalog-list\"")
-            assertThat(body).contains("hx-swap-oob")
-            assertThat(body).contains("My Catalog")
+            // On to the new catalog, where its next step (New template) is waiting.
+            assertThat(response.headers.getFirst("HX-Location")).isEqualTo("/tenants/${t.id}/catalogs/my-catalog/browse")
             // Persistence verified through the mediator.
             val persisted = withMediator { ListCatalogs(tenantKey = t.id).query() }
             assertThat(persisted.map { it.name }).contains("My Catalog")

@@ -133,7 +133,7 @@
                         <div class="badge-list">
                             <span th:if="${variant.ready}" class="badge badge-success" data-testid="variant-ready">Ready</span>
                             <span th:unless="${variant.ready}" class="badge badge-warning" data-testid="variant-not-ready"
-                                  title="This variant's changes are not marked ready; its catalog cannot be released until they are.">Not ready</span>
+                                  title="Not checked yet. Publishing checks and marks it; marking it ready now checks it first.">Not ready</span>
                         </div>
                     </div>
                     <div class="variant-card-footer">
