@@ -18,8 +18,13 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.handlers.AuthContext
+import app.epistola.suite.handlers.CatalogDraftBar
+import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogId
+import app.epistola.suite.htmx.catalogParam
+import app.epistola.suite.htmx.catalogSegment
+import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -54,8 +59,8 @@ import app.epistola.suite.templates.validation.SchemaCompatibilityResult
 import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.themes.BlockStylePresets
-import app.epistola.suite.themes.ThemeStyleResolver
 import app.epistola.suite.themes.queries.ListThemes
+import app.epistola.suite.themes.queries.ResolveTemplateTheme
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.DocumentStyles
 import app.epistola.template.model.PageSettings
@@ -139,7 +144,6 @@ class DocumentTemplateHandler(
     private val jsonSchemaValidator: JsonSchemaValidator,
     private val detailHelper: TemplateDetailHelper,
     private val localeResolver: TenantLocaleResolver,
-    private val themeStyleResolver: ThemeStyleResolver,
 ) {
     private val logger = org.slf4j.LoggerFactory.getLogger(javaClass)
 
@@ -151,9 +155,11 @@ class DocumentTemplateHandler(
         val tenantId = request.tenantId()
         val catalogs = ListCatalogs(tenantId.key).query()
         val model = templateListModel(request, tenantId)
+        val segment = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogSegment.parse(it) }
         return ServerResponse.ok().page("templates/list") {
             "pageTitle" to "Document Templates - Epistola"
             "catalogs" to catalogs
+            "draftBar" to segment?.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/templates?catalog=${it.value}" } }
             putAll(model)
         }
     }
@@ -179,7 +185,9 @@ class DocumentTemplateHandler(
         tenantId: TenantId,
     ): Map<String, Any?> {
         val searchTerm = request.queryParam("q")?.ifBlank { null }
-        val catalogFilter = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogKey.of(it) }
+        // The filter may name a draft (`letters@2.0.0`): that catalog's rows are then the draft's.
+        val catalogSegment = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogSegment.parse(it) }
+        val catalogFilter = catalogSegment?.key
 
         val sort = TemplateSort.fromParam(request.queryParam("sort"))
         val descending = when (request.queryParam("dir")) {
@@ -196,6 +204,7 @@ class DocumentTemplateHandler(
             descending = descending,
             limit = PAGE_SIZE,
             offset = (page - 1) * PAGE_SIZE,
+            catalogVersion = catalogSegment?.ref(tenantId.key),
         ).query()
 
         // The page count and the rows come from one query (COUNT(*) OVER()), so
@@ -220,7 +229,9 @@ class DocumentTemplateHandler(
         return mapOf(
             "tenantId" to tenantId.key,
             "templates" to result.items,
-            "selectedCatalog" to (catalogFilter?.value ?: ""),
+            "selectedCatalog" to (catalogSegment?.value ?: ""),
+            // Rows of the filtered catalog link into the draft the filter names.
+            "draftSegment" to catalogSegment?.takeIf { it.version != null },
             "searchTerm" to (searchTerm ?: ""),
             "sort" to sort.param,
             "sortDir" to if (descending) "desc" else "asc",
@@ -273,6 +284,8 @@ class DocumentTemplateHandler(
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("templates/new", "dialog") {
                 "tenantId" to tenantId.key
+                // Opened from a list filtered to a draft, the dialog creates in that draft.
+                "draftSegment" to request.catalogParam()?.takeIf { it.version != null }
                 "authoredCatalogs" to authoredCatalogs
                 "selectedCatalog" to selectedCatalog
             }
@@ -298,6 +311,7 @@ class DocumentTemplateHandler(
             // value returned a bodyless 400 (which HTMX does not swap, so the dialog
             // just froze with no explanation) and a malformed one reached
             // CatalogKey.of and threw, i.e. a 500.
+            // The catalog, or one of its drafts (`letters@2.0.0`) when the dialog was opened in one.
             field("catalog") {
                 required()
                 asCatalogId()
@@ -327,12 +341,14 @@ class DocumentTemplateHandler(
             form
         } else {
             form.executeOrFormError {
+                val segment = CatalogSegment.parse(form["catalog"])
                 CreateDocumentTemplate(
                     id = TemplateId(
                         TemplateKey.validateOrNull(form["slug"])!!,
-                        CatalogId(CatalogKey.of(form["catalog"]), tenantId),
+                        CatalogId(segment.key, tenantId),
                     ),
                     name = form["name"],
+                    catalogVersion = segment.ref(tenantId.key),
                 ).execute()
             }
         }
@@ -373,8 +389,8 @@ class DocumentTemplateHandler(
         // swapped-out body; the list is not refreshed.
         // Safe !!/of(): both fields were validated above and the create succeeded.
         val templateKey = TemplateKey.validateOrNull(form["slug"])!!
-        val catalogId = CatalogKey.of(form["catalog"])
-        val destination = "/tenants/${tenantId.key}/templates/$catalogId/$templateKey"
+        val catalogId = CatalogSegment.parse(form["catalog"])
+        val destination = "/tenants/${tenantId.key}/templates/${catalogId.value}/$templateKey"
         return request.htmx {
             dialogLocation(destination)
             onNonHtmx { redirect(destination) }
@@ -384,13 +400,17 @@ class DocumentTemplateHandler(
     fun editor(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogId = request.catalogId()
+        val segment = request.catalogSegment()
+        // Resolved first: a route naming a draft the catalog does not have is refused here.
+        val draftBar = CatalogDraftBar.of(tenantId.key, segment, CatalogDraftBar.inPath(request.path(), segment))
+        val version = segment.ref(tenantId.key)
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
             ?: return ServerResponse.badRequest().build()
 
         // Get all editor context in a single query
-        val context = GetEditorContext(variantId = variantId).query()
+        val context = GetEditorContext(variantId = variantId, catalogVersion = version).query()
             ?: return ServerResponse.notFound().build()
 
         // Resolve the effective locale through the variant attribute → tenant
@@ -402,14 +422,15 @@ class DocumentTemplateHandler(
             ?: return ServerResponse.notFound().build()
         val resolvedLocale = localeResolver.resolve(tenant, context.variantAttributes)
         val featureToggles = ResolveFeatureToggles(tenantId.key).query()
-        val editorTheme = themeStyleResolver.resolveTheme(
-            tenantId = tenantId.key,
+        val editorTheme = ResolveTemplateTheme(
+            tenantKey = tenantId.key,
             templateDefaultThemeId = context.templateThemeKey,
             tenantDefaultThemeId = tenant.defaultThemeKey,
             templateModel = context.templateModel,
             templateCatalogKey = context.templateThemeCatalogKey,
             tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
-        )?.let {
+            catalogVersion = version,
+        ).query()?.let {
             EditorThemeConfig(
                 documentStyles = it.documentStyles,
                 pageSettings = it.pageSettings,
@@ -429,6 +450,10 @@ class DocumentTemplateHandler(
             mapOf(
                 "tenantId" to tenantId.key,
                 "catalogId" to catalogId.value,
+                // The catalog segment the editor's own requests carry, so they stay on the draft.
+                "catalogSegment" to segment.value,
+                // Which draft the editor writes to, said once there is more than one.
+                "editorDraft" to draftBar.chosen?.version?.takeIf { draftBar.severalDrafts },
                 "templateId" to templateId.key,
                 "variantId" to variantId.key,
                 "templateName" to context.templateName,
@@ -462,10 +487,11 @@ class DocumentTemplateHandler(
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
-        val template = GetDocumentTemplate(id = templateId).query()
+        val version = request.catalogVersion()
+        val template = GetDocumentTemplate(id = templateId, catalogVersion = version).query()
             ?: return ServerResponse.notFound().build()
 
-        val dataContract = GetDataContract(templateId = templateId).query()
+        val dataContract = GetDataContract(templateId = templateId, catalogVersion = version).query()
 
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
@@ -502,12 +528,14 @@ class DocumentTemplateHandler(
         val template = UpdateDocumentTemplate(
             id = templateId,
             pdfaEnabled = enabled,
+            catalogVersion = request.catalogVersion(),
         ).execute() ?: return ServerResponse.notFound().build()
 
         return request.htmx {
             fragment("templates/detail/settings", "output-settings") {
                 "tenantId" to tenantId.key
                 "catalogId" to catalogId.value
+                "catalogSegment" to request.catalogSegment().value
                 "template" to template
                 "editable" to (template.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
             }
@@ -534,18 +562,20 @@ class DocumentTemplateHandler(
             ?: return ServerResponse.badRequest().build()
 
         val requested = request.params().getFirst("name")?.trim().orEmpty()
-        val current = GetDocumentTemplate(id = templateId).query()
+        val version = request.catalogVersion()
+        val current = GetDocumentTemplate(id = templateId, catalogVersion = version).query()
             ?: return ServerResponse.notFound().build()
         val template = if (requested.isBlank() || requested == current.name) {
             current
         } else {
-            UpdateDocumentTemplate(id = templateId, name = requested).execute()
+            UpdateDocumentTemplate(id = templateId, name = requested, catalogVersion = version).execute()
                 ?: return ServerResponse.notFound().build()
         }
 
         val model: app.epistola.suite.htmx.ModelBuilder.() -> Unit = {
             "tenantId" to tenantId.key
             "catalogId" to catalogId.value
+            "catalogSegment" to request.catalogSegment().value
             "template" to template
             "editable" to (template.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
         }
@@ -595,6 +625,7 @@ class DocumentTemplateHandler(
                 themeId = themeKey,
                 themeCatalogKey = themeCatalogKey,
                 clearThemeId = selected.isBlank(),
+                catalogVersion = request.catalogVersion(),
             ).execute() ?: return ServerResponse.notFound().build()
         } catch (e: ValidationException) {
             return ServerResponse.badRequest()
@@ -603,13 +634,14 @@ class DocumentTemplateHandler(
         }
 
         // Load available themes for the fragment
-        val themes = ListThemes(tenantId = tenantId).query()
+        val themes = ListThemes(tenantId = tenantId, catalogVersion = request.catalogVersion()).query()
         val themeCatalogs = themes.groupBy { it.catalogKey.value }
 
         return request.htmx {
             fragment("templates/detail/settings", "theme-section") {
                 "tenantId" to tenantId.key
                 "catalogId" to catalogId.value
+                "catalogSegment" to request.catalogSegment().value
                 "template" to updated
                 "themes" to themes
                 "themeCatalogs" to themeCatalogs
@@ -630,15 +662,16 @@ class DocumentTemplateHandler(
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
+        val version = request.catalogVersion()
         // Verify the template exists
-        GetDocumentTemplate(id = templateId).query()
+        GetDocumentTemplate(id = templateId, catalogVersion = version).query()
             ?: return ServerResponse.notFound().build()
 
         val body = request.body(String::class.java)
         val validateRequest = objectMapper.readValue(body, ValidateSchemaRequest::class.java)
 
         // Get existing contract version to use its examples if not provided in request
-        val dataContract = GetDataContract(templateId = templateId).query()
+        val dataContract = GetDataContract(templateId = templateId, catalogVersion = version).query()
 
         val examplesToValidate = validateRequest.examples ?: dataContract?.dataExamples ?: DataExamples.EMPTY
 
@@ -672,6 +705,7 @@ class DocumentTemplateHandler(
                 name = updateRequest.name,
                 data = updateRequest.data,
                 forceUpdate = updateRequest.forceUpdate,
+                catalogVersion = request.catalogVersion(),
             ).execute() ?: return ServerResponse.notFound().build()
 
             val responseBody = mutableMapOf<String, Any?>(
@@ -707,6 +741,7 @@ class DocumentTemplateHandler(
             DeleteDataExample(
                 templateId = templateId,
                 exampleId = exampleId,
+                catalogVersion = request.catalogVersion(),
             ).execute() ?: return ServerResponse.notFound().build()
         } catch (e: ValidationException) {
             return ServerResponse.badRequest()
@@ -725,7 +760,7 @@ class DocumentTemplateHandler(
         val ctx = detailHelper.loadContext(request) ?: return ServerResponse.notFound().build()
 
         val auth = AuthContext.from(SecurityContext.current(), ctx.templateId.tenantKey)
-        return detailHelper.renderDetailPage(ctx, "variants", variantsModel(ctx.templateId, ctx.editable, auth))
+        return detailHelper.renderDetailPage(ctx, "variants", variantsModel(ctx.templateId, ctx.editable, auth, ctx.catalogVersion))
     }
 
     fun delete(request: ServerRequest): ServerResponse {
@@ -734,7 +769,7 @@ class DocumentTemplateHandler(
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
-        DeleteDocumentTemplate(id = templateId).execute()
+        DeleteDocumentTemplate(id = templateId, catalogVersion = request.catalogVersion()).execute()
 
         // A genuine browser-followed redirect (hx-boost="false" on this form) —
         // no response header set here can ever reach client JS across a

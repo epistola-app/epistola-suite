@@ -12,9 +12,12 @@ import app.epistola.suite.documents.queries.AnalyzeTemplateData
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.mcp.dto.PreviewResult
 import app.epistola.suite.mcp.dto.TemplateDataAnalysisInfo
+import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.query
+import app.epistola.suite.validation.ValidationException
 import org.springframework.ai.mcp.annotation.McpTool
 import org.springframework.ai.mcp.annotation.McpToolParam
 import org.springframework.stereotype.Component
@@ -34,7 +37,7 @@ class PreviewMcpTools(
             "When `data` is omitted, the contract's first sample example is used. " +
             "By default this renders the catalog's latest release, exactly as generation would, and fails when " +
             "the catalog has never been released. Set `workingCopy` to render the working copy " +
-            "instead, to see unreleased work. Set `environmentId` to render the highest release that environment serves, " +
+            "instead, to see unreleased work, or `catalogVersion` to render one draft's. Set `environmentId` to render the highest release that environment serves, " +
             "and `releaseVersion` to pick the highest release satisfying a version selector; the two combine. " +
             "If the data does not satisfy the template's data contract the call fails; `analyze_template_data` " +
             "then says which fields are missing or wrong.",
@@ -70,8 +73,14 @@ class PreviewMcpTools(
             required = false,
         )
         data: String?,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): PreviewResult {
         val parsedData = parseData(data)
+        val version = catalogVersionRef(catalogId, catalogVersion)
+        if (version != null && (releaseVersion != null || environmentId != null)) {
+            throw ValidationException("catalogVersion", "`catalogVersion` renders a draft; it cannot be combined with `releaseVersion` or `environmentId`")
+        }
 
         val pdfBytes = mediator.query(
             PreviewDocument(
@@ -82,7 +91,9 @@ class PreviewMcpTools(
                 environmentId = environmentId?.let { EnvironmentKey.of(it) },
                 releaseVersion = releaseVersion,
                 data = parsedData,
-                workingCopy = workingCopy == true,
+                // A draft named renders that draft: its working copy.
+                workingCopy = workingCopy == true || version != null,
+                catalogVersion = version,
             ),
         )
 

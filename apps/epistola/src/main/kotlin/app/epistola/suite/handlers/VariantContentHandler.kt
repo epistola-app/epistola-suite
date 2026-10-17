@@ -8,6 +8,7 @@ import app.epistola.suite.api.v1.ApiProblemType
 import app.epistola.suite.api.v1.ApiProblemTypes
 import app.epistola.suite.api.v1.problemBody
 import app.epistola.suite.api.v1.toValidationProblemBody
+import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
@@ -51,7 +52,8 @@ class VariantContentHandler(
         )
 
         try {
-            UpdateVariantContent(variantId = variantId, templateModel = templateModel).execute()
+            // On the draft the editor's route names (`letters@2.0.0`), or the current one.
+            UpdateVariantContent(variantId = variantId, templateModel = templateModel, catalogVersion = request.catalogVersion()).execute()
         } catch (e: ValidationException) {
             // RFC 9457 problem+json (ValidationProblemDetail) — same shape as the REST surface, so the
             // editor switches on the problem `type` and renders the field-level `errors`.

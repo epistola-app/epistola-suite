@@ -19,7 +19,7 @@ class SettingsTabHandler(
     fun settings(request: ServerRequest): ServerResponse {
         val ctx = detailHelper.loadContext(request) ?: return ServerResponse.notFound().build()
 
-        val themes = ListThemes(tenantId = ctx.templateId.tenantId).query()
+        val themes = ListThemes(tenantId = ctx.templateId.tenantId, catalogVersion = ctx.catalogVersion).query()
         val themeCatalogs = themes.groupBy { it.catalogKey.value }
 
         return detailHelper.renderDetailPage(

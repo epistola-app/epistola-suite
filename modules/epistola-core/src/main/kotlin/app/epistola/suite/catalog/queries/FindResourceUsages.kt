@@ -8,6 +8,8 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -23,7 +25,10 @@ import org.springframework.stereotype.Component
 data class FindResourceUsages(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
-) : Query<Map<String, List<ResourceUsage>>>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<Map<String, List<ResourceUsage>>>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW
 }

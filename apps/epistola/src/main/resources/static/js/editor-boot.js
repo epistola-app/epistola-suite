@@ -23,6 +23,16 @@ async function mount(container) {
   const templateId = config.templateId;
   const variantId = config.variantId;
   const features = config.features ?? {};
+  // The template's catalog as the route names it: `letters`, or `letters@2.0.0` for a draft of it
+  // (several drafts per catalog). Every request about the template's own catalog carries it, so
+  // the editor reads and writes the draft it was opened in; other catalogs are addressed plainly.
+  // `catalogId` stays the bare key, which is what template documents store.
+  const catalogSegment = config.catalogSegment || catalogId;
+  const inDraft = catalogSegment !== catalogId;
+  const segmentOf = (catalog) => (catalog === catalogId ? catalogSegment : catalog);
+  // Cross-catalog requests (searches, image content) name the draft as `in=` so the server reads
+  // this catalog's rows from it and every other catalog's from its current version.
+  const inParam = inDraft ? 'in=' + encodeURIComponent(catalogSegment) : '';
 
   const plugins = await loadEditorPlugins(config.plugins, {
     features,
@@ -41,16 +51,23 @@ async function mount(container) {
     locale: config.locale,
     fontOptions: {
       listFonts: async () => {
-        const resp = await fetch('/tenants/' + tenantId + '/fonts/search?catalog=' + catalogId, {
-          headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
-        });
+        const resp = await fetch(
+          '/tenants/' + tenantId + '/fonts/search?catalog=' + encodeURIComponent(catalogSegment),
+          {
+            headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+          },
+        );
         if (!resp.ok) throw new Error('Failed to list fonts');
         return await resp.json();
       },
     },
     imageOptions: {
       defaultCatalogKey: catalogId,
-      contentUrlPattern: '/tenants/' + tenantId + '/images/{catalogId}/{imageKey}/content',
+      contentUrlPattern:
+        '/tenants/' +
+        tenantId +
+        '/images/{catalogId}/{imageKey}/content' +
+        (inDraft ? '?' + inParam : ''),
       listCatalogs: async () => {
         const resp = await fetch('/tenants/' + tenantId + '/images/catalogs', {
           headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
@@ -59,7 +76,7 @@ async function mount(container) {
         return await resp.json();
       },
       listAssets: async (catalog) => {
-        const params = new URLSearchParams({ catalog });
+        const params = new URLSearchParams({ catalog: segmentOf(catalog) });
         const resp = await fetch('/tenants/' + tenantId + '/images/search?' + params.toString(), {
           headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
         });
@@ -69,7 +86,7 @@ async function mount(container) {
       uploadAsset: async (file, catalog) => {
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('catalog', catalog);
+        formData.append('catalog', segmentOf(catalog));
         const resp = await fetch('/tenants/' + tenantId + '/images', {
           method: 'POST',
           headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
@@ -94,7 +111,7 @@ async function mount(container) {
         '/tenants/' +
         tenantId +
         '/stencils/' +
-        encodeURIComponent(ref.catalogKey) +
+        encodeURIComponent(segmentOf(ref.catalogKey)) +
         '/' +
         encodeURIComponent(ref.stencilKey);
       const errorMessage = async (resp, fallback) => {
@@ -106,6 +123,7 @@ async function mount(container) {
         searchStencils: async (query) => {
           const params = new URLSearchParams();
           if (query) params.set('q', query);
+          if (inDraft) params.set('in', catalogSegment);
           const resp = await fetch('/tenants/' + tenantId + '/stencils/search?' + params, {
             headers: jsonHeaders(),
           });
@@ -137,7 +155,7 @@ async function mount(container) {
           const resp = await fetch('/tenants/' + tenantId + '/stencils', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...jsonHeaders() },
-            body: JSON.stringify({ id: stencilKey, name, catalogKey: catalogId }),
+            body: JSON.stringify({ id: stencilKey, name, catalogKey: catalogSegment }),
           });
           if (!resp.ok) {
             throw new Error(await errorMessage(resp, 'Stencil key already exists or is invalid'));
@@ -173,7 +191,7 @@ async function mount(container) {
         '/tenants/' +
           tenantId +
           '/templates/' +
-          catalogId +
+          encodeURIComponent(catalogSegment) +
           '/' +
           templateId +
           '/variants/' +
@@ -220,7 +238,7 @@ async function mount(container) {
         '/tenants/' +
           tenantId +
           '/templates/' +
-          catalogId +
+          encodeURIComponent(catalogSegment) +
           '/' +
           templateId +
           '/variants/' +

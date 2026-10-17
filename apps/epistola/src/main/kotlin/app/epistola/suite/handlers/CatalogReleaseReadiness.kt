@@ -10,10 +10,7 @@ import app.epistola.suite.catalog.queries.CatalogResourceChanges
 import app.epistola.suite.catalog.queries.CatalogResourceState
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.CatalogKey
-import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.SecurityContext
@@ -21,7 +18,8 @@ import app.epistola.suite.security.SecurityContext
 /**
  * Where an authored catalog's next release stands, and which of its actions to offer: the draft's
  * number, what changed since the last release and whether each change is ready, and the declared
- * dependencies the release is cut with.
+ * dependencies the release is cut with. With several drafts (contract ADR 0002) it is the release of
+ * the draft the page works in, [drafts]`.chosen`.
  *
  * Built for one catalog's page (it builds the working copy once, like [GetCatalogResourceChanges]);
  * the release dialog and the catalog page both gate on the names below, so the two cannot disagree.
@@ -32,8 +30,10 @@ import app.epistola.suite.security.SecurityContext
  */
 data class CatalogReleaseReadiness(
     val catalogKey: CatalogKey,
-    /** The open draft's version number; null only for a catalog that has none (never for an authored one). */
+    /** The draft's version number; null for a catalog with no open draft. */
     val draftVersion: String?,
+    /** Which draft this is, its siblings, and what may be done to them. */
+    val drafts: CatalogDraftBar,
     val changes: CatalogResourceChanges,
     val dependencies: List<CatalogDependencyDeclaration>,
     val mayRelease: Boolean,
@@ -56,29 +56,41 @@ data class CatalogReleaseReadiness(
      * but something blocks it, [releaseBlocked] says so and the page names what, instead of offering
      * a release that would be refused.
      */
-    val offerRelease: Boolean get() = mayRelease && notReady.isEmpty() && unresolvedDependencies.isEmpty()
+    val offerRelease: Boolean get() = mayRelease && draftVersion != null && notReady.isEmpty() && unresolvedDependencies.isEmpty()
 
     /** The viewer may release, but a resource is not ready or a dependency is unresolved. */
-    val releaseBlocked: Boolean get() = mayRelease && !offerRelease
+    val releaseBlocked: Boolean get() = mayRelease && draftVersion != null && !offerRelease
 
     /** Whether to offer "Mark all ready": the viewer may mark, and a changed resource is not ready. */
-    val offerMarkAllReady: Boolean get() = mayMarkReady && notReady.isNotEmpty()
+    val offerMarkAllReady: Boolean get() = mayMarkReady && draftVersion != null && notReady.isNotEmpty()
 
     /** Whether to offer renumbering the draft. */
     val offerRenumber: Boolean get() = mayRelease && draftVersion != null
 
     /** Whether to offer "Resolve to latest": the viewer may, and there is a declaration to move. */
-    val offerResolveDependencies: Boolean get() = mayRelease && dependencies.isNotEmpty()
+    val offerResolveDependencies: Boolean get() = mayRelease && draftVersion != null && dependencies.isNotEmpty()
+
+    /** Whether to offer editing the declared dependencies: the viewer may, and there is a draft to declare them in. */
+    val offerEditDependencies: Boolean get() = mayRelease && draftVersion != null
 
     companion object {
-        /** Reads the readiness of the AUTHORED catalog [catalogKey] for the current principal. */
-        fun of(tenantKey: TenantKey, catalogKey: CatalogKey): CatalogReleaseReadiness {
+        /** Reads the readiness of the draft [drafts] works in, for the current principal. */
+        fun of(drafts: CatalogDraftBar): CatalogReleaseReadiness {
+            val tenantKey = drafts.tenantKey
+            val catalogKey = drafts.catalogKey
             val auth = AuthContext.from(SecurityContext.current(), tenantKey)
+            val draft = drafts.chosen?.version
             return CatalogReleaseReadiness(
                 catalogKey = catalogKey,
-                draftVersion = ListCatalogVersions(tenantKey, catalogKey, CatalogVersionStatus.DRAFT).query().firstOrNull()?.version,
-                changes = GetCatalogResourceChanges(tenantKey, catalogKey).query(),
-                dependencies = ListCatalogDependencies(tenantKey, catalogKey).query(),
+                draftVersion = draft,
+                drafts = drafts,
+                // Without a draft there is nothing that changed, and nothing to declare dependencies in.
+                changes = if (draft == null) {
+                    CatalogResourceChanges(catalogKey, drafts.releases.firstOrNull()?.version, baselineAvailable = true, resources = emptyList())
+                } else {
+                    GetCatalogResourceChanges(tenantKey, catalogKey, catalogVersion = drafts.ref).query()
+                },
+                dependencies = if (draft == null) emptyList() else ListCatalogDependencies(tenantKey, catalogKey, catalogVersion = drafts.ref).query(),
                 mayRelease = auth.has(Permission.TEMPLATE_PUBLISH),
                 mayMarkReady = auth.has(Permission.TEMPLATE_EDIT),
             )

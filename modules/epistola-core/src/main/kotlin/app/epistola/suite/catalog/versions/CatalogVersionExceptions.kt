@@ -21,3 +21,14 @@ class CatalogVersionInUseException(val catalogKey: CatalogKey, val version: Stri
  * them is acknowledged (contract ADR 0002). [behind] are the ones not acknowledged.
  */
 class CatalogVersionBehindException(val catalogKey: CatalogKey, val version: String, val behind: List<String>) : RuntimeException("Version $version of catalog '${catalogKey.value}' is behind release ${behind.joinToString()}; acknowledge ${if (behind.size == 1) "it" else "them"} to release it")
+
+/**
+ * Draft [version] is the only version holding a resource something outside it still needs, so
+ * discarding it would delete that resource's identity out from under it. [holders] name each one and
+ * the resource it needs, e.g. `the tenant's default theme (theme letters/seasonal)`.
+ */
+class CatalogVersionHeldException(val catalogKey: CatalogKey, val version: String, val holders: List<String>) :
+    RuntimeException(
+        "Draft $version of catalog '${catalogKey.value}' cannot be discarded: it alone holds what " +
+            "${holders.joinToString("; ")} ${if (holders.size == 1) "uses" else "use"}. Change ${if (holders.size == 1) "it" else "them"} first.",
+    )

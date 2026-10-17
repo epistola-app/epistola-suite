@@ -24,7 +24,7 @@
                     <p class="text-muted text-sm" style="margin: var(--ep-space-1) 0 0;">Identity, discovery, presentation, and usage terms.</p>
                 </div>
                 <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='details')}"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='details')}"
                         hx-target="#dialog-mount" hx-swap="innerHTML">Edit details</button>
             </div>
 
@@ -57,7 +57,7 @@
                     <div class="catalog-detail-item-header">
                         <h3>Discovery attributes</h3>
                         <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='attributes')}"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='attributes')}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                     </div>
                     <div th:if="${!catalog.catalogMetadata.attributes.isEmpty()}" class="badge-list">
@@ -72,7 +72,7 @@
                     <div class="catalog-detail-item-header">
                         <h3>Keywords</h3>
                         <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='keywords')}"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='keywords')}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                     </div>
                     <!--/* Order comes from the model, not the stored set - see CatalogKeywordOrder.
@@ -93,7 +93,7 @@
                           below says where images come from (.agents/rules/ui-affordances.md).
                         -->
                         <button th:if="${canEditMetadata and hasImages}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='presentation')}"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='presentation')}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                     </div>
                     <p th:if="${presentationIcon == null and presentationImages.isEmpty() and hasImages}"
@@ -107,7 +107,7 @@
                     <div th:if="${presentationIcon != null}" style="margin-bottom: var(--ep-space-3);">
                         <span class="catalog-detail-label">Icon</span>
                         <img th:if="${presentationIcon.available}" alt="Catalog icon" class="catalog-presentation-icon"
-                             th:src="@{/tenants/{tenantId}/images/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${catalog.id},assetId=${presentationIcon.asset.id})}" />
+                             th:src="@{/tenants/{tenantId}/images/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},assetId=${presentationIcon.asset.id})}" />
                         <div th:unless="${presentationIcon.available}" class="alert alert-warning">
                             Catalog icon is unavailable until asset <code th:text="${presentationIcon.slug}"></code> is installed.
                         </div>
@@ -117,7 +117,7 @@
                         <div class="ep-row ep-gap-3 ep-row-wrap">
                             <div th:each="image : ${presentationImages}">
                                 <img th:if="${image.available}" th:alt="${image.asset.name}" class="catalog-presentation-image"
-                                     th:src="@{/tenants/{tenantId}/images/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${catalog.id},assetId=${image.asset.id})}" />
+                                     th:src="@{/tenants/{tenantId}/images/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},assetId=${image.asset.id})}" />
                                 <div th:unless="${image.available}" class="catalog-presentation-placeholder text-muted text-sm">
                                     Unavailable until installed<br /><code th:text="${image.slug}"></code>
                                 </div>
@@ -130,7 +130,7 @@
                     <div class="catalog-detail-item-header">
                         <h3>License</h3>
                         <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='license')}"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='license')}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                     </div>
                     <p th:if="${catalog.catalogMetadata.license == null}" class="text-muted text-sm" style="margin: 0;">No license information.</p>
@@ -173,7 +173,7 @@
                 <div class="ep-row ep-gap-3"
                      th:if="${publication.hasPublishableDestination
                               && (publication.canPublishCurrentRelease || publication.needsNamespaceChoice)}">
-                    <form th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalog.id})}"
+                    <form th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}"
                           method="post" class="ep-row ep-gap-3">
                         <select th:if="${publication.needsNamespaceChoice}" class="ep-select ep-select-sm"
                                 name="chosenNamespace" required aria-label="Publish to namespace">
@@ -292,7 +292,7 @@
                         <span th:text="${publication.policy.label}">Inherit tenant default</span>
                         <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                                 style="margin-left: var(--ep-space-3);"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id},section='publication')}"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='publication')}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                     </dd>
                     <dt>Namespace</dt>
@@ -367,7 +367,7 @@
                                 <th:block th:replace="~{epistola-web/icon :: icon(name='external-link', class='ep-icon ep-icon-sm')}" />
                             </a>
                             <form th:if="${entry.status.isCancellable}"
-                                  th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publications/{publicationId}/cancel(tenantId=${tenantId},catalogId=${catalog.id},publicationId=${entry.id})}"
+                                  th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publications/{publicationId}/cancel(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},publicationId=${entry.id})}"
                                   method="post">
                                 <button type="button"
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
@@ -402,7 +402,7 @@
                        Offered on the same name as Next release's Release; when a resource is not
                        ready, Next release above says why it is withheld. */-->
                 <button th:if="${canRelease}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalog.id})}"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}"
                         hx-target="#release-dialog-container" hx-swap="innerHTML">Release new version</button>
             </div>
             <div class="card-body">
@@ -426,7 +426,7 @@
                     <tbody>
                         <tr th:each="row : ${releases}" th:with="release=${row.release}">
                             <td style="font-weight: 500;">
-                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/releases/{version}(tenantId=${tenantId},catalogId=${catalog.id},version=${release.version})}"
+                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/releases/{version}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},version=${release.version})}"
                                    th:text="'v' + ${release.version}">v1.0.0</a>
                                 <code style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"
                                       th:text="${release.shortFingerprint}"
@@ -446,7 +446,7 @@
                                 <a th:if="${release.retained}"
                                    class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                                    th:title="'Export v' + ${release.version} + ' exactly as it was released'"
-                                   th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalog.id},version=${release.version})}"
+                                   th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},version=${release.version})}"
                                    hx-boost="false" download>
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
                                 </a>
@@ -455,7 +455,7 @@
                                        been sent already. Any release can go, not only the latest. */-->
                                 <form th:if="${row.publishable}"
                                       method="post" style="display: inline;"
-                                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalog.id})}">
+                                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}">
                                     <input type="hidden" name="version" th:value="${release.version}">
                                     <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                                             th:title="'Publish v' + ${release.version} + ' to Epistola Exchange'">
@@ -471,7 +471,7 @@
                                        Epistola retained content has always had. */-->
                                 <form th:if="${row.forgettable and canForget}"
                                       method="post" style="display: inline;"
-                                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/releases/{version}/forget(tenantId=${tenantId},catalogId=${catalog.id},version=${release.version})}">
+                                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/releases/{version}/forget(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},version=${release.version})}">
                                     <button type="button"
                                             class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                             th:title="'Forget the content of v' + ${release.version}"
@@ -489,7 +489,7 @@
                                        by the command only while a send is actually in flight. */-->
                                 <form th:if="${canForget}"
                                       method="post" style="display: inline;"
-                                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/releases/{version}/delete(tenantId=${tenantId},catalogId=${catalog.id},version=${release.version})}">
+                                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/releases/{version}/delete(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},version=${release.version})}">
                                     <button type="button"
                                             class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                             th:title="'Delete v' + ${release.version} + ' from the history'"
@@ -558,7 +558,7 @@
                                               th:text="'since ' + ${#temporals.format(served.deployedAt, 'yyyy-MM-dd HH:mm')}"></span>
                                         <form th:if="${canDeploy}"
                                               method="post" style="display: inline;"
-                                              th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments/{environmentId}/undeploy(tenantId=${tenantId},catalogId=${catalog.id},environmentId=${row.environmentKey})}">
+                                              th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments/{environmentId}/undeploy(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},environmentId=${row.environmentKey})}">
                                             <input type="hidden" name="version" th:value="${served.version}">
                                             <button type="button"
                                                     class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
@@ -574,7 +574,7 @@
                                 <td class="actions">
                                     <form th:if="${canDeploy and !deployableVersions.isEmpty()}"
                                           method="post" style="display: inline-flex; gap: var(--ep-space-2);"
-                                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments(tenantId=${tenantId},catalogId=${catalog.id})}">
+                                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}">
                                         <input type="hidden" name="environmentId" th:value="${row.environmentKey}">
                                         <select name="version" class="ep-select ep-select-sm" required
                                                 th:attr="aria-label='Release to deploy to ' + ${row.environmentName}">
@@ -603,7 +603,7 @@
                        separate action above. */-->
                 <button th:if="${catalog.type.name() == 'SUBSCRIBED' and hasUninstalledResources}"
                         type="button" class="ep-btn ep-btn-primary ep-btn-sm"
-                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/install-preview(tenantId=${tenantId},catalogId=${catalog.id})}"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/install-preview(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}"
                         hx-target="#install-preview-body"
                         hx-swap="innerHTML"
                         data-open-dialog="install-preview-dialog">Install catalog</button>
@@ -649,19 +649,19 @@
                                 <!-- Authored: link to detail page for templates/themes/stencils -->
                                 <th:block th:if="${catalog.type.name() == 'AUTHORED'}">
                                     <a th:if="${resource.type == 'template'}"
-                                       th:href="@{/tenants/{tenantId}/templates/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalog.id},slug=${resource.slug})}"
+                                       th:href="@{/tenants/{tenantId}/templates/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},slug=${resource.slug})}"
                                        th:text="${resource.name}"></a>
                                     <a th:if="${resource.type == 'theme'}"
-                                       th:href="@{/tenants/{tenantId}/themes/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalog.id},slug=${resource.slug})}"
+                                       th:href="@{/tenants/{tenantId}/themes/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},slug=${resource.slug})}"
                                        th:text="${resource.name}"></a>
                                     <a th:if="${resource.type == 'stencil'}"
-                                       th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalog.id},slug=${resource.slug})}"
+                                       th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},slug=${resource.slug})}"
                                        th:text="${resource.name}"></a>
                                     <a th:if="${resource.type == 'attribute'}"
-                                       th:href="@{/tenants/{tenantId}/attributes(tenantId=${tenantId},catalog=${catalog.id})}"
+                                       th:href="@{/tenants/{tenantId}/attributes(tenantId=${tenantId},catalog=${catalogId ?: catalog.id})}"
                                        th:text="${resource.name}"></a>
                                     <a th:if="${resource.type == 'image'}"
-                                       th:href="@{/tenants/{tenantId}/images(tenantId=${tenantId},catalog=${catalog.id})}"
+                                       th:href="@{/tenants/{tenantId}/images(tenantId=${tenantId},catalog=${catalogId ?: catalog.id})}"
                                        th:text="${resource.name}"></a>
                                 </th:block>
                                 <!--/* Subscribed: the resource has no local page (it is a read-only
@@ -691,7 +691,7 @@
                                         type="button" class="badge badge-default"
                                         style="cursor: pointer; border: none; background: var(--ep-muted); padding: 2px 8px;"
                                         th:text="${count}"
-                                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/usages(tenantId=${tenantId},catalogId=${catalog.id},type=${resource.type},slug=${resource.slug})}"
+                                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/usages(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},type=${resource.type},slug=${resource.slug})}"
                                         hx-target="#usage-detail-body"
                                         hx-swap="innerHTML"
                                         data-open-dialog="usage-detail-dialog">
@@ -778,7 +778,7 @@
             </table>
         </div>
         <form id="install-confirm-form"
-              th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/install(tenantId=${tenantId},catalogId=${catalog.id})}"
+              th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/install(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}"
               hx-target="#resource-table"
               hx-swap="outerHTML"
               data-close-dialog-on-success="install-preview-dialog">

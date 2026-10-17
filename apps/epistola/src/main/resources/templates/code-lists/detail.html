@@ -9,6 +9,7 @@
                    catalogs/bar.html. The bar also says read-only for a subscribed catalog, which is
                    why no separate badge does. */-->
             <div th:replace="~{catalogs/bar :: catalog-bar(context=${catalogContext})}"></div>
+            <div th:replace="~{catalogs/drafts :: content-draft-bar(bar=${draftBar})}"></div>
 
             <div th:replace="~{epistola-web/page-header :: page-header(
                 pageTitle=${codeList.displayName},
@@ -38,7 +39,7 @@
             </div>
 
             <div style="margin: var(--ep-space-3) 0;">
-                <a th:href="@{/tenants/{tenantId}/code-lists/{c}/{s}(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug},show=${includeHidden ? 'visible' : 'all'})}"
+                <a th:href="@{/tenants/{tenantId}/code-lists/{c}/{s}(tenantId=${tenantId},c=${catalogSegment ?: codeList.catalogKey},s=${codeList.slug},show=${includeHidden ? 'visible' : 'all'})}"
                    class="btn btn-sm btn-outline"
                    th:text="${includeHidden ? 'Hide hidden entries' : 'Show hidden entries'}"></a>
             </div>
@@ -62,7 +63,7 @@
                             <td th:text="${entry.sortOrder}"></td>
                             <td>
                                 <form th:if="${editable}"
-                                      th:hx-patch="@{/tenants/{tenantId}/code-lists/{c}/{s}/entries/{code}/hidden(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug},code=${entry.code})}"
+                                      th:hx-patch="@{/tenants/{tenantId}/code-lists/{c}/{s}/entries/{code}/hidden(tenantId=${tenantId},c=${catalogSegment ?: codeList.catalogKey},s=${codeList.slug},code=${entry.code})}"
                                       th:hx-vals="'{&quot;hidden&quot;:&quot;' + ${!entry.hidden} + '&quot;}'"
                                       th:hx-target="'#entry-row-' + ${entry.code}"
                                       hx-swap="outerHTML">
@@ -95,7 +96,7 @@
     </th:block>
     <th:block th:fragment="code-list-detail-actions">
         <form th:if="${editable and codeList.sourceUrl != null}"
-              th:action="@{/tenants/{tenantId}/code-lists/{c}/{s}/refresh(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug})}"
+              th:action="@{/tenants/{tenantId}/code-lists/{c}/{s}/refresh(tenantId=${tenantId},c=${catalogSegment ?: codeList.catalogKey},s=${codeList.slug})}"
               method="post" style="display: inline;">
             <button type="submit" class="ep-btn ep-btn-outline">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
@@ -106,7 +107,7 @@
                 class="ep-btn ep-btn-outline ep-btn-destructive"
                 data-confirm-title="Delete code list"
                 data-confirm-target="#main-content"
-                th:attr="data-confirm-message='Delete code list &quot;' + ${codeList.displayName} + '&quot;? Bound attributes must be unbound first.',data-confirm-url=@{/tenants/{tenantId}/code-lists/{c}/{s}/delete(tenantId=${tenantId},c=${codeList.catalogKey},s=${codeList.slug})}">
+                th:attr="data-confirm-message='Delete code list &quot;' + ${codeList.displayName} + '&quot;? Bound attributes must be unbound first.',data-confirm-url=@{/tenants/{tenantId}/code-lists/{c}/{s}/delete(tenantId=${tenantId},c=${catalogSegment ?: codeList.catalogKey},s=${codeList.slug})}">
             Delete
         </button>
     </th:block>

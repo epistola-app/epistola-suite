@@ -11,7 +11,9 @@ import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.mcp.dto.StencilDetailInfo
 import app.epistola.suite.mcp.dto.StencilInfo
 import app.epistola.suite.mcp.dto.StencilUsageInfo
+import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogFilter
+import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
@@ -64,12 +66,15 @@ class StencilMcpTools(
             required = false,
         )
         tag: String?,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): List<StencilInfo> = mediator.query(
         ListStencils(
             tenantId = mcpTenantId(),
             catalogKey = catalogFilter(catalogId),
             searchTerm = search,
             tag = tag,
+            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
         ),
     ).map { StencilInfo.from(it) }
 
@@ -84,7 +89,9 @@ class StencilMcpTools(
         catalogId: String,
         @McpToolParam(description = "Stencil key.")
         stencilId: String,
-    ): StencilDetailInfo? = mediator.query(GetStencil(stencilId(catalogId, stencilId)))?.let { StencilDetailInfo.from(it) }
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
+    ): StencilDetailInfo? = mediator.query(GetStencil(stencilId(catalogId, stencilId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)))?.let { StencilDetailInfo.from(it) }
 
     @McpTool(
         name = "list_stencil_usages",
@@ -101,10 +108,13 @@ class StencilMcpTools(
         stencilId: String,
         @McpToolParam(description = "1-based page; defaults to 1.", required = false)
         page: Int?,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): List<StencilUsageInfo> {
         val id = stencilId(catalogId, stencilId)
-        if (GetStencil(id).query() == null) throw notFound("Stencil", catalogId, stencilId)
-        return GetStencilUsagePage(id, page = page ?: 1).query().items.map(StencilUsageInfo::from)
+        val version = catalogVersionRef(catalogId, catalogVersion)
+        if (GetStencil(id, catalogVersion = version).query() == null) throw notFound("Stencil", catalogId, stencilId)
+        return GetStencilUsagePage(id, page = page ?: 1, catalogVersion = version).query().items.map(StencilUsageInfo::from)
     }
 
     @McpTool(
@@ -143,6 +153,8 @@ class StencilMcpTools(
             required = false,
         )
         readsTemplateData: Boolean?,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): StencilInfo = StencilInfo.from(
         CreateStencil(
             id = stencilId(catalogId, stencilId),
@@ -152,6 +164,7 @@ class StencilMcpTools(
             content = objectMapper.parseOptionalArgument("content", content, TemplateDocument::class.java),
             parameterSchema = objectMapper.parseOptionalArgument("parameterSchema", parameterSchema, JsonNode::class.java),
             readsTemplateData = readsTemplateData ?: false,
+            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
         ).execute(),
     )
 
@@ -181,6 +194,8 @@ class StencilMcpTools(
         clearParameterSchema: Boolean?,
         @McpToolParam(description = "Whether the content also reads the using template's data.", required = false)
         readsTemplateData: Boolean?,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): StencilInfo = UpdateStencil(
         id = stencilId(catalogId, stencilId),
         name = name?.takeIf { it.isNotBlank() },
@@ -190,6 +205,7 @@ class StencilMcpTools(
         parameterSchema = objectMapper.parseOptionalArgument("parameterSchema", parameterSchema, JsonNode::class.java),
         clearParameterSchema = parameterSchema == null && clearParameterSchema == true,
         readsTemplateData = readsTemplateData,
+        catalogVersion = catalogVersionRef(catalogId, catalogVersion),
     ).execute()?.let { StencilInfo.from(it) } ?: throw notFound("Stencil", catalogId, stencilId)
 
     private fun stencilId(catalogId: String, stencilId: String) = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))

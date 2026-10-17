@@ -10,6 +10,7 @@ import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.documents.queries.PreviewVariant
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.htmx.catalogId
+import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
@@ -91,6 +92,7 @@ class TemplatePreviewHandler(
                     variantId = variantId.key,
                     data = dataNode,
                     templateModel = liveTemplateModel,
+                    catalogVersion = request.catalogVersion(),
                     resolvedTheme = previewRequest.theme?.let { theme ->
                         ResolvedTheme(
                             documentStyles = theme.documentStyles,

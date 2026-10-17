@@ -62,11 +62,13 @@
 </head>
 <body class="editor-page">
     <nav class="editor-nav">
-        <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${catalogId},id=${templateId})}" class="editor-nav-back">
+        <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${templateId})}" class="editor-nav-back">
             <th:block th:replace="~{epistola-web/icon :: icon(name='arrow-left', class='ep-icon ep-icon-sm')}" />
             <span th:text="${templateName}">Template Name</span>
         </a>
         <span class="editor-nav-variant" th:text="'/ ' + ${variantId}"></span>
+        <span th:if="${editorDraft != null}" class="badge badge-info" data-testid="editor-draft"
+              th:text="'Draft v' + ${editorDraft}">Draft v2.0.0</span>
     </nav>
     <!-- data-leader-timing is a test-only seam (issue #418): present only when
          the ?leaderTiming= query param is supplied; omitted in production. -->
@@ -86,6 +88,7 @@
         "templateId": [[${templateId}]],
         "tenantId": [[${tenantId}]],
         "catalogId": [[${catalogId}]],
+        "catalogSegment": [[${catalogSegment}]],
         "variantId": [[${variantId}]],
         "dataExamples": [[${dataExamples}]],
         "dataModel": [[${dataModel}]],
@@ -104,8 +107,8 @@
                 "feature": "quality",
                 "factoryExport": "createQualityEditorPlugin",
                 "config": {
-                    "findingsUrl": [[@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variantId})}]],
-                    "checkUrl": [[@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality/check(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variantId})}]]
+                    "findingsUrl": [[@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${templateId},variantId=${variantId})}]],
+                    "checkUrl": [[@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality/check(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${templateId},variantId=${variantId})}]]
                 }
             },
             {

@@ -15,7 +15,9 @@ import app.epistola.suite.mcp.dto.TemplateContentInfo
 import app.epistola.suite.mcp.dto.TemplateInfo
 import app.epistola.suite.mcp.dto.TemplateSummaryInfo
 import app.epistola.suite.mcp.dto.VariantInfo
+import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogFilter
+import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
@@ -63,11 +65,14 @@ class TemplateMcpTools(
             required = false,
         )
         search: String?,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): List<TemplateSummaryInfo> = mediator.query(
         ListTemplateSummaries(
             tenantId = mcpTenantId(),
             catalogKey = catalogFilter(catalogId),
             searchTerm = search,
+            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
         ),
     ).items.map { TemplateSummaryInfo.from(it) }
 
@@ -82,9 +87,11 @@ class TemplateMcpTools(
         catalogId: String,
         @McpToolParam(description = "Template key.")
         templateId: String,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): TemplateInfo? {
         val id = templateId(catalogId, templateId)
-        return mediator.query(GetDocumentTemplate(id))?.let { TemplateInfo.from(it) }
+        return mediator.query(GetDocumentTemplate(id, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))?.let { TemplateInfo.from(it) }
     }
 
     @McpTool(
@@ -99,7 +106,9 @@ class TemplateMcpTools(
         catalogId: String,
         @McpToolParam(description = "Template key.")
         templateId: String,
-    ): List<VariantInfo> = mediator.query(ListVariants(templateId(catalogId, templateId)))
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
+    ): List<VariantInfo> = mediator.query(ListVariants(templateId(catalogId, templateId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)))
         .map { VariantInfo.from(it) }
 
     @McpTool(
@@ -114,8 +123,10 @@ class TemplateMcpTools(
         templateId: String,
         @McpToolParam(description = "Variant key.")
         variantId: String,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): VariantInfo? = mediator
-        .query(GetVariant(variantId(catalogId, templateId, variantId)))
+        .query(GetVariant(variantId(catalogId, templateId, variantId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)))
         ?.let { VariantInfo.from(it) }
 
     @McpTool(
@@ -133,8 +144,10 @@ class TemplateMcpTools(
         templateId: String,
         @McpToolParam(description = "Variant key. Use `list_variants` to discover.")
         variantId: String,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): TemplateContentInfo? = mediator
-        .query(GetEditorContext(variantId(catalogId, templateId, variantId)))
+        .query(GetEditorContext(variantId(catalogId, templateId, variantId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)))
         ?.let { TemplateContentInfo.from(it) }
 
     @McpTool(
@@ -164,25 +177,30 @@ class TemplateMcpTools(
             required = false,
         )
         variantAttributes: String?,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): TemplateInfo {
         val id = templateId(catalogId, templateId)
+        val version = catalogVersionRef(catalogId, catalogVersion)
         // Validated before anything is created, so bad attributes leave no half-made template behind.
         val attributes = parseAttributes(variantAttributes, field = "variantAttributes")
             ?.also { validateAttributes(mcpTenantId(), it) }
-        var template = CreateDocumentTemplate(id = id, name = name).execute()
+        var template = CreateDocumentTemplate(id = id, name = name, catalogVersion = version).execute()
         if (!themeId.isNullOrBlank()) {
             template = UpdateDocumentTemplate(
                 id = id,
                 themeId = ThemeKey.of(themeId),
                 themeCatalogKey = CatalogKey.of(themeCatalogId?.takeIf { it.isNotBlank() } ?: catalogId),
+                catalogVersion = version,
             ).execute() ?: error("Template '$templateId' disappeared while applying its theme")
         }
         if (!attributes.isNullOrEmpty()) {
-            val defaultVariant = ListVariants(id).query().single { it.isDefault }
+            val defaultVariant = ListVariants(id, catalogVersion = version).query().single { it.isDefault }
             UpdateVariant(
                 variantId = VariantId(defaultVariant.id, id),
                 title = defaultVariant.title,
                 attributes = attributes,
+                catalogVersion = version,
             ).execute()
         }
         return TemplateInfo.from(template)
@@ -210,6 +228,8 @@ class TemplateMcpTools(
         clearTheme: Boolean?,
         @McpToolParam(description = "Whether the template renders as PDF/A.", required = false)
         pdfaEnabled: Boolean?,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): TemplateInfo {
         if (clearTheme == true && !themeId.isNullOrBlank()) {
             throw ValidationException("clearTheme", "`clearTheme` cannot be combined with `themeId`")
@@ -222,6 +242,7 @@ class TemplateMcpTools(
             themeCatalogKey = theme?.let { CatalogKey.of(themeCatalogId?.takeIf { c -> c.isNotBlank() } ?: catalogId) },
             clearThemeId = clearTheme == true,
             pdfaEnabled = pdfaEnabled,
+            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
         ).execute()?.let { TemplateInfo.from(it) } ?: throw notFound("Template", catalogId, templateId)
     }
 
@@ -251,11 +272,14 @@ class TemplateMcpTools(
             required = false,
         )
         attributes: String?,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): VariantInfo = CreateVariant(
         id = variantId(catalogId, templateId, variantId),
         title = title,
         description = description?.takeIf { it.isNotBlank() },
         attributes = parseAttributes(attributes) ?: emptyMap(),
+        catalogVersion = catalogVersionRef(catalogId, catalogVersion),
     ).execute()?.let { VariantInfo.from(it) } ?: throw notFound("Template", catalogId, templateId)
 
     @McpTool(
@@ -278,13 +302,17 @@ class TemplateMcpTools(
             required = false,
         )
         attributes: String?,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): VariantInfo {
         val id = variantId(catalogId, templateId, variantId)
-        val current = GetVariant(id).query() ?: throw notFound("Variant", catalogId, "$templateId/$variantId")
+        val version = catalogVersionRef(catalogId, catalogVersion)
+        val current = GetVariant(id, catalogVersion = version).query() ?: throw notFound("Variant", catalogId, "$templateId/$variantId")
         return UpdateVariant(
             variantId = id,
             title = title?.takeIf { it.isNotBlank() } ?: current.title,
             attributes = parseAttributes(attributes) ?: current.attributes,
+            catalogVersion = version,
         ).execute()?.let { VariantInfo.from(it) } ?: throw notFound("Variant", catalogId, "$templateId/$variantId")
     }
 

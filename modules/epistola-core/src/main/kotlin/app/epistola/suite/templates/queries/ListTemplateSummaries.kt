@@ -7,6 +7,8 @@ package app.epistola.suite.templates.queries
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -75,7 +77,10 @@ data class ListTemplateSummaries(
     val descending: Boolean = true,
     val limit: Int = 50,
     val offset: Int = 0,
-) : Query<TemplateSummaryPage>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<TemplateSummaryPage>,
     RequiresPermission {
     override val permission: Permission get() = Permission.TEMPLATE_VIEW
     override val tenantKey: TenantKey get() = tenantId.key

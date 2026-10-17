@@ -75,7 +75,13 @@ a subscribed catalog. A version number is unique in its catalog, across drafts a
   with `from` as a copy of that draft or release. Its base is `from` when that is released, `from`'s
   base when it is a draft. A draft is copied row by row (`copy_catalog_version_content()`); a release
   from its retained content, rebuilt as its archive and imported into the new draft.
-  `DeleteCatalogVersion` discards a draft and everything in it.
+  `DeleteCatalogVersion` discards a draft and everything in it. It is refused
+  (`CatalogVersionHeldException`, REST `CATALOG_VERSION_HELD`, 409, `heldBy`) while the draft alone
+  holds a resource something outside it still references: the tenant's default theme, a code list
+  an attribute of another version or catalog binds, or a theme a template of another version or
+  catalog uses. Discarding would delete the resource's identity, and those references would fail as
+  a foreign-key violation or, for a template's theme, be cleared silently. The refusal names each
+  holder, e.g. `the tenant's default theme (theme letters/seasonal)`.
 - **Behind.** A draft is _behind_ the releases numbered above its base and below its own number: it
   does not contain their changes unless an author applied them by hand. `CatalogVersion.behind` lists
   them, each with what it changed against the release below it, and `ReleaseCatalogVersion` refuses
@@ -112,12 +118,44 @@ handler runs (an unknown number is `CatalogVersionNotFoundException`, a released
 `CatalogVersionTargeting` sets the PostgreSQL setting `epistola.content_version` to the version's
 `version_id`, transaction-locally. Handlers written for "the" version of a catalog then work on that
 draft unchanged, and every message they dispatch inherits it; the caller's target is restored when
-the message ends. A message that names no version works on the current version, so the UI and MCP,
-which name none, keep working on the highest draft. A self-managed command (`RefreshCodeList`)
-applies the target in each transaction it opens.
+the message ends. A message that names no version works on the current version, the highest draft.
+A self-managed command (`RefreshCodeList`) applies the target in each transaction it opens.
 
 The REST API's `…/versions/{catalogVersion}/…` paths pass the draft they name to every message they
 dispatch (`ResolvedCatalogVersion.ref`); a released version is read from its retained content.
+
+### Choosing a draft in the UI
+
+The web UI names the draft in the catalog's own path segment: `letters@2.0.0` is draft 2.0.0 of
+`letters`, plain `letters` its current version (`CatalogSegment` in `epistola-web`; `@` cannot occur
+in a catalog key). So `/tenants/acme/templates/letters@2.0.0/invoice` is the invoice in that draft,
+and the same works for every per-catalog and per-resource route (catalog page, themes, stencils,
+code lists, fonts, images, the template editor and its preview). List pages take it as their
+`catalog` filter (`/attributes?catalog=letters@2.0.0`), and their create dialogs then create in that
+draft.
+
+- **Why the URL, not the session.** A link to a draft is shareable and survives reloads, two tabs
+  can work in two drafts, and every link, HTMX request and editor call built from the segment stays
+  on the draft without any of them knowing about drafts. The editor's own requests read the segment
+  from the editor config (`catalogSegment`) and use it for its own catalog's URLs; requests across
+  catalogs (stencil search, image content) name the draft as `in=letters@2.0.0`, so that catalog is
+  read from the draft and every other from its current version.
+- **Every message names it.** Handlers pass the segment's draft as `catalogVersion` to every command
+  and query they dispatch, including the UI-only ones (`GetEditorContext`, `ListTemplateSummaries`,
+  `GetThemeUsagePage`, `ResolveTemplateTheme`, `PreviewVariant`, `BrowseCatalog`, …).
+- **The draft bar** (`catalogs/drafts.html`, read model `CatalogDraftBar`) says which draft a page
+  works in, its base, the releases it is behind with their changes, and links to the other drafts;
+  the current draft is linked plainly. A catalog with one draft looks as it always did: its number
+  in the catalog page's _Next release_ heading and no bar on content pages.
+- **On the catalog page** _Next release_ works on the chosen draft: _New draft_ (number, and a draft
+  or release to copy, defaulting to the base), _Discard draft_ (refusals such as a held default
+  theme are shown in the section), _Renumber_ and _Release_. The release dialog lists the releases
+  the draft is behind, with their changes, and asks to confirm each (`acknowledgedBehind`). An
+  authored catalog without a draft offers to open one from its latest release.
+- A route naming a version that is not a draft of the catalog is a 404.
+
+Over MCP the content tools take an optional `catalogVersion` argument, and the version tools list,
+open, renumber, release and discard drafts (see [`mcp.md`](mcp.md)).
 
 ## Versioning scheme: SemVer + content fingerprint
 
@@ -498,16 +536,12 @@ To regenerate after an intentional change: run the test, paste the reported
 
 ## Surfaces
 
-| Surface  | Exposure                                                                     |
-| -------- | ---------------------------------------------------------------------------- |
-| Web UI   | Version column (`v<version>` / `unreleased`); Release dialog (AUTHORED)      |
-| REST     | `CatalogDto.releasedVersion` + `fingerprint` (read-only)                     |
-| MCP      | Release fields plus discovery metadata and metadata upgrade diff (read-only) |
-| Exchange | `ReleaseInfo.fingerprint` in the manifest; `schemaVersion` 4                 |
-
-The release **action** is intentionally UI-only in Phase 1 (deliberate, human;
-read-state parity is delivered everywhere). A REST/MCP release endpoint can be
-added later if automation demand appears.
+| Surface  | Exposure                                                                                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web UI   | Version column (`v<version>` / `unreleased`); drafts (choose, open, discard, renumber, release with `acknowledgedBehind`)                                                 |
+| REST     | Catalog versions: list, create, delete, renumber, release (`…/versions/{catalogVersion}/…`)                                                                               |
+| MCP      | `list_catalog_versions`, `create_catalog_version`, `delete_catalog_version`, `renumber_catalog_version`, `release_catalog_version`; `catalogVersion` on the content tools |
+| Exchange | `ReleaseInfo.fingerprint` in the manifest; `schemaVersion` 4                                                                                                              |
 
 ## Roadmap
 

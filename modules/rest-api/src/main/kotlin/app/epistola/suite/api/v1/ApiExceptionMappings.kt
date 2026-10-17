@@ -26,6 +26,7 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.catalog.versions.CatalogVersionBehindException
+import app.epistola.suite.catalog.versions.CatalogVersionHeldException
 import app.epistola.suite.catalog.versions.CatalogVersionInUseException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
@@ -576,6 +577,13 @@ object ApiExceptionMappings {
             defaultDetail = "The draft is behind releases it does not contain",
             extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version, "behind" to it.behind) },
             logMessage = { "Release refused, behind not acknowledged: ${it.message}" },
+        )
+
+        builder.register<CatalogVersionHeldException>(
+            problemType = ApiProblemTypes.CATALOG_VERSION_HELD,
+            defaultDetail = "The draft alone holds resources something outside it still uses",
+            extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version, "heldBy" to it.holders) },
+            logMessage = { "Discarding a draft refused: ${it.message}" },
         )
 
         builder.register<RenumberWarningsNotAcknowledgedException>(

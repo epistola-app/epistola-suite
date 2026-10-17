@@ -9,6 +9,8 @@ import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -33,7 +35,10 @@ data class ListAssets(
     val tenantId: TenantKey,
     val searchTerm: String? = null,
     val catalogKey: CatalogKey? = null,
-) : Query<List<Asset>>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<List<Asset>>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_VIEW
     override val tenantKey get() = tenantId

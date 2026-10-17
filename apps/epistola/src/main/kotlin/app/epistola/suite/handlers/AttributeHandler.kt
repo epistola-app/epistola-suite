@@ -20,10 +20,15 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.handlers.CatalogDraftBar
+import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.attributeId
 import app.epistola.suite.htmx.catalogId
+import app.epistola.suite.htmx.catalogParam
+import app.epistola.suite.htmx.catalogSegment
+import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -43,16 +48,19 @@ class AttributeHandler {
 
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
+        // The filter may name a draft (`letters@2.0.0`); its rows are then the draft's.
+        val segment = request.catalogParam()
         val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
         val catalogs = ListCatalogs(tenantId.key).query()
-        val attributes = ListAttributeDefinitions(tenantId = tenantId, catalogKey = catalogFilter).query()
+        val attributes = ListAttributeDefinitions(tenantId = tenantId, catalogKey = segment?.key, catalogVersion = segment?.ref(tenantId.key)).query()
         return ServerResponse.ok().page("attributes/list") {
             "pageTitle" to "Attributes - Epistola"
             "tenant" to tenant
             "tenantId" to tenantId.key
             "catalogs" to catalogs
-            "selectedCatalog" to (catalogFilter?.value ?: "")
+            "selectedCatalog" to (segment?.value ?: "")
+            "draftSegment" to segment?.takeIf { it.version != null }
+            "draftBar" to segment?.let { draftBarFor(tenantId, it) }
             "attributes" to attributes
         }
     }
@@ -65,13 +73,16 @@ class AttributeHandler {
         // filter and the dialog's two <select>s.
         val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
         val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
-        val codeLists by lazy { ListCodeLists(tenantId).query() }
+        // Opened from a list filtered to a draft, the dialog creates in that draft.
+        val selected = request.catalogParam()
+        val codeLists by lazy { ListCodeLists(tenantId, catalogVersion = selected?.ref(tenantId.key)).query() }
         return request.htmx {
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("attributes/new", "dialog") {
                 "tenantId" to tenantId.key
                 "authoredCatalogs" to authoredCatalogs
                 "codeLists" to codeLists
+                "draftSegment" to selected?.takeIf { it.version != null }
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
@@ -123,6 +134,7 @@ class AttributeHandler {
         val allowedValuesInput = request.params().getFirst("allowedValues")?.trim().orEmpty()
         val codeListSelection = request.params().getFirst("codeList")?.ifBlank { null }
         val (allowedValues, codeListId) = parseConstraint(constraintKind, allowedValuesInput, codeListSelection, tenantId)
+        val catalogSegment = CatalogSegment.parseOrNull(form.formData["catalog"])
 
         // Field validation (incl. slug/AttributeKey) and the command-level failure
         // (duplicate slug) both land as `errors` on the FormData, so they share one
@@ -137,11 +149,12 @@ class AttributeHandler {
                     // is reached only with a valid slug and catalog.
                     id = AttributeId(
                         AttributeKey.validateOrNull(form["slug"])!!,
-                        CatalogId(CatalogKey.of(form["catalog"]), tenantId),
+                        CatalogId(catalogSegment!!.key, tenantId),
                     ),
                     displayName = form["displayName"],
                     allowedValues = allowedValues,
                     codeListId = codeListId,
+                    catalogVersion = catalogSegment.ref(tenantId.key),
                 ).execute()
             }
         }
@@ -186,9 +199,13 @@ class AttributeHandler {
         // step with the URL and sidesteps the catalog-filter desync an OOB
         // stay-on-list refresh would cause. onNonHtmx 303-redirects for the
         // non-HTMX fallback.
+        // Created in a draft, the list comes back filtered to it, which is where the attribute is.
+        val destination = catalogSegment?.takeIf { it.version != null }
+            ?.let { "/tenants/${tenantId.key}/attributes?catalog=${it.value}" }
+            ?: "/tenants/${tenantId.key}/attributes"
         return request.htmx {
-            dialogLocation("/tenants/${tenantId.key}/attributes")
-            onNonHtmx { redirect("/tenants/${tenantId.key}/attributes") }
+            dialogLocation(destination)
+            onNonHtmx { redirect(destination) }
         }
     }
 
@@ -197,16 +214,19 @@ class AttributeHandler {
         val attributeId = request.attributeId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
+        val version = request.catalogVersion()
         val attribute = GetAttributeDefinition(
             id = attributeId,
+            catalogVersion = version,
         ).query() ?: return ServerResponse.notFound().build()
-        val codeLists = ListCodeLists(tenantId).query()
+        val codeLists = ListCodeLists(tenantId, catalogVersion = version).query()
 
         return request.htmx {
             fragment("attributes/list", "edit-attribute-form") {
                 "tenantId" to tenantId.key
                 "attribute" to attribute
                 "codeLists" to codeLists
+                "draftSegment" to request.catalogSegment().takeIf { it.version != null }
             }
         }
     }
@@ -226,17 +246,21 @@ class AttributeHandler {
             field("codeList") {}
         }
 
-        val codeLists = ListCodeLists(tenantId).query()
+        val version = request.catalogVersion()
+        val draftSegment = request.catalogSegment().takeIf { it.version != null }
+        val codeLists = ListCodeLists(tenantId, catalogVersion = version).query()
 
         if (form.hasErrors()) {
             val attribute = GetAttributeDefinition(
                 id = attributeId,
+                catalogVersion = version,
             ).query() ?: return ServerResponse.notFound().build()
             return request.htmx {
                 fragment("attributes/list", "edit-attribute-form") {
                     "tenantId" to tenantId.key
                     "attribute" to attribute
                     "codeLists" to codeLists
+                    "draftSegment" to draftSegment
                     "error" to form.errors.values.firstOrNull()
                 }
                 retarget("#edit-attribute-dialog-body")
@@ -256,16 +280,19 @@ class AttributeHandler {
                 displayName = displayName,
                 allowedValues = allowedValues,
                 codeListId = codeListId,
+                catalogVersion = version,
             ).execute() ?: return ServerResponse.notFound().build()
         } catch (e: Exception) {
             val attribute = GetAttributeDefinition(
                 id = attributeId,
+                catalogVersion = version,
             ).query() ?: return ServerResponse.notFound().build()
             return request.htmx {
                 fragment("attributes/list", "edit-attribute-form") {
                     "tenantId" to tenantId.key
                     "attribute" to attribute
                     "codeLists" to codeLists
+                    "draftSegment" to draftSegment
                     "error" to (e.message ?: "Update failed")
                 }
                 retarget("#edit-attribute-dialog-body")
@@ -273,11 +300,13 @@ class AttributeHandler {
             }
         }
 
-        val attributes = ListAttributeDefinitions(tenantId = tenantId).query()
+        // Back to the list as it was shown: the draft's attributes when it was filtered to one.
+        val attributes = ListAttributeDefinitions(tenantId = tenantId, catalogKey = draftSegment?.key, catalogVersion = version).query()
         return request.htmx {
             fragment("attributes/list", "rows") {
                 "tenantId" to tenantId.key
                 "attributes" to attributes
+                "draftSegment" to draftSegment
             }
             trigger("closeDialog")
             onNonHtmx { redirect("/tenants/${tenantId.key}/attributes") }
@@ -289,19 +318,23 @@ class AttributeHandler {
         val attributeId = request.attributeId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
+        val version = request.catalogVersion()
+        val draftSegment = request.catalogSegment().takeIf { it.version != null }
         DeleteAttributeDefinition(
             id = attributeId,
+            catalogVersion = version,
         ).execute()
 
         // Refresh the whole list region so the last delete flips to the empty
         // state (the empty-state lives in `attribute-list`, outside the rows
         // tbody). Direct targeted swap into #attribute-list (outerHTML), not an
         // OOB swap, so `oob` stays unset and hx-swap-oob renders null.
-        val attributes = ListAttributeDefinitions(tenantId = tenantId).query()
+        val attributes = ListAttributeDefinitions(tenantId = tenantId, catalogKey = draftSegment?.key, catalogVersion = version).query()
         return request.htmx {
             fragment("attributes/list", "attribute-list") {
                 "tenantId" to tenantId.key
                 "attributes" to attributes
+                "draftSegment" to draftSegment
             }
             onNonHtmx { redirect("/tenants/${tenantId.key}/attributes") }
         }
@@ -325,6 +358,8 @@ class AttributeHandler {
         "selectedCatalog" to ""
         "attributes" to ListAttributeDefinitions(tenantId = tenantId).query()
     }
+
+    private fun draftBarFor(tenantId: TenantId, segment: CatalogSegment): CatalogDraftBar = CatalogDraftBar.of(tenantId.key, segment) { "/tenants/${tenantId.key}/attributes?catalog=${it.value}" }
 
     private fun parseAllowedValues(input: String): List<String> {
         if (input.isBlank()) return emptyList()

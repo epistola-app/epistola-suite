@@ -19,6 +19,9 @@ async function mount(container) {
 
   const tenantId = config.tenantId;
   const catalogId = config.catalogId;
+  // `letters`, or `letters@2.0.0` for a draft (several drafts per catalog): the theme's own
+  // requests carry it, so the editor saves into the draft the page was opened in.
+  const catalogSegment = config.catalogSegment || catalogId;
   const themeId = config.themeId;
   const themeData = config.theme;
 
@@ -30,16 +33,19 @@ async function mount(container) {
     readonly: !editable,
     fontOptions: {
       listFonts: async () => {
-        const resp = await fetch('/tenants/' + tenantId + '/fonts/search?catalog=' + catalogId, {
-          headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
-        });
+        const resp = await fetch(
+          '/tenants/' + tenantId + '/fonts/search?catalog=' + encodeURIComponent(catalogSegment),
+          {
+            headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+          },
+        );
         if (!resp.ok) throw new Error('Failed to list fonts');
         return await resp.json();
       },
     },
     onSave: async (payload) => {
       const response = await fetch(
-        '/tenants/' + tenantId + '/themes/' + catalogId + '/' + themeId,
+        '/tenants/' + tenantId + '/themes/' + encodeURIComponent(catalogSegment) + '/' + themeId,
         {
           method: 'PATCH',
           headers: {

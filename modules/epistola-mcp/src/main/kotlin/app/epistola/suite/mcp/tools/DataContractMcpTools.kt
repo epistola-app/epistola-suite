@@ -9,6 +9,8 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.mcp.dto.DataContractInfo
+import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
@@ -44,9 +46,11 @@ class DataContractMcpTools(
         catalogId: String,
         @McpToolParam(description = "Template key.")
         templateId: String,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): DataContractInfo? {
         val id = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
-        return mediator.query(GetDataContract(id))?.let { DataContractInfo.from(templateId, catalogId, it) }
+        return mediator.query(GetDataContract(id, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))?.let { DataContractInfo.from(templateId, catalogId, it) }
     }
 
     @McpTool(
@@ -75,6 +79,8 @@ class DataContractMcpTools(
             required = false,
         )
         dataExamples: String?,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): DataContractInfo {
         val id = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
         val command = UpdateDataContract(
@@ -82,6 +88,7 @@ class DataContractMcpTools(
             dataModel = objectMapper.parseOptionalArgument("dataModel", dataModel, ObjectNode::class.java),
             dataExamples = objectMapper.parseOptionalArgument("dataExamples", dataExamples, ArrayNode::class.java)
                 ?.let(::toExamples),
+            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
         )
         return DataContractInfo.from(templateId, catalogId, sendUpdate(command).contract)
     }

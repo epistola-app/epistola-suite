@@ -154,7 +154,7 @@
     <th:block th:fragment="release-dialog">
         <dialog id="release-dialog" class="ep-dialog">
             <div class="ep-dialog-header">
-                <h3>Release new version</h3>
+                <h3 th:text="${readiness.drafts.severalDrafts and readiness.draftVersion != null} ? 'Release draft v' + ${readiness.draftVersion} : 'Release new version'">Release new version</h3>
             </div>
             <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
                   hx-target="#release-dialog-container" hx-swap="innerHTML">
@@ -194,6 +194,25 @@
                             </p>
                         </div>
                     </div>
+
+                    <!--/* A draft behind releases (released after its base, below its number)
+                           does not contain their changes. The contract releases it only when each
+                           is acknowledged (`acknowledgedBehind`), so the dialog names them, with
+                           what they changed, and asks for one confirmation apiece. */-->
+                    <th:block th:if="${readiness.draftVersion != null and !readiness.drafts.behind.isEmpty()}">
+                        <div th:replace="~{catalogs/drafts :: behind-list(bar=${readiness.drafts})}"></div>
+                        <div class="form-group" data-testid="release-acknowledge-behind">
+                            <span class="ep-label">Release without</span>
+                            <label th:each="release : ${readiness.drafts.behind}"
+                                   style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-1);">
+                                <input type="checkbox" name="acknowledgedBehind" required
+                                       th:value="${release.version}"
+                                       th:checked="${acknowledgedBehind != null and acknowledgedBehind.contains(release.version)}"
+                                       data-testid="release-acknowledge-behind-checkbox">
+                                <span th:text="'This draft may be released without the changes of v' + ${release.version}">This draft may be released without v1.0.1</span>
+                            </label>
+                        </div>
+                    </th:block>
 
                     <!--/* What this release will contain that the last one did not, named rather
                            than counted — the same shape the upgrade dialog uses below, because it

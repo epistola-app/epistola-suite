@@ -13,14 +13,14 @@
                  aria-label="Data contract save controls"></div>
 
             <th:block th:if="${editMode}">
-                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id})}"
                    class="ep-btn ep-btn-outline ep-btn-sm" hx-boost="false">
                     Done editing
                 </a>
             </th:block>
 
             <th:block th:if="${!editMode && editable && auth.has('TEMPLATE_EDIT')}">
-                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},edit=true)}"
+                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},edit=true)}"
                    class="ep-btn ep-btn-outline ep-btn-sm" hx-boost="false">
                     Edit
                 </a>

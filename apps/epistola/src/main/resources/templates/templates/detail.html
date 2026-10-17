@@ -8,6 +8,8 @@
                below says what you are editing in it. Kept apart deliberately — see
                catalogs/bar.html. */-->
         <div th:replace="~{catalogs/bar :: catalog-bar(context=${catalogContext})}"></div>
+        <!--/* Which draft of the catalog this page edits, once there is more than one. */-->
+        <div th:replace="~{catalogs/drafts :: content-draft-bar(bar=${draftBar})}"></div>
 
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${template.name},
@@ -17,13 +19,13 @@
 
         <!-- Tab Navigation -->
         <div class="tab-nav">
-            <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+            <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id})}"
                class="tab-nav-item" th:classappend="${activeTab == 'variants'} ? ' active'"
                data-testid="template-tab" data-tab-name="variants">Variants</a>
-            <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+            <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id})}"
                class="tab-nav-item" th:classappend="${activeTab == 'data-contract'} ? ' active'"
                data-testid="template-tab" data-tab-name="data-contract">Data Contract</a>
-            <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/settings(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+            <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/settings(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id})}"
                class="tab-nav-item" th:classappend="${activeTab == 'settings'} ? ' active'"
                data-testid="template-tab" data-tab-name="settings">Settings</a>
         </div>
@@ -38,7 +40,7 @@
         <div class="ep-dialog-header">
             <h3>Edit Variant: <code th:text="${variant.id}"></code></h3>
         </div>
-        <form th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{templateId}/variants/{variantId}(tenantId=${tenantId},catalogId=${catalogId},templateId=${templateId ?: template.id},variantId=${variant.id})}"
+        <form th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{templateId}/variants/{variantId}(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},templateId=${templateId ?: template.id},variantId=${variant.id})}"
               hx-target="#variants-section"
               hx-swap="outerHTML">
             <div th:replace="~{epistola-web/form-error :: form-error(id='edit-variant-error')}"></div>

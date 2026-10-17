@@ -36,9 +36,12 @@
             <div th:if="${authoredCatalogs != null and !authoredCatalogs.isEmpty()}" class="form-group">
                 <label class="ep-label" for="catalog">Catalog</label>
                 <select id="catalog" name="catalog" class="ep-select" required>
+                    <!--/* Opened from a list filtered to a draft, its catalog's option is that draft
+                           (`letters@2.0.0`), selected, so the new resource lands where the list is. */-->
                     <option th:each="cat : ${authoredCatalogs}"
-                            th:value="${cat.id}"
-                            th:text="${cat.name}"></option>
+                            th:value="${draftSegment?.linkFor(cat.id) ?: cat.id}"
+                            th:text="${cat.name}"
+                            th:selected="${draftSegment != null and #strings.equals(draftSegment.key, cat.id)}"></option>
                 </select>
                 <span th:replace="~{epistola-web/form-error :: field-error(id='image-catalog-error', message=${errors?.get('catalog')}, oob=${false})}"></span>
             </div>

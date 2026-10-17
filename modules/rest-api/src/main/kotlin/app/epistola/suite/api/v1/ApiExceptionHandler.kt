@@ -27,6 +27,7 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.catalog.versions.CatalogVersionBehindException
+import app.epistola.suite.catalog.versions.CatalogVersionHeldException
 import app.epistola.suite.catalog.versions.CatalogVersionInUseException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
@@ -293,6 +294,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         CatalogVersionReleasedException::class,
         CatalogVersionInUseException::class,
         CatalogVersionBehindException::class,
+        CatalogVersionHeldException::class,
         RenumberWarningsNotAcknowledgedException::class,
     )
     fun handleMappedApiException(

@@ -6,6 +6,7 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.catalog.queries.IsCatalogEditable
+import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -16,6 +17,8 @@ import app.epistola.suite.handlers.decorateVariants
 import app.epistola.suite.handlers.filterToUsedDescriptors
 import app.epistola.suite.handlers.resolveVariantAttributes
 import app.epistola.suite.htmx.catalogId
+import app.epistola.suite.htmx.catalogSegment
+import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
@@ -80,6 +83,7 @@ class VariantRouteHandler {
                 title = form["title"],
                 description = description,
                 attributes = attributes,
+                catalogVersion = request.catalogVersion(),
             ).execute()
         } catch (e: DuplicateIdException) {
             return variantFormError(request, tenantId, templateId, "create-variant-error", e.formMessage)
@@ -96,10 +100,11 @@ class VariantRouteHandler {
         val variantId = request.variantId(templateId)
             ?: return ServerResponse.badRequest().build()
 
-        val variant = GetVariant(variantId = variantId).query()
+        val version = request.catalogVersion()
+        val variant = GetVariant(variantId = variantId, catalogVersion = version).query()
             ?: return ServerResponse.notFound().build()
 
-        val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId).query()
+        val attributeDefinitions = ListAttributeDefinitions(tenantId = tenantId, catalogVersion = version).query()
         val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)
         val attributeOptions = buildAttributeOptions(attributeDefinitions)
         val variantEntries = resolveVariantAttributes(variant.attributes, attributeDescriptors)
@@ -114,6 +119,7 @@ class VariantRouteHandler {
             fragment("templates/detail", "edit-variant-form") {
                 "tenantId" to tenantId.key.value
                 "catalogId" to catalogId.value
+                "catalogSegment" to request.catalogSegment().value
                 "templateId" to templateId.key
                 "variant" to variant
                 "attributeDescriptors" to attributeDescriptors
@@ -148,6 +154,7 @@ class VariantRouteHandler {
             variantId = variantId,
             title = form["title"],
             attributes = readAttributesFromForm(request, tenantId),
+            catalogVersion = request.catalogVersion(),
         ).execute()
 
         return renderVariantsSection(request, tenantId, templateId)
@@ -160,7 +167,7 @@ class VariantRouteHandler {
         val variantId = request.variantId(templateId)
             ?: return ServerResponse.badRequest().build()
 
-        SetDefaultVariant(variantId = variantId).execute()
+        SetDefaultVariant(variantId = variantId, catalogVersion = request.catalogVersion()).execute()
 
         return renderVariantsSection(request, tenantId, templateId)
     }
@@ -173,7 +180,7 @@ class VariantRouteHandler {
             ?: return ServerResponse.badRequest().build()
 
         try {
-            DeleteVariant(variantId = variantId).execute()
+            DeleteVariant(variantId = variantId, catalogVersion = request.catalogVersion()).execute()
         } catch (_: DefaultVariantDeletionException) {
             return renderVariantsSection(request, tenantId, templateId, "Cannot delete the default variant")
         }
@@ -192,7 +199,7 @@ class VariantRouteHandler {
         errorId: String,
         message: String,
     ): ServerResponse {
-        val catalogId = request.catalogId()
+        val catalogId = request.catalogSegment().value
         return request.htmx {
             globalFormError(errorId, message)
             onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/$catalogId/${templateId.key}") }
@@ -211,7 +218,7 @@ class VariantRouteHandler {
             ?: return ServerResponse.badRequest().build()
 
         val error = try {
-            MarkVariantReady(variantId = variantId).execute()
+            MarkVariantReady(variantId = variantId, catalogVersion = request.catalogVersion()).execute()
             null
         } catch (e: ValidationException) {
             e.message
@@ -226,7 +233,7 @@ class VariantRouteHandler {
             ?: return ServerResponse.badRequest().build()
 
         val error = try {
-            MarkTemplateReady(templateId = templateId).execute()
+            MarkTemplateReady(templateId = templateId, catalogVersion = request.catalogVersion()).execute()
             null
         } catch (e: ValidationException) {
             e.message
@@ -241,16 +248,19 @@ class VariantRouteHandler {
         errorMessage: String? = null,
     ): ServerResponse {
         val catalogId = request.catalogId()
-        val template = GetDocumentTemplate(id = templateId).query()
+        val segment = request.catalogSegment()
+        val version = segment.ref(tenantId.key)
+        val template = GetDocumentTemplate(id = templateId, catalogVersion = version).query()
             ?: return ServerResponse.notFound().build()
         val editable = IsCatalogEditable(tenantId.key, catalogId).query()
         val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
-        val variants = variantsModel(templateId, editable, auth)
+        val variants = variantsModel(templateId, editable, auth, version)
 
         return request.htmx {
             fragment("templates/detail/variants", "variants-section") {
                 "tenantId" to tenantId.key.value
                 "catalogId" to catalogId.value
+                "catalogSegment" to segment.value
                 "template" to template
                 putAll(variants)
                 "editable" to editable
@@ -260,7 +270,7 @@ class VariantRouteHandler {
                 }
             }
             trigger("closeDialog")
-            onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/$catalogId/${templateId.key}") }
+            onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/${segment.value}/${templateId.key}") }
         }
     }
 
@@ -277,7 +287,7 @@ class VariantRouteHandler {
      * `resolveAttributeKey`).
      */
     private fun readAttributesFromForm(request: ServerRequest, tenantId: TenantId): Map<String, String> {
-        val descriptors = buildAttributeDescriptors(ListAttributeDefinitions(tenantId).query())
+        val descriptors = buildAttributeDescriptors(ListAttributeDefinitions(tenantId, catalogVersion = request.catalogVersion()).query())
         val attributes = mutableMapOf<String, String>()
         for (descriptor in descriptors) {
             val qualifiedValue = request.params().getFirst("attr_${descriptor.qualifiedKey}")?.trim()
@@ -301,9 +311,9 @@ class VariantRouteHandler {
  * `offerMarkAllReady` is the one name the template gates "Mark all variants ready" on: the viewer
  * may mark (`TEMPLATE_EDIT`), the catalog is editable, and a variant is not ready yet.
  */
-internal fun variantsModel(templateId: TemplateId, editable: Boolean, auth: AuthContext): Map<String, Any?> {
-    val variants = GetVariantSummaries(templateId = templateId).query()
-    val attributeDefinitions = ListAttributeDefinitions(tenantId = templateId.tenantId).query()
+internal fun variantsModel(templateId: TemplateId, editable: Boolean, auth: AuthContext, version: CatalogVersionRef? = null): Map<String, Any?> {
+    val variants = GetVariantSummaries(templateId = templateId, catalogVersion = version).query()
+    val attributeDefinitions = ListAttributeDefinitions(tenantId = templateId.tenantId, catalogVersion = version).query()
     val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)
     val markReadyAllowed = editable && auth.has(Permission.TEMPLATE_EDIT)
     val decoratedVariants = decorateVariants(variants, attributeDescriptors, markReadyAllowed)
@@ -314,6 +324,6 @@ internal fun variantsModel(templateId: TemplateId, editable: Boolean, auth: Auth
         "usedAttributeDescriptors" to filterToUsedDescriptors(attributeDescriptors, decoratedVariants),
         "attributeDefinitions" to attributeDefinitions,
         "attributeOptions" to buildAttributeOptions(attributeDefinitions),
-        "contractDataExamples" to GetDataContract(templateId = templateId).query()?.dataExamples,
+        "contractDataExamples" to GetDataContract(templateId = templateId, catalogVersion = version).query()?.dataExamples,
     )
 }

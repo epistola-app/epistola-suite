@@ -35,12 +35,14 @@
                            fresh open it is the catalog the list was filtered to. With neither, the
                            browser selects the first option, which is what made the dialog ignore
                            the filter. */-->
+                    <!--/* Opened from a list filtered to a draft, its catalog's option is that draft
+                           (`letters@2.0.0`), selected, so the new resource lands where the list is. */-->
                     <option th:each="cat : ${authoredCatalogs}"
-                            th:value="${cat.id}"
+                            th:value="${draftSegment?.linkFor(cat.id) ?: cat.id}"
                             th:text="${cat.name}"
                             th:selected="${formData?.catalog != null
-                                ? #strings.equals(formData.catalog, cat.id)
-                                : #strings.equals(selectedCatalog, cat.id)}"></option>
+                                ? #strings.equals(formData.catalog, draftSegment?.linkFor(cat.id) ?: cat.id)
+                                : (#strings.equals(selectedCatalog, cat.id) or (draftSegment != null and #strings.equals(draftSegment.key, cat.id)))}"></option>
                 </select>
                 <span class="form-error" th:if="${errors?.containsKey('catalog')}" th:text="${errors.catalog}"></span>
             </div>

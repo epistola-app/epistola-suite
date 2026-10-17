@@ -7,8 +7,11 @@ package app.epistola.suite.templates
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.CatalogContext
 import app.epistola.suite.catalog.queries.GetCatalogContext
+import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.handlers.CatalogDraftBar
 import app.epistola.suite.htmx.catalogId
+import app.epistola.suite.htmx.catalogSegment
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.query
@@ -28,6 +31,12 @@ data class TemplateDetailContext(
     val editable: Boolean,
     /** Which catalog this template is in, and where that catalog stands. Null only if it vanished. */
     val catalogContext: CatalogContext?,
+    /** The route's catalog segment (`letters@2.0.0` for a draft), which the page's links carry. */
+    val catalogSegment: String = catalogId,
+    /** The draft the page works in, for every message it dispatches; null for the current version. */
+    val catalogVersion: CatalogVersionRef? = null,
+    /** Which draft this is and the others to switch to. */
+    val draftBar: CatalogDraftBar? = null,
 )
 
 /**
@@ -44,9 +53,13 @@ class TemplateDetailHelper {
     fun loadContext(request: ServerRequest): TemplateDetailContext? {
         val tenantId = request.tenantId()
         val catalogId = request.catalogId()
+        val segment = request.catalogSegment()
         val templateId = request.templateId(tenantId) ?: return null
+        // Resolved first: a route naming a draft the catalog does not have is refused here.
+        val draftBar = CatalogDraftBar.of(tenantId.key, segment, CatalogDraftBar.inPath(request.path(), segment))
+        val version = segment.ref(tenantId.key)
 
-        val template = GetDocumentTemplate(id = templateId).query() ?: return null
+        val template = GetDocumentTemplate(id = templateId, catalogVersion = version).query() ?: return null
         val editable = template.catalogType == CatalogType.AUTHORED
 
         return TemplateDetailContext(
@@ -58,6 +71,9 @@ class TemplateDetailHelper {
             // Loaded once for every tab, because a template is always being edited inside a
             // catalog and the page should not depend on which tab you happened to open.
             catalogContext = GetCatalogContext(tenantId.key, catalogId).query(),
+            catalogSegment = segment.value,
+            catalogVersion = version,
+            draftBar = draftBar,
         )
     }
 
@@ -73,6 +89,8 @@ class TemplateDetailHelper {
             "pageTitle" to "${ctx.template.name} - Epistola",
             "tenantId" to ctx.tenantId,
             "catalogId" to ctx.catalogId,
+            "catalogSegment" to ctx.catalogSegment,
+            "draftBar" to ctx.draftBar,
             "template" to ctx.template,
             "editable" to ctx.editable,
             "catalogContext" to ctx.catalogContext,

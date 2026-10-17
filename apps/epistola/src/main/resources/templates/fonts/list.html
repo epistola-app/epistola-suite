@@ -7,14 +7,18 @@
             actions=~{::font-list-actions}
         )}"></div>
 
+        <!--/* Filtered to a catalog with several drafts: which one the rows are from, and the others. */-->
+        <div th:replace="~{catalogs/drafts :: content-draft-bar(bar=${draftBar})}"></div>
+
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
             <select id="catalog-filter" class="ep-select" style="max-width: 300px;"
                     th:attr="data-catalog-filter-base=@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
+                <!--/* Filtered to a draft (`letters@2.0.0`), its catalog's option keeps the draft. */-->
                 <option th:each="cat : ${catalogs}"
-                        th:value="${cat.id}"
+                        th:value="${draftSegment?.linkFor(cat.id) ?: cat.id}"
                         th:text="${cat.name}"
-                        th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
+                        th:selected="${#strings.equals(selectedCatalog, draftSegment?.linkFor(cat.id) ?: cat.id)}"></option>
             </select>
         </div>
 
@@ -31,7 +35,7 @@
                     <div class="empty-state-title">No fonts yet</div>
                     <div class="empty-state-description">Upload font families to use in your themes and templates.</div>
                     <button type="button" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-                            th:hx-get="@{/tenants/{tenantId}/fonts/new(tenantId=${tenantId})}"
+                            th:hx-get="${draftSegment != null} ? @{/tenants/{tenantId}/fonts/new(tenantId=${tenantId},catalog=${draftSegment.value})} : @{/tenants/{tenantId}/fonts/new(tenantId=${tenantId})}"
                             hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                             data-testid="font-create-open">
                         <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon')}" />
@@ -63,7 +67,7 @@
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete font"
                                         data-confirm-title="Delete Font"
-                                        th:attr="data-confirm-message='Delete font &quot;' + ${font.name} + '&quot;? This removes the family and its uploaded faces. This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/fonts/{catalogId}/{slug}/delete(tenantId=${tenantId},catalogId=${font.catalogKey},slug=${font.slug})}"
+                                        th:attr="data-confirm-message='Delete font &quot;' + ${font.name} + '&quot;? This removes the family and its uploaded faces. This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/fonts/{catalogId}/{slug}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(font.catalogKey) ?: font.catalogKey},slug=${font.slug})}"
                                         data-confirm-target="#font-grid-items" data-confirm-swap="outerHTML">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
@@ -90,7 +94,7 @@
     </th:block>
     <th:block th:fragment="font-list-actions">
         <button type="button" class="ep-btn ep-btn-primary"
-                th:hx-get="@{/tenants/{tenantId}/fonts/new(tenantId=${tenantId})}"
+                th:hx-get="${draftSegment != null} ? @{/tenants/{tenantId}/fonts/new(tenantId=${tenantId},catalog=${draftSegment.value})} : @{/tenants/{tenantId}/fonts/new(tenantId=${tenantId})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="font-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />

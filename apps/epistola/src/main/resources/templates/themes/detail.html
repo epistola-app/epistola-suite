@@ -9,6 +9,7 @@
                catalogs/bar.html. The bar also says read-only for a subscribed catalog, which is why
                no separate notice does. */-->
         <div th:replace="~{catalogs/bar :: catalog-bar(context=${catalogContext})}"></div>
+        <div th:replace="~{catalogs/drafts :: content-draft-bar(bar=${draftBar})}"></div>
 
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${theme.name},
@@ -41,6 +42,7 @@
             "theme": [[${themeJson}]],
             "tenantId": [[${tenantId}]],
             "catalogId": [[${catalogId}]],
+            "catalogSegment": [[${catalogSegment}]],
             "themeId": [[${theme.id}]],
             "editable": [[${editable}]]
         }
@@ -53,12 +55,12 @@
     <th:block th:fragment="theme-detail-actions">
         <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                 data-testid="theme-usage-open-action"
-                th:hx-get="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/usage(tenantId=${tenantId},catalogId=${catalogId},themeId=${theme.id})}"
+                th:hx-get="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/usage(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},themeId=${theme.id})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML">
             View usage
         </button>
         <form th:if="${editable}" id="delete-theme-form"
-              th:action="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/delete(tenantId=${tenantId},catalogId=${catalogId},themeId=${theme.id})}"
+              th:action="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/delete(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},themeId=${theme.id})}"
               method="post">
             <button type="button" class="ep-btn ep-btn-destructive ep-btn-sm" data-testid="delete-action"
                     data-confirm-submit="delete-theme-form"

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.htmx
 
+import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -112,18 +113,77 @@ fun <T> ServerRequest.pathId(name: String, parse: (String) -> T?): T? = parse(pa
 fun ServerRequest.tenantId(): TenantId = TenantId(TenantKey.of(pathVariable("tenantId")))
 
 /**
- * Extract a [CatalogKey] from the `catalogId` path variable.
+ * A catalog in a UI route, optionally one of its drafts: `letters`, or `letters@2.0.0` for draft
+ * 2.0.0 of `letters` (contract ADR 0002, several drafts per catalog).
+ *
+ * The version travels in the catalog's own path segment (or `catalog` parameter) rather than in the
+ * session, so a link to a draft is shareable, and every link, HTMX request and editor call built from
+ * the segment stays on that draft. Without a version the route works on the catalog's current
+ * version, its highest draft, exactly as before several drafts existed. `@` cannot occur in a
+ * catalog key, so the two never collide.
  */
-fun ServerRequest.catalogId(): CatalogKey = CatalogKey.of(pathVariable("catalogId"))
+data class CatalogSegment(val key: CatalogKey, val version: String? = null) {
+    /** The segment as it appears in a URL. */
+    val value: String get() = version?.let { "${key.value}@$it" } ?: key.value
+
+    /** The draft this names, for a message's `catalogVersion`; null for the catalog's current version. */
+    fun ref(tenantKey: TenantKey): CatalogVersionRef? = version?.let { CatalogVersionRef(tenantKey, key, it) }
+
+    /** The same catalog at [version], or at its current version when that is null. */
+    fun at(version: String?): CatalogSegment = copy(version = version)
+
+    /**
+     * The segment to link a resource of catalog [catalogKey] with: this one when it is the same
+     * catalog, so a list filtered to a draft links its rows into the draft, else the plain key.
+     */
+    fun linkFor(catalogKey: Any?): String = catalogKey?.toString()?.takeIf { it != key.value } ?: value
+
+    override fun toString(): String = value
+
+    companion object {
+        /** Parses `key` or `key@version`; throws [IllegalArgumentException] for an invalid key. */
+        fun parse(raw: String): CatalogSegment {
+            val at = raw.indexOf('@')
+            if (at < 0) return CatalogSegment(CatalogKey.of(raw))
+            val version = raw.substring(at + 1).trim()
+            require(VERSION.matches(version)) { "Invalid catalog version '$version'" }
+            return CatalogSegment(CatalogKey.of(raw.substring(0, at)), version)
+        }
+
+        fun parseOrNull(raw: String?): CatalogSegment? = raw?.takeIf { it.isNotBlank() }?.let { runCatching { parse(it.trim()) }.getOrNull() }
+
+        private val VERSION = Regex("""^\d+\.\d+\.\d+$""")
+    }
+}
+
+/** The `catalogId` path variable: the catalog, and the draft it names if any. */
+fun ServerRequest.catalogSegment(): CatalogSegment = CatalogSegment.parse(pathVariable("catalogId"))
+
+/**
+ * Extract a [CatalogKey] from the `catalogId` path variable (without the `@version` of a draft).
+ */
+fun ServerRequest.catalogId(): CatalogKey = catalogSegment().key
 
 /**
  * Extract a [CatalogKey] from the `catalogId` path variable, or null if not present.
  */
 fun ServerRequest.catalogIdOrNull(): CatalogKey? = try {
-    CatalogKey.of(pathVariable("catalogId"))
+    catalogSegment().key
 } catch (_: IllegalArgumentException) {
     null
 }
+
+/**
+ * The draft the `catalogId` path variable names (`letters@2.0.0`), for a message's `catalogVersion`;
+ * null when it names none, which means the catalog's current version.
+ */
+fun ServerRequest.catalogVersion(): CatalogVersionRef? = catalogSegment().ref(tenantId().key)
+
+/**
+ * The `catalog` filter or form parameter, which may name a draft as `letters@2.0.0`; null when absent
+ * or blank.
+ */
+fun ServerRequest.catalogParam(name: String = "catalog"): CatalogSegment? = param(name).orElse(null)?.ifBlank { null }?.let { CatalogSegment.parse(it.trim()) }
 
 /**
  * Extract and validate a [TemplateId] from the `id` and `catalogId` path variables.

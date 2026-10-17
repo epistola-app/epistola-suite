@@ -4,7 +4,7 @@ Epistola exposes a [Model Context Protocol](https://modelcontextprotocol.io) ser
 
 ## Status
 
-- **Read tools are GA; write tools are beta.** The read tools cover discovery, inspection and document preview. The [write tools](#write-tools-beta) author the working copy — templates, variants, data contracts, stencils, themes, images and fonts — and mark it ready, and may still change their arguments in a minor release. Nothing over MCP releases a catalog, deploys a release or deletes anything: whether content is used to generate documents is still decided in the UI.
+- **Read tools are GA; write tools are beta.** The read tools cover discovery, inspection and document preview. The [write tools](#write-tools-beta) author a draft — templates, variants, data contracts, stencils, themes, images and fonts — mark it ready, and manage a catalog's [drafts](#catalog-versions-beta), including releasing one; they may still change their arguments in a minor release. Nothing over MCP deploys a release or deletes a resource: whether a release is used to generate documents is still decided in the UI.
 - **Transport: Streamable HTTP**, mounted at `/api/mcp` on the same Spring Boot service that serves the UI and REST API.
 - **Auth: `Authorization: ApiKey`.** Reuses the existing per-tenant API-key mechanism — no new credential type. Legacy `X-API-Key` remains accepted for existing clients.
 - **Server-wide toggle: `epistola.mcp.enabled`** (default `true`). Setting it to `false` disables the entire MCP endpoint — no `/api/mcp` route, no Spring AI MCP server, no eager loading of the component registry JSON. Wired through to Spring AI's own `spring.ai.mcp.server.enabled`.
@@ -86,6 +86,7 @@ Then enter the URL and `Authorization: ApiKey <key>` header in the Inspector UI.
 | `list_fonts`                | Discover font families in the current tenant, optionally filtered by catalog. Each entry carries the present variant faces (`regular`/`bold`/`italic`/`bold_italic`) and a `readOnly` flag for SUBSCRIBED-catalog families (the bundled `system` fonts: inter, roboto, lato, source-sans-3, source-serif-4, merriweather, lora, jetbrains-mono). Use this to pick a `fontFamily` ref (`{ slug, catalogKey }`) for a theme or template.                                                                                        |
 | `list_images`               | Discover images in the current tenant, optionally filtered by catalog or name. Returns image IDs, media types, dimensions, sizes, and catalog provenance without binary content.                                                                                                                                                                                                                                                                                                                                              |
 | `get_image`                 | Fetch metadata for one exact image reference by catalog and UUID. Use this to verify image identity and dimensions while tracing template and stencil dependencies.                                                                                                                                                                                                                                                                                                                                                           |
+| `list_catalog_versions`     | A catalog's versions, highest first: its open drafts (with their base and the releases they are `behind`, each with its changes) and its releases. See [Catalog versions](#catalog-versions-beta).                                                                                                                                                                                                                                                                                                                            |
 | `get_authoring_schemas`     | The JSON Schemas the write tools accept — `templateDocument`, `theme`, the `shared` definitions both refer to — and the style registry (every style key, type and unit). Ships in the `epistola-catalog` artifact.                                                                                                                                                                                                                                                                                                            |
 
 ## Write tools (beta)
@@ -116,6 +117,27 @@ and REST API use, so validation, permissions and the read-only rule for SUBSCRIB
 | `mark_stencil_ready`           | Record that a stencil's content is reviewed and may be released.                                                                                                                                                               | `STENCIL_EDIT`                    |
 | `mark_catalog_ready`           | Mark every new or modified resource of a catalog ready, and return what remains.                                                                                                                                               | `TEMPLATE_EDIT`                   |
 
+### Catalog versions (beta)
+
+A catalog can have several drafts at once (contract ADR 0002), each its own copy of the content —
+a maintenance line next to the next major, for example. Every read and write tool that addresses
+catalog content takes an optional **`catalogVersion`**: the number of the draft to work in, e.g.
+`2.0.0`, from `list_catalog_versions`. Omitted, a tool works on the catalog's current version, its
+highest draft (a SUBSCRIBED catalog's installed release), as before. It needs `catalogId`: a list
+tool given `catalogVersion` without one is refused. `preview_document` with `catalogVersion`
+renders that draft's working copy, and cannot be combined with `releaseVersion` or `environmentId`.
+`analyze_template_data` checks against a release and takes no `catalogVersion`.
+
+| Tool                       | Purpose                                                                                                                                                                                                    | Permission         |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `create_catalog_version`   | Open a draft numbered `version`: a copy of its base (the highest release below its number) by default, or of the draft or release `from` names.                                                            | `TEMPLATE_PUBLISH` |
+| `renumber_catalog_version` | Give a draft another number. When that moves it past a release or another draft, nothing changes and the `warnings` come back; call again with `acknowledgeWarnings: true`.                                | `TEMPLATE_PUBLISH` |
+| `release_catalog_version`  | Release a draft under its own number. Refused while a changed resource is not ready, and while the draft is behind a release `acknowledgedBehind` does not name. Returns `draftsBehind` and `openedDraft`. | `TEMPLATE_PUBLISH` |
+| `delete_catalog_version`   | Discard a draft and everything changed in it. Refused while the draft alone holds something used outside it (the tenant's default theme, a code list another catalog's attribute binds), naming it.        | `TEMPLATE_PUBLISH` |
+
+Releasing and discarding change what can be generated and cannot be undone, so an assistant does
+them only when the user asks.
+
 Structured arguments — template documents, schemas, styles, attributes, examples, font faces — are
 passed as JSON strings, like `preview_document`'s `data`. A malformed one fails with a message naming
 the argument. A template document is the node/slot graph `get_template_content` returns under
@@ -141,13 +163,13 @@ it is, so changing a stencil changes every template that uses it; `list_stencil_
 that no longer fit. A stencil may itself use stencils.
 
 Finishing a catalog built this way: `mark_template_ready` for each template (or `mark_catalog_ready`
-for everything changed), after the user has reviewed it. Marking is refused while a stencil instance
+for everything changed), after the user has reviewed it, and `release_catalog_version` when the
+user asks for a release. Marking is refused while a stencil instance
 does not fit its stencil: a fill for a placeholder the stencil does not have, or a required parameter
 left unbound. `get_catalog_changes` shows what is still not ready. A template has no versions: the
 catalog release is the only one, and an edit makes a mark stale.
 
-Not available over MCP: releasing the catalog, deploying releases to environments, and deleting
-anything.
+Not available over MCP: deploying releases to environments, and deleting resources or releases.
 
 ## Limitations and notes
 
@@ -205,7 +227,7 @@ anything.
   The validator rejects mismatches: sending a list to a `richTextInline` field, or any block content to an inline expression chip's binding, fails preview with a JSON Schema error.
 
 - **Data contract on creation.** Creating a template gives it an empty data contract. `get_data_contract` returns it even before the contract has been authored.
-- **Writes stop at ready marks.** Releasing the catalog, deploying a release to an environment and deletion stay in the UI (or the REST API), so a person decides when work an assistant marked ready is used to generate documents.
+- **Deploying stays in the UI.** An assistant can release a draft when asked, but deploying a release to an environment, and deleting resources and releases, stay in the UI (or the REST API), so a person decides when a release is used to generate documents.
 - **Rate limiting.** The MCP endpoint shares the existing `/api/**` security chain; no MCP-specific rate limiting is in place.
 
 ## Troubleshooting

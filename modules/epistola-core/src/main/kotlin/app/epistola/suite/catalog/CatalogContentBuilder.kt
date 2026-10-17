@@ -70,16 +70,6 @@ data class CatalogContent(
     )
 }
 
-/**
- * Builds the canonical content of a catalog — the manifest resource entries,
- * per-resource detail payloads, cross-catalog dependencies and asset binaries —
- * from the live database rows.
- *
- * Single source of truth shared by [ExportCatalogZip][app.epistola.suite.catalog.commands.ExportCatalogZip]
- * and [CatalogFingerprintService], so "the bytes you export" and "the bytes you
- * fingerprint" are identical by construction.
- */
-
 /** Where a catalog's templates, data contracts and stencils are read from. */
 enum class ContentSource {
     /** The working copy: what authors edit, and what a release contains. */
@@ -94,6 +84,15 @@ enum class ContentSource {
     PUBLISHED_BEFORE_2_0,
 }
 
+/**
+ * Builds the canonical content of a catalog — the manifest resource entries,
+ * per-resource detail payloads, cross-catalog dependencies and asset binaries —
+ * from the live database rows.
+ *
+ * Single source of truth shared by [ExportCatalogZip][app.epistola.suite.catalog.commands.ExportCatalogZip]
+ * and [CatalogFingerprintService], so "the bytes you export" and "the bytes you
+ * fingerprint" are identical by construction.
+ */
 @Component
 class CatalogContentBuilder(
     private val objectMapper: ObjectMapper,

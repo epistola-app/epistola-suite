@@ -5,6 +5,8 @@
 package app.epistola.suite.documents.queries
 
 import app.epistola.generation.pdf.ResolvedTheme
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
@@ -46,7 +48,10 @@ data class PreviewVariant(
     val data: ObjectNode,
     val templateModel: TemplateDocument? = null,
     val resolvedTheme: ResolvedTheme? = null,
-) : Query<ByteArray>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<ByteArray>,
     RequiresPermission {
     override val permission get() = Permission.DOCUMENT_GENERATE
     override val tenantKey get() = tenantId

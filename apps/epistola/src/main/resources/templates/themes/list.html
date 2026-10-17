@@ -11,14 +11,18 @@
             actions=~{::theme-list-actions}
         )}"></div>
 
+        <!--/* Filtered to a catalog with several drafts: which one the rows are from, and the others. */-->
+        <div th:replace="~{catalogs/drafts :: content-draft-bar(bar=${draftBar})}"></div>
+
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
             <select id="catalog-filter" class="ep-select" style="max-width: 300px;"
                     th:attr="data-catalog-filter-base=@{/tenants/{tenantId}/themes(tenantId=${tenantId})}">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
+                <!--/* Filtered to a draft (`letters@2.0.0`), its catalog's option keeps the draft. */-->
                 <option th:each="cat : ${catalogs}"
-                        th:value="${cat.id}"
+                        th:value="${draftSegment?.linkFor(cat.id) ?: cat.id}"
                         th:text="${cat.name}"
-                        th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
+                        th:selected="${#strings.equals(selectedCatalog, draftSegment?.linkFor(cat.id) ?: cat.id)}"></option>
             </select>
         </div>
 
@@ -30,7 +34,7 @@
             <div class="empty-state-description">Create a theme to define the visual styling of your documents.</div>
             <button th:if="${auth.has('THEME_EDIT')}" type="button"
                     class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-                    th:hx-get="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}"
+                    th:hx-get="${draftSegment != null} ? @{/tenants/{tenantId}/themes/new(tenantId=${tenantId},catalog=${draftSegment.value})} : @{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}"
                     hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                     data-testid="theme-create-open">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
@@ -73,7 +77,7 @@
                             <!--/* Badge before the name: the cell clips at its end, so a long
                                    name would push a trailing badge out of view entirely. */-->
                             <span th:if="${isDefault}" class="badge badge-primary" style="margin-right: var(--ep-space-2);" data-testid="theme-default-badge">Default</span>
-                            <a th:href="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}(tenantId=${tenantId},catalogId=${theme.catalogKey},themeId=${theme.id})}"
+                            <a th:href="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogKey) ?: theme.catalogKey},themeId=${theme.id})}"
                                th:text="${theme.name}" style="font-weight: 500;"></a>
                         </td>
                         <td th:title="${theme.catalogKey}"><span class="badge badge-default" th:text="${theme.catalogKey}"></span></td>
@@ -106,7 +110,7 @@
                                 </button>
                             </form>
                             <th:block th:if="${theme.catalogType.name() == 'AUTHORED'}">
-                                <a th:href="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}(tenantId=${tenantId},catalogId=${theme.catalogKey},themeId=${theme.id})}"
+                                <a th:href="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogKey) ?: theme.catalogKey},themeId=${theme.id})}"
                                    class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Edit theme">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
                                 </a>
@@ -115,7 +119,7 @@
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete theme"
                                         data-confirm-title="Delete Theme"
-                                        th:attr="data-confirm-message='Delete theme &quot;' + ${theme.name} + '&quot;? Templates using it will fall back to their own styles.',data-confirm-url=@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/delete(tenantId=${tenantId},catalogId=${theme.catalogKey},themeId=${theme.id})}"
+                                        th:attr="data-confirm-message='Delete theme &quot;' + ${theme.name} + '&quot;? Templates using it will fall back to their own styles.',data-confirm-url=@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogKey) ?: theme.catalogKey},themeId=${theme.id})}"
                                         data-confirm-target="#theme-rows">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
@@ -146,7 +150,7 @@
     </th:block>
     <th:block th:fragment="theme-list-actions">
         <button th:if="${auth.has('THEME_EDIT')}" type="button" class="ep-btn ep-btn-primary"
-                th:hx-get="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}"
+                th:hx-get="${draftSegment != null} ? @{/tenants/{tenantId}/themes/new(tenantId=${tenantId},catalog=${draftSegment.value})} : @{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="theme-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />

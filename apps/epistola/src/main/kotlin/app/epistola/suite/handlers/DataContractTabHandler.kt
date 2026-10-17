@@ -5,6 +5,7 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.api.v1.toValidationProblemBody
+import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
@@ -35,7 +36,7 @@ class DataContractTabHandler(
         val ctx = detailHelper.loadContext(request) ?: return ServerResponse.notFound().build()
         val editMode = request.params().getFirst("edit") == "true"
 
-        val contract = GetDataContract(templateId = ctx.templateId).query()
+        val contract = GetDataContract(templateId = ctx.templateId, catalogVersion = ctx.catalogVersion).query()
 
         // For view mode: extract schema fields as a simple list for rendering
         val schemaFields = contract?.dataModel?.let { extractSchemaFields(it) } ?: emptyList()
@@ -71,6 +72,7 @@ class DataContractTabHandler(
                 dataExamples = update.dataExamples,
                 clearDataModel = update.clearDataModel ?: false,
                 forceUpdate = update.forceUpdate ?: false,
+                catalogVersion = request.catalogVersion(),
             ).execute()
         } catch (e: ValidationException) {
             return ServerResponse.badRequest()

@@ -13,15 +13,14 @@ import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.versions.CatalogVersionInUseException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.catalog.versions.PreviewCatalogVersionRenumber
 import app.epistola.suite.catalog.versions.RenumberCatalogVersion
 import app.epistola.suite.catalog.versions.RenumberWarning
 import app.epistola.suite.catalog.versions.RenumberWarningsNotAcknowledgedException
-import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.FormData
+import app.epistola.suite.htmx.catalogSegment
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.tenantId
@@ -51,14 +50,14 @@ class CatalogReleaseHandler {
     /** `POST /{catalogId}/ready`: marks every changed resource ready; a refusal is shown in the section. */
     fun markReady(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogKey = request.catalogKey()
+        val segment = request.catalogSegment()
         val error = try {
-            MarkCatalogReady(tenantId.key, catalogKey).execute()
+            MarkCatalogReady(tenantId.key, segment.key, catalogVersion = segment.ref(tenantId.key)).execute()
             null
         } catch (e: ValidationException) {
             e.message
         }
-        return nextRelease(request, tenantId, catalogKey, error)
+        return nextRelease(request, tenantId, segment, error)
     }
 
     // ── Renumber ───────────────────────────────────────────────────────────
@@ -66,15 +65,15 @@ class CatalogReleaseHandler {
     fun renumberForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.TEMPLATE_PUBLISH)
-        val catalogKey = request.catalogKey()
-        val draft = draftVersion(tenantId, catalogKey) ?: return ServerResponse.notFound().build()
+        val segment = request.catalogSegment()
+        val draft = draftVersion(tenantId, segment) ?: return ServerResponse.notFound().build()
         return request.htmx {
             fragment("catalogs/next-release", "renumber-dialog") {
                 "tenantId" to tenantId.key
-                "catalogId" to catalogKey.value
+                "catalogId" to segment.value
                 "draftVersion" to draft
             }
-            onFullPage { redirect(browseUrl(tenantId, catalogKey)) }
+            onFullPage { redirect(browseUrl(tenantId, segment)) }
         }
     }
 
@@ -85,8 +84,10 @@ class CatalogReleaseHandler {
     fun renumber(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.TEMPLATE_PUBLISH)
-        val catalogKey = request.catalogKey()
-        val draft = draftVersion(tenantId, catalogKey) ?: return ServerResponse.notFound().build()
+        val segment = request.catalogSegment()
+        val catalogKey = segment.key
+        val bar = drafts(tenantId, segment)
+        val draft = bar.chosen?.version ?: return ServerResponse.notFound().build()
 
         val form = request.form {
             field("to") {
@@ -105,11 +106,11 @@ class CatalogReleaseHandler {
                 formData = result,
             ) {
                 "tenantId" to tenantId.key
-                "catalogId" to catalogKey.value
+                "catalogId" to segment.value
                 "draftVersion" to draft
                 "warnings" to warnings
             }
-            onFullPage { redirect(browseUrl(tenantId, catalogKey)) }
+            onFullPage { redirect(browseUrl(tenantId, segment)) }
         }
 
         if (form.hasErrors()) {
@@ -130,11 +131,20 @@ class CatalogReleaseHandler {
             return reRender(FormData(form.formData, mapOf("to" to message)))
         }
 
-        return request.htmx {
-            dialogSuccess("catalogs/next-release", "next-release", browseUrl(tenantId, catalogKey)) {
-                nextReleaseModel(tenantId, catalogKey)
+        // With several drafts the page names the draft it works in, and that name just changed: land on
+        // the renumbered draft. With one, the section is re-rendered in place, as it always was.
+        if (bar.severalDrafts) {
+            val renumbered = segment.at(if (drafts(tenantId, segment.at(null)).current?.version == to) null else to)
+            return request.htmx {
+                dialogLocation(browseUrl(tenantId, renumbered))
+                onFullPage { redirect(browseUrl(tenantId, renumbered)) }
             }
-            onFullPage { redirect(browseUrl(tenantId, catalogKey)) }
+        }
+        return request.htmx {
+            dialogSuccess("catalogs/next-release", "next-release", browseUrl(tenantId, segment)) {
+                nextReleaseModel(tenantId, segment)
+            }
+            onFullPage { redirect(browseUrl(tenantId, segment)) }
         }
     }
 
@@ -154,14 +164,14 @@ class CatalogReleaseHandler {
     fun dependenciesForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.TEMPLATE_PUBLISH)
-        val catalogKey = request.catalogKey()
-        val rows = ListCatalogDependencies(tenantId.key, catalogKey).query()
+        val segment = request.catalogSegment()
+        val rows = ListCatalogDependencies(tenantId.key, segment.key, catalogVersion = segment.ref(tenantId.key)).query()
             .map { DependencyRowView("${it.registry}~${it.namespace}/${it.catalogKey}", it.version) }
         return request.htmx {
             fragment("catalogs/next-release", "dependencies-dialog") {
-                dependenciesModel(tenantId, catalogKey, rows)
+                dependenciesModel(tenantId, segment, rows)
             }
-            onFullPage { redirect(browseUrl(tenantId, catalogKey)) }
+            onFullPage { redirect(browseUrl(tenantId, segment)) }
         }
     }
 
@@ -173,7 +183,7 @@ class CatalogReleaseHandler {
     fun updateDependencies(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.TEMPLATE_PUBLISH)
-        val catalogKey = request.catalogKey()
+        val segment = request.catalogSegment()
 
         val catalogs = request.params()["catalog"].orEmpty()
         val versions = request.params()["version"].orEmpty()
@@ -188,9 +198,9 @@ class CatalogReleaseHandler {
                 formTarget = "#catalog-dependencies-form",
                 formData = FormData(emptyMap(), errors),
             ) {
-                dependenciesModel(tenantId, catalogKey, rows, withBlankRow = false)
+                dependenciesModel(tenantId, segment, rows, withBlankRow = false)
             }
-            onFullPage { redirect(browseUrl(tenantId, catalogKey)) }
+            onFullPage { redirect(browseUrl(tenantId, segment)) }
         }
 
         val dependencies = declared.map { (index, row) ->
@@ -198,7 +208,7 @@ class CatalogReleaseHandler {
         }
 
         try {
-            UpdateCatalogDependencies(tenantId.key, catalogKey, dependencies).execute()
+            UpdateCatalogDependencies(tenantId.key, segment.key, dependencies, catalogVersion = segment.ref(tenantId.key)).execute()
         } catch (e: ValidationException) {
             // `dependencies[i]…` names the i-th declaration; show it on the row it came from.
             val declarationIndex = Regex("""^dependencies\[(\d+)]""").find(e.field)?.groupValues?.get(1)?.toIntOrNull()
@@ -208,30 +218,30 @@ class CatalogReleaseHandler {
             } else {
                 request.htmx {
                     dialogFormError("catalog-dependencies-error", e.message)
-                    onFullPage { redirect(browseUrl(tenantId, catalogKey)) }
+                    onFullPage { redirect(browseUrl(tenantId, segment)) }
                 }
             }
         }
 
         return request.htmx {
-            dialogSuccess("catalogs/next-release", "next-release", browseUrl(tenantId, catalogKey)) {
-                nextReleaseModel(tenantId, catalogKey)
+            dialogSuccess("catalogs/next-release", "next-release", browseUrl(tenantId, segment)) {
+                nextReleaseModel(tenantId, segment)
             }
-            onFullPage { redirect(browseUrl(tenantId, catalogKey)) }
+            onFullPage { redirect(browseUrl(tenantId, segment)) }
         }
     }
 
     /** `POST /{catalogId}/dependencies/resolve`: moves every lock to the highest matching release. */
     fun resolveDependencies(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogKey = request.catalogKey()
+        val segment = request.catalogSegment()
         val error = try {
-            ResolveCatalogDependencies(tenantId.key, catalogKey).execute()
+            ResolveCatalogDependencies(tenantId.key, segment.key, catalogVersion = segment.ref(tenantId.key)).execute()
             null
         } catch (e: ValidationException) {
             e.message
         }
-        return nextRelease(request, tenantId, catalogKey, error)
+        return nextRelease(request, tenantId, segment, error)
     }
 
     private fun parseDependency(row: DependencyRowView): DeclaredCatalogDependency? {
@@ -244,38 +254,38 @@ class CatalogReleaseHandler {
 
     private fun app.epistola.suite.htmx.ModelBuilder.dependenciesModel(
         tenantId: TenantId,
-        catalogKey: CatalogKey,
+        segment: CatalogSegment,
         rows: List<DependencyRowView>,
         withBlankRow: Boolean = true,
     ) {
         val options = ListCatalogs(tenantId.key).query()
-            .filter { it.id != catalogKey }
+            .filter { it.id != segment.key }
             .map { DependencyOptionView("${it.registry}~${it.namespace}/${it.id.value}", "${it.name} (${it.namespace}/${it.id.value})") }
         "tenantId" to tenantId.key
-        "catalogId" to catalogKey.value
+        "catalogId" to segment.value
         "rows" to if (withBlankRow || rows.isEmpty()) rows + DependencyRowView("", "") else rows
         "dependencyOptions" to options
     }
 
     // ── Shared ─────────────────────────────────────────────────────────────
 
-    private fun nextRelease(request: ServerRequest, tenantId: TenantId, catalogKey: CatalogKey, error: String?): ServerResponse = request.htmx {
+    private fun nextRelease(request: ServerRequest, tenantId: TenantId, segment: CatalogSegment, error: String?): ServerResponse = request.htmx {
         fragment("catalogs/next-release", "next-release") {
-            nextReleaseModel(tenantId, catalogKey)
+            nextReleaseModel(tenantId, segment)
             if (error != null) "nextReleaseError" to error
         }
-        onFullPage { redirect(browseUrl(tenantId, catalogKey)) }
+        onFullPage { redirect(browseUrl(tenantId, segment)) }
     }
 
-    private fun app.epistola.suite.htmx.ModelBuilder.nextReleaseModel(tenantId: TenantId, catalogKey: CatalogKey) {
+    private fun app.epistola.suite.htmx.ModelBuilder.nextReleaseModel(tenantId: TenantId, segment: CatalogSegment) {
         "tenantId" to tenantId.key
-        "catalogId" to catalogKey.value
-        "readiness" to CatalogReleaseReadiness.of(tenantId.key, catalogKey)
+        "catalogId" to segment.value
+        "readiness" to CatalogReleaseReadiness.of(drafts(tenantId, segment))
     }
 
-    private fun draftVersion(tenantId: TenantId, catalogKey: CatalogKey): String? = ListCatalogVersions(tenantId.key, catalogKey, CatalogVersionStatus.DRAFT).query().firstOrNull()?.version
+    private fun drafts(tenantId: TenantId, segment: CatalogSegment): CatalogDraftBar = CatalogDraftBar.of(tenantId.key, segment) { browseUrl(tenantId, it) }
 
-    private fun ServerRequest.catalogKey(): CatalogKey = CatalogKey.of(pathVariable("catalogId"))
+    private fun draftVersion(tenantId: TenantId, segment: CatalogSegment): String? = drafts(tenantId, segment).chosen?.version
 
-    private fun browseUrl(tenantId: TenantId, catalogKey: CatalogKey) = "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse"
+    private fun browseUrl(tenantId: TenantId, segment: CatalogSegment) = CatalogPages.browse(tenantId, segment)
 }

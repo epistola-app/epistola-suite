@@ -20,8 +20,10 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.validate
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 /**
  * Opens a draft numbered [version] of an authored catalog (contract `createCatalogVersion`, ADR 0002).
@@ -52,8 +54,10 @@ data class CreateCatalogVersion(
 /**
  * Discards a draft and everything changed in it (contract `deleteCatalogVersion`): its content rows,
  * ready marks and dependency declarations. A resource keeps its identity while another version holds
- * it. Refused for a released version. The contract does not keep a catalog's last draft: one without
- * drafts gets one again by [CreateCatalogVersion].
+ * it. Refused for a released version, and ([CatalogVersionHeldException]) while the draft alone holds a
+ * resource something outside it still needs: the tenant's default theme, a code list an attribute of
+ * another version binds, a theme a template of another version uses. The contract does not keep a catalog's last draft: one without drafts gets one
+ * again by [CreateCatalogVersion].
  */
 data class DeleteCatalogVersion(
     override val tenantKey: TenantKey,
@@ -146,7 +150,67 @@ class DeleteCatalogVersionHandler(
                 if (released) throw CatalogVersionReleasedException(command.catalogKey, command.version)
                 throw CatalogVersionNotFoundException(command.catalogKey, command.version)
             }
+            val holders = holders(handle, command.tenantKey, draft.versionId)
+            if (holders.isNotEmpty()) throw CatalogVersionHeldException(command.catalogKey, command.version, holders)
             drafts.delete(handle, command.tenantKey, draft.versionId)
         }
     }
+
+    /**
+     * What outside draft [versionId] references a resource only it holds, each as `what (resource)`.
+     *
+     * Discarding the draft deletes the identity of every resource no other version and no release
+     * holds (`sync_catalog_resource_identity`), and the references into `catalog_resources` would
+     * then fail (the tenant's default theme, an attribute's code list) or be cleared silently (a
+     * template's theme). A reference from inside the draft goes with it. A font face's image
+     * (`font_variants_asset_fkey`) is always in the family's own version, so it is not looked for.
+     */
+    private fun holders(handle: Handle, tenantKey: TenantKey, versionId: UUID): List<String> = handle.createQuery(
+        $$"""
+        WITH own AS (
+            SELECT resource_id FROM themes WHERE tenant_key = :t AND version_id = :v
+            UNION SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id = :v
+            UNION SELECT resource_id FROM variant_attribute_definitions WHERE tenant_key = :t AND version_id = :v
+            UNION SELECT resource_id FROM code_lists WHERE tenant_key = :t AND version_id = :v
+            UNION SELECT resource_id FROM assets WHERE tenant_key = :t AND version_id = :v
+            UNION SELECT resource_id FROM fonts WHERE tenant_key = :t AND version_id = :v
+            UNION SELECT resource_id FROM stencils WHERE tenant_key = :t AND version_id = :v
+        ),
+        elsewhere AS (
+            SELECT resource_id FROM themes WHERE tenant_key = :t AND version_id <> :v
+            UNION SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id <> :v
+            UNION SELECT resource_id FROM variant_attribute_definitions WHERE tenant_key = :t AND version_id <> :v
+            UNION SELECT resource_id FROM code_lists WHERE tenant_key = :t AND version_id <> :v
+            UNION SELECT resource_id FROM assets WHERE tenant_key = :t AND version_id <> :v
+            UNION SELECT resource_id FROM fonts WHERE tenant_key = :t AND version_id <> :v
+            UNION SELECT resource_id FROM stencils WHERE tenant_key = :t AND version_id <> :v
+            UNION SELECT resource_id FROM release_entries WHERE tenant_key = :t
+        ),
+        alone AS (SELECT resource_id FROM own EXCEPT SELECT resource_id FROM elsewhere),
+        refs (holder, holder_resource_id, held_resource_id, ordinal) AS (
+            SELECT 'the tenant''s default theme', NULL::uuid, default_theme_resource_id, 1
+            FROM tenants WHERE id = :t AND default_theme_resource_id IN (SELECT resource_id FROM alone)
+            UNION SELECT 'attribute', resource_id, code_list_resource_id, 2
+            FROM variant_attribute_definitions WHERE tenant_key = :t AND version_id <> :v
+              AND code_list_resource_id IN (SELECT resource_id FROM alone)
+            UNION SELECT 'template', resource_id, theme_resource_id, 3
+            FROM document_templates WHERE tenant_key = :t AND version_id <> :v
+              AND theme_resource_id IN (SELECT resource_id FROM alone)
+        )
+        SELECT DISTINCT r.ordinal,
+               r.holder || COALESCE(' ' || hc.catalog_key || '/' || h.resource_key, '')
+                   || ' (' || CASE held.resource_type WHEN 'asset' THEN 'image' WHEN 'codeList' THEN 'code list' ELSE held.resource_type END
+                   || ' ' || dc.catalog_key || '/' || held.resource_key || ')' AS description
+        FROM refs r
+        JOIN catalog_resources held ON held.tenant_key = :t AND held.resource_id = r.held_resource_id
+        JOIN catalogs dc ON dc.tenant_key = held.tenant_key AND dc.catalog_id = held.catalog_id
+        LEFT JOIN catalog_resources h ON h.tenant_key = :t AND h.resource_id = r.holder_resource_id
+        LEFT JOIN catalogs hc ON hc.tenant_key = h.tenant_key AND hc.catalog_id = h.catalog_id
+        ORDER BY r.ordinal, description
+        """,
+    )
+        .bind("t", tenantKey)
+        .bind("v", versionId)
+        .map { rs, _ -> rs.getString("description") }
+        .list()
 }

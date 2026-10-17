@@ -18,7 +18,7 @@
                                th:fragment="name-input"
                                name="name" th:value="${template.name}" th:disabled="${!editable}"
                                data-template-name-input data-revert-on-error
-                               th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{id}/name(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                               th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{id}/name(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id})}"
                                hx-trigger="change" hx-swap="outerHTML"
                                style="max-width: 300px;">
                     </dd>
@@ -58,7 +58,7 @@
                         <select id="theme-select" name="themeId" class="ep-select"
                                 th:disabled="${!editable}" data-revert-on-error
                                 data-error-target="#theme-select-error" aria-describedby="theme-select-error"
-                                th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{id}/theme(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                                th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{id}/theme(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id})}"
                                 hx-trigger="change" hx-target="#theme-section" hx-swap="outerHTML">
                             <option value="">No theme (use variant defaults)</option>
                             <th:block th:each="catalog : ${themeCatalogs}">
@@ -91,7 +91,7 @@
                            style="margin-top: 3px; width: auto; height: auto; flex-shrink: 0;"
                            name="pdfaEnabled" data-revert-on-error
                            th:checked="${template.pdfaEnabled}" th:disabled="${!editable}"
-                           th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{id}/pdfa(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                           th:hx-patch="@{/tenants/{tenantId}/templates/{catalogId}/{id}/pdfa(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id})}"
                            hx-trigger="change" hx-target="#output-settings-section" hx-swap="outerHTML">
                     <span>
                         <strong style="font-size: var(--ep-text-sm);">PDF/A-2b compliance</strong>
@@ -110,7 +110,7 @@
                 <p class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
                     Permanently delete this template and all its variants, versions, and data.
                 </p>
-                <form th:action="@{/tenants/{tenantId}/templates/{catalogId}/{id}/delete(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+                <form th:action="@{/tenants/{tenantId}/templates/{catalogId}/{id}/delete(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id})}"
                       method="post" id="delete-template-form" hx-boost="false">
                     <button type="button" class="ep-btn ep-btn-destructive ep-btn-sm" data-testid="delete-action"
                             data-confirm-submit

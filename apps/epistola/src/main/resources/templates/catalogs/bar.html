@@ -30,7 +30,7 @@
         <div class="catalog-bar-context">
             <span class="catalog-bar-label">Catalog</span>
             <a class="catalog-bar-name"
-               th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${context.catalogKey})}"
+               th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalogSegment ?: context.catalogKey})}"
                th:text="${context.name}">Catalog name</a>
 
             <span class="catalog-bar-state" th:text="${context.summary}">Authored catalog · last released v1.0.0</span>
@@ -45,7 +45,7 @@
                Offered only where there is something to release, and to someone who may. */-->
         <button th:if="${context.releasable and auth.has('TEMPLATE_PUBLISH')}"
                 type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${context.catalogKey})}"
+                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogSegment ?: context.catalogKey})}"
                 hx-target="#release-dialog-container" hx-swap="innerHTML">Release catalog</button>
     </div>
 

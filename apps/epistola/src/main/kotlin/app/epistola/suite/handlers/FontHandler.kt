@@ -12,6 +12,7 @@ import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
+import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontId
@@ -28,7 +29,11 @@ import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.fonts.queries.GetFontVariantContent
 import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
+import app.epistola.suite.handlers.CatalogDraftBar
+import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.ModelBuilder
+import app.epistola.suite.htmx.catalogParam
+import app.epistola.suite.htmx.catalogSegment
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.mediator.execute
@@ -67,10 +72,12 @@ class FontHandler(
     fun list(request: ServerRequest): ServerResponse {
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
         val tenantId = TenantId(tenantKey)
-        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
+        // The filter may name a draft (`letters@2.0.0`); its families are then the draft's.
+        val segment = request.catalogParam()
+        val version = segment?.ref(tenantKey)
         val tenant = GetTenant(id = tenantKey).query()
         val catalogs = ListCatalogs(tenantKey).query()
-        val fonts = ListFonts(tenantId = tenantId, catalogKey = catalogFilter).query()
+        val fonts = ListFonts(tenantId = tenantId, catalogKey = segment?.key, catalogVersion = version).query()
         return ServerResponse.ok().render(
             "layout/shell",
             mapOf(
@@ -79,8 +86,10 @@ class FontHandler(
                 "tenantId" to tenantKey.value,
                 "tenant" to tenant,
                 "catalogs" to catalogs,
-                "selectedCatalog" to (catalogFilter?.value ?: ""),
-                "fonts" to fonts.map { toFontView(tenantId, it) },
+                "selectedCatalog" to (segment?.value ?: ""),
+                "draftSegment" to segment?.takeIf { it.version != null },
+                "draftBar" to segment?.let { s -> CatalogDraftBar.of(tenantKey, s) { "/tenants/${tenantKey.value}/fonts?catalog=${it.value}" } },
+                "fonts" to fonts.map { toFontView(tenantId, it, version) },
                 "activeNavSection" to "fonts",
             ),
         )
@@ -103,6 +112,8 @@ class FontHandler(
         return request.htmx {
             fragment("fonts/new", "dialog") {
                 "tenantId" to tenantKey.value
+                // Opened from a list filtered to a draft, the dialog creates in that draft.
+                "draftSegment" to request.catalogParam()?.takeIf { it.version != null }
                 "authoredCatalogs" to authoredCatalogs
             }
             onNonHtmx {
@@ -178,16 +189,19 @@ class FontHandler(
             }
         }
         val catalogStr = field("catalog")
-        val catalogKey: CatalogKey? = when {
+        // The catalog, or one of its drafts (`letters@2.0.0`) when uploading from inside one.
+        val catalogSegment: CatalogSegment? = when {
             catalogStr == null -> {
                 errors["catalog"] = "Catalog is required"
                 null
             }
 
-            else -> CatalogKey.validateOrNull(catalogStr).also {
+            else -> CatalogSegment.parseOrNull(catalogStr).also {
                 if (it == null) errors["catalog"] = "Invalid catalog ID format"
             }
         }
+        val catalogKey: CatalogKey? = catalogSegment?.key
+        val version = catalogSegment?.ref(tenantKey)
 
         // Read each provided face ONCE (Part streams are one-shot), then validate
         // ALL of them before persisting anything — so a bad face reports an error
@@ -272,6 +286,7 @@ class FontHandler(
                         width = null,
                         height = null,
                         catalogKey = catalogKey!!,
+                        catalogVersion = version,
                     ).execute()
                     ImportFontVariant(
                         weight = row.weight,
@@ -287,6 +302,7 @@ class FontHandler(
                     name = name!!,
                     kind = kind!!.wire,
                     variants = importVariants,
+                    catalogVersion = version,
                 ).execute()
             } catch (e: CatalogReadOnlyException) {
                 errors["catalog"] = e.message ?: "Catalog is read-only"
@@ -323,12 +339,14 @@ class FontHandler(
 
         // Success. Browser dialog: close + OOB-refresh the grid; boosted: redirect.
         if (request.isHtmx) {
-            val fonts = ListFonts(tenantId = tenantId).query().map { toFontView(tenantId, it) }
+            val draft = catalogSegment?.takeIf { it.version != null }
+            val fonts = ListFonts(tenantId = tenantId, catalogKey = draft?.key, catalogVersion = version).query().map { toFontView(tenantId, it, version) }
             return request.htmx {
                 dialogSuccess("fonts/list", "font-grid-items", "/tenants/${tenantKey.value}/fonts") {
                     "tenantId" to tenantKey.value
                     "tenant" to GetTenant(id = tenantKey).query()
                     "fonts" to fonts
+                    "draftSegment" to draft
                 }
                 onNonHtmx { redirect("/tenants/${tenantKey.value}/fonts") }
             }
@@ -347,7 +365,9 @@ class FontHandler(
     fun delete(request: ServerRequest): ServerResponse {
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
         val tenantId = TenantId(tenantKey)
-        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        val segment = request.catalogSegment()
+        val catalogKey = segment.key
+        val version = segment.ref(tenantKey)
         val slug = FontKey.of(request.pathVariable("slug"))
         val force = request.param("force").orElse("false").toBoolean()
 
@@ -355,6 +375,7 @@ class FontHandler(
             DeleteFont(
                 fontId = FontId(slug, CatalogId(catalogKey, tenantId)),
                 force = force,
+                catalogVersion = version,
             ).execute()
         } catch (e: FontInUseException) {
             return ServerResponse.badRequest()
@@ -367,21 +388,24 @@ class FontHandler(
         }
 
         val tenant = GetTenant(id = tenantKey).query()
-        val fonts = ListFonts(tenantId = tenantId).query()
+        val draft = segment.takeIf { it.version != null }
+        val fonts = ListFonts(tenantId = tenantId, catalogKey = draft?.key, catalogVersion = version).query()
         return request.htmx {
             fragment("fonts/list", "font-grid-items") {
                 "tenantId" to tenantKey.value
                 "tenant" to tenant
-                "fonts" to fonts.map { toFontView(tenantId, it) }
+                "fonts" to fonts.map { toFontView(tenantId, it, version) }
+                "draftSegment" to draft
             }
             onNonHtmx { redirect("/tenants/${tenantKey.value}/fonts") }
         }
     }
 
     /** List-row view model: family metadata + its weight/italic faces. */
-    private fun toFontView(tenantId: TenantId, font: Font): Map<String, Any?> {
+    private fun toFontView(tenantId: TenantId, font: Font, version: CatalogVersionRef? = null): Map<String, Any?> {
         val faces = GetFontVariants(
             fontId = FontId(font.slug, CatalogId(font.catalogKey, tenantId)),
+            catalogVersion = version,
         ).query().map { row ->
             mapOf(
                 "weight" to row.weight,
@@ -405,14 +429,17 @@ class FontHandler(
     fun search(request: ServerRequest): ServerResponse {
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
         val tenantId = TenantId(tenantKey)
-        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
+        // The editor asks for its template's catalog segment: a draft's own families are the draft's.
+        val segment = request.catalogParam()
+        val catalogFilter = segment?.key
+        val version = segment?.ref(tenantKey)
 
         // Fonts visible to the editing context = the owning catalog + the
         // system catalog. Query both, then merge with `system` last and
         // dedupe by (catalogKey, slug) so an owning-catalog override of a
         // system slug wins.
         val owningFonts = if (catalogFilter != null && catalogFilter != SYSTEM_CATALOG_KEY) {
-            ListFonts(tenantId = tenantId, catalogKey = catalogFilter).query()
+            ListFonts(tenantId = tenantId, catalogKey = catalogFilter, catalogVersion = version).query()
         } else {
             emptyList()
         }
@@ -426,9 +453,12 @@ class FontHandler(
         val fontInfoList = merged.values.map { font ->
             val rows = GetFontVariants(
                 fontId = FontId(font.slug, CatalogId(font.catalogKey, tenantId)),
+                catalogVersion = version,
             ).query()
 
             val family = "epistola-${font.catalogKey.value}-${font.slug.value}"
+            // A draft's own face bytes are served from the draft (and cached under its URL).
+            val faceSegment = segment?.linkFor(font.catalogKey.value) ?: font.catalogKey.value
             mapOf(
                 "slug" to font.slug.value,
                 "name" to font.name,
@@ -441,7 +471,7 @@ class FontHandler(
                         mapOf(
                             "weight" to row.weight,
                             "italic" to row.italic,
-                            "url" to "/tenants/${tenantKey.value}/fonts/${font.catalogKey.value}/" +
+                            "url" to "/tenants/${tenantKey.value}/fonts/$faceSegment/" +
                                 "${font.slug.value}/${row.weight}/${row.italic}/content",
                         )
                     },
@@ -456,7 +486,8 @@ class FontHandler(
 
     fun content(request: ServerRequest): ServerResponse {
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        val segment = request.catalogSegment()
+        val catalogKey = segment.key
         val slug = FontKey.of(request.pathVariable("slug"))
         val weight = request.pathVariable("weight").toIntOrNull()
             ?.takeIf { it in 1..1000 }
@@ -470,6 +501,7 @@ class FontHandler(
             slug = slug,
             weight = weight,
             italic = italic,
+            catalogVersion = segment.ref(tenantKey),
         ).query() ?: return ServerResponse.notFound().build()
 
         return ServerResponse.ok()

@@ -118,6 +118,21 @@ class UiExceptionFilter(
                 UiError(400, ApiProblemTypes.BAD_REQUEST, cause.message ?: "The request is invalid.")
             }
 
+            "CatalogVersionNotFoundException" -> {
+                log.warn("Catalog version not found: {}", cause.message)
+                UiError(404, ApiProblemTypes.CATALOG_VERSION_NOT_FOUND, cause.message ?: "The catalog has no such version.")
+            }
+
+            "CatalogVersionReleasedException" -> {
+                log.warn("Write to a released catalog version: {}", cause.message)
+                UiError(409, ApiProblemTypes.CATALOG_VERSION_RELEASED, cause.message ?: "This version is released and cannot change.")
+            }
+
+            "CatalogVersionHeldException" -> {
+                log.warn("Discarding a draft refused: {}", cause.message)
+                UiError(409, ApiProblemTypes.CATALOG_VERSION_HELD, cause.message ?: "The draft holds what something else uses.")
+            }
+
             "CatalogReadOnlyException" -> {
                 log.warn("Catalog read-only: {}", cause.message)
                 UiError(403, ApiProblemTypes.CATALOG_READ_ONLY, cause.message ?: "This catalog is read-only.")

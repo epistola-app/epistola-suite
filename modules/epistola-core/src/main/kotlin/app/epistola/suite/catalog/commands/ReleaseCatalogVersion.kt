@@ -30,6 +30,8 @@ import app.epistola.suite.catalog.versions.CatalogDraft
 import app.epistola.suite.catalog.versions.CatalogDrafts
 import app.epistola.suite.catalog.versions.CatalogVersionBehindException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.catalog.versions.CatalogVersionTargeting
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.config.bindJsonb
@@ -55,8 +57,8 @@ import java.util.UUID
  * snapshot) and advances the catalog's released-version pointer when it is the highest release.
  *
  * - The draft numbered [version] is released. When no draft has that number, the draft the caller
- *   means (the current one) is released under it, renumbered as it is released; that number must be
- *   above every release.
+ *   means is released under it, renumbered as it is released; that number must be above every
+ *   release. That is the draft [catalogVersion] names, or the current one.
  * - A draft that is behind releases (above its base, below its number) is released only when
  *   [acknowledgedBehind] names every one of them.
  * - Releasing changes no other draft. When no draft is open above the released version, the draft
@@ -79,7 +81,10 @@ data class ReleaseCatalogVersion(
     internal val source: ContentSource = ContentSource.WORKING_COPY,
     /** The releases the caller confirms this draft may be behind; naming others changes nothing. */
     val acknowledgedBehind: Set<String> = emptySet(),
-) : Command<ReleaseCatalogVersionResult>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<ReleaseCatalogVersionResult>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_PUBLISH
 }

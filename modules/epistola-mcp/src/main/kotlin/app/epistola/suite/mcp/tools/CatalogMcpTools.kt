@@ -18,6 +18,8 @@ import app.epistola.suite.mcp.dto.CatalogDependencyInfo
 import app.epistola.suite.mcp.dto.CatalogDependencyInput
 import app.epistola.suite.mcp.dto.CatalogInfo
 import app.epistola.suite.mcp.dto.CatalogUpgradeDiffInfo
+import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.execute
@@ -95,7 +97,9 @@ class CatalogMcpTools(
     fun listCatalogDependencies(
         @McpToolParam(description = "Catalog key. From `list_catalogs`.")
         catalogId: String,
-    ): List<CatalogDependencyInfo> = mediator.query(ListCatalogDependencies(mcpTenantKey(), CatalogKey.of(catalogId)))
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
+    ): List<CatalogDependencyInfo> = mediator.query(ListCatalogDependencies(mcpTenantKey(), CatalogKey.of(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)))
         .map(CatalogDependencyInfo::from)
 
     @McpTool(
@@ -112,6 +116,8 @@ class CatalogMcpTools(
         catalogId: String,
         @McpToolParam(description = "Every dependency, as `{catalogId, version}`; an empty list declares none.")
         dependencies: List<CatalogDependencyInput>,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): List<CatalogDependencyInfo> {
         val tenant = mcpTenantKey()
         val declared = dependencies.map { dependency ->
@@ -119,7 +125,7 @@ class CatalogMcpTools(
             val target = mediator.query(GetCatalog(tenant, key)) ?: throw CatalogNotFoundException(key)
             DeclaredCatalogDependency(target.registry, target.namespace, key.value, dependency.version)
         }
-        return UpdateCatalogDependencies(tenant, CatalogKey.of(catalogId), declared).execute().map(CatalogDependencyInfo::from)
+        return UpdateCatalogDependencies(tenant, CatalogKey.of(catalogId), declared, catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute().map(CatalogDependencyInfo::from)
     }
 
     @McpTool(
@@ -132,6 +138,8 @@ class CatalogMcpTools(
     fun resolveCatalogDependencies(
         @McpToolParam(description = "Catalog key of an AUTHORED catalog. From `list_catalogs`.")
         catalogId: String,
-    ): List<CatalogDependencyInfo> = ResolveCatalogDependencies(mcpTenantKey(), CatalogKey.of(catalogId)).execute()
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
+    ): List<CatalogDependencyInfo> = ResolveCatalogDependencies(mcpTenantKey(), CatalogKey.of(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute()
         .map(CatalogDependencyInfo::from)
 }

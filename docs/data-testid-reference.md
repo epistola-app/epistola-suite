@@ -100,20 +100,32 @@ Rendered by the editor bundle (`modules/editor`), not by a Thymeleaf template.
 
 ### Catalogs
 
-| `data-testid`                                                | Attached to                                                                  | Covers                                       |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------------- | -------------------------------------------- |
-| `catalog-create-open`                                        | "New Catalog" button on `catalogs/list.html`                                 | Opening the create-catalog dialog            |
-| `catalog-create-submit`                                      | Submit button inside `#create-dialog`                                        | Submitting the catalog creation form         |
-| `catalog-next-release`                                       | "Next release" card on `catalogs/browse.html` (`catalogs/next-release.html`) | The draft, its changes and dependencies      |
-| `catalog-draft-version`                                      | The draft's version in that card                                             | The number the next release gets             |
-| `catalog-renumber-open`                                      | "Renumber" button                                                            | Opening the renumber dialog                  |
-| `catalog-mark-ready`                                         | "Mark all ready" button                                                      | Marking every changed resource ready         |
-| `catalog-release-open`                                       | "Release" button (only while nothing blocks it)                              | Opening the release dialog                   |
-| `catalog-release-blocked`                                    | Alert saying why Release is withheld                                         | Unready resources / unresolved dependencies  |
-| `catalog-change-row`                                         | `<tr>` per changed resource (paired with `data-resource`)                    | A resource's state and readiness             |
-| `catalog-dependencies-edit` / `catalog-dependencies-resolve` | Dependency actions                                                           | Editing declarations / resolving locks       |
-| `catalog-dependency-row`                                     | `<tr>` per declared dependency                                               | A declaration and its lock                   |
-| `release-submit`                                             | Submit button of the release dialog                                          | Present only when the release can go through |
+| `data-testid`                                                        | Attached to                                                                   | Covers                                       |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------- |
+| `catalog-create-open`                                                | "New Catalog" button on `catalogs/list.html`                                  | Opening the create-catalog dialog            |
+| `catalog-create-submit`                                              | Submit button inside `#create-dialog`                                         | Submitting the catalog creation form         |
+| `catalog-next-release`                                               | "Next release" card on `catalogs/browse.html` (`catalogs/next-release.html`)  | The draft, its changes and dependencies      |
+| `catalog-draft-version`                                              | The draft's version in that card                                              | The number the next release gets             |
+| `catalog-renumber-open`                                              | "Renumber" button                                                             | Opening the renumber dialog                  |
+| `catalog-mark-ready`                                                 | "Mark all ready" button                                                       | Marking every changed resource ready         |
+| `catalog-release-open`                                               | "Release" button (only while nothing blocks it)                               | Opening the release dialog                   |
+| `catalog-release-blocked`                                            | Alert saying why Release is withheld                                          | Unready resources / unresolved dependencies  |
+| `catalog-change-row`                                                 | `<tr>` per changed resource (paired with `data-resource`)                     | A resource's state and readiness             |
+| `catalog-dependencies-edit` / `catalog-dependencies-resolve`         | Dependency actions                                                            | Editing declarations / resolving locks       |
+| `catalog-dependency-row`                                             | `<tr>` per declared dependency                                                | A declaration and its lock                   |
+| `release-submit`                                                     | Submit button of the release dialog                                           | Present only when the release can go through |
+| `catalog-draft-new`                                                  | "New draft" button in the Next release card                                   | Opening the create-draft dialog              |
+| `catalog-draft-discard`                                              | "Discard draft" button (confirmed)                                            | Discarding the draft the page works in       |
+| `catalog-draft-bar`                                                  | Draft bar (`catalogs/drafts.html`); on content pages only with several drafts | Which draft a page works in                  |
+| `catalog-draft-chosen` / `catalog-draft-base`                        | The chosen draft's number / its base release in the bar                       | The draft and what it started from           |
+| `catalog-draft-picker` / `catalog-draft-link`                        | Links to the catalog's drafts (paired with `data-version`)                    | Switching to another draft                   |
+| `catalog-draft-behind` / `catalog-draft-behind-list`                 | Badge / alert naming the releases the draft is behind, with their changes     | A draft that lacks later releases            |
+| `catalog-draft-behind-release`                                       | `<li>` per release the draft is behind (paired with `data-version`)           | One release and what it changed              |
+| `catalog-draft-none` / `catalog-draft-open`                          | Empty state of a catalog without a draft / its "Open draft" button            | Opening a draft from the latest release      |
+| `catalog-draft-open-withheld` / `catalog-draft-controls-withheld`    | Why opening or managing drafts is not offered                                 | Missing role / release without content       |
+| `create-draft-from` / `create-draft-submit` / `create-draft-error`   | Source select, submit and field error of the create-draft dialog              | Opening a draft from a draft or release      |
+| `release-acknowledge-behind` / `release-acknowledge-behind-checkbox` | Release dialog's confirmation, one checkbox per release the draft is behind   | Releasing a draft that is behind             |
+| `editor-draft`                                                       | Badge in the template editor's nav naming the draft (several drafts only)     | Which draft the editor saves into            |
 
 ### Deployments
 

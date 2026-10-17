@@ -10,7 +10,9 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mcp.dto.ThemeInfo
 import app.epistola.suite.mcp.dto.ThemeSummaryInfo
+import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogFilter
+import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
@@ -52,11 +54,14 @@ class ThemeMcpTools(
             required = false,
         )
         search: String?,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): List<ThemeSummaryInfo> = mediator.query(
         ListThemes(
             tenantId = mcpTenantId(),
             catalogKey = catalogFilter(catalogId),
             searchTerm = search,
+            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
         ),
     ).map { ThemeSummaryInfo.from(it) }
 
@@ -71,9 +76,11 @@ class ThemeMcpTools(
         catalogId: String,
         @McpToolParam(description = "Theme key.")
         themeId: String,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): ThemeInfo? {
         val id = ThemeId(ThemeKey.of(themeId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
-        return mediator.query(GetTheme(id))?.let { ThemeInfo.from(it) }
+        return mediator.query(GetTheme(id, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))?.let { ThemeInfo.from(it) }
     }
 
     @McpTool(
@@ -101,6 +108,8 @@ class ThemeMcpTools(
         blockStylePresets: String?,
         @McpToolParam(description = SPACING_UNIT, required = false)
         spacingUnit: Float?,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): ThemeInfo = ThemeInfo.from(
         CreateTheme(
             id = themeId(catalogId, themeId),
@@ -114,6 +123,7 @@ class ThemeMcpTools(
                 BlockStylePresets::class.java,
             ),
             spacingUnit = spacingUnit,
+            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
         ).execute(),
     )
 
@@ -156,6 +166,8 @@ class ThemeMcpTools(
         removeBlockStylePresets: String?,
         @McpToolParam(description = SPACING_UNIT, required = false)
         spacingUnit: Float?,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): ThemeInfo = UpdateTheme(
         id = themeId(catalogId, themeId),
         name = name?.takeIf { it.isNotBlank() },
@@ -178,6 +190,7 @@ class ThemeMcpTools(
             Array<String>::class.java,
         )?.toSet().orEmpty(),
         spacingUnit = spacingUnit,
+        catalogVersion = catalogVersionRef(catalogId, catalogVersion),
     ).execute()?.let { ThemeInfo.from(it) } ?: throw notFound("Theme", catalogId, themeId)
 
     @Suppress("UNCHECKED_CAST")

@@ -7,6 +7,8 @@ package app.epistola.suite.fonts.commands
 import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.FontId
 import app.epistola.suite.fonts.FACES_OF_FAMILY_AT_ADDRESS
@@ -44,7 +46,10 @@ import org.springframework.stereotype.Component
 data class DeleteFont(
     val fontId: FontId,
     val force: Boolean = false,
-) : Command<Boolean>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<Boolean>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_EDIT
     override val tenantKey get() = fontId.tenantKey

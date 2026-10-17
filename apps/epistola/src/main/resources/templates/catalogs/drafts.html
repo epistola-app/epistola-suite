@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/* The drafts of an authored catalog (contract ADR 0002): which one a page works in, the
+           releases it is behind, and switching to another. Built from CatalogDraftBar, which owns
+           every predicate the controls gate on.
+
+           The draft travels in the catalog's segment of the URL (`letters@2.0.0`), so the links
+           below go to the same page in another draft, and every link on the page carries the one
+           chosen. The current draft (the highest) is linked without a number.
+
+           Usage:
+             catalog page   — inside "Next release":  ~{catalogs/drafts :: draft-bar(bar=${draftBar})}
+             content pages  — above the page header:  ~{catalogs/drafts :: content-draft-bar(bar=${draftBar})}
+           A content page shows it only when there is a choice to make (CatalogDraftBar.shownOnContentPage),
+           so a catalog with one draft looks as it always did. */-->
+    <th:block th:fragment="content-draft-bar(bar)">
+        <th:block th:if="${bar != null and bar.shownOnContentPage}">
+            <div th:replace="~{catalogs/drafts :: draft-bar(bar=${bar})}"></div>
+        </th:block>
+    </th:block>
+
+    <div th:fragment="draft-bar(bar)" class="catalog-bar" data-testid="catalog-draft-bar"
+         th:attr="data-catalog-version=${bar.chosen?.version}">
+        <div class="catalog-bar-context">
+            <span class="catalog-bar-label">Draft</span>
+            <th:block th:if="${bar.chosen != null}">
+                <strong data-testid="catalog-draft-chosen" th:text="'v' + ${bar.chosen.version}">v2.0.0</strong>
+                <span class="catalog-bar-state" data-testid="catalog-draft-base"
+                      th:text="${bar.chosen.base != null} ? 'based on v' + ${bar.chosen.base} : 'based on no release'">based on v1.0.0</span>
+                <!--/* Stated, not alarmed: being behind is a fact to act on when releasing. */-->
+                <span th:unless="${bar.behind.isEmpty()}" class="badge badge-warning" data-testid="catalog-draft-behind"
+                      th:text="'behind ' + ${#strings.listJoin(bar.behind.!['v' + version], ', ')}">behind v1.0.1</span>
+            </th:block>
+            <span th:if="${bar.noDraft}" class="catalog-bar-state" data-testid="catalog-draft-none">none open</span>
+
+            <nav th:if="${bar.severalDrafts}" class="ep-row" style="gap: var(--ep-space-1);" aria-label="Drafts"
+                 data-testid="catalog-draft-picker">
+                <a th:each="link : ${bar.draftLinks}" th:href="${link.href}"
+                   class="ep-btn ep-btn-sm" th:classappend="${link.active} ? 'ep-btn-primary' : 'ep-btn-ghost'"
+                   th:attr="aria-current=${link.active} ? 'page' : null,data-version=${link.version}"
+                   th:title="${link.base != null} ? 'Draft v' + ${link.version} + ', based on v' + ${link.base} : 'Draft v' + ${link.version}"
+                   data-testid="catalog-draft-link" th:text="'v' + ${link.version}">v1.0.1</a>
+            </nav>
+        </div>
+
+        <!--/* No draft: nothing can be edited until one is opened. Offered here, on every page that
+               would otherwise only fail, with the reason when it cannot be. */-->
+        <th:block th:if="${bar.noDraft}">
+            <form th:if="${bar.offerOpenDraft}" method="post" style="display: inline;"
+                  th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts(tenantId=${bar.tenantKey},catalogId=${bar.catalogKey})}">
+                <input type="hidden" name="version" th:value="${bar.openDraftVersion}">
+                <input type="hidden" name="from" th:value="${bar.openDraftFrom}">
+                <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="catalog-draft-open"
+                        th:text="${bar.openDraftFrom != null} ? 'Open draft v' + ${bar.openDraftVersion} + ' from v' + ${bar.openDraftFrom} : 'Open draft v' + ${bar.openDraftVersion}">Open draft</button>
+            </form>
+            <span th:if="${bar.openDraftWithheldNoContent}" class="form-hint" data-testid="catalog-draft-open-withheld">
+                Its latest release kept no content to copy. Open a draft from an older release on the catalog page.
+            </span>
+            <span th:if="${bar.draftControlsWithheld}" class="form-hint" data-testid="catalog-draft-open-withheld">
+                Opening a draft needs the content publisher role.
+            </span>
+        </th:block>
+    </div>
+
+    <!--/* What the chosen draft is behind: each release above its base and below its number, with
+           what it changed. Shown where the draft is released, so the acknowledgement is informed. */-->
+    <div th:fragment="behind-list(bar)" th:unless="${bar.behind.isEmpty()}" class="alert alert-warning"
+         data-testid="catalog-draft-behind-list">
+        <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+        <div>
+            <div class="alert-title" th:text="'Draft v' + ${bar.chosen.version} + ' does not contain these releases'">Draft does not contain these releases</div>
+            <p style="margin: var(--ep-space-1) 0 0;">
+                They were released after the release this draft is based on. Apply their changes here
+                by hand if they belong in it; releasing asks you to confirm each one.
+            </p>
+            <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
+                <li th:each="release : ${bar.behind}" data-testid="catalog-draft-behind-release" th:data-version="${release.version}">
+                    <strong th:text="'v' + ${release.version}">v1.0.1</strong>:
+                    <span th:if="${release.changes.isEmpty()}" class="text-muted">no resource changes</span>
+                    <span th:unless="${release.changes.isEmpty()}"
+                          th:text="${#strings.listJoin(release.changes.![type + '/' + key + ' ' + change], ', ')}">theme/brand modified</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!--/* Open a draft. The number is free text, the source a choice among the catalog's drafts and
+           the releases that kept their content; without one, the draft copies its base (the highest
+           release below its number), as the contract defaults.
+           Model: `tenantId`, `catalogId`, `bar`, and on re-render `formData`/`errors`. */-->
+    <th:block th:fragment="create-dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='create-draft-dialog',
+            title='New draft',
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${bar.segmentValue})},
+            content=~{::create-form})}"></div>
+    </th:block>
+
+    <form th:fragment="create-form" id="create-draft-form"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts(tenantId=${tenantId},catalogId=${bar.segmentValue})}"
+          hx-target="#create-draft-form" hx-swap="outerHTML">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='create-draft-error')}"></div>
+        <div class="ep-dialog-body">
+            <p class="form-hint">
+                A draft is its own copy of the catalog's content, edited and released on its own: a
+                maintenance line next to the next major, for example.
+            </p>
+            <div class="form-group" th:classappend="${errors?.containsKey('version')} ? 'error' : ''">
+                <label class="ep-label" for="create-draft-version">Version</label>
+                <input type="text" id="create-draft-version" name="version" class="ep-input" required maxlength="50"
+                       pattern="^\d+\.\d+\.\d+$" th:value="${formData?.get('version') ?: bar.suggestedNewVersion}">
+                <span class="form-hint">Semantic version: MAJOR.MINOR.PATCH. Unique among the catalog's drafts and releases.</span>
+                <span class="form-error" th:if="${errors?.containsKey('version')}" th:text="${errors.version}"
+                      data-testid="create-draft-error"></span>
+            </div>
+            <div class="form-group" th:classappend="${errors?.containsKey('from')} ? 'error' : ''">
+                <label class="ep-label" for="create-draft-from">Copy</label>
+                <select id="create-draft-from" name="from" class="ep-select" data-testid="create-draft-from">
+                    <option value="">Its base: the highest release below its number</option>
+                    <option th:each="option : ${bar.createFromOptions}" th:value="${option}" th:text="'v' + ${option}"
+                            th:selected="${formData != null and option == formData.get('from')}">v1.0.0</option>
+                </select>
+                <span class="form-error" th:if="${errors?.containsKey('from')}" th:text="${errors.from}"></span>
+            </div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="create-draft-dialog">Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-draft-submit">Open draft</button>
+        </div>
+    </form>
+</body>
+</html>

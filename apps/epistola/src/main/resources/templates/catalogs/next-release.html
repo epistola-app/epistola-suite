@@ -11,7 +11,12 @@
     release dialog gates on, so the page and the dialog cannot disagree about whether a release is
     possible. A withheld Release says why and links to where it is fixed.
 
-    Model it needs: `tenantId`, `catalogId`, `readiness`, optionally `nextReleaseError`.
+    With several drafts (contract ADR 0002) this is the release of the draft the page works in,
+    `readiness.drafts.chosen`; the draft bar at the top switches to another, and every control here
+    acts on the chosen one, because `catalogId` is the page's catalog segment (`letters@2.0.0`).
+
+    Model it needs: `tenantId`, `catalogId` (the catalog segment), `readiness`, optionally
+    `nextReleaseError`.
     -->
     <div th:fragment="next-release" id="catalog-next-release" class="card" data-testid="catalog-next-release"
          th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
@@ -22,6 +27,20 @@
                       th:text="'v' + ${readiness.draftVersion}">v1.0.1</span>
             </h2>
             <div class="ep-row" style="gap: var(--ep-space-2);">
+                <button th:if="${readiness.drafts.offerCreateDraft}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts/new(tenantId=${tenantId},catalogId=${catalogId})}"
+                        hx-target="#dialog-mount" hx-swap="innerHTML"
+                        data-testid="catalog-draft-new">New draft</button>
+                <form th:if="${readiness.drafts.offerDiscard}" method="post" style="display: inline;"
+                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts/discard(tenantId=${tenantId},catalogId=${catalogId})}">
+                    <button type="button" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
+                            data-testid="catalog-draft-discard"
+                            data-confirm-submit
+                            data-confirm-submit-title="Discard this draft"
+                            th:attr="data-confirm-submit-message='Draft v' + ${readiness.draftVersion} + ' is discarded with every change made in it. Releases and other drafts are not affected. This cannot be undone.'"
+                            data-confirm-submit-label="Discard draft"
+                            data-confirm-submit-class="ep-btn-destructive">Discard draft</button>
+                </form>
                 <button th:if="${readiness.offerRenumber}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
                         th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/renumber(tenantId=${tenantId},catalogId=${catalogId})}"
                         hx-target="#dialog-mount" hx-swap="innerHTML"
@@ -42,6 +61,20 @@
                  data-testid="catalog-next-release-error">
                 <span th:text="${nextReleaseError}"></span>
             </div>
+
+            <!--/* Which draft this is, once there is more than one, or none. With one draft the
+                   heading's number says it all, as it always did. */-->
+            <th:block th:if="${readiness.drafts.severalDrafts or readiness.drafts.noDraft or !readiness.drafts.behind.isEmpty()}">
+                <div th:replace="~{catalogs/drafts :: draft-bar(bar=${readiness.drafts})}"></div>
+            </th:block>
+            <th:block th:if="${readiness.draftVersion != null}">
+                <div th:replace="~{catalogs/drafts :: behind-list(bar=${readiness.drafts})}"></div>
+            </th:block>
+            <p th:if="${readiness.drafts.draftControlsWithheld and readiness.drafts.severalDrafts}" class="form-hint"
+               data-testid="catalog-draft-controls-withheld">
+                Opening, discarding, renumbering and releasing drafts needs the content publisher role.
+            </p>
+            <th:block th:if="${readiness.draftVersion != null}">
 
             <!--/* Why Release is not offered, one sentence per reason, each pointing at where it is
                    fixed. */-->
@@ -116,10 +149,11 @@
                     </tbody>
                 </table>
             </div>
+            </th:block>
         </div>
 
         <!-- Dependencies: the catalogs this one declares it uses, and the release each is locked to. -->
-        <div id="catalog-dependencies" class="card-body" style="border-top: 1px solid var(--ep-border);"
+        <div th:if="${readiness.draftVersion != null}" id="catalog-dependencies" class="card-body" style="border-top: 1px solid var(--ep-border);"
              data-testid="catalog-dependencies">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--ep-space-2);">
                 <h3 style="margin: 0;">Dependencies</h3>
@@ -129,7 +163,7 @@
                           hx-target="#catalog-next-release" hx-swap="outerHTML">
                         <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-dependencies-resolve">Resolve to latest</button>
                     </form>
-                    <button th:if="${readiness.mayRelease}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                    <button th:if="${readiness.offerEditDependencies}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                             th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/dependencies/edit(tenantId=${tenantId},catalogId=${catalogId})}"
                             hx-target="#dialog-mount" hx-swap="innerHTML"
                             data-testid="catalog-dependencies-edit">Edit dependencies</button>
@@ -162,14 +196,15 @@
     </div>
 
     <!--
-    Renumber the draft. On submit the handler previews the renumber: warnings come back in the
-    dialog with an acknowledgement box, refusals as field errors.
+    Renumber the draft the page works in (any draft, with several). On submit the handler previews
+    the renumber: warnings come back in the dialog with an acknowledgement box, refusals as field
+    errors.
     Model: `tenantId`, `catalogId`, `draftVersion`, and on re-render `formData`/`errors`/`warnings`.
     -->
     <th:block th:fragment="renumber-dialog">
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='renumber-catalog-dialog',
-            title='Renumber the next release',
+            title='Renumber the draft',
             closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalogId})},
             content=~{::renumber-form})}"></div>
     </th:block>
@@ -180,8 +215,9 @@
         <div th:replace="~{epistola-web/form-error :: form-error(id='renumber-catalog-error')}"></div>
         <div class="ep-dialog-body">
             <p class="form-hint">
-                The next release is <strong th:text="'v' + ${draftVersion}">v1.0.1</strong>. Its content
-                stays as it is; only the number changes. It must stay above every release.
+                This draft is <strong th:text="'v' + ${draftVersion}">v1.0.1</strong>. Its content
+                stays as it is; only the number changes. Moving it past a release or another draft
+                asks for a second look.
             </p>
             <div class="form-group" th:classappend="${errors?.containsKey('to')} ? 'error' : ''">
                 <label class="ep-label" for="renumber-to">New version</label>

@@ -12,6 +12,8 @@ import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CreateCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -20,6 +22,7 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.commands.CreateTenant
+import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
@@ -203,6 +206,27 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val higher = call(HttpMethod.POST, "$versions/2.0.0/release", """{"acknowledgedBehind":["1.0.1"]}""")
         assertThat(higher.statusCode).describedAs(higher.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(higher.body!!, "$.openedDraft")).isEqualTo("2.0.1")
+    }
+
+    @Test
+    fun `discarding a draft that alone holds the tenant's default theme is a held problem`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val catalogSlug = "held-${UUID.randomUUID().toString().take(8)}"
+        seedAuthoredCatalog(tenantKey, catalogSlug)
+        withMediator {
+            val catalogKey = CatalogKey.of(catalogSlug)
+            ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.0.0").execute()
+            CreateCatalogVersion(tenantKey, catalogKey, "2.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("seasonal"), CatalogId(catalogKey, TenantId(tenantKey))), "Seasonal", catalogVersion = CatalogVersionRef(tenantKey, catalogKey, "2.0.0")).execute()
+            SetTenantDefaultTheme(tenantKey, ThemeKey.of("seasonal"), catalogKey).execute()
+        }
+        val versions = "${withMediator { CatalogApiPaths.catalog(tenantKey, catalogSlug) }}/versions"
+
+        val refused = restTemplate.exchange("$versions/2.0.0", HttpMethod.DELETE, HttpEntity(null, baseHeaders(apiKey)), String::class.java)
+
+        assertThat(refused.statusCode).describedAs(refused.body).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(JsonPath.read<String>(refused.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-version-held")
+        assertThat(JsonPath.read<List<String>>(refused.body!!, "$.heldBy")).containsExactly("the tenant's default theme (theme $catalogSlug/seasonal)")
     }
 
     @Test

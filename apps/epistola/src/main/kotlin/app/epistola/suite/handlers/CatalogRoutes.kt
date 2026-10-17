@@ -16,6 +16,7 @@ class CatalogRoutes(
     private val exchange: ExchangeCatalogHandler,
     private val organise: CatalogOrganiseHandler,
     private val nextRelease: CatalogReleaseHandler,
+    private val drafts: CatalogDraftHandler,
 ) {
     @Bean
     fun catalogRouterFunction(): RouterFunction<ServerResponse> = router {
@@ -37,6 +38,11 @@ class CatalogRoutes(
             POST("/{catalogId}/delete", handler::unregister)
             GET("/{catalogId}/release", handler::releaseDialog)
             POST("/{catalogId}/release", handler::release)
+            // A catalog's drafts (contract ADR 0002). `{catalogId}` may name one as `key@version`,
+            // on these routes and every other per-catalog and per-resource route.
+            GET("/{catalogId}/drafts/new", drafts::createForm)
+            POST("/{catalogId}/drafts", drafts::create)
+            POST("/{catalogId}/drafts/discard", drafts::discard)
             // Preparing the next release: readiness, the draft's number, declared dependencies
             POST("/{catalogId}/ready", nextRelease::markReady)
             GET("/{catalogId}/renumber", nextRelease::renumberForm)

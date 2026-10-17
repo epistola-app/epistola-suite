@@ -12,6 +12,8 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mcp.dto.AttributeInfo
+import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
 import org.springframework.ai.mcp.annotation.McpTool
@@ -40,10 +42,12 @@ class AttributeMcpTools(
     fun listAttributes(
         @McpToolParam(description = "Catalog slug to filter by. Omit to list all.", required = false)
         catalogId: String?,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): List<AttributeInfo> {
         val tenantId = TenantId(mcpTenantKey())
         val filter = catalogId?.takeIf { it.isNotBlank() }?.let { CatalogKey.of(it) }
-        return mediator.query(ListAttributeDefinitions(tenantId = tenantId, catalogKey = filter))
+        return mediator.query(ListAttributeDefinitions(tenantId = tenantId, catalogKey = filter, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))
             .map { AttributeInfo.from(it) }
     }
 
@@ -58,9 +62,11 @@ class AttributeMcpTools(
         catalogId: String,
         @McpToolParam(description = "Attribute slug (e.g. `locale`).")
         attributeKey: String,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): AttributeInfo? {
         val tenantId = TenantId(mcpTenantKey())
         val id = AttributeId(AttributeKey.of(attributeKey), CatalogId(CatalogKey.of(catalogId), tenantId))
-        return mediator.query(GetAttributeDefinition(id = id))?.let { AttributeInfo.from(it) }
+        return mediator.query(GetAttributeDefinition(id = id, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))?.let { AttributeInfo.from(it) }
     }
 }

@@ -7,14 +7,18 @@
             actions=~{::attribute-list-actions}
         )}"></div>
 
+        <!--/* Filtered to a catalog with several drafts: which one the rows are from, and the others. */-->
+        <div th:replace="~{catalogs/drafts :: content-draft-bar(bar=${draftBar})}"></div>
+
         <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
             <select id="catalog-filter" class="ep-select" style="max-width: 300px;"
                     th:attr="data-catalog-filter-base=@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
+                <!--/* Filtered to a draft (`letters@2.0.0`), its catalog's option keeps the draft. */-->
                 <option th:each="cat : ${catalogs}"
-                        th:value="${cat.id}"
+                        th:value="${draftSegment?.linkFor(cat.id) ?: cat.id}"
                         th:text="${cat.name}"
-                        th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
+                        th:selected="${#strings.equals(selectedCatalog, draftSegment?.linkFor(cat.id) ?: cat.id)}"></option>
             </select>
         </div>
 
@@ -37,7 +41,7 @@
             <div class="empty-state-description">Define attributes to classify template variants (e.g., language, brand, audience).</div>
             <button th:if="${auth.has('TENANT_SETTINGS')}" type="button"
                     class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-                    th:hx-get="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}"
+                    th:hx-get="${draftSegment != null} ? @{/tenants/{tenantId}/attributes/new(tenantId=${tenantId},catalog=${draftSegment.value})} : @{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}"
                     hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                     data-testid="attribute-create-open">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
@@ -77,7 +81,7 @@
                         <td style="font-weight: 500;" th:text="${attr.displayName}" th:title="${attr.displayName}"></td>
                         <td class="cell-wrap">
                             <div th:if="${attr.codeListSlug != null}" class="badge-list">
-                                <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${attr.codeListCatalogKey},slug=${attr.codeListSlug})}"
+                                <a th:href="@{/tenants/{tenantId}/code-lists/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(attr.codeListCatalogKey) ?: attr.codeListCatalogKey},slug=${attr.codeListSlug})}"
                                    class="badge badge-default"
                                    th:title="'Bound to code list ' + ${attr.codeListCatalogKey} + '/' + ${attr.codeListSlug}"
                                    th:text="'→ ' + ${attr.codeListCatalogKey} + '/' + ${attr.codeListSlug}"></a>
@@ -95,7 +99,7 @@
                             <span th:if="${attr.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
                             <th:block th:if="${attr.catalogType.name() == 'AUTHORED'}">
                                 <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
-                                        th:hx-get="@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}/edit(tenantId=${tenantId},catalogId=${attr.catalogKey},attributeId=${attr.id})}"
+                                        th:hx-get="@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}/edit(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(attr.catalogKey) ?: attr.catalogKey},attributeId=${attr.id})}"
                                         hx-target="#edit-attribute-dialog-body"
                                         hx-swap="innerHTML"
                                         data-open-dialog="edit-attribute-dialog"
@@ -106,7 +110,7 @@
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete attribute"
                                         data-confirm-title="Delete Attribute"
-                                        th:attr="data-confirm-message='Delete attribute &quot;' + ${attr.displayName} + '&quot;? Existing variant attributes using this key will not be affected.',data-confirm-url=@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}/delete(tenantId=${tenantId},catalogId=${attr.catalogKey},attributeId=${attr.id})}"
+                                        th:attr="data-confirm-message='Delete attribute &quot;' + ${attr.displayName} + '&quot;? Existing variant attributes using this key will not be affected.',data-confirm-url=@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(attr.catalogKey) ?: attr.catalogKey},attributeId=${attr.id})}"
                                         data-confirm-target="#attribute-list" data-confirm-swap="outerHTML">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
@@ -152,7 +156,7 @@
         <!-- data-radio-panes: the constraintKind radios toggle the matching
              [data-constraint-pane] visibility; initial state is applied on the
              htmx:load of this fragment (pages/asset-forms.js). -->
-        <form th:hx-patch="@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}(tenantId=${tenantId},catalogId=${attribute.catalogKey},attributeId=${attribute.id})}"
+        <form th:hx-patch="@{/tenants/{tenantId}/attributes/{catalogId}/{attributeId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(attribute.catalogKey) ?: attribute.catalogKey},attributeId=${attribute.id})}"
               hx-target="#attribute-rows"
               hx-swap="innerHTML"
               data-radio-panes="constraintKind" data-pane-attr="data-constraint-pane"
@@ -234,7 +238,7 @@
     </th:block>
     <th:block th:fragment="attribute-list-actions">
         <button th:if="${auth.has('TENANT_SETTINGS')}" type="button" class="ep-btn ep-btn-primary"
-                th:hx-get="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}"
+                th:hx-get="${draftSegment != null} ? @{/tenants/{tenantId}/attributes/new(tenantId=${tenantId},catalog=${draftSegment.value})} : @{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="attribute-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
