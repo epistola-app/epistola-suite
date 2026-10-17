@@ -82,7 +82,8 @@ class AttributeHandler {
                 "tenantId" to tenantId.key
                 "authoredCatalogs" to authoredCatalogs
                 "codeLists" to codeLists
-                "draftSegment" to selected?.takeIf { it.version != null }
+                // The catalog it was opened on, a draft or plain (see ThemeHandler.newForm).
+                "draftSegment" to selected
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.

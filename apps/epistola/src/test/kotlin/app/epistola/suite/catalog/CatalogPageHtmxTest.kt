@@ -25,6 +25,9 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.http.client.HttpRedirects
 import org.springframework.boot.resttestclient.TestRestTemplate
+import org.springframework.http.HttpEntity
+import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 
 /**
@@ -148,6 +151,24 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
             .isEqualTo("/tenants/${tenant.id}/catalogs/letters@1.0.1/draft")
         assertThat(get(tenant, "/catalogs/letters@1.0.0/draft").headers.location.toString())
             .isEqualTo("/tenants/${tenant.id}/catalogs/letters/releases/1.0.0")
+    }
+
+    @Test
+    fun `each New on the catalog page opens its dialog on that catalog, not on the one that sorts first`() {
+        val tenant = catalog("Page New Dialogs") { tenant, _ ->
+            CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of("aardvark"), name = "Aardvark").execute()
+        }
+
+        listOf("templates", "themes", "stencils", "images", "fonts", "code-lists", "attributes").forEach { area ->
+            val dialog = restTemplate.exchange(
+                "/tenants/${tenant.id}/$area/new?catalog=letters",
+                HttpMethod.GET,
+                HttpEntity<Void>(HttpHeaders().apply { set("HX-Request", "true") }),
+                String::class.java,
+            ).body!!
+            val option = dialog.substringAfter("value=\"letters\"").substringBefore(">")
+            assertThat(option).`as`("$area preselects the catalog it was opened on").contains("selected")
+        }
     }
 
     private fun status(page: String): String = page.substringAfter("data-testid=\"catalog-status\"").substringBefore("data-testid=\"catalog-templates\"")

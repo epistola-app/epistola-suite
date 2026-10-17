@@ -139,7 +139,9 @@ class ThemeHandler(
             fragment("themes/new", "dialog") {
                 "tenantId" to tenantId.key
                 // Opened from a list filtered to a draft, the dialog creates in that draft.
-                "draftSegment" to request.catalogParam()?.takeIf { it.version != null }
+                // The catalog it was opened on, a draft or plain: a dialog opened from a catalog's page
+                // creates there, rather than in whichever catalog sorts first.
+                "draftSegment" to request.catalogParam()
                 "authoredCatalogs" to authoredCatalogs
             }
             // Direct navigation / boost: the host list page with the dialog
