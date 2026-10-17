@@ -78,7 +78,7 @@
                        data-testid="catalog-release-blocked-resources">
                         Some changes still have to be marked ready by a content author.
                     </p>
-                    <p th:each="borrowed : ${readiness.borrowing.unavailable}" style="margin: var(--ep-space-1) 0 0;"
+                    <p th:each="borrowed : ${readiness.blockingBorrowed}" style="margin: var(--ep-space-1) 0 0;"
                        data-testid="catalog-release-blocked-borrowed"
                        th:text="'It uses ' + ${#strings.listJoin(borrowed.uses.![name ?: key], ', ')} + ' from ' + ${borrowed.name} + ', which has no published version yet. Publish ' + ${borrowed.name} + ' first.'"></p>
                     <p th:if="${!readiness.borrowing.undeclared.isEmpty() and !readiness.mayEditDraft}" style="margin: var(--ep-space-1) 0 0;"

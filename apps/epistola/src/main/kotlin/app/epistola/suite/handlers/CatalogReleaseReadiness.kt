@@ -55,7 +55,16 @@ data class CatalogReleaseReadiness(
      * release: someone who picked another catalog's theme in the editor need not know a release
      * declares it. For a viewer who may declare them, and only when each has a release to lock to.
      */
-    val declaresOnPublish: Boolean get() = mayEditDraft && borrowing.undeclared.isNotEmpty() && borrowing.unavailable.isEmpty()
+    val declaresOnPublish: Boolean get() = mayEditDraft && borrowing.undeclared.isNotEmpty() && blockingBorrowed.isEmpty()
+
+    /**
+     * Catalogs used here that have no published version and nothing to publish along either, so
+     * publishing cannot go ahead. One whose work can be published along does not block.
+     */
+    val blockingBorrowed: List<app.epistola.suite.catalog.dependencies.BorrowedCatalog> get() = borrowing.unavailable.filter { !it.publishAlong }
+
+    /** Catalogs used here that publishing should publish along or re-tie, so the result is what was previewed. */
+    val outOfStep: List<app.epistola.suite.catalog.dependencies.BorrowedCatalog> get() = borrowing.outOfStep
 
     /**
      * The draft's own number is a smaller step from its base than its changes need (breaking changes
@@ -131,7 +140,7 @@ data class CatalogReleaseReadiness(
             !nothingToPublish &&
             unresolvedDependencies.isEmpty() &&
             (notReady.isEmpty() || mayMarkReady) &&
-            borrowing.unavailable.isEmpty() &&
+            blockingBorrowed.isEmpty() &&
             (borrowing.undeclared.isEmpty() || mayEditDraft)
 
     /** The viewer may publish and there is something to, but a dependency (or an unready change they may not mark) stops it. */

@@ -225,7 +225,7 @@
                                data-testid="release-blocked-resources">
                                 Some changes still have to be marked ready by a content author.
                             </p>
-                            <p th:each="borrowed : ${readiness.borrowing.unavailable}" style="margin: var(--ep-space-1) 0 0;"
+                            <p th:each="borrowed : ${readiness.blockingBorrowed}" style="margin: var(--ep-space-1) 0 0;"
                                data-testid="release-blocked-borrowed"
                                th:text="'It uses ' + ${#strings.listJoin(borrowed.uses.![name ?: key], ', ')} + ' from ' + ${borrowed.name} + ', which has no published version yet. Publish ' + ${borrowed.name} + ' first.'">
                                 It uses Plain from Forms, which has no published version yet.</p>
@@ -233,6 +233,38 @@
                                data-testid="release-blocked-undeclared"
                                th:text="'It uses ' + ${#strings.listJoin(readiness.borrowing.undeclared.![name], ', ')} + ', which a content author has to record as a catalog it uses.'">
                                 It uses Shared, which a content author has to record.</p>
+                        </div>
+                    </div>
+
+                    <!--/* Other catalogs whose use here differs from what a publish would tie to: published
+                           along or re-tied, so what is published is what the preview showed
+                           (docs/catalog-working-model.md, rule 7). Ticked by default; required when a
+                           used resource exists only in the other catalog's work. */-->
+                    <div th:unless="${readiness.outOfStep.isEmpty()}" class="form-group" data-testid="publish-along">
+                        <span class="ep-label">Other catalogs it uses</span>
+                        <div th:each="other : ${readiness.outOfStep}" style="margin-top: var(--ep-space-2);"
+                             data-testid="publish-along-catalog" th:attr="data-catalog=${other.catalogKey}">
+                            <th:block th:if="${other.publishAlong and other.onlyInWork}">
+                                <input type="hidden" name="alsoPublish" th:value="${other.catalogKey}">
+                                <p style="margin: 0;" th:text="'It uses ' + ${#strings.listJoin(other.uses.![name ?: key], ', ')} + ' from ' + ${other.name} + ', which is not published yet, so ' + ${other.name} + ' is published too, as v' + ${other.nextNumber} + '.'">
+                                    It uses Seasonal from Shared, which is not published yet, so Shared is published too, as v1.1.0.</p>
+                            </th:block>
+                            <label th:if="${other.publishAlong and !other.onlyInWork}" style="display: flex; gap: var(--ep-space-2);">
+                                <input type="checkbox" name="alsoPublish" th:value="${other.catalogKey}" checked data-testid="publish-along-checkbox">
+                                <span th:text="'Also publish ' + ${other.name} + ', as v' + ${other.nextNumber} + ', so it uses ' + ${#strings.listJoin(other.unpublishedUsed.![name ?: key], ', ')} + ' as in your preview.'">
+                                    Also publish Shared, as v1.0.1, so it uses Brand as in your preview.</span>
+                            </label>
+                            <p th:if="${other.publishAlong and !other.onlyInWork}" class="form-hint" style="margin: 0 0 0 var(--ep-space-6);"
+                               th:text="'Unticked, it uses them as published in ' + ${other.name} + ' v' + ${other.release} + '.'">Unticked, it uses them as published in Shared v1.0.0.</p>
+                            <p th:if="${other.publishAlong and other.unpublished.size() > other.unpublishedUsed.size()}" class="form-hint"
+                               style="margin: 0 0 0 var(--ep-space-6);" data-testid="publish-along-more"
+                               th:text="'Publishing ' + ${other.name} + ' also publishes its other changes: ' + ${#strings.listJoin(other.unpublished.![name ?: key], ', ')} + '.'">
+                                Publishing Shared also publishes its other changes.</p>
+                            <label th:if="${other.retieTo != null}" style="display: flex; gap: var(--ep-space-2);">
+                                <input type="checkbox" name="retie" th:value="${other.catalogKey}" checked data-testid="publish-retie-checkbox">
+                                <span th:text="'Use ' + ${other.name} + ' v' + ${other.retieTo} + ', the latest published, as in your preview. It used v' + ${other.release} + '.'">
+                                    Use Shared v1.0.1, the latest published, as in your preview.</span>
+                            </label>
                         </div>
                     </div>
 

@@ -10,6 +10,7 @@ import app.epistola.suite.attributes.codelists.commands.UpdateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.dependencies.DeclareUsedCatalogs
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.versions.CatalogVersionStatus
 import app.epistola.suite.catalog.versions.ListCatalogVersions
@@ -33,6 +34,7 @@ import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -202,15 +204,20 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `a theme from a catalog that was never published withholds Publish and says what to publish first`() {
+    fun `a theme from a catalog that was never published has that catalog published along, as its first version`() {
         val tenant = published("Publish Borrowed Unpublished")
         usingSharedTheme(tenant, publishShared = false)
 
         val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
 
-        assertThat(dialog).contains("data-testid=\"release-blocked-borrowed\"")
-            .contains("It uses Brand from Shared, which has no published version yet. Publish Shared first.")
-        assertThat(dialog).doesNotContain("data-testid=\"release-submit\"")
+        assertThat(dialog).doesNotContain("data-testid=\"release-blocked-borrowed\"")
+        assertThat(dialog).contains("It uses Brand from Shared, which is not published yet, so Shared is published too, as v1.0.0.")
+        assertThat(dialog).contains("data-testid=\"release-submit\"")
+
+        postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.1.0", "alsoPublish" to "shared"))
+
+        assertThat(withMediator { ListReleaseDependencies(tenant.id, letters, "1.1.0").query() }.map { it.catalogKey to it.releaseVersion })
+            .containsExactly("shared" to "1.0.0")
     }
 
     @Test
@@ -224,6 +231,48 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
         assertThat(borrowed.substringAfter("data-catalog=\"shared\"").substringBefore("</tr>"))
             .contains("not recorded yet").contains("Brand").contains("(Theme)")
         assertThat(borrowed).contains("data-testid=\"catalog-borrowed-others\"")
+    }
+
+    @Test
+    fun `a theme changed in the catalog it comes from is published along, ticked, so the result is what was previewed`() {
+        val tenant = published("Publish Along")
+        usingSharedTheme(tenant)
+        withMediator {
+            DeclareUsedCatalogs(tenant.id, letters).execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(CatalogKey.of("shared"), TenantId(tenant.id))), documentStyles = mapOf("color" to "#ff0000")).execute()
+        }
+
+        val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
+        val along = dialog.substringAfter("data-testid=\"publish-along\"").substringBefore("data-testid=\"publish-advanced\"")
+        assertThat(along).contains("Also publish Shared, as v1.0.1, so it uses Brand as in your preview.")
+        assertThat(along).contains("name=\"alsoPublish\" value=\"shared\" checked")
+        assertThat(along).contains("Unticked, it uses them as published in Shared v1.0.0.")
+
+        postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.1.0", "alsoPublish" to "shared"))
+
+        assertThat(withMediator { ListReleaseDependencies(tenant.id, letters, "1.1.0").query() }.map { it.catalogKey to it.releaseVersion })
+            .containsExactly("shared" to "1.0.1")
+    }
+
+    @Test
+    fun `a theme that exists only in the other catalog's work has that catalog published too, without a choice`() {
+        val tenant = published("Publish Along Required")
+        usingSharedTheme(tenant, publishShared = false)
+        withMediator {
+            // Shared has a published version, without the theme Letters uses.
+            CreateTheme(ThemeId(ThemeKey.of("plain"), CatalogId(CatalogKey.of("shared"), TenantId(tenant.id))), "Plain").execute()
+        }
+        withMediator { mediator.releaseNext(CatalogId(CatalogKey.of("shared"), TenantId(tenant.id))) }
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("brand2"), CatalogId(CatalogKey.of("shared"), TenantId(tenant.id))), "Brand two").execute() }
+        withMediator {
+            UpdateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant.id))), themeId = ThemeKey.of("brand2"), themeCatalogKey = CatalogKey.of("shared")).execute()
+        }
+
+        val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
+
+        assertThat(dialog).contains("name=\"alsoPublish\" value=\"shared\"").doesNotContain("data-testid=\"publish-along-checkbox\"")
+        assertThat(dialog).contains("It uses Brand two from Shared, which is not published yet, so Shared is published too")
+        assertThat(dialog).contains("data-testid=\"release-submit\"")
     }
 
     private fun getHtmx(url: String): ResponseEntity<String> = restTemplate.exchange(

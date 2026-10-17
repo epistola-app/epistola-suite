@@ -37,6 +37,7 @@ import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.dependencies.DeclareUsedCatalogs
+import app.epistola.suite.catalog.dependencies.PublishUsedCatalogs
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
@@ -444,9 +445,24 @@ class CatalogHandler {
         // The environments to make the new version live in, ticked in the dialog.
         val liveIn = request.params()["liveIn"].orEmpty().map { it.trim() }.filter { it.isNotEmpty() }.toCollection(LinkedHashSet())
 
+        // What was published along before this catalog's own publish, so a refusal of that says it.
+        var publishedAlong: Map<String, String> = emptyMap()
+
         fun reRenderWithError(message: String): ServerResponse = ServerResponse.ok().render(
             "catalogs/list :: release-dialog",
-            releaseDialogModel(tenantId, segment, publication, error = message, version = form.formData["version"]?.ifBlank { null }, acknowledged = acknowledged, liveChosen = liveIn),
+            releaseDialogModel(
+                tenantId,
+                segment,
+                publication,
+                error = if (publishedAlong.isEmpty()) {
+                    message
+                } else {
+                    "Published " + publishedAlong.entries.joinToString { "${it.key} v${it.value}" } + ", but not this catalog: $message"
+                },
+                version = form.formData["version"]?.ifBlank { null },
+                acknowledged = acknowledged,
+                liveChosen = liveIn,
+            ),
         )
 
         if (form.hasErrors()) {
@@ -463,6 +479,14 @@ class CatalogHandler {
         return try {
             if (publicationChoice == ReleasePublication.PUBLISH) {
                 chooseNamespaceIfOffered(request, tenantId.key, catalogKey)
+            }
+            // First the catalogs it uses, as ticked: published along or re-tied, in one transaction,
+            // so what is published is what the preview showed (docs/catalog-working-model.md).
+            val alsoPublish = request.params()["alsoPublish"].orEmpty().map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+            val retie = request.params()["retie"].orEmpty().map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+            if (alsoPublish.isNotEmpty() || retie.isNotEmpty()) {
+                publishedAlong = PublishUsedCatalogs(tenantId.key, catalogKey, alsoPublish, retie, segment.ref(tenantId.key)).execute()
+                    .filterKeys { it in alsoPublish }
             }
             // Publishing marks the changes ready itself (docs/catalog-workspace-navigation.md): to the
             // person, publishing is the decision that they are ready. Only for someone who may mark.

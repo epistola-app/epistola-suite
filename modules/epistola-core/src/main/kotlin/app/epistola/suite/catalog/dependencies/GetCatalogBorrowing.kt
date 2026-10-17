@@ -6,12 +6,18 @@ package app.epistola.suite.catalog.dependencies
 
 import app.epistola.catalog.protocol.DependencyRef
 import app.epistola.suite.catalog.CatalogContentBuilder
+import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.BrowseCatalog
+import app.epistola.suite.catalog.queries.CatalogResourceState
 import app.epistola.suite.catalog.queries.GetCatalogRelease
+import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.versions.AssessDraftNumber
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.catalog.versions.CatalogVersionStatus
+import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -47,6 +53,12 @@ data class GetCatalogBorrowing(
  * @property others the tenant's other catalogs, which it could use.
  */
 data class CatalogBorrowing(val catalogs: List<BorrowedCatalog>, val others: List<OtherCatalog>) {
+    /**
+     * The catalogs whose use here differs from what publishing would tie to: what the preview shows
+     * is not what would be published (docs/catalog-working-model.md, rule 7).
+     */
+    val outOfStep: List<BorrowedCatalog> get() = catalogs.filter { it.publishAlong || it.retieTo != null }
+
     /** Used but not declared: publishing has to declare them first. */
     val undeclared: List<BorrowedCatalog> get() = catalogs.filter { it.used && !it.declared }
 
@@ -69,8 +81,29 @@ data class BorrowedCatalog(
     val release: String?,
     val uses: List<BorrowedResource>,
     val offers: List<BorrowedResource>,
+    /** Everything its next version has not published yet, of any kind; empty for a subscribed catalog. */
+    val unpublished: List<BorrowedResource> = emptyList(),
+    /** The number its next version would be published as, picked from its changes; null without one. */
+    val nextNumber: String? = null,
+    /** Its latest published version that kept its content, which an editor's preview shows when nothing is unpublished. */
+    val latest: String? = null,
 ) {
     val used: Boolean get() = uses.isNotEmpty()
+
+    /** What this version uses of it that its next version changed and has not published: the preview shows it, a publish would not. */
+    val unpublishedUsed: List<BorrowedResource> get() = uses.filter { used -> unpublished.any { it.type == used.type && it.key == used.key } }
+
+    /** Used here, but in no published version of it: a publish here needs it published first. */
+    val onlyInWork: Boolean get() = uses.any { used -> offers.none { it.type == used.type && it.key == used.key } } && nextNumber != null
+
+    /** Publishing here should publish its next version along, so what is published is what was previewed. */
+    val publishAlong: Boolean get() = used && nextNumber != null && (unpublishedUsed.isNotEmpty() || onlyInWork)
+
+    /**
+     * Nothing to publish along, but a newer published version than the one this is tied to, which the
+     * preview shows: publishing here would tie to the older one unless it is re-tied.
+     */
+    val retieTo: String? get() = latest?.takeIf { used && declared && !publishAlong && it != release }
 }
 
 /** A resource of another catalog: its kind (`theme`, `stencil`, `image`, `codeList`, `font`), key and name. */
@@ -110,7 +143,20 @@ class GetCatalogBorrowingHandler(
                     ?: current.firstOrNull { it.type == used.type && it.slug == used.key }?.name
                 used.copy(name = name)
             }
-            BorrowedCatalog(key, catalog.name, declaration != null, release, uses, offers)
+            val authoredWork = if (catalog.type == CatalogType.AUTHORED) {
+                ListCatalogVersions(query.tenantKey, catalog.id, CatalogVersionStatus.DRAFT).query().firstOrNull()
+            } else {
+                null
+            }
+            val unpublished = authoredWork?.let {
+                GetCatalogResourceChanges(query.tenantKey, catalog.id).query().resources
+                    .filter { it.state != CatalogResourceState.RELEASED }
+                    .map { change -> BorrowedResource(change.type, change.slug, change.name) }
+            }.orEmpty()
+            val nextNumber = authoredWork?.takeIf { unpublished.isNotEmpty() }?.let { work ->
+                AssessDraftNumber(query.tenantKey, catalog.id, work.version).query()?.takeIf { it.tooLow }?.suggested ?: work.version
+            }
+            BorrowedCatalog(key, catalog.name, declaration != null, release, uses, offers, unpublished, nextNumber, latestRetained(query.tenantKey, catalog.id))
         }.sortedWith(compareBy({ !it.used }, { it.name.lowercase() }))
 
         val others = catalogs.filter { c -> borrowed.none { it.catalogKey == c.id.value } }

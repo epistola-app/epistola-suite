@@ -111,6 +111,10 @@
                             <span th:if="${!borrowed.declared and borrowed.release != null}" class="badge badge-default"
                                   th:title="'Publishing records v' + ${borrowed.release} + ' with it'">not recorded yet</span>
                             <span th:if="${borrowed.release == null}" class="badge badge-warning">no published version</span>
+                            <div th:if="${borrowed.publishAlong}" class="form-hint" data-testid="catalog-borrowed-along"
+                                 th:text="'Changed in ' + ${borrowed.name} + ', not published yet: publishing here publishes it too.'">Changed in Shared, not published yet.</div>
+                            <div th:if="${borrowed.retieTo != null}" class="form-hint"
+                                 th:text="'v' + ${borrowed.retieTo} + ' is published: publishing here uses it.'">v1.0.1 is published.</div>
                         </td>
                     </tr>
                 </tbody>
