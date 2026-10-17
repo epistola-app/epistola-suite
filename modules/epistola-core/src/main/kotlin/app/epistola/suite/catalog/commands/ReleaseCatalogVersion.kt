@@ -25,6 +25,7 @@ import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
+import app.epistola.suite.catalog.versions.CatalogDrafts
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.config.bindJsonb
 import app.epistola.suite.mediator.Command
@@ -44,9 +45,11 @@ import java.time.OffsetDateTime
 import java.util.UUID
 
 /**
- * Cuts a new release of an AUTHORED catalog: records an explicit, immutable
- * release boundary (author-set SemVer + content fingerprint + notes + a
- * manifest snapshot) and advances the catalog's released-version pointer.
+ * Releases the open draft of an AUTHORED catalog as [version]: records an explicit, immutable
+ * release boundary (SemVer + content fingerprint + notes + a manifest snapshot), advances the
+ * catalog's released-version pointer, and opens the next patch as the new draft (contract ADR 0002).
+ * A [version] other than the draft's number renumbers the draft as it is released; it must still be
+ * above every release, since there is one draft.
  *
  * See [`docs/catalog-versioning.md`](../../../../../../../../../docs/catalog-versioning.md).
  */
@@ -97,6 +100,7 @@ class ReleaseCatalogVersionHandler(
     private val publicationPort: ObjectProvider<CatalogReleasePublicationPort>,
     private val stencilCheck: ReleaseStencilCheck,
     private val dependencyStore: CatalogDependencyStore,
+    private val drafts: CatalogDrafts,
 ) : CommandHandler<ReleaseCatalogVersion, ReleaseCatalogVersionResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -198,6 +202,8 @@ class ReleaseCatalogVersionHandler(
             // what it contained commit together, so there is no state where one exists without the
             // others.
             dependencyStore.recordRelease(handle, command.tenantKey, command.catalogKey, newVersion.toString(), pins)
+            // The draft becomes this release, and the next patch opens on it (contract ADR 0002).
+            drafts.open(handle, command.tenantKey, command.catalogKey, CatalogDrafts.nextAfter(newVersion.toString()), base = newVersion.toString())
             val revisionDigests = revisionStore.retain(handle, command.tenantKey, content)
             releaseEntryStore.record(
                 handle,

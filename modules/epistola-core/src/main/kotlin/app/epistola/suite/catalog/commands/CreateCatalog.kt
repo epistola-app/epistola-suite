@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.findCatalog
+import app.epistola.suite.catalog.versions.CatalogDrafts
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -50,6 +51,7 @@ data class CreateCatalog(
 class CreateCatalogHandler(
     private val jdbi: Jdbi,
     private val identity: CatalogIdentityProperties,
+    private val drafts: CatalogDrafts,
 ) : CommandHandler<CreateCatalog, Catalog> {
 
     override fun handle(command: CreateCatalog): Catalog = executeOrThrowDuplicate("catalog", command.id.value) {
@@ -67,6 +69,8 @@ class CreateCatalogHandler(
                 .bind("name", command.name)
                 .bind("description", command.description)
                 .execute()
+            // Its working copy is its first draft (contract ADR 0002).
+            drafts.open(handle, command.tenantKey, command.id, CatalogDrafts.FIRST, base = null)
 
             handle.findCatalog(command.tenantKey, command.id)!!
         }
