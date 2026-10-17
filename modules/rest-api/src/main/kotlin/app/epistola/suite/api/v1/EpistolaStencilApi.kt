@@ -241,17 +241,17 @@ class EpistolaStencilApi(
         workingCopy(draft, stencilKey)
         MarkStencilReady(stencilId = id).execute()
         val stencil = workingCopy(draft, stencilKey)
-        val heldBack = generateSequence(1) { it + 1 }
+        val notFitting = generateSequence(1) { it + 1 }
             .map { GetStencilUsagePage(id, page = it).query() }
             .takeWhileInclusive { it.page < it.totalPages }
             .flatMap { it.items.asSequence() }
             .map { it.toUsageDto() }
-            .filter { it.heldBack }
+            .filterNot { it.fits }
             .toList()
         return ResponseEntity.ok(
             MarkStencilReadyResponse(
                 stencil = stencil.toContentDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)),
-                heldBack = heldBack,
+                notFitting = notFitting,
             ),
         )
     }

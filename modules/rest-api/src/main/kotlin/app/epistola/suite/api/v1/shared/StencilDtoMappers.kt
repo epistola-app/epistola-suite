@@ -46,12 +46,13 @@ internal fun Stencil.toContentDto(status: ResourceStatus) = StencilContentDto(
 )
 
 /**
- * A variant using the stencil. An instance is held back when the variant's working model no longer
- * fits the stencil's working copy: that is what [StencilUsageDetail.problems] lists.
+ * A variant using the stencil, and whether its instance fits the stencil's working copy (contract
+ * ADR 0006): [StencilUsageDetail.problems] lists why it does not.
  */
 internal fun StencilUsageDetail.toUsageDto() = StencilUsageDto(
     templateKey = templateId.value,
     templateName = templateName,
     variantKey = variantId.value,
-    heldBack = problems.isNotEmpty(),
+    fits = problems.isEmpty(),
+    problems = problems,
 )
