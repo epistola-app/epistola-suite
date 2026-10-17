@@ -58,7 +58,7 @@ class CatalogDraftsMigrationTest {
         val drafts = DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             connection.createStatement().use { st ->
                 st.executeQuery(
-                    "SELECT c.catalog_key, d.version, d.base_version FROM catalog_drafts d JOIN catalogs c ON c.catalog_id = d.catalog_id",
+                    "SELECT c.catalog_key, d.version, d.base_version FROM catalog_versions d JOIN catalogs c ON c.catalog_id = d.catalog_id WHERE d.kind = 'draft'",
                 ).use { rs -> buildMap { while (rs.next()) put(rs.getString(1), rs.getString(2) to rs.getString(3)) } }
             }
         }
@@ -70,6 +70,14 @@ class CatalogDraftsMigrationTest {
                 "fresh" to ("1.0.0" to null),
             ),
         )
+        val installed = DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
+            connection.createStatement().use { st ->
+                st.executeQuery(
+                    "SELECT c.catalog_key, d.version FROM catalog_versions d JOIN catalogs c ON c.catalog_id = d.catalog_id WHERE d.kind = 'installed'",
+                ).use { rs -> buildMap { while (rs.next()) put(rs.getString(1), rs.getString(2)) } }
+            }
+        }
+        assertThat(installed).`as`("a subscribed catalog's content is its installed release; none installed yet").containsExactlyEntriesOf(mapOf("mirror" to "0.0.0"))
     }
 
     private companion object {

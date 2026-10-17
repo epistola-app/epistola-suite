@@ -44,28 +44,33 @@ data class CatalogDraft(
     val createdAt: OffsetDateTime,
 )
 
-/** The SQL of catalog drafts. Callers own the transaction. */
+/**
+ * The SQL of catalog drafts, the `draft` rows of `catalog_versions`. Callers own the transaction.
+ *
+ * A draft row is what a draft's content rows belong to (their `version_id`), so a draft is never
+ * replaced by another row: releasing it [advance]s the same row to its next number, and its content
+ * stays where it is.
+ */
 @Component
 class CatalogDrafts {
 
     fun draft(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): CatalogDraft? = handle
-        .createQuery("SELECT version, base_version, created_from, created_at FROM catalog_drafts WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
+        .createQuery(
+            "SELECT version, base_version, created_from, created_at FROM catalog_versions " +
+                "WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND kind = 'draft'",
+        )
         .bind("t", tenantKey)
         .bind("c", catalogKey)
         .map { rs, _ -> CatalogDraft(rs.getString("version"), rs.getString("base_version"), rs.getString("created_from"), rs.getObject("created_at", OffsetDateTime::class.java)) }
         .findOne()
         .orElse(null)
 
-    /** Opens [version] as the catalog's draft on [base], replacing any draft it had. */
+    /** Opens [version] as the first draft of a catalog that has none, on [base]. */
     fun open(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String, base: String?, createdFrom: String? = null) {
-        handle.createUpdate("DELETE FROM catalog_drafts WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
-            .execute()
         handle.createUpdate(
             """
-            INSERT INTO catalog_drafts (tenant_key, catalog_id, version, base_version, created_from)
-            VALUES (:t, ${catalogAt("t", "c")}, :version, :base, :from)
+            INSERT INTO catalog_versions (tenant_key, catalog_id, version, kind, base_version, created_from)
+            VALUES (:t, ${catalogAt("t", "c")}, :version, 'draft', :base, :from)
             """,
         )
             .bind("t", tenantKey)
@@ -76,9 +81,28 @@ class CatalogDrafts {
             .execute()
     }
 
+    /**
+     * After the draft is released as [base], it carries on as [next]: the same row, so the content it
+     * holds, which the release copied, stays in place as the next draft's.
+     */
+    fun advance(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, next: String, base: String) {
+        val moved = handle.createUpdate(
+            """
+            UPDATE catalog_versions SET version = :next, base_version = :base, created_from = NULL, created_at = NOW()
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND kind = 'draft'
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("c", catalogKey)
+            .bind("next", next)
+            .bind("base", base)
+            .execute()
+        check(moved == 1) { "catalog ${catalogKey.value} has no draft to advance" }
+    }
+
     /** Gives the draft another number; its content and base stay. */
     fun renumber(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, to: String) {
-        handle.createUpdate("UPDATE catalog_drafts SET version = :to WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
+        handle.createUpdate("UPDATE catalog_versions SET version = :to WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND kind = 'draft'")
             .bind("t", tenantKey)
             .bind("c", catalogKey)
             .bind("to", to)

@@ -60,7 +60,7 @@ class GetCatalogVersionHandler(
     }
 }
 
-/** Reads a catalog's versions: the open draft from `catalog_drafts`, the rest from `catalog_releases`. */
+/** Reads a catalog's versions: the open draft from `catalog_versions`, the rest from `catalog_releases`. */
 @Component
 class CatalogVersionReader(
     private val drafts: CatalogDrafts,

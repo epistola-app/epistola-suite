@@ -413,7 +413,7 @@ class DataPreservationMigrationIT {
                 .describedAs("a resource that had no drafts").isEqualTo("true")
 
             // Every authored catalog has the draft it works in (V20261017001641): never released, so 1.0.0.
-            assertThat(one("SELECT string_agg(c.catalog_key || '@' || d.version, ',' ORDER BY c.catalog_key) FROM catalog_drafts d JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id WHERE d.tenant_key = '$TENANT'"))
+            assertThat(one("SELECT string_agg(c.catalog_key || '@' || d.version, ',' ORDER BY c.catalog_key) FROM catalog_versions d JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id WHERE d.tenant_key = '$TENANT' AND d.kind = 'draft'"))
                 .isEqualTo("default@1.0.0,shared@1.0.0")
 
             // Every authored 1.x catalog is queued for its declarations and first release (V20261017091832).

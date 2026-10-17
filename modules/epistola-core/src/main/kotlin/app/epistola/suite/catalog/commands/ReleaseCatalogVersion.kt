@@ -210,7 +210,7 @@ class ReleaseCatalogVersionHandler(
             // others.
             dependencyStore.recordRelease(handle, command.tenantKey, command.catalogKey, newVersion.toString(), pins)
             // The draft becomes this release, and the next patch opens on it (contract ADR 0002).
-            drafts.open(handle, command.tenantKey, command.catalogKey, CatalogDrafts.nextAfter(newVersion.toString()), base = newVersion.toString())
+            drafts.advance(handle, command.tenantKey, command.catalogKey, CatalogDrafts.nextAfter(newVersion.toString()), base = newVersion.toString())
             val revisionDigests = revisionStore.retain(handle, command.tenantKey, content)
             releaseEntryStore.record(
                 handle,
