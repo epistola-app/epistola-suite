@@ -18,7 +18,7 @@
                renders the highest it serves of a catalog, or the highest satisfying the request's
                version selector. Undeploying the highest moves generation back to the next. */-->
         <div class="card" data-testid="environment-deployments"
-             th:with="canDeploy=${auth.has('TEMPLATE_PUBLISH')}">
+             th:with="canDeploy=${auth.has('ENVIRONMENT_DEPLOY')}">
             <div class="card-header">
                 <h2>Serves</h2>
             </div>
@@ -90,7 +90,7 @@
         </div>
 
         <div class="card" data-testid="environment-history"
-             th:with="canDeploy=${auth.has('TEMPLATE_PUBLISH')}">
+             th:with="canDeploy=${auth.has('ENVIRONMENT_DEPLOY')}">
             <div class="card-header">
                 <h2>History</h2>
             </div>

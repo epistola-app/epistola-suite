@@ -513,7 +513,7 @@
                generation naming the environment renders the highest it serves, or the highest
                satisfying the request's version selector. Each served release has its own Undeploy. */-->
         <div class="card" data-testid="catalog-deployments"
-             th:with="canDeploy=${auth.has('TEMPLATE_PUBLISH')}">
+             th:with="canDeploy=${auth.has('ENVIRONMENT_DEPLOY')}">
             <div class="card-header">
                 <h2>Deployments</h2>
             </div>

@@ -34,7 +34,7 @@ data class UndeployRelease(
     val version: String,
 ) : Command<Boolean>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_PUBLISH
+    override val permission get() = Permission.ENVIRONMENT_DEPLOY
     override val tenantKey get() = environmentId.tenantKey
 }
 

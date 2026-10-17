@@ -42,11 +42,12 @@ class PermissionTest {
     }
 
     @Test
-    fun `CONTENT_PUBLISHER role grants publish permissions only`() {
+    fun `CONTENT_PUBLISHER role grants releasing, deploying and publishing only`() {
         val permissions = TenantRole.CONTENT_PUBLISHER.permissions()
         assertThat(permissions).containsExactlyInAnyOrder(
-            Permission.TEMPLATE_PUBLISH,
-            Permission.STENCIL_PUBLISH,
+            // Contract 2.0: release and deploy replace template and stencil publish.
+            Permission.CATALOG_RELEASE,
+            Permission.ENVIRONMENT_DEPLOY,
             // Publishing a catalog to Exchange is a publisher's act, not an administrator's —
             // see the TENANT_ADMINISTRATOR case below, which grants administration but not publish.
             Permission.CATALOG_PUBLISH,
@@ -65,7 +66,7 @@ class PermissionTest {
             Permission.AUDIT_VIEW,
             Permission.TENANT_RESTORE,
         )
-        assertThat(permissions).doesNotContain(Permission.TEMPLATE_PUBLISH, Permission.STENCIL_PUBLISH)
+        assertThat(permissions).doesNotContain(Permission.CATALOG_RELEASE, Permission.ENVIRONMENT_DEPLOY)
     }
 
     @Test
@@ -87,7 +88,8 @@ class PermissionTest {
             Permission.DOCUMENT_GENERATE,
             Permission.TENANT_SETTINGS,
             Permission.TENANT_RESTORE,
-            Permission.TEMPLATE_PUBLISH,
+            Permission.CATALOG_RELEASE,
+            Permission.ENVIRONMENT_DEPLOY,
         )
     }
 

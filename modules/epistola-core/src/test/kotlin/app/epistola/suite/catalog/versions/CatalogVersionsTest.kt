@@ -11,14 +11,19 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.environments.commands.CreateEnvironment
+import app.epistola.suite.environments.commands.DeployRelease
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.PermissionDeniedException
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
@@ -144,5 +149,41 @@ class CatalogVersionsTest : IntegrationTestBase() {
         val other = createTenant("versions-outsider").id
         assertThatThrownBy { runAs(member(other, TenantRole.entries.toSet())) { ResolveCatalogVersion(tenant, null, namespace, letters, "1.0.0").query() } }
             .isNotInstanceOf(CatalogVersionNotFoundException::class.java)
+    }
+
+    @Test
+    fun `an author opens and renumbers drafts, and only a publisher releases, discards and deploys (contract 2_0)`() {
+        val tenant = catalog("versions-permissions")
+        withMediator { mediator.releaseNext(CatalogId(letters, TenantId(tenant))) }
+        withMediator { CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute() }
+        fun member(roles: Set<TenantRole>) = UUID.randomUUID().let { id ->
+            EpistolaPrincipal(
+                userId = UserKey.of(id),
+                externalId = "apikey:$id",
+                email = "apikey-$id@npa.epistola",
+                displayName = "Key",
+                tenantMemberships = mapOf(tenant to roles),
+                globalRoles = emptySet(),
+                platformRoles = emptySet(),
+                currentTenantId = tenant,
+            )
+        }
+        val author = member(setOf(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR))
+        val publisher = member(setOf(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_PUBLISHER))
+
+        runAs(author) {
+            CreateCatalogVersion(tenant, letters, "2.0.0").execute()
+            RenumberCatalogVersion(tenant, letters, "2.0.0", "3.0.0").execute()
+        }
+        assertThatThrownBy { runAs(author) { DeleteCatalogVersion(tenant, letters, "3.0.0").execute() } }.isInstanceOf(PermissionDeniedException::class.java)
+        assertThatThrownBy { runAs(author) { ReleaseCatalogVersion(tenant, letters, "1.0.1").execute() } }.isInstanceOf(PermissionDeniedException::class.java)
+        assertThatThrownBy { runAs(author) { DeployRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), letters, "1.0.0").execute() } }
+            .isInstanceOf(PermissionDeniedException::class.java)
+
+        runAs(publisher) {
+            DeleteCatalogVersion(tenant, letters, "3.0.0").execute()
+            DeployRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), letters, "1.0.0").execute()
+        }
+        assertThat(versions(tenant).map { it.first }).doesNotContain("3.0.0")
     }
 }

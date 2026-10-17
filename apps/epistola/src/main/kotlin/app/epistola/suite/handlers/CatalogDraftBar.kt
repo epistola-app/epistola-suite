@@ -34,8 +34,10 @@ import app.epistola.suite.security.SecurityContext
  * @property segment the route's catalog segment, which every link on the page carries.
  * @property chosen the draft worked in; null for a catalog that has none (subscribed, or every draft
  *   discarded).
- * @property mayManage the viewer holds `TEMPLATE_PUBLISH`, which opening, discarding, renumbering and
- *   releasing a draft need.
+ * @property mayOpenDrafts the viewer holds `TEMPLATE_EDIT`, which opening a draft needs (contract
+ *   `createCatalogVersion`).
+ * @property mayDiscardDrafts the viewer holds `CATALOG_RELEASE`, which discarding a draft needs (contract
+ *   `deleteCatalogVersion`).
  */
 data class CatalogDraftBar(
     val tenantKey: TenantKey,
@@ -45,7 +47,8 @@ data class CatalogDraftBar(
     val drafts: List<CatalogVersion>,
     val releases: List<CatalogVersion>,
     val chosen: CatalogVersion?,
-    val mayManage: Boolean,
+    val mayOpenDrafts: Boolean,
+    val mayDiscardDrafts: Boolean,
     /** The same page at another segment, for the draft links. */
     private val pageAt: (CatalogSegment) -> String,
 ) {
@@ -77,22 +80,25 @@ data class CatalogDraftBar(
     val behind get() = chosen?.behind.orEmpty()
 
     /** Whether to offer opening another draft. */
-    val offerCreateDraft: Boolean get() = authored && mayManage
+    val offerCreateDraft: Boolean get() = authored && mayOpenDrafts
 
     /** Whether to offer discarding the chosen draft. */
-    val offerDiscard: Boolean get() = authored && mayManage && chosen != null
+    val offerDiscard: Boolean get() = authored && mayDiscardDrafts && chosen != null
 
     /**
      * Whether to offer opening a draft where there is none. The viewer may, and either nothing was
      * ever released (an empty draft) or the latest release kept its content to copy.
      */
-    val offerOpenDraft: Boolean get() = noDraft && mayManage && (latestRelease == null || openDraftFrom != null)
+    val offerOpenDraft: Boolean get() = noDraft && mayOpenDrafts && (latestRelease == null || openDraftFrom != null)
 
     /** There is no draft and one cannot be opened from the latest release, which kept no content. */
-    val openDraftWithheldNoContent: Boolean get() = noDraft && mayManage && !offerOpenDraft
+    val openDraftWithheldNoContent: Boolean get() = noDraft && mayOpenDrafts && !offerOpenDraft
 
-    /** The draft management controls are withheld because the viewer may not manage drafts. */
-    val draftControlsWithheld: Boolean get() = authored && !mayManage
+    /** Opening a draft is withheld because the viewer may not edit the catalog's content. */
+    val draftControlsWithheld: Boolean get() = authored && !mayOpenDrafts
+
+    /** Discarding the chosen draft is withheld because the viewer may not release the catalog. */
+    val discardWithheld: Boolean get() = authored && chosen != null && !mayDiscardDrafts
 
     /** The number an opened draft gets when there is none: the patch after the latest release. */
     val openDraftVersion: String get() = latestRelease?.version?.let { SemVer.parseOrNull(it)?.bumpPatch()?.toString() } ?: "1.0.0"
@@ -147,7 +153,8 @@ data class CatalogDraftBar(
                 drafts = drafts,
                 releases = versions.filter { it.status == CatalogVersionStatus.RELEASED },
                 chosen = chosen,
-                mayManage = auth.has(Permission.TEMPLATE_PUBLISH),
+                mayOpenDrafts = auth.has(Permission.TEMPLATE_EDIT),
+                mayDiscardDrafts = auth.has(Permission.CATALOG_RELEASE),
                 pageAt = pageAt,
             )
         }

@@ -43,7 +43,7 @@
         <!--/* Releasing is catalog-wide — this resource goes out with everything else that changed
                — so the label says catalog rather than implying this page can be released alone.
                Offered only where there is something to release, and to someone who may. */-->
-        <button th:if="${context.releasable and auth.has('TEMPLATE_PUBLISH')}"
+        <button th:if="${context.releasable and auth.has('CATALOG_RELEASE')}"
                 type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogSegment ?: context.catalogKey})}"
                 hx-target="#release-dialog-container" hx-swap="innerHTML">Release catalog</button>

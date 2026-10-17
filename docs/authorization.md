@@ -47,18 +47,20 @@ is a different duty from administering a tenant. An admin who also approves cont
 
 `security/Permission.kt`. Role → permission mapping is `TenantRole.permissions()`.
 
-| Permission group                                                      | Permissions                                            | Default role                |
-| --------------------------------------------------------------------- | ------------------------------------------------------ | --------------------------- |
-| Templates                                                             | `TEMPLATE_VIEW` / `TEMPLATE_EDIT` / `TEMPLATE_PUBLISH` | viewer / author / publisher |
-| Stencils                                                              | `STENCIL_VIEW` / `STENCIL_EDIT` / `STENCIL_PUBLISH`    | viewer / author / publisher |
-| Themes                                                                | `THEME_VIEW` / `THEME_EDIT`                            | viewer / author             |
-| Documents                                                             | `DOCUMENT_VIEW` / `DOCUMENT_GENERATE`                  | viewer / generator          |
-| Reference data (attributes, code lists, fonts)                        | `REFERENCE_VIEW` / `REFERENCE_EDIT`                    | viewer / author             |
-| Catalogs                                                              | `CATALOG_VIEW` / `CATALOG_MANAGE`                      | viewer / administrator      |
-| Diagnostics (logs, status)                                            | `DIAGNOSTICS_VIEW` / `DIAGNOSTICS_MANAGE`              | administrator               |
-| **Destructive** (restore snapshot, purge catalogs)                    | `TENANT_RESTORE`                                       | administrator               |
-| Tenant config (feature toggles, defaults, environments, entitlements) | `TENANT_SETTINGS`                                      | administrator               |
-| Users & API keys                                                      | `TENANT_USERS`                                         | administrator               |
+| Permission group                                                      | Permissions                               | Default role           |
+| --------------------------------------------------------------------- | ----------------------------------------- | ---------------------- |
+| Templates                                                             | `TEMPLATE_VIEW` / `TEMPLATE_EDIT`         | viewer / author        |
+| Stencils                                                              | `STENCIL_VIEW` / `STENCIL_EDIT`           | viewer / author        |
+| Releasing (cut a release, discard a draft)                            | `CATALOG_RELEASE`                         | publisher              |
+| Deploying (what an environment serves)                                | `ENVIRONMENT_DEPLOY`                      | publisher              |
+| Themes                                                                | `THEME_VIEW` / `THEME_EDIT`               | viewer / author        |
+| Documents                                                             | `DOCUMENT_VIEW` / `DOCUMENT_GENERATE`     | viewer / generator     |
+| Reference data (attributes, code lists, fonts)                        | `REFERENCE_VIEW` / `REFERENCE_EDIT`       | viewer / author        |
+| Catalogs                                                              | `CATALOG_VIEW` / `CATALOG_MANAGE`         | viewer / administrator |
+| Diagnostics (logs, status)                                            | `DIAGNOSTICS_VIEW` / `DIAGNOSTICS_MANAGE` | administrator          |
+| **Destructive** (restore snapshot, purge catalogs)                    | `TENANT_RESTORE`                          | administrator          |
+| Tenant config (feature toggles, defaults, environments, entitlements) | `TENANT_SETTINGS`                         | administrator          |
+| Users & API keys                                                      | `TENANT_USERS`                            | administrator          |
 
 `TENANT_RESTORE` is named to signal danger and is held only by `TENANT_ADMINISTRATOR`. It is its
 own permission so it can be withheld or audited independently — notably, API keys never receive

@@ -245,7 +245,7 @@ everyone than one large catalog nobody wants all of.
 A catalog that uses another catalog's resources declares that catalog once (wire v8
 `catalogDependencies`, contract ADR 0003): by registry, namespace and key, with a version selector in
 the npm range grammar (`^1.4.0`, `~1.4.0`, `>=1.0.0 <2.0.0`, `1.4.2`, `*`). Ivy's interval syntax
-(`[1.0,2.0)`) is refused. `UpdateCatalogDependencies` (`TEMPLATE_PUBLISH`, as releasing) replaces the declarations of an
+(`[1.0,2.0)`) is refused. `UpdateCatalogDependencies` (`TEMPLATE_EDIT`) replaces the declarations of an
 authored catalog; each must name a catalog the tenant has, not itself, and not twice.
 
 Each declaration is **locked** to one release of the dependency, like a lockfile: the highest release

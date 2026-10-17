@@ -43,7 +43,7 @@ data class CreateCatalogVersion(
     val from: String? = null,
 ) : Command<CatalogVersion>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_PUBLISH
+    override val permission get() = Permission.TEMPLATE_EDIT
 
     init {
         validate("version", SemVer.parseOrNull(version) != null, ValidationCode.GENERIC) { "Version '$version' must be MAJOR.MINOR.PATCH" }
@@ -65,7 +65,7 @@ data class DeleteCatalogVersion(
     val version: String,
 ) : Command<Unit>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_PUBLISH
+    override val permission get() = Permission.CATALOG_RELEASE
 }
 
 @Component

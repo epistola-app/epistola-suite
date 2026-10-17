@@ -49,8 +49,7 @@ import org.springframework.stereotype.Component
  *
  * Every release deployed is logged in `environment_deployment_log`, in the same transaction.
  *
- * Permission: `TEMPLATE_PUBLISH`, the permission per-template activation needed. A dedicated deploy
- * permission is planned with the 2.0 permission changes (D13).
+ * Permission: `ENVIRONMENT_DEPLOY` (contract `deployRelease`).
  *
  * @return the deployment of the release asked for.
  */
@@ -61,7 +60,7 @@ data class DeployRelease(
     val includeDependencies: Boolean = false,
 ) : Command<CatalogDeployment>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_PUBLISH
+    override val permission get() = Permission.ENVIRONMENT_DEPLOY
     override val tenantKey get() = environmentId.tenantKey
 }
 

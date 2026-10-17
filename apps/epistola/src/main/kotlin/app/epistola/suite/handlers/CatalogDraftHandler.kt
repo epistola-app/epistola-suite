@@ -43,7 +43,7 @@ class CatalogDraftHandler(
     /** `GET /{catalogId}/drafts/new`: the dialog opening a draft. */
     fun createForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TEMPLATE_PUBLISH)
+        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
         val segment = request.catalogSegment()
         return request.htmx {
             fragment("catalogs/drafts", "create-dialog") {
@@ -61,7 +61,7 @@ class CatalogDraftHandler(
      */
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TEMPLATE_PUBLISH)
+        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
         val segment = request.catalogSegment()
         val form = request.form {
             field("version") {
@@ -121,7 +121,7 @@ class CatalogDraftHandler(
      */
     fun discard(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TEMPLATE_PUBLISH)
+        requirePermission(tenantId.key, Permission.CATALOG_RELEASE)
         val segment = request.catalogSegment()
         val draft = bar(tenantId, segment).chosen ?: return ServerResponse.notFound().build()
         return try {

@@ -55,7 +55,7 @@ class CatalogVersionMcpTools {
         description = "Open a new draft of an AUTHORED catalog, numbered `version`. Without `from` it starts as a " +
             "copy of its base: the highest release below its number (empty when there is none). With `from` it " +
             "starts as a copy of that draft or release. Fails when the number is in use. Requires the " +
-            "TEMPLATE_PUBLISH permission.",
+            "TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
     fun createCatalogVersion(
@@ -74,7 +74,7 @@ class CatalogVersionMcpTools {
         description = "Discard a draft of an AUTHORED catalog and everything changed in it. Releases cannot be " +
             "deleted here. Refused while the draft alone holds something used outside it, such as the tenant's " +
             "default theme or a code list another catalog's attribute binds; the error names it. Confirm with " +
-            "the user first: this cannot be undone. Requires the TEMPLATE_PUBLISH permission.",
+            "the user first: this cannot be undone. Requires the CATALOG_RELEASE permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = true, idempotentHint = false),
     )
     fun deleteCatalogVersion(
@@ -93,7 +93,7 @@ class CatalogVersionMcpTools {
         description = "Give a draft another number; its content stays. When renumbering has consequences " +
             "(moving up past a release it does not contain, down below releases it contains, or past another " +
             "draft), nothing changes and the `warnings` come back: show them to the user and call again with " +
-            "`acknowledgeWarnings: true` to renumber anyway. Requires the TEMPLATE_PUBLISH permission.",
+            "`acknowledgeWarnings: true` to renumber anyway. Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
     fun renumberCatalogVersion(
@@ -124,7 +124,7 @@ class CatalogVersionMcpTools {
             "them, with their changes). When no higher draft is open the draft carries on as the next patch " +
             "(`openedDraft`); otherwise it is discarded, its content being in the release. A release is " +
             "immutable and can be deployed for generation, so release only when the user asks to. Requires the " +
-            "TEMPLATE_PUBLISH permission.",
+            "CATALOG_RELEASE permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
     fun releaseCatalogVersion(

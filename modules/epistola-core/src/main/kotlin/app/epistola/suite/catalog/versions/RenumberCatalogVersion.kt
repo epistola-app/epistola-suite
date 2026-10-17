@@ -49,7 +49,7 @@ data class RenumberCatalogVersion(
     val acknowledgeWarnings: Boolean = false,
 ) : Command<CatalogVersion>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_PUBLISH
+    override val permission get() = Permission.TEMPLATE_EDIT
 
     init {
         validate("version", SemVer.parseOrNull(to) != null, ValidationCode.GENERIC) { "Version '$to' must be MAJOR.MINOR.PATCH" }

@@ -86,7 +86,7 @@ data class ReleaseCatalogVersion(
 ) : CatalogVersionScoped,
     Command<ReleaseCatalogVersionResult>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_PUBLISH
+    override val permission get() = Permission.CATALOG_RELEASE
 }
 
 /**

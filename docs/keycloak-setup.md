@@ -109,7 +109,7 @@ Tenant roles map to fine-grained permissions in application code (not in Keycloa
 | `content-viewer`       | `TEMPLATE_VIEW`, `DOCUMENT_VIEW`, `THEME_VIEW`, `STENCIL_VIEW`, `REFERENCE_VIEW`, `CATALOG_VIEW` |
 | `content-author`       | `TEMPLATE_EDIT`, `THEME_EDIT`, `STENCIL_EDIT`, `REFERENCE_EDIT`                                  |
 | `document-generator`   | `DOCUMENT_GENERATE`                                                                              |
-| `content-publisher`    | `TEMPLATE_PUBLISH`, `STENCIL_PUBLISH`                                                            |
+| `content-publisher`    | `CATALOG_RELEASE`, `ENVIRONMENT_DEPLOY`, `CATALOG_PUBLISH`                                       |
 | `tenant-administrator` | `TENANT_SETTINGS`, `TENANT_USERS`, `CATALOG_MANAGE`, `DIAGNOSTICS_VIEW`, `TENANT_RESTORE`        |
 
 Roles are **composable** — a user's effective permissions are the union of all their roles. For example, a user with `content-viewer` + `content-author` can view and edit templates and themes. Note that publishing is its own role (`content-publisher`), separate from administration.

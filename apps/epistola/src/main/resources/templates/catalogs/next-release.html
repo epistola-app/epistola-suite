@@ -72,7 +72,11 @@
             </th:block>
             <p th:if="${readiness.drafts.draftControlsWithheld and readiness.drafts.severalDrafts}" class="form-hint"
                data-testid="catalog-draft-controls-withheld">
-                Opening, discarding, renumbering and releasing drafts needs the content publisher role.
+                Opening and renumbering drafts needs the content author role.
+            </p>
+            <p th:if="${readiness.drafts.discardWithheld}" class="form-hint"
+               data-testid="catalog-draft-discard-withheld">
+                Discarding a draft needs the content publisher role, as releasing does.
             </p>
             <th:block th:if="${readiness.draftVersion != null}">
 

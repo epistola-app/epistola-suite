@@ -24,8 +24,9 @@ import app.epistola.suite.security.SecurityContext
  * Built for one catalog's page (it builds the working copy once, like [GetCatalogResourceChanges]);
  * the release dialog and the catalog page both gate on the names below, so the two cannot disagree.
  *
- * @property mayRelease the viewer holds `TEMPLATE_PUBLISH`, which releasing, renumbering and
- *   declaring dependencies need.
+ * @property mayRelease the viewer holds `CATALOG_RELEASE`, which releasing a draft needs.
+ * @property mayEditDraft the viewer holds `TEMPLATE_EDIT`, which renumbering a draft and editing or
+ *   resolving its dependencies need (contract `renumberCatalogVersion`, `updateCatalogDependencies`).
  * @property mayMarkReady the viewer holds `TEMPLATE_EDIT`, which marking resources ready needs.
  */
 data class CatalogReleaseReadiness(
@@ -37,6 +38,7 @@ data class CatalogReleaseReadiness(
     val changes: CatalogResourceChanges,
     val dependencies: List<CatalogDependencyDeclaration>,
     val mayRelease: Boolean,
+    val mayEditDraft: Boolean,
     val mayMarkReady: Boolean,
 ) {
     /** The changed resources not marked ready; releasing refuses while there is one. */
@@ -65,13 +67,13 @@ data class CatalogReleaseReadiness(
     val offerMarkAllReady: Boolean get() = mayMarkReady && draftVersion != null && notReady.isNotEmpty()
 
     /** Whether to offer renumbering the draft. */
-    val offerRenumber: Boolean get() = mayRelease && draftVersion != null
+    val offerRenumber: Boolean get() = mayEditDraft && draftVersion != null
 
     /** Whether to offer "Resolve to latest": the viewer may, and there is a declaration to move. */
-    val offerResolveDependencies: Boolean get() = mayRelease && draftVersion != null && dependencies.isNotEmpty()
+    val offerResolveDependencies: Boolean get() = mayEditDraft && draftVersion != null && dependencies.isNotEmpty()
 
     /** Whether to offer editing the declared dependencies: the viewer may, and there is a draft to declare them in. */
-    val offerEditDependencies: Boolean get() = mayRelease && draftVersion != null
+    val offerEditDependencies: Boolean get() = mayEditDraft && draftVersion != null
 
     companion object {
         /** Reads the readiness of the draft [drafts] works in, for the current principal. */
@@ -91,7 +93,8 @@ data class CatalogReleaseReadiness(
                     GetCatalogResourceChanges(tenantKey, catalogKey, catalogVersion = drafts.ref).query()
                 },
                 dependencies = if (draft == null) emptyList() else ListCatalogDependencies(tenantKey, catalogKey, catalogVersion = drafts.ref).query(),
-                mayRelease = auth.has(Permission.TEMPLATE_PUBLISH),
+                mayRelease = auth.has(Permission.CATALOG_RELEASE),
+                mayEditDraft = auth.has(Permission.TEMPLATE_EDIT),
                 mayMarkReady = auth.has(Permission.TEMPLATE_EDIT),
             )
         }

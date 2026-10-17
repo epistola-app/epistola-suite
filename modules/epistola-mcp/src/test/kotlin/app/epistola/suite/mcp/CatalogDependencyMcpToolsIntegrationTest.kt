@@ -74,14 +74,14 @@ class CatalogDependencyMcpToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `declaring needs TEMPLATE_PUBLISH and a catalog the tenant has`() {
+    fun `declaring needs TEMPLATE_EDIT and a catalog the tenant has`() {
         val tenantId = setUp()
 
         assertThatThrownBy {
-            runAsApiKey(tenantId, setOf(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR)) {
+            runAsApiKey(tenantId, setOf(TenantRole.CONTENT_VIEWER)) {
                 catalogTools.updateCatalogDependencies("letters", listOf(CatalogDependencyInput("shared")))
             }
-        }.hasMessageContaining("TEMPLATE_PUBLISH")
+        }.hasMessageContaining("TEMPLATE_EDIT")
         assertThatThrownBy {
             runAsApiKey(tenantId) { catalogTools.updateCatalogDependencies("letters", listOf(CatalogDependencyInput("nowhere"))) }
         }.hasMessageContaining("Catalog not found: nowhere")

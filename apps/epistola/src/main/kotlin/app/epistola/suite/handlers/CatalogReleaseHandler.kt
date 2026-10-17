@@ -64,7 +64,7 @@ class CatalogReleaseHandler {
 
     fun renumberForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TEMPLATE_PUBLISH)
+        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
         val segment = request.catalogSegment()
         val draft = draftVersion(tenantId, segment) ?: return ServerResponse.notFound().build()
         return request.htmx {
@@ -83,7 +83,7 @@ class CatalogReleaseHandler {
      */
     fun renumber(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TEMPLATE_PUBLISH)
+        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
         val segment = request.catalogSegment()
         val catalogKey = segment.key
         val bar = drafts(tenantId, segment)
@@ -163,7 +163,7 @@ class CatalogReleaseHandler {
 
     fun dependenciesForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TEMPLATE_PUBLISH)
+        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
         val segment = request.catalogSegment()
         val rows = ListCatalogDependencies(tenantId.key, segment.key, catalogVersion = segment.ref(tenantId.key)).query()
             .map { DependencyRowView("${it.registry}~${it.namespace}/${it.catalogKey}", it.version) }
@@ -182,7 +182,7 @@ class CatalogReleaseHandler {
      */
     fun updateDependencies(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TEMPLATE_PUBLISH)
+        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
         val segment = request.catalogSegment()
 
         val catalogs = request.params()["catalog"].orEmpty()

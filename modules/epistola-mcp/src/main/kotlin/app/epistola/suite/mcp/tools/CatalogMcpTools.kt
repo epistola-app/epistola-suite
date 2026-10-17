@@ -108,7 +108,7 @@ class CatalogMcpTools(
             "another catalog of this tenant by key and selects its releases with an npm range: `^1.4.0`, " +
             "`~1.4.0`, `>=1.0.0 <2.0.0`, `1.4.2` or `*`. A dependency keeps the release it is locked to " +
             "while the range still matches it; otherwise it is locked to the highest release that matches, " +
-            "or left unlocked when none does. Requires the TEMPLATE_PUBLISH permission, as releasing does.",
+            "or left unlocked when none does. Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
     fun updateCatalogDependencies(
@@ -132,7 +132,7 @@ class CatalogMcpTools(
         name = "resolve_catalog_dependencies",
         description = "Move every dependency of an AUTHORED catalog to the highest release its version " +
             "range matches, as upgrading a library does. The catalog's next release is cut with the result. " +
-            "Requires the TEMPLATE_PUBLISH permission.",
+            "Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
     fun resolveCatalogDependencies(

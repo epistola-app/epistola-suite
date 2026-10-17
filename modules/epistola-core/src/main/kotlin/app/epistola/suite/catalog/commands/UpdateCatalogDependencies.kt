@@ -52,7 +52,7 @@ data class UpdateCatalogDependencies(
     Command<List<CatalogDependencyDeclaration>>,
     RequiresPermission {
     // Which releases of its dependencies the next release is cut with is part of releasing.
-    override val permission get() = Permission.TEMPLATE_PUBLISH
+    override val permission get() = Permission.TEMPLATE_EDIT
 
     init {
         dependencies.forEachIndexed { index, dependency ->
