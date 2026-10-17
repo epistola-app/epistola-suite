@@ -4,11 +4,11 @@
 
 package app.epistola.suite.tenants
 
+import app.epistola.suite.catalog.queries.GetCatalogOverview
 import app.epistola.suite.changelog.ChangelogAudience
 import app.epistola.suite.changelog.ChangelogService
 import app.epistola.suite.changelog.GetChangelogAcknowledgment
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.handlers.AuthContext
 import app.epistola.suite.handlers.ChangelogRenderer
 import app.epistola.suite.htmx.HxSwap
@@ -19,16 +19,14 @@ import app.epistola.suite.htmx.home.HomeNoticeResolver
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.tenantId
-import app.epistola.suite.loadtest.queries.ListLoadTestRuns
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
 import app.epistola.suite.security.SecurityContext
-import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.tenants.queries.ListTenants
-import app.epistola.suite.themes.queries.ListThemes
 import org.slf4j.LoggerFactory
 import org.springframework.boot.info.BuildProperties
 import org.springframework.stereotype.Component
@@ -57,20 +55,17 @@ class TenantHandler(
         val tenant = GetTenant(tenantId.key).query()
             ?: return ServerResponse.notFound().build()
 
-        // Get counts for each section
-        val templateCount = ListDocumentTemplates(tenantId).query().size
-        val themeCount = ListThemes(tenantId).query().size
-        val loadTestCount = ListLoadTestRuns(tenantId.key, limit = 100).query().size
-        val environmentCount = ListEnvironments(tenantId).query().size
+        val principal = SecurityContext.current()
+        val auth = AuthContext.from(principal, tenantId.key)
+        // Where every catalog stands: the landing overview (docs/catalog-workspace-navigation.md).
+        val catalogs = if (auth.has(Permission.CATALOG_VIEW)) GetCatalogOverview(tenantId.key).query() else emptyList()
 
         // Always show latest changelog entry; highlight if unseen
         val appVersion = buildProperties?.version ?: "dev"
         val allEntries = changelogRenderer.entries(ChangelogAudience.USER)
         val latestEntry = allEntries.firstOrNull()
-        val principal = SecurityContext.current()
         val lastAcknowledged = GetChangelogAcknowledgment(principal.userId).query()
         val hasUnseenChanges = changelogService.hasUnseenEntries(allEntries, appVersion, lastAcknowledged)
-        val auth = AuthContext.from(principal, tenantId.key)
         val homeNotices = homeNoticeResolver.resolve(UiRequestContext(tenantId.key) { auth.has(it) })
 
         return ServerResponse.ok().render(
@@ -80,10 +75,8 @@ class TenantHandler(
                 "pageTitle" to "${tenant.name} - Epistola",
                 "tenantId" to tenantId.key,
                 "tenant" to tenant,
-                "templateCount" to templateCount,
-                "themeCount" to themeCount,
-                "loadTestCount" to loadTestCount,
-                "environmentCount" to environmentCount,
+                "catalogs" to catalogs,
+                "mayViewCatalogs" to auth.has(Permission.CATALOG_VIEW),
                 "changelogVersion" to latestEntry?.version,
                 "changelogSummary" to latestEntry?.summary,
                 "changelogIsNew" to hasUnseenChanges,

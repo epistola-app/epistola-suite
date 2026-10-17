@@ -100,6 +100,8 @@ The context is in the path, so links, tabs and back buttons keep it, and the ser
 
 ## Finding things across catalogs
 
+**Deferred (17 October):** search is left for later; the tenant-wide lists stay until it exists.
+
 Working is per context; finding is not. The tenant-wide resource lists go, because "all templates"
 has no single answer once versions differ. In their place:
 
@@ -116,7 +118,11 @@ has no single answer once versions differ. In their place:
 
 ## Landing
 
-Open: where does someone land after logging in, or when they open "Authoring"? Options:
+**Decided (17 October): the tenant home is the catalog overview** — option 2 below. Built first:
+`GetCatalogOverview`, rendered on the tenant home page, every draft and release linking into that
+version. Whether to jump straight to the last context as well (option 3) is left for later.
+
+The options considered:
 
 1. **The last context they worked in**, remembered per user (and per tenant). Fast for daily use;
    can surprise someone who forgot they were in a hotfix draft — mitigated by the context bar being
@@ -132,7 +138,6 @@ either way.
 
 ## Open questions
 
-- **Landing** (above).
 - **Search default**: per catalog, its current version only, or its current version plus every
   release an environment serves? The second finds "what is live" without the version toggle.
 - **Dependencies' content**: a template in `letters` uses a theme from `shared`. Opening that theme
