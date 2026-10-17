@@ -71,13 +71,12 @@ class FindResourceUsagesHandler(
                     n.value -> 'props' ->> 'stencilKey' AS resource_slug,
                     dt.name AS ref_name,
                     dc.catalog_key AS ref_catalog
-                FROM template_versions tv
+                FROM template_variants tv
                 JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
                 JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
                 CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
                 WHERE tv.tenant_key = :tenantKey
                   AND dt.catalog_id != ${catalogAt("tenantKey", "catalogKey")}
-                  AND tv.status IN ('draft', 'published')
                   AND n.value ->> 'type' = 'stencil'
                   AND n.value -> 'props' ->> 'catalogKey' = :catalogKeyStr
                 """,
@@ -102,14 +101,13 @@ class FindResourceUsagesHandler(
                     a.id::text AS resource_slug,
                     dt.name AS ref_name,
                     dc.catalog_key AS ref_catalog
-                FROM template_versions tv
+                FROM template_variants tv
                 JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
                 JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
                 CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
                 JOIN assets a ON a.tenant_key = tv.tenant_key AND a.catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND a.id::text = n.value -> 'props' ->> 'imageKey'
                 WHERE tv.tenant_key = :tenantKey
                   AND dt.catalog_id != ${catalogAt("tenantKey", "catalogKey")}
-                  AND tv.status IN ('draft', 'published')
                   AND n.value ->> 'type' = 'image'
                 """,
         )

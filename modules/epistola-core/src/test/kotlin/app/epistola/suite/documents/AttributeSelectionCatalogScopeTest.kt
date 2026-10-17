@@ -26,9 +26,9 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
-import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.services.VariantSelectionCriteria
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
@@ -77,10 +77,10 @@ class AttributeSelectionCatalogScopeTest : IntegrationTestBase() {
         // Generation renders acme's latest release, so both variants are published and acme released.
         ensureRequiredDataExample(acmeLetter)
         val dutch = VariantId(VariantKey.of("nld"), acmeLetter)
-        UpdateDraft(dutch, TestTemplateBuilder.buildMinimal(name = "Acme letter")).execute()
-        PublishVersion(VersionId(GetDraft(dutch).query()!!.id, dutch)).execute()
+        UpdateVariantContent(dutch, TestTemplateBuilder.buildMinimal(name = "Acme letter")).execute()
+        MarkVariantReady(dutch).execute()
         val englishVariant = VariantId(VariantKey.of("eng"), acmeLetter)
-        UpdateDraft(englishVariant, TestTemplateBuilder.buildMinimal(name = "Acme letter")).execute()
+        UpdateVariantContent(englishVariant, TestTemplateBuilder.buildMinimal(name = "Acme letter")).execute()
         mediator.publishAndRelease(englishVariant)
 
         if (withDecoyInDefault) {

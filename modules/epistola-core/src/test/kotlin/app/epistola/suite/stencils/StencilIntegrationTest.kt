@@ -20,7 +20,7 @@ import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.stencils.queries.GetStencilUsagePage
 import app.epistola.suite.stencils.queries.ListStencils
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
@@ -63,7 +63,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Letter").execute().withRequiredDataExample()
         val variantId = VariantId(VariantKey.INITIAL, templateId)
-        UpdateDraft(variantId = variantId, templateModel = model).execute()
+        UpdateVariantContent(variantId = variantId, templateModel = model).execute()
         return variantId
     }
 

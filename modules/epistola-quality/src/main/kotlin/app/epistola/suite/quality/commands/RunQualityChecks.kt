@@ -86,9 +86,9 @@ class RunQualityChecksHandler(
     /**
      * The variant's current document and its template's example data.
      *
-     * Reads through core's [GetEditorContext] rather than querying `template_versions` /
-     * `contract_versions` directly: it already resolves exactly what a check needs (draft first,
-     * else newest published) in one round trip, and going through the query means this module
+     * Reads through core's [GetEditorContext] rather than querying the variant and template rows
+     * directly: it already resolves exactly what a check needs (the working model and data contract)
+     * in one round trip, and going through the query means this module
      * depends on core's *contract* rather than its schema — so a core migration can't silently
      * break check execution. It is also, literally, the same context the editor renders from, which is
      * what "a source analyses the document the author is looking at" should mean.

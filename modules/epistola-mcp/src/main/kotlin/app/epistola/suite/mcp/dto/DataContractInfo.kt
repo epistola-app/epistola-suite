@@ -4,49 +4,30 @@
 
 package app.epistola.suite.mcp.dto
 
-import app.epistola.suite.templates.contracts.model.ContractVersion
-import java.time.OffsetDateTime
+import app.epistola.suite.templates.model.DataContract
 
 /**
- * A data contract version — JSON Schema describing what input data the
- * template expects, plus named example datasets. Contract versions are
- * versioned independently of template versions; templates link to a
- * contract version when they're published.
+ * A template's data contract as it is now — JSON Schema describing what input data the template
+ * expects, plus named example datasets. Versioned with the catalog, not apart.
  */
 data class DataContractInfo(
-    /** Sequential contract version number for this template. */
-    val versionId: Int,
     val templateId: String,
     val catalogId: String,
-    /** "draft" or "published". */
-    val status: String,
     /**
-     * Vestigial second schema. Despite the name it is **not** what submitted data is validated
-     * against, and it is not kept in step with [dataModel]. Prefer [dataModel]. May be null.
-     */
-    val schema: Any?,
-    /**
-     * The authoritative JSON Schema for the input data: this is what every validation path
-     * (generation, preview, the REST validate endpoint) actually checks data against, and what
-     * the data-contract editor authors. May be null, which means no validation. Note that extra
-     * properties not declared here are currently accepted and ignored.
+     * The JSON Schema for the input data: this is what every validation path (generation, preview,
+     * the REST validate endpoint) checks data against, and what the data-contract editor authors.
+     * May be null, which means no validation. Extra properties not declared here are accepted and
+     * ignored.
      */
     val dataModel: Any?,
     val dataExamples: List<DataExampleInfo>,
-    val createdAt: OffsetDateTime,
-    val publishedAt: OffsetDateTime?,
 ) {
     companion object {
-        fun from(contract: ContractVersion): DataContractInfo = DataContractInfo(
-            versionId = contract.id.value,
-            templateId = contract.templateKey.value,
-            catalogId = contract.catalogKey.value,
-            status = contract.status.name.lowercase(),
-            schema = contract.schema,
+        fun from(templateId: String, catalogId: String, contract: DataContract): DataContractInfo = DataContractInfo(
+            templateId = templateId,
+            catalogId = catalogId,
             dataModel = contract.dataModel,
             dataExamples = contract.dataExamples.map { DataExampleInfo.from(it) },
-            createdAt = contract.createdAt,
-            publishedAt = contract.publishedAt,
         )
     }
 }

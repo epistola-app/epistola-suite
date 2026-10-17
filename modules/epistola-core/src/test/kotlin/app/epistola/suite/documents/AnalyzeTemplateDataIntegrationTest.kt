@@ -17,8 +17,8 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PermissionDeniedException
 import app.epistola.suite.security.TenantRole
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.validation.TemplateDataInvalidException
 import app.epistola.suite.testing.DocumentSetup
@@ -97,7 +97,7 @@ class AnalyzeTemplateDataIntegrationTest : IntegrationTestBase() {
             val templateId = TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))
             val variant = variant(templateId, "Default")
             val variantId = VariantId(variant.id, templateId)
-            UpdateContractVersion(
+            UpdateDataContract(
                 templateId = templateId,
                 dataModel = json(contract),
                 dataExamples = listOf(

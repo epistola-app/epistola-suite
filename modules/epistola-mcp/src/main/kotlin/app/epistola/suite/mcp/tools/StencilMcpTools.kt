@@ -88,7 +88,7 @@ class StencilMcpTools(
 
     @McpTool(
         name = "list_stencil_usages",
-        description = "List the template versions (draft and published) that use a stencil, and whether each " +
+        description = "List the template variants that use a stencil, and whether each " +
             "still fits the stencil as it is now: a fill for a placeholder the stencil no longer has, or a " +
             "required parameter left unbound, is listed as a problem. Run it after changing a stencil. " +
             "100 per page.",
@@ -128,7 +128,7 @@ class StencilMcpTools(
         tags: List<String>?,
         @McpToolParam(
             description = "Content: a template document as a JSON object string, same shape as " +
-                "`update_template_draft` takes. It may use other stencils. Omit for an empty document.",
+                "`update_variant_content` takes. It may use other stencils. Omit for an empty document.",
             required = false,
         )
         content: String?,

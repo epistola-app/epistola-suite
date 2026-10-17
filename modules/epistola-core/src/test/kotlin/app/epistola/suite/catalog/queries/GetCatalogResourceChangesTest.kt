@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.revisions.forgetRetainedContent
 import app.epistola.suite.common.ids.CatalogId
@@ -62,6 +63,7 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
         withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalog), name = "T2").execute()
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
 
             val changes = GetCatalogResourceChanges(catalog.tenantKey, catalog.key).query()
@@ -80,6 +82,7 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
         withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("edited"), catalog), name = "Edited").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("untouched"), catalog), name = "Untouched").execute()
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
 
             UpdateTheme(id = ThemeId(ThemeKey.of("edited"), catalog), name = "Edited again").execute()
@@ -101,6 +104,7 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
         withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("kept"), catalog), name = "Kept").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("dropped"), catalog), name = "Dropped").execute()
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
 
             DeleteTheme(id = ThemeId(ThemeKey.of("dropped"), catalog)).execute()
@@ -124,6 +128,7 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
 
         withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1").execute()
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
         assertThat(jdbi.forgetRetainedContent(catalog.tenantKey, catalog.key)).isPositive()
@@ -143,6 +148,7 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
 
         withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1").execute()
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
         assertThat(jdbi.forgetRetainedContent(catalog.tenantKey, catalog.key)).isPositive()
@@ -157,6 +163,7 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
             assertThat(changes.resources.map { it.state }).containsOnly(CatalogResourceState.UNKNOWN)
 
             // The next release records one, and the detail comes back.
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.1").execute()
             assertThat(GetCatalogResourceChanges(catalog.tenantKey, catalog.key).query().baselineAvailable).isTrue()
         }

@@ -18,27 +18,25 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.templates.queries.GetDocumentTemplate
-import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.template.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.mapTo
-import org.jdbi.v3.json.Json
 import org.springframework.stereotype.Component
 import tools.jackson.databind.node.ObjectNode
 
 /**
- * Preview the current version of a variant (draft → latest published).
- * Optionally overrides the template model with a live editor version.
+ * Preview a variant's working model, or a live model from the editor instead.
  *
  * @property tenantId Tenant that owns the template
  * @property templateId Template to preview
  * @property variantId Variant to preview
  * @property data JSON data to populate the template
- * @property templateModel Optional live template model override; null fetches saved draft or latest published
+ * @property templateModel Optional live template model override; null renders the variant's working model
  */
 data class PreviewVariant(
     val tenantId: TenantKey,
@@ -53,14 +51,6 @@ data class PreviewVariant(
     override val permission get() = Permission.DOCUMENT_GENERATE
     override val tenantKey get() = tenantId
 }
-
-private data class DraftRow(
-    @Json val draftTemplateModel: TemplateDocument?,
-)
-
-private data class VariantContractRow(
-    @Json val dataModel: ObjectNode?,
-)
 
 @Component
 class PreviewVariantHandler(
@@ -78,10 +68,10 @@ class PreviewVariantHandler(
         val templateId = TemplateId(query.templateId, catalogId)
         val variantId = app.epistola.suite.common.ids.VariantId(query.variantId, templateId)
 
-        // 1. Resolve template model: live override → saved draft → latest published
+        // 1. The live model from the editor, else the variant's working model
         val templateModel = query.templateModel
-            ?: fetchDraftOrLatestPublished(query.tenantId, query.catalogKey, query.templateId, query.variantId)
-            ?: throw IllegalStateException("No draft or published version found for variant ${query.variantId}")
+            ?: mediator.query(GetVariantContent(variantId))
+            ?: throw IllegalStateException("Variant ${query.variantId} not found")
         if (query.templateModel != null) {
             templateDocumentValidator.validateTemplate(templateModel)
         }
@@ -92,26 +82,8 @@ class PreviewVariantHandler(
         val tenant = mediator.query(GetTenant(id = query.tenantId))
             ?: throw IllegalStateException("Tenant ${query.tenantId} not found")
 
-        // 3. Validate data against contract schema (latest draft or published contract)
-        val dataModel: ObjectNode? = jdbi.withHandle<ObjectNode?, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT data_model FROM contract_versions
-                WHERE tenant_key = :tenantKey
-                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
-                  AND status IN ('draft', 'published')
-                ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
-                LIMIT 1
-                """,
-            )
-                .bind("tenantKey", query.tenantId)
-                .bind("catalogKey", query.catalogKey)
-                .bind("templateKey", query.templateId)
-                .mapTo<VariantContractRow>()
-                .findOne()
-                .map { it.dataModel }
-                .orElse(null)
-        }
+        // 3. Validate data against the template's data contract as it is now
+        val dataModel: ObjectNode? = mediator.query(GetDataContract(templateId))?.dataModel
         // A field the caller omitted falls back to its schema `default`, applied
         // before validation and rendering so a preview matches actual generation.
         val effectiveData = if (dataModel != null) schemaValidator.applyDefaults(dataModel, query.data) else query.data
@@ -130,35 +102,11 @@ class PreviewVariantHandler(
         return renderer.render(
             tenantId = query.tenantId,
             templateModel = templateModel,
-            version = null,
             template = template,
             tenant = tenant,
             data = effectiveData,
             culture = culture,
             resolvedThemeOverride = query.resolvedTheme,
         )
-    }
-
-    private fun fetchDraftOrLatestPublished(tenantId: TenantKey, catalogKey: app.epistola.suite.common.ids.CatalogKey, templateId: TemplateKey, variantKey: VariantKey): TemplateDocument? = jdbi.withHandle<TemplateDocument?, Exception> { handle ->
-        handle.createQuery(
-            """
-                SELECT template_model as draft_template_model
-                FROM template_versions
-                WHERE tenant_key = :tenantId
-                  AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
-                  AND variant_key = :variantId
-                  AND status IN ('draft', 'published')
-                ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
-                LIMIT 1
-                """,
-        )
-            .bind("tenantId", tenantId)
-            .bind("catalogKey", catalogKey)
-            .bind("templateId", templateId)
-            .bind("variantId", variantKey)
-            .mapTo<DraftRow>()
-            .findOne()
-            .map { it.draftTemplateModel }
-            .orElse(null)
     }
 }

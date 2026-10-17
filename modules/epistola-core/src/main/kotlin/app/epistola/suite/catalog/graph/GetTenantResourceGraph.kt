@@ -55,7 +55,7 @@ class TenantResourceGraphBuilder(
         val occurrences = buildList {
             addAll(loadRelationalReferences(handle, tenantKey))
             addAll(loadThemeReferences(handle, tenantKey))
-            addAll(loadTemplateReferences(handle, tenantKey, includeHistory))
+            addAll(loadTemplateReferences(handle, tenantKey))
             addAll(loadStencilReferences(handle, tenantKey, includeHistory))
         }
         return TenantResourceGraph(nodes, resolveAndAggregate(nodes, occurrences))
@@ -200,27 +200,22 @@ class TenantResourceGraphBuilder(
         }
     }.list().flatten()
 
-    private fun loadTemplateReferences(handle: Handle, tenantKey: TenantKey, includeHistory: Boolean): List<Occurrence> = handle.createQuery(
+    /** Each variant's working model; what releases hold is their own history, not this graph's. */
+    private fun loadTemplateReferences(handle: Handle, tenantKey: TenantKey): List<Occurrence> = handle.createQuery(
         """
             SELECT template_catalog.catalog_key::text, template.id::text AS template_key,
-                   version.variant_key::text, version.id, version.status,
-                   version.template_model::text, version.resolved_theme::text
-            FROM template_versions version
-            ${templateJoin("version")}
+                   variant.id::text AS variant_key, variant.template_model::text
+            FROM template_variants variant
+            ${templateJoin("variant")}
             JOIN catalogs template_catalog
               ON template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id
-            WHERE version.tenant_key = :tenantKey
-              AND (:includeHistory OR version.status IN ('draft', 'published'))
+            WHERE variant.tenant_key = :tenantKey
         """,
-    ).bind("tenantKey", tenantKey).bind("includeHistory", includeHistory).map { rs, _ ->
+    ).bind("tenantKey", tenantKey).map { rs, _ ->
         val source = ResourceAddress(CatalogResourceType.TEMPLATE, rs.getString("catalog_key"), rs.getString("template_key"))
-        val status = rs.getString("status")
-        val lifecycle = if (status == "archived") ReferenceLifecycle.HISTORICAL else ReferenceLifecycle.LIVE
         val owner = "Variant ${rs.getString("variant_key")}"
-        val version = rs.getInt("id")
         buildList {
-            scanJson(source, objectMapper.readTree(rs.getString("template_model")), "templateModel", lifecycle, status, version, this, owner)
-            rs.getString("resolved_theme")?.let { scanResolvedFonts(source, objectMapper.readTree(it), lifecycle, status, version, this, owner) }
+            scanJson(source, objectMapper.readTree(rs.getString("template_model")), "templateModel", ReferenceLifecycle.LIVE, null, null, this, owner)
         }
     }.list().flatten()
 
@@ -252,26 +247,6 @@ class TenantResourceGraphBuilder(
     ) {
         ResourceReferenceSites.scan(node, path).forEach { site ->
             destination += jsonOccurrence(source, site, lifecycle, status, version, owner)
-        }
-    }
-
-    private fun scanResolvedFonts(source: ResourceAddress, snapshot: JsonNode, lifecycle: ReferenceLifecycle, status: String?, version: Int, destination: MutableList<Occurrence>, owner: String) {
-        val fingerprints = snapshot.path("fontFingerprints")
-        if (!fingerprints.isObject) return
-        fingerprints.properties().forEach { (rawKey, _) ->
-            val separator = rawKey.indexOf('/')
-            val catalog = rawKey.substring(0, separator.coerceAtLeast(0)).ifBlank { null }
-            val slug = if (separator >= 0) rawKey.substring(separator + 1) else rawKey
-            // Not a node-embedded reference: the published theme snapshot keys fonts as
-            // "catalog/slug", so it is read here rather than through ResourceReferenceSites.
-            destination += Occurrence(
-                source,
-                ReferenceSelector(CatalogResourceType.FONT, catalog ?: source.catalogKey, slug),
-                "published-font-snapshot",
-                ReferenceSemantics.PROVENANCE,
-                if (catalog != null) ReferenceQualification.EXPLICIT else ReferenceQualification.RELATIVE,
-                ReferenceEvidence(owner, lifecycle, status, version, "resolvedTheme.fontFingerprints.$rawKey", null),
-            )
         }
     }
 

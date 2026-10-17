@@ -20,13 +20,10 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.contracts.commands.PublishContractVersion
-import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
-import app.epistola.suite.templates.contracts.queries.GetLatestPublishedContractVersion
+import app.epistola.suite.templates.contracts.commands.UpdateDataContract
+import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.templates.model.DataExample
-import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.queries.variants.ListVariants
-import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
@@ -81,7 +78,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
             assertThat(result1[0].status).isEqualTo(ImportStatus.CREATED)
 
             val templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId))
-            val contract1 = GetLatestPublishedContractVersion(templateId).query()
+            val contract1 = GetDataContract(templateId).query()
             assertThat(contract1).isNotNull
             assertThat(contract1!!.dataModel).isNotNull
 
@@ -92,7 +89,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
             ).execute()
             assertThat(result2[0].status).isEqualTo(ImportStatus.UPDATED)
 
-            val contract2 = GetLatestPublishedContractVersion(templateId).query()
+            val contract2 = GetDataContract(templateId).query()
             assertThat(contract2).isNotNull
             assertThat(contract2!!.dataModel).isNotNull
             assertThat(contract2.dataModel.toString()).isEqualTo(dataModel.toString())
@@ -104,7 +101,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
             ).execute()
             assertThat(result3[0].status).isEqualTo(ImportStatus.UPDATED)
 
-            val contract3 = GetLatestPublishedContractVersion(templateId).query()
+            val contract3 = GetDataContract(templateId).query()
             assertThat(contract3).isNotNull
             assertThat(contract3!!.dataModel).isNotNull
             assertThat(contract3.dataModel.toString()).isEqualTo(dataModel.toString())
@@ -130,7 +127,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
             ).execute()
 
             val templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId))
-            val contract1 = GetLatestPublishedContractVersion(templateId).query()
+            val contract1 = GetDataContract(templateId).query()
             assertThat(contract1!!.dataExamples).hasSize(2)
 
             // Second import
@@ -139,7 +136,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
                 templates = listOf(buildImportInput(slug, dataModel, dataExamples = examples)),
             ).execute()
 
-            val contract2 = GetLatestPublishedContractVersion(templateId).query()
+            val contract2 = GetDataContract(templateId).query()
             assertThat(contract2!!.dataExamples).hasSize(2)
 
             // Third import
@@ -148,7 +145,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
                 templates = listOf(buildImportInput(slug, dataModel, dataExamples = examples)),
             ).execute()
 
-            val contract3 = GetLatestPublishedContractVersion(templateId).query()
+            val contract3 = GetDataContract(templateId).query()
             assertThat(contract3!!.dataExamples).hasSize(2)
         }
     }
@@ -168,7 +165,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
             ).execute()
 
             val templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId))
-            val contract1 = GetLatestPublishedContractVersion(templateId).query()
+            val contract1 = GetDataContract(templateId).query()
             assertThat(contract1!!.dataModel).isNotNull
 
             // Second import WITHOUT schema — creates a new empty contract
@@ -177,40 +174,10 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
                 templates = listOf(buildImportInput(slug, dataModel = null)),
             ).execute()
 
-            // A new contract version exists but with null dataModel (the import had no schema)
-            val contract2 = GetLatestPublishedContractVersion(templateId).query()
+            // The contract now has a null dataModel (the import had no schema)
+            val contract2 = GetDataContract(templateId).query()
             assertThat(contract2).isNotNull
             assertThat(contract2!!.dataModel).isNull()
-        }
-    }
-
-    @Test
-    fun `template version links to contract after repeated imports`() {
-        val tenant = createTenant("Version Link Test")
-        val tenantId = TenantId(tenant.id)
-        val slug = TestIdHelpers.nextTemplateId().value
-        val dataModel = schema("""{"type":"object","properties":{"amount":{"type":"number"}}}""")
-
-        withMediator {
-            // Import 3 times
-            repeat(3) {
-                ImportTemplates(
-                    tenantId = tenantId,
-                    templates = listOf(buildImportInput(slug, dataModel)),
-                ).execute()
-            }
-
-            val templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId))
-            val variants = ListVariants(templateId = templateId).query()
-            val variantId = VariantId(variants.first().id, templateId)
-
-            // Get the latest version
-            val versions = ListVersions(variantId = variantId).query()
-            assertThat(versions).isNotEmpty
-
-            // All versions should link to a contract version
-            val latestVersion = versions.maxBy { it.id.value }
-            assertThat(latestVersion.contractVersion).isNotNull
         }
     }
 
@@ -232,12 +199,12 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
 
             // Check schema exists for a template that has one (hello-world)
             val templateId = TemplateId(TemplateKey.of("hello-world"), CatalogId(catalogKey, tenantId))
-            val contract1 = GetLatestPublishedContractVersion(templateId).query()
+            val contract1 = GetDataContract(templateId).query()
 
             // Upgrade (reinstall)
             UpgradeCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
 
-            val contract2 = GetLatestPublishedContractVersion(templateId).query()
+            val contract2 = GetDataContract(templateId).query()
 
             // If first install had a contract, upgrade should preserve it
             if (contract1 != null) {
@@ -277,8 +244,8 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
 
             val templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId))
 
-            // Import always creates a contract version, even without data — verify it exists but has no schema
-            val contractBefore = GetLatestPublishedContractVersion(templateId).query()
+            // The template has a contract, but no schema
+            val contractBefore = GetDataContract(templateId).query()
             assertThat(contractBefore).isNotNull
             assertThat(contractBefore!!.dataModel).isNull()
 
@@ -289,17 +256,10 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
             ).execute()
 
             // Contract should now exist
-            val contractAfter = GetLatestPublishedContractVersion(templateId).query()
+            val contractAfter = GetDataContract(templateId).query()
             assertThat(contractAfter).isNotNull
             assertThat(contractAfter!!.dataModel).isNotNull
             assertThat(contractAfter.dataModel.toString()).isEqualTo(dataModel.toString())
-
-            // Template version should be linked to the contract
-            val variants = ListVariants(templateId = templateId).query()
-            val variantId = VariantId(variants.first().id, templateId)
-            val versions = ListVersions(variantId = variantId).query()
-            val latest = versions.maxBy { it.id.value }
-            assertThat(latest.contractVersion).isNotNull
         }
     }
 
@@ -336,9 +296,9 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
                 }
             }
 
-            // Contract should still be null (no schema was ever set)
-            val contract = GetLatestPublishedContractVersion(templateId).query()
-            assertThat(contract).isNull()
+            // The contract still has no schema (none was ever set)
+            val contract = GetDataContract(templateId).query()
+            assertThat(contract!!.dataModel).isNull()
         }
     }
 
@@ -363,9 +323,9 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
             CreateTheme(id = ThemeId(themeKey, catalogId), name = "ZIP Theme").execute()
             UpdateDocumentTemplate(id = templateId, themeId = themeKey, themeCatalogKey = catalogKey).execute()
 
-            // Add contract data and publish
+            // Add contract data
             val contractSchema = schema("""{"type":"object","properties":{"invoice_number":{"type":"string"},"total":{"type":"number"}},"required":["invoice_number"]}""")
-            UpdateContractVersion(
+            UpdateDataContract(
                 templateId = templateId,
                 dataModel = contractSchema,
                 dataExamples = listOf(
@@ -376,14 +336,13 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
                     ),
                 ),
             ).execute()
-            PublishContractVersion(templateId = templateId).execute()
 
             // Export as ZIP
             val exportResult = ExportCatalogZip(tenantKey = tenantKey, catalogKey = catalogKey).execute()
             val zipBytes = exportResult.zipBytes
 
             // Verify contract before re-imports
-            val contractBefore = GetLatestPublishedContractVersion(templateId).query()
+            val contractBefore = GetDataContract(templateId).query()
             assertThat(contractBefore).isNotNull
             assertThat(contractBefore!!.dataModel).isNotNull
 
@@ -400,7 +359,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
                 }
 
                 // Verify contract after each import
-                val contract = GetLatestPublishedContractVersion(templateId).query()
+                val contract = GetDataContract(templateId).query()
                 assertThat(contract)
                     .describedAs("Contract should exist after import #${iteration + 1}")
                     .isNotNull

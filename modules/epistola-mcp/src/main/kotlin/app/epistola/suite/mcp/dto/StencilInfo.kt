@@ -52,17 +52,15 @@ data class StencilDetailInfo(
     }
 }
 
-/** A template version that uses a stencil, and whether it still fits the stencil as it is. */
+/** A template variant that uses a stencil, and whether it still fits the stencil as it is. */
 data class StencilUsageInfo(
     val catalogId: String,
     val templateId: String,
     val templateName: String,
     val variantId: String,
-    val versionId: Int,
-    val versionStatus: String,
     val instanceCount: Int,
     val fits: Boolean,
-    /** What no longer fits, one sentence each; publishing the template is refused until fixed. */
+    /** What no longer fits, one sentence each; marking it ready and releasing are refused until fixed. */
     val problems: List<String>,
 ) {
     companion object {
@@ -71,8 +69,6 @@ data class StencilUsageInfo(
             templateId = usage.templateId.value,
             templateName = usage.templateName,
             variantId = usage.variantId.value,
-            versionId = usage.versionId.value,
-            versionStatus = usage.versionStatus,
             instanceCount = usage.instanceCount,
             fits = usage.fits,
             problems = usage.problems,

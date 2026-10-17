@@ -14,12 +14,9 @@ import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.execute
-import app.epistola.suite.templates.contracts.commands.CreateContractVersion
-import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
-import app.epistola.suite.templates.contracts.commands.UpdateContractVersionResult
-import app.epistola.suite.templates.contracts.queries.GetDraftContractVersion
-import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
-import app.epistola.suite.templates.contracts.queries.GetLatestPublishedContractVersion
+import app.epistola.suite.templates.contracts.commands.UpdateDataContract
+import app.epistola.suite.templates.contracts.commands.UpdateDataContractResult
+import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.validation.ValidationException
@@ -39,9 +36,7 @@ class DataContractMcpTools(
     @McpTool(
         name = "get_data_contract",
         description = "Fetch the data contract for a template — JSON Schema describing what input data " +
-            "the template expects, plus named sample datasets. Use `status='draft'` for the editable contract, " +
-            "`status='published'` for the latest published one, or omit `status` to get the most recent " +
-            "(draft preferred over published).",
+            "the template expects, plus named sample datasets — as it is now.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun getDataContract(
@@ -49,30 +44,18 @@ class DataContractMcpTools(
         catalogId: String,
         @McpToolParam(description = "Template key.")
         templateId: String,
-        @McpToolParam(
-            description = "'draft', 'published', or omit for the latest of either (draft wins).",
-            required = false,
-        )
-        status: String?,
     ): DataContractInfo? {
         val id = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
-        val contract = when (status?.lowercase()) {
-            "draft" -> mediator.query(GetDraftContractVersion(id))
-            "published" -> mediator.query(GetLatestPublishedContractVersion(id))
-            null, "" -> mediator.query(GetLatestContractVersion(id))
-            else -> error("Unknown contract status '$status' — expected 'draft', 'published', or omitted.")
-        }
-        return contract?.let { DataContractInfo.from(it) }
+        return mediator.query(GetDataContract(id))?.let { DataContractInfo.from(templateId, catalogId, it) }
     }
 
     @McpTool(
         name = "update_data_contract",
-        description = "Set a template's draft data contract: the JSON Schema of the data the template reads " +
-            "(`dataModel`) and named example datasets (`dataExamples`) that drive previews. Creates the draft " +
-            "when only published contract versions exist. Omitted arguments are left unchanged. Every example " +
-            "must validate against the schema, and at least one example is required. `publish_template_version` " +
-            "publishes a compatible draft contract along with the template; use `publish_data_contract` for a " +
-            "breaking change. Requires the TEMPLATE_EDIT permission.",
+        description = "Set a template's data contract: the JSON Schema of the data the template reads " +
+            "(`dataModel`) and named example datasets (`dataExamples`) that drive previews. Omitted arguments " +
+            "are left unchanged. Every example must validate against the schema, and at least one example is " +
+            "required. An edit makes the template's ready marks stale; mark it ready again with " +
+            "`mark_template_ready` once reviewed. Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
     fun updateDataContract(
@@ -94,21 +77,17 @@ class DataContractMcpTools(
         dataExamples: String?,
     ): DataContractInfo {
         val id = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
-        val command = UpdateContractVersion(
+        val command = UpdateDataContract(
             templateId = id,
             dataModel = objectMapper.parseOptionalArgument("dataModel", dataModel, ObjectNode::class.java),
             dataExamples = objectMapper.parseOptionalArgument("dataExamples", dataExamples, ArrayNode::class.java)
                 ?.let(::toExamples),
         )
-        val result = sendUpdate(command) ?: run {
-            CreateContractVersion(templateId = id).execute() ?: throw notFound("Template", catalogId, templateId)
-            sendUpdate(command)
-        } ?: throw notFound("Template", catalogId, templateId)
-        return DataContractInfo.from(result.contractVersion)
+        return DataContractInfo.from(templateId, catalogId, sendUpdate(command).contract)
     }
 
     /** Surfaces which example failed where; the exception's own message names neither. */
-    private fun sendUpdate(command: UpdateContractVersion): UpdateContractVersionResult? = try {
+    private fun sendUpdate(command: UpdateDataContract): UpdateDataContractResult = try {
         command.execute()
     } catch (e: DataModelValidationException) {
         val details = e.validationErrors.entries.joinToString("; ") { (example, errors) ->

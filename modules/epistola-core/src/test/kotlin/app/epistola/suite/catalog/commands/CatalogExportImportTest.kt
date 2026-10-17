@@ -51,15 +51,16 @@ import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.contracts.commands.PublishContractVersion
-import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
-import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
+import app.epistola.suite.templates.contracts.commands.UpdateDataContract
+import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
@@ -204,20 +205,16 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 """{"type":"object","properties":{"name":{"type":"string"},"amount":{"type":"number"}},"required":["name"]}""",
                 ObjectNode::class.java,
             )
-            UpdateContractVersion(
+            UpdateDataContract(
                 templateId = templateId,
                 dataModel = contractSchema,
                 dataExamples = listOf(
                     DataExample("example-1", "Example 1", ObjectMapper().createObjectNode().put("name", "Ada")),
                 ),
             ).execute()
-            PublishContractVersion(templateId = templateId).execute()
 
-            // Publish the default template version so it gets included in the export
-            val defaultVariantKey = VariantKey.INITIAL
-            val defaultVariantId = VariantId(defaultVariantKey, templateId)
-            val defaultVersionId = VersionId(VersionKey.of(1), defaultVariantId)
-            PublishVersion(versionId = defaultVersionId).execute()
+            // Mark the default variant ready, as authoring does before a release.
+            MarkVariantReady(VariantId(VariantKey.INITIAL, templateId)).execute()
 
             // Upload an asset (small PNG stub)
             val pngBytes = createMinimalPng()
@@ -273,7 +270,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             assertThat(reimportedTemplate.themeCatalogKey).isEqualTo(catalogKey)
 
             // Verify contract data survived the round-trip
-            val reimportedContract = GetLatestContractVersion(templateId = templateId).query()
+            val reimportedContract = GetDataContract(templateId = templateId).query()
             assertThat(reimportedContract).isNotNull
             assertThat(reimportedContract!!.dataModel).isNotNull
             val properties = reimportedContract.dataModel!!.get("properties")
@@ -442,20 +439,16 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 """.trimIndent(),
                 ObjectNode::class.java,
             )
-            UpdateContractVersion(
+            UpdateDataContract(
                 templateId = templateId,
                 dataModel = contractSchema,
                 dataExamples = listOf(
                     DataExample("example-1", "Example 1", ObjectMapper().createObjectNode().put("name", "Ada")),
                 ),
             ).execute()
-            PublishContractVersion(templateId = templateId).execute()
 
-            // Publish the default version so the template ends up in the export.
-            val defaultVariantKey = VariantKey.INITIAL
-            val defaultVariantId = VariantId(defaultVariantKey, templateId)
-            val defaultVersionId = VersionId(VersionKey.of(1), defaultVariantId)
-            PublishVersion(versionId = defaultVersionId).execute()
+            // Mark the default variant ready, as authoring does before a release.
+            MarkVariantReady(VariantId(VariantKey.INITIAL, templateId)).execute()
 
             val exportResult = ExportCatalogZip(
                 tenantKey = tenantKey,
@@ -474,7 +467,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             }
 
             // Verify every \$ref URL came back identical.
-            val reimportedContract = GetLatestContractVersion(templateId = templateId).query()
+            val reimportedContract = GetDataContract(templateId = templateId).query()
             val properties = reimportedContract!!.dataModel!!.get("properties")
 
             val greeting = properties.get("greeting")
@@ -720,11 +713,11 @@ class CatalogExportImportTest : IntegrationTestBase() {
             CreateDocumentTemplate(id = templateId, name = "Cross-Catalog Image Template").execute().withRequiredDataExample()
             val variantKey = VariantKey.INITIAL
             val variantId = VariantId(variantKey, templateId)
-            app.epistola.suite.templates.commands.versions.UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateWithCrossCatalogImage(asset.id.value, assetCatalogKey.value),
             ).execute()
-            PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
+            MarkVariantReady(variantId).execute()
 
             ExportCatalogZip(tenantKey = tenantKey, catalogKey = sourceKey).execute() to asset.id.value
         }
@@ -899,11 +892,11 @@ class CatalogExportImportTest : IntegrationTestBase() {
             val templateId = TemplateId(templateKey, sourceCatalogId)
             CreateDocumentTemplate(id = templateId, name = "Letter").execute().withRequiredDataExample()
             val variantId = VariantId(variantKey, templateId)
-            app.epistola.suite.templates.commands.versions.UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateEmbeddingParametrisedStencil(stencilSlug = stencilKey.value),
             ).execute()
-            PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
+            MarkVariantReady(variantId).execute()
 
             ExportCatalogZip(tenantKey = source.id, catalogKey = catalogKey).execute().zipBytes
         }
@@ -927,11 +920,11 @@ class CatalogExportImportTest : IntegrationTestBase() {
             assertThat(GetStencil(StencilId(StencilKey.of("greeting"), targetCatalogId)).query()!!.parameterSchema).isEqualTo(parameterSchema)
 
             // 2. The consuming template's stencil node kept its parameter binding props.
-            val imported = app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion(
+            val imported = GetVariantContent(
                 variantId = VariantId(variantKey, TemplateId(templateKey, targetCatalogId)),
             ).query()
             assertThat(imported).isNotNull
-            val stencilNode = imported!!.templateModel.nodes.values.single { it.type == "stencil" }
+            val stencilNode = imported!!.nodes.values.single { it.type == "stencil" }
             assertThat(stencilNode.props?.get("parameterBindings"))
                 .isEqualTo(mapOf("recipientName" to "'Alice'"))
             assertThat(stencilNode.props?.get("paramsAlias")).isEqualTo("params")

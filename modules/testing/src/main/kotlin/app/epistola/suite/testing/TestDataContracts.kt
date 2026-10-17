@@ -9,13 +9,13 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.DocumentTemplate
-import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
+import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
 import tools.jackson.databind.node.JsonNodeFactory
 
-/** Gives general-purpose template fixtures the minimum publishable data contract. */
+/** Gives general-purpose template fixtures the minimum releasable data contract. */
 fun ensureRequiredDataExample(templateId: TemplateId) {
-    UpdateContractVersion(
+    UpdateDataContract(
         templateId = templateId,
         dataExamples = listOf(
             DataExample(

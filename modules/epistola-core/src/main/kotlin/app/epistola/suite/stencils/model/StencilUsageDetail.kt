@@ -8,10 +8,9 @@ import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionKey
 
 /**
- * A template version that uses a stencil (contract ADR 0006): the stencil reaches it by reference,
+ * A template variant that uses a stencil (contract ADR 0006): the stencil reaches it by reference,
  * so there is nothing to upgrade, only whether the template still fits the stencil as it is.
  *
  * @property problems what no longer fits ([StencilInstances.Finding]s about this stencil, as text);
@@ -23,9 +22,7 @@ data class StencilUsageDetail(
     val catalogType: CatalogType = CatalogType.AUTHORED,
     val templateName: String,
     val variantId: VariantKey,
-    val versionId: VersionKey,
-    val versionStatus: String,
-    /** Number of instances of this stencil in this template version. */
+    /** Number of instances of this stencil in this variant's model. */
     val instanceCount: Int,
     val problems: List<String> = emptyList(),
 ) {

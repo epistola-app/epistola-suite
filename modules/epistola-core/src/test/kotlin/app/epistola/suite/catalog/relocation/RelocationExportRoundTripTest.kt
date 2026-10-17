@@ -37,15 +37,14 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
 import app.epistola.suite.templates.commands.variants.UpdateVariant
-import app.epistola.suite.templates.commands.versions.CreateVersion
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.queries.variants.ListVariants
-import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -177,16 +176,15 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
         withMediator {
             setup(tenant)
             CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
-            UpdateDraft(variant, model(letters)).execute()
-            PublishVersion(VersionId(GetDraft(variant).query()!!.id, variant)).execute()
+            UpdateVariantContent(variant, model(letters)).execute()
+            MarkVariantReady(variant).execute()
         }
         move(tenant, moved.movedTo(shared))
         withMediator {
             // The republished invoice names shared itself, which letters then depends on.
             declareDependency(tenant, letters, on = shared)
-            CreateVersion(variant).execute()
-            UpdateDraft(variant, model(shared)).execute()
-            PublishVersion(VersionId(GetDraft(variant).query()!!.id, variant)).execute()
+            UpdateVariantContent(variant, model(shared)).execute()
+            MarkVariantReady(variant).execute()
         }
 
         val sharedZip = withMediator { ExportCatalogZip(tenant, shared).execute() }.zipBytes

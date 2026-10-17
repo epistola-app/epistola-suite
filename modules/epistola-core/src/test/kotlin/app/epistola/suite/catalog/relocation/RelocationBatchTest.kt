@@ -23,9 +23,9 @@ import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariant
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.queries.variants.ListVariants
-import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -143,7 +143,7 @@ class RelocationBatchTest : RelocationTestSupport() {
         withMediator {
             CreateStencil(header, "Header").execute()
             CreateDocumentTemplate(template, "Invoice").execute()
-            UpdateDraft(VariantId(VariantKey.INITIAL, template), templateEmbedding("header", letters.value)).execute()
+            UpdateVariantContent(VariantId(VariantKey.INITIAL, template), templateEmbedding("header", letters.value)).execute()
         }
 
         move(
@@ -153,7 +153,7 @@ class RelocationBatchTest : RelocationTestSupport() {
         )
 
         val movedVariant = VariantId(VariantKey.INITIAL, TemplateId(template.key, catalogId(tenant, shared)))
-        val props = withMediator { GetDraft(movedVariant).query()!! }.templateModel.nodes.getValue("stencil-instance").props!!
+        val props = withMediator { GetVariantContent(movedVariant).query()!! }.nodes.getValue("stencil-instance").props!!
         assertThat(props["catalogKey"]).isEqualTo(shared.value)
         assertThat(props["stencilKey"]).isEqualTo("masthead")
     }
@@ -167,7 +167,7 @@ class RelocationBatchTest : RelocationTestSupport() {
             CreateStencil(StencilId(StencilKey.of("header"), catalogId(tenant, letters)), "Header").execute()
             CreateStencil(StencilId(StencilKey.of("footer"), catalogId(tenant, letters)), "Footer").execute()
             CreateDocumentTemplate(template, "Invoice").execute()
-            UpdateDraft(variant, templateEmbedding(listOf(Triple("top", "header", letters.value), Triple("bottom", "footer", letters.value)))).execute()
+            UpdateVariantContent(variant, templateEmbedding(listOf(Triple("top", "header", letters.value), Triple("bottom", "footer", letters.value)))).execute()
         }
 
         val plan = move(
@@ -177,7 +177,7 @@ class RelocationBatchTest : RelocationTestSupport() {
         )
 
         assertThat(plan.mutableRewriteCount).isEqualTo(1)
-        val nodes = withMediator { GetDraft(variant).query()!! }.templateModel.nodes
+        val nodes = withMediator { GetVariantContent(variant).query()!! }.nodes
         assertThat(nodes.getValue("top").props).containsEntry("catalogKey", shared.value).containsEntry("stencilKey", "header")
         assertThat(nodes.getValue("bottom").props).containsEntry("catalogKey", archive.value).containsEntry("stencilKey", "closing")
     }
@@ -215,7 +215,7 @@ class RelocationBatchTest : RelocationTestSupport() {
             UpdateStencil(header, content = usesTheme("brand", letters.value)).execute()
             val invoice = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
             CreateDocumentTemplate(invoice, "Invoice").execute()
-            UpdateDraft(VariantId(VariantKey.INITIAL, invoice), usesTheme("base", shared.value)).execute()
+            UpdateVariantContent(VariantId(VariantKey.INITIAL, invoice), usesTheme("base", shared.value)).execute()
         }
         val stencil = address(CatalogResourceType.STENCIL, letters, "header")
         val theme = address(CatalogResourceType.THEME, letters, "brand")

@@ -29,8 +29,7 @@ data class TemplateSummary(
     val name: String,
     val updatedAt: OffsetDateTime,
     val variantCount: Int,
-    val hasDraft: Boolean,
-    val publishedVersionCount: Int,
+    val ready: Boolean,
 )
 
 /**
@@ -96,14 +95,11 @@ class ListTemplateSummariesHandler(
                     dt.name,
                     dt.updated_at,
                     COALESCE((SELECT COUNT(*) FROM template_variants tv WHERE tv.tenant_key = dt.tenant_key AND tv.template_resource_id = dt.resource_id), 0)::int as variant_count,
-                    COALESCE((SELECT bool_or(ver.status = 'draft')
-                              FROM template_versions ver
-                              JOIN template_variants tv ON ver.tenant_key = tv.tenant_key AND ver.template_resource_id = tv.template_resource_id AND ver.variant_key = tv.id
-                              WHERE tv.tenant_key = dt.tenant_key AND tv.template_resource_id = dt.resource_id), false) as has_draft,
-                    COALESCE((SELECT COUNT(*)
-                              FROM template_versions ver
-                              JOIN template_variants tv ON ver.tenant_key = tv.tenant_key AND ver.template_resource_id = tv.template_resource_id AND ver.variant_key = tv.id
-                              WHERE tv.tenant_key = dt.tenant_key AND tv.template_resource_id = dt.resource_id AND ver.status = 'published'), 0)::int as published_version_count,
+                    -- Ready when every variant's content is marked ready as it is now.
+                    COALESCE((SELECT bool_and(m.digest IS NOT NULL AND m.digest = d.digest)
+                              FROM resource_content_digests d
+                              LEFT JOIN resource_ready_marks m ON m.tenant_key = d.tenant_key AND m.resource_id = d.resource_id AND m.part = d.part
+                              WHERE d.tenant_key = dt.tenant_key AND d.resource_id = dt.resource_id), false) as ready,
                     -- Total matching rows before LIMIT/OFFSET; Postgres evaluates the
                     -- window over the full filtered set, so it cannot drift from the page.
                     COUNT(*) OVER()::int AS total_count
@@ -159,8 +155,7 @@ private data class TemplateSummaryRow(
     val name: String,
     val updatedAt: OffsetDateTime,
     val variantCount: Int,
-    val hasDraft: Boolean,
-    val publishedVersionCount: Int,
+    val ready: Boolean,
     val totalCount: Int,
 ) {
     fun toSummary() = TemplateSummary(
@@ -170,7 +165,6 @@ private data class TemplateSummaryRow(
         name = name,
         updatedAt = updatedAt,
         variantCount = variantCount,
-        hasDraft = hasDraft,
-        publishedVersionCount = publishedVersionCount,
+        ready = ready,
     )
 }

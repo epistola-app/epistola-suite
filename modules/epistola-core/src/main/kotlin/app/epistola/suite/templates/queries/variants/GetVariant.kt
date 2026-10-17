@@ -72,13 +72,11 @@ class GetVariantSummariesHandler(
                     tv.title,
                     tv.attributes,
                     tv.is_default,
-                    EXISTS(SELECT 1 FROM template_versions ver WHERE ver.tenant_key = tv.tenant_key AND ver.template_resource_id = tv.template_resource_id AND ver.variant_key = tv.id AND ver.status = 'draft') as has_draft,
-                    COALESCE(
-                        (SELECT jsonb_agg(ver.id ORDER BY ver.id)
-                         FROM template_versions ver
-                         WHERE ver.tenant_key = tv.tenant_key AND ver.template_resource_id = tv.template_resource_id AND ver.variant_key = tv.id AND ver.status = 'published'),
-                        '[]'::jsonb
-                    ) as published_versions
+                    EXISTS (
+                        SELECT 1 FROM resource_ready_marks m
+                        JOIN resource_content_digests d ON d.tenant_key = m.tenant_key AND d.resource_id = m.resource_id AND d.part = m.part
+                        WHERE m.tenant_key = tv.tenant_key AND m.resource_id = tv.template_resource_id AND m.part = tv.id AND m.digest = d.digest
+                    ) as ready
                 FROM template_variants tv
                 WHERE tv.tenant_key = :tenantId
                   AND tv.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}

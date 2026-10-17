@@ -25,7 +25,7 @@ import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.DocumentContentStore
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestPrincipalUsers
@@ -128,11 +128,11 @@ class JobPollerIntegrationTest {
         )!!
         val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         // Generate document (will stay PENDING until JobPoller picks it up)

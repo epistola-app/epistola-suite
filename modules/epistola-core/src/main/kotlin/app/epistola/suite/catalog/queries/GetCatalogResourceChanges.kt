@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.revisions.ReleaseEntry
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.ids.CatalogKey
@@ -65,7 +66,19 @@ data class CatalogResourceChange(
     /** As the working copy names it, or as the last release did for a resource dropped since. */
     val name: String?,
     val state: CatalogResourceState,
-)
+    /**
+     * Whether its content is marked ready as it is now (contract ADR 0002). Only a changed resource
+     * needs it; a removed one has no content to mark.
+     */
+    val ready: Boolean = false,
+) {
+    /** Whether releasing waits on this resource: it changed and is not ready. */
+    val blocksRelease: Boolean get() = state in CHANGED && !ready
+
+    private companion object {
+        val CHANGED = setOf(CatalogResourceState.NEW, CatalogResourceState.MODIFIED, CatalogResourceState.UNKNOWN)
+    }
+}
 
 data class CatalogResourceChanges(
     val catalogKey: CatalogKey,
@@ -86,6 +99,9 @@ data class CatalogResourceChanges(
 
     val hasUnreleasedChanges: Boolean get() = resources.any { it.state != CatalogResourceState.RELEASED }
 
+    /** The changed resources not marked ready, which a release refuses. */
+    val notReady: List<CatalogResourceChange> get() = resources.filter { it.blocksRelease }
+
     private fun inState(state: CatalogResourceState) = resources.filter { it.state == state }
 }
 
@@ -95,6 +111,7 @@ class GetCatalogResourceChangesHandler(
     private val contentBuilder: CatalogContentBuilder,
     private val fingerprintService: CatalogFingerprintService,
     private val releaseEntryStore: ReleaseEntryStore,
+    private val readyMarks: ReadyMarks,
 ) : QueryHandler<GetCatalogResourceChanges, CatalogResourceChanges> {
 
     override fun handle(query: GetCatalogResourceChanges): CatalogResourceChanges {
@@ -118,11 +135,14 @@ class GetCatalogResourceChangesHandler(
         val names = content.resourceEntries.associate { "${it.type}/${it.key}" to it.name } +
             released.filterKeys { it !in working }.mapValues { (_, entry) -> entry.name }
 
+        val readiness = jdbi.withHandle<Map<String, Boolean>, Exception> { readyMarks.readiness(it, query.tenantKey, query.catalogKey) }
+
         fun change(key: String, state: CatalogResourceState) = CatalogResourceChange(
             type = key.substringBefore('/'),
             slug = key.substringAfter('/'),
             name = names[key],
             state = state,
+            ready = readiness[key] == true,
         )
 
         // Nothing released yet: every resource is new, and that is a complete answer.

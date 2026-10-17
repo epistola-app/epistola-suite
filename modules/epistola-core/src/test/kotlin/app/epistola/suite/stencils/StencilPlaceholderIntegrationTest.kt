@@ -17,8 +17,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
@@ -51,7 +51,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
         return VariantId(VariantKey.INITIAL, templateId)
     }
 
-    private fun publish(variantId: VariantId, model: TemplateDocument) = PublishVersion(VersionId(UpdateDraft(variantId, model).execute()!!.id, variantId)).execute()
+    private fun publish(variantId: VariantId, model: TemplateDocument) = UpdateVariantContent(variantId, model).execute().also { MarkVariantReady(variantId).execute() }
 
     private fun using(key: String) = stencilDocument {
         stencil("inst", key)
@@ -69,7 +69,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
             build("ph")
         }
 
-        assertThatThrownBy { UpdateDraft(variantId = variantId, templateModel = invalid).execute() }
+        assertThatThrownBy { UpdateVariantContent(variantId = variantId, templateModel = invalid).execute() }
             .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.PLACEHOLDER_OUTSIDE_STENCIL)
     }
@@ -116,7 +116,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
             themeRef = ThemeRef.Inherit,
         )
 
-        assertThatThrownBy { UpdateDraft(variantId = variantId, templateModel = malformed).execute() }
+        assertThatThrownBy { UpdateVariantContent(variantId = variantId, templateModel = malformed).execute() }
             .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.NODE_PARAMETER_BINDINGS_INVALID_SHAPE)
     }
@@ -224,10 +224,10 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
             stencil("outer", "letter", listOf("fill"))
             build("outer")
         }
-        val published = publish(template(tenantId, "Nested stencils"), nested)!!
+        val published = publish(template(tenantId, "Nested stencils"), nested)
 
-        assertThat(published.templateModel.nodes.values.filter { it.type == "stencil" }.map { it.props!!["stencilKey"] })
+        assertThat(published.nodes.values.filter { it.type == "stencil" }.map { it.props!!["stencilKey"] })
             .containsExactlyInAnyOrder("letter", "address")
-        assertThat(published.templateModel.texts()).isEmpty()
+        assertThat(published.texts()).isEmpty()
     }
 }

@@ -38,9 +38,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.contracts.commands.PublishContractVersion
-import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
@@ -133,7 +132,7 @@ class CatalogWireExportTest : IntegrationTestBase() {
             val templateId = TemplateId(TemplateKey.of("decision-letter"), catalogId)
             CreateDocumentTemplate(id = templateId, name = "Decision Letter").execute()
             UpdateDocumentTemplate(id = templateId, themeId = ThemeKey.of("house-style"), themeCatalogKey = catalogKey).execute()
-            UpdateContractVersion(
+            UpdateDataContract(
                 templateId = templateId,
                 dataModel = JsonMapper().readValue(
                     """{"type":"object","properties":{"recipient":{"type":"string"}},"required":["recipient"]}""",
@@ -141,8 +140,7 @@ class CatalogWireExportTest : IntegrationTestBase() {
                 ),
                 dataExamples = listOf(DataExample("nl", "Dutch", JsonMapper().createObjectNode().put("recipient", "Ada"))),
             ).execute()
-            PublishContractVersion(templateId = templateId).execute()
-            PublishVersion(versionId = VersionId(VersionKey.of(1), VariantId(VariantKey.INITIAL, templateId))).execute()
+            MarkVariantReady(VariantId(VariantKey.INITIAL, templateId)).execute()
 
             val zip = ExportCatalogZip(tenantKey, catalogKey).execute()
             val entries = ZipInputStream(ByteArrayInputStream(zip.zipBytes)).use { z ->

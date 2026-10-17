@@ -34,7 +34,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.publishAndRelease
@@ -117,7 +117,7 @@ class CatalogDeploymentTest : IntegrationTestBase() {
             val templateId = TemplateId(TemplateKey.of("invoice"), letters)
             CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
             UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("brand"), themeCatalogKey = shared.key).execute()
-            UpdateDraft(VariantId(VariantKey.INITIAL, templateId), TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
+            UpdateVariantContent(VariantId(VariantKey.INITIAL, templateId), TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
             mediator.publishAndRelease(VariantId(VariantKey.INITIAL, templateId))
         }
 
@@ -204,7 +204,7 @@ class CatalogDeploymentTest : IntegrationTestBase() {
             CreateEnvironment(production, "Production").execute()
             val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), letters))
             CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
-            UpdateDraft(variant, TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
+            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
             mediator.publishAndRelease(variant)
             mediator.releaseNext(letters)
         }

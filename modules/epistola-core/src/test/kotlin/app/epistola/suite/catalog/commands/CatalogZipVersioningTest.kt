@@ -12,6 +12,7 @@ import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.CheckCatalogUpgrade
@@ -296,6 +297,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = publisher.id, id = catalogKey, name = "Zip Rel").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher.id))), name = "Th").execute()
+            MarkCatalogReady(publisher.id, catalogKey).execute()
             ReleaseCatalogVersion(tenantKey = publisher.id, catalogKey = catalogKey, version = "1.0.0").execute()
             val publishedZip = ExportCatalogZip(tenantKey = publisher.id, catalogKey = catalogKey).execute().zipBytes
             assertThat(manifestOf(publishedZip).release.version).isEqualTo("1.0.0")
@@ -342,6 +344,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             // Publisher publishes 2.0.0.
             CreateCatalog(tenantKey = publisher.id, id = catalogKey, name = "Zip Exist").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher.id))), name = "Pub Th").execute()
+            MarkCatalogReady(publisher.id, catalogKey).execute()
             ReleaseCatalogVersion(tenantKey = publisher.id, catalogKey = catalogKey, version = "2.0.0").execute()
             val publishedZip = ExportCatalogZip(tenantKey = publisher.id, catalogKey = catalogKey).execute().zipBytes
 
@@ -367,6 +370,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
         val catalogKey = CatalogKey.of(slug)
         CreateCatalog(tenantKey = publisherTenant, id = catalogKey, name = slug).execute()
         themes.forEach { (s, n) -> CreateTheme(id = ThemeId(ThemeKey.of(s), CatalogId(catalogKey, TenantId(publisherTenant))), name = n).execute() }
+        MarkCatalogReady(publisherTenant, catalogKey).execute()
         ReleaseCatalogVersion(tenantKey = publisherTenant, catalogKey = catalogKey, version = version).execute()
         return ExportCatalogZip(tenantKey = publisherTenant, catalogKey = catalogKey).execute().zipBytes
     }
@@ -557,6 +561,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("en", "English"), CodeListEntry("nl", "Dutch")),
             ).execute()
+            MarkCatalogReady(pub.id, catalogKey).execute()
             ReleaseCatalogVersion(tenantKey = pub.id, catalogKey = catalogKey, version = "1.0.0").execute()
             val zip = ExportCatalogZip(tenantKey = pub.id, catalogKey = catalogKey).execute().zipBytes
 

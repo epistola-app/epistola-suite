@@ -55,13 +55,6 @@ internal val CATALOG_ACTIVITY_CTE = """
                 UNION ALL SELECT catalog_id, MAX(updated_at)   FROM variant_attribute_definitions WHERE tenant_key = :t GROUP BY catalog_id
                 UNION ALL SELECT catalog_id, MAX(updated_at)   FROM code_lists           WHERE tenant_key = :t GROUP BY catalog_id
                 UNION ALL SELECT catalog_id, MAX(updated_at)   FROM fonts                WHERE tenant_key = :t GROUP BY catalog_id
-                UNION ALL SELECT template.catalog_id, MAX(versions.published_at)
-                                 FROM template_versions versions ${templateJoin("versions")}
-                                 WHERE versions.tenant_key = :t GROUP BY template.catalog_id
-                UNION ALL SELECT template.catalog_id, MAX(contracts.published_at)
-                                 FROM contract_versions contracts ${templateJoin("contracts")}
-                                 WHERE contracts.tenant_key = :t GROUP BY template.catalog_id
-                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM stencils             WHERE tenant_key = :t GROUP BY catalog_id
                 UNION ALL SELECT catalog_id, MAX(created_at)   FROM assets               WHERE tenant_key = :t GROUP BY catalog_id
             )
 """
@@ -96,11 +89,8 @@ internal const val CATALOG_ACTIVITY_JOIN = """LEFT JOIN (SELECT catalog_id, MAX(
  * Column choice per table mirrors what the export fingerprint actually sees:
  *  - `updated_at` for the live resource rows
  *    (`document_templates`, `template_variants`, `themes`, `stencils`,
- *    `variant_attribute_definitions`, `code_lists`, `fonts`);
- *  - `published_at` for the versioned content
- *    (`template_versions`, `contract_versions`, `stencil_versions`) — the
- *    export builds from **published** versions, so a draft-only edit
- *    correctly does **not** register as drift;
+ *    `variant_attribute_definitions`, `code_lists`, `fonts`), which hold the
+ *    working copy a release and an export are built from;
  *  - `created_at` for `assets` (effectively immutable; a new asset is a
  *    change).
  *

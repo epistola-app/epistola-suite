@@ -31,13 +31,12 @@ data class TemplateVariant(
 )
 
 /**
- * Summary of a variant with version statistics.
+ * Summary of a variant: whether its content is marked ready as it is now (contract ADR 0002).
  */
 data class VariantSummary(
     val id: VariantKey,
     val title: String,
     @Json val attributes: Map<String, String>,
     val isDefault: Boolean,
-    val hasDraft: Boolean,
-    @Json val publishedVersions: List<Int>,
+    val ready: Boolean,
 )

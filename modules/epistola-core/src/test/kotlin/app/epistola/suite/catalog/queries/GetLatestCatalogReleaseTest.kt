@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.queries
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
@@ -59,8 +60,10 @@ class GetLatestCatalogReleaseTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Latest Hist").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalogId), name = "T1").execute()
+            MarkCatalogReady(tenant.id, catalogKey).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.0.0").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalogId), name = "T2").execute()
+            MarkCatalogReady(tenant.id, catalogKey).execute()
             val v110 = ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.1.0").execute()
 
             val r = GetLatestCatalogRelease(tenant.id, catalogKey).query()
@@ -86,8 +89,10 @@ class GetLatestCatalogReleaseTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Latest Minor").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalogId), name = "T1").execute()
+            MarkCatalogReady(tenant.id, catalogKey).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.9.0").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalogId), name = "T2").execute()
+            MarkCatalogReady(tenant.id, catalogKey).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.10.0").execute()
 
             val r = GetLatestCatalogRelease(tenant.id, catalogKey).query()

@@ -63,26 +63,14 @@ class GetEditorContextHandler(
                 dt.name as template_name,
                 th.id AS theme_key,
                 th_cat.catalog_key AS theme_catalog_key,
-                cv.data_model,
-                cv.data_examples,
+                dt.data_model,
+                dt.data_examples,
                 tv.attributes as variant_attributes,
-                COALESCE(draft.template_model, published.template_model) as draft_template_model
+                tv.template_model as draft_template_model
             FROM template_variants tv
             JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
             LEFT JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
             LEFT JOIN catalogs th_cat ON th_cat.tenant_key = th.tenant_key AND th_cat.catalog_id = th.catalog_id
-            LEFT JOIN template_versions draft ON draft.tenant_key = tv.tenant_key AND draft.template_resource_id = tv.template_resource_id AND draft.variant_key = tv.id AND draft.status = 'draft'
-            LEFT JOIN LATERAL (
-                SELECT template_model FROM template_versions
-                WHERE tenant_key = tv.tenant_key AND template_resource_id = tv.template_resource_id AND variant_key = tv.id AND status = 'published'
-                ORDER BY id DESC LIMIT 1
-            ) published ON draft.template_model IS NULL
-            LEFT JOIN LATERAL (
-                SELECT data_model, data_examples FROM contract_versions
-                WHERE tenant_key = dt.tenant_key AND template_resource_id = dt.resource_id
-                ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
-                LIMIT 1
-            ) cv ON TRUE
             WHERE tv.tenant_key = :tenantId
               AND tv.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
               AND tv.id = :variantId
@@ -134,7 +122,7 @@ class GetEditorContextHandler(
             } else {
                 null
             }
-        } ?: error("Variant ${query.variantId} has no draft or published version with templateModel")
+        } ?: error("Variant ${query.variantId} has no templateModel")
 
         EditorContext(
             templateName = row["template_name"] as String,

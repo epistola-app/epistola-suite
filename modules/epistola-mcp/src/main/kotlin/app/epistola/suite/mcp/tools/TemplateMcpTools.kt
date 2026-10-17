@@ -90,8 +90,8 @@ class TemplateMcpTools(
     @McpTool(
         name = "list_variants",
         description = "List variants for a template. A variant is a parallel rendition of the template " +
-            "for a specific audience (language, brand, etc.). Each variant has its own version history " +
-            "and one default variant is selected when no variant is specified at preview time.",
+            "for a specific audience (language, brand, etc.). Each variant has one working model, " +
+            "versioned with its catalog, and one default variant is selected when no variant is specified at preview time.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun listVariants(
@@ -140,8 +140,8 @@ class TemplateMcpTools(
     @McpTool(
         name = "create_template",
         description = "Create a template in an AUTHORED catalog. The template starts with a default variant " +
-            "holding an empty draft, and an empty draft data contract. Fill the draft with " +
-            "`update_template_draft`, describe its input data with `update_data_contract`, and add " +
+            "holding an empty document, and an empty data contract. Fill the document with " +
+            "`update_variant_content`, describe its input data with `update_data_contract`, and add " +
             "further variants with `create_variant`. Optionally pick a theme and the default variant's " +
             "attributes up front — set `system.locale` there, since `\$formatDate` and " +
             "`\$formatLocaleNumber` follow it. Requires the TEMPLATE_EDIT permission.",
@@ -191,7 +191,7 @@ class TemplateMcpTools(
     @McpTool(
         name = "update_template",
         description = "Update a template's metadata: name, theme, PDF/A output. Omitted arguments are left " +
-            "unchanged. Content lives in variant drafts; change it with `update_template_draft`. " +
+            "unchanged. Content lives in the variants; change it with `update_variant_content`. " +
             "Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
@@ -228,7 +228,7 @@ class TemplateMcpTools(
     @McpTool(
         name = "create_variant",
         description = "Add a variant to a template, e.g. a second language. The variant starts with an empty " +
-            "draft; fill it with `update_template_draft`. Attribute keys must be defined (see " +
+            "document; fill it with `update_variant_content`. Attribute keys must be defined (see " +
             "`list_attributes`); use the catalog-qualified form, e.g. `system.locale`, and values must satisfy " +
             "the definition. Give each variant a distinct attribute set: identical sets are accepted here but " +
             "make attribute-based variant selection fail as ambiguous at generation time. " +

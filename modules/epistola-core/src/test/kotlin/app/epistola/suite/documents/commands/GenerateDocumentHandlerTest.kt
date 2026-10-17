@@ -17,7 +17,7 @@ import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
@@ -52,11 +52,11 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
             name = "Test Template",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         val data = objectMapper.createObjectNode().put("test", "value")
@@ -102,7 +102,7 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
         mediator.send(CreateDocumentTemplate(id = templateId, name = "Released"))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))
-        mediator.send(UpdateDraft(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Released")))
+        mediator.send(UpdateVariantContent(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Released")))
         mediator.publishAndRelease(variantId)
 
         assertThatThrownBy {

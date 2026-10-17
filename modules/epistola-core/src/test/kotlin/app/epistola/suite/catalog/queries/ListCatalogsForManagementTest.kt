@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
@@ -49,6 +50,7 @@ class ListCatalogsForManagementTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Drift None").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant.id))), name = "Brand").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
 
             assertThat(pendingKeys(tenant.id)).doesNotContain(key)
@@ -63,6 +65,7 @@ class ListCatalogsForManagementTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Drift Edited").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalogId), name = "Brand").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
 
             // A resource changed after the release → working copy drifted.
@@ -79,6 +82,7 @@ class ListCatalogsForManagementTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Drift Reimport").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant.id))), name = "Brand").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
             val zip = ExportCatalogZip(tenantKey = tenant.id, catalogKey = key).execute().zipBytes
 

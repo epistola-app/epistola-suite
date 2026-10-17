@@ -20,12 +20,11 @@ import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
 import app.epistola.suite.templates.commands.variants.UpdateVariant
-import app.epistola.suite.templates.commands.versions.CreateVersion
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.Node
-import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -67,12 +66,11 @@ class RelocationSnapshotRoundTripTest : RelocationTestSupport() {
         withMediator {
             // The republished invoice names shared itself, which letters then depends on.
             declareDependency(tenant, letters, on = shared)
-            CreateVersion(templateVariant(tenant, letters)).execute()
-            UpdateDraft(
+            UpdateVariantContent(
                 templateVariant(tenant, letters),
                 singleNodeModel(Node(id = "logo", type = "image", props = mapOf("imageKey" to "logo", "catalogKey" to shared.value)), usesTheme("brand", shared.value).themeRef),
             ).execute()
-            PublishVersion(VersionId(GetDraft(templateVariant(tenant, letters)).query()!!.id, templateVariant(tenant, letters))).execute()
+            MarkVariantReady(templateVariant(tenant, letters)).execute()
         }
         val identities = moved.associateWith { identityAt(tenant, it.copy(catalogKey = shared.value)) }
 

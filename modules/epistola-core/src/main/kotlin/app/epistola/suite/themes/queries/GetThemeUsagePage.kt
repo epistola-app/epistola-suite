@@ -9,12 +9,10 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.model.VersionStatus
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -33,10 +31,7 @@ data class ThemeUsage(
     val templateName: String,
     val variantKey: VariantKey,
     val variantTitle: String,
-    val versionKey: VersionKey,
-    val versionStatus: VersionStatus,
     val source: ThemeUsageSource,
-    val frozenSnapshot: Boolean,
 )
 
 data class ThemeUsagePage(
@@ -80,46 +75,38 @@ class GetThemeUsagePageHandler(
                     template.name AS template_name,
                     variant.id AS variant_key,
                     variant.title AS variant_title,
-                    version.id AS version_key,
-                    version.status AS version_status,
-                    version.rendering_defaults_version IS NOT NULL
-                        AND version.resolved_theme IS NOT NULL AS frozen_snapshot,
                     CASE
-                        WHEN COALESCE(version.template_model -> 'themeRef' ->> 'type', 'inherit') = 'override'
+                        WHEN COALESCE(variant.template_model -> 'themeRef' ->> 'type', 'inherit') = 'override'
                             THEN 'VARIANT_OVERRIDE'
                         WHEN template.theme_resource_id IS NOT NULL
                             THEN 'TEMPLATE_DEFAULT'
                         ELSE 'TENANT_DEFAULT'
                     END AS usage_source,
                     CASE
-                        WHEN COALESCE(version.template_model -> 'themeRef' ->> 'type', 'inherit') = 'override'
-                            THEN version.template_model -> 'themeRef' ->> 'themeKey'
+                        WHEN COALESCE(variant.template_model -> 'themeRef' ->> 'type', 'inherit') = 'override'
+                            THEN variant.template_model -> 'themeRef' ->> 'themeKey'
                         WHEN template.theme_resource_id IS NOT NULL
                             THEN template_theme.id::text
                         ELSE tenant_theme.id::text
                     END AS effective_theme_key,
                     CASE
-                        WHEN COALESCE(version.template_model -> 'themeRef' ->> 'type', 'inherit') = 'override'
+                        WHEN COALESCE(variant.template_model -> 'themeRef' ->> 'type', 'inherit') = 'override'
                             THEN COALESCE(
-                                version.template_model -> 'themeRef' ->> 'catalogKey',
+                                variant.template_model -> 'themeRef' ->> 'catalogKey',
                                 template_theme_catalog.catalog_key::text
                             )
                         WHEN template.theme_resource_id IS NOT NULL
                             THEN template_theme_catalog.catalog_key::text
                         ELSE tenant_theme_catalog.catalog_key::text
                     END AS effective_theme_catalog_key
-                FROM template_versions version
-                JOIN template_variants variant
-                  ON variant.tenant_key = version.tenant_key
-                 AND variant.template_resource_id = version.template_resource_id
-                 AND variant.id = version.variant_key
+                FROM template_variants variant
                 JOIN document_templates template
                   ON template.tenant_key = variant.tenant_key
                  AND template.resource_id = variant.template_resource_id
                 JOIN catalogs template_catalog
                   ON template_catalog.tenant_key = template.tenant_key
                  AND template_catalog.catalog_id = template.catalog_id
-                JOIN tenants tenant ON tenant.id = version.tenant_key
+                JOIN tenants tenant ON tenant.id = variant.tenant_key
                 LEFT JOIN themes template_theme
                   ON template_theme.tenant_key = template.tenant_key
                  AND template_theme.resource_id = template.theme_resource_id
@@ -132,8 +119,7 @@ class GetThemeUsagePageHandler(
                 LEFT JOIN catalogs tenant_theme_catalog
                   ON tenant_theme_catalog.tenant_key = tenant_theme.tenant_key
                  AND tenant_theme_catalog.catalog_id = tenant_theme.catalog_id
-                WHERE version.tenant_key = :tenantKey
-                  AND version.status IN ('draft', 'published')
+                WHERE variant.tenant_key = :tenantKey
             ),
             matching_usage AS (
                 SELECT *
@@ -155,7 +141,7 @@ class GetThemeUsagePageHandler(
             SELECT matching_usage.*, COUNT(*) OVER()::int AS total_count
             FROM matching_usage
             ORDER BY template_name, template_catalog_key, template_key,
-                     variant_title, variant_key, version_key DESC
+                     variant_title, variant_key
             LIMIT :limit OFFSET :offset
             """,
         )
@@ -172,10 +158,7 @@ class GetThemeUsagePageHandler(
                         templateName = rs.getString("template_name"),
                         variantKey = VariantKey.of(rs.getString("variant_key")),
                         variantTitle = rs.getString("variant_title"),
-                        versionKey = VersionKey.of(rs.getInt("version_key")),
-                        versionStatus = VersionStatus.valueOf(rs.getString("version_status").uppercase()),
                         source = ThemeUsageSource.valueOf(rs.getString("usage_source")),
-                        frozenSnapshot = rs.getBoolean("frozen_snapshot"),
                     ),
                     total = rs.getInt("total_count"),
                 )

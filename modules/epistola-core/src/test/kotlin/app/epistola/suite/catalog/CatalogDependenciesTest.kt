@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ResolveCatalogDependencies
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
@@ -37,8 +38,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
@@ -76,7 +77,10 @@ class CatalogDependenciesTest : IntegrationTestBase() {
         CreateCatalog(tenant, shared, "Shared").execute()
         CreateCatalog(tenant, letters, "Letters").execute()
         CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant))), "Brand", documentStyles = mapOf("color" to "#000000")).execute()
-        releases.forEach { ReleaseCatalogVersion(tenant, shared, it).execute() }
+        releases.forEach {
+            MarkCatalogReady(tenant, shared).execute()
+            ReleaseCatalogVersion(tenant, shared, it).execute()
+        }
         tenant
     }
 
@@ -91,6 +95,7 @@ class CatalogDependenciesTest : IntegrationTestBase() {
 
     private fun releaseShared(tenant: TenantKey, version: String, color: String) = withMediator {
         UpdateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant))), documentStyles = mapOf("color" to color)).execute()
+        MarkCatalogReady(tenant, shared).execute()
         ReleaseCatalogVersion(tenant, shared, version).execute()
     }
 
@@ -100,7 +105,8 @@ class CatalogDependenciesTest : IntegrationTestBase() {
         CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
         UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("brand"), themeCatalogKey = shared).execute()
         val variant = VariantId(VariantKey.INITIAL, templateId)
-        PublishVersion(VersionId(UpdateDraft(variant, plainModel()).execute()!!.id, variant)).execute()
+        UpdateVariantContent(variant, plainModel()).execute()
+        MarkVariantReady(variant).execute()
     }
 
     // ── Declaring ──
@@ -180,7 +186,8 @@ class CatalogDependenciesTest : IntegrationTestBase() {
             CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
             UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("house"), themeCatalogKey = letters).execute()
             val variant = VariantId(VariantKey.INITIAL, templateId)
-            PublishVersion(VersionId(UpdateDraft(variant, plainModel()).execute()!!.id, variant)).execute()
+            UpdateVariantContent(variant, plainModel()).execute()
+            MarkVariantReady(variant).execute()
         }
         assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }).isEmpty()
 
@@ -204,6 +211,7 @@ class CatalogDependenciesTest : IntegrationTestBase() {
         invoiceOnSharedTheme(tenant)
         releaseShared(tenant, "1.1.0", "#111111")
 
+        withMediator { MarkCatalogReady(tenant, letters).execute() }
         withMediator { ReleaseCatalogVersion(tenant, letters, "1.0.0").execute() }
 
         val pins = withMediator { ListReleaseDependencies(tenant, letters, "1.0.0").query() }
@@ -221,6 +229,7 @@ class CatalogDependenciesTest : IntegrationTestBase() {
         invoiceOnSharedTheme(tenant)
         releaseShared(tenant, "1.0.0", "#111111")
 
+        withMediator { MarkCatalogReady(tenant, letters).execute() }
         withMediator { ReleaseCatalogVersion(tenant, letters, "1.0.0").execute() }
 
         assertThat(withMediator { ListReleaseDependencies(tenant, letters, "1.0.0").query() }.single().releaseVersion).isEqualTo("1.0.0")
@@ -232,6 +241,7 @@ class CatalogDependenciesTest : IntegrationTestBase() {
         val tenant = setUp("deps-undeclared", "1.0.0")
         invoiceOnSharedTheme(tenant)
 
+        withMediator { MarkCatalogReady(tenant, letters).execute() }
         assertThatThrownBy { withMediator { ReleaseCatalogVersion(tenant, letters, "1.0.0").execute() } }
             .hasMessageContaining("which catalogDependencies does not declare")
     }
@@ -243,6 +253,7 @@ class CatalogDependenciesTest : IntegrationTestBase() {
         val origin = setUp("deps-origin", "1.0.0")
         update(origin, declared(origin, "^1.0.0"))
         invoiceOnSharedTheme(origin)
+        withMediator { MarkCatalogReady(origin, letters).execute() }
         withMediator { ReleaseCatalogVersion(origin, letters, "1.0.0").execute() }
         releaseShared(origin, "1.1.0", "#ff0000")
         val sharedArchives = listOf("1.0.0", "1.1.0").map { version -> withMediator { ExportCatalogZip(origin, shared, version).execute() }.zipBytes }

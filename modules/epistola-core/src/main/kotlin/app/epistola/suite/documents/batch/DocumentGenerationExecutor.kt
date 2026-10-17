@@ -36,8 +36,6 @@ import app.epistola.suite.stencils.StencilResolvers
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.DocumentContentStore
 import app.epistola.suite.templates.queries.GetDocumentTemplate
-import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
-import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.time.EpistolaClock
@@ -226,171 +224,13 @@ class DocumentGenerationExecutor(
 
         if (request.releaseVersion != null) return generateFromRelease(request, request.releaseVersion)
 
-        // Build composite IDs
-        val tenantId = TenantId(request.tenantKey)
-        val catalogId = CatalogId(request.catalogKey, tenantId)
-        val templateId = TemplateId(request.templateKey, catalogId)
-        val variantId = VariantId(request.variantKey, templateId)
-
-        // 1. Resolve template version
-        val version = if (request.versionKey != null) {
-            // Use explicit version
-            val versionId = VersionId(request.versionKey, variantId)
-            mediator.query(GetVersion(versionId))
-                ?: throw IllegalStateException("Version ${request.versionKey} not found")
-        } else if (request.environmentKey != null) {
-            // Accepted before 2.0 against an environment activation. Environments now serve catalog
-            // releases and activations are not carried over, so there is nothing to render it from.
-            throw IllegalStateException(
-                "Request ${request.id.value} was accepted against environment '${request.environmentKey.value}' before " +
-                    "environments deployed catalog releases; resubmit it",
-            )
-        } else {
-            // Fallback: latest published version (safety net — handler should have resolved this)
-            mediator.query(GetLatestPublishedVersion(variantId))
-                ?: throw IllegalStateException("No published version found for template ${request.templateKey} variant ${request.variantKey}. Import a catalog or publish a version first.")
-        }
-
-        // 2. Get template model, its stencil instances expanded from the stencils as they are now
-        val templateModel = stencilResolvers.expandWithWorkingCopies(request.tenantKey, request.catalogKey, version.templateModel)
-
-        // 3. Fetch template to get default theme
-        val template = mediator.query(GetDocumentTemplate(templateId))
-            ?: throw IllegalStateException("Template ${request.templateKey} not found")
-
-        // 4. Fetch tenant to get default theme (ultimate fallback)
-        val tenant = mediator.query(GetTenant(id = request.tenantKey))
-            ?: throw IllegalStateException("Tenant ${request.tenantKey} not found")
-
-        // 5. Validate data against contract schema (if defined)
-        val dataModel: ObjectNode? = version.contractVersion?.let { cv ->
-            val contractVersion = mediator.query(
-                app.epistola.suite.templates.contracts.queries.GetContractVersion(
-                    id = app.epistola.suite.common.ids.ContractVersionId(
-                        cv,
-                        app.epistola.suite.common.ids.TemplateId(
-                            request.templateKey,
-                            app.epistola.suite.common.ids.CatalogId(request.catalogKey, app.epistola.suite.common.ids.TenantId(request.tenantKey)),
-                        ),
-                    ),
-                ),
-            )
-            contractVersion?.dataModel
-        }
-        // A field the client omitted falls back to its schema `default`, applied
-        // before validation so a required-but-defaulted field doesn't fail as
-        // missing, and before rendering so the fallback actually reaches the PDF.
-        val effectiveData = if (dataModel != null) schemaValidator.applyDefaults(dataModel, request.data) else request.data
-        if (dataModel != null) {
-            val errors = schemaValidator.validate(dataModel, effectiveData)
-            if (errors.isNotEmpty()) {
-                val errorMessages = errors.joinToString("; ") { "${it.path}: ${it.message}" }
-                throw IllegalArgumentException("Data validation failed: $errorMessages")
-            }
-        }
-
-        // 6. Generate PDF
-        val outputStream = ByteArrayOutputStream()
-
-        @Suppress("UNCHECKED_CAST")
-        val dataMap = objectMapper.convertValue(effectiveData, Map::class.java) as Map<String, Any?>
-        val metadata = PdfMetadata(
-            title = template.name,
-            author = tenant.name,
+        // Accepted before 2.0, against a template version or an environment activation. The catalog
+        // release is the only version now, and neither is carried over, so there is nothing to
+        // render it from as it was asked.
+        throw IllegalStateException(
+            "Request ${request.id.value} was accepted before documents were generated from catalog releases " +
+                "(${request.versionKey?.let { "template version ${it.value}" } ?: request.environmentKey?.let { "environment '${it.value}'" } ?: "no release"}); resubmit it",
         )
-        val assetResolver = AssetResolver { assetId, catalogKey ->
-            mediator.query(GetAssetContent(request.tenantKey, AssetKey.of(assetId), catalogKey?.let { CatalogKey.of(it) }))
-                ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
-        }
-        // Owning catalog for unqualified font refs: same cascade as theme
-        // resolution / asset binding (template theme catalog → tenant default
-        // theme catalog → the tenant's default catalog).
-        val owningCatalogKey =
-            template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: CatalogKey.DEFAULT
-        val fontResolver = fontFamilyResolver(request.tenantKey, owningCatalogKey, fontByteCache)
-
-        // Resolve formatting culture via variant attribute → tenant default → app default
-        val culture = localeResolver.resolveCulture(tenant, variantId)
-
-        // Use frozen snapshot for published versions, live resolution for legacy versions
-        val resolvedTheme = version.resolvedTheme
-        val renderingDefaultsVersion = version.renderingDefaultsVersion
-        val renderPath: String
-        if (resolvedTheme != null && renderingDefaultsVersion != null) {
-            renderPath = "snapshot"
-            // Deterministic-or-nothing: a published version must render with the
-            // exact font bytes pinned at publish. Fail loudly on drift.
-            fontSnapshotVerifier.verify(request.tenantKey, owningCatalogKey, resolvedTheme)
-            // Deterministic path: use frozen theme + rendering defaults from publish time
-            val renderingDefaults = RenderingDefaults.forVersion(renderingDefaultsVersion)
-            val metadataWithEngine = metadata.copy(engineVersion = renderingDefaults.engineVersionString())
-            generationService.renderPdfWithSnapshot(
-                templateModel,
-                dataMap,
-                outputStream,
-                resolvedTheme,
-                renderingDefaults,
-                metadataWithEngine,
-                pdfaCompliant = template.pdfaEnabled,
-                assetResolver = assetResolver,
-                fontFamilyResolver = fontResolver,
-                culture = culture,
-            )
-        } else {
-            renderPath = "legacy"
-            // Legacy path: live theme resolution (backward compatible for pre-V16 published versions)
-            val metadataWithEngine = metadata.copy(
-                engineVersion = RenderingDefaults.CURRENT.engineVersionString(),
-            )
-            generationService.renderPdf(
-                request.tenantKey,
-                templateModel,
-                dataMap,
-                outputStream,
-                template.themeKey,
-                tenant.defaultThemeKey,
-                metadataWithEngine,
-                pdfaCompliant = template.pdfaEnabled,
-                assetResolver = assetResolver,
-                fontFamilyResolver = fontResolver,
-                templateCatalogKey = template.themeCatalogKey,
-                tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
-                culture = culture,
-            )
-        }
-
-        val pdfBytes = outputStream.toByteArray()
-        val sizeBytes = pdfBytes.size.toLong()
-
-        // 7. Validate size
-        val maxSizeBytes = maxDocumentSizeMb * 1024 * 1024
-        if (sizeBytes > maxSizeBytes) {
-            throw IllegalStateException("Generated document size ($sizeBytes bytes) exceeds maximum ($maxSizeBytes bytes)")
-        }
-
-        // 8. Generate filename if not provided
-        val filename = request.filename ?: "document-${request.id.value}.pdf"
-
-        // 9. Create Document entity (metadata only — content stored separately)
-        val document = Document(
-            id = DocumentKey.generate(),
-            tenantKey = request.tenantKey,
-            catalogKey = request.catalogKey,
-            templateKey = request.templateKey,
-            variantKey = request.variantKey,
-            versionKey = version.id,
-            filename = filename,
-            correlationId = request.correlationId,
-            contentType = "application/pdf",
-            sizeBytes = sizeBytes,
-            createdAt = EpistolaClock.offsetDateTime(),
-            // Background generation runs under the JobPoller's SystemUser
-            // principal, which is a real seeded `users` row — so the creator is
-            // simply the bound principal (a real user for API-triggered
-            // generation, SystemUser for background jobs).
-            createdBy = currentUserIdOrNull(),
-        )
-        return Triple(document, pdfBytes, renderPath)
     }
 
     /**

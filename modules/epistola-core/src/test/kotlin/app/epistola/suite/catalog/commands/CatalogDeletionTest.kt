@@ -26,7 +26,7 @@ import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.DeleteStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
@@ -174,7 +174,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 CreateDocumentTemplate(id = templateId, name = "Stencil Consumer").execute()
                 val variantKey = VariantKey.INITIAL
                 val variantId = VariantId(variantKey, templateId)
-                UpdateDraft(
+                UpdateVariantContent(
                     variantId = variantId,
                     templateModel = buildTemplateModelWithStencil(stencilKey),
                 ).execute()
@@ -212,7 +212,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 CreateDocumentTemplate(id = templateId, name = "Force Consumer").execute()
                 val variantKey = VariantKey.INITIAL
                 val variantId = VariantId(variantKey, templateId)
-                UpdateDraft(
+                UpdateVariantContent(
                     variantId = variantId,
                     templateModel = buildTemplateModelWithStencil(stencilKey),
                 ).execute()
@@ -250,7 +250,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 CreateDocumentTemplate(id = templateId, name = "Asset Consumer").execute()
                 val variantKey = VariantKey.INITIAL
                 val variantId = VariantId(variantKey, templateId)
-                UpdateDraft(
+                UpdateVariantContent(
                     variantId = variantId,
                     templateModel = buildTemplateModelWithAsset(asset.id),
                 ).execute()
@@ -285,7 +285,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 CreateDocumentTemplate(id = templateId, name = "Force Asset Consumer").execute()
                 val variantKey = VariantKey.INITIAL
                 val variantId = VariantId(variantKey, templateId)
-                UpdateDraft(
+                UpdateVariantContent(
                     variantId = variantId,
                     templateModel = buildTemplateModelWithAsset(asset.id),
                 ).execute()

@@ -23,16 +23,6 @@ import org.junit.jupiter.api.Test
 class RelocationDeletionTest : RelocationTestSupport() {
 
     @Test
-    fun `a moved font named only by its old address can be deleted`() {
-        val tenant = tenantWith("Delete moved font named by old address")
-        importFont(tenant, letters, "acme")
-        publishTemplate(tenant, letters, singleNodeModel(Node(id = "title", type = "text", styles = fontStyle("acme", letters.value))))
-        move(tenant, address(CatalogResourceType.FONT, letters, "acme").movedTo(shared))
-
-        assertThat(withMediator { DeleteFont(FontId(FontKey.of("acme"), catalogId(tenant, shared))).execute() }).isTrue()
-    }
-
-    @Test
     fun `a moved font used at its new address cannot be deleted`() {
         val tenant = tenantWith("Delete moved font in use")
         importFont(tenant, letters, "acme")

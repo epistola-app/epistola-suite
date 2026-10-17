@@ -39,6 +39,7 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListKey
@@ -154,6 +155,7 @@ class ImportCatalogZipHandler(
     private val schemaMigrator: CatalogSchemaMigrator,
     private val identity: CatalogIdentityProperties,
     private val dependencyStore: CatalogDependencyStore,
+    private val readyMarks: ReadyMarks,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -477,6 +479,12 @@ class ImportCatalogZipHandler(
                     emptyList()
                 }
                 dependencyStore.replace(handle, command.tenantKey, catalogKey, declared + kept)
+                // What an archive brings is released content: imported, every resource of it is
+                // ready as it is (contract ADR 0002), which adopting its release below relies on.
+                for (entry in manifest.resources) {
+                    readyMarks.resourceId(handle, command.tenantKey, catalogKey, entry.type, entry.key)
+                        ?.let { readyMarks.mark(handle, command.tenantKey, it) }
+                }
             }
         }
 

@@ -24,9 +24,8 @@ import org.springframework.stereotype.Component
  *
  *  - `themes.document_styles` (top-level + nested) and
  *    `themes.block_style_presets` (per-preset styles),
- *  - `template_versions.template_model` (node-level
- *    `documentStylesOverride` / inline styles), for `draft` or `published`
- *    versions only.
+ *  - `template_variants.template_model` (node-level
+ *    `documentStylesOverride` / inline styles), each variant's working model.
  *
  * The recursive `jsonpath` (`$.**.fontFamily ? (...)`) finds a `fontFamily` at any depth, so we
  * don't have to enumerate every nesting path.
@@ -73,12 +72,10 @@ class FindFontUsagesHandler(
         val templateUsages = handle.createQuery(
             """
             SELECT DISTINCT dt.name AS name
-            FROM template_versions ver
-            JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.template_resource_id = ver.template_resource_id AND tv.id = ver.variant_key
+            FROM template_variants tv
             JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
-            WHERE ver.tenant_key = :tenantKey
-              AND ver.status IN ('draft', 'published')
-              AND jsonb_path_exists(ver.template_model, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
+            WHERE tv.tenant_key = :tenantKey
+              AND jsonb_path_exists(tv.template_model, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
             ORDER BY dt.name
             """,
         )

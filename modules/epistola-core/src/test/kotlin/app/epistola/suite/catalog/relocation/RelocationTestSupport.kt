@@ -44,13 +44,13 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
-import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.withRequiredDataExample
@@ -227,8 +227,8 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
     protected fun templateVariant(tenant: TenantKey, catalog: CatalogKey, key: String = "invoice") = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of(key), catalogId(tenant, catalog)))
 
     /**
-     * Creates template [key] in [catalog], runs [setup] with its id, then publishes [model] as its
-     * first version and returns that version.
+     * Creates template [key] in [catalog], runs [setup] with its id, then sets [model] as its
+     * content and marks the variant ready.
      */
     protected fun publishTemplate(
         tenant: TenantKey,
@@ -236,15 +236,13 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
         model: TemplateDocument,
         key: String = "invoice",
         setup: (TemplateId) -> Unit = {},
-    ): VersionKey {
+    ) {
         val variant = templateVariant(tenant, catalog, key)
-        return withMediator {
+        withMediator {
             CreateDocumentTemplate(variant.templateId, "Template $key").execute().withRequiredDataExample()
             setup(variant.templateId)
-            UpdateDraft(variant, model).execute()
-            val draft = GetDraft(variant).query()!!.id
-            PublishVersion(VersionId(draft, variant)).execute()
-            draft
+            UpdateVariantContent(variant, model).execute()
+            MarkVariantReady(variant).execute()
         }
     }
 

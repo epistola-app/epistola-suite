@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.InstallFromCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
@@ -88,6 +89,7 @@ class GetCatalogContextTest : IntegrationTestBase() {
             enable(tenant.id)
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Clean cat").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant.id))), name = "Brand").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
 
             val context = context(tenant.id, key)!!
@@ -108,6 +110,7 @@ class GetCatalogContextTest : IntegrationTestBase() {
             enable(tenant.id)
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Drifted cat").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalogId), name = "Brand").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "2.1.0").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("after"), catalogId), name = "After").execute()
 

@@ -36,7 +36,7 @@ import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.DocumentContentStore
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
@@ -168,7 +168,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             val templateModel = TestTemplateBuilder.buildMinimal(name = "Invoice Template")
             val version = released(compositeVariantId, templateModel)
 
-            app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+            app.epistola.suite.templates.contracts.commands.UpdateDataContract(
                 templateId = compositeTemplateId,
                 dataModel = objectMapper.readValue(
                     """
@@ -216,7 +216,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             val tenantId = TenantId(tenant.id)
             val template = template(tenant.id, "Invoice Template")
             val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
-            app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+            app.epistola.suite.templates.contracts.commands.UpdateDataContract(
                 templateId = compositeTemplateId,
                 dataModel = objectMapper.readValue(
                     """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
@@ -320,11 +320,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             name = "Report Template",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         // Create batch items
@@ -390,11 +390,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             name = "Test Template",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         // Create mix of valid and invalid data
@@ -469,11 +469,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             name = "Test Template",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         // Create a large batch to ensure it stays in PENDING/IN_PROGRESS for a moment
@@ -529,11 +529,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             name = "Test Template",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         // Create multiple requests
@@ -624,11 +624,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             name = "Template 1",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId1,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version1 = mediator.publishAndRelease(variantId1)
 
         // Generate document for tenant 1
@@ -670,11 +670,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         val items = listOf(
@@ -735,11 +735,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         val items = listOf(
@@ -780,11 +780,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         val items = listOf(
@@ -825,11 +825,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         val items = listOf(
@@ -866,11 +866,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         val items = listOf(
@@ -917,11 +917,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         // Generate documents with different correlation IDs

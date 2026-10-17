@@ -20,7 +20,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
@@ -245,7 +245,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
             CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
             val variantKey = VariantKey.INITIAL
             val variantId = VariantId(variantKey, templateId)
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = buildTemplateModelWithAsset(asset.id),
             ).execute()
@@ -268,7 +268,7 @@ class AssetIntegrationTest : IntegrationTestBase() {
         CreateDocumentTemplate(id = templateId, name = "Welcome Letter").execute()
         val variantKey = VariantKey.INITIAL
         val variantId = VariantId(variantKey, templateId)
-        UpdateDraft(
+        UpdateVariantContent(
             variantId = variantId,
             templateModel = buildTemplateModelWithAsset(asset.id),
         ).execute()
@@ -300,13 +300,13 @@ class AssetIntegrationTest : IntegrationTestBase() {
         CreateDocumentTemplate(id = templateId, name = "Receipt").execute()
         val variantKey = VariantKey.INITIAL
         val variantId = VariantId(variantKey, templateId)
-        UpdateDraft(
+        UpdateVariantContent(
             variantId = variantId,
             templateModel = buildTemplateModelWithAsset(asset.id),
         ).execute()
 
         // Remove asset from template by updating with empty model
-        UpdateDraft(
+        UpdateVariantContent(
             variantId = variantId,
             templateModel = buildEmptyTemplateModel(),
         ).execute()

@@ -123,7 +123,7 @@ class ThemeMcpTools(
             "that whole field, so read the theme with `get_theme` first and send back the merged value. " +
             "To add, change or drop single presets without resending the others, use `mergeBlockStylePresets` " +
             "and `removeBlockStylePresets` instead of `blockStylePresets`. " +
-            "Templates using the theme pick up the change in drafts and in versions published afterwards. " +
+            "Templates using the theme pick up the change at once; releases keep the theme they were cut with. " +
             "Requires the THEME_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )

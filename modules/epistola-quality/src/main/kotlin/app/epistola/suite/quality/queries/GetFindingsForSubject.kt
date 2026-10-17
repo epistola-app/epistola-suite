@@ -68,17 +68,14 @@ class GetFindingsForSubjectHandler(
     private val objectMapper: ObjectMapper,
 ) : QueryHandler<GetFindingsForSubject, SubjectFindings> {
     override fun handle(query: GetFindingsForSubject): SubjectFindings = jdbi.withHandle<SubjectFindings, Exception> { handle ->
-        // Draft first, else newest published — the same document the editor is showing, and the same
-        // one SubmitQualityFindings hashes, so the two fingerprints are comparable by construction.
+        // The variant's working model — the document the editor is showing, and the same one
+        // SubmitQualityFindings hashes, so the two fingerprints are comparable by construction.
         val currentInputFingerprint = handle.createQuery(
             """
             SELECT md5(template_model::text)
-            FROM template_versions
+            FROM template_variants
             WHERE tenant_key = :tenantKey
-              AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = :variantKey
-              AND status IN ('draft', 'published')
-            ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
-            LIMIT 1
+              AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND id = :variantKey
             """,
         )
             .bind("tenantKey", query.tenantKey)

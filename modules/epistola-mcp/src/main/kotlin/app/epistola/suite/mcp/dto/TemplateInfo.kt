@@ -16,8 +16,8 @@ data class TemplateSummaryInfo(
     val catalogId: String,
     val name: String,
     val variantCount: Int,
-    val hasDraft: Boolean,
-    val publishedVersionCount: Int,
+    /** Whether every variant's content is marked ready as it is now. */
+    val ready: Boolean,
     val updatedAt: OffsetDateTime,
 ) {
     companion object {
@@ -26,8 +26,7 @@ data class TemplateSummaryInfo(
             catalogId = summary.catalogKey.value,
             name = summary.name,
             variantCount = summary.variantCount,
-            hasDraft = summary.hasDraft,
-            publishedVersionCount = summary.publishedVersionCount,
+            ready = summary.ready,
             updatedAt = summary.updatedAt,
         )
     }

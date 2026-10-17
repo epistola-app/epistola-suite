@@ -22,6 +22,7 @@ import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
 import app.epistola.suite.common.ids.TenantKey
@@ -121,6 +122,7 @@ class ReleaseCatalogVersionHandler(
             )
         }
 
+        requireChangesReady(command.tenantKey, command.catalogKey)
         val pins = pinDependencies(command.tenantKey, command.catalogKey)
         val content = contentBuilder.build(command.tenantKey, command.catalogKey)
         fingerprintService.requirePublishable(content)
@@ -236,6 +238,20 @@ class ReleaseCatalogVersionHandler(
             releasedAt = releasedAt,
             unchangedContent = unchanged,
             publicationId = publicationId,
+        )
+    }
+
+    /**
+     * Refuses the release while a resource that changed since the last release is not marked ready
+     * as it is now (contract ADR 0002): a release contains only reviewed content.
+     */
+    private fun requireChangesReady(tenantKey: TenantKey, catalogKey: CatalogKey) {
+        val notReady = GetCatalogResourceChanges(tenantKey, catalogKey).query().notReady
+        if (notReady.isEmpty()) return
+        throw ValidationException(
+            field = "resources",
+            message = "Cannot release ${catalogKey.value}: not ready: " + notReady.joinToString { "${it.type} '${it.slug}' (${it.state.name.lowercase()})" },
+            code = ValidationCode.CATALOG_RESOURCES_NOT_READY,
         )
     }
 

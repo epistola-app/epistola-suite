@@ -17,7 +17,7 @@ import app.epistola.suite.documents.queries.PreviewVariant
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
@@ -119,7 +119,7 @@ class CrossCatalogImageRenderIntegrationTest : IntegrationTestBase() {
         CreateDocumentTemplate(id = templateId, name = "Cross-Catalog Image Template").execute()
 
         val variantId = VariantId(VariantKey.INITIAL, templateId)
-        UpdateDraft(
+        UpdateVariantContent(
             variantId = variantId,
             templateModel = TemplateDocument(
                 modelVersion = 1,

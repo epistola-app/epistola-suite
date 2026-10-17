@@ -10,7 +10,6 @@ import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
@@ -29,8 +28,8 @@ import tools.jackson.databind.ObjectMapper
 private const val USAGE_PAGE_SIZE = 100
 
 /**
- * A page of the template versions (draft and published) that use a stencil, each with whether it
- * still fits the stencil's working copy. Pagination is in SQL; the fit is checked for the page.
+ * A page of the template variants that use a stencil, each with whether its working model still
+ * fits the stencil's working copy. Pagination is in SQL; the fit is checked for the page.
  */
 data class GetStencilUsagePage(
     val stencilId: StencilId,
@@ -44,16 +43,15 @@ data class GetStencilUsagePage(
 private val USAGE_CTE = """
     WITH usage AS (
         SELECT dt.id AS template_key, c.catalog_key AS catalog_key, c.type AS catalog_type, dt.name AS template_name,
-               tv.variant_key, tv.id AS version_id, tv.status AS version_status, tv.template_model::text AS template_model,
+               tv.id AS variant_key, tv.template_model::text AS template_model,
                COUNT(*) AS instance_count
-        FROM template_versions tv
+        FROM template_variants tv
         JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
         JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.catalog_id = dt.catalog_id
         CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS node(key, value)
         WHERE tv.tenant_key = :tenantId
-          AND tv.status IN ('draft', 'published')
           AND ${StencilReferences.usedBy("node", "dt")}
-        GROUP BY dt.id, c.catalog_key, c.type, dt.name, tv.variant_key, tv.id, tv.status, tv.template_model::text
+        GROUP BY dt.id, c.catalog_key, c.type, dt.name, tv.id, tv.template_model::text
     )
 """
 
@@ -78,7 +76,7 @@ class GetStencilUsagePageHandler(
             """
             $USAGE_CTE
             SELECT * FROM usage
-            ORDER BY (CASE WHEN catalog_type = 'AUTHORED' THEN 0 ELSE 1 END), catalog_key, template_name, variant_key, version_id DESC
+            ORDER BY (CASE WHEN catalog_type = 'AUTHORED' THEN 0 ELSE 1 END), catalog_key, template_name, variant_key
             LIMIT :limit OFFSET :offset
             """,
         )
@@ -99,8 +97,6 @@ class GetStencilUsagePageHandler(
                     catalogType = CatalogType.valueOf(rs.getString("catalog_type")),
                     templateName = rs.getString("template_name"),
                     variantId = VariantKey.of(rs.getString("variant_key")),
-                    versionId = VersionKey.of(rs.getInt("version_id")),
-                    versionStatus = rs.getString("version_status"),
                     instanceCount = rs.getInt("instance_count"),
                     problems = problems,
                 )

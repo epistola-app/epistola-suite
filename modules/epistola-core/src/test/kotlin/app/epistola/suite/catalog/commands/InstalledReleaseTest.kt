@@ -25,7 +25,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
@@ -86,7 +86,7 @@ class InstalledReleaseTest : IntegrationTestBase() {
             declareDependency(tenant, CatalogKey.DEFAULT, on = SYSTEM_CATALOG_KEY)
             CreateDocumentTemplate(templateId, "Letter").execute().withRequiredDataExample()
             UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("default"), themeCatalogKey = SYSTEM_CATALOG_KEY).execute()
-            UpdateDraft(variant, TestTemplateBuilder.buildMinimal(name = "Letter")).execute()
+            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Letter")).execute()
             mediator.publishAndRelease(variant)
         }
 

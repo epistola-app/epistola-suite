@@ -28,8 +28,7 @@ import org.springframework.transaction.annotation.Transactional
 
 /**
  * Updates a template's metadata (name, theme, pdfaEnabled).
- * The data contract (schema, dataModel, dataExamples) is now versioned separately
- * in contract_versions and managed via contract version commands.
+ * The data contract is updated with [app.epistola.suite.templates.contracts.commands.UpdateDataContract].
  */
 data class UpdateDocumentTemplate(
     val id: TemplateId,

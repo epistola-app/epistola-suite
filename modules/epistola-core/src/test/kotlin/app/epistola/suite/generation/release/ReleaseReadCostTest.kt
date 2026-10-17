@@ -6,6 +6,7 @@ package app.epistola.suite.generation.release
 
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.ids.AttributeId
@@ -22,9 +23,9 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
-import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
@@ -127,9 +128,10 @@ class ReleaseReadCostTest : IntegrationTestBase() {
         CreateVariant(VariantId(VariantKey.of("eng"), letter), "English", null, mapOf("lang" to "english")).execute()
         for (variant in listOf(VariantKey.INITIAL, VariantKey.of("nld"), VariantKey.of("eng"))) {
             val id = VariantId(variant, letter)
-            UpdateDraft(id, TestTemplateBuilder.buildMinimal(name = "Letter ${variant.value}")).execute()
-            PublishVersion(VersionId(GetDraft(id).query()!!.id, id)).execute()
+            UpdateVariantContent(id, TestTemplateBuilder.buildMinimal(name = "Letter ${variant.value}")).execute()
+            MarkVariantReady(id).execute()
         }
+        MarkCatalogReady(tenantKey, catalog.key).execute()
         ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         catalog
     }

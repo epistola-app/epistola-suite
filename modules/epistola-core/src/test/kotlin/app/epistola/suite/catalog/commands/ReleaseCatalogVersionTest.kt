@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
 import app.epistola.suite.common.ids.CatalogId
@@ -33,6 +34,7 @@ class ReleaseCatalogVersionTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Release Cat").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalogId), name = "T1").execute()
 
+            MarkCatalogReady(tenantKey, catalogKey).execute()
             val result = ReleaseCatalogVersion(
                 tenantKey = tenantKey,
                 catalogKey = catalogKey,
@@ -65,17 +67,21 @@ class ReleaseCatalogVersionTest : IntegrationTestBase() {
 
         withMediator {
             CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Mono Cat").execute()
+            MarkCatalogReady(tenantKey, catalogKey).execute()
             ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = catalogKey, version = "2.0.0").execute()
 
             assertThatThrownBy {
+                MarkCatalogReady(tenantKey, catalogKey).execute()
                 ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.9.0").execute()
             }.isInstanceOf(CatalogReleaseVersionException::class.java)
 
             assertThatThrownBy {
+                MarkCatalogReady(tenantKey, catalogKey).execute()
                 ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = catalogKey, version = "2.0.0").execute()
             }.isInstanceOf(CatalogReleaseVersionException::class.java)
 
             assertThatThrownBy {
+                MarkCatalogReady(tenantKey, catalogKey).execute()
                 ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = catalogKey, version = "not-semver").execute()
             }.isInstanceOf(CatalogReleaseVersionException::class.java)
         }
@@ -109,6 +115,7 @@ class ReleaseCatalogVersionTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Drift Cat").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("base"), catalogId), name = "Base").execute()
+            MarkCatalogReady(tenantKey, catalogKey).execute()
             ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.0.0").execute()
 
             assertThat(GetCatalogReleaseStatus(tenantKey, catalogKey).query().hasUnreleasedChanges).isFalse()

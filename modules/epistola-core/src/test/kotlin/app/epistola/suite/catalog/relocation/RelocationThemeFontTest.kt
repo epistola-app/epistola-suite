@@ -17,10 +17,8 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.templates.commands.versions.CreateVersion
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.queries.versions.GetDraft
-import app.epistola.suite.templates.queries.versions.GetVersion
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -63,36 +61,6 @@ class RelocationThemeFontTest : RelocationTestSupport() {
         assertThat(edge.resolution).isEqualTo(ReferenceResolution.RESOLVED)
         assertThat(edge.target).isEqualTo(address(CatalogResourceType.FONT, letters, "acme"))
         withMediator { BuildTenantSnapshot(tenant).execute() }
-    }
-
-    /**
-     * Publishing pins a fingerprint for every font the theme uses, so a later change to the face
-     * bytes is caught at render. A publish after the font moved must still pin it -- under the
-     * address the theme names now, which the move re-pointed -- rather than silently pin nothing.
-     */
-    @Test
-    fun `a version published after its font moved still pins that font`() {
-        val tenant = tenantWith("Pin after font move", listOf(letters, shared, archive))
-        importFont(tenant, letters, "acme")
-        createTheme(tenant, archive, fontCatalog = letters.value)
-        val first = publishTemplate(tenant, archive, textModel(usesTheme("brand", archive.value).themeRef))
-        val pinnedBefore = fontFingerprints(tenant, first)
-        assertThat(pinnedBefore).containsOnlyKeys("letters/acme")
-
-        move(tenant, address(CatalogResourceType.FONT, letters, "acme").movedTo(shared))
-        val variant = templateVariant(tenant, archive)
-        val second = withMediator {
-            CreateVersion(variant).execute()
-            val draft = GetDraft(variant).query()!!.id
-            PublishVersion(VersionId(draft, variant)).execute()
-            draft
-        }
-
-        assertThat(fontFingerprints(tenant, second)).containsExactlyEntriesOf(mapOf("shared/acme" to pinnedBefore.getValue("letters/acme")))
-    }
-
-    private fun fontFingerprints(tenant: TenantKey, version: VersionKey): Map<String, String> = withMediator {
-        GetVersion(VersionId(version, templateVariant(tenant, archive))).query()!!.resolvedTheme!!.fontFingerprints
     }
 
     private fun createTheme(tenant: TenantKey, catalog: CatalogKey, fontCatalog: String?) = withMediator {

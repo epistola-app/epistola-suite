@@ -192,16 +192,10 @@ class CatalogContentBuilder(
             handle.createQuery(
                 """
                 SELECT dt.id, dt.name, th.id AS theme_key, thc.catalog_key AS theme_catalog_key, dt.pdfa_enabled,
-                       cv.data_model::text, cv.data_examples::text
+                       dt.data_model::text, dt.data_examples::text
                 FROM document_templates dt
                 LEFT JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
                 LEFT JOIN catalogs thc ON thc.tenant_key = th.tenant_key AND thc.catalog_id = th.catalog_id
-                LEFT JOIN LATERAL (
-                    SELECT data_model, data_examples FROM contract_versions
-                    WHERE tenant_key = dt.tenant_key AND template_resource_id = dt.resource_id
-                    ORDER BY CASE status WHEN 'published' THEN 0 ELSE 1 END, id DESC
-                    LIMIT 1
-                ) cv ON TRUE
                 WHERE dt.tenant_key = :tenantKey AND dt.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                 """,
             )
@@ -225,15 +219,8 @@ class CatalogContentBuilder(
             val variants = jdbi.withHandle<List<VariantRow>, Exception> { handle ->
                 handle.createQuery(
                     """
-                    SELECT v.id, v.title, v.attributes::text, v.is_default, vv.template_model
+                    SELECT v.id, v.title, v.attributes::text, v.is_default, v.template_model::text AS template_model
                     FROM template_variants v
-                    LEFT JOIN LATERAL (
-                        SELECT template_model FROM template_versions
-                        WHERE tenant_key = :tenantKey AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = v.id
-                          AND status = 'published'
-                        ORDER BY id DESC
-                        LIMIT 1
-                    ) vv ON TRUE
                     WHERE v.tenant_key = :tenantKey AND v.template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
                     """,
                 )

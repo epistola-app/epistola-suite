@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.catalog.revisions.forgetRetainedContent
@@ -55,6 +56,7 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Original name").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant.id))), name = "Brand").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0", notes = "first").execute()
 
             UpdateCatalogMetadata(
@@ -87,6 +89,7 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Legacy cat").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant.id))), name = "Brand").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
         }
         assertThat(jdbi.forgetRetainedContent(tenant.id, key)).isEqualTo(1)
@@ -109,6 +112,7 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenant.id, id = mine, name = "Mine").execute()
             CreateCatalog(tenantKey = tenant.id, id = other, name = "Other").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(other, TenantId(tenant.id))), name = "Brand").execute()
+            MarkCatalogReady(tenant.id, other).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = other, version = "1.0.0").execute()
 
             assertThat(GetCatalogRelease(tenant.id, mine, "9.9.9").query())
@@ -135,10 +139,13 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Order cat").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("one"), catalogId), name = "One").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("two"), catalogId), name = "Two").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.9.0").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("three"), catalogId), name = "Three").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.10.0").execute()
 
             assertThat(ListCatalogReleases(tenant.id, key).query().map { it.version })
@@ -161,10 +168,12 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenant.id, id = kept, name = "Kept").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("alpha"), CatalogId(kept, TenantId(tenant.id))), name = "Alpha").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("beta"), CatalogId(kept, TenantId(tenant.id))), name = "Beta").execute()
+            MarkCatalogReady(tenant.id, kept).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = kept, version = "1.0.0").execute()
 
             CreateCatalog(tenantKey = tenant.id, id = forgotten, name = "Forgotten").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("alpha"), CatalogId(forgotten, TenantId(tenant.id))), name = "Alpha").execute()
+            MarkCatalogReady(tenant.id, forgotten).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = forgotten, version = "1.0.0").execute()
         }
         jdbi.forgetRetainedContent(tenant.id, forgotten)
@@ -209,6 +218,7 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Retained cat").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("one"), catalogId), name = "One").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
         }
         // The first release is made to look like one cut before content was kept; the later ones
@@ -217,8 +227,10 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
 
         withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("two"), catalogId), name = "Two").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.9.0").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("three"), catalogId), name = "Three").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.10.0").execute()
 
             assertThat(ListRetainedReleases(tenant.id, key).query())

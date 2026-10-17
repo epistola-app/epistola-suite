@@ -22,8 +22,8 @@ import app.epistola.suite.stencils.queries.FindStencilUsages
 import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.stencils.queries.GetStencilUsagePage
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.UpdateDraft
-import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.template.model.Node
@@ -98,7 +98,7 @@ class StencilCatalogScopeTest : IntegrationTestBase() {
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Letter").execute()
         val variantId = VariantId(VariantKey.INITIAL, templateId)
-        UpdateDraft(variantId = variantId, templateModel = templateEmbedding(*instances)).execute()
+        UpdateVariantContent(variantId = variantId, templateModel = templateEmbedding(*instances)).execute()
         Fixture(tenantId, stencils[0], stencils[1], variantId)
     }
 
@@ -109,7 +109,7 @@ class StencilCatalogScopeTest : IntegrationTestBase() {
         withMediator {
             UpdateStencil(f.acmeLetterhead, content = content("acme v2")).execute()
 
-            val expanded = stencilResolvers.expandWithWorkingCopies(f.tenantId.key, CatalogKey.DEFAULT, GetDraft(f.variantId).query()!!.templateModel)
+            val expanded = stencilResolvers.expandWithWorkingCopies(f.tenantId.key, CatalogKey.DEFAULT, GetVariantContent(f.variantId).query()!!)
             assertThat(expanded.texts()).containsExactlyInAnyOrder("acme v2", "brand-b v1")
         }
     }

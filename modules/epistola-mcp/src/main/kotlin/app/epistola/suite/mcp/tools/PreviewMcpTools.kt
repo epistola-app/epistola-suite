@@ -33,7 +33,7 @@ class PreviewMcpTools(
         description = "Render a preview of a template variant as a PDF and return it base64-encoded. " +
             "When `data` is omitted, the contract's first sample example is used. " +
             "By default this renders the catalog's latest release, exactly as generation would, and fails when " +
-            "the catalog has never been released. Set `workingCopy` to render the drafts and live resources " +
+            "the catalog has never been released. Set `workingCopy` to render the working copy " +
             "instead, to see unreleased work. Set `environmentId` to render what that environment serves. " +
             "If the data does not satisfy the template's data contract the call fails; `analyze_template_data` " +
             "then says which fields are missing or wrong.",
@@ -50,7 +50,7 @@ class PreviewMcpTools(
         )
         variantId: String?,
         @McpToolParam(
-            description = "Render the working copy (drafts and live resources) instead of the latest release.",
+            description = "Render the working copy instead of the latest release.",
             required = false,
         )
         workingCopy: Boolean?,

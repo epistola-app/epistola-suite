@@ -225,7 +225,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
             val version = version(compositeVariantId, templateModel)
 
             app.epistola.suite.templates.contracts.commands
-                .UpdateContractVersion(
+                .UpdateDataContract(
                     templateId = compositeTemplateId,
                     dataModel = objectMapper.readValue(
                         """

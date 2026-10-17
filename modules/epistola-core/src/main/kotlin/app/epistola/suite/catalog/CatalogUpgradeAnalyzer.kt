@@ -140,12 +140,11 @@ class CatalogUpgradeAnalyzer(
         handle.createQuery(
             """
             SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
-            FROM template_versions tv
+            FROM template_variants tv
             JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
             JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
             WHERE tv.tenant_key = :t AND dt.catalog_id != ${catalogAt("t", "c")}
-              AND tv.status IN ('draft', 'published')
               AND n.value ->> 'type' = 'stencil'
               AND n.value -> 'props' ->> 'catalogKey' = :cStr
               AND n.value -> 'props' ->> 'stencilKey' = :slug
@@ -235,13 +234,12 @@ class CatalogUpgradeAnalyzer(
         handle.createQuery(
             """
             SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
-            FROM template_versions ver
+            FROM template_variants ver
             JOIN document_templates dt
               ON dt.tenant_key = ver.tenant_key
              AND dt.resource_id = ver.template_resource_id
             JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
             WHERE ver.tenant_key = :t
-              AND ver.status IN ('draft', 'published')
               AND jsonb_path_exists(ver.template_model, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
             """,
         ).bind("t", tenantKey).bind("jsonPath", FONT_REFERENCE_JSON_PATH).bind("vars", vars)

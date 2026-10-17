@@ -45,27 +45,6 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
 
     private val objectMapper = ObjectMapper()
 
-    /**
-     * Inserts a draft contract version with the given data model into contract_versions.
-     */
-    private fun insertDraftContract(templateId: TemplateId, dataModel: String) {
-        jdbi.withHandle<Unit, Exception> { handle ->
-            handle.createUpdate(
-                """
-                INSERT INTO contract_versions (id, tenant_key, catalog_key, template_key, data_model, data_examples, status, created_at)
-                VALUES (1, :tenantKey, :catalogKey, :templateKey, :dataModel::jsonb, '[]'::jsonb, 'draft', NOW())
-                ON CONFLICT (tenant_key, catalog_key, template_key, id)
-                DO UPDATE SET data_model = :dataModel::jsonb
-                """,
-            )
-                .bind("tenantKey", templateId.tenantKey)
-                .bind("catalogKey", templateId.catalogKey)
-                .bind("templateKey", templateId.key)
-                .bind("dataModel", dataModel)
-                .execute()
-        }
-    }
-
     private fun emptyData(): ObjectNode = objectMapper.createObjectNode()
 
     /**
@@ -258,10 +237,10 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 jdbi.withHandle<Int, Exception> { handle ->
                     handle.createUpdate(
                         """
-                        UPDATE template_versions
+                        UPDATE template_variants
                         SET template_model = jsonb_set(template_model, '{root}', '"missing-root"'::jsonb)
                         WHERE tenant_key = :tenantKey
-                          AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = :variantKey
+                          AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND id = :variantKey
                         """,
                     )
                         .bind("tenantKey", setup.tenant.id)
@@ -320,7 +299,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val version = version(compositeVariantId, templateModel)
 
                 // Add schema that requires 'name' field via contract version
-                app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+                app.epistola.suite.templates.contracts.commands.UpdateDataContract(
                     templateId = compositeTemplateId,
                     dataModel = objectMapper.readValue(
                         """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
@@ -367,7 +346,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
                 val version = version(compositeVariantId, templateModel)
 
-                app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+                app.epistola.suite.templates.contracts.commands.UpdateDataContract(
                     templateId = compositeTemplateId,
                     dataModel = objectMapper.readValue(
                         """
@@ -415,7 +394,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val version = version(compositeVariantId, templateModel)
 
                 // Contract declares `greeting` as a richTextInline value (single paragraph).
-                app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+                app.epistola.suite.templates.contracts.commands.UpdateDataContract(
                     templateId = compositeTemplateId,
                     dataModel = objectMapper.readValue(
                         """
@@ -507,7 +486,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val version = version(compositeVariantId, templateModel)
 
                 // Contract: bio is a richTextBlock value.
-                app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+                app.epistola.suite.templates.contracts.commands.UpdateDataContract(
                     templateId = compositeTemplateId,
                     dataModel = objectMapper.readValue(
                         """
@@ -689,7 +668,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val version = version(compositeVariantId, templateModel)
 
                 // Add schema that requires 'name' field via contract version and publish
-                app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+                app.epistola.suite.templates.contracts.commands.UpdateDataContract(
                     templateId = compositeTemplateId,
                     dataModel = objectMapper.readValue(
                         """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
@@ -702,9 +681,6 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                             objectMapper.createObjectNode().put("name", "Ada"),
                         ),
                     ),
-                ).execute()
-                app.epistola.suite.templates.contracts.commands.PublishContractVersion(
-                    templateId = compositeTemplateId,
                 ).execute()
 
                 DocumentSetup(tenant, template, variant, version)
@@ -735,7 +711,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val tenantId = TenantId(tenant.id)
                 val template = template(tenant.id, "Test Template")
                 val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
-                app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+                app.epistola.suite.templates.contracts.commands.UpdateDataContract(
                     templateId = compositeTemplateId,
                     dataModel = objectMapper.readValue(
                         """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",

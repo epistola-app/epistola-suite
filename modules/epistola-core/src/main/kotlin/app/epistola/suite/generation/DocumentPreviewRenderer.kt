@@ -19,7 +19,6 @@ import app.epistola.suite.fonts.fontFamilyResolver
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.stencils.StencilResolvers
 import app.epistola.suite.templates.DocumentTemplate
-import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.tenants.Tenant
 import app.epistola.template.model.TemplateDocument
 import org.springframework.stereotype.Service
@@ -49,7 +48,6 @@ class DocumentPreviewRenderer(
      *
      * @param tenantId Tenant key (for asset resolution)
      * @param templateModel The resolved template document to render
-     * @param version The resolved version (null for drafts/live models — uses live theme cascade)
      * @param template The document template metadata (for theme, name)
      * @param tenant The tenant (for fallback theme, author name)
      * @param data The data context as JSON
@@ -57,7 +55,6 @@ class DocumentPreviewRenderer(
     fun render(
         tenantId: TenantKey,
         templateModel: TemplateDocument,
-        version: TemplateVersion?,
         template: DocumentTemplate,
         tenant: Tenant,
         data: ObjectNode,
@@ -84,50 +81,26 @@ class DocumentPreviewRenderer(
             template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: CatalogKey.DEFAULT
         val fontResolver = fontFamilyResolver(tenantId, owningCatalogKey, fontByteCache)
 
-        // Use snapshot rendering for published versions that have it, live cascade otherwise
-        val resolvedTheme = version?.resolvedTheme
-        val renderingDefaultsVersion = version?.renderingDefaultsVersion
-        if (resolvedTheme != null && renderingDefaultsVersion != null) {
-            // Deterministic-or-nothing: a published version must render with the
-            // exact font bytes pinned at publish. Fail loudly on drift.
-            fontSnapshotVerifier.verify(tenantId, owningCatalogKey, resolvedTheme)
-            val renderingDefaults = RenderingDefaults.forVersion(renderingDefaultsVersion)
-            val metadataWithEngine = metadata.copy(engineVersion = renderingDefaults.engineVersionString())
-            generationService.renderPdfWithSnapshot(
-                expandedModel,
-                dataMap,
-                outputStream,
-                resolvedTheme,
-                renderingDefaults,
-                metadataWithEngine,
-                pdfaCompliant = template.pdfaEnabled,
-                assetResolver = assetResolver,
-                fontFamilyResolver = fontResolver,
-                culture = culture,
-                watermarkText = PREVIEW_WATERMARK,
-            )
-        } else {
-            val metadataWithEngine = metadata.copy(
-                engineVersion = RenderingDefaults.CURRENT.engineVersionString(),
-            )
-            generationService.renderPdf(
-                tenantId,
-                expandedModel,
-                dataMap,
-                outputStream,
-                template.themeKey,
-                tenant.defaultThemeKey,
-                metadataWithEngine,
-                pdfaCompliant = template.pdfaEnabled,
-                assetResolver = assetResolver,
-                fontFamilyResolver = fontResolver,
-                templateCatalogKey = template.themeCatalogKey,
-                tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
-                culture = culture,
-                watermarkText = PREVIEW_WATERMARK,
-                resolvedThemeOverride = resolvedThemeOverride,
-            )
-        }
+        val metadataWithEngine = metadata.copy(
+            engineVersion = RenderingDefaults.CURRENT.engineVersionString(),
+        )
+        generationService.renderPdf(
+            tenantId,
+            expandedModel,
+            dataMap,
+            outputStream,
+            template.themeKey,
+            tenant.defaultThemeKey,
+            metadataWithEngine,
+            pdfaCompliant = template.pdfaEnabled,
+            assetResolver = assetResolver,
+            fontFamilyResolver = fontResolver,
+            templateCatalogKey = template.themeCatalogKey,
+            tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
+            culture = culture,
+            watermarkText = PREVIEW_WATERMARK,
+            resolvedThemeOverride = resolvedThemeOverride,
+        )
 
         return outputStream.toByteArray()
     }

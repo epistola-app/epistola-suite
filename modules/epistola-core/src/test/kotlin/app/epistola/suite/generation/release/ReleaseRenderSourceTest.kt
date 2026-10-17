@@ -8,6 +8,7 @@ import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.common.ids.CatalogId
@@ -34,14 +35,14 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
-import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
+import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
-import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.queries.GetTenant
@@ -252,7 +253,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
         CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
         if (withSchema) {
             // Before publishing, as an author would: publishing the template publishes its contract draft.
-            UpdateContractVersion(templateId = templateId, dataModel = JsonNodeFactory.instance.objectNode().put("type", "object")).execute()
+            UpdateDataContract(templateId = templateId, dataModel = JsonNodeFactory.instance.objectNode().put("type", "object")).execute()
         }
         if (theme != null) {
             UpdateDocumentTemplate(templateId, themeId = theme, themeCatalogKey = themeCatalog ?: catalog.key).execute()
@@ -261,11 +262,12 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
     }
 
     private fun publish(variant: VariantId, model: TemplateDocument) {
-        UpdateDraft(variant, model).execute()
-        PublishVersion(VersionId(GetDraft(variant).query()!!.id, variant)).execute()
+        UpdateVariantContent(variant, model).execute()
+        MarkVariantReady(variant).execute()
     }
 
     private fun release(catalog: CatalogId, version: String) {
+        MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
         ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = version).execute()
     }
 

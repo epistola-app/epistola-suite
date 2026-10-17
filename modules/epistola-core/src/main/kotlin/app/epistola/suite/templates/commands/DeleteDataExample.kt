@@ -11,12 +11,10 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.REQUESTED_TEMPLATE_ADDRESS
-import app.epistola.suite.templates.contracts.model.ContractVersion
+import app.epistola.suite.templates.contracts.queries.readDataContract
 import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.validation.requireAtLeastOneDataExample
 import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
@@ -46,21 +44,7 @@ class DeleteDataExampleHandler(
 
         return jdbi.inTransaction<DeleteDataExampleResult?, Exception> { handle ->
             // Load and lock the draft contract version
-            val draftContract = handle.createQuery(
-                """
-                SELECT *, $REQUESTED_TEMPLATE_ADDRESS
-                FROM contract_versions
-                WHERE tenant_key = :tenantKey
-                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND status = 'draft'
-                FOR UPDATE
-                """,
-            )
-                .bind("tenantKey", command.templateId.tenantKey)
-                .bind("catalogKey", command.templateId.catalogKey)
-                .bind("templateKey", command.templateId.key)
-                .mapTo<ContractVersion>()
-                .findOne()
-                .orElse(null) ?: return@inTransaction null
+            val draftContract = readDataContract(handle, objectMapper, command.templateId, forUpdate = true) ?: return@inTransaction null
 
             val exampleExists = draftContract.dataExamples.any { it.id == command.exampleId }
             if (!exampleExists) {
@@ -72,10 +56,10 @@ class DeleteDataExampleHandler(
 
             handle.createUpdate(
                 """
-                UPDATE contract_versions
-                SET data_examples = :dataExamples::jsonb
+                UPDATE document_templates
+                SET data_examples = :dataExamples::jsonb, updated_at = NOW()
                 WHERE tenant_key = :tenantKey
-                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND status = 'draft'
+                  AND resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
                 """,
             )
                 .bind("tenantKey", command.templateId.tenantKey)

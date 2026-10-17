@@ -154,22 +154,19 @@ class MoveCatalogResourcesHandler(
         }
         if (!plan.preview.executable) throw CatalogResourceMoveBlockedException(plan.preview.blockers)
 
-        // A rewrite may target a published version -- only ever the pin of a moving resource's own
-        // relative references, never a re-pointing (see CatalogResourceMovePlanner.rewriteContent).
-        // The expected-bytes guard is what makes touching one safe.
+        // The expected-bytes guard makes every rewrite safe against a concurrent edit.
         for (rewrite in plan.rewrites) {
             val changed = when (rewrite) {
-                is JsonRewrite.TemplateVersion -> handle.createUpdate(
+                is JsonRewrite.VariantModel -> handle.createUpdate(
                     """
-                    UPDATE template_versions SET template_model = :replacement::jsonb
+                    UPDATE template_variants SET template_model = :replacement::jsonb
                     WHERE tenant_key = :tenantKey
-                      AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = :variantKey AND id = :version
+                      AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND id = :variantKey
                       AND template_model = :expected::jsonb
                     """,
                 )
                     .bind("templateKey", rewrite.ownerKey)
                     .bind("variantKey", rewrite.variantKey)
-                    .bind("version", rewrite.version)
                     .bindRewrite(command.tenantKey, rewrite)
                     .execute()
 
@@ -182,20 +179,6 @@ class MoveCatalogResourcesHandler(
                     """,
                 )
                     .bind("stencilKey", rewrite.ownerKey)
-                    .bindRewrite(command.tenantKey, rewrite)
-                    .execute()
-
-                is JsonRewrite.TemplateVersionSnapshot -> handle.createUpdate(
-                    """
-                    UPDATE template_versions SET resolved_theme = :replacement::jsonb
-                    WHERE tenant_key = :tenantKey
-                      AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = :variantKey AND id = :version
-                      AND resolved_theme = :expected::jsonb
-                    """,
-                )
-                    .bind("templateKey", rewrite.ownerKey)
-                    .bind("variantKey", rewrite.variantKey)
-                    .bind("version", rewrite.version)
                     .bindRewrite(command.tenantKey, rewrite)
                     .execute()
 

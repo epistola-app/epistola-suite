@@ -21,10 +21,8 @@ import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.generation.release.ReleaseRenderSource
 import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.storage.DocumentContentStore
-import app.epistola.suite.templates.commands.versions.UpdateDraft
-import app.epistola.suite.templates.contracts.commands.CreateContractVersion
-import app.epistola.suite.templates.contracts.commands.PublishContractVersion
-import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
+import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.DataExamples
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -92,7 +90,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
             val variant = VariantId(variant(templateId, "Default").id, templateId)
 
             // 1.0.0 requires `name`.
-            execute(UpdateContractVersion(templateId, dataModel = contract("name"), dataExamples = listOf(DataExample("e", "E", objectMapper.createObjectNode().put("name", "Ada")))))
+            execute(UpdateDataContract(templateId, dataModel = contract("name"), dataExamples = listOf(DataExample("e", "E", objectMapper.createObjectNode().put("name", "Ada")))))
             released(variant, TestTemplateBuilder.buildMinimal(name = "Letter"))
             Triple(tenant, templateId, variant)
         }.whenever { (tenant, templateId, variant) ->
@@ -107,10 +105,9 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
             )
             // 1.0.1 requires a field the accepted request does not carry. Rendering 1.0.1 would fail
             // validation; rendering the release the request was accepted against succeeds.
-            // A new contract draft (the last one was published with 1.0.0), published even though it breaks.
-            execute(CreateContractVersion(templateId, dataModel = contract("reference"), dataExamples = DataExamples(listOf(DataExample("e", "E", objectMapper.createObjectNode().put("reference", "R-1"))))))
-            execute(PublishContractVersion(templateId, confirmed = true))
-            execute(UpdateDraft(variant, TestTemplateBuilder.buildMinimal(name = "Letter")))
+            // A new contract (the last one was released with 1.0.0), saved even though it breaks.
+            execute(UpdateDataContract(templateId, dataModel = contract("reference"), dataExamples = listOf(DataExample("e", "E", objectMapper.createObjectNode().put("reference", "R-1"))), forceUpdate = true))
+            execute(UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Letter")))
             mediator.publishAndRelease(variant)
             accepted
         }.then { _, accepted ->

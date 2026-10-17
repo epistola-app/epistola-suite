@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.revisions.forgetRetainedContent
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
@@ -43,6 +44,7 @@ class ExportReleaseTest : IntegrationTestBase() {
 
         val released = withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "As released").execute()
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
 
@@ -74,6 +76,7 @@ class ExportReleaseTest : IntegrationTestBase() {
 
         withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
         jdbi.forgetRetainedContent(catalog.tenantKey, catalog.key)
@@ -91,6 +94,7 @@ class ExportReleaseTest : IntegrationTestBase() {
 
         withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
 

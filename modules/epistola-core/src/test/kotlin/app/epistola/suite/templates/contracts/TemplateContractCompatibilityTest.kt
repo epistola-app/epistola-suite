@@ -13,12 +13,12 @@ import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
 /**
- * Tests [TemplateVersionCompatibilityEvaluator] — the shared comparison used by both the
+ * Tests [TemplateCompatibilityEvaluator] — the shared comparison used by both the
  * CheckTemplateVersionCompatibility and CheckContractPublishImpact query handlers.
  */
 class TemplateContractCompatibilityTest {
 
-    private val evaluator = TemplateVersionCompatibilityEvaluator()
+    private val evaluator = TemplateCompatibilityEvaluator()
     private val objectMapper = ObjectMapper()
 
     private fun schema(json: String): ObjectNode = objectMapper.readValue(json, ObjectNode::class.java)

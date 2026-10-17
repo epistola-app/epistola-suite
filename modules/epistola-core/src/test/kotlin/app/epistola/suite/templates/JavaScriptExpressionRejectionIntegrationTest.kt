@@ -29,8 +29,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
@@ -98,7 +98,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
             CreateDocumentTemplate(id = templateId, name = "JS Draft").execute()
 
             val exception = assertThrows<ValidationException> {
-                UpdateDraft(variantId = VariantId(VariantKey.INITIAL, templateId), templateModel = documentWithCondition("javascript")).execute()
+                UpdateVariantContent(variantId = VariantId(VariantKey.INITIAL, templateId), templateModel = documentWithCondition("javascript")).execute()
             }
 
             assertThat(exception.field).isEqualTo("templateModel.nodes.cond.props.condition.language")
@@ -106,7 +106,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
             assertThat(exception.message).contains("JavaScript expressions are no longer supported")
 
             // The same document in JSONata is accepted: only the language is refused.
-            UpdateDraft(variantId = VariantId(VariantKey.INITIAL, templateId), templateModel = documentWithCondition("jsonata")).execute()
+            UpdateVariantContent(variantId = VariantId(VariantKey.INITIAL, templateId), templateModel = documentWithCondition("jsonata")).execute()
         }
     }
 
@@ -162,8 +162,8 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId(catalogKey, TenantId(source.id)))
             CreateDocumentTemplate(id = templateId, name = "JS Zip Template").execute().withRequiredDataExample()
             val variantId = VariantId(VariantKey.INITIAL, templateId)
-            UpdateDraft(variantId = variantId, templateModel = documentWithCondition("jsonata")).execute()
-            PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
+            UpdateVariantContent(variantId = variantId, templateModel = documentWithCondition("jsonata")).execute()
+            MarkVariantReady(variantId).execute()
             ExportCatalogZip(tenantKey = source.id, catalogKey = catalogKey).execute().zipBytes
         }
 
@@ -193,7 +193,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
         val variantId = VariantId(VariantKey.INITIAL, templateId)
         withMediator {
             CreateDocumentTemplate(id = templateId, name = "JS Stored").execute()
-            UpdateDraft(variantId = variantId, templateModel = documentWithCondition("jsonata")).execute()
+            UpdateVariantContent(variantId = variantId, templateModel = documentWithCondition("jsonata")).execute()
         }
 
         // Raw SQL on purpose: every command now refuses a JavaScript expression, and this is the
@@ -201,7 +201,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                UPDATE template_versions
+                UPDATE template_variants
                 SET template_model = jsonb_set(template_model, '{nodes,cond,props,condition,language}', '"javascript"')
                 WHERE tenant_key = :tenantKey AND template_model #> '{nodes,cond}' IS NOT NULL
                 """,
@@ -215,7 +215,6 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
         assertThat(affected).singleElement().satisfies({ row ->
             assertThat(row["template"].toString()).isEqualTo(templateId.key.value)
             assertThat(row["variant"].toString()).isEqualTo(VariantKey.INITIAL.value)
-            assertThat(row["status"]).isEqualTo("draft")
         })
 
         // …the document still loads, so it can be opened and rewritten in JSONata…
@@ -269,14 +268,14 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
     companion object {
         /** Verbatim from the operator note in docs/generation.md — keep the two in step. */
         private const val OPERATOR_TEMPLATE_QUERY = """
-            SELECT t.tenant_key, c.catalog_key, t.id AS template, v.variant_key AS variant, v.id AS version, v.status
-            FROM template_versions v
+            SELECT t.tenant_key, c.catalog_key, t.id AS template, v.id AS variant
+            FROM template_variants v
             JOIN document_templates t
               ON t.tenant_key = v.tenant_key AND t.resource_id = v.template_resource_id
             JOIN catalogs c
               ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
             WHERE jsonb_path_exists(v.template_model, '$.** ? (@.language like_regex "^\\s*javascript\\s*$" flag "i")')
-            ORDER BY 1, 2, 3, 4, 5
+            ORDER BY 1, 2, 3, 4
         """
     }
 }

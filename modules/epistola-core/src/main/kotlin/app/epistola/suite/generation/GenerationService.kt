@@ -246,14 +246,13 @@ class GenerationService(
         templateId: TemplateKey,
         data: Map<String, Any?>,
     ): PreviewValidationResult {
-        // Load the latest contract version's data model for validation
-        val contractVersion = app.epistola.suite.templates.contracts.queries.GetLatestContractVersion(
+        // The template's data contract as it is now: preview renders the working copy.
+        val dataModel: ObjectNode? = app.epistola.suite.templates.contracts.queries.GetDataContract(
             templateId = app.epistola.suite.common.ids.TemplateId(
                 templateId,
                 app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(tenantId)),
             ),
-        ).query()
-        val dataModel: ObjectNode? = contractVersion?.dataModel
+        ).query()?.dataModel
 
         if (dataModel == null) {
             return PreviewValidationResult(valid = true) // No schema means no validation

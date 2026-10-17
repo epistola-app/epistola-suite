@@ -17,7 +17,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
@@ -54,7 +54,7 @@ class FindStencilUsagesTest : IntegrationTestBase() {
             CreateDocumentTemplate(id = templateId, name = "Letter Template").execute()
             val variantKey = VariantKey.INITIAL
             val variantId = VariantId(variantKey, templateId)
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = buildTemplateModelWithStencil(stencilKey),
             ).execute()
@@ -147,7 +147,7 @@ class FindStencilUsagesTest : IntegrationTestBase() {
             CreateDocumentTemplate(id = templateId1, name = "Invoice Template").execute()
             val variantKey1 = VariantKey.INITIAL
             val variantId1 = VariantId(variantKey1, templateId1)
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId1,
                 templateModel = buildTemplateModelWithStencil(stencilKey),
             ).execute()
@@ -157,7 +157,7 @@ class FindStencilUsagesTest : IntegrationTestBase() {
             CreateDocumentTemplate(id = templateId2, name = "Receipt Template").execute()
             val variantKey2 = VariantKey.INITIAL
             val variantId2 = VariantId(variantKey2, templateId2)
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId2,
                 templateModel = buildTemplateModelWithStencil(stencilKey),
             ).execute()

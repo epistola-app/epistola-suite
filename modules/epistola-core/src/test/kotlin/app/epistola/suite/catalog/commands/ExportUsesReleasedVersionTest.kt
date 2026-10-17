@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
@@ -55,6 +56,7 @@ class ExportUsesReleasedVersionTest : IntegrationTestBase() {
             assertThat(pre.release.fingerprint).isNotNull().matches("v5:[0-9a-f]{64}")
 
             // 2. Released, no edits -> clean version, fingerprint == released fingerprint
+            MarkCatalogReady(tenantKey, catalogKey).execute()
             val released = ReleaseCatalogVersion(tenantKey, catalogKey, "1.0.0").execute()
             val clean = exportedManifest(ExportCatalogZip(tenantKey, catalogKey).execute().zipBytes)
             assertThat(clean.release.version).isEqualTo("1.0.0")

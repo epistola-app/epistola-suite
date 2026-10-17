@@ -21,7 +21,6 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mcp.tools.CatalogMcpTools
 import app.epistola.suite.mcp.tools.PreviewMcpTools
 import app.epistola.suite.mcp.tools.TemplateMcpTools
-import app.epistola.suite.mcp.tools.VersionMcpTools
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -31,9 +30,9 @@ import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
-import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
+import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
@@ -59,9 +58,6 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var previewMcpTools: PreviewMcpTools
-
-    @Autowired
-    private lateinit var versionMcpTools: VersionMcpTools
 
     @Autowired
     private lateinit var objectMapper: ObjectMapper
@@ -162,7 +158,7 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
         val templateKey = withMediator {
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
             CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
-            UpdateContractVersion(
+            UpdateDataContract(
                 templateId = templateId,
                 dataModel = objectMapper.readTree(
                     """{"type":"object","properties":{"name":{"type":"string"},"amount":{"type":"number"}},"required":["name","amount"]}""",
@@ -172,8 +168,8 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
                 ),
             ).execute()
             val variantId = VariantId(VariantKey.INITIAL, templateId)
-            val draft = UpdateDraft(variantId = variantId, templateModel = simpleTemplateDocument()).execute()!!
-            PublishVersion(VersionId(draft.id, variantId)).execute()
+            UpdateVariantContent(variantId = variantId, templateModel = simpleTemplateDocument()).execute()
+            MarkVariantReady(variantId).execute()
             // Analysis checks data against the release preview would render, so the catalog is released.
             mediator.releaseNext(templateId.catalogId)
             templateId.key
@@ -202,7 +198,7 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("MCP Editor Context Tenant")
         val tenantId = TenantId(tenant.id)
 
-        // Seed: template + variant + draft content + contract with example
+        // Seed: template + variant + content + contract with example
         val (templateKey, variantKey) = withMediator {
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
             CreateDocumentTemplate(id = templateId, name = "Letter").execute()
@@ -215,14 +211,13 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
                 attributes = emptyMap(),
             ).execute()
 
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = simpleTemplateDocument(),
             ).execute()
 
-            UpdateContractVersion(
+            UpdateDataContract(
                 templateId = templateId,
-                schema = null,
                 dataModel = objectMapper.readTree("""{"type":"object","properties":{"name":{"type":"string"}}}""") as ObjectNode,
                 dataExamples = listOf(
                     DataExample(
@@ -251,32 +246,6 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
         assertThat(content.dataExamples).hasSize(1)
         assertThat(content.dataExamples[0].name).isEqualTo("default")
         assertThat(content.dataModel).isNotNull
-    }
-
-    @Test
-    fun `get_version returns the exact persisted template and rendering context`() {
-        val tenant = createTenant("MCP Exact Version Tenant")
-        val tenantId = TenantId(tenant.id)
-        val templateKey = withMediator {
-            val id = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-            CreateDocumentTemplate(id = id, name = "Versioned letter").execute()
-            id.key
-        }
-
-        val version = runAsApiKey(tenantId) {
-            versionMcpTools.getVersion(
-                catalogId = "default",
-                templateId = templateKey.value,
-                variantId = VariantKey.INITIAL.value,
-                versionId = 1,
-            )
-        }
-
-        assertThat(version).isNotNull
-        assertThat(version!!.id).isEqualTo(1)
-        assertThat(version.variantId).isEqualTo("initial")
-        assertThat(version.status).isEqualTo("draft")
-        assertThat(version.templateModel).isNotNull
     }
 
     @Test

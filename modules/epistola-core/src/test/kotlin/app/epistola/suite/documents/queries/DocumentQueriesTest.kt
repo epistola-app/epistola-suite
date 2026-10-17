@@ -16,7 +16,7 @@ import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.DocumentContentStore
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
@@ -44,11 +44,11 @@ class DocumentQueriesTest : IntegrationTestBase() {
             name = "Test Template",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         val request = mediator.send(
@@ -97,11 +97,11 @@ class DocumentQueriesTest : IntegrationTestBase() {
             name = "Test Template",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         val request = mediator.send(
@@ -132,11 +132,11 @@ class DocumentQueriesTest : IntegrationTestBase() {
             name = "Test Template",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         // Create multiple requests
@@ -178,11 +178,11 @@ class DocumentQueriesTest : IntegrationTestBase() {
             name = "Test Template",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         // Create 5 requests
@@ -228,11 +228,11 @@ class DocumentQueriesTest : IntegrationTestBase() {
             name = "Test Template",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         val request = mediator.send(
@@ -301,18 +301,18 @@ class DocumentQueriesTest : IntegrationTestBase() {
             name = "Template 2",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId1,
                 templateModel = templateModel1,
             ),
-        )!!
+        )
         val version1 = mediator.publishAndRelease(variantId1)
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId2,
                 templateModel = templateModel2,
             ),
-        )!!
+        )
         val version2 = mediator.publishAndRelease(variantId2)
 
         // Generate documents for template1

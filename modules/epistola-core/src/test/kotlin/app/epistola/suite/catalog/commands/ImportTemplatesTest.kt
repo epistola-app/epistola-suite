@@ -16,6 +16,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.templates.templateJoin
 import app.epistola.suite.testing.IntegrationTestBase
@@ -393,18 +394,16 @@ class ImportTemplatesTest : IntegrationTestBase() {
             assertThat(results.single().status).isEqualTo(ImportStatus.CREATED)
         }
 
-        // Read from storage, not through GetLatestPublishedVersion: that query does not project
-        // referenced_paths, and TemplateVersion defaults the field to an empty set -- so going
-        // through it would assert nothing while appearing to pass.
+        // Read from storage: no query projects referenced_paths, so reading it back is the only
+        // way to see what the import stored.
         val referencedPaths = jdbi.withHandle<String, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT versions.referenced_paths::text
-                FROM template_versions versions
-                ${templateJoin("versions")}
-                WHERE versions.tenant_key = :tenantKey AND template.catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = 'default')
-                  AND template.id = :templateKey AND versions.variant_key = 'default'
-                ORDER BY versions.id DESC LIMIT 1
+                SELECT variant.referenced_paths::text
+                FROM template_variants variant
+                ${templateJoin("variant")}
+                WHERE variant.tenant_key = :tenantKey AND template.catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = 'default')
+                  AND template.id = :templateKey AND variant.id = 'default'
                 """,
             )
                 .bind("tenantKey", tenant.id)
@@ -416,16 +415,16 @@ class ImportTemplatesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `import over a newly created empty template replaces drafts instead of failing`() {
+    fun `import over a newly created empty template replaces its content instead of failing`() {
         val tenant = createTenant("Shell Import Test")
         val tenantId = TenantId(tenant.id)
         val slug = TestIdHelpers.nextTemplateId().value
         val templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId))
 
         withMediator {
-            // Newly created empty template: template row + default variant +
-            // draft contract + draft version, nothing published. Exactly
-            // what the REST createTemplate endpoint leaves behind.
+            // Newly created empty template: template row + default variant with
+            // its starting content. Exactly what the REST createTemplate endpoint
+            // leaves behind.
             CreateDocumentTemplate(id = templateId, name = "Shell Template").execute()
 
             // Full template import over the shell (the catalog-ZIP MERGE path).
@@ -449,27 +448,9 @@ class ImportTemplatesTest : IntegrationTestBase() {
             assertThat(results.single().status).isEqualTo(ImportStatus.UPDATED)
         }
 
-        // The import ran to completion: a published version exists.
-        val publishedCount = jdbi.withHandle<Int, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT COUNT(*)
-                FROM template_versions versions
-                JOIN document_templates template
-                  ON template.resource_id = versions.template_resource_id
-                 AND template.tenant_key = versions.tenant_key
-                WHERE template.tenant_key = :tenantKey
-                  AND template.catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = 'default')
-                  AND template.id = :templateKey
-                  AND versions.status = 'published'
-                """,
-            )
-                .bind("tenantKey", tenant.id)
-                .bind("templateKey", slug)
-                .mapTo(Int::class.java)
-                .one()
-        }
-        assertThat(publishedCount).isGreaterThan(0)
+        // The import ran to completion: the variant holds the imported model.
+        val content = withMediator { GetVariantContent(VariantId(VariantKey.INITIAL, templateId)).query() }
+        assertThat(content!!.nodes.keys).isEqualTo(templateModel.nodes.keys)
     }
 
     private fun templateModelWithPath(path: String): TemplateDocument = TemplateDocument(
