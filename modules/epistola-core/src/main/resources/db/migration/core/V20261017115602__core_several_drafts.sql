@@ -182,6 +182,13 @@ BEGIN
     IF TG_OP = 'DELETE' THEN
         EXECUTE format('SELECT EXISTS (SELECT 1 FROM %I WHERE tenant_key = $1 AND resource_id = $2)', TG_TABLE_NAME)
             INTO held_elsewhere USING OLD.tenant_key, OLD.resource_id;
+        -- A release holds it too: releasing a draft that a higher draft does not follow discards the
+        -- draft, and what only it held lives on in that release. Keeping the identity keeps the
+        -- resource's history and findings with it, and a resource created again at its address adopts it.
+        IF NOT held_elsewhere THEN
+            SELECT EXISTS (SELECT 1 FROM release_entries WHERE tenant_key = OLD.tenant_key AND resource_id = OLD.resource_id)
+                INTO held_elsewhere;
+        END IF;
         IF NOT held_elsewhere THEN
             DELETE FROM catalog_resources
             WHERE tenant_key = OLD.tenant_key AND resource_id = OLD.resource_id;

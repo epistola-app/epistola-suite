@@ -208,7 +208,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `deleting a draft deletes only its content, and a resource keeps its identity while another draft holds it`() {
+    fun `deleting a draft deletes only its content, and a resource keeps its identity while another draft or a release holds it`() {
         val tenant = released("drafts-delete")
         withMediator { CreateCatalogVersion(tenant, letters, "2.0.0").execute() }
         val kept = rowsIn(tenant, "1.0.1")
@@ -226,9 +226,16 @@ class SeveralDraftsTest : IntegrationTestBase() {
         assertThatThrownBy { withMediator { DeleteCatalogVersion(tenant, letters, "1.0.0").execute() } }.isInstanceOf(CatalogVersionReleasedException::class.java)
         assertThatThrownBy { withMediator { DeleteCatalogVersion(tenant, letters, "7.0.0").execute() } }.isInstanceOf(CatalogVersionNotFoundException::class.java)
 
-        // With no version left holding it, the identity goes.
+        // With no draft left holding it, the identity stays while a release does (1.0.0 holds 'brand')...
         withMediator { DeleteTheme(brand(tenant), catalogVersion = at(tenant, "1.0.1")).execute() }
-        assertThat(identityExists(tenant, "theme", "brand")).isFalse()
+        assertThat(identityExists(tenant, "theme", "brand")).isTrue()
+        // ...and goes when nothing holds it: a theme that was never released.
+        val draftOnly = ThemeId(ThemeKey.of("draft-only"), catalogId(tenant))
+        withMediator {
+            CreateTheme(draftOnly, "Draft only", catalogVersion = at(tenant, "1.0.1")).execute()
+            DeleteTheme(draftOnly, catalogVersion = at(tenant, "1.0.1")).execute()
+        }
+        assertThat(identityExists(tenant, "theme", "draft-only")).isFalse()
     }
 
     @Test
@@ -265,6 +272,32 @@ class SeveralDraftsTest : IntegrationTestBase() {
         val higher = withMediator { ReleaseCatalogVersion(tenant, letters, "2.0.0", acknowledgedBehind = setOf("1.0.1")).execute() }
         assertThat(higher.openedDraft).isEqualTo("2.0.1")
         assertThat(versions(tenant).first()).isEqualTo("2.0.1" to CatalogVersionStatus.DRAFT)
+    }
+
+    @Test
+    fun `a resource only a discarded draft held keeps its identity while a release holds it, and comes back under it`() {
+        val tenant = released("drafts-identity-released")
+        withMediator { CreateCatalogVersion(tenant, letters, "2.0.0").execute() }
+        val seasonal = ThemeId(ThemeKey.of("seasonal"), catalogId(tenant))
+        withMediator {
+            CreateTheme(seasonal, "Seasonal", catalogVersion = at(tenant, "1.0.1")).execute()
+            MarkCatalogReady(tenant, letters, catalogVersion = at(tenant, "1.0.1")).execute()
+            // 2.0.0 is above, so releasing 1.0.1 discards its draft: only the release holds 'seasonal' now.
+            ReleaseCatalogVersion(tenant, letters, "1.0.1").execute()
+        }
+        fun released(): UUID = jdbi.withHandle<UUID, Exception> { handle ->
+            handle.createQuery("SELECT resource_id FROM release_entries WHERE tenant_key = :t AND version = '1.0.1' AND resource_type = 'theme' AND resource_key = 'seasonal'")
+                .bind("t", tenant).mapTo(UUID::class.java).one()
+        }
+
+        assertThat(identityExists(tenant, "theme", "seasonal")).`as`("a release holds it").isTrue()
+
+        withMediator { CreateTheme(seasonal, "Seasonal", catalogVersion = at(tenant, "2.0.0")).execute() }
+        val recreated = jdbi.withHandle<UUID, Exception> { handle ->
+            handle.createQuery("SELECT resource_id FROM themes WHERE tenant_key = :t AND version_id = :v AND id = 'seasonal'")
+                .bind("t", tenant).bind("v", versionId(tenant, "2.0.0")).mapTo(UUID::class.java).one()
+        }
+        assertThat(recreated).`as`("the same resource as the release's, so its history and findings stay with it").isEqualTo(released())
     }
 
     @Test
