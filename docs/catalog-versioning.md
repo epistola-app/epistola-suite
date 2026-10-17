@@ -101,9 +101,11 @@ a subscribed catalog. A version number is unique in its catalog, across drafts a
 - **Renumbering** warns (`RenumberChecks`) about releases it moves up past (`falls-behind`), releases
   below its base it moves down past (`contains-later-releases`), other drafts it moves past
   (`passes-draft`), and a number of a lower kind than the draft's changes against its base need:
-  `breaking-changes-in-patch` (the contract's kind), `breaking-changes-in-minor` and
-  `additions-in-patch` (kinds the suite adds to the contract's open set). Each lists its `reasons`,
-  one per resource. The kind of a number is the highest part it raises over the base; a number not
+  `breaking-changes-in-patch`, `breaking-changes-in-minor` and `additions-in-patch`. Each lists its
+  `reasons`, one per resource. The draft's own number is judged the same way (`AssessDraftNumber`):
+  the catalog page and the release dialog say when it is too low, with the reasons and the lowest
+  number that fits. That matters most for the draft a release opens on the next patch; releasing is
+  not refused, as ADR 0002 makes this a renumber warning only. The kind of a number is the highest part it raises over the base; a number not
   above the base, or a draft without a base, is not checked, and neither is a base whose release kept
   no content.
 - **What a draft's changes need** (`ChangeKindEvaluator`, ADR 0001's rules for a hotfix) compares the

@@ -202,6 +202,35 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `the catalog page and the release dialog say when the draft's number is too low for its changes`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = tenant("Number Too Low")
+            val variant = seedCatalogWithTemplate(tenant, "letters", "letter")
+            withMediator {
+                mediator.publishAndRelease(variant)
+                DeleteDocumentTemplate(variant.templateId).execute()
+            }
+        }
+
+        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/browse", String::class.java) }
+
+        then {
+            val page = result<ResponseEntity<String>>().body!!
+            assertThat(page).contains("data-testid=\"catalog-number-too-low\"")
+            assertThat(page).contains("but its changes need v2.0.0 or higher.")
+            assertThat(page).contains("template &#39;letter&#39;: removed")
+            assertThat(getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!).contains("data-testid=\"catalog-number-too-low\"")
+
+            // Renumbered to the major its changes need, the warning goes.
+            postForm("/tenants/${tenant.id}/catalogs/letters/renumber", mapOf("to" to "2.0.0"))
+            assertThat(restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/browse", String::class.java).body!!)
+                .doesNotContain("data-testid=\"catalog-number-too-low\"")
+        }
+    }
+
+    @Test
     fun `the dependency dialog declares a catalog, locked to its highest matching release`() = fixture {
         lateinit var tenant: Tenant
         lateinit var dependencyValue: String

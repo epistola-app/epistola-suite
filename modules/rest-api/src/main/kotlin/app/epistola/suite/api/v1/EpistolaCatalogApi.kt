@@ -308,7 +308,7 @@ class EpistolaCatalogApi(
             CatalogVersionRenumberPreview(
                 from = draft.version.version,
                 to = to,
-                warnings = warnings.map { RenumberWarningDto(kind = it.kind, message = it.text, versions = it.versions) },
+                warnings = warnings.map { RenumberWarningDto(kind = it.kind, message = it.message, versions = it.versions, reasons = it.reasons) },
             ),
         )
     }

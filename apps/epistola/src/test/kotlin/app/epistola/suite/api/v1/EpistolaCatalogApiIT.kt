@@ -173,7 +173,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         assertThat(preview.statusCode).describedAs(preview.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<List<String>>(preview.body!!, "$.warnings[*].kind")).containsExactly("breaking-changes-in-patch")
         assertThat(JsonPath.read<List<String>>(preview.body!!, "$.warnings[0].versions")).containsExactly("1.0.0")
-        assertThat(JsonPath.read<String>(preview.body!!, "$.warnings[0].message")).contains("theme 'tha': removed")
+        assertThat(JsonPath.read<List<String>>(preview.body!!, "$.warnings[0].reasons")).contains("theme 'tha': removed")
         assertThat(JsonPath.read<List<String>>(call(HttpMethod.GET, "${versionPath(tenantKey, catalogSlug, "1.0.1")}/renumber-preview?to=2.0.0").body!!, "$.warnings")).isEmpty()
 
         val refused = call(HttpMethod.PATCH, versionPath(tenantKey, catalogSlug, "1.0.1"), """{"version":"1.0.2"}""")

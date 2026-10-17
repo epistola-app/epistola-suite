@@ -80,6 +80,8 @@
             </p>
             <th:block th:if="${readiness.draftVersion != null}">
 
+            <div th:replace="~{catalogs/next-release :: number-too-low(readiness=${readiness})}"></div>
+
             <!--/* Why Release is not offered, one sentence per reason, each pointing at where it is
                    fixed. */-->
             <div th:if="${readiness.releaseBlocked}" class="alert alert-warning" style="margin-bottom: var(--ep-space-3);"
@@ -205,6 +207,27 @@
     errors.
     Model: `tenantId`, `catalogId`, `draftVersion`, and on re-render `formData`/`errors`/`warnings`.
     -->
+    <!--/* The draft's number is too small a step for its changes: shown, not refused (ADR 0002 makes it a
+           renumber warning). Included by the catalog page and the release dialog. */-->
+    <div th:fragment="number-too-low(readiness)" th:if="${readiness.numberTooLow}" class="alert alert-warning"
+         style="margin-bottom: var(--ep-space-3);" data-testid="catalog-number-too-low">
+        <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+        <div>
+            <div class="alert-title"
+                 th:text="'As v' + ${readiness.numbering.version} + ' this draft is a ' + ${readiness.numbering.step.name().toLowerCase()} + ' of v' + ${readiness.numbering.base} + ', but its changes need v' + ${readiness.numbering.suggested} + ' or higher.'">
+                Its changes need a higher number.</div>
+            <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);" data-testid="catalog-number-too-low-reasons">
+                <li th:each="reason : ${readiness.numbering.reasons}" th:text="${reason}"></li>
+            </ul>
+            <p th:if="${readiness.offerRenumber}" style="margin: var(--ep-space-1) 0 0;">
+                Renumber it before releasing, so that releases of this catalog say what changed.
+            </p>
+            <p th:unless="${readiness.offerRenumber}" style="margin: var(--ep-space-1) 0 0;">
+                An author can renumber it before it is released.
+            </p>
+        </div>
+    </div>
+
     <th:block th:fragment="renumber-dialog">
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='renumber-catalog-dialog',

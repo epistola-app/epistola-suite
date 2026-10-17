@@ -10,6 +10,8 @@ import app.epistola.suite.catalog.queries.CatalogResourceChanges
 import app.epistola.suite.catalog.queries.CatalogResourceState
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
+import app.epistola.suite.catalog.versions.AssessDraftNumber
+import app.epistola.suite.catalog.versions.DraftNumberAssessment
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
@@ -40,7 +42,17 @@ data class CatalogReleaseReadiness(
     val mayRelease: Boolean,
     val mayEditDraft: Boolean,
     val mayMarkReady: Boolean,
+    /** Whether the draft's number is as big a step from its base as its changes need; null when there is nothing to judge. */
+    val numbering: DraftNumberAssessment? = null,
 ) {
+    /**
+     * The draft's own number is a smaller step from its base than its changes need (breaking changes
+     * under a patch or minor, additions under a patch). Releasing is not refused, as ADR 0002 makes
+     * this a renumber warning only, but the page says so before the release, since the draft a release
+     * opens is numbered as the next patch whatever it then holds.
+     */
+    val numberTooLow: Boolean get() = draftVersion != null && numbering?.tooLow == true
+
     /** The changed resources not marked ready; releasing refuses while there is one. */
     val notReady: List<CatalogResourceChange> get() = changes.notReady
 
@@ -96,6 +108,7 @@ data class CatalogReleaseReadiness(
                 mayRelease = auth.has(Permission.CATALOG_RELEASE),
                 mayEditDraft = auth.has(Permission.TEMPLATE_EDIT),
                 mayMarkReady = auth.has(Permission.TEMPLATE_EDIT),
+                numbering = draft?.let { AssessDraftNumber(tenantKey, catalogKey, it).query() },
             )
         }
     }

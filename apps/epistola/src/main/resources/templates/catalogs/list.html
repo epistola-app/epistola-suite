@@ -173,6 +173,7 @@
                     <!--/* The same gate the catalog page uses (CatalogReleaseReadiness): while a
                            changed resource is not ready or a dependency is unresolved, the release
                            would be refused, so the dialog says why instead of offering it. */-->
+                    <div th:replace="~{catalogs/next-release :: number-too-low(readiness=${readiness})}"></div>
                     <div th:if="${readiness.releaseBlocked}" class="alert alert-warning" data-testid="release-blocked">
                         <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
                         <div>

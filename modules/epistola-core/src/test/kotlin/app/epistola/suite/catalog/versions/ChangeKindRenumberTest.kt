@@ -221,6 +221,21 @@ class ChangeKindRenumberTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `the draft a release opens says when its own number is too low for its changes, and what would fit`() {
+        val tenant = released("change-kind-own-number")
+        fun assess() = withMediator { AssessDraftNumber(tenant, letters, "1.0.1").query()!! }
+        assertThat(assess().tooLow).`as`("nothing changed yet").isFalse()
+
+        withMediator { DeleteDocumentTemplate(invoice(tenant)).execute() }
+
+        val assessment = assess()
+        assertThat(assessment.tooLow).isTrue()
+        assertThat(assessment.needs).isEqualTo(ChangeKind.BREAKING)
+        assertThat(assessment.reasons).containsExactly("template 'invoice': removed")
+        assertThat(assessment.suggested).isEqualTo("2.0.0")
+    }
+
+    @Test
     fun `renumbering to a version too low for the changes is refused until acknowledged`() {
         val tenant = released("change-kind-acknowledge")
         withMediator { DeleteDocumentTemplate(invoice(tenant)).execute() }
