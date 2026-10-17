@@ -13,78 +13,91 @@
            (CatalogContents). Each "New" opens that kind's own create dialog in #dialog-mount, on this
            catalog version, without leaving the page. Model: `contents`, `usageCounts`, `tenantId`,
            `catalogId`. */-->
-    <div th:fragment="grouped(title)" class="card" data-testid="catalog-contents">
-        <div class="card-header">
+    <div th:fragment="grouped(title)" class="ep-panel detail-section" data-testid="catalog-contents">
+        <div class="detail-section-header">
             <h2 th:text="${title}">Contents</h2>
         </div>
-        <div class="card-body">
-            <div class="ep-auto-grid">
-                <section th:each="group : ${contents.groups}" class="ep-panel" data-testid="catalog-contents-group"
-                         th:attr="data-type=${group.type}">
-                    <div style="display: flex; justify-content: space-between; align-items: center; gap: var(--ep-space-2);">
-                        <h3 style="margin: 0;">
-                            <span th:text="${group.label}">Templates</span>
-                            <span class="text-muted" th:text="${group.items.size()}">3</span>
-                        </h3>
-                        <button th:if="${group.mayCreate}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
-                                th:hx-get="${group.newHref}" hx-target="#dialog-mount" hx-swap="innerHTML"
-                                data-testid="catalog-contents-new" th:text="${group.newLabel}">New template</button>
-                    </div>
-                    <ul th:unless="${group.items.isEmpty()}" style="margin: var(--ep-space-2) 0 0; padding-left: var(--ep-space-5);">
-                        <li th:each="item : ${group.items}" data-testid="catalog-contents-item" th:attr="data-slug=${item.slug}"
-                            th:with="count=${usageCounts != null ? usageCounts.getOrDefault(item.type + ':' + item.slug, 0) : 0}">
-                            <a th:href="${item.href}" th:text="${item.name}" th:title="${item.description}">Invoice</a>
-                            <button th:if="${count > 0}" type="button" class="badge badge-default"
-                                    style="cursor: pointer; border: none;"
+        <div class="detail-section-body">
+            <p th:if="${contents.isEmpty}" class="text-muted" style="margin-top: 0;">Nothing here yet. Start with a template.</p>
+            <!--/* One row per kind that has something: what it is, and a New for more of it. */-->
+            <div th:unless="${contents.isEmpty}" style="margin-bottom: var(--ep-space-4);">
+                    <div th:each="group : ${contents.filled}" data-testid="catalog-contents-group" th:attr="data-type=${group.type}" class="ep-row"
+                         style="gap: var(--ep-space-4); align-items: baseline; padding: var(--ep-space-2) 0; border-bottom: 1px solid var(--ep-border-color);">
+                        <strong style="flex: 0 0 8rem;" th:text="${group.label}">Templates</strong>
+                        <div style="flex: 1;">
+                            <th:block th:each="item, stat : ${group.items}"
+                                      th:with="count=${usageCounts != null ? usageCounts.getOrDefault(item.type + ':' + item.slug, 0) : 0}"><a
+                                    th:href="${item.href}" th:text="${item.name}" th:title="${item.description}"
+                                    data-testid="catalog-contents-item" th:attr="data-slug=${item.slug}">Invoice</a><button
+                                    th:if="${count > 0}" type="button" class="badge badge-default" style="cursor: pointer; border: none; margin-left: var(--ep-space-1);"
                                     th:title="'Used in ' + ${count} + ' places'"
                                     th:text="'used ' + ${count} + '×'"
                                     th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/usages(tenantId=${tenantId},catalogId=${catalogId},type=${item.type},slug=${item.slug})}"
                                     hx-target="#usage-detail-body" hx-swap="innerHTML"
-                                    data-open-dialog="usage-detail-dialog">used 2×</button>
-                        </li>
-                    </ul>
-                    <p th:if="${group.items.isEmpty()}" class="text-muted text-sm" style="margin: var(--ep-space-2) 0 0;">None yet.</p>
-                    <p th:if="${group.createWithheld}" class="form-hint" style="margin: var(--ep-space-1) 0 0;"
-                       data-testid="catalog-contents-new-withheld"
-                       th:text="'Adding ' + ${group.label.toLowerCase()} + ' needs a role that may edit them.'">Adding templates needs a role that may edit them.</p>
-                </section>
+                                    data-open-dialog="usage-detail-dialog">used 2×</button><th:block th:unless="${stat.last}">, </th:block></th:block>
+                        </div>
+                        <div>
+                            <button th:if="${group.mayCreate}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
+                                    th:hx-get="${group.newHref}" hx-target="#dialog-mount" hx-swap="innerHTML"
+                                    data-testid="catalog-contents-new" th:attr="data-type=${group.type}" th:text="${group.newLabel}">New template</button>
+                        </div>
+                    </div>
             </div>
+            <!--/* The kinds with nothing yet: one line of ways to add one, not a box each. */-->
+            <div th:unless="${contents.addable.isEmpty()}" class="ep-row" style="gap: var(--ep-space-2); align-items: center; flex-wrap: wrap;"
+                 data-testid="catalog-contents-add">
+                <span class="text-muted" th:text="${contents.isEmpty} ? 'Add:' : 'Add something else:'">Add something else:</span>
+                <button th:each="group : ${contents.addable}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                        th:hx-get="${group.newHref}" hx-target="#dialog-mount" hx-swap="innerHTML"
+                        data-testid="catalog-contents-new" th:attr="data-type=${group.type}" th:text="${group.newLabel}">New stencil</button>
+            </div>
+            <p th:if="${readiness.borrowing.catalogs.isEmpty() and !readiness.borrowing.others.isEmpty()}" class="form-hint"
+               data-testid="catalog-borrowed-others">
+                Nothing from other catalogs is used. Also in this tenant: <th:block th:each="other, stat : ${readiness.borrowing.others}"><a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${other.catalogKey})}"
+                       th:text="${other.name}">Forms</a><th:block th:unless="${stat.last}">, </th:block></th:block>.
+                Their themes, stencils, images, fonts and code lists can be picked in the editor.
+            </p>
+            <p th:unless="${contents.withheldLabels.isEmpty()}" class="form-hint" style="margin-bottom: 0;"
+               data-testid="catalog-contents-new-withheld"
+               th:text="'Adding ' + ${#strings.listJoin(contents.withheldLabels, ', ')} + ' needs a role that may edit them.'">Adding code lists needs a role that may edit them.</p>
         </div>
     </div>
 
     <!--/* What this version takes from other catalogs, and what it could (GetCatalogBorrowing): each
            catalog it uses or records, at the version it renders from, what it uses of it and what
            that version offers; then the tenant's other catalogs. Model: `readiness`, `tenantId`. */-->
-    <div th:fragment="borrowed" th:with="borrowing=${readiness.borrowing}"
-         th:if="${!readiness.borrowing.catalogs.isEmpty() or !readiness.borrowing.others.isEmpty()}"
-         class="card" data-testid="catalog-borrowed">
-        <div class="card-header">
+    <!--/* What this version takes from other catalogs (GetCatalogBorrowing): a row per catalog it uses
+           or records — what it uses, and the version that renders from. Shown as its own section only
+           when there is something; otherwise Contents says so in one line. Model: `readiness`, `tenantId`. */-->
+    <div th:fragment="borrowed" th:if="${!readiness.borrowing.catalogs.isEmpty()}"
+         class="ep-panel detail-section" data-testid="catalog-borrowed">
+        <div class="detail-section-header">
             <h2>From other catalogs</h2>
         </div>
-        <div class="card-body">
-            <p th:if="${borrowing.catalogs.isEmpty()}" class="text-muted" style="margin-top: 0;">This version uses nothing from other catalogs.</p>
-            <section th:each="borrowed : ${borrowing.catalogs}" class="ep-panel" style="margin-bottom: var(--ep-space-3);"
-                     data-testid="catalog-borrowed-catalog" th:attr="data-catalog=${borrowed.catalogKey}">
-                <h3 style="margin: 0;">
-                    <a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${borrowed.catalogKey})}" th:text="${borrowed.name}">Shared</a>
-                    <span th:if="${borrowed.declared and borrowed.release != null}" class="badge badge-outline" th:text="'v' + ${borrowed.release}">v1.0.0</span>
-                    <span th:if="${!borrowed.declared and borrowed.release != null}" class="badge badge-default"
-                          th:title="'Publishing records v' + ${borrowed.release} + ' with it'">not recorded yet</span>
-                    <span th:if="${borrowed.release == null}" class="badge badge-warning">no published version</span>
-                </h3>
-                <p th:if="${borrowed.used}" style="margin: var(--ep-space-1) 0 0;" data-testid="catalog-borrowed-uses">
-                    Used here:
-                    <th:block th:each="used, stat : ${borrowed.uses}"><span th:text="${used.name ?: used.key}">Brand</span>
-                        <span class="text-muted" th:text="'(' + ${readiness.labelOf(used.type)} + ')'">(Theme)</span><th:block th:unless="${stat.last}">, </th:block></th:block>
-                </p>
-                <p th:unless="${borrowed.used}" class="text-muted" style="margin: var(--ep-space-1) 0 0;">Recorded, not used yet.</p>
-                <p th:unless="${borrowed.offers.isEmpty()}" class="text-muted text-sm" style="margin: var(--ep-space-1) 0 0;"
-                   data-testid="catalog-borrowed-offers"
-                   th:text="'It offers ' + ${#strings.listJoin(borrowed.offers.![name ?: key], ', ')} + '.'">It offers Brand, Footer.</p>
-            </section>
-            <p th:unless="${borrowing.others.isEmpty()}" class="form-hint" style="margin-bottom: 0;" data-testid="catalog-borrowed-others">
-                Also in this tenant:
-                <th:block th:each="other, stat : ${borrowing.others}"><a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${other.catalogKey})}"
+        <div class="detail-section-body">
+            <table class="ep-table">
+                <thead>
+                    <tr><th>Catalog</th><th>Used here</th><th>Version</th></tr>
+                </thead>
+                <tbody>
+                    <tr th:each="borrowed : ${readiness.borrowing.catalogs}" data-testid="catalog-borrowed-catalog" th:attr="data-catalog=${borrowed.catalogKey}">
+                        <td><a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${borrowed.catalogKey})}" th:text="${borrowed.name}">Shared</a></td>
+                        <td data-testid="catalog-borrowed-uses">
+                            <th:block th:if="${borrowed.used}" th:each="used, stat : ${borrowed.uses}"><span th:text="${used.name ?: used.key}">Brand</span>
+                                <span class="text-muted" th:text="'(' + ${readiness.labelOf(used.type)} + ')'">(Theme)</span><th:block th:unless="${stat.last}">, </th:block></th:block>
+                            <span th:unless="${borrowed.used}" class="text-muted">Recorded, not used yet</span>
+                        </td>
+                        <td>
+                            <span th:if="${borrowed.declared and borrowed.release != null}" th:text="'v' + ${borrowed.release}">v1.0.0</span>
+                            <span th:if="${!borrowed.declared and borrowed.release != null}" class="badge badge-default"
+                                  th:title="'Publishing records v' + ${borrowed.release} + ' with it'">not recorded yet</span>
+                            <span th:if="${borrowed.release == null}" class="badge badge-warning">no published version</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p th:unless="${readiness.borrowing.others.isEmpty()}" class="form-hint" style="margin-bottom: 0;" data-testid="catalog-borrowed-others">
+                Also in this tenant: <th:block th:each="other, stat : ${readiness.borrowing.others}"><a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${other.catalogKey})}"
                        th:text="${other.name}">Forms</a><th:block th:unless="${stat.last}">, </th:block></th:block>.
                 Their themes, stencils, images, fonts and code lists can be picked in the editor; publishing records the catalog it came from.
             </p>
@@ -92,8 +105,8 @@
     </div>
 
     <th:block th:fragment="contents">
-        <div class="card" th:if="${!resources.isEmpty()}">
-            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="ep-panel detail-section" th:if="${!resources.isEmpty()}">
+            <div class="detail-section-header">
                 <h2>Contents</h2>
                 <!--/* A catalog installs whole (#850), so this is the only install action: there is
                        no per-resource Install, and nothing to choose between. Offered only while
@@ -212,7 +225,7 @@
             </div>
         </div>
 
-        <div class="card" th:if="${resources.isEmpty()}">
+        <div class="ep-panel detail-section" th:if="${resources.isEmpty()}">
             <div class="card-content">
                 <p class="text-muted">This catalog has no resources.</p>
             </div>
@@ -241,7 +254,8 @@
                     <span class="catalog-detail-label">Catalog ID</span>
                     <code class="catalog-detail-value" th:text="${catalog.id}"></code>
                 </div>
-                <div class="catalog-detail-summary-item">
+                <!--/* A draft has no number until it is published, so only a subscribed catalog's installed version is shown. */-->
+                <div th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="catalog-detail-summary-item">
                     <span class="catalog-detail-label">Version</span>
                     <p class="catalog-detail-value" th:text="${displayVersion}"></p>
                 </div>

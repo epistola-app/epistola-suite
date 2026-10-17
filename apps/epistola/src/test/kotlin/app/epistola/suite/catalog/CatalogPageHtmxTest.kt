@@ -138,11 +138,13 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
         val contents = get(tenant, "/catalogs/letters/browse").body!!.substringAfter("data-testid=\"catalog-contents\"")
 
         assertThat(contents).contains("<h2>In the next version</h2>")
-        val templates = contents.substringAfter("data-type=\"template\"").substringBefore("</section>")
+        val templates = contents.substringAfter("data-type=\"template\"").substringBefore("data-testid=\"catalog-contents-add\"")
         assertThat(templates).contains("href=\"/tenants/${tenant.id}/templates/letters/invoice\"").contains(">Invoice<")
         assertThat(templates).contains("hx-get=\"/tenants/${tenant.id}/templates/new?catalog=letters\"")
-        assertThat(contents.substringAfter("data-type=\"stencil\"").substringBefore("</section>")).contains("None yet.")
-            .contains("hx-get=\"/tenants/${tenant.id}/stencils/new?catalog=letters\"")
+        // A kind with nothing yet is one button on the "add" line, not a box of its own.
+        val add = contents.substringAfter("data-testid=\"catalog-contents-add\"").substringBefore("</div>")
+        assertThat(add).contains("Add something else:").contains("hx-get=\"/tenants/${tenant.id}/stencils/new?catalog=letters\"")
+        assertThat(contents.substringBefore("data-testid=\"catalog-contents-add\"")).doesNotContain("data-type=\"stencil\"")
     }
 
     private fun step(page: String, number: Int): String = page.substringAfter("data-step=\"$number\"").substringBefore("</li>")

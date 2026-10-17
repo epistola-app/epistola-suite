@@ -18,9 +18,9 @@
 
         <!--/* What a published version is for: where it is live, and what can still be done with it.
                It never changes, so changing it means a draft that starts from it. */-->
-        <div class="card" data-testid="release-status"
+        <div class="ep-panel detail-section" data-testid="release-status"
              th:with="bar=${draftBar}, canForget=${auth.has('CATALOG_MANAGE')}, version=${release.version}">
-            <div class="card-body">
+            <div class="detail-section-body">
                 <p style="margin-top: 0;" data-testid="release-live">
                     <th:block th:if="${liveIn.isEmpty()}">Not live anywhere.</th:block>
                     <th:block th:unless="${liveIn.isEmpty()}">Live in <strong th:text="${#strings.listJoin(liveIn, ', ')}">production</strong>.</th:block>

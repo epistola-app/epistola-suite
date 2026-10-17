@@ -28,12 +28,12 @@
         <!--/* What each environment serves of this catalog: any number of releases. Deploying adds one;
                generation naming the environment renders the highest it serves, or the highest
                satisfying the request's version selector. Each served release has its own Undeploy. */-->
-        <div class="card" data-testid="catalog-deployments"
+        <div class="ep-panel detail-section" data-testid="catalog-deployments"
              th:with="canDeploy=${auth.has('ENVIRONMENT_DEPLOY')}">
-            <div class="card-header">
+            <div class="detail-section-header">
                 <h2>Live</h2>
             </div>
-            <div class="card-body">
+            <div class="detail-section-body">
                 <th:block th:if="${deployRefusal != null}">
                     <div th:replace="~{environments/deploy-refusal :: refusal(${deployRefusal})}"></div>
                 </th:block>
@@ -128,7 +128,7 @@
                     <code class="catalog-detail-value" th:text="${catalog.id}"></code>
                 </div>
             </div>
-            <p class="text-muted text-sm" style="margin: var(--ep-space-2) 0 0;">
+            <p class="text-muted text-sm detail-section-body" style="margin: 0; padding-top: 0;">
                 Its name, description, keywords, presentation and license go out with each version:
                 change them on the
                 <a th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenantId},c=${catalog.id})}">next version</a>,

@@ -11,12 +11,12 @@
            (CatalogReleaseReadiness) or `gettingStarted` (CatalogGettingStarted). */-->
 
     <!--/* From a new catalog to a document an application generates from it. Until something is live. */-->
-    <div th:fragment="getting-started" th:if="${gettingStarted != null and gettingStarted.show}" class="card"
+    <div th:fragment="getting-started" th:if="${gettingStarted != null and gettingStarted.show}" class="ep-panel detail-section"
          data-testid="catalog-getting-started" th:with="gs=${gettingStarted}">
-        <div class="card-header">
+        <div class="detail-section-header">
             <h2>From here to a document</h2>
         </div>
-        <div class="card-body">
+        <div class="detail-section-body">
             <p class="text-muted" style="margin-top: 0;">
                 An application such as GZAC makes documents from what is live in an environment. Three steps get it there.
             </p>
@@ -65,8 +65,8 @@
     </div>
 
     <!--/* The next version: where people work. Its number is picked when it is published. */-->
-    <div th:fragment="next-version" class="card" data-testid="catalog-next-version" th:with="bar=${readiness.drafts}">
-        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: var(--ep-space-2);">
+    <div th:fragment="next-version" class="ep-panel detail-section" data-testid="catalog-next-version" th:with="bar=${readiness.drafts}">
+        <div class="detail-section-header">
             <h2>Next version</h2>
             <div class="ep-row" style="gap: var(--ep-space-2);">
                 <a th:if="${bar.current != null}" class="ep-btn ep-btn-outline ep-btn-sm" th:href="${bar.workHref}"
@@ -77,7 +77,7 @@
                         data-testid="catalog-release-open">Publish…</button>
             </div>
         </div>
-        <div class="card-body">
+        <div class="detail-section-body">
             <div th:if="${nextReleaseError != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-3);"
                  data-testid="catalog-next-release-error">
                 <span th:text="${nextReleaseError}"></span>
@@ -170,8 +170,8 @@
     </div>
 
     <!--/* Every version, each linking to its own page: drafts first, the next version at the top. */-->
-    <div th:fragment="versions" class="card" data-testid="catalog-versions" th:with="bar=${draftBar}">
-        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: var(--ep-space-2);">
+    <div th:fragment="versions" class="ep-panel detail-section" data-testid="catalog-versions" th:with="bar=${draftBar}">
+        <div class="detail-section-header">
             <h2>Versions</h2>
             <button th:if="${bar.offerCreateDraft}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
                     th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts/new(tenantId=${tenantId},catalogId=${catalog.id})}"
@@ -179,7 +179,7 @@
                     title="For work published on its own, such as the next major next to the next minor"
                     data-testid="catalog-draft-new">New draft…</button>
         </div>
-        <div class="card-body">
+        <div class="detail-section-body">
             <p th:if="${bar.versionRows.isEmpty()}" class="text-muted">This catalog has no versions.</p>
             <div th:unless="${bar.versionRows.isEmpty()}" class="ep-table-scroll" role="region" aria-label="Versions" tabindex="0">
                 <table class="ep-table">

@@ -221,8 +221,8 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
         val page = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/browse", String::class.java).body!!
         val borrowed = page.substringAfter("data-testid=\"catalog-borrowed\"")
 
-        assertThat(borrowed.substringAfter("data-catalog=\"shared\"").substringBefore("</section>"))
-            .contains("not recorded yet").contains("Used here:").contains("Brand").contains("(Theme)")
+        assertThat(borrowed.substringAfter("data-catalog=\"shared\"").substringBefore("</tr>"))
+            .contains("not recorded yet").contains("Brand").contains("(Theme)")
         assertThat(borrowed).contains("data-testid=\"catalog-borrowed-others\"")
     }
 

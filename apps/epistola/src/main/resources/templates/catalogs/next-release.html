@@ -14,16 +14,16 @@
     Model it needs: `tenantId`, `catalogId` (the catalog segment), `readiness`, optionally
     `nextReleaseError`.
     -->
-    <div th:fragment="next-release" id="catalog-next-release" class="card" data-testid="catalog-next-release"
+    <div th:fragment="next-release" id="catalog-next-release" class="ep-panel detail-section" data-testid="catalog-next-release"
          th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
-        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: var(--ep-space-2);">
+        <div class="detail-section-header">
             <h2>Not published yet</h2>
             <button th:if="${readiness.offerPublish}" type="button" class="ep-btn ep-btn-primary ep-btn-sm"
                     th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
                     hx-target="#release-dialog-container" hx-swap="innerHTML"
                     data-testid="catalog-release-open">Publish…</button>
         </div>
-        <div class="card-body">
+        <div class="detail-section-body">
             <div th:if="${nextReleaseError != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-3);"
                  data-testid="catalog-next-release-error">
                 <span th:text="${nextReleaseError}"></span>
@@ -128,7 +128,7 @@
 
         <!--/* Advanced: what a technical author may want, folded away. Every control keeps its own
                gate and its test hook; nothing here is needed to publish. */-->
-        <details class="card-body" style="border-top: 1px solid var(--ep-border);" data-testid="catalog-advanced"
+        <details class="detail-section-body" style="border-top: 1px solid var(--ep-border-color);" data-testid="catalog-advanced"
                  th:attr="open=${nextReleaseError != null} ? 'open' : null">
             <summary>Advanced</summary>
             <p th:if="${readiness.draftVersion != null}" class="form-hint" style="margin-top: var(--ep-space-2);">
@@ -168,7 +168,7 @@
                 Discarding a draft needs the content publisher role, as publishing does.
             </p>
         <!-- Dependencies: the catalogs this one declares it uses, and the release each is locked to. -->
-        <div th:if="${readiness.draftVersion != null}" id="catalog-dependencies" class="card-body" 
+        <div th:if="${readiness.draftVersion != null}" id="catalog-dependencies" class="detail-section-body" 
              data-testid="catalog-dependencies">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--ep-space-2);">
                 <h3 style="margin: 0;">Dependencies</h3>

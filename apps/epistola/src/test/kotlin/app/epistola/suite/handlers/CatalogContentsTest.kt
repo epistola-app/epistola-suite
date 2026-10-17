@@ -34,6 +34,8 @@ class CatalogContentsTest {
         assertThat(templates.items.first().href).isEqualTo("/tenants/acme/templates/letters@1.2.1/invoice")
         assertThat(templates.newHref).isEqualTo("/tenants/acme/templates/new?catalog=letters@1.2.1")
         assertThat(contents.groups.first { it.type == "stencil" }.items).isEmpty()
+        assertThat(contents.filled.map { it.type }).containsExactly("template", "theme")
+        assertThat(contents.addable.map { it.type }).containsExactly("stencil", "image", "font", "attribute", "codeList")
     }
 
     @Test
@@ -44,6 +46,8 @@ class CatalogContentsTest {
 
         assertThat(contents.groups.first { it.type == "image" }.items.single().href).isEqualTo("/tenants/acme/images?catalog=letters")
         assertThat(contents.groups.first { it.type == "codeList" }.createWithheld).isTrue()
+        assertThat(contents.withheldLabels).containsExactly("attributes", "code lists")
+        assertThat(contents.addable.map { it.type }).doesNotContain("attribute", "codeList")
         assertThat(contents.groups.first { it.type == "template" }.mayCreate).isTrue()
     }
 }

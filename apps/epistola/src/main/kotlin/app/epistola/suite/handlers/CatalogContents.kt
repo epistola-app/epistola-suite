@@ -37,8 +37,17 @@ data class CatalogContents(val groups: List<Group>) {
     /** One resource, linked to where it is edited. */
     data class Item(val type: String, val slug: String, val name: String, val description: String?, val href: String)
 
-    /** Every resource there is, for the empty state. */
+    /** Nothing at all yet, for the empty state. */
     val isEmpty: Boolean get() = groups.all { it.items.isEmpty() }
+
+    /** The kinds that hold something, each shown as a row. */
+    val filled: List<Group> get() = groups.filter { it.items.isNotEmpty() }
+
+    /** The empty kinds the viewer may add, offered on one line rather than a box each. */
+    val addable: List<Group> get() = groups.filter { it.items.isEmpty() && it.mayCreate }
+
+    /** The kinds the viewer may not add, lower case, for the one sentence that says so. */
+    val withheldLabels: List<String> get() = groups.filter { it.createWithheld }.map { it.label.lowercase() }
 
     companion object {
         private data class Kind(
