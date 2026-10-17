@@ -4,7 +4,9 @@
 
 package app.epistola.suite.handlers
 
+import app.epistola.suite.catalog.dependencies.CatalogBorrowing
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.catalog.dependencies.GetCatalogBorrowing
 import app.epistola.suite.catalog.queries.CatalogResourceChange
 import app.epistola.suite.catalog.queries.CatalogResourceChanges
 import app.epistola.suite.catalog.queries.CatalogResourceState
@@ -45,7 +47,16 @@ data class CatalogReleaseReadiness(
     val mayMarkReady: Boolean,
     /** Whether the draft's number is as big a step from its base as its changes need; null when there is nothing to judge. */
     val numbering: DraftNumberAssessment? = null,
+    /** What the draft takes from other catalogs, and whether each is declared. */
+    val borrowing: CatalogBorrowing = CatalogBorrowing(emptyList(), emptyList()),
 ) {
+    /**
+     * Publishing declares the catalogs the draft uses but does not declare, locked to their highest
+     * release: someone who picked another catalog's theme in the editor need not know a release
+     * declares it. For a viewer who may declare them, and only when each has a release to lock to.
+     */
+    val declaresOnPublish: Boolean get() = mayEditDraft && borrowing.undeclared.isNotEmpty() && borrowing.unavailable.isEmpty()
+
     /**
      * The draft's own number is a smaller step from its base than its changes need (breaking changes
      * under a patch or minor, additions under a patch). Releasing is not refused, as ADR 0002 makes
@@ -115,7 +126,13 @@ data class CatalogReleaseReadiness(
      * that publishing cannot do itself. Unready changes do not block someone who may mark them.
      */
     val offerPublish: Boolean
-        get() = mayRelease && draftVersion != null && !nothingToPublish && unresolvedDependencies.isEmpty() && (notReady.isEmpty() || mayMarkReady)
+        get() = mayRelease &&
+            draftVersion != null &&
+            !nothingToPublish &&
+            unresolvedDependencies.isEmpty() &&
+            (notReady.isEmpty() || mayMarkReady) &&
+            borrowing.unavailable.isEmpty() &&
+            (borrowing.undeclared.isEmpty() || mayEditDraft)
 
     /** The viewer may publish and there is something to, but a dependency (or an unready change they may not mark) stops it. */
     val publishBlocked: Boolean get() = mayRelease && draftVersion != null && !nothingToPublish && !offerPublish
@@ -186,6 +203,7 @@ data class CatalogReleaseReadiness(
                 mayEditDraft = auth.has(Permission.TEMPLATE_EDIT),
                 mayMarkReady = auth.has(Permission.TEMPLATE_EDIT),
                 numbering = draft?.let { AssessDraftNumber(tenantKey, catalogKey, it).query() },
+                borrowing = if (draft == null) CatalogBorrowing(emptyList(), emptyList()) else GetCatalogBorrowing(tenantKey, catalogKey, catalogVersion = drafts.ref).query(),
             )
         }
     }

@@ -10,6 +10,7 @@ import app.epistola.suite.attributes.codelists.commands.UpdateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.versions.CatalogVersionStatus
 import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.CatalogId
@@ -21,13 +22,17 @@ import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -167,6 +172,58 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
 
         val released = withMediator { ListCatalogVersions(tenant.id, letters, CatalogVersionStatus.RELEASED).query() }.first { it.version == "1.1.0" }
         assertThat(released.deployedTo).isEmpty()
+    }
+
+    /** `shared` with a brand theme, published; the invoice in letters uses it without declaring it. */
+    private fun usingSharedTheme(tenant: Tenant, publishShared: Boolean = true) = withMediator {
+        val shared = CatalogKey.of("shared")
+        CreateCatalog(tenantKey = tenant.id, id = shared, name = "Shared").execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant.id))), "Brand").execute()
+        if (publishShared) mediator.releaseNext(CatalogId(shared, TenantId(tenant.id)))
+        val invoice = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant.id)))
+        CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
+        UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalogKey = shared).execute()
+    }
+
+    @Test
+    fun `a theme picked from another catalog is recorded by publishing instead of refusing it`() {
+        val tenant = published("Publish Borrowed")
+        usingSharedTheme(tenant)
+
+        val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
+        assertThat(dialog).contains("data-testid=\"publish-borrowed\"").contains("It uses Brand from Shared: Shared v1.0.0 is recorded with it")
+        assertThat(dialog).contains("data-testid=\"release-submit\"")
+
+        postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.1.0"))
+
+        assertThat(withMediator { ListCatalogVersions(tenant.id, letters, CatalogVersionStatus.RELEASED).query() }.map { it.version }).contains("1.1.0")
+        assertThat(withMediator { ListReleaseDependencies(tenant.id, letters, "1.1.0").query() }.map { it.catalogKey to it.releaseVersion })
+            .containsExactly("shared" to "1.0.0")
+    }
+
+    @Test
+    fun `a theme from a catalog that was never published withholds Publish and says what to publish first`() {
+        val tenant = published("Publish Borrowed Unpublished")
+        usingSharedTheme(tenant, publishShared = false)
+
+        val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
+
+        assertThat(dialog).contains("data-testid=\"release-blocked-borrowed\"")
+            .contains("It uses Brand from Shared, which has no published version yet. Publish Shared first.")
+        assertThat(dialog).doesNotContain("data-testid=\"release-submit\"")
+    }
+
+    @Test
+    fun `the catalog page says what the next version takes from other catalogs, and what else it could use`() {
+        val tenant = published("Publish Borrowed Page")
+        usingSharedTheme(tenant)
+
+        val page = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/browse", String::class.java).body!!
+        val borrowed = page.substringAfter("data-testid=\"catalog-borrowed\"")
+
+        assertThat(borrowed.substringAfter("data-catalog=\"shared\"").substringBefore("</section>"))
+            .contains("not recorded yet").contains("Used here:").contains("Brand").contains("(Theme)")
+        assertThat(borrowed).contains("data-testid=\"catalog-borrowed-others\"")
     }
 
     private fun getHtmx(url: String): ResponseEntity<String> = restTemplate.exchange(

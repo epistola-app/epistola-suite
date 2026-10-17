@@ -52,6 +52,45 @@
         </div>
     </div>
 
+    <!--/* What this version takes from other catalogs, and what it could (GetCatalogBorrowing): each
+           catalog it uses or records, at the version it renders from, what it uses of it and what
+           that version offers; then the tenant's other catalogs. Model: `readiness`, `tenantId`. */-->
+    <div th:fragment="borrowed" th:with="borrowing=${readiness.borrowing}"
+         th:if="${!readiness.borrowing.catalogs.isEmpty() or !readiness.borrowing.others.isEmpty()}"
+         class="card" data-testid="catalog-borrowed">
+        <div class="card-header">
+            <h2>From other catalogs</h2>
+        </div>
+        <div class="card-body">
+            <p th:if="${borrowing.catalogs.isEmpty()}" class="text-muted" style="margin-top: 0;">This version uses nothing from other catalogs.</p>
+            <section th:each="borrowed : ${borrowing.catalogs}" class="ep-panel" style="margin-bottom: var(--ep-space-3);"
+                     data-testid="catalog-borrowed-catalog" th:attr="data-catalog=${borrowed.catalogKey}">
+                <h3 style="margin: 0;">
+                    <a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${borrowed.catalogKey})}" th:text="${borrowed.name}">Shared</a>
+                    <span th:if="${borrowed.declared and borrowed.release != null}" class="badge badge-outline" th:text="'v' + ${borrowed.release}">v1.0.0</span>
+                    <span th:if="${!borrowed.declared and borrowed.release != null}" class="badge badge-default"
+                          th:title="'Publishing records v' + ${borrowed.release} + ' with it'">not recorded yet</span>
+                    <span th:if="${borrowed.release == null}" class="badge badge-warning">no published version</span>
+                </h3>
+                <p th:if="${borrowed.used}" style="margin: var(--ep-space-1) 0 0;" data-testid="catalog-borrowed-uses">
+                    Used here:
+                    <th:block th:each="used, stat : ${borrowed.uses}"><span th:text="${used.name ?: used.key}">Brand</span>
+                        <span class="text-muted" th:text="'(' + ${readiness.labelOf(used.type)} + ')'">(Theme)</span><th:block th:unless="${stat.last}">, </th:block></th:block>
+                </p>
+                <p th:unless="${borrowed.used}" class="text-muted" style="margin: var(--ep-space-1) 0 0;">Recorded, not used yet.</p>
+                <p th:unless="${borrowed.offers.isEmpty()}" class="text-muted text-sm" style="margin: var(--ep-space-1) 0 0;"
+                   data-testid="catalog-borrowed-offers"
+                   th:text="'It offers ' + ${#strings.listJoin(borrowed.offers.![name ?: key], ', ')} + '.'">It offers Brand, Footer.</p>
+            </section>
+            <p th:unless="${borrowing.others.isEmpty()}" class="form-hint" style="margin-bottom: 0;" data-testid="catalog-borrowed-others">
+                Also in this tenant:
+                <th:block th:each="other, stat : ${borrowing.others}"><a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${other.catalogKey})}"
+                       th:text="${other.name}">Forms</a><th:block th:unless="${stat.last}">, </th:block></th:block>.
+                Their themes, stencils, images, fonts and code lists can be picked in the editor; publishing records the catalog it came from.
+            </p>
+        </div>
+    </div>
+
     <th:block th:fragment="contents">
         <div class="card" th:if="${!resources.isEmpty()}">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">

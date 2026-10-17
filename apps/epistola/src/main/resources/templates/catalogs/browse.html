@@ -17,7 +17,11 @@
         <th:block th:if="${readiness != null}">
             <div th:replace="~{catalogs/overview :: getting-started}"></div>
             <div th:replace="~{catalogs/overview :: next-version}"></div>
-            <div th:if="${readiness.drafts.current != null}" th:replace="~{catalogs/content :: grouped(title='In the next version')}"></div>
+            <!--/* th:replace outranks th:if on one element, so the condition wraps them. */-->
+            <th:block th:if="${readiness.drafts.current != null}">
+                <div th:replace="~{catalogs/content :: grouped(title='In the next version')}"></div>
+                <div th:replace="~{catalogs/content :: borrowed}"></div>
+            </th:block>
         </th:block>
         <div th:replace="~{catalogs/overview :: versions}"></div>
 

@@ -36,6 +36,7 @@ import app.epistola.suite.catalog.commands.SetCatalogPublicationSettings
 import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.catalog.commands.UpgradeCatalog
+import app.epistola.suite.catalog.dependencies.DeclareUsedCatalogs
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
@@ -469,6 +470,10 @@ class CatalogHandler {
             val readiness = CatalogReleaseReadiness.of(draftBar(tenantId, segment))
             if (readiness.marksReadyOnPublish) {
                 MarkCatalogReady(tenantId.key, catalogKey, catalogVersion = segment.ref(tenantId.key)).execute()
+            }
+            // And declares the catalogs it uses but does not declare, so the release can render them.
+            if (readiness.declaresOnPublish) {
+                DeclareUsedCatalogs(tenantId.key, catalogKey, catalogVersion = segment.ref(tenantId.key)).execute()
             }
             val result = ReleaseCatalogVersion(
                 tenantKey = tenantId.key,

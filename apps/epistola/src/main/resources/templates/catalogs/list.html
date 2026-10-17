@@ -225,7 +225,23 @@
                                data-testid="release-blocked-resources">
                                 Some changes still have to be marked ready by a content author.
                             </p>
+                            <p th:each="borrowed : ${readiness.borrowing.unavailable}" style="margin: var(--ep-space-1) 0 0;"
+                               data-testid="release-blocked-borrowed"
+                               th:text="'It uses ' + ${#strings.listJoin(borrowed.uses.![name ?: key], ', ')} + ' from ' + ${borrowed.name} + ', which has no published version yet. Publish ' + ${borrowed.name} + ' first.'">
+                                It uses Plain from Forms, which has no published version yet.</p>
+                            <p th:if="${!readiness.borrowing.undeclared.isEmpty() and !readiness.mayEditDraft}" style="margin: var(--ep-space-1) 0 0;"
+                               data-testid="release-blocked-undeclared"
+                               th:text="'It uses ' + ${#strings.listJoin(readiness.borrowing.undeclared.![name], ', ')} + ', which a content author has to record as a catalog it uses.'">
+                                It uses Shared, which a content author has to record.</p>
                         </div>
+                    </div>
+
+                    <!--/* What it takes from other catalogs that it does not declare yet: publishing records each, at the version it renders from. */-->
+                    <div th:if="${readiness.declaresOnPublish}" class="form-group" data-testid="publish-borrowed">
+                        <span class="ep-label">From other catalogs</span>
+                        <p th:each="borrowed : ${readiness.borrowing.undeclared}" style="margin: var(--ep-space-1) 0 0;"
+                           th:text="'It uses ' + ${#strings.listJoin(borrowed.uses.![name ?: key], ', ')} + ' from ' + ${borrowed.name} + ': ' + ${borrowed.name} + ' v' + ${borrowed.release} + ' is recorded with it, so it renders the same until you choose otherwise.'">
+                            It uses Brand from Shared: Shared v1.0.0 is recorded with it.</p>
                     </div>
 
                     <!--/* A published fix that this work does not contain: said in plain words, with
