@@ -413,8 +413,8 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         }
         whenever {
             val page = get("/tenants/${tenant.id}/catalogs/letters/browse").body!!
-            assertThat(page).contains("data-testid=\"catalog-draft-behind\"").contains("data-testid=\"catalog-draft-behind-list\"")
-            assertThat(page).contains("theme/brand modified")
+            assertThat(page).contains("data-testid=\"catalog-draft-behind-list\"")
+            assertThat(page).contains("is not in this work").contains(": it changed").contains("brand</span>")
             val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
             assertThat(dialog).contains("data-testid=\"release-acknowledge-behind\"").contains("name=\"acknowledgedBehind\"").contains("value=\"1.0.1\"")
             val refused = postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "2.0.0"))
@@ -439,7 +439,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         whenever {
             val page = get("/tenants/${tenant.id}/catalogs/letters/browse")
             assertThat(page.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(page.body).contains("data-testid=\"catalog-draft-open\"").contains("Open draft v1.0.1 from v1.0.0")
+            assertThat(page.body).contains("data-testid=\"catalog-draft-open\"").contains("Start editing")
             assertThat(page.body).doesNotContain("data-testid=\"catalog-release-open\"").doesNotContain("data-testid=\"catalog-mark-ready\"")
             postForm("/tenants/${tenant.id}/catalogs/letters/drafts", mapOf("version" to "1.0.1", "from" to "1.0.0"), htmx = false)
         }

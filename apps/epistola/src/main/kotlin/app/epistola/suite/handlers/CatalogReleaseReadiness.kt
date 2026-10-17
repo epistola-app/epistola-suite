@@ -124,6 +124,9 @@ data class CatalogReleaseReadiness(
     val changedForPeople: List<PublishedChange>
         get() = changed.map { PublishedChange(typeLabel(it.type), it.name ?: it.slug, it.state) }
 
+    /** A resource type as people say it, for templates. */
+    fun labelOf(type: String): String = typeLabel(type)
+
     /** One line of "what changes": the kind of resource in words, its name, and how it changed. */
     data class PublishedChange(val kind: String, val name: String, val state: CatalogResourceState)
 

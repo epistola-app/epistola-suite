@@ -136,10 +136,10 @@ class CatalogReleaseHandlerTest : BaseIntegrationTest() {
 
         then {
             val body = result<org.springframework.http.ResponseEntity<String>>().body
-            assertThat(body).contains("This release will")
-            // Named, not just counted: the edited theme under "update", the added one under "add".
-            assertThat(body).contains("theme/tha")
-            assertThat(body).contains("theme/thb")
+            assertThat(body).contains("What changes")
+            // Named by the names people gave them: the edited theme as changed, the new one as added.
+            assertThat(body).contains("<strong>Th edited</strong>")
+            assertThat(body).contains("<strong>Th B</strong>")
         }
     }
 }

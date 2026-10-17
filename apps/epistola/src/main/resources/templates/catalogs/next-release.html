@@ -2,18 +2,15 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <!--
-    An authored catalog's next release: the draft's version number, what changed since the last
-    release and whether each change is ready, and the catalogs it declares it depends on. Rendered
-    on the catalog page (catalogs/browse) and re-rendered in place after "Mark all ready",
-    "Resolve to latest" or a dependency edit.
+    An authored catalog's work, as people see it (docs/catalog-workspace-navigation.md, "Simple
+    model"): what is not published yet, by name, and Publish. A fix of a published version is the
+    same card under its own heading. Everything technical — the draft's number, renumbering, other
+    drafts, ready marks, dependencies — is folded under Advanced: it still works, and nobody has to
+    understand it to publish.
 
-    Every control gates on one name of `readiness` (CatalogReleaseReadiness), the same model the
-    release dialog gates on, so the page and the dialog cannot disagree about whether a release is
-    possible. A withheld Release says why and links to where it is fixed.
-
-    With several drafts (contract ADR 0002) this is the release of the draft the page works in,
-    `readiness.drafts.chosen`; the draft bar at the top switches to another, and every control here
-    acts on the chosen one, because `catalogId` is the page's catalog segment (`letters@2.0.0`).
+    Every control gates on one name of `readiness` (CatalogReleaseReadiness), the model the publish
+    dialog gates on, so the page and the dialog cannot disagree. Re-rendered in place after "Mark all
+    ready", "Resolve to latest" or a dependency edit.
 
     Model it needs: `tenantId`, `catalogId` (the catalog segment), `readiness`, optionally
     `nextReleaseError`.
@@ -21,12 +18,137 @@
     <div th:fragment="next-release" id="catalog-next-release" class="card" data-testid="catalog-next-release"
          th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
         <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: var(--ep-space-2);">
-            <h2>
-                Next release
-                <span th:if="${readiness.draftVersion != null}" data-testid="catalog-draft-version"
-                      th:text="'v' + ${readiness.draftVersion}">v1.0.1</span>
-            </h2>
-            <div class="ep-row" style="gap: var(--ep-space-2);">
+            <h2 th:text="${readiness.drafts.fixing} ? 'Fix of v' + ${readiness.drafts.fixOf} : 'Your work'">Your work</h2>
+            <button th:if="${readiness.offerPublish}" type="button" class="ep-btn ep-btn-primary ep-btn-sm"
+                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
+                    hx-target="#release-dialog-container" hx-swap="innerHTML"
+                    data-testid="catalog-release-open" th:text="${readiness.drafts.fixing} ? 'Publish fix…' : 'Publish…'">Publish…</button>
+        </div>
+        <div class="card-body">
+            <div th:if="${nextReleaseError != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-3);"
+                 data-testid="catalog-next-release-error">
+                <span th:text="${nextReleaseError}"></span>
+            </div>
+
+            <!--/* A fix: said as plainly as on the content pages, so nobody mistakes it for their work. */-->
+            <div th:if="${readiness.drafts.fixing}" class="alert alert-warning" style="margin-bottom: var(--ep-space-3);"
+                 data-testid="catalog-fix-banner">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+                <div>
+                    <div class="alert-title"
+                         th:text="${readiness.drafts.fixOfLiveIn.isEmpty()} ? 'You are fixing v' + ${readiness.drafts.fixOf}
+                                  : 'You are fixing v' + ${readiness.drafts.fixOf} + ', which is live in ' + ${#strings.listJoin(readiness.drafts.fixOfLiveIn, ', ')}">You are fixing v1.4.0</div>
+                    <p style="margin: var(--ep-space-1) 0 0;">
+                        Changes here go only into this fix, not into your work.
+                        <a th:href="${readiness.drafts.workHref}" data-testid="catalog-fix-back">Back to your work</a>
+                    </p>
+                </div>
+            </div>
+
+            <!--/* Nothing open: every draft was discarded. Offer to start again. */-->
+            <th:block th:if="${readiness.drafts.noDraft}">
+                <p class="text-muted" data-testid="catalog-draft-none">Nothing is open to edit.</p>
+                <form th:if="${readiness.drafts.offerOpenDraft}" method="post" style="display: inline;"
+                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts(tenantId=${tenantId},catalogId=${readiness.catalogKey})}">
+                    <input type="hidden" name="version" th:value="${readiness.drafts.openDraftVersion}">
+                    <input type="hidden" name="from" th:value="${readiness.drafts.openDraftFrom}">
+                    <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="catalog-draft-open">Start editing</button>
+                </form>
+                <p th:if="${readiness.drafts.openDraftWithheldNoContent}" class="form-hint" data-testid="catalog-draft-open-withheld">
+                    Its latest published version kept no content to start from. Start from an older one under Advanced.
+                </p>
+                <p th:if="${readiness.drafts.draftControlsWithheld}" class="form-hint" data-testid="catalog-draft-open-withheld">
+                    Editing needs the content author role.
+                </p>
+            </th:block>
+
+            <th:block th:if="${readiness.draftVersion != null}">
+            <!--/* A published fix this work lacks: said plainly, with what it changed. */-->
+            <div th:unless="${readiness.drafts.behind.isEmpty()}" class="alert alert-warning" style="margin-bottom: var(--ep-space-3);"
+                 data-testid="catalog-draft-behind-list">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+                <div>
+                    <div class="alert-title">Published since you started</div>
+                    <p th:each="release : ${readiness.drafts.behind}" style="margin: var(--ep-space-1) 0 0;"
+                       data-testid="catalog-draft-behind-release" th:data-version="${release.version}">
+                        <strong th:text="'v' + ${release.version}">v1.0.1</strong> is not in this work<span th:unless="${release.changes.isEmpty()}"
+                            th:text="': it changed ' + ${#strings.listJoin(release.changes.![key], ', ')}"></span>.
+                        Make the same change here if it belongs in this work too.
+                    </p>
+                </div>
+            </div>
+
+            <p th:if="${readiness.drafts.publishWithheld}" class="form-hint" data-testid="catalog-publish-withheld">
+                Publishing needs the publisher role.
+            </p>
+            <div th:if="${readiness.publishBlocked}" class="alert alert-warning" style="margin-bottom: var(--ep-space-3);"
+                 data-testid="catalog-release-blocked">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+                <div>
+                    <div class="alert-title">This cannot be published yet</div>
+                    <p th:if="${!readiness.unresolvedDependencies.isEmpty()}" style="margin: var(--ep-space-1) 0 0;"
+                       data-testid="catalog-release-blocked-dependencies"
+                       th:text="'It uses ' + ${#strings.listJoin(readiness.unresolvedDependencies.![catalogKey], ', ')} + ', which has no published version that fits yet. Publish that first, or change its range under Advanced.'">
+                        It uses shared, which has no published version that fits yet.</p>
+                    <p th:if="${!readiness.notReady.isEmpty() and !readiness.mayMarkReady}" style="margin: var(--ep-space-1) 0 0;"
+                       data-testid="catalog-release-blocked-resources">
+                        Some changes still have to be marked ready by a content author.
+                    </p>
+                </div>
+            </div>
+
+            <p th:if="${!readiness.changes.baselineAvailable}" class="form-hint">
+                The previous version was published before Epistola kept track of its contents, so every
+                resource is listed below. From the next version on, only changes are.
+            </p>
+            <p th:if="${readiness.nothingToPublish}" class="text-muted" data-testid="catalog-no-changes">
+                Everything is published. What you change from now on shows up here.
+            </p>
+            <th:block th:unless="${readiness.nothingToPublish or readiness.changed.isEmpty()}">
+            <p class="text-muted" style="margin: 0 0 var(--ep-space-2);">Not published yet:</p>
+            <div class="ep-table-scroll" role="region" aria-label="Not published yet" tabindex="0">
+                <table class="ep-table ep-table-compact">
+                    <tbody>
+                        <tr th:each="change : ${readiness.changed}" data-testid="catalog-change-row"
+                            th:data-resource="${change.type + '/' + change.slug}">
+                            <td th:switch="${change.state.name()}" style="width: 1%; white-space: nowrap;">
+                                <span th:case="'NEW'" class="badge badge-info">Added</span>
+                                <span th:case="'REMOVED'" class="badge badge-default">Removed</span>
+                                <span th:case="*" class="badge badge-outline">Changed</span>
+                            </td>
+                            <td>
+                                <a th:if="${change.type == 'template' and change.state.name() != 'REMOVED'}"
+                                   th:href="@{/tenants/{tenantId}/templates/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
+                                   th:text="${change.name ?: change.slug}"></a>
+                                <a th:if="${change.type == 'stencil' and change.state.name() != 'REMOVED'}"
+                                   th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
+                                   th:text="${change.name ?: change.slug}"></a>
+                                <a th:if="${change.type == 'theme' and change.state.name() != 'REMOVED'}"
+                                   th:href="@{/tenants/{tenantId}/themes/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
+                                   th:text="${change.name ?: change.slug}"></a>
+                                <span th:unless="${(change.type == 'template' or change.type == 'stencil' or change.type == 'theme') and change.state.name() != 'REMOVED'}"
+                                      th:text="${change.name ?: change.slug}"></span>
+                                <span class="text-muted" th:text="'(' + ${readiness.labelOf(change.type)} + ')'">(Template)</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            </th:block>
+            </th:block>
+        </div>
+
+        <!--/* Advanced: what a technical author may want, folded away. Every control keeps its own
+               gate and its test hook; nothing here is needed to publish. */-->
+        <details class="card-body" style="border-top: 1px solid var(--ep-border);" data-testid="catalog-advanced"
+                 th:attr="open=${nextReleaseError != null or readiness.drafts.severalDrafts and !readiness.drafts.fixing} ? 'open' : null">
+            <summary>Advanced</summary>
+            <p th:if="${readiness.draftVersion != null}" class="form-hint" style="margin-top: var(--ep-space-2);">
+                This work is numbered <span data-testid="catalog-draft-version" th:text="'v' + ${readiness.draftVersion}">v1.0.1</span> for now;
+                publishing picks the number from the kind of change.
+            </p>
+            <div th:replace="~{catalogs/next-release :: number-too-low(readiness=${readiness})}"></div>
+            <div class="ep-row" style="gap: var(--ep-space-2); margin: var(--ep-space-2) 0;">
                 <button th:if="${readiness.drafts.offerCreateDraft}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
                         th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts/new(tenantId=${tenantId},catalogId=${catalogId})}"
                         hx-target="#dialog-mount" hx-swap="innerHTML"
@@ -50,25 +172,11 @@
                       hx-target="#catalog-next-release" hx-swap="outerHTML">
                     <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-mark-ready">Mark all ready</button>
                 </form>
-                <button th:if="${readiness.offerRelease}" type="button" class="ep-btn ep-btn-primary ep-btn-sm"
-                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
-                        hx-target="#release-dialog-container" hx-swap="innerHTML"
-                        data-testid="catalog-release-open">Release</button>
             </div>
-        </div>
-        <div class="card-body">
-            <div th:if="${nextReleaseError != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-3);"
-                 data-testid="catalog-next-release-error">
-                <span th:text="${nextReleaseError}"></span>
-            </div>
-
-            <!--/* Which draft this is, once there is more than one, or none. With one draft the
-                   heading's number says it all, as it always did. */-->
-            <th:block th:if="${readiness.drafts.severalDrafts or readiness.drafts.noDraft or !readiness.drafts.behind.isEmpty()}">
+            <p th:if="${readiness.marksReadyOnPublish}" class="form-hint" data-testid="catalog-not-ready-hint"
+               th:text="${readiness.notReady.size() == 1} ? '1 change is not marked ready yet; publishing marks it.' : ${readiness.notReady.size()} + ' changes are not marked ready yet; publishing marks them.'"></p>
+            <th:block th:if="${readiness.drafts.severalDrafts}">
                 <div th:replace="~{catalogs/drafts :: draft-bar(bar=${readiness.drafts})}"></div>
-            </th:block>
-            <th:block th:if="${readiness.draftVersion != null}">
-                <div th:replace="~{catalogs/drafts :: behind-list(bar=${readiness.drafts})}"></div>
             </th:block>
             <p th:if="${readiness.drafts.draftControlsWithheld and readiness.drafts.severalDrafts}" class="form-hint"
                data-testid="catalog-draft-controls-withheld">
@@ -76,90 +184,10 @@
             </p>
             <p th:if="${readiness.drafts.discardWithheld}" class="form-hint"
                data-testid="catalog-draft-discard-withheld">
-                Discarding a draft needs the content publisher role, as releasing does.
+                Discarding a draft needs the content publisher role, as publishing does.
             </p>
-            <th:block th:if="${readiness.draftVersion != null}">
-
-            <div th:replace="~{catalogs/next-release :: number-too-low(readiness=${readiness})}"></div>
-
-            <!--/* Why Release is not offered, one sentence per reason, each pointing at where it is
-                   fixed. */-->
-            <div th:if="${readiness.releaseBlocked}" class="alert alert-warning" style="margin-bottom: var(--ep-space-3);"
-                 data-testid="catalog-release-blocked">
-                <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
-                <div>
-                    <div class="alert-title">This catalog cannot be released yet.</div>
-                    <p th:if="${!readiness.notReady.isEmpty()}" style="margin: var(--ep-space-1) 0 0;"
-                       data-testid="catalog-release-blocked-resources">
-                        <span th:text="${readiness.notReady.size() == 1} ? '1 changed resource is not marked ready' : ${readiness.notReady.size()} + ' changed resources are not marked ready'"></span>:
-                        <span th:text="${#strings.listJoin(readiness.notReady.![type + ' ' + slug], ', ')}"></span>.
-                        Review them below and mark them ready, on their own page or with <em>Mark all ready</em>.
-                    </p>
-                    <p th:if="${!readiness.unresolvedDependencies.isEmpty()}" style="margin: var(--ep-space-1) 0 0;"
-                       data-testid="catalog-release-blocked-dependencies">
-                        <span th:text="${readiness.unresolvedDependencies.size() == 1} ? '1 declared dependency matches no release' : ${readiness.unresolvedDependencies.size()} + ' declared dependencies match no release'"></span>:
-                        <span th:text="${#strings.listJoin(readiness.unresolvedDependencies.![namespace + '/' + catalogKey + '@' + version], ', ')}"></span>.
-                        Release that catalog, or widen the range under <a href="#catalog-dependencies">Dependencies</a>.
-                    </p>
-                </div>
-            </div>
-
-            <p th:if="${!readiness.changes.baselineAvailable}" class="form-hint">
-                The last release was cut before Epistola recorded which resources a release contained,
-                so this catalog cannot say what changed since. Every resource is listed; the next release
-                records it.
-            </p>
-            <p th:if="${readiness.changed.isEmpty()}" class="text-muted" data-testid="catalog-no-changes">
-                No changes since the last release.
-            </p>
-            <div th:unless="${readiness.changed.isEmpty()}" class="ep-table-scroll" role="region" aria-label="Changes since the last release" tabindex="0">
-                <table class="ep-table ep-table-compact">
-                    <thead>
-                        <tr>
-                            <th>Type</th>
-                            <th>Resource</th>
-                            <th>Change</th>
-                            <th>Ready</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr th:each="change : ${readiness.changed}" data-testid="catalog-change-row"
-                            th:data-resource="${change.type + '/' + change.slug}">
-                            <td th:text="${change.type}">template</td>
-                            <td>
-                                <a th:if="${change.type == 'template' and change.state.name() != 'REMOVED'}"
-                                   th:href="@{/tenants/{tenantId}/templates/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
-                                   th:text="${change.name ?: change.slug}"></a>
-                                <a th:if="${change.type == 'stencil' and change.state.name() != 'REMOVED'}"
-                                   th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
-                                   th:text="${change.name ?: change.slug}"></a>
-                                <a th:if="${change.type == 'theme' and change.state.name() != 'REMOVED'}"
-                                   th:href="@{/tenants/{tenantId}/themes/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
-                                   th:text="${change.name ?: change.slug}"></a>
-                                <span th:unless="${(change.type == 'template' or change.type == 'stencil' or change.type == 'theme') and change.state.name() != 'REMOVED'}"
-                                      th:text="${change.name ?: change.slug}"></span>
-                                <code class="text-muted" style="font-size: var(--ep-text-xs); margin-left: var(--ep-space-1);" th:text="${change.slug}"></code>
-                            </td>
-                            <td th:switch="${change.state.name()}">
-                                <span th:case="'NEW'" class="badge badge-info">New</span>
-                                <span th:case="'MODIFIED'" class="badge badge-outline">Modified</span>
-                                <span th:case="'REMOVED'" class="badge badge-default">Removed</span>
-                                <span th:case="*" class="badge badge-outline">Changed</span>
-                            </td>
-                            <td>
-                                <span th:if="${change.state.name() == 'REMOVED'}" class="text-muted">—</span>
-                                <span th:if="${change.state.name() != 'REMOVED' and change.ready}" class="badge badge-success">Ready</span>
-                                <span th:if="${change.blocksRelease}" class="badge badge-warning">Not ready</span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            </th:block>
-        </div>
-
         <!-- Dependencies: the catalogs this one declares it uses, and the release each is locked to. -->
-        <div th:if="${readiness.draftVersion != null}" id="catalog-dependencies" class="card-body" style="border-top: 1px solid var(--ep-border);"
+        <div th:if="${readiness.draftVersion != null}" id="catalog-dependencies" class="card-body" 
              data-testid="catalog-dependencies">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--ep-space-2);">
                 <h3 style="margin: 0;">Dependencies</h3>
@@ -199,6 +227,7 @@
                 </tbody>
             </table>
         </div>
+        </details>
     </div>
 
     <!--

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.handlers
 
+import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.commands.CatalogReleaseNotRetainedException
 import app.epistola.suite.catalog.versions.CatalogVersionHeldException
 import app.epistola.suite.catalog.versions.CatalogVersionInUseException
@@ -13,6 +14,7 @@ import app.epistola.suite.catalog.versions.CatalogVersionStatus
 import app.epistola.suite.catalog.versions.CreateCatalogVersion
 import app.epistola.suite.catalog.versions.DeleteCatalogVersion
 import app.epistola.suite.catalog.versions.ListCatalogVersions
+import app.epistola.suite.catalog.versions.RenumberCatalogVersion
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.FormData
@@ -132,6 +134,39 @@ class CatalogDraftHandler(
         } catch (e: CatalogVersionReleasedException) {
             catalogs.browseWithError(request, segment.at(null), e.message ?: "The version is released.")
         }
+    }
+
+    /**
+     * `POST /{catalogId}/fixes` with `of`: starts a fix of published version `of`
+     * (docs/catalog-workspace-navigation.md) and lands on the catalog page in it, under the fix banner.
+     *
+     * A fix is a draft numbered as the next patch of `of`, copying its content. When your work holds
+     * that number — it usually does, as publishing opens your work as the next patch — your work moves
+     * up a minor first: people never see its number, which Publish picks from the kind of change.
+     * Offered only on what [CatalogDraftBar.fixableVersions] allows; a fix already open is continued.
+     */
+    fun startFix(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
+        val segment = request.catalogSegment().at(null)
+        val of = request.param("of").orElse("").trim()
+        val bar = bar(tenantId, segment)
+        bar.openFixOf[of]?.let { open -> return ServerResponse.status(303).header("Location", CatalogPages.browse(tenantId, segment.at(open))).build() }
+        if (of !in bar.fixableVersions) return catalogs.browseWithError(request, segment, "v$of cannot be fixed: only the newest published version of a line, with its content kept, can.")
+        val fix = SemVer.parse(of).bumpPatch().toString()
+        val versions = bar.drafts + bar.releases
+        try {
+            bar.drafts.firstOrNull { it.version == fix }?.let { work ->
+                val above = versions.mapNotNull { SemVer.parseOrNull(it.version) }.max().bumpMinor().toString()
+                RenumberCatalogVersion(tenantId.key, segment.key, work.version, above, acknowledgeWarnings = true).execute()
+            }
+            CreateCatalogVersion(tenantId.key, segment.key, fix, from = of).execute()
+        } catch (e: ValidationException) {
+            return catalogs.browseWithError(request, segment, e.message)
+        } catch (e: RuntimeException) {
+            return catalogs.browseWithError(request, segment, e.message ?: "The fix could not be started.")
+        }
+        return ServerResponse.status(303).header("Location", CatalogPages.browse(tenantId, segment.at(fix))).build()
     }
 
     private fun bar(tenantId: TenantId, segment: CatalogSegment): CatalogDraftBar = CatalogDraftBar.of(tenantId.key, segment) { CatalogPages.browse(tenantId, it) }

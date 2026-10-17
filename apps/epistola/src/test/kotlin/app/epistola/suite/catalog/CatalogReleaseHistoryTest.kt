@@ -62,7 +62,7 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         // sorting the text would get wrong.
         assertThat(body.indexOf("v1.10.0")).isLessThan(body.indexOf("v1.0.0"))
         assertThat(body).contains("first cut")
-        assertThat(body).contains("2 resources, kept")
+        assertThat(body).doesNotContain("contents not kept")
         assertThat(body).contains("catalogs/hist-cat/export?version=1.10.0")
     }
 
@@ -94,7 +94,7 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
 
         assertThat(body)
             .`as`("installing records the publisher's release, which can be deployed")
-            .contains("<h2>Releases</h2>")
+            .contains("<h2>History</h2>")
         assertThat(body)
             .`as`("and nothing can be released from a catalog this installation does not author")
             .doesNotContain("Release new version")
@@ -117,7 +117,7 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
 
         val body = browse(tenant.id.value, "hist-cut")
 
-        assertThat(body).contains("Release new version")
+        assertThat(body).contains("data-testid=\"catalog-release-open\"")
         assertThat(body).contains("catalogs/hist-cut/release")
         // The trigger swaps into this mount. Rendering one without the other is the failure that
         // looks like a broken button: HTMX fires, finds nothing to swap into, and does nothing.
@@ -131,8 +131,8 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
 
         val body = browse(tenant.id.value, "hist-none")
 
-        assertThat(body).contains("Not released yet")
-        assertThat(body).contains("Release new version")
+        assertThat(body).contains("Nothing published yet")
+        assertThat(body).contains("data-testid=\"catalog-release-open\"")
     }
 
     @Test
@@ -182,7 +182,7 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
             String::class.java,
         )
         assertThat(response.statusCode.is2xxSuccessful).isTrue()
-        assertThat(response.body).`as`("lands back on the catalog").contains("<h2>Releases</h2>")
+        assertThat(response.body).`as`("lands back on the catalog").contains("<h2>History</h2>")
 
         val after = browse(tenant.id.value, "hist-forget")
         assertThat(after).`as`("the release is still in the history").contains("v1.0.0")

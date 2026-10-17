@@ -103,6 +103,33 @@ data class CatalogDraftBar(
             drafts.drop(1).map { DraftLink(it.version, it.base, pageAt(segment.at(it.version)), active = false, behind = it.behind.isNotEmpty()) }
         }
 
+    /**
+     * The published versions a fix can be started on: an authored catalog's releases that kept their
+     * content and are the newest patch of their line (fixing 1.4.0 once 1.4.1 exists would fix the
+     * wrong thing), for a viewer who may edit. A LinkedHashSet: SpEL cannot call contains() on
+     * Kotlin's EmptySet.
+     */
+    val fixableVersions: Set<String>
+        get() = LinkedHashSet(
+            if (!authored || !mayOpenDrafts) {
+                emptyList()
+            } else {
+                releases.filter { it.contentRetained == true }.mapNotNull { release ->
+                    val number = SemVer.parseOrNull(release.version) ?: return@mapNotNull null
+                    val newerPatch = releases.any { other ->
+                        SemVer.parseOrNull(other.version)?.let { it.major == number.major && it.minor == number.minor && it > number } == true
+                    }
+                    release.version.takeUnless { newerPatch }
+                }
+            },
+        )
+
+    /** Per published version with a fix open, the fix's number: "Continue the fix" instead of starting another. */
+    val openFixOf: Map<String, String> get() = drafts.drop(1).mapNotNull { draft -> draft.base?.let { it to draft.version } }.toMap()
+
+    /** Per published version, the environments it is live in. */
+    val liveIn: Map<String, List<String>> get() = releases.associate { it.version to it.deployedTo }
+
     /** Publishing is withheld because the viewer may not publish; the bar says so instead of hiding it. */
     val publishWithheld: Boolean get() = authored && chosen != null && !mayDiscardDrafts
 

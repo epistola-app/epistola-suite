@@ -47,7 +47,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
     private lateinit var restTemplate: TestRestTemplate
 
     @Test
-    fun `catalog page withholds Release and names the resource that is not ready`() = fixture {
+    fun `the catalog page offers Publish, and says publishing marks the change that is not ready`() = fixture {
         lateinit var tenant: Tenant
 
         given {
@@ -62,11 +62,10 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(body).contains("data-testid=\"catalog-next-release\"")
             assertThat(body).contains("data-testid=\"catalog-draft-version\"")
             assertThat(body).contains("v1.0.0")
-            assertThat(body).contains("data-testid=\"catalog-release-blocked-resources\"")
-            assertThat(body).contains("template letter")
+            assertThat(body).doesNotContain("data-testid=\"catalog-release-blocked\"")
+            assertThat(body).contains("1 change is not marked ready yet; publishing marks it.")
             assertThat(body).contains("data-testid=\"catalog-mark-ready\"")
-            assertThat(body).doesNotContain("data-testid=\"catalog-release-open\"")
-            assertThat(body).doesNotContain("Release new version</button>")
+            assertThat(body).contains("data-testid=\"catalog-release-open\"")
         }
     }
 
@@ -281,8 +280,8 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val body = result<ResponseEntity<String>>().body!!
             assertThat(body).contains("data-testid=\"catalog-release-blocked-dependencies\"")
-            assertThat(body).contains("shared@^2.0.0")
-            assertThat(body).contains("href=\"#catalog-dependencies\"")
+            assertThat(body).contains("It uses shared, which has no published version that fits yet.")
+            assertThat(body).contains("change its range under Advanced")
             assertThat(body).contains("No matching release")
             assertThat(body).doesNotContain("data-testid=\"catalog-release-open\"")
         }

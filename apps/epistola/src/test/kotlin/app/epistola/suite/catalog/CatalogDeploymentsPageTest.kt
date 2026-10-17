@@ -55,7 +55,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         }
 
         val before = browse(tenant, "dep-page")
-        assertThat(before).contains("<h2>Deployments</h2>").contains("Production").contains(">nothing<")
+        assertThat(before).contains("<h2>Live</h2>").contains("Production").contains(">not live<")
         assertThat(before).contains("catalogs/dep-page/deployments").contains("value=\"1.0.0\"")
 
         val response = restTemplate.postForEntity(
@@ -67,7 +67,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
 
         val served = withMediator { ListDeployments(tenant.id, CatalogKey.of("dep-page")).query() }
         assertThat(served.map { it.environmentKey.value to it.version }).containsExactly("production" to "1.0.0")
-        assertThat(browse(tenant, "dep-page")).contains("v1.0.0").contains("Undeploy")
+        assertThat(browse(tenant, "dep-page")).contains("v1.0.0").contains("Take offline")
     }
 
     @Test
@@ -90,7 +90,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         val body = browse(tenant, "dep-two")
         assertThat(body).contains("data-version=\"1.0.1\"").contains("data-version=\"1.0.0\"")
         assertThat(body).contains("name=\"version\" value=\"1.0.1\"").contains("name=\"version\" value=\"1.0.0\"")
-        assertThat(body).contains("v1.0.1 (serving)").contains("v1.0.0 (serving)")
+        assertThat(body).contains("v1.0.1 (live)").contains("v1.0.0 (live)")
 
         restTemplate.postForEntity(
             "/tenants/${tenant.id.value}/catalogs/dep-two/deployments/production/undeploy",
@@ -144,7 +144,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
 
         val body = browse(tenant, "dep-noenv")
 
-        assertThat(body).contains("There are no environments to deploy to yet").contains("/tenants/${tenant.id.value}/environments")
+        assertThat(body).contains("There are no environments yet").contains("/tenants/${tenant.id.value}/environments")
         assertThat(body).doesNotContain("catalogs/dep-noenv/deployments\"")
     }
 
@@ -161,7 +161,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
 
         val body = browse(tenant, "dep-norelease")
 
-        assertThat(body).contains("Nothing can be deployed yet")
+        assertThat(body).contains("Nothing can be made live yet")
         assertThat(body).`as`("no deploy form with an empty select").doesNotContain("name=\"version\"")
     }
 

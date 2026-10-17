@@ -43,6 +43,8 @@ class CatalogRoutes(
             GET("/{catalogId}/drafts/new", drafts::createForm)
             POST("/{catalogId}/drafts", drafts::create)
             POST("/{catalogId}/drafts/discard", drafts::discard)
+            // A fix of a published version: the one kind of second draft people see.
+            POST("/{catalogId}/fixes", drafts::startFix)
             // Preparing the next release: readiness, the draft's number, declared dependencies
             POST("/{catalogId}/ready", nextRelease::markReady)
             GET("/{catalogId}/renumber", nextRelease::renumberForm)
