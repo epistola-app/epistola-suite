@@ -19,7 +19,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class SetTenantCatalogPublishingDefault(
-    override val tenantId: TenantKey,
+    val tenantId: TenantKey,
     val publishByDefault: Boolean,
 ) : Command<Tenant>,
     TenantScoped,

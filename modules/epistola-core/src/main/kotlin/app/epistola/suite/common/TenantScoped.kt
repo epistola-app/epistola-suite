@@ -17,7 +17,7 @@ import app.epistola.suite.common.ids.TenantKey
  * Add to any command that operates within a tenant's scope:
  * ```kotlin
  * data class CreateTheme(...) : Command<Theme>, TenantScoped {
- *     override val tenantId: TenantId
+ *     override val tenantKey: TenantKey
  * }
  * ```
  *
@@ -25,7 +25,9 @@ import app.epistola.suite.common.ids.TenantKey
  */
 interface TenantScoped {
     /**
-     * The ID of the tenant this message is scoped to.
+     * The key of the tenant this message is scoped to. It is the same property as
+     * [app.epistola.suite.security.RequiresPermission.tenantKey], so a message implementing both
+     * declares it once.
      */
-    val tenantId: TenantKey
+    val tenantKey: TenantKey
 }

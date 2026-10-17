@@ -45,16 +45,14 @@ data class ResolvedCatalogVersion(
  * its own permission for, so an author's key need not also hold `CATALOG_VIEW` to write.
  */
 data class ResolveCatalogVersion(
-    val tenantKey: TenantKey,
+    override val tenantKey: TenantKey,
     val registry: String?,
     val namespace: String,
     val catalogKey: CatalogKey,
     val version: String,
 ) : Query<ResolvedCatalogVersion>,
     RequiresAuthentication,
-    TenantScoped {
-    override val tenantId: TenantKey get() = tenantKey
-}
+    TenantScoped
 
 @Component
 class ResolveCatalogVersionHandler(

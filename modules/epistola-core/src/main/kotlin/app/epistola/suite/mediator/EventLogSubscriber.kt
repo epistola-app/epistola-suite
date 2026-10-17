@@ -53,7 +53,7 @@ class EventLogSubscriber(
         try {
             val command = event.command
             val eventType = command::class.simpleName ?: "Unknown"
-            val tenantId = (command as? TenantScoped)?.tenantId?.value
+            val tenantId = (command as? TenantScoped)?.tenantKey?.value
             val entityId = extractEntityId(command)
             val payload = objectMapper.writeValueAsString(command)
 

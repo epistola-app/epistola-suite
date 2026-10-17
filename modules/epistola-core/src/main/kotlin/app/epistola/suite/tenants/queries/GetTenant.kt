@@ -21,7 +21,7 @@ data class GetTenant(
 ) : Query<Tenant?>,
     RequiresAuthentication,
     TenantScoped {
-    override val tenantId: TenantKey get() = id
+    override val tenantKey: TenantKey get() = id
 }
 
 @Component

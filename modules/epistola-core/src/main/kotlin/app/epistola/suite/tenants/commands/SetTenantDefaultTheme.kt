@@ -33,7 +33,7 @@ import org.springframework.transaction.annotation.Transactional
  *   tenant.
  */
 data class SetTenantDefaultTheme(
-    override val tenantId: TenantKey,
+    val tenantId: TenantKey,
     val themeId: ThemeKey?,
     val catalogKey: CatalogKey? = null,
 ) : Command<Tenant>,

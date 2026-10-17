@@ -27,15 +27,13 @@ import org.springframework.stereotype.Component
  * permission, so a document generator can name the catalog it generates from without viewing catalogs.
  */
 data class ResolveCatalog(
-    val tenantKey: TenantKey,
+    override val tenantKey: TenantKey,
     val registry: String?,
     val namespace: String,
     val catalogKey: CatalogKey,
 ) : Query<Catalog>,
     RequiresAuthentication,
-    TenantScoped {
-    override val tenantId: TenantKey get() = tenantKey
-}
+    TenantScoped
 
 @Component
 class ResolveCatalogHandler(

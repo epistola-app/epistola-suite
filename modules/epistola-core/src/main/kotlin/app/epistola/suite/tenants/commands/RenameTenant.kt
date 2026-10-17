@@ -26,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional
  * [tenantId] exists (so the caller can distinguish not-found from success).
  */
 data class RenameTenant(
-    override val tenantId: TenantKey,
+    val tenantId: TenantKey,
     val name: String,
 ) : Command<Tenant?>,
     TenantScoped,

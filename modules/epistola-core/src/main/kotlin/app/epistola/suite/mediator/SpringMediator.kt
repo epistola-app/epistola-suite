@@ -301,7 +301,7 @@ class SpringMediator(
 
             is RequiresAuthentication -> {
                 currentUser()
-                if (message is TenantScoped) requireTenantAccess(message.tenantId)
+                if (message is TenantScoped) requireTenantAccess(message.tenantKey)
             }
 
             is Authorized -> error("Unhandled Authorized subtype: ${message::class.simpleName}")

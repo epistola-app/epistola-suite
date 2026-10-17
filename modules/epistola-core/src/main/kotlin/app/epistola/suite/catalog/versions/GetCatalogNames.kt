@@ -24,13 +24,11 @@ import org.springframework.stereotype.Component
  * viewing catalogs.
  */
 data class GetCatalogNames(
-    val tenantKey: TenantKey,
+    override val tenantKey: TenantKey,
     val catalogKeys: Collection<CatalogKey>,
 ) : Query<Map<CatalogKey, CatalogName>>,
     RequiresAuthentication,
-    TenantScoped {
-    override val tenantId: TenantKey get() = tenantKey
-}
+    TenantScoped
 
 @Component
 class GetCatalogNamesHandler(
