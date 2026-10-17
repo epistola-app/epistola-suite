@@ -22,6 +22,7 @@ import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.fonts.FontNotFoundException
 import app.epistola.suite.fonts.model.Font
+import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
 import app.epistola.suite.mediator.query
@@ -60,7 +61,7 @@ class EpistolaFontApi : FontsApi {
         if (!at.isDraft) {
             // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
             val slice = Pagination.pageOfRelease(at.releasedResources<FontResource>("font"), page, size)
-            return ResponseEntity.ok(FontListResponse(items = slice.items.map { it.toDto(at) }, page = slice.page))
+            return ResponseEntity.ok(FontListResponse(items = slice.items.map { it.toReleasedDto(at) }, page = slice.page))
         }
         val fonts = ListFonts(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey).query()
         val slice = Pagination.paginate(fonts, page, size)
@@ -82,9 +83,22 @@ class EpistolaFontApi : FontsApi {
                 .firstOrNull { it.slug == key }
                 ?.toDto(at)
         } else {
-            at.releasedResource<FontResource>("font", fontKey)?.toDto(at)
+            at.releasedResource<FontResource>("font", fontKey)?.toReleasedDto(at)
         } ?: throw FontNotFoundException(at.catalog.tenantKey, at.catalogKey, key)
         return ResponseEntity.ok(font)
+    }
+
+    /**
+     * A released font with its faces. A release carries only asset-backed faces: the faces of a
+     * system font ship with the installation (classpath), the same for every release, so they are
+     * read from it.
+     */
+    private fun FontResource.toReleasedDto(at: ResolvedCatalogVersion): FontDto {
+        val dto = toDto(at)
+        val installed = GetFontVariants(fontId = FontId(FontKey.of(key), at.catalogId)).query()
+            .filter { it.source == FontVariantSource.CLASSPATH }
+            .map { FontVariantDto(it.weight, it.italic) }
+        return if (installed.isEmpty()) dto else dto.copy(variants = dto.variants + installed)
     }
 
     private fun Font.toDto(at: ResolvedCatalogVersion): FontDto {

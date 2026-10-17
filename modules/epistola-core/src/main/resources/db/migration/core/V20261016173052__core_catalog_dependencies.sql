@@ -46,7 +46,8 @@ CREATE TABLE catalog_release_dependencies (
     release_version     VARCHAR(100),
     release_fingerprint VARCHAR(80),
     PRIMARY KEY (tenant_key, catalog_id, version, registry, namespace, dependency_key),
-    FOREIGN KEY (tenant_key, catalog_id, version) REFERENCES catalog_releases (tenant_key, catalog_id, version) ON DELETE CASCADE,
+    CONSTRAINT fk_catalog_release_dependencies_release
+        FOREIGN KEY (tenant_key, catalog_id, version) REFERENCES catalog_releases (tenant_key, catalog_id, version) ON DELETE CASCADE,
     CONSTRAINT chk_catalog_release_dependencies_pinned CHECK ((release_version IS NULL) = (release_fingerprint IS NULL))
 );
 
