@@ -6,17 +6,27 @@ package app.epistola.suite.api.v1
 
 import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.apikeys.commands.CreateApiKey
+import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
+import app.epistola.suite.catalog.commands.MarkCatalogReady
+import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.tenants.commands.CreateTenant
@@ -27,6 +37,7 @@ import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.themes.commands.CreateTheme
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -98,23 +109,24 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `deploying, the deployments listing, the history and undeploying`() {
+    fun `deploying adds a release beside the others, the listing shows both, and undeploying removes one`() {
         val (tenant, key) = tenantWithTwoReleases()
         val env = "/api/tenants/${tenant.value}/environments/production"
         val deployments = deployments(tenant)
 
         assertThat(exchange(HttpMethod.PUT, "$deployments/1.0.0", key).statusCode).isEqualTo(HttpStatus.OK)
-        val moved = exchange(HttpMethod.PUT, "$deployments/1.0.1", key)
-        assertThat(moved.statusCode).describedAs(moved.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(moved.body!!, "$.releaseVersion")).isEqualTo("1.0.1")
+        val added = exchange(HttpMethod.PUT, "$deployments/1.0.1", key)
+        assertThat(added.statusCode).describedAs(added.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(added.body!!, "$.releaseVersion")).isEqualTo("1.0.1")
 
         val serves = exchange(HttpMethod.GET, "$env/deployments", key)
-        assertThat(JsonPath.read<List<String>>(serves.body!!, "$.items[*].releaseVersion")).containsExactly("1.0.1")
+        assertThat(JsonPath.read<List<String>>(serves.body!!, "$.items[*].releaseVersion")).`as`("both served").containsExactly("1.0.1", "1.0.0")
 
-        assertThat(exchange(HttpMethod.DELETE, "$deployments/1.0.0", key).statusCode).`as`("1.0.0 is no longer served").isEqualTo(HttpStatus.NOT_FOUND)
         assertThat(exchange(HttpMethod.DELETE, "$deployments/1.0.1", key).statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+        val after = exchange(HttpMethod.GET, "$env/deployments", key)
+        assertThat(JsonPath.read<List<String>>(after.body!!, "$.items[*].releaseVersion")).`as`("the other stays").containsExactly("1.0.0")
         val again = exchange(HttpMethod.DELETE, "$deployments/1.0.1", key)
-        assertThat(again.statusCode).`as`("nothing left to undeploy").isEqualTo(HttpStatus.NOT_FOUND)
+        assertThat(again.statusCode).`as`("no longer served").isEqualTo(HttpStatus.NOT_FOUND)
 
         val history = exchange(HttpMethod.GET, "$env/deployment-history", key)
         assertThat(JsonPath.read<List<String>>(history.body!!, "$.items[*].action")).containsExactly("undeployed", "deployed", "deployed")
@@ -123,6 +135,64 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
 
         val notDeployable = exchange(HttpMethod.PUT, "$deployments/9.9.9", key)
         assertThat(notDeployable.statusCode).isEqualTo(HttpStatus.CONFLICT)
+    }
+
+    @Test
+    fun `generation with an environment and a version selector renders the highest served release satisfying it`() {
+        val (tenant, key) = tenantWithTwoReleases()
+        exchange(HttpMethod.PUT, "${deployments(tenant)}/1.0.0", key)
+        exchange(HttpMethod.PUT, "${deployments(tenant)}/1.0.1", key)
+        val namespace = withMediator { CatalogApiPaths.namespace(tenant) }
+        val body = { version: String? ->
+            val selector = version?.let { "\"version\":\"$it\"," }.orEmpty()
+            """{"namespace":"$namespace","catalogKey":"default","templateKey":"invoice","variantKey":"${VariantKey.INITIAL.value}",$selector"environmentKey":"production","data":{}}"""
+        }
+        val rendered = { version: String? ->
+            val accepted = exchange(HttpMethod.POST, "/api/tenants/${tenant.value}/documents/generate", key, body(version))
+            assertThat(accepted.statusCode).describedAs(accepted.body).isEqualTo(HttpStatus.ACCEPTED)
+            val job = exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/documents/jobs/${JsonPath.read<String>(accepted.body!!, "$.requestId")}", key)
+            JsonPath.read<String>(job.body!!, "$.items[0].releaseVersion")
+        }
+
+        assertThat(rendered(null)).isEqualTo("1.0.1")
+        assertThat(rendered("<1.0.1")).isEqualTo("1.0.0")
+
+        val none = exchange(HttpMethod.POST, "/api/tenants/${tenant.value}/documents/generate", key, body("^2.0.0"))
+        assertThat(none.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        assertThat(JsonPath.read<String>(none.body!!, "$.type")).isEqualTo("https://epistola.app/errors/no-release-deployed")
+    }
+
+    @Test
+    fun `a release whose dependency the environment does not serve is refused with release-dependencies-missing, and deployed with it on request`() {
+        val (tenant, key) = tenantWithTwoReleases()
+        val version = withMediator {
+            val shared = CatalogKey.of("shared")
+            CreateCatalog(tenantKey = tenant, id = shared, name = "Shared").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant))), "Brand").execute()
+            MarkCatalogReady(tenant, shared).execute()
+            ReleaseCatalogVersion(tenant, shared, "1.0.0").execute()
+            val target = GetCatalog(tenant, shared).query()!!
+            UpdateCatalogDependencies(tenant, CatalogKey.DEFAULT, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "*"))).execute()
+            mediator.releaseNext(CatalogId.default(TenantId(tenant)))
+        }
+        val shared = withMediator { GetCatalog(tenant, CatalogKey.of("shared")).query()!! }
+
+        val refused = exchange(HttpMethod.PUT, "${deployments(tenant)}/$version", key)
+        assertThat(refused.statusCode).describedAs(refused.body).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(refused.headers.contentType.toString()).startsWith("application/problem+json")
+        assertThat(JsonPath.read<String>(refused.body!!, "$.type")).isEqualTo("https://epistola.app/errors/release-dependencies-missing")
+        assertThat(JsonPath.read<String>(refused.body!!, "$.title")).isEqualTo("Release Dependencies Missing")
+        assertThat(JsonPath.read<Map<String, Any>>(refused.body!!, "$.missingDependencies[0]")).isEqualTo(
+            mapOf("registry" to shared.registry, "namespace" to shared.namespace, "catalogKey" to "shared", "releaseVersion" to "1.0.0", "reason" to "NOT_DEPLOYED"),
+        )
+        val env = "/api/tenants/${tenant.value}/environments/production"
+        assertThat(JsonPath.read<List<Any>>(exchange(HttpMethod.GET, "$env/deployments", key).body!!, "$.items")).`as`("nothing deployed").isEmpty()
+
+        val along = exchange(HttpMethod.PUT, "${deployments(tenant)}/$version?includeDependencies=true", key)
+        assertThat(along.statusCode).describedAs(along.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(along.body!!, "$.releaseVersion")).isEqualTo(version)
+        val served = exchange(HttpMethod.GET, "$env/deployments", key)
+        assertThat(JsonPath.read<List<String>>(served.body!!, "$.items[*].catalogKey")).containsExactlyInAnyOrder("default", "shared")
     }
 
     @Test

@@ -69,7 +69,7 @@ class EnvironmentCommandsTest : IntegrationTestBase() {
         CreateEnvironment(id = envId, name = "Production").execute()
 
         MarkVariantReady(variantId).execute()
-        mediator.deployLatestRelease(envId, templateId.catalogId)
+        val version = mediator.deployLatestRelease(envId, templateId.catalogId)
 
         assertThatThrownBy { DeleteEnvironment(id = envId).execute() }
             .isInstanceOf(EnvironmentInUseException::class.java)
@@ -78,8 +78,8 @@ class EnvironmentCommandsTest : IntegrationTestBase() {
         // The environment survives the rejected delete.
         assertThat(GetEnvironment(id = envId).query()).isNotNull()
 
-        // Once the catalog is undeployed the delete goes through.
-        val removed = UndeployRelease(environmentId = envId, catalogKey = templateId.catalogKey).execute()
+        // Once the release is undeployed the delete goes through.
+        val removed = UndeployRelease(environmentId = envId, catalogKey = templateId.catalogKey, version = version).execute()
         assertThat(removed).isTrue()
         assertThat(DeleteEnvironment(id = envId).execute()).isTrue()
     }

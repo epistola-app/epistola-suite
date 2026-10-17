@@ -43,6 +43,7 @@ import app.epistola.suite.documents.TemplateNotInReleaseException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.environments.EnvironmentInUseException
+import app.epistola.suite.environments.ReleaseDependenciesMissingException
 import app.epistola.suite.environments.ReleaseNotDeployableException
 import app.epistola.suite.fonts.FontNotFoundException
 import app.epistola.suite.stencils.StencilNotFoundException
@@ -438,6 +439,25 @@ object ApiExceptionMappings {
             defaultDetail = "The release cannot be deployed",
             extensions = { mapOf("catalogId" to it.catalogKey.value, "releaseVersion" to it.version) },
             logMessage = { "Release not deployable: ${it.message}" },
+        )
+
+        builder.register<ReleaseDependenciesMissingException>(
+            problemType = ApiProblemTypes.RELEASE_DEPENDENCIES_MISSING,
+            defaultDetail = "The release renders with releases the environment does not serve",
+            extensions = {
+                mapOf(
+                    "missingDependencies" to it.missing.map { dependency ->
+                        mapOf(
+                            "registry" to dependency.registry,
+                            "namespace" to dependency.namespace,
+                            "catalogKey" to dependency.catalogKey,
+                            "releaseVersion" to dependency.releaseVersion,
+                            "reason" to dependency.reason.name,
+                        )
+                    },
+                )
+            },
+            logMessage = { "Release dependencies missing: ${it.message}" },
         )
 
         builder.register<ReleaseInUseException>(

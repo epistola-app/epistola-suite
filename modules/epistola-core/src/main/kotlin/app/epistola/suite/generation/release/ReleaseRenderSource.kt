@@ -19,6 +19,7 @@ import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.generation.pdf.SpacingScale
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
+import app.epistola.suite.catalog.queries.LATEST_RELEASE_ORDER
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.ids.CatalogKey
@@ -292,7 +293,7 @@ class ReleaseRenderSource(
      * release, every other catalog from the release it is pinned to (contract ADR 0003). A pin is
      * this release's own, else that of a release it pins, nearest first, for a catalog only a
      * dependency depends on. A catalog no release pins, which only a release cut before 2.0 has,
-     * comes from the release [environment] deploys of it, else from its latest release that kept its
+     * comes from the highest release [environment] serves of it, else from its latest release that kept its
      * content. Each catalog is looked up once, so one render reads one release of it however many
      * references it follows.
      */
@@ -359,8 +360,16 @@ class ReleaseRenderSource(
             return ReleaseRef(catalog, version)
         }
 
+        /** The highest release of [catalog] [environment] serves, as generation naming it would pick. */
         private fun deployedRelease(handle: Handle, environment: EnvironmentKey, catalog: CatalogKey): String? = handle
-            .createQuery("SELECT version FROM environment_catalog_deployments WHERE tenant_key = :t AND environment_key = :e AND catalog_id = ${catalogAt("t", "c")}")
+            .createQuery(
+                """
+                SELECT r.version FROM environment_catalog_deployments d
+                JOIN catalog_releases r ON r.tenant_key = d.tenant_key AND r.catalog_id = d.catalog_id AND r.version = d.version
+                WHERE d.tenant_key = :t AND d.environment_key = :e AND d.catalog_id = ${catalogAt("t", "c")} AND r.content_retained
+                $LATEST_RELEASE_ORDER LIMIT 1
+                """,
+            )
             .bind("t", tenantKey)
             .bind("e", environment)
             .bind("c", catalog)

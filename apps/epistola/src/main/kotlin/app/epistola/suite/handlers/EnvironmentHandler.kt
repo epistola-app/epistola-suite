@@ -16,6 +16,7 @@ import app.epistola.suite.environments.queries.ListDeployableReleases
 import app.epistola.suite.environments.queries.ListDeploymentHistory
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.environments.queries.ListEnvironments
+import app.epistola.suite.handlers.DeployRefusalView
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.environmentId
 import app.epistola.suite.htmx.executeOrFormError
@@ -177,12 +178,12 @@ class EnvironmentHandler {
     }
 
     /**
-     * An environment: the release of each catalog it serves, a way to deploy another, and what it
+     * An environment: every release of each catalog it serves, a way to deploy another, and what it
      * served over time, with each earlier release offered again where it can still be deployed.
      */
     fun detail(request: ServerRequest): ServerResponse = detail(request, error = null)
 
-    private fun detail(request: ServerRequest, error: String?): ServerResponse {
+    private fun detail(request: ServerRequest, error: String?, refusal: DeployRefusalView? = null): ServerResponse {
         val tenantId = request.tenantId()
         val environmentId = request.environmentId(tenantId) ?: return ServerResponse.notFound().build()
         val environment = GetEnvironment(environmentId).query() ?: return ServerResponse.notFound().build()
@@ -190,7 +191,7 @@ class EnvironmentHandler {
         val deployable = ListDeployableReleases(tenantId.key).query()
         val catalogNames = deployable.associate { it.catalogKey to it.catalogName }
         val served = ListDeployments(tenantId.key, environmentKey = environmentId.key).query()
-        val servedVersions = served.associate { it.catalogKey to it.version }
+        val servedReleases = served.map { it.catalogKey to it.version }.toSet()
         val deployableSet = deployable.map { it.catalogKey to it.version }.toSet()
 
         val history = ListDeploymentHistory(environmentId).query().map { entry ->
@@ -203,10 +204,9 @@ class EnvironmentHandler {
                 changedAt = entry.changedAt,
                 changedByName = entry.changedByName,
                 // Offered again only when deploying it would change something and can succeed:
-                // the release still kept its content, and the environment serves another one now.
-                redeployable = entry.version != null &&
-                    (entry.catalogKey to entry.version) in deployableSet &&
-                    servedVersions[entry.catalogKey] != entry.version,
+                // the release still kept its content, and the environment does not serve it now.
+                redeployable = (entry.catalogKey to entry.version) in deployableSet &&
+                    (entry.catalogKey to entry.version) !in servedReleases,
             )
         }
 
@@ -215,6 +215,7 @@ class EnvironmentHandler {
             "tenantId" to tenantId.key
             "environment" to environment
             "error" to error
+            "refusal" to refusal
             "deployments" to served.map { deployment ->
                 ServedReleaseView(
                     catalogKey = deployment.catalogKey.value,
@@ -228,14 +229,20 @@ class EnvironmentHandler {
                     catalogKey = catalogKey.value,
                     catalogName = releases.first().catalogName,
                     versions = releases.map { it.version },
-                    servedVersion = servedVersions[catalogKey],
+                    // A HashSet, not Kotlin's EmptySet, whose class the template's `contains` cannot reach.
+                    servedVersions = releases.map { it.version }.filterTo(HashSet()) { (catalogKey to it) in servedReleases },
                 )
             }
             "history" to history
         }
     }
 
-    /** Deploys the chosen release, given as `catalog@version`. Refusals stay on the page. */
+    /**
+     * Deploys the chosen release, given as `catalog@version`, beside what the environment serves.
+     * With `includeDependencies`, the releases of other catalogs it renders with are deployed along.
+     * Refusals stay on the page; one for missing dependencies lists them, and offers deploying them
+     * along when that would succeed.
+     */
     fun deploy(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val environmentId = request.environmentId(tenantId) ?: return ServerResponse.notFound().build()
@@ -244,20 +251,33 @@ class EnvironmentHandler {
         val version = release.substringAfter('@', missingDelimiterValue = "")
         val catalogKey = CatalogKey.validateOrNull(catalog)
         if (catalogKey == null || version.isEmpty()) return detail(request, error = "Choose a release to deploy.")
+        val includeDependencies = request.param("includeDependencies").orElse("") == "true"
         return try {
-            DeployRelease(environmentId, catalogKey, version).execute()
+            DeployRelease(environmentId, catalogKey, version, includeDependencies).execute()
             redirectTo(environmentId)
         } catch (failure: ReleaseNotDeployableException) {
             detail(request, error = failure.message)
+        } catch (failure: ReleaseDependenciesMissingException) {
+            detail(
+                request,
+                error = null,
+                refusal = DeployRefusalView.of(
+                    failure,
+                    deployUrl = "/tenants/${tenantId.key.value}/environments/${environmentId.key.value}/deployments",
+                    fields = mapOf("release" to release),
+                ),
+            )
         }
     }
 
-    /** Stops the environment serving a catalog. */
+    /** Stops the environment serving one release of a catalog, given as the `version` field. */
     fun undeploy(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val environmentId = request.environmentId(tenantId) ?: return ServerResponse.notFound().build()
         val catalogKey = CatalogKey.validateOrNull(request.pathVariable("catalogId")) ?: return ServerResponse.notFound().build()
-        UndeployRelease(environmentId, catalogKey).execute()
+        val version = request.param("version").orElse("").trim()
+        if (version.isEmpty()) return detail(request, error = "Choose a release to undeploy.")
+        UndeployRelease(environmentId, catalogKey, version).execute()
         return redirectTo(environmentId)
     }
 
@@ -265,7 +285,7 @@ class EnvironmentHandler {
         .header("Location", "/tenants/${environmentId.tenantKey.value}/environments/${environmentId.key.value}")
         .build()
 
-    /** A catalog the environment serves, and the release. */
+    /** One release of a catalog the environment serves. */
     data class ServedReleaseView(
         val catalogKey: String,
         val catalogName: String,
@@ -273,12 +293,12 @@ class EnvironmentHandler {
         val deployedAt: OffsetDateTime,
     )
 
-    /** One catalog's deployable releases, newest first, and the one the environment serves. */
+    /** One catalog's deployable releases, newest first, and those the environment serves. */
     data class ReleaseGroupView(
         val catalogKey: String,
         val catalogName: String,
         val versions: List<String>,
-        val servedVersion: String?,
+        val servedVersions: Set<String>,
     )
 
     /** One change in the environment's history, and whether its release can be deployed again. */
@@ -286,7 +306,7 @@ class EnvironmentHandler {
         val catalogKey: String,
         val catalogName: String,
         val deployed: Boolean,
-        val version: String?,
+        val version: String,
         val previousVersion: String?,
         val changedAt: OffsetDateTime,
         val changedByName: String?,

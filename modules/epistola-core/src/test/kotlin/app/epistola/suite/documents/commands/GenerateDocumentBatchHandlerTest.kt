@@ -19,6 +19,7 @@ import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.publishAndRelease
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -139,17 +140,17 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `validates item releaseVersion and environmentId are mutually exclusive`() {
-        assertThatThrownBy {
+    fun `an item version selector combines with an environment`() {
+        // Contract 2.0: the selector picks among the releases the environment serves.
+        assertThatCode {
             BatchGenerationItem(
                 templateId = TestIdHelpers.nextTemplateId(),
                 variantId = TestIdHelpers.nextVariantId(),
                 releaseVersion = "1.0.0",
-                environmentId = TestIdHelpers.nextEnvironmentId(), // Both set
+                environmentId = TestIdHelpers.nextEnvironmentId(),
                 data = objectMapper.createObjectNode(),
                 filename = "test.pdf",
             )
-        }.isInstanceOf(IllegalArgumentException::class.java)
-            .hasMessageContaining("Cannot specify both")
+        }.doesNotThrowAnyException()
     }
 }

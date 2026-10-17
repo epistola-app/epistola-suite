@@ -88,11 +88,19 @@ class ReleaseNotFoundException(
     val releaseVersion: String,
 ) : RuntimeException("Catalog '${catalogKey.value}' has no release $releaseVersion that can be rendered.")
 
-/** A request names an environment that serves no release of the template's catalog. */
+/**
+ * A request names an environment that serves no release of the template's catalog, or, with
+ * [versionSelector], none that satisfies it.
+ */
 class NoReleaseDeployedException(
     val tenantKey: TenantKey,
     val environmentKey: EnvironmentKey,
     val catalogKey: CatalogKey,
+    val versionSelector: String? = null,
 ) : RuntimeException(
-    "Environment '${environmentKey.value}' serves no release of catalog '${catalogKey.value}'. Deploy a release there first.",
+    if (versionSelector == null) {
+        "Environment '${environmentKey.value}' serves no release of catalog '${catalogKey.value}'. Deploy a release there first."
+    } else {
+        "Environment '${environmentKey.value}' serves no release of catalog '${catalogKey.value}' satisfying $versionSelector. Deploy one there first."
+    },
 )

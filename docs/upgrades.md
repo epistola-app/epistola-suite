@@ -91,7 +91,10 @@ history), but no 1.x release kept its content, so the upgrade cannot deploy anyt
    catalog it releases, and any it cannot release yet with the reason; those are retried every five
    minutes.
 3. **Deploy those releases** to each environment. Until an environment has a release deployed, a
-   generation request for it is refused.
+   generation request for it is refused. A release that renders with releases of other catalogs (the
+   system catalog, a shared catalog) is refused until the environment serves those too: deploy them
+   first, or deploy with its dependencies (`includeDependencies=true` over REST, "Deploy with its
+   dependencies" in the UI).
 4. **Resubmit** any generation request that was still queued at the upgrade: it named a template
    version, which 2.0 no longer renders.
 

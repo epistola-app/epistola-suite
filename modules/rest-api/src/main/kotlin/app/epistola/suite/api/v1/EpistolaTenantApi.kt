@@ -363,9 +363,11 @@ class EpistolaTenantApi(
 
     // ================== Deployments ==================
     //
-    // An environment serves one release of each catalog: deploying a release replaces the one it
-    // served of that catalog. The contract's environment may serve several, and deploy a release's
-    // dependencies with it; neither exists yet.
+    // An environment serves any number of releases of each catalog; generation naming it renders
+    // the highest, or the highest satisfying the request's version selector. Deploying checks the
+    // releases of other catalogs the release renders with, and deploys them along on request. A
+    // dependency release the tenant does not have is not fetched from its registry: it is reported
+    // UNAVAILABLE.
 
     override fun listEnvironmentDeployments(
         tenantKey: String,
@@ -388,10 +390,8 @@ class EpistolaTenantApi(
         releaseVersion: String,
         includeDependencies: Boolean,
     ): ResponseEntity<DeploymentDto> {
-        // A release is deployed on its own: deploying its dependencies with it is not supported yet.
-        if (includeDependencies) throw ApiOperationNotImplementedException("deployRelease.includeDependencies")
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        val deployment = DeployRelease(environmentId(tenantKey, environmentKey), catalog.id, releaseVersion).execute()
+        val deployment = DeployRelease(environmentId(tenantKey, environmentKey), catalog.id, releaseVersion, includeDependencies).execute()
         return ResponseEntity.ok(deployment.toDto(catalog.catalogName))
     }
 
@@ -406,9 +406,8 @@ class EpistolaTenantApi(
     ): ResponseEntity<Unit> {
         val environment = existingEnvironment(tenantKey, environmentKey)
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        val served = ListDeployments(environment.tenantKey, catalogKey = catalog.id, environmentKey = environment.key).query()
-        if (served.none { it.version == releaseVersion } || !UndeployRelease(environment, catalog.id).execute()) {
-            throw NoReleaseDeployedException(environment.tenantKey, environment.key, catalog.id)
+        if (!UndeployRelease(environment, catalog.id, releaseVersion).execute()) {
+            throw NoReleaseDeployedException(environment.tenantKey, environment.key, catalog.id, releaseVersion)
         }
         return ResponseEntity.noContent().build()
     }
@@ -432,8 +431,7 @@ class EpistolaTenantApi(
                         namespace = entry.namespace ?: catalog?.namespace ?: CatalogIdentityProperties.defaultNamespace(environment.tenantKey),
                         catalogKey = entry.catalogKey.value,
                         action = if (entry.action == DeploymentAction.DEPLOYED) DeploymentEventDto.Action.DEPLOYED else DeploymentEventDto.Action.UNDEPLOYED,
-                        // An undeploy names the release it stopped serving.
-                        releaseVersion = entry.version ?: entry.previousVersion.orEmpty(),
+                        releaseVersion = entry.version,
                         changedAt = entry.changedAt,
                         changedBy = entry.changedByName,
                     )

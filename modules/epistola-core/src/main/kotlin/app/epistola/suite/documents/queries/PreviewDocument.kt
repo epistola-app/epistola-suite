@@ -50,8 +50,10 @@ import java.io.ByteArrayOutputStream
  * @property data JSON data to populate the template
  * @property variantId Explicit variant (mutually exclusive with variantSelectionCriteria)
  * @property variantSelectionCriteria Attribute criteria for auto-selecting a variant
- * @property releaseVersion Release of the catalog to render (mutually exclusive with environmentId)
- * @property environmentId Environment whose deployed release is rendered (mutually exclusive with releaseVersion)
+ * @property releaseVersion A version selector (npm range grammar, an exact version included): the
+ *   highest candidate release satisfying it is rendered. Despite the name it need not be a release.
+ * @property environmentId Environment whose releases are the candidates; without it, every release
+ *   of the catalog that kept its content is. With neither, the highest candidate is rendered.
  */
 data class PreviewDocument(
     val tenantId: TenantKey,
@@ -75,9 +77,6 @@ data class PreviewDocument(
     init {
         require(variantId == null || variantSelectionCriteria == null) {
             "Cannot specify both variantId and variantSelectionCriteria"
-        }
-        require(!(releaseVersion != null && environmentId != null)) {
-            "Cannot specify both releaseVersion and environmentId"
         }
         require(!workingCopy || (releaseVersion == null && environmentId == null)) {
             "The working copy is not a release: it cannot be combined with releaseVersion or environmentId"

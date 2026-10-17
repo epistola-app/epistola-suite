@@ -20,8 +20,8 @@ import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
 
 /**
- * What an environment served over time, newest first: every deploy and undeploy, with the release it
- * replaced. Limited in the database.
+ * What an environment served over time, newest first: every deploy and undeploy, each naming the
+ * release it was about. Limited in the database.
  */
 data class ListDeploymentHistory(
     val environmentId: EnvironmentId,

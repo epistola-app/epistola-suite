@@ -162,6 +162,12 @@ nearest first. A pinned release the tenant no longer has, or has with another fi
 render. Only a release cut before 2.0, which pinned nothing, still reads other catalogs from the
 environment's deployment or their latest release.
 
+**Deploying** follows the pins too: an environment must serve every release a deployed release is
+pinned to, direct and transitive, by version and fingerprint. Deploying is refused while one is not
+served (`ReleaseDependenciesMissingException`, REST `release-dependencies-missing`), unless the
+dependencies are deployed along (`includeDependencies`); see
+[Environment Management](epistola.md#environment-management).
+
 **Retention** follows the pins: a release that a retained release of another catalog is pinned to
 cannot be deleted or have its content forgotten (`ReleaseInUseException` names the pinning releases),
 and neither can its catalog be deleted. Forgetting the pinning release's content first frees it.

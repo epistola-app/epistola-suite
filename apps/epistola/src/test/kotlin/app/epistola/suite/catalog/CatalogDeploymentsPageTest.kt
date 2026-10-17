@@ -6,9 +6,12 @@ package app.epistola.suite.catalog
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.ForgetReleaseContent
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -33,7 +36,7 @@ import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
 
 /**
- * The catalog page's Deployments card: one row per environment with the release of this catalog it
+ * The catalog page's Deployments card: one row per environment with every release of this catalog it
  * serves, a deploy action where there is something to deploy, and a reason where there is not.
  */
 class CatalogDeploymentsPageTest : BaseIntegrationTest() {
@@ -65,6 +68,74 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         val served = withMediator { ListDeployments(tenant.id, CatalogKey.of("dep-page")).query() }
         assertThat(served.map { it.environmentKey.value to it.version }).containsExactly("production" to "1.0.0")
         assertThat(browse(tenant, "dep-page")).contains("v1.0.0").contains("Undeploy")
+    }
+
+    @Test
+    fun `an environment serving two releases lists both, each with its own undeploy, and undeploying keeps the other`() {
+        val tenant = tenantWithCatalog("dep-two")
+        val key = CatalogKey.of("dep-two")
+        withMediator {
+            val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id))
+            CreateEnvironment(production, "Production").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
+            MarkCatalogReady(tenant.id, key).execute()
+            ReleaseCatalogVersion(tenant.id, key, version = "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("second"), catalog(tenant)), "Second").execute()
+            MarkCatalogReady(tenant.id, key).execute()
+            ReleaseCatalogVersion(tenant.id, key, version = "1.0.1").execute()
+            DeployRelease(production, key, "1.0.0").execute()
+            DeployRelease(production, key, "1.0.1").execute()
+        }
+
+        val body = browse(tenant, "dep-two")
+        assertThat(body).contains("data-version=\"1.0.1\"").contains("data-version=\"1.0.0\"")
+        assertThat(body).contains("name=\"version\" value=\"1.0.1\"").contains("name=\"version\" value=\"1.0.0\"")
+        assertThat(body).contains("v1.0.1 (serving)").contains("v1.0.0 (serving)")
+
+        restTemplate.postForEntity(
+            "/tenants/${tenant.id.value}/catalogs/dep-two/deployments/production/undeploy",
+            form("version" to "1.0.1"),
+            String::class.java,
+        )
+
+        assertThat(withMediator { ListDeployments(tenant.id, key).query() }.map { it.version }).containsExactly("1.0.0")
+    }
+
+    @Test
+    fun `a deploy refused for a missing dependency shows it on the card, offering to deploy it along`() {
+        val tenant = tenantWithCatalog("dep-deps")
+        val key = CatalogKey.of("dep-deps")
+        withMediator {
+            CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
+            val shared = CatalogKey.of("shared")
+            CreateCatalog(tenantKey = tenant.id, id = shared, name = "shared").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant.id))), "Brand").execute()
+            MarkCatalogReady(tenant.id, shared).execute()
+            ReleaseCatalogVersion(tenant.id, shared, version = "1.0.0").execute()
+            val target = GetCatalog(tenant.id, shared).query()!!
+            UpdateCatalogDependencies(tenant.id, key, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "*"))).execute()
+            CreateTheme(ThemeId(ThemeKey.of("own"), catalog(tenant)), "Own").execute()
+            MarkCatalogReady(tenant.id, key).execute()
+            ReleaseCatalogVersion(tenant.id, key, version = "1.0.0").execute()
+        }
+
+        val refused = restTemplate.postForEntity(
+            "/tenants/${tenant.id.value}/catalogs/dep-deps/deployments",
+            form("environmentId" to "production", "version" to "1.0.0"),
+            String::class.java,
+        )
+
+        assertThat(refused.body).contains("data-testid=\"deploy-refusal\"").contains("data-reason=\"NOT_DEPLOYED\"")
+            .contains("action=\"/tenants/${tenant.id.value}/catalogs/dep-deps/deployments\"")
+            .contains("name=\"environmentId\" value=\"production\"").contains("name=\"includeDependencies\" value=\"true\"")
+
+        restTemplate.postForEntity(
+            "/tenants/${tenant.id.value}/catalogs/dep-deps/deployments",
+            form("environmentId" to "production", "version" to "1.0.0", "includeDependencies" to "true"),
+            String::class.java,
+        )
+        assertThat(withMediator { ListDeployments(tenant.id).query() }.map { "${it.catalogKey.value}@${it.version}" })
+            .contains("dep-deps@1.0.0", "shared@1.0.0")
     }
 
     @Test

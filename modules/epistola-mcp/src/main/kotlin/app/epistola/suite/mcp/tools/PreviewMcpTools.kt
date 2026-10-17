@@ -34,7 +34,8 @@ class PreviewMcpTools(
             "When `data` is omitted, the contract's first sample example is used. " +
             "By default this renders the catalog's latest release, exactly as generation would, and fails when " +
             "the catalog has never been released. Set `workingCopy` to render the working copy " +
-            "instead, to see unreleased work. Set `environmentId` to render what that environment serves. " +
+            "instead, to see unreleased work. Set `environmentId` to render the highest release that environment serves, " +
+            "and `releaseVersion` to pick the highest release satisfying a version selector; the two combine. " +
             "If the data does not satisfy the template's data contract the call fails; `analyze_template_data` " +
             "then says which fields are missing or wrong.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
@@ -55,12 +56,12 @@ class PreviewMcpTools(
         )
         workingCopy: Boolean?,
         @McpToolParam(
-            description = "Release of the catalog to render (e.g. '1.4.0'). Mutually exclusive with `environmentId` and `workingCopy`.",
+            description = "Version selector in npm range grammar (e.g. '1.4.0', '^1.4.0'): the highest release satisfying it is rendered. Combines with `environmentId`; not with `workingCopy`.",
             required = false,
         )
         releaseVersion: String?,
         @McpToolParam(
-            description = "Environment key (e.g. 'production'). What that environment serves is rendered.",
+            description = "Environment key (e.g. 'production'). The highest release that environment serves (satisfying `releaseVersion`, when set) is rendered.",
             required = false,
         )
         environmentId: String?,
@@ -112,12 +113,12 @@ class PreviewMcpTools(
         )
         variantId: String?,
         @McpToolParam(
-            description = "Release of the catalog to check against (e.g. '1.4.0'). Mutually exclusive with `environmentId`.",
+            description = "Version selector in npm range grammar (e.g. '1.4.0', '^1.4.0'): the highest release satisfying it is checked against. Combines with `environmentId`.",
             required = false,
         )
         releaseVersion: String?,
         @McpToolParam(
-            description = "Environment key (e.g. 'production'); the release deployed there is checked. Mutually exclusive with `releaseVersion`.",
+            description = "Environment key (e.g. 'production'); the highest release it serves (satisfying `releaseVersion`, when set) is checked against.",
             required = false,
         )
         environmentId: String?,

@@ -111,17 +111,31 @@ Supports both SaaS multi-tenant deployment and self-hosted single-tenant deploym
 
 ### Environment Management
 
-Environments represent deployment stages (e.g. `staging`, `production`). Each environment serves one release per catalog, enabling:
+Environments represent deployment stages (e.g. `staging`, `production`). An environment serves any
+number of releases of each catalog; deploying adds one beside the others, undeploying removes one.
+This enables:
 
 - Testing a new release in staging before promoting it to production.
-- Rolling back by deploying an earlier release.
+- Rolling back by undeploying the newer release, which moves generation back to the next one served.
+- Serving an older release beside a newer one, for callers that select it.
 - Running different releases in different environments simultaneously.
 
-Generation that names an environment renders the release it serves for the template's catalog, bound
-when the request is accepted.
+Generation that names an environment renders the highest release of the template's catalog it
+serves, or the highest that satisfies the request's `version` selector (npm range grammar, an exact
+version included), bound when the request is accepted. Without an environment the candidates are
+every release that kept its content. No candidate satisfying the selector refuses the request.
 
-Each environment has a page listing what it serves and its history: every deploy and undeploy, with
-the release it replaced and who made the change, recorded in the same transaction as the change.
+A release renders with the releases of other catalogs it was cut with (its pinned dependencies,
+direct and transitive), so deploying it checks that the environment serves each of them. A missing
+one refuses the deployment (`release-dependencies-missing`, 409) with each missing release and why:
+`NOT_DEPLOYED`, `NOT_INSTALLED` or `CONTENT_NOT_RETAINED`. Asking to deploy them along
+(`includeDependencies`, or "Deploy with its dependencies" in the UI) deploys every `NOT_DEPLOYED` one
+in the same transaction; a release the tenant does not have is not fetched from its registry and is
+reported `UNAVAILABLE`, and then nothing is deployed. A pin that recorded no release (a release
+imported from catalog wire v7) cannot be checked and is skipped.
+
+Each environment has a page listing every release it serves and its history: every deploy and
+undeploy, naming the release and who made the change, recorded in the same transaction as the change.
 
 ### REST API
 

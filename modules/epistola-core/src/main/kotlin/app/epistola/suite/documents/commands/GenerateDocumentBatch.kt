@@ -4,7 +4,6 @@
 
 package app.epistola.suite.documents.commands
 
-import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.NotAudited
 import app.epistola.suite.common.NotEventLogged
 import app.epistola.suite.common.ids.BatchKey
@@ -17,7 +16,6 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.documents.NoPublishedVersionException
@@ -45,6 +43,9 @@ import tools.jackson.databind.node.ObjectNode
  *
  * Variant can be specified either explicitly via [variantId] or resolved automatically
  * via [variantSelectionCriteria]. Exactly one of the two must be set.
+ *
+ * The release is chosen as for [GenerateDocument]: [releaseVersion] is a version selector, and
+ * [environmentId] limits the candidates to the releases that environment serves.
  */
 data class BatchGenerationItem(
     val catalogKey: CatalogKey = CatalogKey.DEFAULT,
@@ -61,9 +62,6 @@ data class BatchGenerationItem(
     init {
         require(variantId == null || variantSelectionCriteria == null) {
             "Cannot specify both variantId and variantSelectionCriteria"
-        }
-        require(!(releaseVersion != null && environmentId != null)) {
-            "Cannot specify both releaseVersion and environmentId"
         }
     }
 }
@@ -134,28 +132,21 @@ data class GenerateDocumentBatch(
 class GenerateDocumentBatchHandler(
     private val jdbi: Jdbi,
     private val releaseTargetResolver: ReleaseTargetResolver,
-    private val entryStore: ReleaseEntryStore,
 ) : CommandHandler<GenerateDocumentBatch, BatchKey> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: GenerateDocumentBatch): BatchKey {
         logger.info("Generating batch of {} documents for tenant {}", command.items.size, command.tenantId)
-        // Every item renders a release, resolved once per (named release, environment, catalog) for the
-        // whole batch: the release it names, the one its environment serves, or the catalog's latest. A release
-        // cut or deployed while the batch is being accepted does not split it across releases.
+        // Every item renders a release, resolved once per (version selector, environment, catalog) for
+        // the whole batch: the highest candidate satisfying the selector, among the releases its
+        // environment serves or, without one, every release that kept its content. A release cut or
+        // deployed while the batch is being accepted does not split it across releases.
         val releases = command.items
             .map { Triple(it.releaseVersion, it.environmentId, it.catalogKey) }
             .distinct()
-            .associateWith { (named, environment, catalog) ->
-                if (named != null) {
-                    releaseTargetResolver.namedRelease(command.tenantId, catalog, named)
-                } else if (environment != null) {
-                    releaseTargetResolver.deployedRelease(command.tenantId, environment, catalog)
-                } else {
-                    jdbi.withHandle<String?, Exception> { handle -> entryStore.latestRetainedRelease(handle, command.tenantId, catalog) }
-                        ?: throw CatalogNotReleasedException(command.tenantId, catalog)
-                }
+            .associateWith { (selector, environment, catalog) ->
+                releaseTargetResolver.selectRelease(command.tenantId, catalog, environment, selector)
             }
         val targets = command.items.map { item ->
             releaseTargetResolver.resolveIn(

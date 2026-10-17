@@ -509,15 +509,18 @@
             </div>
         </div>
 
-        <!--/* What each environment serves of this catalog. One release per environment; deploying
-               replaces it, so promoting is deploying what another environment runs and rolling back
-               is deploying an earlier release. */-->
+        <!--/* What each environment serves of this catalog: any number of releases. Deploying adds one;
+               generation naming the environment renders the highest it serves, or the highest
+               satisfying the request's version selector. Each served release has its own Undeploy. */-->
         <div class="card" data-testid="catalog-deployments"
              th:with="canDeploy=${auth.has('TEMPLATE_PUBLISH')}">
             <div class="card-header">
                 <h2>Deployments</h2>
             </div>
             <div class="card-body">
+                <th:block th:if="${deployRefusal != null}">
+                    <div th:replace="~{environments/deploy-refusal :: refusal(${deployRefusal})}"></div>
+                </th:block>
                 <p th:if="${deployments.isEmpty()}" class="text-muted">
                     There are no environments to deploy to yet.
                     <a th:href="@{/tenants/{tenantId}/environments(tenantId=${tenantId})}">Add an environment</a>
@@ -548,12 +551,25 @@
                                        th:text="${row.environmentName}">Production</a>
                                 </td>
                                 <td>
-                                    <th:block th:if="${row.deployedVersion != null}">
-                                        <span th:text="'v' + ${row.deployedVersion}">v1.0.0</span>
+                                    <div th:each="served : ${row.served}" th:attr="data-version=${served.version}"
+                                         style="display: flex; gap: var(--ep-space-2); align-items: center;">
+                                        <span th:text="'v' + ${served.version}">v1.0.0</span>
                                         <span class="text-muted" style="font-size: var(--ep-text-xs);"
-                                              th:text="'since ' + ${#temporals.format(row.deployedAt, 'yyyy-MM-dd HH:mm')}"></span>
-                                    </th:block>
-                                    <span th:if="${row.deployedVersion == null}" class="text-muted">nothing</span>
+                                              th:text="'since ' + ${#temporals.format(served.deployedAt, 'yyyy-MM-dd HH:mm')}"></span>
+                                        <form th:if="${canDeploy}"
+                                              method="post" style="display: inline;"
+                                              th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments/{environmentId}/undeploy(tenantId=${tenantId},catalogId=${catalog.id},environmentId=${row.environmentKey})}">
+                                            <input type="hidden" name="version" th:value="${served.version}">
+                                            <button type="button"
+                                                    class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
+                                                    data-confirm-submit
+                                                    data-confirm-submit-title="Undeploy this release"
+                                                    th:attr="data-confirm-submit-message=${row.environmentName} + ' stops serving v' + ${served.version} + ' of this catalog. Generation there renders the highest other release of it the environment serves, and fails for its templates when there is none.'"
+                                                    data-confirm-submit-label="Undeploy"
+                                                    data-confirm-submit-class="ep-btn-destructive">Undeploy</button>
+                                        </form>
+                                    </div>
+                                    <span th:if="${row.served.isEmpty()}" class="text-muted">nothing</span>
                                 </td>
                                 <td class="actions">
                                     <form th:if="${canDeploy and !deployableVersions.isEmpty()}"
@@ -563,21 +579,10 @@
                                         <select name="version" class="ep-select ep-select-sm" required
                                                 th:attr="aria-label='Release to deploy to ' + ${row.environmentName}">
                                             <option th:each="version : ${deployableVersions}"
-                                                    th:value="${version}" th:text="'v' + ${version}"
-                                                    th:selected="${version == row.deployedVersion}">v1.0.0</option>
+                                                    th:value="${version}"
+                                                    th:text="'v' + ${version} + (${row.servedVersions.contains(version)} ? ' (serving)' : '')">v1.0.0</option>
                                         </select>
                                         <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Deploy</button>
-                                    </form>
-                                    <form th:if="${canDeploy and row.deployedVersion != null}"
-                                          method="post" style="display: inline;"
-                                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments/{environmentId}/undeploy(tenantId=${tenantId},catalogId=${catalog.id},environmentId=${row.environmentKey})}">
-                                        <button type="button"
-                                                class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
-                                                data-confirm-submit
-                                                data-confirm-submit-title="Undeploy this catalog"
-                                                th:attr="data-confirm-submit-message=${row.environmentName} + ' stops serving this catalog. Generation there fails for its templates until a release is deployed again.'"
-                                                data-confirm-submit-label="Undeploy"
-                                                data-confirm-submit-class="ep-btn-destructive">Undeploy</button>
                                     </form>
                                 </td>
                             </tr>

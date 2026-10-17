@@ -36,6 +36,7 @@ data class AnalyzeTemplateData(
     val data: ObjectNode,
     val variantId: VariantKey? = null,
     val variantSelectionCriteria: VariantSelectionCriteria? = null,
+    /** A version selector, as [PreviewDocument.releaseVersion]; combines with [environmentId]. */
     val releaseVersion: String? = null,
     val environmentId: EnvironmentKey? = null,
 ) : Query<TemplateDataAnalysis>,
@@ -47,9 +48,6 @@ data class AnalyzeTemplateData(
     init {
         validate("variantSelectionCriteria", variantId == null || variantSelectionCriteria == null) {
             "Cannot specify both variantId and variantSelectionCriteria"
-        }
-        validate("environmentId", releaseVersion == null || environmentId == null) {
-            "Cannot specify both releaseVersion and environmentId"
         }
     }
 }

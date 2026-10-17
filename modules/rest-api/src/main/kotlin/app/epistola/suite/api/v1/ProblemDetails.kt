@@ -78,6 +78,7 @@ object ApiProblemTypes {
     val RELEASE_NOT_FOUND = problem("RELEASE_NOT_FOUND", "Release Not Found", HttpStatus.NOT_FOUND, "The catalog has no such release, or it kept no content to render.", listOf("catalogId", "releaseVersion"))
     val NO_RELEASE_DEPLOYED = problem("NO_RELEASE_DEPLOYED", "No Release Deployed", HttpStatus.NOT_FOUND, "The environment serves no release of the template's catalog; deploy one first.", listOf("environmentId", "catalogId"))
     val RELEASE_NOT_DEPLOYABLE = problem("RELEASE_NOT_DEPLOYABLE", "Release Not Deployable", HttpStatus.CONFLICT, "The release does not exist or kept no content to render from.", listOf("catalogId", "releaseVersion"))
+    val RELEASE_DEPENDENCIES_MISSING = problem("RELEASE_DEPENDENCIES_MISSING", "Release Dependencies Missing", HttpStatus.CONFLICT, "A release cannot be deployed because the environment does not serve the releases of other catalogs it renders with, and the request did not ask to deploy them along (or they could not be); `missingDependencies` lists each one and why.", listOf("missingDependencies"))
     val RELEASE_IN_USE = problem("RELEASE_IN_USE", "Release In Use", HttpStatus.CONFLICT, "The release is deployed to an environment, or another catalog's release renders with it.", listOf("catalogId", "releaseVersion", "environments", "pinnedBy"))
     val CATALOG_NOT_RELEASED = problem("CATALOG_NOT_RELEASED", "Catalog Not Released", HttpStatus.NOT_FOUND, "The catalog has no release to generate from; release it first.", listOf("tenantId", "catalogId"))
     val TEMPLATE_NOT_IN_RELEASE = problem("TEMPLATE_NOT_IN_RELEASE", "Template Not In Release", HttpStatus.NOT_FOUND, "The release being generated from does not contain the requested template or variant.", listOf("tenantId", "catalogId", "releaseVersion", "templateId", "variantId"))
@@ -150,6 +151,7 @@ object ApiProblemTypes {
         NO_RELEASE_DEPLOYED,
         RELEASE_NOT_FOUND,
         RELEASE_NOT_DEPLOYABLE,
+        RELEASE_DEPENDENCIES_MISSING,
         RELEASE_IN_USE,
         TEMPLATE_NOT_IN_RELEASE,
         DEFAULT_VARIANT_NOT_FOUND,

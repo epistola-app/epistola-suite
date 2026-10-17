@@ -57,6 +57,7 @@ import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.EnvironmentNotFoundException
+import app.epistola.suite.environments.ReleaseDependenciesMissingException
 import app.epistola.suite.environments.ReleaseNotDeployableException
 import app.epistola.suite.environments.commands.DeployRelease
 import app.epistola.suite.environments.commands.UndeployRelease
@@ -508,8 +509,10 @@ class CatalogHandler {
     }
 
     /**
-     * Deploys a release of this catalog to an environment. Refusals -- the release kept no content,
-     * the environment is gone -- come back on the catalog page with the reason.
+     * Deploys a release of this catalog to an environment, beside what it serves. With
+     * `includeDependencies`, the releases of other catalogs it renders with are deployed along.
+     * Refusals -- the release kept no content, the environment is gone, a dependency release is not
+     * served -- come back on the catalog page with the reason.
      */
     fun deploy(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -517,8 +520,9 @@ class CatalogHandler {
         val environment = request.param("environmentId").orElse("").trim()
         val version = request.param("version").orElse("").trim()
         if (environment.isEmpty() || version.isEmpty()) return browse(request, error = "Choose an environment and a release to deploy.")
+        val includeDependencies = request.param("includeDependencies").orElse("") == "true"
         return try {
-            DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, version).execute()
+            DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, version, includeDependencies).execute()
             ServerResponse.status(303)
                 .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
                 .build()
@@ -526,29 +530,39 @@ class CatalogHandler {
             browse(request, error = failure.message)
         } catch (failure: EnvironmentNotFoundException) {
             browse(request, error = failure.message)
+        } catch (failure: ReleaseDependenciesMissingException) {
+            browse(
+                request,
+                error = null,
+                deployRefusal = DeployRefusalView.of(
+                    failure,
+                    deployUrl = "/tenants/${tenantId.key.value}/catalogs/${catalogKey.value}/deployments",
+                    fields = mapOf("environmentId" to environment, "version" to version),
+                ),
+            )
         }
     }
 
-    /** Stops an environment serving this catalog. */
+    /** Stops an environment serving one release of this catalog, given as the `version` field. */
     fun undeploy(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
-        UndeployRelease(EnvironmentId(EnvironmentKey.of(request.pathVariable("environmentId")), tenantId), catalogKey).execute()
+        val version = request.param("version").orElse("").trim()
+        if (version.isEmpty()) return browse(request, error = "Choose a release to undeploy.")
+        UndeployRelease(EnvironmentId(EnvironmentKey.of(request.pathVariable("environmentId")), tenantId), catalogKey, version).execute()
         return ServerResponse.status(303)
             .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
             .build()
     }
 
-    /** One row per environment of the tenant, with the release of this catalog it serves, if any. */
+    /** One row per environment of the tenant, with every release of this catalog it serves, highest first. */
     private fun deploymentRows(tenantKey: TenantKey, catalogKey: CatalogKey): List<DeploymentRowView> {
-        val served = ListDeployments(tenantKey, catalogKey).query().associateBy { it.environmentKey }
+        val served = ListDeployments(tenantKey, catalogKey).query().groupBy { it.environmentKey }
         return ListEnvironments(tenantId = app.epistola.suite.common.ids.TenantId(tenantKey)).query().map { environment ->
-            val deployment = served[environment.id]
             DeploymentRowView(
                 environmentKey = environment.id.value,
                 environmentName = environment.name,
-                deployedVersion = deployment?.version,
-                deployedAt = deployment?.deployedAt,
+                served = served[environment.id].orEmpty().map { ServedReleaseView(it.version, it.deployedAt) },
             )
         }
     }
@@ -693,7 +707,7 @@ class CatalogHandler {
 
     fun browse(request: ServerRequest): ServerResponse = browse(request, error = null)
 
-    private fun browse(request: ServerRequest, error: String?): ServerResponse {
+    private fun browse(request: ServerRequest, error: String?, deployRefusal: DeployRefusalView? = null): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
 
@@ -759,6 +773,7 @@ class CatalogHandler {
                 "deployments" to deployments
                 "deployableVersions" to deployableVersions
                 "publicationError" to error
+                "deployRefusal" to deployRefusal
                 "resources" to result.resources
                 "hasUninstalledResources" to hasUninstalledResources
                 "usageCounts" to usageCounts
@@ -1272,13 +1287,17 @@ class CatalogHandler {
         }
     }
 
-    /** An environment, and the release of the catalog on screen it serves (null when none). */
+    /** An environment, and the releases of the catalog on screen it serves, highest first (empty when none). */
     data class DeploymentRowView(
         val environmentKey: String,
         val environmentName: String,
-        val deployedVersion: String?,
-        val deployedAt: java.time.OffsetDateTime?,
-    )
+        val served: List<ServedReleaseView>,
+    ) {
+        val servedVersions: Set<String> get() = served.mapTo(HashSet()) { it.version }
+    }
+
+    /** One release an environment serves, and since when. */
+    data class ServedReleaseView(val version: String, val deployedAt: java.time.OffsetDateTime)
 
     /** One release as the catalog page shows it: the release, and what may be done with it. */
     data class CatalogReleaseView(

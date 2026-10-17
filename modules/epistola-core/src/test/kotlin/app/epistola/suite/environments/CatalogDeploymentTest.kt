@@ -25,6 +25,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.documents.EnvironmentNotFoundException
+import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeployRelease
 import app.epistola.suite.environments.commands.UndeployRelease
@@ -47,24 +48,41 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
 /**
- * An environment serves one release per catalog. Deploying replaces it; nothing an environment
- * serves, or another release renders with, can be deleted or forgotten.
+ * An environment serves any number of releases per catalog. Deploying adds one, undeploying removes
+ * one; nothing an environment serves, or another release renders with, can be deleted or forgotten.
  */
 class CatalogDeploymentTest : IntegrationTestBase() {
 
     @Test
-    fun `deploying replaces what the environment served, and undeploying clears it`() {
+    fun `deploying adds a release beside the others, and undeploying removes only that one`() {
         val (tenant, letters, production) = releasedTwice("dep-replace")
 
         withMediator { DeployRelease(production, letters.key, "1.0.0").execute() }
         assertThat(served(tenant, letters.key)).containsExactly(production.key to "1.0.0")
 
         withMediator { DeployRelease(production, letters.key, "1.0.1").execute() }
-        assertThat(served(tenant, letters.key)).`as`("one release per environment and catalog").containsExactly(production.key to "1.0.1")
+        assertThat(served(tenant, letters.key)).`as`("several releases per environment and catalog, highest first")
+            .containsExactly(production.key to "1.0.1", production.key to "1.0.0")
 
-        assertThat(withMediator { UndeployRelease(production, letters.key).execute() }).isTrue()
+        assertThat(withMediator { UndeployRelease(production, letters.key, "1.0.1").execute() }).isTrue()
+        assertThat(served(tenant, letters.key)).containsExactly(production.key to "1.0.0")
+        assertThat(withMediator { UndeployRelease(production, letters.key, "1.0.1").execute() }).`as`("no longer served").isFalse()
+        assertThat(withMediator { UndeployRelease(production, letters.key, "1.0.0").execute() }).isTrue()
         assertThat(served(tenant, letters.key)).isEmpty()
-        assertThat(withMediator { UndeployRelease(production, letters.key).execute() }).`as`("nothing left to undeploy").isFalse()
+    }
+
+    @Test
+    fun `undeploying the highest served release moves generation back to the next`() {
+        val (tenant, letters, production) = releasedTwice("dep-fallback")
+        withMediator {
+            DeployRelease(production, letters.key, "1.0.0").execute()
+            DeployRelease(production, letters.key, "1.0.1").execute()
+        }
+        assertThat(generatedRelease(tenant, letters, production)).isEqualTo("1.0.1")
+
+        withMediator { UndeployRelease(production, letters.key, "1.0.1").execute() }
+
+        assertThat(generatedRelease(tenant, letters, production)).isEqualTo("1.0.0")
     }
 
     @Test
@@ -139,7 +157,7 @@ class CatalogDeploymentTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `every deploy and undeploy is logged, newest first, with the release it replaced`() {
+    fun `every deploy and undeploy is logged, newest first, naming the release`() {
         val (_, letters, production) = releasedTwice("dep-history")
 
         withMediator {
@@ -148,7 +166,8 @@ class CatalogDeploymentTest : IntegrationTestBase() {
             // Deploying what the environment already serves changes nothing, so it logs nothing.
             DeployRelease(production, letters.key, "1.0.1").execute()
             DeployRelease(production, letters.key, "1.0.0").execute()
-            UndeployRelease(production, letters.key).execute()
+            UndeployRelease(production, letters.key, "1.0.0").execute()
+            DeployRelease(production, letters.key, "1.0.0").execute()
         }
 
         val history = withMediator { ListDeploymentHistory(production).query() }
@@ -158,9 +177,9 @@ class CatalogDeploymentTest : IntegrationTestBase() {
             assertThat(it.namespace).isEqualTo(catalog.namespace)
         }
         assertThat(history.map { Triple(it.action, it.version, it.previousVersion) }).containsExactly(
-            Triple(DeploymentAction.UNDEPLOYED, null, "1.0.0"),
-            Triple(DeploymentAction.DEPLOYED, "1.0.0", "1.0.1"),
-            Triple(DeploymentAction.DEPLOYED, "1.0.1", "1.0.0"),
+            Triple(DeploymentAction.DEPLOYED, "1.0.0", null),
+            Triple(DeploymentAction.UNDEPLOYED, "1.0.0", null),
+            Triple(DeploymentAction.DEPLOYED, "1.0.1", null),
             Triple(DeploymentAction.DEPLOYED, "1.0.0", null),
         )
         assertThat(history).allSatisfy { assertThat(it.catalogKey).isEqualTo(letters.key) }
@@ -173,19 +192,32 @@ class CatalogDeploymentTest : IntegrationTestBase() {
         withMediator {
             DeployRelease(production, letters.key, "1.0.0").execute()
             DeployRelease(production, letters.key, "1.0.1").execute()
-            DeployRelease(production, letters.key, "1.0.0").execute()
+            UndeployRelease(production, letters.key, "1.0.0").execute()
         }
 
         val newest = withMediator { ListDeploymentHistory(production, limit = 2).query() }
 
-        assertThat(newest.map { it.version to it.previousVersion }).containsExactly("1.0.0" to "1.0.1", "1.0.1" to "1.0.0")
+        assertThat(newest.map { it.action to it.version }).containsExactly(
+            DeploymentAction.UNDEPLOYED to "1.0.0",
+            DeploymentAction.DEPLOYED to "1.0.1",
+        )
     }
 
     @Test
-    fun `undeploying a catalog the environment does not serve logs nothing`() {
+    fun `undeploying a release the environment does not serve logs nothing`() {
         val (_, letters, production) = releasedTwice("dep-history-noop")
+        withMediator { DeployRelease(production, letters.key, "1.0.0").execute() }
 
-        withMediator { UndeployRelease(production, letters.key).execute() }
+        assertThat(withMediator { UndeployRelease(production, letters.key, "1.0.1").execute() }).isFalse()
+
+        assertThat(withMediator { ListDeploymentHistory(production).query() }.map { it.action }).containsExactly(DeploymentAction.DEPLOYED)
+    }
+
+    @Test
+    fun `undeploying from an environment that serves nothing logs nothing`() {
+        val (_, letters, production) = releasedTwice("dep-history-none")
+
+        withMediator { UndeployRelease(production, letters.key, "1.0.0").execute() }
 
         assertThat(withMediator { ListDeploymentHistory(production).query() }).isEmpty()
     }
@@ -215,6 +247,17 @@ class CatalogDeploymentTest : IntegrationTestBase() {
             mediator.releaseNext(letters)
         }
         return Triple(tenant, letters, production)
+    }
+
+    private fun generatedRelease(tenant: TenantKey, letters: CatalogId, production: EnvironmentId): String? = withMediator {
+        GenerateDocument(
+            tenantId = tenant,
+            catalogKey = letters.key,
+            templateId = TemplateKey.of("invoice"),
+            environmentId = production.key,
+            data = tools.jackson.databind.node.JsonNodeFactory.instance.objectNode(),
+            filename = null,
+        ).execute().releaseVersion
     }
 
     private fun served(tenant: TenantKey, catalog: CatalogKey): List<Pair<EnvironmentKey, String>> = withMediator {

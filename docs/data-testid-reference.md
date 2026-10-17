@@ -115,6 +115,16 @@ Rendered by the editor bundle (`modules/editor`), not by a Thymeleaf template.
 | `catalog-dependency-row`                                     | `<tr>` per declared dependency                                               | A declaration and its lock                   |
 | `release-submit`                                             | Submit button of the release dialog                                          | Present only when the release can go through |
 
+### Deployments
+
+| `data-testid`                                     | Attached to                                                                                        | Covers                                                                                                |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `environment-deployments` / `catalog-deployments` | The "Serves" card on `environments/detail.html` / the "Deployments" card on `catalogs/browse.html` | Every release served; a row per release carries `data-catalog` / `data-version`                       |
+| `deploy-refusal`                                  | Alert of `environments/deploy-refusal.html`, on either page                                        | A deploy refused because the environment does not serve a release it renders with                     |
+| `deploy-refusal-missing`                          | List inside that alert; an `<li data-reason="…">` per missing release                              | Each missing release and why (`NOT_DEPLOYED`, `NOT_INSTALLED`, `UNAVAILABLE`, `CONTENT_NOT_RETAINED`) |
+| `deploy-with-dependencies`                        | "Deploy with its dependencies" form                                                                | Present only when every missing release is `NOT_DEPLOYED`                                             |
+| `deploy-with-dependencies-withheld`               | Sentence saying why that offer is withheld                                                         | A missing release the tenant does not have, or has without content                                    |
+
 ### Feature Toggles
 
 | `data-testid`           | Attached to                                                                          | Covers                     |

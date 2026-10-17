@@ -17,8 +17,9 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 /**
- * The releases a tenant's environments serve, optionally for one catalog or one environment. Ordered
- * by environment, then catalog, in the database.
+ * The releases a tenant's environments serve, optionally for one catalog or one environment. An
+ * environment may serve several releases of one catalog. Ordered by environment, then catalog, then
+ * highest release first (the order generation picks in), in the database.
  */
 data class ListDeployments(
     override val tenantKey: TenantKey,
@@ -39,10 +40,13 @@ class ListDeploymentsHandler(
             SELECT d.environment_key, cat.catalog_key AS catalog_key, d.version, d.deployed_at, d.deployed_by
             FROM environment_catalog_deployments d
             JOIN catalogs cat ON cat.tenant_key = d.tenant_key AND cat.catalog_id = d.catalog_id
+            JOIN catalog_releases r ON r.tenant_key = d.tenant_key AND r.catalog_id = d.catalog_id AND r.version = d.version
             WHERE d.tenant_key = :t
               AND (CAST(:c AS TEXT) IS NULL OR cat.catalog_key = :c)
               AND (CAST(:e AS TEXT) IS NULL OR d.environment_key = :e)
-            ORDER BY d.environment_key, cat.catalog_key
+            ORDER BY d.environment_key, cat.catalog_key,
+                     r.version_major DESC NULLS LAST, r.version_minor DESC NULLS LAST,
+                     r.version_patch DESC NULLS LAST, r.released_at DESC
             """,
         )
             .bind("t", query.tenantKey)

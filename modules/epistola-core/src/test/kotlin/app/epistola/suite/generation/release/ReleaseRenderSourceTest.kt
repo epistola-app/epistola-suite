@@ -133,14 +133,15 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
             release(shared, "1.1.0")
 
             CreateEnvironment(production, "Production").execute()
-            DeployRelease(production, letters.key, "1.0.0").execute()
+            // shared@1.0.0 comes along with letters, since letters renders with it; 1.1.0 is the highest served.
             DeployRelease(production, shared.key, "1.1.0").execute()
+            DeployRelease(production, letters.key, "1.0.0", includeDependencies = true).execute()
         }
 
         val inProduction = source.resolve(tenantOf(letters), ReleaseRef(letters.key, "1.0.0"), "invoice", VariantKey.INITIAL.value, production.key)
 
         assertThat(inProduction.resolvedTheme.documentStyles)
-            .`as`("production deploys shared@1.1.0, but letters@1.0.0 was cut with shared@1.0.0")
+            .`as`("production serves shared@1.1.0 as its highest, but letters@1.0.0 was cut with shared@1.0.0")
             .containsEntry("color", "#ff0000")
     }
 

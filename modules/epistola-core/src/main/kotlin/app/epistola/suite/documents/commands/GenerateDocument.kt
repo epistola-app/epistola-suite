@@ -45,9 +45,10 @@ import tools.jackson.databind.node.ObjectNode
  * @property templateId Template to use for generation
  * @property variantId Explicit variant ID (mutually exclusive with variantSelectionCriteria)
  * @property variantSelectionCriteria Attribute criteria for auto-selecting a variant (mutually exclusive with variantId)
- * @property releaseVersion Release of the catalog to render (mutually exclusive with environmentId)
- * @property environmentId Environment whose deployed release is rendered (mutually exclusive with
- *   releaseVersion). With neither, the catalog's latest release is rendered.
+ * @property releaseVersion A version selector (npm range grammar, an exact version included): the
+ *   highest candidate release satisfying it is rendered. Despite the name it need not be a release.
+ * @property environmentId Environment whose releases are the candidates; without it, every release
+ *   of the catalog that kept its content is. With neither, the highest candidate is rendered.
  * @property data JSON data to populate the template
  * @property filename Optional filename for the generated document
  * @property correlationId Client-provided ID for tracking documents across systems
@@ -74,9 +75,6 @@ data class GenerateDocument(
     init {
         require(variantId == null || variantSelectionCriteria == null) {
             "Cannot specify both variantId and variantSelectionCriteria"
-        }
-        require(!(releaseVersion != null && environmentId != null)) {
-            "Cannot specify both releaseVersion and environmentId"
         }
     }
 }

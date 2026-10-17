@@ -10,9 +10,13 @@
         )}"></div>
 
         <div class="alert alert-error" th:if="${error != null}" th:text="${error}" data-testid="environment-error"></div>
+        <th:block th:if="${refusal != null}">
+            <div th:replace="~{environments/deploy-refusal :: refusal(${refusal})}"></div>
+        </th:block>
 
-        <!--/* One release per catalog. Deploying replaces it, so promoting is deploying what another
-               environment runs and rolling back is deploying an earlier release. */-->
+        <!--/* Any number of releases per catalog. Deploying adds one; generation naming the environment
+               renders the highest it serves of a catalog, or the highest satisfying the request's
+               version selector. Undeploying the highest moves generation back to the next. */-->
         <div class="card" data-testid="environment-deployments"
              th:with="canDeploy=${auth.has('TEMPLATE_PUBLISH')}">
             <div class="card-header">
@@ -34,7 +38,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr th:each="row : ${deployments}" th:attr="data-catalog=${row.catalogKey}">
+                        <tr th:each="row : ${deployments}" th:attr="data-catalog=${row.catalogKey},data-version=${row.version}">
                             <td>
                                 <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${row.catalogKey})}"
                                    th:text="${row.catalogName}">Letters</a>
@@ -44,11 +48,12 @@
                             <td class="actions" th:if="${canDeploy}">
                                 <form method="post" style="display: inline;"
                                       th:action="@{/tenants/{tenantId}/environments/{environmentId}/deployments/{catalogId}/undeploy(tenantId=${tenantId},environmentId=${environment.id},catalogId=${row.catalogKey})}">
+                                    <input type="hidden" name="version" th:value="${row.version}">
                                     <button type="button"
                                             class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
                                             data-confirm-submit
-                                            data-confirm-submit-title="Undeploy this catalog"
-                                            th:attr="data-confirm-submit-message=${environment.name} + ' stops serving ' + ${row.catalogName} + '. Generation here fails for its templates until a release is deployed again.'"
+                                            data-confirm-submit-title="Undeploy this release"
+                                            th:attr="data-confirm-submit-message=${environment.name} + ' stops serving ' + ${row.catalogName} + ' v' + ${row.version} + '. Generation here renders the highest other release of it this environment serves, and fails for its templates when there is none.'"
                                             data-confirm-submit-label="Undeploy"
                                             data-confirm-submit-class="ep-btn-destructive">Undeploy</button>
                                 </form>
@@ -75,7 +80,7 @@
                             <optgroup th:each="group : ${releaseGroups}" th:label="${group.catalogName}">
                                 <option th:each="version : ${group.versions}"
                                         th:value="${group.catalogKey} + '@' + ${version}"
-                                        th:text="${group.catalogName} + ' v' + ${version} + (${version == group.servedVersion} ? ' (serving)' : '')">Letters v1.0.0</option>
+                                        th:text="${group.catalogName} + ' v' + ${version} + (${group.servedVersions.contains(version)} ? ' (serving)' : '')">Letters v1.0.0</option>
                             </optgroup>
                         </select>
                     </div>
@@ -107,11 +112,12 @@
                             <td>
                                 <th:block th:if="${entry.deployed}">
                                     <span th:text="'Deployed ' + ${entry.catalogName} + ' v' + ${entry.version}">Deployed Letters v1.0.1</span>
+                                    <!--/* Only a deploy from before an environment served several releases replaced one. */-->
                                     <span th:if="${entry.previousVersion != null}" class="text-muted"
                                           th:text="'replacing v' + ${entry.previousVersion}">replacing v1.0.0</span>
                                 </th:block>
                                 <span th:unless="${entry.deployed}"
-                                      th:text="'Undeployed ' + ${entry.catalogName} + ' v' + ${entry.previousVersion}">Undeployed Letters v1.0.0</span>
+                                      th:text="'Undeployed ' + ${entry.catalogName} + ' v' + ${entry.version}">Undeployed Letters v1.0.0</span>
                             </td>
                             <td th:text="${entry.changedByName ?: 'System'}"></td>
                             <td class="actions" th:if="${canDeploy}">

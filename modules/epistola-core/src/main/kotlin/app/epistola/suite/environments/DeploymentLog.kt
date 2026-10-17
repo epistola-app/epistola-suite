@@ -11,14 +11,16 @@ import app.epistola.suite.security.currentUserIdOrNull
 import org.jdbi.v3.core.Handle
 import java.time.OffsetDateTime
 
-/** What happened to the release an environment serves for a catalog. */
+/** What happened to one release an environment serves. */
 enum class DeploymentAction { DEPLOYED, UNDEPLOYED }
 
 /**
- * One change to what an environment serves.
+ * One change to what an environment serves: one release of a catalog deployed or undeployed. An
+ * environment serves any number of releases of a catalog, so a deploy replaces nothing.
  *
- * @property version the release served after the change; null when the catalog was undeployed.
- * @property previousVersion the release served before it; null when nothing was.
+ * @property version the release deployed or undeployed.
+ * @property previousVersion for a deploy logged while an environment served one release per catalog
+ *   (before 2.0), the release it replaced; null otherwise.
  * @property changedByName the display name of who made the change; null for a system change or a
  *   user since removed.
  * @property registry the catalog's registry when the change was made (contract ADR 0003).
@@ -28,7 +30,7 @@ data class DeploymentLogEntry(
     val environmentKey: EnvironmentKey,
     val catalogKey: CatalogKey,
     val action: DeploymentAction,
-    val version: String?,
+    val version: String,
     val previousVersion: String?,
     val changedAt: OffsetDateTime,
     val changedByName: String?,
@@ -47,18 +49,17 @@ internal object DeploymentLog {
         environmentKey: EnvironmentKey,
         catalogKey: CatalogKey,
         action: DeploymentAction,
-        version: String?,
-        previousVersion: String?,
+        version: String,
     ) {
         handle.createUpdate(
             """
             INSERT INTO environment_deployment_log
-                (tenant_key, environment_key, catalog_key, registry, namespace, action, version, previous_version, changed_at, changed_by)
+                (tenant_key, environment_key, catalog_key, registry, namespace, action, version, changed_at, changed_by)
             VALUES (
                 :t, :e, :c,
                 (SELECT registry FROM catalogs WHERE tenant_key = :t AND catalog_key = :c),
                 (SELECT namespace FROM catalogs WHERE tenant_key = :t AND catalog_key = :c),
-                :action, :v, :previous, NOW(), :by
+                :action, :v, NOW(), :by
             )
             """,
         )
@@ -67,7 +68,6 @@ internal object DeploymentLog {
             .bind("c", catalogKey)
             .bind("action", action.name)
             .bind("v", version)
-            .bind("previous", previousVersion)
             .bind("by", currentUserIdOrNull()?.value)
             .execute()
     }

@@ -45,6 +45,7 @@ import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.commands.BatchValidationException
 import app.epistola.suite.environments.EnvironmentInUseException
+import app.epistola.suite.environments.ReleaseDependenciesMissingException
 import app.epistola.suite.environments.ReleaseNotDeployableException
 import app.epistola.suite.fonts.FontNotFoundException
 import app.epistola.suite.security.PermissionDeniedException
@@ -268,6 +269,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         NoReleaseDeployedException::class,
         ReleaseNotFoundException::class,
         ReleaseNotDeployableException::class,
+        ReleaseDependenciesMissingException::class,
         ReleaseInUseException::class,
         TemplateNotInReleaseException::class,
         DefaultVariantNotFoundException::class,
