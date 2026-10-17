@@ -17,7 +17,6 @@ import app.epistola.suite.attributes.codelists.queries.ListCodeLists
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
-import app.epistola.suite.catalog.queries.GetCatalogContext
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -231,7 +230,6 @@ class CodeListHandler(
             "tenantId" to tenantId.key
             "catalogSegment" to segment.value
             "draftBar" to draftBar
-            "catalogContext" to GetCatalogContext(tenantId.key, codeListId.catalogKey).query()
             "codeList" to codeList
             "entries" to entries
             "editable" to editable
@@ -285,7 +283,6 @@ class CodeListHandler(
                     "pageTitle" to "${codeList.displayName} - Code list"
                     "tenant" to tenant
                     "tenantId" to tenantId.key
-                    "catalogContext" to GetCatalogContext(tenantId.key, codeListId.catalogKey).query()
                     "codeList" to codeList
                     "catalogSegment" to request.catalogSegment().value
                     "entries" to ListCodeListEntries(codeListId, catalogVersion = request.catalogVersion()).query()

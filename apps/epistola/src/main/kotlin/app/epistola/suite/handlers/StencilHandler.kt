@@ -7,7 +7,6 @@ package app.epistola.suite.handlers
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.CatalogResourceState
-import app.epistola.suite.catalog.queries.GetCatalogContext
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.versions.CatalogVersionRef
@@ -372,7 +371,6 @@ class StencilHandler(
             "catalogSegment" to segment.value
             "draftSegment" to segment.takeIf { it.version != null }
             "draftBar" to draftBar
-            "catalogContext" to GetCatalogContext(tenantId.key, catalogId).query()
             stencilModel(stencil, version = version)
             "parameterSchemaJson" to stencil.parameterSchema?.let { objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(it) }
             "usage" to usagePage.items

@@ -345,7 +345,7 @@ Code is deleted in the major. Schema goes dead in the major and is dropped later
 - **Permissions:** `TEMPLATE_PUBLISH` and `STENCIL_PUBLISH` retire; `CATALOG_RELEASE` (cut a
   release) and a deployment permission arrive; `CATALOG_PUBLISH` keeps meaning "send to Exchange".
   `CONTENT_PUBLISHER` maps to the new ones. Identity-provider role names do not change.
-- **Toggles:** `catalog-context` graduates. `resource-relocation` stays alpha; the crude move loses
+- **Toggles:** `catalog-context` graduates (done 17 October: retired; the version bar is always shown, docs/catalog-workspace-navigation.md). `resource-relocation` stays alpha; the crude move loses
   its version pins and keeps working on the working copy only.
 - **Guards:** `AuthorizationCoverageTest`, `MediatorWiringTest`, `KnownFeaturesTest`, the fingerprint
   tests, the drift ratchet and `checkMigrationVersions` are updated with the code they guard.

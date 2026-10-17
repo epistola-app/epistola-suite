@@ -36,9 +36,8 @@ data class CatalogListRow(
  * Whether an AUTHORED catalog has been touched since it was last released, in three shareable
  * pieces: the activity roll-up, the flag computed from it, and the join between them.
  *
- * Shared rather than copied, because the catalog list asks this of every catalog and
- * [GetCatalogContext] asks it of one. Two copies of a drift rule is how a template page comes to
- * say "unreleased changes" while the catalog page says there are none.
+ * Kept apart so the rule has one home: two copies of a drift rule is how one page comes to say
+ * "unreleased changes" while another says there are none.
  *
  * Conservative by design — see the note on [ListCatalogsForManagement]: it over-warns on an
  * edit-then-revert and under-warns only on a deletion-only change, and the export's `-dev` label

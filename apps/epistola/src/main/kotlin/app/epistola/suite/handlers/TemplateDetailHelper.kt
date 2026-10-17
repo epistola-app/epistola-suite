@@ -5,8 +5,6 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.catalog.CatalogType
-import app.epistola.suite.catalog.queries.CatalogContext
-import app.epistola.suite.catalog.queries.GetCatalogContext
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.handlers.CatalogDraftBar
@@ -29,8 +27,6 @@ data class TemplateDetailContext(
     val templateId: TemplateId,
     val template: DocumentTemplate,
     val editable: Boolean,
-    /** Which catalog this template is in, and where that catalog stands. Null only if it vanished. */
-    val catalogContext: CatalogContext?,
     /** The route's catalog segment (`letters@2.0.0` for a draft), which the page's links carry. */
     val catalogSegment: String = catalogId,
     /** The draft the page works in, for every message it dispatches; null for the current version. */
@@ -68,9 +64,6 @@ class TemplateDetailHelper {
             templateId = templateId,
             template = template,
             editable = editable,
-            // Loaded once for every tab, because a template is always being edited inside a
-            // catalog and the page should not depend on which tab you happened to open.
-            catalogContext = GetCatalogContext(tenantId.key, catalogId).query(),
             catalogSegment = segment.value,
             catalogVersion = version,
             draftBar = draftBar,
@@ -93,7 +86,6 @@ class TemplateDetailHelper {
             "draftBar" to ctx.draftBar,
             "template" to ctx.template,
             "editable" to ctx.editable,
-            "catalogContext" to ctx.catalogContext,
             "activeTab" to activeTab,
             "contentView" to "templates/detail",
         )

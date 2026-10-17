@@ -2,21 +2,9 @@
 type: feat
 scopes: [catalog, templates, stencils, themes]
 audience: user
-title: Every catalog resource page says which catalog it is in, and what has yet to be released.
+title: Every catalog page says which catalog you are changing, with Publish right there.
 ---
 
-A template, stencil, theme or code-list page named no catalog at all: the back link went to a flat
-list, and the only mention of one was "belongs to a subscribed catalog", which did not say which.
-You could edit for an hour without knowing whether your work was in a released version or waiting to
-be.
+A template, stencil, theme or code-list page now carries one short line above its title: the catalog it belongs to, linked, and that you are in your work — with a Publish button. When you fix a version that is already published, the page says so in a banner instead ("You are fixing Letters v1.4.0, which is live in production"), with Publish fix and a way back to your work. A catalog provided by someone else shows its version and that it can't be edited.
 
-Each of those pages now carries the same bar, above the page title: the catalog it belongs to —
-named and linked — the version it was last released at, whether anything has changed since, and a
-release action where there is something to release. The version shown is what the catalog was last
-released at, never what you are editing: editing happens in the working copy, which has no version
-until you release it.
-
-Behind the alpha `catalog-context` feature, off by default — switch it on under Settings → Features.
-
-Because the bar states it, the scattered catalog badges and "read-only" notices those pages carried
-are gone; a subscribed catalog is called read-only in the bar instead.
+This was behind the alpha `catalog-context` feature; the feature is gone and the line is always shown.

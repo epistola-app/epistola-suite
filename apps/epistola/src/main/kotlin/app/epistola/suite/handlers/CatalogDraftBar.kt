@@ -22,14 +22,15 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.SecurityContext
 
 /**
- * Which draft of a catalog a page works in, and the controls for its drafts (contract ADR 0002): the
- * draft's number and base, the releases it is behind with their changes, the drafts to switch to, and
- * whether to offer opening, discarding and renumbering one.
+ * Which version of a catalog a page works in, and the controls for it (contract ADR 0002), in the
+ * terms people use (docs/catalog-workspace-navigation.md): an authored catalog has **your work** —
+ * its highest draft, which a plain segment (`letters`) means — and at times a **fix** of a published
+ * version: any other draft, named by its number (`letters@1.4.1`). A subscribed catalog shows its
+ * installed release, which cannot be edited.
  *
- * The draft comes from the route: `letters@2.0.0` names draft 2.0.0, plain `letters` means the
- * catalog's current version, its highest draft ([CatalogSegment]). Every page that edits a catalog's
- * content builds one of these, so the catalog page and the content pages agree on which draft is
- * meant and on what may be done to it. Templates gate on the names below, never on the raw flags.
+ * Every page that shows a catalog's content builds one of these and renders it as the bar above the
+ * page header, so the catalog page and the content pages agree on what is being changed and on what
+ * may be done to it. Templates gate on the names below, never on the raw flags.
  *
  * @property segment the route's catalog segment, which every link on the page carries.
  * @property chosen the draft worked in; null for a catalog that has none (subscribed, or every draft
@@ -42,6 +43,7 @@ import app.epistola.suite.security.SecurityContext
 data class CatalogDraftBar(
     val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
+    val catalogName: String,
     val authored: Boolean,
     val segment: CatalogSegment,
     val drafts: List<CatalogVersion>,
@@ -49,11 +51,19 @@ data class CatalogDraftBar(
     val chosen: CatalogVersion?,
     val mayOpenDrafts: Boolean,
     val mayDiscardDrafts: Boolean,
+    /** A subscribed catalog's installed release: the version its pages show. Null for an authored catalog. */
+    val installed: CatalogVersion? = null,
     /** The same page at another segment, for the draft links. */
     private val pageAt: (CatalogSegment) -> String,
 ) {
-    /** The catalog's current version: its highest draft. */
-    val current: CatalogVersion? get() = drafts.firstOrNull()
+    /** The catalog's current version: its highest draft, or a subscribed catalog's installed release. */
+    val current: CatalogVersion? get() = if (authored) drafts.firstOrNull() else installed
+
+    /** The version the page shows: the chosen draft, or a subscribed catalog's installed release. */
+    val shown: CatalogVersion? get() = chosen ?: installed
+
+    /** Nothing on the page changes the catalog: it is subscribed, so its content is its publisher's. */
+    val readOnly: Boolean get() = !authored
 
     /** The version messages on this page name; null for the current version. */
     val ref: CatalogVersionRef? get() = segment.ref(tenantKey)
@@ -71,16 +81,42 @@ data class CatalogDraftBar(
     val noDraft: Boolean get() = authored && drafts.isEmpty()
 
     /**
-     * Whether a content page shows the bar. A catalog with one draft looks as it always did; the bar
-     * appears once there is a choice to make or show, or nothing to edit.
+     * The page works in a fix of a published version rather than in your work: an authored
+     * catalog's draft other than its highest. Shown as a banner, so nobody mistakes it for their work.
      */
-    val shownOnContentPage: Boolean get() = authored && (severalDrafts || noDraft)
+    val fixing: Boolean get() = authored && chosen != null && current != null && chosen.version != current?.version
+
+    /** The published version a fix changes: the release its draft is based on. */
+    val fixOf: String? get() = chosen?.base?.takeIf { fixing }
+
+    /** The environments the fixed version is live in, so the banner says why the fix matters. */
+    val fixOfLiveIn: List<String> get() = fixOf?.let { version -> releases.firstOrNull { it.version == version }?.deployedTo }.orEmpty()
+
+    /** The same page in your work, for "back to your work" from a fix. */
+    val workHref: String get() = pageAt(segment.at(null))
+
+    /** The fixes open next to your work, each linked to this page in that fix. */
+    val openFixes: List<DraftLink>
+        get() = if (!authored || fixing) {
+            emptyList()
+        } else {
+            drafts.drop(1).map { DraftLink(it.version, it.base, pageAt(segment.at(it.version)), active = false, behind = it.behind.isNotEmpty()) }
+        }
+
+    /** Publishing is withheld because the viewer may not publish; the bar says so instead of hiding it. */
+    val publishWithheld: Boolean get() = authored && chosen != null && !mayDiscardDrafts
 
     /** The releases the chosen draft is behind, lowest first, each with what it changed. */
     val behind get() = chosen?.behind.orEmpty()
 
     /** Whether to offer opening another draft. */
     val offerCreateDraft: Boolean get() = authored && mayOpenDrafts
+
+    /**
+     * Whether to offer releasing the chosen draft. Releasing is catalog-wide — the draft goes out
+     * whole — and the dialog says whether it is ready; it needs `CATALOG_RELEASE`.
+     */
+    val offerRelease: Boolean get() = authored && chosen != null && mayDiscardDrafts
 
     /** Whether to offer discarding the chosen draft. */
     val offerDiscard: Boolean get() = authored && mayDiscardDrafts && chosen != null
@@ -109,7 +145,7 @@ data class CatalogDraftBar(
     /** The draft links, highest first, each to this page in that draft. */
     val draftLinks: List<DraftLink>
         get() = drafts.map { draft ->
-            // The current draft is linked without a number, so its links look as they always did.
+            // Your work is linked plainly, a fix by its number.
             val target = if (draft.version == current?.version) segment.at(null) else segment.at(draft.version)
             DraftLink(draft.version, draft.base, pageAt(target), active = draft.version == chosen?.version, behind = draft.behind.isNotEmpty())
         }
@@ -136,8 +172,15 @@ data class CatalogDraftBar(
             val catalog = GetCatalog(tenantKey, segment.key).query()
             val versions = ListCatalogVersions(tenantKey, segment.key).query()
             val drafts = versions.filter { it.status == CatalogVersionStatus.DRAFT }
+            val authored = catalog?.type == CatalogType.AUTHORED
+            // A subscribed catalog shows its installed release, the only version whose content it has.
+            val installed = catalog?.installedReleaseVersion?.takeUnless { authored }?.let { number ->
+                versions.firstOrNull { it.version == number } ?: CatalogVersion(number, CatalogVersionStatus.RELEASED)
+            }
             val chosen = when (val version = segment.version) {
                 null -> drafts.firstOrNull()
+
+                installed?.version -> null
 
                 else -> drafts.firstOrNull { it.version == version } ?: run {
                     if (versions.any { it.version == version }) throw CatalogVersionReleasedException(segment.key, version)
@@ -148,13 +191,15 @@ data class CatalogDraftBar(
             return CatalogDraftBar(
                 tenantKey = tenantKey,
                 catalogKey = segment.key,
-                authored = catalog?.type == CatalogType.AUTHORED,
+                catalogName = catalog?.name ?: segment.key.value,
+                authored = authored,
                 segment = segment,
                 drafts = drafts,
                 releases = versions.filter { it.status == CatalogVersionStatus.RELEASED },
                 chosen = chosen,
                 mayOpenDrafts = auth.has(Permission.TEMPLATE_EDIT),
                 mayDiscardDrafts = auth.has(Permission.CATALOG_RELEASE),
+                installed = installed,
                 pageAt = pageAt,
             )
         }

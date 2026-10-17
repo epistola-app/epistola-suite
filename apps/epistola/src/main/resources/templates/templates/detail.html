@@ -7,7 +7,6 @@
         <!--/* Catalog first, then the resource: the bar says which catalog you are in, the header
                below says what you are editing in it. Kept apart deliberately — see
                catalogs/bar.html. */-->
-        <div th:replace="~{catalogs/bar :: catalog-bar(context=${catalogContext})}"></div>
         <!--/* Which draft of the catalog this page edits, once there is more than one. */-->
         <div th:replace="~{catalogs/drafts :: content-draft-bar(bar=${draftBar})}"></div>
 

@@ -125,7 +125,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val body = result<ResponseEntity<String>>().body!!
             assertThat(body).contains("data-testid=\"catalog-draft-picker\"")
-            // The current draft is linked plainly, the other by its number.
+            // Your work is linked plainly, the fix by its number.
             assertThat(body).contains("href=\"/tenants/${tenant.id}/catalogs/letters/browse\"")
             assertThat(body).contains("data-testid=\"catalog-draft-chosen\">v1.0.1<")
             assertThat(body).contains("data-testid=\"catalog-draft-version\">v1.0.1<")
@@ -150,7 +150,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `the template page in a draft shows that draft's template, with the draft bar, and links stay in it`() = fixture {
+    fun `the template page in a fix shows that fix's template, under the fix banner, and links stay in it`() = fixture {
         lateinit var tenant: Tenant
         given {
             tenant = tenant("Drafts Template")
@@ -160,14 +160,14 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val body = result<ResponseEntity<String>>().body!!
             assertThat(body).contains("Invoice, maintenance").doesNotContain("Invoice two")
-            assertThat(body).contains("data-testid=\"catalog-draft-bar\"").contains("data-testid=\"catalog-draft-chosen\">v1.0.1<")
+            assertThat(body).contains("data-testid=\"catalog-fix-banner\"").contains("data-catalog-version=\"1.0.1\"")
             assertThat(body).contains("/tenants/${tenant.id}/templates/letters@1.0.1/invoice/settings")
             assertThat(body).contains("/tenants/${tenant.id}/templates/letters@1.0.1/invoice/variants/initial/editor")
         }
     }
 
     @Test
-    fun `the plain template page is the current draft's, and with one draft it has no draft bar`() = fixture {
+    fun `the plain template page is your work, and names an open fix once there is one`() = fixture {
         lateinit var tenant: Tenant
         lateinit var several: String
         given {
@@ -182,8 +182,9 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             one
         }
         then {
-            assertThat(result<String>()).doesNotContain("data-testid=\"catalog-draft-bar\"")
-            assertThat(several).contains("Invoice two").contains("data-testid=\"catalog-draft-bar\"")
+            assertThat(result<String>()).contains("data-testid=\"catalog-version-bar\"").contains(">Your work<")
+                .doesNotContain("data-testid=\"catalog-open-fix\"")
+            assertThat(several).contains("Invoice two").contains("data-testid=\"catalog-open-fix\"").contains("/templates/letters@1.0.1/invoice")
         }
     }
 

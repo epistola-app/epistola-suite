@@ -6,7 +6,8 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # Catalog workspace navigation (2.0)
 
-> **Status:** design proposal, 17 October 2026 — not built, for review before implementation.
+> **Status:** design proposal, 17 October 2026 — partly built: the landing overview and the bar
+> (below). The simple model is being built in the UI only; core and contract are unchanged.
 
 ## Problem
 
@@ -20,11 +21,27 @@ catalog and which version it is in. The UI does not show that:
 - The version a page works in is only in its URL (`/tenants/t/templates/letters@2.0.0/invoice`). A
   bar appears only when a catalog has several drafts or none, so with one draft nothing says "you are
   editing draft 1.0.1 of letters".
-- The catalog context strip (`catalog-context`, alpha) is off by default; the 2.0 design said it
-  would become the default chrome (WP7) and it has not.
+- The catalog context strip (`catalog-context`, alpha) was off by default; the 2.0 design said it
+  would become the default chrome (WP7). It has since been retired in favour of the version bar.
 - Releases cannot be browsed as content at all, only as a list of versions.
 - Tenant-wide lists ("all templates") are ambiguous once a catalog has several versions: the same
   template exists in several, with different content.
+
+## Simple model (decided 17 October)
+
+The people using this are mostly not technical. What they need: change a letter, publish it, make it
+live, and now and then fix what is live. So the UI shows only:
+
+- **Your work** — one working copy per catalog. You just edit; no drafts to choose, no numbers.
+- **Publish** — shows what changed and what it means in plain words, and picks the number from the
+  kind of change (fixes → patch, additions → minor, breaking → major); the number can be changed
+  under "advanced". Ready marks and dependency locks are done for you.
+- **Live** — per environment, which version is live, and "Make vX live".
+- **History** — published versions, viewable; "Fix this version" for one that is live.
+- **A fix** — a banner-marked mode on a published version, published as its next patch.
+
+Core and contract stay as they are for now (several drafts remain possible through REST/MCP); the UI
+treats the highest draft as your work and any other as a fix. Enforcing that is a later decision.
 
 ## Principle
 
@@ -76,6 +93,21 @@ Each list shows that version's resources only. The catalog page's current sectio
 context: _Next release_ becomes **Changes** (what changed since the base, readiness, mark ready,
 release), dependencies get their own page, the catalog's metadata and publication stay on a
 **Catalog** settings page reached from the catalog picker.
+
+### Built so far (17 October)
+
+The model people see, decided 17 October (see "Simple model" below): one working copy per catalog,
+**your work**, and at times a **fix** of a published version.
+
+- **One short bar** above every catalog content page: `Catalog Letters · Your work · [Publish…]`.
+  A fix is a banner instead: "You are fixing Letters v1.4.0, which is live in production. Changes
+  here go only into this fix. [Publish fix…] [Back to your work]". A subscribed catalog: `v2.0.0 ·
+  can't be edited`. No version numbers for your work. `CatalogDraftBar`, `catalogs/drafts.html ::
+  content-draft-bar`.
+- **URLs:** a plain segment (`/themes/letters/house`) is your work; a fix or a published version is
+  named by its number (`letters@1.4.1`). An explicit-version redirect was built and dropped the same
+  day: with one working copy a plain URL is not ambiguous.
+- The `catalog-context` toggle and `GetCatalogContext` are gone.
 
 ### Routes
 

@@ -7,16 +7,85 @@
 
            The draft travels in the catalog's segment of the URL (`letters@2.0.0`), so the links
            below go to the same page in another draft, and every link on the page carries the one
-           chosen. The current draft (the highest) is linked without a number.
+           chosen.
 
            Usage:
              catalog page   — inside "Next release":  ~{catalogs/drafts :: draft-bar(bar=${draftBar})}
              content pages  — above the page header:  ~{catalogs/drafts :: content-draft-bar(bar=${draftBar})}
-           A content page shows it only when there is a choice to make (CatalogDraftBar.shownOnContentPage),
-           so a catalog with one draft looks as it always did. */-->
+    */-->
+
+    <!--/* The bar above every catalog content page (docs/catalog-workspace-navigation.md), in
+           the words of the people who use it: which catalog, and whether they are in their work,
+           in a fix of a published version, or looking at a catalog they cannot edit. One short
+           line; numbers, bases and drafts stay out of it. A fix is a banner on purpose, so nobody
+           edits a live version thinking it is their work.
+
+           The publish dialog lands in the mount below and is opened on swap by the app-wide
+           behaviour; the mount is part of the fragment so a page cannot take one without the other. */-->
     <th:block th:fragment="content-draft-bar(bar)">
-        <th:block th:if="${bar != null and bar.shownOnContentPage}">
-            <div th:replace="~{catalogs/drafts :: draft-bar(bar=${bar})}"></div>
+        <th:block th:if="${bar != null}">
+        <div th:if="${bar.fixing}" class="alert alert-warning" data-testid="catalog-fix-banner"
+             th:attr="data-catalog=${bar.catalogKey},data-catalog-version=${bar.chosen.version}">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+            <div>
+                <div class="alert-title"
+                     th:text="${bar.fixOfLiveIn.isEmpty()} ? 'You are fixing ' + ${bar.catalogName} + ' v' + ${bar.fixOf}
+                              : 'You are fixing ' + ${bar.catalogName} + ' v' + ${bar.fixOf} + ', which is live in ' + ${#strings.listJoin(bar.fixOfLiveIn, ', ')}">You are fixing Letters v1.4.0</div>
+                <p style="margin: var(--ep-space-1) 0 0;">Changes here go only into this fix, not into your work.</p>
+                <div class="ep-row" style="gap: var(--ep-space-2); margin-top: var(--ep-space-2);">
+                    <button th:if="${bar.offerRelease}" type="button" class="ep-btn ep-btn-primary ep-btn-sm"
+                            data-testid="catalog-bar-publish"
+                            th:hx-get="@{/tenants/{t}/catalogs/{c}/release(t=${bar.tenantKey},c=${bar.segmentValue})}"
+                            hx-target="#release-dialog-container" hx-swap="innerHTML">Publish fix…</button>
+                    <a class="ep-btn ep-btn-ghost ep-btn-sm" th:href="${bar.workHref}" data-testid="catalog-fix-back">Back to your work</a>
+                </div>
+            </div>
+        </div>
+
+        <div th:unless="${bar.fixing}" class="catalog-bar" data-testid="catalog-version-bar"
+             th:attr="data-catalog=${bar.catalogKey},data-catalog-version=${bar.shown?.version}">
+            <div class="catalog-bar-context">
+                <span class="catalog-bar-label">Catalog</span>
+                <a class="catalog-bar-name" data-testid="catalog-version-bar-catalog"
+                   th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${bar.tenantKey},c=${bar.catalogKey})}"
+                   th:text="${bar.catalogName}">Letters</a>
+
+                <th:block th:if="${bar.readOnly and bar.shown != null}">
+                    <span class="catalog-bar-state" data-testid="catalog-version-bar-version" th:text="'v' + ${bar.shown.version}">v2.0.0</span>
+                    <span class="badge badge-default" data-testid="catalog-version-bar-read-only">can't be edited</span>
+                </th:block>
+                <span th:if="${bar.chosen != null}" class="catalog-bar-state" data-testid="catalog-version-bar-work">Your work</span>
+                <!--/* A published fix that your work lacks: said once, plainly; the publish dialog lists it. */-->
+                <span th:unless="${bar.behind.isEmpty()}" class="badge badge-warning" data-testid="catalog-draft-behind"
+                      th:title="'Published after you started; apply it here too if it belongs in your work.'"
+                      th:text="${bar.behind.size() == 1} ? 'Fix v' + ${bar.behind[0].version} + ' is not in your work yet' : ${bar.behind.size()} + ' published fixes are not in your work yet'">Fix v1.4.1 is not in your work yet</span>
+                <a th:each="fix : ${bar.openFixes}" th:href="${fix.href}" class="badge badge-outline" data-testid="catalog-open-fix"
+                   th:text="${fix.base != null} ? 'Fix of v' + ${fix.base} + ' in progress' : 'Fix v' + ${fix.version} + ' in progress'">Fix of v1.4.0 in progress</a>
+                <span th:if="${bar.noDraft}" class="catalog-bar-state" data-testid="catalog-draft-none">Nothing open to edit</span>
+            </div>
+
+            <button th:if="${bar.offerRelease}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                    data-testid="catalog-bar-publish"
+                    th:hx-get="@{/tenants/{t}/catalogs/{c}/release(t=${bar.tenantKey},c=${bar.segmentValue})}"
+                    hx-target="#release-dialog-container" hx-swap="innerHTML">Publish…</button>
+            <span th:if="${bar.publishWithheld}" class="form-hint" data-testid="catalog-bar-publish-withheld">Publishing needs the publisher role.</span>
+
+            <th:block th:if="${bar.noDraft}">
+                <form th:if="${bar.offerOpenDraft}" method="post" style="display: inline;"
+                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts(tenantId=${bar.tenantKey},catalogId=${bar.catalogKey})}">
+                    <input type="hidden" name="version" th:value="${bar.openDraftVersion}">
+                    <input type="hidden" name="from" th:value="${bar.openDraftFrom}">
+                    <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="catalog-draft-open">Start editing</button>
+                </form>
+                <span th:if="${bar.openDraftWithheldNoContent}" class="form-hint" data-testid="catalog-draft-open-withheld">
+                    Its latest published version kept no content to start from. Start from an older one on the catalog page.
+                </span>
+                <span th:if="${bar.draftControlsWithheld}" class="form-hint" data-testid="catalog-draft-open-withheld">
+                    Editing needs the content author role.
+                </span>
+            </th:block>
+        </div>
+        <div id="release-dialog-container" data-open-dialog-on-swap="release-dialog"></div>
         </th:block>
     </th:block>
 
