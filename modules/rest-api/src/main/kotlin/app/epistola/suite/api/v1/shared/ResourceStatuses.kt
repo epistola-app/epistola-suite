@@ -53,7 +53,7 @@ internal class ResourceStatuses private constructor(
         fun of(version: ResolvedCatalogVersion): ResourceStatuses {
             if (!version.isDraft) return ResourceStatuses(null)
             val changes = try {
-                GetCatalogResourceChanges(version.tenantKey, version.catalogKey).query()
+                GetCatalogResourceChanges(version.tenantKey, version.catalogKey, catalogVersion = version.ref).query()
             } catch (_: CatalogReadOnlyException) {
                 return ResourceStatuses(null)
             }

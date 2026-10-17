@@ -12,6 +12,8 @@ import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.crypto.Secret
 import app.epistola.suite.mediator.Command
@@ -44,7 +46,10 @@ data class CreateCodeList(
     val authType: AuthType = AuthType.NONE,
     val credential: String? = null,
     val entries: List<CodeListEntry> = emptyList(),
-) : Command<CodeList>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<CodeList>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_EDIT
     override val tenantKey get() = id.tenantKey

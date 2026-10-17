@@ -119,6 +119,13 @@ data class ImportCatalogZip(
      * separately), so a null here must leave an existing source alone rather than clear it.
      */
     val sourceUrl: String? = null,
+    /**
+     * Fills a new draft with a release of the catalog itself (`CreateCatalogVersion` from a released
+     * version), into the version that command targets: only the content, its dependency
+     * declarations and ready marks are written. The catalog's metadata and its import time stay, since
+     * the archive is the catalog's own past, not a new arrival. Internal so no API can set it.
+     */
+    internal val intoDraft: Boolean = false,
 ) : Command<ImportCatalogZipResult>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
@@ -465,13 +472,15 @@ class ImportCatalogZipHandler(
                 RecordInstalledRelease(command.tenantKey, catalogKey).execute()
             }
         } else if (!anyFailed) {
-            updateAuthoredMetadata(
-                command.tenantKey,
-                catalogKey,
-                manifest.catalog.name,
-                manifest.catalog.description,
-                catalogMetadataJson,
-            )
+            if (!command.intoDraft) {
+                updateAuthoredMetadata(
+                    command.tenantKey,
+                    catalogKey,
+                    manifest.catalog.name,
+                    manifest.catalog.description,
+                    catalogMetadataJson,
+                )
+            }
             // The archive's declarations, locked as it was cut. A merge keeps those it does not name.
             jdbi.useHandle<Exception> { handle ->
                 val kept = if (existingCatalog != null && command.authoredMode != AuthoredImportMode.REPLACE) {
@@ -555,7 +564,7 @@ class ImportCatalogZipHandler(
         // updated_at: a no-op re-import advances this in lockstep and does NOT
         // register as AUTHORED drift; only a later edit does. With released_at
         // it is the GREATEST(released_at, imported_at) drift baseline.
-        touchImportedAt(command.tenantKey, catalogKey)
+        if (!command.intoDraft) touchImportedAt(command.tenantKey, catalogKey)
 
         ImportCatalogZipResult(
             catalogKey = catalogKey,

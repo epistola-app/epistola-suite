@@ -150,7 +150,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `Renumber below the last release is refused on the field`() = fixture {
+    fun `Renumber onto a released number is refused on the field`() = fixture {
         lateinit var tenant: Tenant
 
         given {
@@ -159,14 +159,14 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             withMediator { mediator.publishAndRelease(variant) }
         }
 
-        whenever { postForm("/tenants/${tenant.id}/catalogs/letters/renumber", mapOf("to" to "0.9.0")) }
+        whenever { postForm("/tenants/${tenant.id}/catalogs/letters/renumber", mapOf("to" to "1.0.0")) }
 
         then {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode.value()).isEqualTo(422)
             assertThat(response.headers["HX-Retarget"]).containsExactly("#renumber-catalog-form")
             assertThat(response.body).contains("data-testid=\"renumber-error\"")
-            assertThat(response.body).contains("is not above")
+            assertThat(response.body).contains("already has a version 1.0.0")
             assertThat(draftOf(tenant, "letters")).isEqualTo("1.0.1")
         }
     }

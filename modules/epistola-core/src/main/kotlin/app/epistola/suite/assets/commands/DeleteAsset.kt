@@ -8,6 +8,8 @@ import app.epistola.suite.assets.AssetInUseException
 import app.epistola.suite.assets.queries.FindAssetUsages
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -31,7 +33,10 @@ data class DeleteAsset(
     val tenantId: TenantKey,
     val assetId: AssetKey,
     val force: Boolean = false,
-) : Command<Boolean>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<Boolean>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
     override val tenantKey get() = tenantId

@@ -20,8 +20,9 @@ different "version" even when nothing changed (or the same one when it did).
 
 ## Model
 
-A catalog is **one row per `(tenant_key, slug)` with one live resource set** —
-there is never a parallel install of two versions.
+A catalog is **one row per `(tenant_key, slug)`**. A subscribed catalog has one live resource set,
+its installed release; an authored catalog has one per open draft (see
+[several drafts](#catalog-versions-and-several-drafts)).
 
 > This describes what ships today. [ADR 0026 §6](adr/0026-revisions-releases-and-the-working-copy.md)
 > decides otherwise for the next major: an installation will hold and resolve several releases of one
@@ -29,7 +30,7 @@ there is never a parallel install of two versions.
 > latest outside one; and a subscribed catalog will not be upgraded at all — another release of it is
 > installed alongside, leaving the one already there in place.
 
-- **AUTHORED (publisher side)** — one live, editable working copy. Cutting a
+- **AUTHORED (publisher side)** — one live, editable copy per open draft. Cutting a
   release records an **immutable boundary** in `catalog_releases`
   (author-set SemVer + content fingerprint + notes + a manifest snapshot), one
   `release_entries` row per resource naming the revision that holds its content
@@ -50,6 +51,73 @@ catalog. An authored `1.4.0` exported and subscribed elsewhere flows its
 version + fingerprint through the manifest into the subscriber's
 `installed_release_version` / `installed_fingerprint`, so values stay coherent
 end to end.
+
+## Catalog versions and several drafts
+
+A catalog consists of **versions** (contract ADR 0002): released ones, kept in `catalog_releases`
+with their retained content, and the versions whose content is in the content tables, identified by
+`catalog_versions`: every open **draft** of an authored catalog, and the one **installed** release of
+a subscribed catalog. A version number is unique in its catalog, across drafts and releases.
+
+- **Content belongs to a version.** Every content row (`themes`, `document_templates`,
+  `template_variants`, `variant_attribute_definitions`, `code_lists`, `code_list_entries`, `assets`,
+  `fonts`, `font_variants`, `stencils`) is keyed `(tenant_key, version_id, resource_id)`; its address
+  is unique per version. Ready marks (`resource_ready_marks`) and dependency declarations
+  (`catalog_dependencies`) are per version too.
+- **Identity is shared.** `catalog_resources` holds one identity per resource, used by every version
+  that holds a row of it, and every reference to a resource (a template's theme, an attribute's code
+  list, a font face's asset, the tenant's default theme, quality findings, load-test runs, history)
+  names the identity. A row inserted into another version at the same address adopts its identity;
+  deleting a row deletes the identity only when no version holds the resource any more. A reference
+  resolves in the version being read.
+- **A draft is an independent copy.** `CreateCatalogVersion` opens one, numbered as asked: without
+  `from` as a copy of its **base** (the highest release below its number, empty when there is none),
+  with `from` as a copy of that draft or release. Its base is `from` when that is released, `from`'s
+  base when it is a draft. A draft is copied row by row (`copy_catalog_version_content()`); a release
+  from its retained content, rebuilt as its archive and imported into the new draft.
+  `DeleteCatalogVersion` discards a draft and everything in it.
+- **Behind.** A draft is _behind_ the releases numbered above its base and below its own number: it
+  does not contain their changes unless an author applied them by hand. `CatalogVersion.behind` lists
+  them, each with what it changed against the release below it, and `ReleaseCatalogVersion` refuses
+  (`CATALOG_VERSION_BEHIND`, 409) until `acknowledgedBehind` names every one.
+- **Releasing** draft X records the release and changes no other draft. When no draft is open above
+  it, X carries on as the next free patch, its content the release's (`openedDraft`); otherwise X is
+  discarded, its content being in the release. The open drafts above it whose base is below it are
+  now behind it (`draftsBehind`). The catalog's `released_version` stays its highest release, so a
+  maintenance release of a lower line does not move it back. Releasing under a number no draft has
+  renumbers the current draft as it is released, above every release, as the one-draft dialog does.
+- **Renumbering** warns (`RenumberChecks`) about releases it moves up past (`falls-behind`), releases
+  below its base it moves down past (`contains-later-releases`) and other drafts it moves past
+  (`passes-draft`).
+- **Relocation** moves the current draft's rows, so it is refused (`several-drafts`) while the source
+  or target catalog has more than one draft.
+
+### Which version a statement means
+
+Every statement on content names its version through the helpers in
+[`CatalogSql.kt`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogSql.kt):
+`versionAt(t, c)` and `inCurrentVersion(alias)`, both over the view `catalog_current_versions`, or
+`versionNamed(t, c, v)` for a version by number; `ContentVersionSqlTest` fails a statement that names
+none. The view answers, per catalog, the version the caller means:
+
+1. the version the transaction **targets**, when it is a version of that catalog;
+2. else a subscribed catalog's installed release;
+3. else the authored catalog's highest open draft — the **current** version.
+
+A command or query that addresses one version implements
+[`CatalogVersionScoped`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/versions/CatalogVersionScoped.kt)
+and carries a `CatalogVersionRef` (tenant, catalog, number). `SpringMediator` resolves it before the
+handler runs (an unknown number is `CatalogVersionNotFoundException`, a released one
+`CatalogVersionReleasedException`), runs a query that names one in a read-only transaction, and
+`CatalogVersionTargeting` sets the PostgreSQL setting `epistola.content_version` to the version's
+`version_id`, transaction-locally. Handlers written for "the" version of a catalog then work on that
+draft unchanged, and every message they dispatch inherits it; the caller's target is restored when
+the message ends. A message that names no version works on the current version, so the UI and MCP,
+which name none, keep working on the highest draft. A self-managed command (`RefreshCodeList`)
+applies the target in each transaction it opens.
+
+The REST API's `…/versions/{catalogVersion}/…` paths pass the draft they name to every message they
+dispatch (`ResolvedCatalogVersion.ref`); a released version is read from its retained content.
 
 ## Versioning scheme: SemVer + content fingerprint
 
@@ -229,9 +297,9 @@ draft, a stencil without a draft, and every other resource. `template_versions` 
 ## Cutting a release (AUTHORED)
 
 An authored catalog's page has a **Next release** section (`catalogs/next-release.html`): the
-draft's version number with **Renumber** (a dialog; warnings are shown to acknowledge, refusals —
-a number in use, or not above every release — as a field error), every resource that changed since
-the last release with its state and whether it is ready, **Mark all ready**, and the declared
+current draft's version number with **Renumber** (a dialog; warnings are shown to acknowledge,
+refusals — a number in use — as a field error), every resource that changed since the draft's base
+with its state and whether it is ready, **Mark all ready**, and the declared
 **Dependencies** with their locks (edited in a dialog: a catalog and an npm range per row; **Resolve
 to latest** moves the locks). **Release** is offered only while nothing blocks it; otherwise the
 section says which resources are not ready or which dependencies match no release, and where to fix
@@ -253,8 +321,9 @@ is the shared primitive (latest version/fingerprint, working fingerprint,
 ### What changed, resource by resource
 
 [`GetCatalogResourceChanges`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/GetCatalogResourceChanges.kt)
-diffs the working copy's per-resource digests against the `fingerprint` of each
-`release_entries` row of the latest release, giving each resource one of NEW,
+diffs the draft's per-resource digests against the `fingerprint` of each
+`release_entries` row of the draft's base (the release it started from; the highest release below its
+number when it records none), giving each resource one of NEW,
 MODIFIED, RELEASED or REMOVED, and whether its current content is marked ready.
 Both sides come from the same canonicaliser that computes the catalog
 fingerprint, so a per-resource difference is exactly a fingerprint difference

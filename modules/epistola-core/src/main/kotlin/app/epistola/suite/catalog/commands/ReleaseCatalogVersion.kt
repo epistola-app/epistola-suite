@@ -26,7 +26,11 @@ import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
+import app.epistola.suite.catalog.versions.CatalogDraft
 import app.epistola.suite.catalog.versions.CatalogDrafts
+import app.epistola.suite.catalog.versions.CatalogVersionBehindException
+import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
+import app.epistola.suite.catalog.versions.CatalogVersionTargeting
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.config.bindJsonb
 import app.epistola.suite.mediator.Command
@@ -46,11 +50,18 @@ import java.time.OffsetDateTime
 import java.util.UUID
 
 /**
- * Releases the open draft of an AUTHORED catalog as [version]: records an explicit, immutable
- * release boundary (SemVer + content fingerprint + notes + a manifest snapshot), advances the
- * catalog's released-version pointer, and opens the next patch as the new draft (contract ADR 0002).
- * A [version] other than the draft's number renumbers the draft as it is released; it must still be
- * above every release, since there is one draft.
+ * Releases a draft of an AUTHORED catalog as [version] (contract `releaseCatalogVersion`, ADR 0002):
+ * records an explicit, immutable release boundary (SemVer + content fingerprint + notes + a manifest
+ * snapshot) and advances the catalog's released-version pointer when it is the highest release.
+ *
+ * - The draft numbered [version] is released. When no draft has that number, the draft the caller
+ *   means (the current one) is released under it, renumbered as it is released; that number must be
+ *   above every release.
+ * - A draft that is behind releases (above its base, below its number) is released only when
+ *   [acknowledgedBehind] names every one of them.
+ * - Releasing changes no other draft. When no draft is open above the released version, the draft
+ *   carries on as the next patch, as a copy of the release; otherwise it is discarded, its content
+ *   being in the release.
  *
  * See [`docs/catalog-versioning.md`](../../../../../../../../../docs/catalog-versioning.md).
  */
@@ -66,6 +77,8 @@ data class ReleaseCatalogVersion(
      * to ready marks. Internal so no API can set it.
      */
     internal val source: ContentSource = ContentSource.WORKING_COPY,
+    /** The releases the caller confirms this draft may be behind; naming others changes nothing. */
+    val acknowledgedBehind: Set<String> = emptySet(),
 ) : Command<ReleaseCatalogVersionResult>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_PUBLISH
@@ -90,6 +103,10 @@ data class ReleaseCatalogVersionResult(
     val unchangedContent: Boolean,
     /** Set when the release was queued for publication; null when it was not. */
     val publicationId: UUID? = null,
+    /** The open drafts with a higher number that are now behind this release. */
+    val draftsBehind: List<String> = emptyList(),
+    /** The draft the release carried on as, because none was open above it; null when it was discarded. */
+    val openedDraft: String? = null,
 )
 
 /** Thrown when the requested release version is not a strictly increasing SemVer. */
@@ -108,6 +125,7 @@ class ReleaseCatalogVersionHandler(
     private val stencilCheck: ReleaseStencilCheck,
     private val dependencyStore: CatalogDependencyStore,
     private val drafts: CatalogDrafts,
+    private val targeting: CatalogVersionTargeting,
 ) : CommandHandler<ReleaseCatalogVersion, ReleaseCatalogVersionResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -127,12 +145,39 @@ class ReleaseCatalogVersionHandler(
 
         val existing = loadReleases(command.tenantKey, command.catalogKey)
         val latest = existing.mapNotNull { SemVer.parseOrNull(it.version) }.maxOrNull()
-        if (latest != null && newVersion <= latest) {
-            throw CatalogReleaseVersionException(
-                "Version $newVersion must be greater than the last release $latest",
-            )
+        if (existing.any { it.version == newVersion.toString() }) {
+            throw CatalogReleaseVersionException("Version $newVersion is released already")
         }
+        val open = jdbi.withHandle<List<CatalogDraft>, Exception> { drafts.drafts(it, command.tenantKey, command.catalogKey) }
+        val draft = open.firstOrNull { it.version == newVersion.toString() }
+            ?: run {
+                // Releasing the current draft under a new number, as the one-draft release dialog
+                // does: like a renumber, but above every release, the order it was always released in.
+                if (latest != null && newVersion <= latest) {
+                    throw CatalogReleaseVersionException(
+                        "Version $newVersion must be greater than the last release $latest",
+                    )
+                }
+                jdbi.withHandle<CatalogDraft?, Exception> { drafts.draft(it, command.tenantKey, command.catalogKey) }
+                    ?: throw CatalogVersionNotFoundException(command.catalogKey, command.version)
+            }
+        val behind = CatalogDrafts.behind(newVersion.toString(), draft.base, existing.map { it.version })
+        val unacknowledged = behind.filter { it !in command.acknowledgedBehind }
+        if (unacknowledged.isNotEmpty()) throw CatalogVersionBehindException(command.catalogKey, newVersion.toString(), unacknowledged)
 
+        // Everything below reads and writes the draft being released, whichever one that is.
+        return targeting.within(draft.versionId) { release(command, catalog, newVersion, latest, existing, draft, open) }
+    }
+
+    private fun release(
+        command: ReleaseCatalogVersion,
+        catalog: Catalog,
+        newVersion: SemVer,
+        latest: SemVer?,
+        existing: List<ReleaseRow>,
+        draft: CatalogDraft,
+        open: List<CatalogDraft>,
+    ): ReleaseCatalogVersionResult {
         if (command.source == ContentSource.WORKING_COPY) requireChangesReady(command.tenantKey, command.catalogKey)
         val pins = pinDependencies(command.tenantKey, command.catalogKey)
         val content = contentBuilder.build(command.tenantKey, command.catalogKey, command.source)
@@ -171,6 +216,12 @@ class ReleaseCatalogVersionHandler(
         val port = publicationPort.ifAvailable?.takeIf { shouldPublish(command, catalog, it) }
         val archive = port?.let { archiveBuilder.build(content, manifest) }
         var publicationId: UUID? = null
+        val others = open.filter { it.versionId != draft.versionId }
+        val above = others.filter { other -> SemVer.parseOrNull(other.version)?.let { it > newVersion } == true }
+        val draftsBehind = above.filter { other -> other.base?.let(SemVer::parseOrNull)?.let { it < newVersion } ?: true }.map { it.version }
+        val inUse = existing.map { it.version }.toSet() + others.map { it.version } + newVersion.toString()
+        val openedDraft = if (above.isEmpty()) generateSequence(newVersion.bumpPatch()) { it.bumpPatch() }.map { it.toString() }.first { it !in inUse } else null
+        val highest = latest == null || newVersion > latest
 
         jdbi.useTransaction<Exception> { handle ->
             handle.createUpdate(
@@ -190,27 +241,29 @@ class ReleaseCatalogVersionHandler(
                 .bind("renderingDefaults", RenderingDefaults.CURRENT.version)
                 .execute()
 
-            handle.createUpdate(
-                """
-                UPDATE catalogs
-                SET released_version = :version, released_fingerprint = :fingerprint,
-                    released_at = :releasedAt, updated_at = NOW()
-                WHERE tenant_key = :t AND catalog_key = :c
-                """,
-            )
-                .bind("t", command.tenantKey)
-                .bind("c", command.catalogKey)
-                .bind("version", newVersion.toString())
-                .bind("fingerprint", fingerprint)
-                .bind("releasedAt", releasedAt)
-                .execute()
+            // The catalog's released version is its highest: a maintenance release of a lower line
+            // (ADR 0002 "Ordering") does not move it back.
+            if (highest) {
+                handle.createUpdate(
+                    """
+                    UPDATE catalogs
+                    SET released_version = :version, released_fingerprint = :fingerprint,
+                        released_at = :releasedAt, updated_at = NOW()
+                    WHERE tenant_key = :t AND catalog_key = :c
+                    """,
+                )
+                    .bind("t", command.tenantKey)
+                    .bind("c", command.catalogKey)
+                    .bind("version", newVersion.toString())
+                    .bind("fingerprint", fingerprint)
+                    .bind("releasedAt", releasedAt)
+                    .execute()
+            }
 
             // Inside the release transaction: a release, the content it retains and the record of
             // what it contained commit together, so there is no state where one exists without the
             // others.
             dependencyStore.recordRelease(handle, command.tenantKey, command.catalogKey, newVersion.toString(), pins)
-            // The draft becomes this release, and the next patch opens on it (contract ADR 0002).
-            drafts.advance(handle, command.tenantKey, command.catalogKey, CatalogDrafts.nextAfter(newVersion.toString()), base = newVersion.toString())
             val revisionDigests = revisionStore.retain(handle, command.tenantKey, content)
             releaseEntryStore.record(
                 handle,
@@ -221,6 +274,14 @@ class ReleaseCatalogVersionHandler(
                 revisionDigests,
                 resourceFingerprints,
             )
+
+            // The draft becomes this release (contract ADR 0002). With no draft open above it, it
+            // carries on as the next patch, its content the release's; otherwise it is discarded.
+            if (openedDraft != null) {
+                drafts.advance(handle, command.tenantKey, draft.versionId, openedDraft, base = newVersion.toString())
+            } else {
+                drafts.delete(handle, command.tenantKey, draft.versionId)
+            }
 
             if (port != null && archive != null) {
                 publicationId = port.recordReleasePublication(
@@ -251,6 +312,8 @@ class ReleaseCatalogVersionHandler(
             releasedAt = releasedAt,
             unchangedContent = unchanged,
             publicationId = publicationId,
+            draftsBehind = draftsBehind,
+            openedDraft = openedDraft,
         )
     }
 

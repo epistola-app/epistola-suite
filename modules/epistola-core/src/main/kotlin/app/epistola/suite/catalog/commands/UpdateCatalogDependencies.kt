@@ -13,6 +13,8 @@ import app.epistola.suite.catalog.CatalogVersionSelector
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.findCatalog
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -44,7 +46,10 @@ data class UpdateCatalogDependencies(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
     val dependencies: List<DeclaredCatalogDependency>,
-) : Command<List<CatalogDependencyDeclaration>>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<List<CatalogDependencyDeclaration>>,
     RequiresPermission {
     // Which releases of its dependencies the next release is cut with is part of releasing.
     override val permission get() = Permission.TEMPLATE_PUBLISH

@@ -6,6 +6,8 @@ package app.epistola.suite.themes.commands
 
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
@@ -45,7 +47,10 @@ data class UpdateTheme(
     val removeBlockStylePresets: Set<String> = emptySet(),
     val spacingUnit: Float? = null,
     val clearSpacingUnit: Boolean = false,
-) : Command<Theme?>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<Theme?>,
     RequiresPermission {
     override val permission = Permission.THEME_EDIT
     override val tenantKey: TenantKey get() = id.tenantKey

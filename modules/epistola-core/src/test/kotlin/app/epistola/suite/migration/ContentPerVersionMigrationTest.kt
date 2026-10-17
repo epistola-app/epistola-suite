@@ -56,7 +56,8 @@ class ContentPerVersionMigrationTest {
                 """.trimIndent(),
             )
         }
-        flyway(null).migrate()
+        // Up to this migration only: the next one removes the transitional trigger tested here.
+        flyway(UNDER_TEST).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             fun one(sql: String): String? = connection.createStatement().use { st -> st.executeQuery(sql).use { rs -> if (rs.next()) rs.getString(1) else null } }
@@ -94,5 +95,8 @@ class ContentPerVersionMigrationTest {
     private companion object {
         /** The last migration before the one under test. */
         const val BEFORE = "20261017102724"
+
+        /** The migration under test. */
+        const val UNDER_TEST = "20261017110649"
     }
 }

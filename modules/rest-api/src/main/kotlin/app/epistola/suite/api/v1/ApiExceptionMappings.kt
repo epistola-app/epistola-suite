@@ -25,11 +25,11 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
+import app.epistola.suite.catalog.versions.CatalogVersionBehindException
 import app.epistola.suite.catalog.versions.CatalogVersionInUseException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
 import app.epistola.suite.catalog.versions.RenumberWarningsNotAcknowledgedException
-import app.epistola.suite.catalog.versions.SingleCatalogDraftException
 import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.DocumentNotFoundException
@@ -571,11 +571,11 @@ object ApiExceptionMappings {
             logMessage = { "Catalog version number in use: catalog=${it.catalogKey} version=${it.version}" },
         )
 
-        builder.register<SingleCatalogDraftException>(
-            problemType = ApiProblemTypes.SINGLE_CATALOG_DRAFT,
-            defaultDetail = "A catalog has one draft",
-            extensions = { mapOf("catalogKey" to it.catalogKey.value) },
-            logMessage = { "Catalog draft change refused: ${it.message}" },
+        builder.register<CatalogVersionBehindException>(
+            problemType = ApiProblemTypes.CATALOG_VERSION_BEHIND,
+            defaultDetail = "The draft is behind releases it does not contain",
+            extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version, "behind" to it.behind) },
+            logMessage = { "Release refused, behind not acknowledged: ${it.message}" },
         )
 
         builder.register<RenumberWarningsNotAcknowledgedException>(

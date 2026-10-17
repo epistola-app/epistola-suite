@@ -10,6 +10,8 @@ import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Command
@@ -30,7 +32,10 @@ data class UpdateAttributeDefinition(
     val displayName: String,
     val allowedValues: List<String> = emptyList(),
     val codeListId: CodeListId? = null,
-) : Command<VariantAttributeDefinition?>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<VariantAttributeDefinition?>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_EDIT
     override val tenantKey get() = id.tenantKey

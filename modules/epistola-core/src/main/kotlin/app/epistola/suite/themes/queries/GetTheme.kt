@@ -5,6 +5,8 @@
 package app.epistola.suite.themes.queries
 
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -17,7 +19,10 @@ import org.springframework.stereotype.Component
 
 data class GetTheme(
     val id: ThemeId,
-) : Query<Theme?>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<Theme?>,
     RequiresPermission {
     override val permission get() = Permission.THEME_VIEW
     override val tenantKey get() = id.tenantKey

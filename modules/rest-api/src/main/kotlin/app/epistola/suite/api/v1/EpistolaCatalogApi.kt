@@ -5,6 +5,7 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.api.CatalogsApi
+import app.epistola.api.model.BehindReleaseDto
 import app.epistola.api.model.CatalogChangesDto
 import app.epistola.api.model.CatalogDependencyDto
 import app.epistola.api.model.CatalogDependencyListResponse
@@ -20,6 +21,7 @@ import app.epistola.api.model.ImportCatalogResponse
 import app.epistola.api.model.ReleaseCatalogVersionRequest
 import app.epistola.api.model.ReleaseCatalogVersionResponse
 import app.epistola.api.model.ReleaseDependencyDto
+import app.epistola.api.model.ReleasedChangeDto
 import app.epistola.api.model.RemovedCatalogResourceDto
 import app.epistola.api.model.RenumberCatalogVersionRequest
 import app.epistola.api.model.RenumberWarningDto
@@ -31,6 +33,7 @@ import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogAt
 import app.epistola.suite.api.v1.shared.catalogVersionAt
 import app.epistola.suite.api.v1.shared.draftAt
+import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.tenantKey
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogIdentityProperties
@@ -55,6 +58,7 @@ import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.UpgradeResourceChange
 import app.epistola.suite.catalog.versions.CatalogVersion
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
+import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionStatus
 import app.epistola.suite.catalog.versions.CreateCatalogVersion
 import app.epistola.suite.catalog.versions.DeleteCatalogVersion
@@ -76,9 +80,9 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder
 import app.epistola.api.model.CatalogVersionStatus as CatalogVersionStatusDto
 
 /**
- * Catalogs and their versions (contract ADR 0002/0003). An authored catalog has one open draft, its
- * working copy, and releases; a subscribed catalog has the releases it installed. Opening a second
- * draft, and discarding the one there is, are refused with 409 until drafts keep content of their own.
+ * Catalogs and their versions (contract ADR 0002/0003). An authored catalog has any number of open
+ * drafts, each its own copy, and releases; a subscribed catalog has the releases it installed. A
+ * draft's resource paths (`…/versions/{catalogVersion}/…`) read and write that draft.
  */
 @RestController
 @RequestMapping("/api")
@@ -161,8 +165,9 @@ class EpistolaCatalogApi(
     }
 
     /**
-     * Imports a catalog archive under the name the archive gives it, into the catalog's one draft.
-     * Naming another registry, namespace or draft is not supported yet.
+     * Imports a catalog archive under the name the archive gives it, into the catalog's current draft
+     * (its highest). Naming another registry, namespace or draft is not supported yet: the archive
+     * names the catalog, so a draft number cannot be resolved before the archive is read.
      */
     override fun importCatalog(
         tenantKey: String,
@@ -173,8 +178,8 @@ class EpistolaCatalogApi(
         catalogType: String,
         authoredMode: String,
     ): ResponseEntity<ImportCatalogResponse> {
-        // The import names the catalog as the archive does, and fills its only draft; it cannot take
-        // another name or a draft number from the caller yet.
+        // The import names the catalog as the archive does, and fills its current draft; it cannot
+        // take another name or a draft number from the caller yet.
         if (registry != null) throw ApiOperationNotImplementedException("importCatalog.registry")
         if (namespace != null) throw ApiOperationNotImplementedException("importCatalog.namespace")
         if (catalogVersion != null) throw ApiOperationNotImplementedException("importCatalog.catalogVersion")
@@ -241,7 +246,7 @@ class EpistolaCatalogApi(
         return ResponseEntity.ok(at.version.toDto(at.catalog))
     }
 
-    /** One draft per catalog for now: core refuses a second with 409. */
+    /** Opens a draft, as a copy of its base or of the version `from` names. */
     override fun createCatalogVersion(
         tenantKey: String,
         registry: String,
@@ -309,9 +314,9 @@ class EpistolaCatalogApi(
     }
 
     /**
-     * Releases the draft under its own number, which opens the next draft on it. One draft cannot fall
-     * behind a release, so nothing is behind and `acknowledgedBehind` has nothing to acknowledge: as
-     * the contract says, naming other versions changes nothing, so it is not checked.
+     * Releases the draft under its own number. A draft behind releases needs `acknowledgedBehind` to
+     * name each one (409 otherwise). With no draft open above it, the draft carries on as the next
+     * patch (`openedDraft`); otherwise it is discarded.
      */
     override fun releaseCatalogVersion(
         tenantKey: String,
@@ -327,17 +332,16 @@ class EpistolaCatalogApi(
             catalogKey = draft.catalogKey,
             version = draft.version.version,
             notes = releaseCatalogVersionRequest.notes,
+            acknowledgedBehind = releaseCatalogVersionRequest.acknowledgedBehind.orEmpty().toSet(),
         ).execute()
         val released = GetCatalogVersion(draft.tenantKey, draft.catalogKey, result.version).query()
             ?: throw CatalogVersionNotFoundException(draft.catalogKey, result.version)
-        val opened = ListCatalogVersions(draft.tenantKey, draft.catalogKey, CatalogVersionStatus.DRAFT).query()
-            .firstOrNull { it.version != result.version }
         return ResponseEntity.ok(
             ReleaseCatalogVersionResponse(
                 catalogVersion = released.toDto(draft.catalog),
                 unchangedContent = result.unchangedContent,
-                draftsBehind = emptyList(),
-                openedDraft = opened?.version,
+                draftsBehind = result.draftsBehind,
+                openedDraft = result.openedDraft,
             ),
         )
     }
@@ -356,7 +360,7 @@ class EpistolaCatalogApi(
             // A released version has no changes, and nothing to release.
             return ResponseEntity.ok(CatalogChangesDto(releasable = false, dependenciesChanged = false, changes = emptyList(), base = baseOf(at)))
         }
-        return ResponseEntity.ok(GetCatalogResourceChanges(at.tenantKey, at.catalogKey).query().toDto(at))
+        return ResponseEntity.ok(GetCatalogResourceChanges(at.tenantKey, at.catalogKey, catalogVersion = at.ref).query().toDto(at))
     }
 
     override fun markCatalogReady(
@@ -367,7 +371,7 @@ class EpistolaCatalogApi(
         catalogVersion: String,
     ): ResponseEntity<CatalogChangesDto> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
-        return ResponseEntity.ok(MarkCatalogReady(draft.tenantKey, draft.catalogKey).execute().toDto(draft))
+        return ResponseEntity.ok(MarkCatalogReady(draft.tenantKey, draft.catalogKey, catalogVersion = draft.ref).execute().toDto(draft))
     }
 
     // ================== Dependencies ==================
@@ -404,6 +408,7 @@ class EpistolaCatalogApi(
                     version = it.version,
                 )
             },
+            catalogVersion = draft.ref,
         ).execute()
         return ResponseEntity.ok(CatalogDependencyListResponse(items = declared.map { it.toDependencyDto() }))
     }
@@ -432,20 +437,25 @@ class EpistolaCatalogApi(
     /**
      * A version as the contract describes it. A draft lists the releases its declared dependencies
      * are locked to now; a release, the ones it was cut with. Which dependencies a release reaches
-     * only through another is not recorded, so every one listed counts as direct. One draft cannot
-     * fall behind a release, so `behind` is empty.
+     * only through another is not recorded, so every one listed counts as direct. A draft lists the
+     * releases it is behind, each with what it changed against the release below it.
      */
     private fun CatalogVersion.toDto(catalog: Catalog): CatalogVersionDto {
         val draft = status == CatalogVersionStatus.DRAFT
         val dependencies = if (draft) {
-            ListCatalogDependencies(catalog.tenantKey, catalog.id).query()
+            ListCatalogDependencies(catalog.tenantKey, catalog.id, catalogVersion = CatalogVersionRef(catalog.tenantKey, catalog.id, version)).query()
         } else {
             ListReleaseDependencies(catalog.tenantKey, catalog.id, version).query()
         }
         return CatalogVersionDto(
             version = version,
             status = if (draft) CatalogVersionStatusDto.DRAFT else CatalogVersionStatusDto.RELEASED,
-            behind = emptyList(),
+            behind = behind.map { release ->
+                BehindReleaseDto(
+                    version = release.version,
+                    changes = release.changes.map { ReleasedChangeDto(type = it.type, key = it.key, change = ReleasedChangeDto.Change.forValue(it.change)) },
+                )
+            },
             dependencies = dependencies.mapNotNull { dependency ->
                 dependency.releaseVersion?.let {
                     ReleaseDependencyDto(
@@ -478,7 +488,7 @@ class EpistolaCatalogApi(
 
     /** For a draft, the dependencies declared now, with their locks; for a release, its pins. */
     private fun dependenciesOf(at: ResolvedCatalogVersion): List<CatalogDependencyDeclaration> = if (at.isDraft) {
-        ListCatalogDependencies(at.tenantKey, at.catalogKey).query()
+        ListCatalogDependencies(at.tenantKey, at.catalogKey, catalogVersion = at.ref).query()
     } else {
         ListReleaseDependencies(at.tenantKey, at.catalogKey, at.version.version).query()
     }
@@ -503,7 +513,7 @@ class EpistolaCatalogApi(
             change?.let { ResourceChangeDto(type = resource.type, key = resource.slug, change = it) }
         }
         val base = draft.version.base
-        val declared = ListCatalogDependencies(draft.tenantKey, draft.catalogKey).query().map { it.requirement }.toSet()
+        val declared = ListCatalogDependencies(draft.tenantKey, draft.catalogKey, catalogVersion = draft.ref).query().map { it.requirement }.toSet()
         val released = base?.let { ListReleaseDependencies(draft.tenantKey, draft.catalogKey, it).query() }.orEmpty().map { it.requirement }.toSet()
         return CatalogChangesDto(
             releasable = notReady.isEmpty(),

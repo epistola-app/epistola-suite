@@ -42,6 +42,7 @@ class CatalogResourceMovePlanner(
         }
 
         val catalogTypes = loadCatalogTypes(handle, tenantKey, relocations)
+        val draftCounts = loadDraftCounts(handle, tenantKey, relocations)
         // An address a batch member is vacating is free for another member to take, so occupancy is
         // judged against the batch rather than against the current state alone.
         val vacated = relocations.map { it.source }.toSet()
@@ -78,6 +79,11 @@ class CatalogResourceMovePlanner(
             }
             if (catalogTypes[target.catalogKey] != "AUTHORED") {
                 blockers += blocker("target-read-only", "${target.catalogKey} must be authored and editable", source)
+            }
+            // A resource has one identity, with one address, in every version of its catalog; a move
+            // takes the current draft's rows only, so it is refused while either catalog has several.
+            listOf(source.catalogKey, target.catalogKey).distinct().filter { (draftCounts[it] ?: 0) > 1 }.forEach { catalog ->
+                blockers += blocker("several-drafts", "$catalog has several open drafts; discard or release all but one before moving resources", source)
             }
 
             val resourceId = resolveIdentity(handle, tenantKey, source)
@@ -207,6 +213,28 @@ class CatalogResourceMovePlanner(
             .bind("tenantKey", tenantKey)
             .bindList("keys", keys)
             .map { rs, _ -> rs.getString("catalog_key") to rs.getString("type") }
+            .list()
+            .toMap()
+    }
+
+    private fun loadDraftCounts(
+        handle: Handle,
+        tenantKey: TenantKey,
+        relocations: List<ResourceRelocation>,
+    ): Map<String, Int> {
+        val keys = relocations.flatMap { listOf(it.source.catalogKey, it.target.catalogKey) }.distinct()
+        if (keys.isEmpty()) return emptyMap()
+        return handle.createQuery(
+            """
+            SELECT c.catalog_key::text, count(v.version_id) AS drafts
+            FROM catalogs c JOIN catalog_versions v ON v.tenant_key = c.tenant_key AND v.catalog_id = c.catalog_id AND v.kind = 'draft'
+            WHERE c.tenant_key = :tenantKey AND c.catalog_key IN (<keys>)
+            GROUP BY c.catalog_key
+            """,
+        )
+            .bind("tenantKey", tenantKey)
+            .bindList("keys", keys)
+            .map { rs, _ -> rs.getString("catalog_key") to rs.getInt("drafts") }
             .list()
             .toMap()
     }

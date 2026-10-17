@@ -26,11 +26,11 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
+import app.epistola.suite.catalog.versions.CatalogVersionBehindException
 import app.epistola.suite.catalog.versions.CatalogVersionInUseException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
 import app.epistola.suite.catalog.versions.RenumberWarningsNotAcknowledgedException
-import app.epistola.suite.catalog.versions.SingleCatalogDraftException
 import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.DocumentNotFoundException
@@ -292,7 +292,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         CatalogVersionNotFoundException::class,
         CatalogVersionReleasedException::class,
         CatalogVersionInUseException::class,
-        SingleCatalogDraftException::class,
+        CatalogVersionBehindException::class,
         RenumberWarningsNotAcknowledgedException::class,
     )
     fun handleMappedApiException(

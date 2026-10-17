@@ -11,6 +11,7 @@ import app.epistola.catalog.protocol.ImageResource
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogVersionAt
 import app.epistola.suite.api.v1.shared.draftAt
+import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.releasedResource
 import app.epistola.suite.api.v1.shared.releasedResources
 import app.epistola.suite.api.v1.shared.tenantKey
@@ -94,6 +95,7 @@ class EpistolaImagesApi(
             searchTerm = search,
             limit = Pagination.limitOf(size),
             offset = Pagination.offsetOf(page, size),
+            catalogVersion = at.ref,
         ).query()
         return ResponseEntity.ok(
             ImageListResponse(
@@ -138,6 +140,7 @@ class EpistolaImagesApi(
             height = dimensions?.second,
             catalogKey = draft.catalogKey,
             sensitive = sensitive,
+            catalogVersion = draft.ref,
         ).execute()
         return ResponseEntity.status(HttpStatus.CREATED).body(image.toImageDto(draft.catalog))
     }
@@ -153,7 +156,7 @@ class EpistolaImagesApi(
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val key = AssetKey.of(imageKey)
         val (mediaType, bytes) = if (at.isDraft) {
-            GetAssetContent(tenantId = at.tenantKey, catalogKey = at.catalogKey, assetId = key).query()
+            GetAssetContent(tenantId = at.tenantKey, catalogKey = at.catalogKey, assetId = key, catalogVersion = at.ref).query()
                 ?.let { it.mediaType to it.content }
         } else {
             at.releasedResource<ImageResource>("image", imageKey)
@@ -184,11 +187,11 @@ class EpistolaImagesApi(
     ): ResponseEntity<Unit> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val key = AssetKey.of(imageKey)
-        val image = GetAsset(tenantId = draft.tenantKey, assetId = key).query()
+        val image = GetAsset(tenantId = draft.tenantKey, assetId = key, catalogVersion = draft.ref).query()
         if (image?.catalogKey != draft.catalogKey || image.mediaType.category != AssetMediaCategory.IMAGE) {
             throw AssetNotFoundException(draft.tenantKey, key)
         }
-        DeleteAsset(tenantId = draft.tenantKey, assetId = key, force = force).execute()
+        DeleteAsset(tenantId = draft.tenantKey, assetId = key, force = force, catalogVersion = draft.ref).execute()
         return ResponseEntity.noContent().build()
     }
 

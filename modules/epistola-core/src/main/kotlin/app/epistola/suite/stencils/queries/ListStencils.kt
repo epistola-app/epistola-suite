@@ -5,6 +5,8 @@
 package app.epistola.suite.stencils.queries
 
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -27,7 +29,10 @@ data class ListStencils(
     val catalogKey: CatalogKey? = null,
     val limit: Int = 50,
     val offset: Int = 0,
-) : Query<List<Stencil>>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<List<Stencil>>,
     RequiresPermission {
     override val permission = Permission.STENCIL_VIEW
     override val tenantKey: TenantKey get() = tenantId.key

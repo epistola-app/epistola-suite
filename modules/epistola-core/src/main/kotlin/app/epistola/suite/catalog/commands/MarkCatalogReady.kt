@@ -8,6 +8,8 @@ import app.epistola.suite.catalog.queries.CatalogResourceChanges
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
@@ -37,7 +39,10 @@ import org.springframework.stereotype.Component
 data class MarkCatalogReady(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
-) : Command<CatalogResourceChanges>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<CatalogResourceChanges>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
 }

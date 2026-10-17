@@ -13,6 +13,7 @@ import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogId
 import app.epistola.suite.api.v1.shared.catalogVersionAt
+import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.releasedResource
 import app.epistola.suite.api.v1.shared.releasedResources
 import app.epistola.suite.api.v1.shared.toDto
@@ -63,7 +64,7 @@ class EpistolaFontApi : FontsApi {
             val slice = Pagination.pageOfRelease(at.releasedResources<FontResource>("font"), page, size)
             return ResponseEntity.ok(FontListResponse(items = slice.items.map { it.toReleasedDto(at) }, page = slice.page))
         }
-        val fonts = ListFonts(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey).query()
+        val fonts = ListFonts(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey, catalogVersion = at.ref).query()
         val slice = Pagination.paginate(fonts, page, size)
         return ResponseEntity.ok(FontListResponse(items = slice.items.map { it.toDto(at) }, page = slice.page))
     }
@@ -79,7 +80,7 @@ class EpistolaFontApi : FontsApi {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val key = FontKey.of(fontKey)
         val font = if (at.isDraft) {
-            ListFonts(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey).query()
+            ListFonts(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey, catalogVersion = at.ref).query()
                 .firstOrNull { it.slug == key }
                 ?.toDto(at)
         } else {
@@ -95,14 +96,14 @@ class EpistolaFontApi : FontsApi {
      */
     private fun FontResource.toReleasedDto(at: ResolvedCatalogVersion): FontDto {
         val dto = toDto(at)
-        val installed = GetFontVariants(fontId = FontId(FontKey.of(key), at.catalogId)).query()
+        val installed = GetFontVariants(fontId = FontId(FontKey.of(key), at.catalogId), catalogVersion = at.ref).query()
             .filter { it.source == FontVariantSource.CLASSPATH }
             .map { FontVariantDto(it.weight, it.italic) }
         return if (installed.isEmpty()) dto else dto.copy(variants = dto.variants + installed)
     }
 
     private fun Font.toDto(at: ResolvedCatalogVersion): FontDto {
-        val variants = GetFontVariants(fontId = FontId(slug, at.catalogId)).query().map { FontVariantDto(it.weight, it.italic) }
+        val variants = GetFontVariants(fontId = FontId(slug, at.catalogId), catalogVersion = at.ref).query().map { FontVariantDto(it.weight, it.italic) }
         return toDto(at.catalog, variants)
     }
 }

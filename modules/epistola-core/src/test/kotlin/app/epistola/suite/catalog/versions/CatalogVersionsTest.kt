@@ -30,8 +30,8 @@ import org.junit.jupiter.api.Test
 import java.util.UUID
 
 /**
- * A catalog consists of versions (contract ADR 0002): released ones and, for an authored catalog,
- * the one draft its working copy is. Releasing the draft opens the next patch.
+ * A catalog consists of versions (contract ADR 0002): released ones and, for an authored catalog, its
+ * open drafts. Releasing the only draft opens the next patch. Several drafts: [SeveralDraftsTest].
  */
 class CatalogVersionsTest : IntegrationTestBase() {
 
@@ -80,28 +80,19 @@ class CatalogVersionsTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a renumber is refused onto a number in use, below the latest release, or of a released version`() {
+    fun `a renumber is refused onto a number in use or of a released version, and warns below a release it contains`() {
         val tenant = catalog("versions-refused")
         withMediator { mediator.releaseNext(CatalogId(letters, TenantId(tenant))) }
 
         assertThatThrownBy { withMediator { RenumberCatalogVersion(tenant, letters, "1.0.1", "1.0.0").execute() } }
             .isInstanceOf(CatalogVersionInUseException::class.java)
         assertThatThrownBy { withMediator { RenumberCatalogVersion(tenant, letters, "1.0.1", "0.9.0").execute() } }
-            .isInstanceOf(SingleCatalogDraftException::class.java)
-            .hasMessageContaining("not above 1.0.0")
+            .isInstanceOf(RenumberWarningsNotAcknowledgedException::class.java)
+        assertThat(withMediator { PreviewCatalogVersionRenumber(tenant, letters, "1.0.1", "0.9.0").query() }.map { it.kind to it.versions })
+            .containsExactly("contains-later-releases" to listOf("1.0.0"))
         assertThatThrownBy { withMediator { RenumberCatalogVersion(tenant, letters, "1.0.0", "3.0.0").execute() } }
             .isInstanceOf(CatalogVersionReleasedException::class.java)
         assertThat(withMediator { PreviewCatalogVersionRenumber(tenant, letters, "1.0.1", "1.1.0").query() }).isEmpty()
-    }
-
-    @Test
-    fun `a second draft cannot be opened, nor the one discarded, until drafts keep their own content`() {
-        val tenant = catalog("versions-single")
-
-        assertThatThrownBy { withMediator { CreateCatalogVersion(tenant, letters, "2.0.0").execute() } }
-            .isInstanceOf(SingleCatalogDraftException::class.java)
-        assertThatThrownBy { withMediator { DeleteCatalogVersion(tenant, letters, "1.0.0").execute() } }
-            .isInstanceOf(SingleCatalogDraftException::class.java)
     }
 
     @Test

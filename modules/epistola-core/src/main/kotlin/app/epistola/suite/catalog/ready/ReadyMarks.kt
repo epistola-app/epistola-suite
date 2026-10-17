@@ -46,7 +46,7 @@ class ReadyMarks {
         .list()
         .toMap()
 
-    /** Whether every part of [resourceId] is ready. */
+    /** Whether every part of [resourceId] is ready, in the version its catalog's callers mean (see [versionAt]). */
     fun isReady(handle: Handle, tenantKey: TenantKey, resourceId: UUID): Boolean = handle
         .createQuery(
             """
@@ -63,7 +63,11 @@ class ReadyMarks {
         .mapTo(Boolean::class.java)
         .one()
 
-    /** Marks [part] of [resourceId] ready with its content as it is now; every part when null. */
+    /**
+     * Marks [part] of [resourceId] ready with its content as it is now, in the version its catalog's
+     * callers mean (the targeted draft, else the current one); every part when null. A mark belongs to
+     * that version: another draft of the catalog keeps its own.
+     */
     fun mark(handle: Handle, tenantKey: TenantKey, resourceId: UUID, part: String? = null) {
         handle.createUpdate(
             """
@@ -72,8 +76,8 @@ class ReadyMarks {
             FROM resource_content_digests d
             WHERE d.tenant_key = :t AND d.resource_id = :id AND ${inCurrentVersion("d")}
               AND (CAST(:part AS TEXT) IS NULL OR d.part = :part)
-            ON CONFLICT (tenant_key, resource_id, part)
-            DO UPDATE SET version_id = EXCLUDED.version_id, digest = EXCLUDED.digest, marked_at = NOW(), marked_by = EXCLUDED.marked_by
+            ON CONFLICT (tenant_key, version_id, resource_id, part)
+            DO UPDATE SET digest = EXCLUDED.digest, marked_at = NOW(), marked_by = EXCLUDED.marked_by
             """,
         )
             .bind("t", tenantKey)

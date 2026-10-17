@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.versions
 
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -18,7 +19,7 @@ import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
 
 /**
- * The versions of a catalog, highest first (contract `listCatalogVersions`): its open draft and its
+ * The versions of a catalog, highest first (contract `listCatalogVersions`): its open drafts and its
  * releases. [status] narrows to one kind.
  */
 data class ListCatalogVersions(
@@ -60,15 +61,16 @@ class GetCatalogVersionHandler(
     }
 }
 
-/** Reads a catalog's versions: the open draft from `catalog_versions`, the rest from `catalog_releases`. */
+/**
+ * Reads a catalog's versions: its open drafts from `catalog_versions`, the rest from
+ * `catalog_releases`. A draft lists the releases it is behind, each with what that release changed.
+ */
 @Component
 class CatalogVersionReader(
     private val drafts: CatalogDrafts,
+    private val releaseEntries: ReleaseEntryStore,
 ) {
     fun all(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): List<CatalogVersion> {
-        val draft = drafts.draft(handle, tenantKey, catalogKey)?.let {
-            CatalogVersion(it.version, CatalogVersionStatus.DRAFT, base = it.base, createdFrom = it.createdFrom, createdAt = it.createdAt)
-        }
         val deployments = handle.createQuery(
             "SELECT version, environment_key FROM environment_catalog_deployments WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} ORDER BY environment_key",
         )
@@ -98,7 +100,41 @@ class CatalogVersionReader(
                 )
             }
             .list()
-        return (listOfNotNull(draft) + releases).sortedWith(HIGHEST_FIRST)
+        val released = releases.map { it.version }
+        val changes = mutableMapOf<String, List<ReleasedChange>>()
+        val open = drafts.drafts(handle, tenantKey, catalogKey).map { draft ->
+            CatalogVersion(
+                draft.version,
+                CatalogVersionStatus.DRAFT,
+                base = draft.base,
+                createdFrom = draft.createdFrom,
+                createdAt = draft.createdAt,
+                behind = CatalogDrafts.behind(draft.version, draft.base, released).map { version ->
+                    BehindRelease(version, changes.getOrPut(version) { changesOf(handle, tenantKey, catalogKey, version, released) })
+                },
+            )
+        }
+        return (open + releases).sortedWith(HIGHEST_FIRST)
+    }
+
+    /**
+     * What release [version] changed against the release below it: the base it was cut on is not
+     * recorded for a release, and for releases cut one after another that is the one below it.
+     */
+    private fun changesOf(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String, releases: List<String>): List<ReleasedChange> {
+        val own = releaseEntries.entriesOf(handle, tenantKey, catalogKey, version).associate { it.contentKey to it.fingerprint }
+        val below = CatalogDrafts.highestBelow(version, releases)
+            ?.let { previous -> releaseEntries.entriesOf(handle, tenantKey, catalogKey, previous).associate { it.contentKey to it.fingerprint } }
+            .orEmpty()
+        return (own.keys + below.keys).sorted().mapNotNull { key ->
+            val change = when {
+                key !in below -> "added"
+                key !in own -> "removed"
+                own[key] != below[key] -> "modified"
+                else -> null
+            }
+            change?.let { ReleasedChange(key.substringBefore('/'), key.substringAfter('/'), it) }
+        }
     }
 
     private companion object {

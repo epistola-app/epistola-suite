@@ -5,6 +5,8 @@
 package app.epistola.suite.templates.queries.variants
 
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
@@ -23,7 +25,10 @@ import tools.jackson.databind.ObjectMapper
  */
 data class GetVariantContent(
     val variantId: VariantId,
-) : Query<TemplateDocument?>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<TemplateDocument?>,
     RequiresPermission {
     override val permission = Permission.TEMPLATE_VIEW
     override val tenantKey: TenantKey get() = variantId.tenantKey

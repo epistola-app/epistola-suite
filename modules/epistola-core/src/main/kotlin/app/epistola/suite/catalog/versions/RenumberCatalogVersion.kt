@@ -36,8 +36,8 @@ data class PreviewCatalogVersionRenumber(
 
 /**
  * Gives a draft another version number (contract `renumberCatalogVersion`); its content and base
- * stay. Refused for a released version, a number in use, and, while a catalog has one draft, a
- * number not above every release. A renumber with warnings needs [acknowledgeWarnings].
+ * stay. Refused for a released version and a number in use. A renumber with warnings needs
+ * [acknowledgeWarnings].
  *
  * @return the version under its new number.
  */
@@ -70,17 +70,48 @@ class RenumberChecks(
         if (current.status == CatalogVersionStatus.RELEASED) throw CatalogVersionReleasedException(catalogKey, version)
         if (to == version) return emptyList()
         if (all.any { it.version == to }) throw CatalogVersionInUseException(catalogKey, to)
+        val from = SemVer.parse(version)
         val target = SemVer.parse(to)
-        val highestRelease = all.filter { it.status == CatalogVersionStatus.RELEASED }.mapNotNull { SemVer.parseOrNull(it.version) }.maxOrNull()
-        if (highestRelease != null && target <= highestRelease) {
-            throw SingleCatalogDraftException(
-                catalogKey,
-                "Version $to is not above $highestRelease, the latest release of '${catalogKey.value}': its one draft is released after every release",
+        val base = current.base?.let(SemVer::parseOrNull)
+        val releases = all.filter { it.status == CatalogVersionStatus.RELEASED }.mapNotNull { r -> SemVer.parseOrNull(r.version)?.let { it to r.version } }
+        val warnings = mutableListOf<RenumberWarning>()
+
+        // Up past releases it does not contain: it becomes behind them (ADR 0002 `falls-behind`).
+        val behindNow = CatalogDrafts.behind(version, current.base, releases.map { it.second }).toSet()
+        val fallsBehind = CatalogDrafts.behind(to, current.base, releases.map { it.second }).filter { it !in behindNow }
+        if (fallsBehind.isNotEmpty()) {
+            warnings += RenumberWarning(
+                "falls-behind",
+                "This draft does not contain release ${fallsBehind.joinToString()}; as $to it will be behind ${if (fallsBehind.size == 1) "it" else "them"}.",
+                fallsBehind,
             )
         }
-        // With one draft, based on the latest release, nothing can be released between its base and
-        // its number, so no renumber falls behind a release (ADR 0002 `falls-behind`).
-        return emptyList()
+        // Down past releases it contains (its base and what came before it): it will release what
+        // they did, under a lower number.
+        val containsLater = releases.filter { (semVer, _) -> semVer > target && semVer < from && base != null && semVer <= base }.sortedBy { it.first }.map { it.second }
+        if (containsLater.isNotEmpty()) {
+            warnings += RenumberWarning(
+                "contains-later-releases",
+                "This draft contains the changes of release ${containsLater.joinToString()}; as $to it will release them under a lower number.",
+                containsLater,
+            )
+        }
+        // Past another open draft: which draft is released first, and which is the current one, changes.
+        val low = minOf(from, target)
+        val high = maxOf(from, target)
+        val passed = all.filter { it.status == CatalogVersionStatus.DRAFT && it.version != version }
+            .mapNotNull { d -> SemVer.parseOrNull(d.version)?.let { it to d.version } }
+            .filter { (semVer, _) -> semVer > low && semVer < high }
+            .sortedBy { it.first }
+            .map { it.second }
+        if (passed.isNotEmpty()) {
+            warnings += RenumberWarning(
+                "passes-draft",
+                "As $to this draft moves past draft ${passed.joinToString()}; the order the drafts are released and numbered in changes.",
+                passed,
+            )
+        }
+        return warnings
     }
 }
 
@@ -106,7 +137,7 @@ class RenumberCatalogVersionHandler(
         return jdbi.inTransaction<CatalogVersion, Exception> { handle ->
             val warnings = checks.check(handle, command.tenantKey, command.catalogKey, command.version, command.to)
             if (warnings.isNotEmpty() && !command.acknowledgeWarnings) throw RenumberWarningsNotAcknowledgedException(warnings)
-            drafts.renumber(handle, command.tenantKey, command.catalogKey, command.to)
+            drafts.renumber(handle, command.tenantKey, command.catalogKey, command.version, command.to)
             versions.all(handle, command.tenantKey, command.catalogKey).first { it.version == command.to }
         }
     }

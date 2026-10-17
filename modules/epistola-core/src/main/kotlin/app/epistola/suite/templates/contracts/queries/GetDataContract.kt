@@ -5,6 +5,8 @@
 package app.epistola.suite.templates.contracts.queries
 
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -24,7 +26,10 @@ import tools.jackson.module.kotlin.readValue
 /** The template's data contract as it is now, or null when there is no such template. */
 data class GetDataContract(
     val templateId: TemplateId,
-) : Query<DataContract?>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<DataContract?>,
     RequiresPermission {
     override val permission = Permission.TEMPLATE_VIEW
     override val tenantKey: TenantKey get() = templateId.tenantKey

@@ -13,6 +13,9 @@ import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.revisions.ReleaseEntry
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
+import app.epistola.suite.catalog.versions.CatalogDrafts
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -37,7 +40,10 @@ import org.springframework.stereotype.Component
 data class GetCatalogResourceChanges(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
-) : Query<CatalogResourceChanges>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<CatalogResourceChanges>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW
 }
@@ -112,6 +118,7 @@ class GetCatalogResourceChangesHandler(
     private val fingerprintService: CatalogFingerprintService,
     private val releaseEntryStore: ReleaseEntryStore,
     private val readyMarks: ReadyMarks,
+    private val drafts: CatalogDrafts,
 ) : QueryHandler<GetCatalogResourceChanges, CatalogResourceChanges> {
 
     override fun handle(query: GetCatalogResourceChanges): CatalogResourceChanges {
@@ -123,7 +130,7 @@ class GetCatalogResourceChangesHandler(
 
         val content = contentBuilder.build(query.tenantKey, query.catalogKey)
         val working = fingerprintService.perResourceFingerprints(content)
-        val release = loadLatestRelease(query.tenantKey, query.catalogKey)
+        val release = loadBaseRelease(query.tenantKey, query.catalogKey)
         val released = release?.let { entriesOf(query.tenantKey, query.catalogKey, it.version) }.orEmpty()
         val retainedVersions = release?.let {
             jdbi.withHandle<List<String>, Exception> { handle ->
@@ -190,21 +197,28 @@ class GetCatalogResourceChangesHandler(
 
     private data class ReleaseRow(val version: String, val fingerprint: String)
 
-    private fun loadLatestRelease(tenantKey: TenantKey, catalogKey: CatalogKey): ReleaseRow? = jdbi.withHandle<ReleaseRow?, Exception> { handle ->
-        handle.createQuery(
+    /**
+     * What the draft the caller means is compared against (contract ADR 0002): its base, the release it
+     * started from, or, when it records none that the catalog still has, the highest release below its
+     * number. Without a draft, the latest release.
+     */
+    private fun loadBaseRelease(tenantKey: TenantKey, catalogKey: CatalogKey): ReleaseRow? = jdbi.withHandle<ReleaseRow?, Exception> { handle ->
+        val releases = handle.createQuery(
             """
             SELECT version, fingerprint
             FROM catalog_releases
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             $LATEST_RELEASE_ORDER
-            LIMIT 1
             """,
         )
             .bind("t", tenantKey)
             .bind("c", catalogKey)
             .map { rs, _ -> ReleaseRow(version = rs.getString("version"), fingerprint = rs.getString("fingerprint")) }
-            .findOne()
-            .orElse(null)
+            .list()
+        val draft = drafts.draft(handle, tenantKey, catalogKey) ?: return@withHandle releases.firstOrNull()
+        val base = draft.base?.takeIf { base -> releases.any { it.version == base } }
+            ?: CatalogDrafts.highestBelow(draft.version, releases.map { it.version })
+        releases.firstOrNull { it.version == base }
     }
 
     private fun entriesOf(tenantKey: TenantKey, catalogKey: CatalogKey, version: String) = jdbi

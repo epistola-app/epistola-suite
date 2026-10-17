@@ -11,6 +11,9 @@ import app.epistola.suite.attributes.codelists.service.CodeListClient
 import app.epistola.suite.attributes.codelists.service.CodeListFetchException
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.catalog.versions.CatalogVersionTargeting
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -34,7 +37,10 @@ import org.springframework.stereotype.Component
  */
 data class RefreshCodeList(
     val id: CodeListId,
-) : Command<CodeList?>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<CodeList?>,
     RequiresPermission,
     // Fetches entries from the source URL mid-command, and a fetch error must be
     // recorded (committed) even though the refresh itself fails.
@@ -52,13 +58,16 @@ const val REFRESH_FAILED_MESSAGE = "The code list could not be fetched from its 
 class RefreshCodeListHandler(
     private val jdbi: Jdbi,
     private val codeListClient: CodeListClient,
+    private val targeting: CatalogVersionTargeting,
 ) : CommandHandler<RefreshCodeList, CodeList?> {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: RefreshCodeList): CodeList? {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
 
-        val current = jdbi.withHandle<CodeList?, Exception> { handle ->
+        // Self-managed: each of its transactions takes the catalog version the command targets.
+        val current = jdbi.inTransaction<CodeList?, Exception> { handle ->
+            targeting.apply(handle)
             handle.createQuery(
                 """
                 SELECT slug, tenant_key, (SELECT cat.catalog_key FROM catalogs cat
@@ -108,6 +117,7 @@ class RefreshCodeListHandler(
         }
 
         return jdbi.inTransaction<CodeList, Exception> { handle ->
+            targeting.apply(handle)
             handle.createUpdate(
                 """
                 DELETE FROM code_list_entries
@@ -144,7 +154,8 @@ class RefreshCodeListHandler(
     }
 
     private fun recordRefreshError(id: CodeListId, message: String) {
-        jdbi.useHandle<Exception> { handle ->
+        jdbi.useTransaction<Exception> { handle ->
+            targeting.apply(handle)
             handle.createUpdate(
                 """
                 UPDATE code_lists
@@ -160,7 +171,8 @@ class RefreshCodeListHandler(
         }
     }
 
-    private fun load(id: CodeListId): CodeList? = jdbi.withHandle<CodeList?, Exception> { handle ->
+    private fun load(id: CodeListId): CodeList? = jdbi.inTransaction<CodeList?, Exception> { handle ->
+        targeting.apply(handle)
         handle.createQuery(
             """
             SELECT slug, tenant_key, (SELECT cat.catalog_key FROM catalogs cat

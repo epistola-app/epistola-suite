@@ -164,22 +164,23 @@ class SchemaHygieneAppTest : BaseIntegrationTest() {
     /**
      * The whole point of the re-keying: a resource is identified by what it is, not by where it
      * lives. If a primary key here ever reverts to the address, relocation silently goes back to
-     * rewriting every dependant.
+     * rewriting every dependant. Each catalog version holds its own row of a resource (contract ADR
+     * 0002), so the key is the identity within a version, and the address is unique per version.
      */
     @Test
-    fun `every catalog resource is keyed by its identity, with the address kept unique`() {
+    fun `every catalog resource is keyed by its identity per version, with the address kept unique`() {
         val keys = primaryKeyColumns()
         val uniques = uniqueConstraintColumns()
 
         resourceTables.forEach { table ->
             assertThat(keys[table])
                 .describedAs("$table primary key")
-                .isEqualTo(listOf("tenant_key", "resource_id"))
+                .isEqualTo(listOf("tenant_key", "version_id", "resource_id"))
 
             assertThat(uniques[table].orEmpty())
-                .describedAs("$table must still enforce its address, just not key on it")
+                .describedAs("$table must still enforce its address within a version, just not key on it")
                 .anySatisfy { columns ->
-                    assertThat(columns).startsWith("tenant_key", "catalog_id").hasSize(3)
+                    assertThat(columns).startsWith("tenant_key", "version_id").hasSize(3)
                 }
         }
     }

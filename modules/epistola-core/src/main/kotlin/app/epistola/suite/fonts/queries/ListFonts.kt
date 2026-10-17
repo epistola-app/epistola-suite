@@ -6,6 +6,8 @@ package app.epistola.suite.fonts.queries
 
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.fonts.model.Font
@@ -28,7 +30,10 @@ import org.springframework.stereotype.Component
 data class ListFonts(
     val tenantId: TenantId,
     val catalogKey: CatalogKey? = null,
-) : Query<List<Font>>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<List<Font>>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_VIEW
     override val tenantKey get() = tenantId.key

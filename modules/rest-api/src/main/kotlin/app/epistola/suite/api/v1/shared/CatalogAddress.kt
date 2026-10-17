@@ -7,6 +7,7 @@ package app.epistola.suite.api.v1.shared
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.GetReleasedResource
 import app.epistola.suite.catalog.versions.ListReleasedResources
 import app.epistola.suite.catalog.versions.ResolveCatalog
@@ -21,8 +22,8 @@ import java.time.OffsetDateTime
 
 /**
  * The catalog version a `…/catalogs/{registry}/{namespace}/{catalogKey}/versions/{catalogVersion}`
- * address names (contract ADR 0002/0003). Reads on a draft use the working copy; reads on a released
- * version read what the release holds; writes need the draft ([ResolvedCatalogVersion.requireDraft]).
+ * address names (contract ADR 0002/0003). Reads on a draft read that draft (see [ref]); reads on a
+ * released version read what the release holds; writes need a draft ([ResolvedCatalogVersion.requireDraft]).
  */
 internal fun catalogVersionAt(
     tenantKey: String,
@@ -45,6 +46,14 @@ internal fun draftAt(
 internal fun catalogAt(tenantKey: String, registry: String?, namespace: String, catalogKey: String): Catalog = ResolveCatalog(TenantKey.of(tenantKey), registry, namespace, CatalogKey.of(catalogKey)).query()
 
 internal val ResolvedCatalogVersion.tenantKey: TenantKey get() = catalog.tenantKey
+
+/**
+ * The draft this address names, for the commands and queries that work on it
+ * ([CatalogVersionScoped][app.epistola.suite.catalog.versions.CatalogVersionScoped]): they then read and
+ * write that draft, whichever of the catalog's drafts it is. Null for a released version, whose
+ * content is read from the release instead.
+ */
+internal val ResolvedCatalogVersion.ref: CatalogVersionRef? get() = if (isDraft) CatalogVersionRef(catalog.tenantKey, catalogKey, version.version) else null
 
 internal val ResolvedCatalogVersion.catalogId: CatalogId get() = catalog.catalogId
 

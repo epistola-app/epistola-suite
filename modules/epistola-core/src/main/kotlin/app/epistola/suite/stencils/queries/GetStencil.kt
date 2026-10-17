@@ -5,6 +5,8 @@
 package app.epistola.suite.stencils.queries
 
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -21,7 +23,10 @@ import org.springframework.stereotype.Component
 
 data class GetStencil(
     val id: StencilId,
-) : Query<Stencil?>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<Stencil?>,
     RequiresPermission {
     override val permission = Permission.STENCIL_VIEW
     override val tenantKey: TenantKey get() = id.tenantKey

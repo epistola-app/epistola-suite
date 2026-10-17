@@ -7,6 +7,8 @@ package app.epistola.suite.stencils.commands
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -44,7 +46,10 @@ data class UpdateStencil(
     val parameterSchema: JsonNode? = null,
     val clearParameterSchema: Boolean = false,
     val readsTemplateData: Boolean? = null,
-) : Command<Stencil?>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<Stencil?>,
     RequiresPermission {
     override val permission = Permission.STENCIL_EDIT
     override val tenantKey: TenantKey get() = id.tenantKey

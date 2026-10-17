@@ -19,7 +19,6 @@ import app.epistola.suite.catalog.versions.PreviewCatalogVersionRenumber
 import app.epistola.suite.catalog.versions.RenumberCatalogVersion
 import app.epistola.suite.catalog.versions.RenumberWarning
 import app.epistola.suite.catalog.versions.RenumberWarningsNotAcknowledgedException
-import app.epistola.suite.catalog.versions.SingleCatalogDraftException
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.htmx.FormData
@@ -141,7 +140,6 @@ class CatalogReleaseHandler {
 
     /** The message of a renumber the catalog refuses, or null when [e] is not such a refusal. */
     private fun renumberRefusal(e: RuntimeException): String? = when (e) {
-        is SingleCatalogDraftException,
         is CatalogVersionInUseException,
         is CatalogVersionReleasedException,
         is CatalogVersionNotFoundException,

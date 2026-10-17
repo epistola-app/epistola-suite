@@ -13,6 +13,8 @@ import app.epistola.suite.assets.assetContentScope
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -53,7 +55,10 @@ data class UploadAsset(
     val id: AssetKey? = null,
     /** When true, the blob is stored in a per-tenant isolated dedup scope (see #738/#751). */
     val sensitive: Boolean = false,
-) : Command<Asset>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<Asset>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
     override val tenantKey get() = tenantId

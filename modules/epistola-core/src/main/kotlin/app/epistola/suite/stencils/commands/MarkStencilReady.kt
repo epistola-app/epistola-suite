@@ -7,6 +7,8 @@ package app.epistola.suite.stencils.commands
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -30,7 +32,10 @@ import java.util.UUID
  */
 data class MarkStencilReady(
     val stencilId: StencilId,
-) : Command<Unit>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<Unit>,
     RequiresPermission {
     override val permission = Permission.STENCIL_EDIT
     override val tenantKey: TenantKey get() = stencilId.tenantKey

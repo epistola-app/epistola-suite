@@ -5,6 +5,8 @@
 package app.epistola.suite.documents.queries
 
 import app.epistola.generation.pdf.PdfMetadata
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
@@ -69,7 +71,10 @@ data class PreviewDocument(
      * Generation never does this; a preview may, so an author can see unreleased work.
      */
     val workingCopy: Boolean = false,
-) : Query<ByteArray>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<ByteArray>,
     RequiresPermission {
     override val permission get() = Permission.DOCUMENT_GENERATE
     override val tenantKey get() = tenantId

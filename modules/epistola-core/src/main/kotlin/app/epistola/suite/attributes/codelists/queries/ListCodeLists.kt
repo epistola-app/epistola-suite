@@ -7,6 +7,8 @@ package app.epistola.suite.attributes.codelists.queries
 import app.epistola.suite.attributes.codelists.model.CodeList
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Query
@@ -27,7 +29,10 @@ import org.springframework.stereotype.Component
 data class ListCodeLists(
     val tenantId: TenantId,
     val catalogKey: CatalogKey? = null,
-) : Query<List<CodeList>>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<List<CodeList>>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_VIEW
     override val tenantKey get() = tenantId.key

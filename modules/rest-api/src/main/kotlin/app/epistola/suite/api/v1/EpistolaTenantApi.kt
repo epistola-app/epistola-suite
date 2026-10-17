@@ -30,6 +30,7 @@ import app.epistola.suite.api.v1.shared.catalogAt
 import app.epistola.suite.api.v1.shared.catalogId
 import app.epistola.suite.api.v1.shared.catalogVersionAt
 import app.epistola.suite.api.v1.shared.draftAt
+import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.releasedResource
 import app.epistola.suite.api.v1.shared.releasedResources
 import app.epistola.suite.api.v1.shared.tenantKey
@@ -182,7 +183,7 @@ class EpistolaTenantApi(
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val items = if (at.isDraft) {
             val bindingCatalogs = bindingCatalogsOf(at)
-            ListAttributeDefinitions(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey).query()
+            ListAttributeDefinitions(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey, catalogVersion = at.ref).query()
                 .map { it.toDto(at.catalog, it.codeListCatalogKey?.let(bindingCatalogs::get)) }
         } else {
             // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
@@ -213,6 +214,7 @@ class EpistolaTenantApi(
             displayName = createAttributeRequest.displayName,
             allowedValues = createAttributeRequest.allowedValues ?: emptyList(),
             codeListId = codeListId,
+            catalogVersion = draft.ref,
         ).execute()
         return ResponseEntity.status(HttpStatus.CREATED).body(attribute.toDto(draft))
     }
@@ -227,7 +229,7 @@ class EpistolaTenantApi(
     ): ResponseEntity<AttributeDto> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val attribute = if (at.isDraft) {
-            GetAttributeDefinition(id = at.attributeId(attributeKey)).query()?.toDto(at)
+            GetAttributeDefinition(id = at.attributeId(attributeKey), catalogVersion = at.ref).query()?.toDto(at)
         } else {
             at.releasedResource<AttributeResource>(ATTRIBUTE, attributeKey)?.toDto(at)
         } ?: throw at.attributeNotFound(attributeKey)
@@ -250,7 +252,7 @@ class EpistolaTenantApi(
         // PATCH semantics: pull the current definition so we can write a
         // full UpdateAttributeDefinition that only changes the fields the
         // client sent. UpdateAttributeDefinition isn't itself partial.
-        val current = GetAttributeDefinition(id = id).query() ?: throw draft.attributeNotFound(attributeKey)
+        val current = GetAttributeDefinition(id = id, catalogVersion = draft.ref).query() ?: throw draft.attributeNotFound(attributeKey)
         val codeListId = updateAttributeRequest.codeListBinding?.let { binding ->
             draft.codeListAt(binding.registry, binding.namespace, binding.catalogKey, binding.key)
         } ?: current.codeListId
@@ -259,6 +261,7 @@ class EpistolaTenantApi(
             displayName = updateAttributeRequest.displayName ?: current.displayName,
             allowedValues = updateAttributeRequest.allowedValues ?: current.allowedValues,
             codeListId = codeListId,
+            catalogVersion = draft.ref,
         ).execute() ?: throw draft.attributeNotFound(attributeKey)
         return ResponseEntity.ok(attribute.toDto(draft))
     }
@@ -272,7 +275,7 @@ class EpistolaTenantApi(
         attributeKey: String,
     ): ResponseEntity<Unit> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
-        if (!DeleteAttributeDefinition(id = draft.attributeId(attributeKey)).execute()) throw draft.attributeNotFound(attributeKey)
+        if (!DeleteAttributeDefinition(id = draft.attributeId(attributeKey), catalogVersion = draft.ref).execute()) throw draft.attributeNotFound(attributeKey)
         return ResponseEntity.noContent().build()
     }
 

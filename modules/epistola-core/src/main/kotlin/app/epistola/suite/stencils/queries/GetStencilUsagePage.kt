@@ -6,6 +6,8 @@ package app.epistola.suite.stencils.queries
 
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TemplateKey
@@ -38,7 +40,10 @@ data class GetStencilUsagePage(
     val stencilId: StencilId,
     val page: Int = 1,
     val pageSize: Int = USAGE_PAGE_SIZE,
-) : Query<StencilUsagePage>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<StencilUsagePage>,
     RequiresPermission {
     override val permission = Permission.STENCIL_VIEW
     override val tenantKey: TenantKey get() = stencilId.tenantKey

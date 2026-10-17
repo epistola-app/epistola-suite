@@ -8,6 +8,8 @@ import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VersionKey
@@ -48,7 +50,10 @@ data class CreateStencil(
     val parameterSchema: JsonNode? = null,
     /** The stencil's content also sees the using template's data (contract ADR 0006, part 5). */
     val readsTemplateData: Boolean = false,
-) : Command<Stencil>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<Stencil>,
     RequiresPermission {
     override val permission = Permission.STENCIL_EDIT
     override val tenantKey: TenantKey get() = id.tenantKey

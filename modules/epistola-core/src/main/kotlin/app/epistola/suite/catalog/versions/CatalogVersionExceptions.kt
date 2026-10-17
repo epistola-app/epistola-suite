@@ -16,7 +16,8 @@ class CatalogVersionReleasedException(val catalogKey: CatalogKey, val version: S
 class CatalogVersionInUseException(val catalogKey: CatalogKey, val version: String) : RuntimeException("Catalog '${catalogKey.value}' already has a version $version")
 
 /**
- * A catalog has one draft until drafts keep their own content: a second draft cannot be opened and
- * the one draft cannot be discarded. Its number must stay above every release, the order it is released in.
+ * A draft that is behind releases (released versions above its base and below its number, which it
+ * does not contain unless an author applied their changes by hand) is released only when every one of
+ * them is acknowledged (contract ADR 0002). [behind] are the ones not acknowledged.
  */
-class SingleCatalogDraftException(val catalogKey: CatalogKey, message: String) : RuntimeException(message)
+class CatalogVersionBehindException(val catalogKey: CatalogKey, val version: String, val behind: List<String>) : RuntimeException("Version $version of catalog '${catalogKey.value}' is behind release ${behind.joinToString()}; acknowledge ${if (behind.size == 1) "it" else "them"} to release it")

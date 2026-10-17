@@ -6,6 +6,8 @@ package app.epistola.suite.templates.contracts.commands
 
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -38,7 +40,10 @@ data class UpdateDataContract(
     val dataExamples: List<DataExample>? = null,
     val clearDataModel: Boolean = false,
     val forceUpdate: Boolean = false,
-) : Command<UpdateDataContractResult>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<UpdateDataContractResult>,
     RequiresPermission {
     override val permission = Permission.TEMPLATE_EDIT
     override val tenantKey: TenantKey get() = templateId.tenantKey

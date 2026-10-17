@@ -15,6 +15,7 @@ import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogId
 import app.epistola.suite.api.v1.shared.catalogVersionAt
 import app.epistola.suite.api.v1.shared.draftAt
+import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.releasedResource
 import app.epistola.suite.api.v1.shared.releasedResources
 import app.epistola.suite.api.v1.shared.toDomainPresets
@@ -55,7 +56,7 @@ class EpistolaThemeApi : ThemesApi {
         ListSorting.rejectUnsupportedSort(sort, direction)
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val items = if (at.isDraft) {
-            ListThemes(tenantId = TenantId(at.catalog.tenantKey), searchTerm = q, catalogKey = at.catalogKey).query().map { it.toDto() }
+            ListThemes(tenantId = TenantId(at.catalog.tenantKey), searchTerm = q, catalogKey = at.catalogKey, catalogVersion = at.ref).query().map { it.toDto() }
         } else {
             // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
             at.releasedResources<ThemeResource>("theme")
@@ -83,6 +84,7 @@ class EpistolaThemeApi : ThemesApi {
             pageSettings = createThemeRequest.pageSettings,
             blockStylePresets = createThemeRequest.blockStylePresets.toDomainPresets(),
             spacingUnit = createThemeRequest.spacingUnit?.toFloat(),
+            catalogVersion = draft.ref,
         ).execute()
 
         return ResponseEntity
@@ -101,7 +103,7 @@ class EpistolaThemeApi : ThemesApi {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val key = ThemeKey.of(themeKey)
         val theme = if (at.isDraft) {
-            GetTheme(id = ThemeId(key, at.catalogId)).query()?.toDto()
+            GetTheme(id = ThemeId(key, at.catalogId), catalogVersion = at.ref).query()?.toDto()
         } else {
             at.releasedResource<ThemeResource>("theme", themeKey)?.toDto(at)
         } ?: throw ThemeNotFoundException(key)
@@ -128,6 +130,7 @@ class EpistolaThemeApi : ThemesApi {
             pageSettings = updateThemeRequest.pageSettings,
             blockStylePresets = updateThemeRequest.blockStylePresets.toDomainPresets(),
             spacingUnit = updateThemeRequest.spacingUnit?.toFloat(),
+            catalogVersion = draft.ref,
         ).execute() ?: throw ThemeNotFoundException(key)
 
         return ResponseEntity.ok(theme.toDto())
@@ -143,7 +146,7 @@ class EpistolaThemeApi : ThemesApi {
     ): ResponseEntity<Unit> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val key = ThemeKey.of(themeKey)
-        if (!DeleteTheme(id = ThemeId(key, draft.catalogId)).execute()) throw ThemeNotFoundException(key)
+        if (!DeleteTheme(id = ThemeId(key, draft.catalogId), catalogVersion = draft.ref).execute()) throw ThemeNotFoundException(key)
         return ResponseEntity.noContent().build()
     }
 }

@@ -20,6 +20,7 @@ import app.epistola.suite.api.v1.shared.ResourceStatuses
 import app.epistola.suite.api.v1.shared.catalogId
 import app.epistola.suite.api.v1.shared.catalogVersionAt
 import app.epistola.suite.api.v1.shared.draftAt
+import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.releasedResource
 import app.epistola.suite.api.v1.shared.releasedResources
 import app.epistola.suite.api.v1.shared.toContentDto
@@ -95,8 +96,9 @@ class EpistolaStencilApi(
             catalogKey = at.catalogKey,
             limit = Pagination.limitOf(size),
             offset = Pagination.offsetOf(page, size),
+            catalogVersion = at.ref,
         ).query()
-        val total = CountStencils(tenantId = tenantId, searchTerm = q, tag = tag, catalogKey = at.catalogKey).query()
+        val total = CountStencils(tenantId = tenantId, searchTerm = q, tag = tag, catalogKey = at.catalogKey, catalogVersion = at.ref).query()
         val statuses = ResourceStatuses.of(at)
         return ResponseEntity.ok(
             StencilListResponse(
@@ -122,6 +124,7 @@ class EpistolaStencilApi(
             tags = createStencilRequest.tags ?: emptyList(),
             content = createStencilRequest.content,
             parameterSchema = createStencilRequest.parameterSchema,
+            catalogVersion = draft.ref,
         ).execute()
 
         return ResponseEntity
@@ -162,6 +165,7 @@ class EpistolaStencilApi(
             name = updateStencilRequest.name,
             description = updateStencilRequest.description,
             tags = updateStencilRequest.tags,
+            catalogVersion = draft.ref,
         ).execute() ?: throw StencilNotFoundException(id.tenantKey, id.key)
 
         return ResponseEntity.ok(stencil.toDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)))
@@ -177,7 +181,7 @@ class EpistolaStencilApi(
     ): ResponseEntity<Unit> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val id = draft.stencilId(stencilKey)
-        if (!DeleteStencil(id = id).execute()) throw StencilNotFoundException(id.tenantKey, id.key)
+        if (!DeleteStencil(id = id, catalogVersion = draft.ref).execute()) throw StencilNotFoundException(id.tenantKey, id.key)
         return ResponseEntity.noContent().build()
     }
 
@@ -220,6 +224,7 @@ class EpistolaStencilApi(
             content = content,
             parameterSchema = parameterSchema,
             clearParameterSchema = parameterSchema == null,
+            catalogVersion = draft.ref,
         ).execute() ?: throw StencilNotFoundException(id.tenantKey, id.key)
         return ResponseEntity.ok(stencil.toContentDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)))
     }
@@ -239,10 +244,10 @@ class EpistolaStencilApi(
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val id = draft.stencilId(stencilKey)
         workingCopy(draft, stencilKey)
-        MarkStencilReady(stencilId = id).execute()
+        MarkStencilReady(stencilId = id, catalogVersion = draft.ref).execute()
         val stencil = workingCopy(draft, stencilKey)
         val notFitting = generateSequence(1) { it + 1 }
-            .map { GetStencilUsagePage(id, page = it).query() }
+            .map { GetStencilUsagePage(id, page = it, catalogVersion = draft.ref).query() }
             .takeWhileInclusive { it.page < it.totalPages }
             .flatMap { it.items.asSequence() }
             .map { it.toUsageDto() }
@@ -275,7 +280,7 @@ class EpistolaStencilApi(
         val id = at.stencilId(stencilKey)
         workingCopy(at, stencilKey)
 
-        val usage = GetStencilUsagePage(id, page = page.coerceAtLeast(0) + 1, pageSize = Pagination.limitOf(size)).query()
+        val usage = GetStencilUsagePage(id, page = page.coerceAtLeast(0) + 1, pageSize = Pagination.limitOf(size), catalogVersion = at.ref).query()
         // The usage query answers a page past the end with its last page; the contract with none.
         val inRange = usage.page == page.coerceAtLeast(0) + 1
         return ResponseEntity.ok(
@@ -292,7 +297,7 @@ class EpistolaStencilApi(
 
     private fun workingCopy(at: ResolvedCatalogVersion, key: String): Stencil {
         val id = at.stencilId(key)
-        return GetStencil(id = id).query() ?: throw StencilNotFoundException(id.tenantKey, id.key)
+        return GetStencil(id = id, catalogVersion = at.ref).query() ?: throw StencilNotFoundException(id.tenantKey, id.key)
     }
 
     private fun released(at: ResolvedCatalogVersion, key: String): StencilResource = at.releasedResource<StencilResource>(STENCIL, key)

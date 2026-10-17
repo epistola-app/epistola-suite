@@ -15,6 +15,7 @@ import app.epistola.api.model.PreviewDocumentRequest
 import app.epistola.api.model.VariantSelectionAttribute
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogName
+import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.common.ids.BatchKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
@@ -227,7 +228,7 @@ internal fun GenerateBatchRequest.toCommand(
 
 /**
  * A preview renders a release (`version`, `environmentKey`) or, with `draftVersion`, the draft of that
- * number: the working copy. [draftAt] resolves the draft and refuses a version that is not one.
+ * number. [requireDraft] resolves the draft and refuses a version that is not one.
  */
 internal fun PreviewDocumentRequest.toQuery(
     tenantKey: String,
@@ -249,5 +250,7 @@ internal fun PreviewDocumentRequest.toQuery(
         releaseVersion = version,
         workingCopy = draftVersion != null,
         environmentId = environmentKey?.let { EnvironmentKey.of(it) },
+        // The draft of that number, whichever of the catalog's drafts it is.
+        catalogVersion = draftVersion?.let { CatalogVersionRef(catalog.tenantKey, catalog.id, it) },
     )
 }
