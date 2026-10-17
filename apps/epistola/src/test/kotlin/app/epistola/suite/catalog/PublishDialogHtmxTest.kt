@@ -275,6 +275,24 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
         assertThat(dialog).contains("data-testid=\"release-submit\"")
     }
 
+    @Test
+    fun `a change only in the catalog it uses still offers Publish here, which takes it over`() {
+        val tenant = published("Publish Only Others")
+        usingSharedTheme(tenant)
+        withMediator {
+            DeclareUsedCatalogs(tenant.id, letters).execute()
+            mediator.releaseNext(CatalogId(letters, TenantId(tenant.id)))
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(CatalogKey.of("shared"), TenantId(tenant.id))), documentStyles = mapOf("color" to "#ff0000")).execute()
+        }
+
+        val page = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/browse", String::class.java).body!!
+        assertThat(page).contains("Changes from other catalogs are not published here yet.").contains("From Shared: Brand, changed there and not published yet")
+        assertThat(page).contains("data-testid=\"catalog-release-open\"")
+
+        val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
+        assertThat(dialog).contains("data-testid=\"publish-only-others\"").contains("data-testid=\"release-submit\"")
+    }
+
     private fun getHtmx(url: String): ResponseEntity<String> = restTemplate.exchange(
         url,
         HttpMethod.GET,

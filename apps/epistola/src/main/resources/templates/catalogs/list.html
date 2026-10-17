@@ -176,7 +176,10 @@
                             The previous version was published before Epistola kept track of its contents, so the
                             changes cannot be listed this time. From now on they can.
                         </p>
-                        <ul th:if="${changes.baselineAvailable}" style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
+                        <p th:if="${readiness.onlyOthersChanged}" style="margin: var(--ep-space-1) 0 0;" data-testid="publish-only-others">
+                            Nothing here changed itself; it takes over changes from the catalogs it uses, below.
+                        </p>
+                        <ul th:if="${changes.baselineAvailable and !readiness.onlyOthersChanged}" style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
                             <li th:each="change : ${readiness.changedForPeople}" data-testid="publish-change">
                                 <span th:text="${change.state.name() == 'NEW'} ? 'Added' : (${change.state.name() == 'REMOVED'} ? 'Removed' : 'Changed')">Changed</span>:
                                 <strong th:text="${change.name}">Invoice</strong>

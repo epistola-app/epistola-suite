@@ -43,9 +43,13 @@
                     <th:block th:if="${bar.current != null and !contents.isEmpty and !readiness.nothingToPublish}">
                         <strong data-testid="catalog-status-changes"
                                 th:text="${bar.latestPublished == null} ? 'Not published yet.'
-                                         : (${readiness.changed.size() == 1} ? '1 change not published yet.' : ${readiness.changed.size()} + ' changes not published yet.')">2 changes not published yet.</strong>
+                                         : (${readiness.onlyOthersChanged} ? 'Changes from other catalogs are not published here yet.'
+                                         : (${readiness.changed.size() == 1} ? '1 change not published yet.' : ${readiness.changed.size()} + ' changes not published yet.'))">2 changes not published yet.</strong>
                         <div class="text-muted text-sm" th:unless="${readiness.changed.isEmpty()}"
                              th:text="${#strings.listJoin(readiness.changedForPeople.![name], ', ')}">Invoice, Brand</div>
+                        <div class="text-muted text-sm" th:each="other : ${readiness.outOfStep}" data-testid="catalog-status-others"
+                             th:text="${other.publishAlong} ? 'From ' + ${other.name} + ': ' + ${#strings.listJoin(other.unpublishedUsed.![name ?: key], ', ')} + ', changed there and not published yet'
+                                      : 'From ' + ${other.name} + ': v' + ${other.retieTo} + ' is published, this uses v' + ${other.release}">From Shared: Brand</div>
                         <div th:if="${readiness.publishBlocked}" class="text-sm" data-testid="catalog-release-blocked">
                             It cannot be published yet.
                             <a th:href="${bar.workHref}">See why</a>

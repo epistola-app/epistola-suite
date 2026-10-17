@@ -103,7 +103,13 @@ data class CatalogReleaseReadiness(
      * never published always has something: its first version.
      */
     val nothingToPublish: Boolean
-        get() = draftVersion != null && drafts.releases.isNotEmpty() && changes.baselineAvailable && !changes.hasUnreleasedChanges
+        get() = draftVersion != null && drafts.releases.isNotEmpty() && changes.baselineAvailable && !changes.hasUnreleasedChanges && outOfStep.isEmpty()
+
+    /**
+     * Nothing in this catalog itself changed, but a catalog it uses did, in a way publishing would
+     * take over (published along or re-tied): publishing is how that change reaches what is live.
+     */
+    val onlyOthersChanged: Boolean get() = !nothingToPublish && changed.isEmpty() && outOfStep.isNotEmpty()
 
     /**
      * The number this is published as, picked for the person: the draft's own number, unless its
