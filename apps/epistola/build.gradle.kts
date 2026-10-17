@@ -110,7 +110,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-session-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
-    implementation("org.commonmark:commonmark:0.30.0")
+    implementation("org.commonmark:commonmark:0.30.1")
 
     // HTMX for dynamic UI
     implementation(libs.htmx.spring.boot.thymeleaf)
