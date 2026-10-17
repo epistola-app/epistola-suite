@@ -12,7 +12,9 @@ import tools.jackson.databind.node.ObjectNode
  * A new schema is backwards compatible when all data valid under the old schema
  * remains valid under the new schema.
  *
- * This is a stateless utility — instantiate directly, no Spring injection needed.
+ * What a breaking data-contract change is when a draft is compared with its base release
+ * (`ChangeKindEvaluator`, contract ADR 0001). This is a stateless utility — instantiate directly, no
+ * Spring injection needed.
  */
 class SchemaCompatibilityChecker {
 

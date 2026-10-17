@@ -91,8 +91,9 @@ class CatalogVersionMcpTools {
     @McpTool(
         name = "renumber_catalog_version",
         description = "Give a draft another number; its content stays. When renumbering has consequences " +
-            "(moving up past a release it does not contain, down below releases it contains, or past another " +
-            "draft), nothing changes and the `warnings` come back: show them to the user and call again with " +
+            "(moving up past a release it does not contain, down below releases it contains, past another " +
+            "draft, or to a lower kind of version than its changes against its base need: breaking changes need a " +
+            "major, additions at least a minor, each warning listing its `reasons`), nothing changes and the `warnings` come back: show them to the user and call again with " +
             "`acknowledgeWarnings: true` to renumber anyway. Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )

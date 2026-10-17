@@ -12,8 +12,9 @@ import tools.jackson.databind.node.ObjectNode
 /**
  * Pure comparison of a template's referenced field paths against an old and a new contract
  * schema. Reports FIELD_REMOVED (path not found in the new schema) and TYPE_CHANGED (path exists
- * but its type differs from the old schema's). What a breaking contract change is, for the checks
- * that compare a draft with its base release.
+ * but its type differs from the old schema's): whether a template still finds the fields it uses.
+ * Whether a contract still accepts every input it accepted is [SchemaCompatibilityChecker]'s answer,
+ * which `ChangeKindEvaluator` uses to compare a draft with its base release.
  */
 class TemplateCompatibilityEvaluator {
 

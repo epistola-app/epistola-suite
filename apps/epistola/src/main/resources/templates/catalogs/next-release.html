@@ -220,8 +220,8 @@
         <div class="ep-dialog-body">
             <p class="form-hint">
                 This draft is <strong th:text="'v' + ${draftVersion}">v1.0.1</strong>. Its content
-                stays as it is; only the number changes. Moving it past a release or another draft
-                asks for a second look.
+                stays as it is; only the number changes. Moving it past a release or another draft,
+                or to a lower kind of version than its changes need, asks for a second look.
             </p>
             <div class="form-group" th:classappend="${errors?.containsKey('to')} ? 'error' : ''">
                 <label class="ep-label" for="renumber-to">New version</label>
@@ -236,7 +236,13 @@
                 <div>
                     <div class="alert-title">Renumbering needs a second look</div>
                     <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
-                        <li th:each="warning : ${warnings}" th:text="${warning.message}"></li>
+                        <li th:each="warning : ${warnings}" th:attr="data-warning-kind=${warning.kind}">
+                            <span th:text="${warning.message}"></span>
+                            <ul th:if="${!warning.reasons.isEmpty()}" style="margin: 0; padding-left: var(--ep-space-4);"
+                                data-testid="renumber-warning-reasons">
+                                <li th:each="reason : ${warning.reasons}" th:text="${reason}"></li>
+                            </ul>
+                        </li>
                     </ul>
                     <label style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-2);">
                         <input type="checkbox" name="acknowledgeWarnings" value="true" required>

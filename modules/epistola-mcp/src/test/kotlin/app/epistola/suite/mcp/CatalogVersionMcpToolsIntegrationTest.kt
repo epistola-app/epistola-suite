@@ -4,6 +4,7 @@
 
 package app.epistola.suite.mcp
 
+import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.versions.CatalogVersionBehindException
 import app.epistola.suite.catalog.versions.CatalogVersionHeldException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
@@ -154,6 +155,22 @@ class CatalogVersionMcpToolsIntegrationTest : IntegrationTestBase() {
         val renumbered = runAsApiKey(tenantId) { versionTools.renumberCatalogVersion("default", lower, "1.6.0", true) }
         assertThat(renumbered.renumbered).isTrue
         assertThat(renumbered.version!!.version).isEqualTo("1.6.0")
+    }
+
+    @Test
+    fun `renumbering a draft with additions to a patch returns the warning with its reasons`() {
+        val tenantId = newTenant()
+        released(tenantId)
+        val draft = runAsApiKey(tenantId) {
+            themeTools.createTheme("default", "extra", "Extra", null, null, null, null, null)
+            versionTools.listCatalogVersions("default", "DRAFT").single().version
+        }
+        val patch = SemVer.parse(draft).bumpPatch().toString()
+
+        val warned = runAsApiKey(tenantId) { versionTools.renumberCatalogVersion("default", draft, patch, null) }
+
+        assertThat(warned.renumbered).isFalse
+        assertThat(warned.warnings.map { it.kind to it.reasons }).containsExactly("additions-in-patch" to listOf("theme 'extra': added"))
     }
 
     @Test

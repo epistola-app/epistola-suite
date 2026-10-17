@@ -22,8 +22,10 @@ enum class CatalogVersionStatus { DRAFT, RELEASED }
 /**
  * One version of a catalog: an open draft, or a release.
  *
- * @property base the released version a draft started from; null for a release and for a draft of a
- *   catalog that was never released.
+ * @property base the released version a draft started from, which its changes are measured against;
+ *   for a release, the one its draft started from. Null for a draft of a catalog that was never
+ *   released, a catalog's first release, a release installed from elsewhere, and a release cut before
+ *   releases recorded it (`V20261017144436`).
  * @property createdFrom the version a draft was created from, when it was not its base.
  * @property behind for a draft, the released versions above its base and below its number, lowest
  *   first; it does not contain their changes unless an author applied them by hand.
@@ -43,7 +45,10 @@ data class CatalogVersion(
     val behind: List<BehindRelease> = emptyList(),
 )
 
-/** A released version a draft is behind, and what that release changed against the release below it. */
+/**
+ * A released version a draft is behind, and what that release changed against its own base (the
+ * release below it when it recorded none).
+ */
 data class BehindRelease(val version: String, val changes: List<ReleasedChange>)
 
 /** A resource a release added, modified or removed. [change] is `added`, `modified` or `removed`. */

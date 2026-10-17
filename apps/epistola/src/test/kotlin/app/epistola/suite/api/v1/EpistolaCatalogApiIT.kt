@@ -27,6 +27,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.commands.DeleteTheme
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -155,6 +156,53 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val body = response.body!!
         assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/renumber-warnings-not-acknowledged")
         assertThat(JsonPath.read<List<String>>(body, "$.warnings[*].kind")).containsExactly("contains-later-releases")
+    }
+
+    @Test
+    fun `renumbering a draft with breaking changes to a patch warns with the reasons, until acknowledged`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val catalogSlug = "rel-${UUID.randomUUID().toString().take(8)}"
+        seedAuthoredCatalog(tenantKey, catalogSlug)
+        withMediator {
+            ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.0.0").execute()
+            DeleteTheme(ThemeId(ThemeKey.of("tha"), CatalogId(CatalogKey.of(catalogSlug), TenantId(tenantKey)))).execute()
+        }
+        fun call(method: HttpMethod, path: String, body: String? = null) = restTemplate.exchange(path, method, HttpEntity(body, baseHeaders(apiKey)), String::class.java)
+
+        val preview = call(HttpMethod.GET, "${versionPath(tenantKey, catalogSlug, "1.0.1")}/renumber-preview?to=1.0.2")
+        assertThat(preview.statusCode).describedAs(preview.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<List<String>>(preview.body!!, "$.warnings[*].kind")).containsExactly("breaking-changes-in-patch")
+        assertThat(JsonPath.read<List<String>>(preview.body!!, "$.warnings[0].versions")).containsExactly("1.0.0")
+        assertThat(JsonPath.read<String>(preview.body!!, "$.warnings[0].message")).contains("theme 'tha': removed")
+        assertThat(JsonPath.read<List<String>>(call(HttpMethod.GET, "${versionPath(tenantKey, catalogSlug, "1.0.1")}/renumber-preview?to=2.0.0").body!!, "$.warnings")).isEmpty()
+
+        val refused = call(HttpMethod.PATCH, versionPath(tenantKey, catalogSlug, "1.0.1"), """{"version":"1.0.2"}""")
+        assertThat(refused.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(JsonPath.read<List<String>>(refused.body!!, "$.warnings[*].kind")).containsExactly("breaking-changes-in-patch")
+
+        val renumbered = call(HttpMethod.PATCH, versionPath(tenantKey, catalogSlug, "1.0.1"), """{"version":"1.0.2","acknowledgeWarnings":true}""")
+        assertThat(renumbered.statusCode).describedAs(renumbered.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(renumbered.body!!, "$.version")).isEqualTo("1.0.2")
+    }
+
+    @Test
+    fun `a released version names the base its draft started from`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val catalogSlug = "rel-${UUID.randomUUID().toString().take(8)}"
+        seedAuthoredCatalog(tenantKey, catalogSlug)
+        withMediator {
+            ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.0.0").execute()
+            // Draft 1.1.0 starts from 1.0.0, beside the automatic 1.0.1, and is released after it.
+            CreateCatalogVersion(tenantKey, CatalogKey.of(catalogSlug), "1.1.0").execute()
+            ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.0.1").execute()
+            ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.1.0", acknowledgedBehind = setOf("1.0.1")).execute()
+        }
+
+        val response = restTemplate.exchange(versionPath(tenantKey, catalogSlug, "1.1.0"), HttpMethod.GET, HttpEntity<String>(baseHeaders(apiKey)), String::class.java)
+
+        assertThat(response.statusCode).describedAs(response.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(response.body!!, "$.status")).isEqualTo("released")
+        assertThat(JsonPath.read<String>(response.body!!, "$.base")).isEqualTo("1.0.0")
     }
 
     /**

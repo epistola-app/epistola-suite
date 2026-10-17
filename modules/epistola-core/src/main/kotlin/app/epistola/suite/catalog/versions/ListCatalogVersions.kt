@@ -81,7 +81,7 @@ class CatalogVersionReader(
             .groupBy({ it.first }, { it.second })
         val releases = handle.createQuery(
             """
-            SELECT version, released_at, notes, fingerprint, content_retained
+            SELECT version, released_at, notes, fingerprint, content_retained, base_version
             FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             """,
         )
@@ -92,6 +92,7 @@ class CatalogVersionReader(
                 CatalogVersion(
                     version = version,
                     status = CatalogVersionStatus.RELEASED,
+                    base = rs.getString("base_version"),
                     releasedAt = rs.getObject("released_at", OffsetDateTime::class.java),
                     notes = rs.getString("notes"),
                     fingerprint = rs.getString("fingerprint"),
@@ -101,6 +102,7 @@ class CatalogVersionReader(
             }
             .list()
         val released = releases.map { it.version }
+        val bases = releases.associate { it.version to it.base }
         val changes = mutableMapOf<String, List<ReleasedChange>>()
         val open = drafts.drafts(handle, tenantKey, catalogKey).map { draft ->
             CatalogVersion(
@@ -110,7 +112,7 @@ class CatalogVersionReader(
                 createdFrom = draft.createdFrom,
                 createdAt = draft.createdAt,
                 behind = CatalogDrafts.behind(draft.version, draft.base, released).map { version ->
-                    BehindRelease(version, changes.getOrPut(version) { changesOf(handle, tenantKey, catalogKey, version, released) })
+                    BehindRelease(version, changes.getOrPut(version) { changesOf(handle, tenantKey, catalogKey, version, bases[version], released) })
                 },
             )
         }
@@ -118,12 +120,13 @@ class CatalogVersionReader(
     }
 
     /**
-     * What release [version] changed against the release below it: the base it was cut on is not
-     * recorded for a release, and for releases cut one after another that is the one below it.
+     * What release [version] changed against [base], the release its draft started from. A release
+     * that recorded none, or whose base the catalog no longer has, is measured against the release
+     * below it, which for releases cut one after another is the same one.
      */
-    private fun changesOf(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String, releases: List<String>): List<ReleasedChange> {
+    private fun changesOf(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String, base: String?, releases: List<String>): List<ReleasedChange> {
         val own = releaseEntries.entriesOf(handle, tenantKey, catalogKey, version).associate { it.contentKey to it.fingerprint }
-        val below = CatalogDrafts.highestBelow(version, releases)
+        val below = (base?.takeIf { it in releases } ?: CatalogDrafts.highestBelow(version, releases))
             ?.let { previous -> releaseEntries.entriesOf(handle, tenantKey, catalogKey, previous).associate { it.contentKey to it.fingerprint } }
             .orEmpty()
         return (own.keys + below.keys).sorted().mapNotNull { key ->

@@ -50,13 +50,14 @@ data class CatalogVersionRenumberInfo(
     val version: CatalogVersionInfo?,
     val warnings: List<RenumberWarningInfo>,
 ) {
-    data class RenumberWarningInfo(val kind: String, val message: String, val versions: List<String>)
+    /** One warning; [reasons] list what it found, each naming a resource (`breaking-changes-in-patch` and its kin). */
+    data class RenumberWarningInfo(val kind: String, val message: String, val versions: List<String>, val reasons: List<String>)
 
     companion object {
         fun warnings(warnings: List<RenumberWarning>) = CatalogVersionRenumberInfo(
             renumbered = false,
             version = null,
-            warnings = warnings.map { RenumberWarningInfo(it.kind, it.message, it.versions) },
+            warnings = warnings.map { RenumberWarningInfo(it.kind, it.message, it.versions, it.reasons) },
         )
     }
 }

@@ -308,7 +308,7 @@ class EpistolaCatalogApi(
             CatalogVersionRenumberPreview(
                 from = draft.version.version,
                 to = to,
-                warnings = warnings.map { RenumberWarningDto(kind = it.kind, message = it.message, versions = it.versions) },
+                warnings = warnings.map { RenumberWarningDto(kind = it.kind, message = it.text, versions = it.versions) },
             ),
         )
     }
@@ -525,8 +525,12 @@ class EpistolaCatalogApi(
 
     private val CatalogDependencyDeclaration.requirement get() = listOf(registry, namespace, catalogKey, version)
 
-    /** The highest released version below a released one, its base. */
+    /**
+     * A released version's base: the one it recorded, else (a release cut before releases recorded
+     * it) the highest released version below it.
+     */
     private fun baseOf(at: ResolvedCatalogVersion): String? {
+        at.version.base?.let { return it }
         val own = SemVer.parseOrNull(at.version.version) ?: return null
         return ListCatalogVersions(at.tenantKey, at.catalogKey, CatalogVersionStatus.RELEASED).query()
             .mapNotNull { version -> SemVer.parseOrNull(version.version)?.let { it to version.version } }

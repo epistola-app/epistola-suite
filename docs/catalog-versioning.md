@@ -84,8 +84,14 @@ a subscribed catalog. A version number is unique in its catalog, across drafts a
   holder, e.g. `the tenant's default theme (theme letters/seasonal)`.
 - **Behind.** A draft is _behind_ the releases numbered above its base and below its own number: it
   does not contain their changes unless an author applied them by hand. `CatalogVersion.behind` lists
-  them, each with what it changed against the release below it, and `ReleaseCatalogVersion` refuses
+  them, each with what it changed against its own base, and `ReleaseCatalogVersion` refuses
   (`CATALOG_VERSION_BEHIND`, 409) until `acknowledgedBehind` names every one.
+- **A release records its base** (`catalog_releases.base_version`, `V20261017144436`): the release
+  its draft started from, which `getCatalogVersion` reports as a released version's `base` and which
+  `behind` measures its changes against. It is null for a catalog's first release, a release installed
+  from elsewhere (`RecordInstalledRelease`; the archive does not carry the publisher's base), and every
+  release cut before the column, whose draft's base was gone once it was released. Those fall back to
+  the release below them.
 - **Releasing** draft X records the release and changes no other draft. When no draft is open above
   it, X carries on as the next free patch, its content the release's (`openedDraft`); otherwise X is
   discarded, its content being in the release. The open drafts above it whose base is below it are
@@ -93,8 +99,27 @@ a subscribed catalog. A version number is unique in its catalog, across drafts a
   maintenance release of a lower line does not move it back. Releasing under a number no draft has
   renumbers the current draft as it is released, above every release, as the one-draft dialog does.
 - **Renumbering** warns (`RenumberChecks`) about releases it moves up past (`falls-behind`), releases
-  below its base it moves down past (`contains-later-releases`) and other drafts it moves past
-  (`passes-draft`).
+  below its base it moves down past (`contains-later-releases`), other drafts it moves past
+  (`passes-draft`), and a number of a lower kind than the draft's changes against its base need:
+  `breaking-changes-in-patch` (the contract's kind), `breaking-changes-in-minor` and
+  `additions-in-patch` (kinds the suite adds to the contract's open set). Each lists its `reasons`,
+  one per resource. The kind of a number is the highest part it raises over the base; a number not
+  above the base, or a draft without a base, is not checked, and neither is a base whose release kept
+  no content.
+- **What a draft's changes need** (`ChangeKindEvaluator`, ADR 0001's rules for a hotfix) compares the
+  draft's content with its base release's retained content. Breaking, needing a major: a resource
+  removed; a data contract that no longer accepts every input the base accepted
+  (`SchemaCompatibilityChecker`), or one added where there was none; a variant removed or its
+  attributes changed (a request selecting by them may get another variant); a stencil placeholder
+  removed, a parameter an instance must now bind, or one retyped (the fit rule of
+  `StencilInstances.placeholders` / `mustBind`, plus type); an attribute value no longer allowed, a
+  restriction where there was none, or another code-list binding; a code-list code removed; a
+  dependency added, removed, its range changed, or its lock moved down or to another major. Additive,
+  needing at least a minor: a resource, variant, placeholder or optional parameter added; a contract
+  widened or dropped; a parameter no longer required or removed (a binding of it is ignored); values
+  allowed or a restriction lifted; a code-list entry added or its label, order or hidden flag changed;
+  a lock moved to another minor. Everything else is a fix. Releasing does not check this: the
+  contract makes it a renumber warning only.
 - **Relocation** moves the current draft's rows, so it is refused (`several-drafts`) while the source
   or target catalog has more than one draft.
 

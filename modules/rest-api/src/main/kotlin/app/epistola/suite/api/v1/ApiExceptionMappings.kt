@@ -589,7 +589,7 @@ object ApiExceptionMappings {
         builder.register<RenumberWarningsNotAcknowledgedException>(
             problemType = ApiProblemTypes.RENUMBER_WARNINGS_NOT_ACKNOWLEDGED,
             defaultDetail = "Renumbering the draft has consequences that need acknowledging",
-            extensions = { mapOf("warnings" to it.warnings.map { warning -> mapOf("kind" to warning.kind, "message" to warning.message, "versions" to warning.versions) }) },
+            extensions = { mapOf("warnings" to it.warnings.map { warning -> mapOf("kind" to warning.kind, "message" to warning.text, "versions" to warning.versions) }) },
             logMessage = { "Renumber refused, warnings not acknowledged: ${it.message}" },
         )
 

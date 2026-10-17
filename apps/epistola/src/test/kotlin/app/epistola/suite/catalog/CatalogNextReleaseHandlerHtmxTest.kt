@@ -19,6 +19,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.DeleteDocumentTemplate
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.testing.withRequiredDataExample
@@ -168,6 +169,35 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body).contains("data-testid=\"renumber-error\"")
             assertThat(response.body).contains("already has a version 1.0.0")
             assertThat(draftOf(tenant, "letters")).isEqualTo("1.0.1")
+        }
+    }
+
+    @Test
+    fun `Renumber to a patch while the draft has breaking changes shows the warning with its reasons, and renumbers once acknowledged`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = tenant("Renumber Breaking")
+            val variant = seedCatalogWithTemplate(tenant, "letters", "letter")
+            withMediator {
+                mediator.publishAndRelease(variant)
+                DeleteDocumentTemplate(variant.templateId).execute()
+            }
+        }
+
+        whenever { postForm("/tenants/${tenant.id}/catalogs/letters/renumber", mapOf("to" to "1.0.2")) }
+
+        then {
+            val body = result<ResponseEntity<String>>().body!!
+            assertThat(body).contains("data-testid=\"renumber-warnings\"")
+            assertThat(body).contains("data-warning-kind=\"breaking-changes-in-patch\"")
+            assertThat(body).contains("data-testid=\"renumber-warning-reasons\"")
+            assertThat(body).contains("template &#39;letter&#39;: removed")
+            assertThat(draftOf(tenant, "letters")).isEqualTo("1.0.1")
+
+            val acknowledged = postForm("/tenants/${tenant.id}/catalogs/letters/renumber", mapOf("to" to "1.0.2", "acknowledgeWarnings" to "true"))
+            assertThat(acknowledged.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(draftOf(tenant, "letters")).isEqualTo("1.0.2")
         }
     }
 

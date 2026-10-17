@@ -243,15 +243,30 @@ object StencilInstances {
         finding: (Problem, String) -> Finding,
     ): List<Finding> {
         val bindings = (props[NodeParameterKeys.PROP_PARAMETER_BINDINGS] as? Map<*, *>)?.keys?.filterIsInstance<String>().orEmpty().toSet()
-        val properties = schema?.get("properties") as? Map<*, *> ?: emptyMap<String, Any?>()
-        val declared = properties.keys.filterIsInstance<String>().toSet()
-        val required = (schema?.get("required") as? List<*>)?.filterIsInstance<String>().orEmpty()
-        val unbound = required
-            .filter { it !in bindings && (properties[it] as? Map<*, *>)?.containsKey("default") != true }
-            .sorted()
-            .map { finding(Problem.UNBOUND_REQUIRED_PARAMETER, it) }
+        val declared = (schema?.get("properties") as? Map<*, *>)?.keys?.filterIsInstance<String>().orEmpty().toSet()
+        val unbound = (mustBind(schema) - bindings).sorted().map { finding(Problem.UNBOUND_REQUIRED_PARAMETER, it) }
         val unknown = (bindings - declared).sorted().map { finding(Problem.UNKNOWN_PARAMETER, it) }
         return unbound + unknown
+    }
+
+    /**
+     * The placeholders a stencil's [content] offers an instance to fill, by name: a fill for any other
+     * is a [Problem.UNKNOWN_PLACEHOLDER]. What a change to a stencil is judged by, with [mustBind].
+     */
+    fun placeholders(content: TemplateDocument): Set<String> {
+        val rootChildren = content.nodes[content.root]?.slots.orEmpty().flatMap { content.slots[it]?.children.orEmpty() }
+        return topLevelPlaceholders(rootChildren, content.nodes, content.slots).keys
+    }
+
+    /**
+     * The parameters of [schema] an instance must bind: required and without a default. An instance
+     * that leaves one unbound is an [Problem.UNBOUND_REQUIRED_PARAMETER]; binding one the stencil does
+     * not declare is harmless.
+     */
+    fun mustBind(schema: Map<String, Any?>?): Set<String> {
+        val properties = schema?.get("properties") as? Map<*, *> ?: emptyMap<String, Any?>()
+        val required = (schema?.get("required") as? List<*>)?.filterIsInstance<String>().orEmpty()
+        return required.filter { (properties[it] as? Map<*, *>)?.containsKey("default") != true }.toSet()
     }
 
     /** A fill: the top-level nodes of a placeholder's `fill` slot, and the name the fill gives passed parameters. */
