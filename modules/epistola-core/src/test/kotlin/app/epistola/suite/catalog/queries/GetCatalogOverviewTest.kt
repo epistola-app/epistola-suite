@@ -7,7 +7,7 @@ package app.epistola.suite.catalog.queries
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
-import app.epistola.suite.catalog.versions.CreateCatalogVersion
+import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -40,9 +40,9 @@ class GetCatalogOverviewTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant, letters, "Letters").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute()
-            mediator.releaseNext(catalog) // 1.0.0; the draft is 1.0.1
-            CreateCatalogVersion(tenant, letters, "2.0.0").execute()
-            CreateTheme(ThemeId(ThemeKey.of("seasonal"), catalog), "Seasonal").execute() // in 2.0.0, the current draft
+            mediator.releaseNext(catalog) // 1.0.0; the next version continues on it
+            CreateCatalogDraft(tenant, letters, "Redesign").execute()
+            CreateTheme(ThemeId(ThemeKey.of("seasonal"), catalog), "Seasonal").execute() // in the next version
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute()
             DeployRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), letters, "1.0.0", includeDependencies = true).execute()
         }
@@ -53,15 +53,13 @@ class GetCatalogOverviewTest : IntegrationTestBase() {
             .containsSubsequence("default", "letters", SYSTEM_CATALOG_KEY.value)
         val entry = overview.single { it.catalogKey == letters }
         assertThat(entry.type).isEqualTo(CatalogType.AUTHORED)
-        assertThat(entry.drafts.map { it.version }).containsExactly("2.0.0", "1.0.1")
-        assertThat(entry.current).isEqualTo("2.0.0")
+        assertThat(entry.drafts.map { it.label to it.isNext }).containsExactly("Next version" to true, "Redesign" to false)
         assertThat(entry.latestRelease?.version).isEqualTo("1.0.0")
-        assertThat(entry.notReady).`as`("the new theme in the current draft").isEqualTo(1)
+        assertThat(entry.notReady).`as`("the new theme in the next version").isEqualTo(1)
         assertThat(entry.served).containsEntry("production", listOf("1.0.0"))
 
         val system = overview.single { it.catalogKey == SYSTEM_CATALOG_KEY }
         assertThat(system.drafts).isEmpty()
         assertThat(system.notReady).isNull()
-        assertThat(system.current).isEqualTo(system.latestRelease?.version)
     }
 }

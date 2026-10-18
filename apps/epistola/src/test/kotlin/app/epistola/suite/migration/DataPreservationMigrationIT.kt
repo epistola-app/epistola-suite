@@ -412,9 +412,10 @@ class DataPreservationMigrationIT {
             assertThat(ready("SELECT resource_id FROM themes WHERE tenant_key = '$TENANT' AND id = 'brand'", ""))
                 .describedAs("a resource that had no drafts").isEqualTo("true")
 
-            // Every authored catalog has the draft it works in (V20261017001641): never released, so 1.0.0.
-            assertThat(one("SELECT string_agg(c.catalog_key || '@' || d.version, ',' ORDER BY c.catalog_key) FROM catalog_versions d JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id WHERE d.tenant_key = '$TENANT' AND d.kind = 'draft'"))
-                .isEqualTo("default@1.0.0,shared@1.0.0")
+            // Every authored catalog has the draft it works in (V20261017001641), its next version, which
+            // has no number until it is released (V20261018131409).
+            assertThat(one("SELECT string_agg(c.catalog_key || '@' || CASE WHEN d.is_next THEN 'next' ELSE d.name END || COALESCE('#' || d.version, ''), ',' ORDER BY c.catalog_key) FROM catalog_versions d JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id WHERE d.tenant_key = '$TENANT' AND d.kind = 'draft'"))
+                .isEqualTo("default@next,shared@next")
 
             // Every authored 1.x catalog is queued for its declarations and first release (V20261017091832).
             assertThat(one("SELECT string_agg(c.catalog_key, ',' ORDER BY c.catalog_key) FROM catalog_upgrade_queue q JOIN catalogs c ON c.tenant_key = q.tenant_key AND c.catalog_id = q.catalog_id WHERE q.tenant_key = '$TENANT'"))

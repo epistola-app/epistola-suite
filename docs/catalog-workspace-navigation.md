@@ -6,8 +6,10 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # Catalog workspace navigation (2.0)
 
-> **Status:** design proposal, 17 October 2026 — partly built: the landing overview and the bar
-> (below). The simple model is being built in the UI only; core and contract are unchanged.
+> **Status:** design record, 17 October 2026 — superseded by [workspace-shell.md](workspace-shell.md)
+> and [catalog-working-model.md](catalog-working-model.md). Since 18 October drafts are numbered when
+> they are published (contract ADR 0002, amendment 2): `letters@<number>` addresses, renumbering and the
+> in-between version described below are gone.
 
 ## Problem
 

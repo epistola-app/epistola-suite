@@ -25,12 +25,12 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
+import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
+import app.epistola.suite.catalog.versions.CatalogDraftNameInUseException
 import app.epistola.suite.catalog.versions.CatalogVersionBehindException
 import app.epistola.suite.catalog.versions.CatalogVersionHeldException
-import app.epistola.suite.catalog.versions.CatalogVersionInUseException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
-import app.epistola.suite.catalog.versions.RenumberWarningsNotAcknowledgedException
 import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.DocumentNotFoundException
@@ -565,11 +565,18 @@ object ApiExceptionMappings {
             logMessage = { "Write to a released catalog version refused: catalog=${it.catalogKey} version=${it.version}" },
         )
 
-        builder.register<CatalogVersionInUseException>(
-            problemType = ApiProblemTypes.CATALOG_VERSION_IN_USE,
-            defaultDetail = "The catalog already has a version with this number",
-            extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version) },
-            logMessage = { "Catalog version number in use: catalog=${it.catalogKey} version=${it.version}" },
+        builder.register<CatalogDraftNameInUseException>(
+            problemType = ApiProblemTypes.CATALOG_DRAFT_NAME_IN_USE,
+            defaultDetail = "Another draft of the catalog has this name",
+            extensions = { mapOf("catalogKey" to it.catalogKey.value, "name" to it.name) },
+            logMessage = { "Draft name in use: catalog=${it.catalogKey} name=${it.name}" },
+        )
+
+        builder.register<CatalogDraftIsNextException>(
+            problemType = ApiProblemTypes.CATALOG_DRAFT_KIND,
+            defaultDetail = "Only the next version is released, and only long-term work has a name",
+            extensions = { mapOf("catalogKey" to it.catalogKey.value) },
+            logMessage = { "Draft operation refused for its kind: ${it.message}" },
         )
 
         builder.register<CatalogVersionBehindException>(
@@ -584,13 +591,6 @@ object ApiExceptionMappings {
             defaultDetail = "The draft alone holds resources something outside it still uses",
             extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version, "heldBy" to it.holders) },
             logMessage = { "Discarding a draft refused: ${it.message}" },
-        )
-
-        builder.register<RenumberWarningsNotAcknowledgedException>(
-            problemType = ApiProblemTypes.RENUMBER_WARNINGS_NOT_ACKNOWLEDGED,
-            defaultDetail = "Renumbering the draft has consequences that need acknowledging",
-            extensions = { mapOf("warnings" to it.warnings.map { warning -> mapOf("kind" to warning.kind, "message" to warning.message, "versions" to warning.versions, "reasons" to warning.reasons) }) },
-            logMessage = { "Renumber refused, warnings not acknowledged: ${it.message}" },
         )
 
         registry = builder.build()

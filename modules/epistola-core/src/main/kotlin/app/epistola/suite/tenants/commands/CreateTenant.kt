@@ -79,7 +79,7 @@ class CreateTenantHandler(
                 .bind("namespace", CatalogIdentityProperties.defaultNamespace(command.id))
                 .execute()
             // Its working copy is its first draft (contract ADR 0002), as for any authored catalog.
-            drafts.open(handle, command.id, CatalogKey.DEFAULT, CatalogDrafts.FIRST, base = null)
+            drafts.open(handle, command.id, CatalogKey.DEFAULT, base = null)
 
             inserted
         }

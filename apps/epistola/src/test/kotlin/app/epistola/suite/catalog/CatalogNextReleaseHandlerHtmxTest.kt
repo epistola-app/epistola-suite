@@ -8,6 +8,7 @@ import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
+import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.versions.CatalogVersionStatus
 import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.CatalogId
@@ -60,8 +61,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val body = result<ResponseEntity<String>>().body!!
             assertThat(body).contains("data-testid=\"catalog-next-release\"")
-            assertThat(body).contains("data-testid=\"catalog-draft-version\"")
-            assertThat(body).contains("v1.0.0")
+            assertThat(body).`as`("numbered when published").contains("has no number until it is published")
             assertThat(body).doesNotContain("data-testid=\"catalog-release-blocked\"")
             assertThat(body).contains("1 change is not marked ready yet; publishing marks it.")
             assertThat(body).contains("data-testid=\"catalog-mark-ready\"")
@@ -127,82 +127,11 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `Renumber gives the draft another number`() = fixture {
+    fun `the next version has no number to change, and the publish dialog picks the number its changes need`() = fixture {
         lateinit var tenant: Tenant
 
         given {
-            tenant = tenant("Renumber")
-            seedCatalogWithTemplate(tenant, "letters", "letter")
-        }
-
-        whenever { postForm("/tenants/${tenant.id}/catalogs/letters/renumber", mapOf("to" to "2.0.0")) }
-
-        then {
-            val response = result<ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.headers["HX-Trigger"].orEmpty().joinToString()).contains("closeDialog")
-            assertThat(response.body).contains("v2.0.0")
-            assertThat(draftOf(tenant, "letters")).isEqualTo("2.0.0")
-        }
-    }
-
-    @Test
-    fun `Renumber onto a released number is refused on the field`() = fixture {
-        lateinit var tenant: Tenant
-
-        given {
-            tenant = tenant("Renumber Refused")
-            val variant = seedCatalogWithTemplate(tenant, "letters", "letter")
-            withMediator { mediator.publishAndRelease(variant) }
-        }
-
-        whenever { postForm("/tenants/${tenant.id}/catalogs/letters/renumber", mapOf("to" to "1.0.0")) }
-
-        then {
-            val response = result<ResponseEntity<String>>()
-            assertThat(response.statusCode.value()).isEqualTo(422)
-            assertThat(response.headers["HX-Retarget"]).containsExactly("#renumber-catalog-form")
-            assertThat(response.body).contains("data-testid=\"renumber-error\"")
-            assertThat(response.body).contains("already has a version 1.0.0")
-            assertThat(draftOf(tenant, "letters")).isEqualTo("1.0.1")
-        }
-    }
-
-    @Test
-    fun `Renumber to a patch while the draft has breaking changes shows the warning with its reasons, and renumbers once acknowledged`() = fixture {
-        lateinit var tenant: Tenant
-
-        given {
-            tenant = tenant("Renumber Breaking")
-            val variant = seedCatalogWithTemplate(tenant, "letters", "letter")
-            withMediator {
-                mediator.publishAndRelease(variant)
-                DeleteDocumentTemplate(variant.templateId).execute()
-            }
-        }
-
-        whenever { postForm("/tenants/${tenant.id}/catalogs/letters/renumber", mapOf("to" to "1.0.2")) }
-
-        then {
-            val body = result<ResponseEntity<String>>().body!!
-            assertThat(body).contains("data-testid=\"renumber-warnings\"")
-            assertThat(body).contains("data-warning-kind=\"breaking-changes-in-patch\"")
-            assertThat(body).contains("data-testid=\"renumber-warning-reasons\"")
-            assertThat(body).contains("template &#39;letter&#39;: removed")
-            assertThat(draftOf(tenant, "letters")).isEqualTo("1.0.1")
-
-            val acknowledged = postForm("/tenants/${tenant.id}/catalogs/letters/renumber", mapOf("to" to "1.0.2", "acknowledgeWarnings" to "true"))
-            assertThat(acknowledged.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(draftOf(tenant, "letters")).isEqualTo("1.0.2")
-        }
-    }
-
-    @Test
-    fun `the next version's page says when the draft's number is too low, and the publish dialog picks the number that fits`() = fixture {
-        lateinit var tenant: Tenant
-
-        given {
-            tenant = tenant("Number Too Low")
+            tenant = tenant("Number From Changes")
             val variant = seedCatalogWithTemplate(tenant, "letters", "letter")
             withMediator {
                 mediator.publishAndRelease(variant)
@@ -214,15 +143,32 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
 
         then {
             val page = result<ResponseEntity<String>>().body!!
-            assertThat(page).contains("data-testid=\"catalog-number-too-low\"")
-            assertThat(page).contains("but its changes need v2.0.0 or higher.")
-            assertThat(page).contains("template &#39;letter&#39;: removed")
+            assertThat(page).contains("has no number until it is published").doesNotContain("/catalogs/letters/renumber")
             assertThat(getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!).contains("It will be published as <strong>v2.0.0</strong>")
+            assertThat(restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/renumber", String::class.java).statusCode)
+                .`as`("renumbering is gone").isEqualTo(HttpStatus.NOT_FOUND)
+        }
+    }
 
-            // Renumbered to the major its changes need, the warning goes.
-            postForm("/tenants/${tenant.id}/catalogs/letters/renumber", mapOf("to" to "2.0.0"))
-            assertThat(restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/draft", String::class.java).body!!)
-                .doesNotContain("data-testid=\"catalog-number-too-low\"")
+    @Test
+    fun `publishing under a number lower than the changes need is refused in the dialog`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = tenant("Number Too Low")
+            val variant = seedCatalogWithTemplate(tenant, "letters", "letter")
+            withMediator {
+                mediator.publishAndRelease(variant)
+                DeleteDocumentTemplate(variant.templateId).execute()
+            }
+        }
+
+        whenever { postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.0.1")) }
+
+        then {
+            val body = result<ResponseEntity<String>>().body!!
+            assertThat(body).contains("needs at least 2.0.0").contains("template &#39;letter&#39;: removed")
+            assertThat(withMediator { ListCatalogReleases(tenant.id, CatalogKey.of("letters")).query() }.map { it.version }).containsExactly("1.0.0")
         }
     }
 
@@ -326,10 +272,6 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
     private fun catalogValue(tenant: Tenant, catalogKey: String): String = withMediator {
         val catalog = GetCatalog(tenant.id, CatalogKey.of(catalogKey)).query()!!
         "${catalog.registry}~${catalog.namespace}/${catalog.id.value}"
-    }
-
-    private fun draftOf(tenant: Tenant, catalogKey: String): String? = withMediator {
-        ListCatalogVersions(tenant.id, CatalogKey.of(catalogKey), CatalogVersionStatus.DRAFT).query().firstOrNull()?.version
     }
 
     private fun getHtmx(url: String): ResponseEntity<String> = restTemplate.exchange(

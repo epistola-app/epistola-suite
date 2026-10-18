@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.ListRecentCatalogs
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
+import app.epistola.suite.catalog.versions.CatalogDraft
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
@@ -81,58 +82,40 @@ class WorkspaceBuilder {
             val tenant = "/tenants/${bar.tenantKey.value}"
             val label = when {
                 publishedVersion != null -> publishedVersion
-
                 !bar.authored -> bar.shown?.let { "v${it.version}" } ?: "Not installed"
-
                 bar.noDraft -> "Nothing in progress"
-
-                bar.fixing -> bar.fixOf?.let { of -> "Fix of v$of" + (bar.fixOfLiveIn.firstOrNull()?.let { " · $it" } ?: "") }
-                    ?: "Draft v${bar.chosen?.version}"
-
-                else -> "Next version"
+                else -> bar.draftTitle ?: CatalogDraft.NEXT_LABEL
             }
             val versions = if (bar.authored) {
                 bar.draftLinks.map { link ->
-                    val next = link.version == bar.current?.version
                     VersionLink(
-                        label = if (next) "Next version" else link.base?.let { "Fix of v$it" } ?: "Draft v${link.version}",
-                        detail = if (next) link.base?.let { "Based on v$it" } else "Published as v${link.version}",
+                        label = link.label,
+                        detail = when {
+                            link.next -> link.base?.let { "Based on v$it" }
+                            else -> "Long-term work" + (link.base?.let { ", started from v$it" } ?: "")
+                        },
                         // Each version's overview, the same from every page: the bar stays the same
                         // within a catalog version, so a navigation there need not send it again.
-                        href = if (next) CatalogPages.browse(TenantId(bar.tenantKey), bar.segment.at(null)) else CatalogPages.draft(TenantId(bar.tenantKey), bar.segment.at(link.version)),
+                        href = if (link.next) CatalogPages.browse(TenantId(bar.tenantKey), bar.segment.at(null)) else CatalogPages.draft(TenantId(bar.tenantKey), bar.segment.at(link.draftId)),
                         current = link.active && publishedVersion == null,
                     )
                 }
             } else {
                 emptyList()
             }
-            val fixLive = bar.releases.filter { it.deployedTo.isNotEmpty() }.flatMap { release ->
-                val open = bar.openFixOf[release.version]
-                val fixable = release.version in bar.fixableVersions
-                if (open == null && !fixable) return@flatMap emptyList()
-                release.deployedTo.map { environment ->
-                    FixLive(
-                        environment = environment,
-                        version = release.version,
-                        continueHref = open?.let { CatalogPages.draft(TenantId(bar.tenantKey), bar.segment.at(it)) },
-                        startHref = if (open == null) "$tenant/catalogs/${bar.catalogKey.value}/fixes" else null,
-                    )
-                }
-            }
             return CatalogScope(
                 bar = bar,
                 versionLabel = label,
-                sideWork = bar.fixing,
+                sideWork = bar.onLongTermWork,
                 sections = CatalogNav.sections(bar, path, may, qualityAvailable),
                 versions = versions,
-                fixLive = fixLive,
                 statusHref = if (bar.authored && publishedVersion == null) "$tenant/catalogs/${bar.segmentValue}/bar-status" else null,
                 versionsHref = "$tenant/catalogs/${bar.catalogKey.value}/versions",
             )
         }
 
-        /** How the way back names where someone was: "Back to Letters", and the fix when it was one. */
-        fun backLabel(scope: CatalogScope): String = "Back to ${scope.name}" + if (scope.sideWork) ", ${scope.versionLabel.substringBefore(" · ").replaceFirstChar { it.lowercase() }}" else ""
+        /** How the way back names where someone was: "Back to Letters", and the long-term work when it was that. */
+        fun backLabel(scope: CatalogScope): String = "Back to ${scope.name}" + if (scope.sideWork) ", ${scope.versionLabel}" else ""
 
         private fun remember(request: HttpServletRequest, tenantKey: TenantKey, back: BackLink) {
             val value = listOf(tenantKey.value, back.href, back.label).joinToString(SEPARATOR)

@@ -97,7 +97,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
     /** As the cluster scheduler runs an install-wide task: a mediator, and no principal. */
     private fun runUpgrade() = MediatorContext.runWithMediator(mediator) { upgrade.run() }
 
-    private fun versions(catalog: CatalogId) = withMediator { ListCatalogVersions(catalog.tenantKey, catalog.key).query() }.map { it.version to it.status }
+    private fun versions(catalog: CatalogId) = withMediator { ListCatalogVersions(catalog.tenantKey, catalog.key).query() }.map { it.label to it.status }
 
     private fun queueRow(catalog: CatalogId): String? = jdbi.withHandle<String?, Exception> { handle ->
         handle.createQuery("SELECT COALESCE(last_error, 'queued') FROM catalog_upgrade_queue WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
@@ -150,7 +150,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         val declared = withMediator { ListCatalogDependencies(catalog.tenantKey, catalog.key).query() }
         assertThat(declared.map { it.catalogKey to it.version }).containsExactly(SYSTEM_CATALOG_KEY.value to "*")
         assertThat(declared.single().releaseVersion).`as`("locked to the installed system release").isNotNull()
-        assertThat(versions(catalog)).containsExactly("1.0.1" to CatalogVersionStatus.DRAFT, "1.0.0" to CatalogVersionStatus.RELEASED)
+        assertThat(versions(catalog)).containsExactly("Next version" to CatalogVersionStatus.DRAFT, "v1.0.0" to CatalogVersionStatus.RELEASED)
         assertThat(queueRow(catalog)).isNull()
     }
 
@@ -253,7 +253,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
         runUpgrade()
 
-        assertThat(versions(letters)).contains("1.0.0" to CatalogVersionStatus.RELEASED)
+        assertThat(versions(letters)).contains("v1.0.0" to CatalogVersionStatus.RELEASED)
         assertThat(withMediator { ListCatalogDependencies(letters.tenantKey, letters.key).query() }.map { it.catalogKey to it.releaseVersion })
             .contains("epistola-demo" to "5.17.2")
     }
@@ -280,8 +280,8 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
         runUpgrade()
 
-        assertThat(versions(sharedCatalog)).contains("1.0.0" to CatalogVersionStatus.RELEASED)
-        assertThat(versions(lettersCatalog)).contains("1.0.0" to CatalogVersionStatus.RELEASED)
+        assertThat(versions(sharedCatalog)).contains("v1.0.0" to CatalogVersionStatus.RELEASED)
+        assertThat(versions(lettersCatalog)).contains("v1.0.0" to CatalogVersionStatus.RELEASED)
         assertThat(queueRow(lettersCatalog)).isNull()
     }
 
@@ -293,13 +293,13 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         runUpgrade()
 
         assertThat(queueRow(lettersCatalog)).contains("matches no release")
-        assertThat(versions(lettersCatalog)).containsExactly("1.0.0" to CatalogVersionStatus.DRAFT)
+        assertThat(versions(lettersCatalog)).containsExactly("Next version" to CatalogVersionStatus.DRAFT)
 
         queue(sharedCatalog)
         runUpgrade()
 
         assertThat(queueRow(lettersCatalog)).isNull()
-        assertThat(versions(lettersCatalog)).contains("1.0.0" to CatalogVersionStatus.RELEASED)
+        assertThat(versions(lettersCatalog)).contains("v1.0.0" to CatalogVersionStatus.RELEASED)
     }
 
     @Test
@@ -314,6 +314,6 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         runUpgrade()
 
         assertThat(withMediator { ListCatalogDependencies(catalog.tenantKey, catalog.key).query() }).isEmpty()
-        assertThat(versions(catalog)).containsExactly("1.0.0" to CatalogVersionStatus.DRAFT)
+        assertThat(versions(catalog)).containsExactly("Next version" to CatalogVersionStatus.DRAFT)
     }
 }

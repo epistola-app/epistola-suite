@@ -22,7 +22,7 @@ different "version" even when nothing changed (or the same one when it did).
 
 A catalog is **one row per `(tenant_key, slug)`**. A subscribed catalog has one live resource set,
 its installed release; an authored catalog has one per open draft (see
-[several drafts](#catalog-versions-and-several-drafts)).
+[drafts](#catalog-versions-and-drafts)).
 
 > This describes what ships today. [ADR 0026 §6](adr/0026-revisions-releases-and-the-working-copy.md)
 > decides otherwise for the next major: an installation will hold and resolve several releases of one
@@ -52,13 +52,20 @@ version + fingerprint through the manifest into the subscriber's
 `installed_release_version` / `installed_fingerprint`, so values stay coherent
 end to end.
 
-## Catalog versions and several drafts
+## Catalog versions and drafts
 
-A catalog consists of **versions** (contract ADR 0002): released ones, kept in `catalog_releases`
-with their retained content, and the versions whose content is in the content tables, identified by
-`catalog_versions`: every open **draft** of an authored catalog, and the one **installed** release of
-a subscribed catalog. A version number is unique in its catalog, across drafts and releases.
+A catalog consists of **versions** (contract ADR 0002, amendment 2): released ones, kept in
+`catalog_releases` with their retained content, and the versions whose content is in the content
+tables, identified by `catalog_versions`: the open **drafts** of an authored catalog, and the one
+**installed** release of a subscribed catalog. A draft has **no number until it is released**; only
+releases (and an installed release) are numbered.
 
+- **One next version, and long-term work.** Every authored catalog has exactly one **next version**
+  (`catalog_versions.is_next`, one per catalog): the draft everyday work goes into, the one a caller
+  that names no version means, and the only one that is released. Any other draft is **long-term
+  work**: named (`catalog_versions.name`, unique per catalog ignoring case), kept apart from the next
+  version, and not released until it becomes the next version (promotion follows in stage 2 of the
+  amendment). A draft is identified by its `version_id`, its `draftId`.
 - **Content belongs to a version.** Every content row (`themes`, `document_templates`,
   `template_variants`, `variant_attribute_definitions`, `code_lists`, `code_list_entries`, `assets`,
   `fonts`, `font_variants`, `stencils`) is keyed `(tenant_key, version_id, resource_id)`; its address
@@ -70,119 +77,117 @@ a subscribed catalog. A version number is unique in its catalog, across drafts a
   names the identity. A row inserted into another version at the same address adopts its identity;
   deleting a row deletes the identity only when no version holds the resource any more. A reference
   resolves in the version being read.
-- **A draft is an independent copy.** `CreateCatalogVersion` opens one, numbered as asked: without
-  `from` as a copy of its **base** (the highest release below its number, empty when there is none),
-  with `from` as a copy of that draft or release. Its base is `from` when that is released, `from`'s
-  base when it is a draft. A draft is copied row by row (`copy_catalog_version_content()`); a release
-  from its retained content, rebuilt as its archive and imported into the new draft.
-  `DeleteCatalogVersion` discards a draft and everything in it. It is refused
-  (`CatalogVersionHeldException`, REST `CATALOG_VERSION_HELD`, 409, `heldBy`) while the draft alone
-  holds a resource something outside it still references: the tenant's default theme, a code list
-  an attribute of another version or catalog binds, or a theme a template of another version or
-  catalog uses. Discarding would delete the resource's identity, and those references would fail as
-  a foreign-key violation or, for a template's theme, be cleared silently. The refusal names each
-  holder, e.g. `the tenant's default theme (theme letters/seasonal)`.
-- **Behind.** A draft is _behind_ the releases numbered above its base and below its own number: it
-  does not contain their changes unless an author applied them by hand. `CatalogVersion.behind` lists
-  them, each with what it changed against its own base, and `ReleaseCatalogVersion` refuses
-  (`CATALOG_VERSION_BEHIND`, 409) until `acknowledgedBehind` names every one.
+- **Long-term work is an independent copy.** `CreateCatalogDraft` starts it, named: without `from` as
+  a copy of the next version, unreleased changes included, on the next version's base
+  (`createdFrom` = `next`); with `from`, a release, as a copy of that release's retained content,
+  rebuilt as its archive and imported, which is its base. `RenameCatalogDraft` renames it.
+- **Discarding.** `DeleteCatalogDraft` discards a draft and everything in it. Long-term work is gone;
+  the **next version** starts again as a copy of the latest release (`NextVersionOpener`), so everyday
+  work always has somewhere to go. It is refused (`CatalogVersionHeldException`, REST
+  `CATALOG_VERSION_HELD`, 409, `heldBy`) while the draft alone holds a resource something outside it
+  still references: the tenant's default theme, a code list an attribute of another version or
+  catalog binds, or a theme a template of another version or catalog uses. Discarding would delete the
+  resource's identity, and those references would fail as a foreign-key violation or, for a template's
+  theme, be cleared silently. The refusal names each holder, e.g. `the tenant's default theme (theme
+  letters/seasonal)`. `OpenNextVersion` opens a missing next version again, for a catalog whose drafts
+  were all discarded before the amendment.
+- **Behind.** A draft is _behind_ every release above its base: it does not contain their changes
+  unless an author applied them by hand. `CatalogVersion.behind` lists them, each with what it changed
+  against its own base. The next version continues on each release, so it is behind none in the
+  ordinary course; long-term work is behind every release since it started. Releasing a draft that is
+  behind is refused (`CATALOG_VERSION_BEHIND`, 409) until `acknowledgedBehind` names every one.
 - **A release records its base** (`catalog_releases.base_version`, `V20261017144436`): the release
   its draft started from, which `getCatalogVersion` reports as a released version's `base` and which
   `behind` measures its changes against. It is null for a catalog's first release, a release installed
   from elsewhere (`RecordInstalledRelease`; the archive does not carry the publisher's base), and every
-  release cut before the column, whose draft's base was gone once it was released. Those fall back to
-  the release below them.
-- **Releasing** draft X records the release and changes no other draft. When no draft is open above
-  it, X carries on as the next free patch, its content the release's (`openedDraft`); otherwise X is
-  discarded, its content being in the release. The open drafts above it whose base is below it are
-  now behind it (`draftsBehind`). The catalog's `released_version` stays its highest release, so a
-  maintenance release of a lower line does not move it back. Releasing under a number no draft has
-  renumbers the current draft as it is released, above every release, as the one-draft dialog does.
-- **Renumbering** warns (`RenumberChecks`) about releases it moves up past (`falls-behind`), releases
-  below its base it moves down past (`contains-later-releases`), other drafts it moves past
-  (`passes-draft`), and a number of a lower kind than the draft's changes against its base need:
-  `breaking-changes-in-patch`, `breaking-changes-in-minor` and `additions-in-patch`. Each lists its
-  `reasons`, one per resource. The draft's own number is judged the same way (`AssessDraftNumber`):
-  the catalog page and the release dialog say when it is too low, with the reasons and the lowest
-  number that fits. That matters most for the draft a release opens on the next patch; releasing is
-  not refused, as ADR 0002 makes this a renumber warning only. The kind of a number is the highest part it raises over the base; a number not
-  above the base, or a draft without a base, is not checked, and neither is a base whose release kept
-  no content.
+  release cut before the column. Those fall back to the release below them.
+- **Releasing** (`ReleaseCatalogVersion`, contract `releaseCatalogDraft`) releases the next version,
+  numbered as asked or, without a number, as its changes need against the latest release
+  (`AssessDraftNumber`, contract `previewCatalogDraftRelease`): breaking changes the next major,
+  additions the next minor, anything else the next patch; a catalog never released starts at `1.0.0`.
+  A number must be above every release and is never lower than the changes need
+  (`CatalogReleaseVersionException`); the author may raise it, to mark a major on purpose. Releasing
+  long-term work is refused (`CatalogDraftIsNextException`, REST `CATALOG_DRAFT_KIND`, 409). After the
+  release the next version **continues** on it: the same draft, its content the release's, its base
+  the new release. Long-term work is untouched and now behind it (`draftsBehind`, by name). The 2.0
+  upgrade releases what was published before 2.0 under the next patch of the latest release, as its
+  draft was numbered then, and is not held to the change rule.
 - **What a draft's changes need** (`ChangeKindEvaluator`, ADR 0001's rules for a hotfix) compares the
-  draft's content with its base release's retained content. Breaking, needing a major: a resource
-  removed; a data contract that no longer accepts every input the base accepted
-  (`SchemaCompatibilityChecker`), or one added where there was none; a variant removed or its
-  attributes changed (a request selecting by them may get another variant); a stencil placeholder
-  removed, a parameter an instance must now bind, or one retyped (the fit rule of
-  `StencilInstances.placeholders` / `mustBind`, plus type); an attribute value no longer allowed, a
-  restriction where there was none, or another code-list binding; a code-list code removed; a
-  dependency added, removed, its range changed, or its lock moved down or to another major. Additive,
-  needing at least a minor: a resource, variant, placeholder or optional parameter added; a contract
-  widened or dropped; a parameter no longer required or removed (a binding of it is ignored); values
-  allowed or a restriction lifted; a code-list entry added or its label, order or hidden flag changed;
-  a lock moved to another minor. Everything else is a fix. Releasing does not check this: the
-  contract makes it a renumber warning only.
-- **Relocation** moves the current draft's rows, so it is refused (`several-drafts`) while the source
-  or target catalog has more than one draft.
+  draft's content with a release's retained content. Breaking, needing a major: a resource removed; a
+  data contract that no longer accepts every input the base accepted (`SchemaCompatibilityChecker`),
+  or one added where there was none; a variant removed or its attributes changed (a request selecting
+  by them may get another variant); a stencil placeholder removed, a parameter an instance must now
+  bind, or one retyped (the fit rule of `StencilInstances.placeholders` / `mustBind`, plus type); an
+  attribute value no longer allowed, a restriction where there was none, or another code-list binding;
+  a code-list code removed; a dependency added, removed, its range changed, or its lock moved down or
+  to another major. Additive, needing at least a minor: a resource, variant, placeholder or optional
+  parameter added; a contract widened or dropped; a parameter no longer required or removed (a binding
+  of it is ignored); values allowed or a restriction lifted; a code-list entry added or its label,
+  order or hidden flag changed; a lock moved to another minor. Everything else is a fix. The same rules
+  decide whether a newer release of a catalog this one uses fits what it uses (`GetCatalogBorrowing`).
+- **Relocation** moves the next version's rows, so it is refused (`several-drafts`) while the source
+  or target catalog has long-term work.
 
 ### Which version a statement means
 
 Every statement on content names its version through the helpers in
 [`CatalogSql.kt`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogSql.kt):
 `versionAt(t, c)` and `inCurrentVersion(alias)`, both over the view `catalog_current_versions`, or
-`versionNamed(t, c, v)` for a version by number; `ContentVersionSqlTest` fails a statement that names
-none. The view answers, per catalog, the version the caller means:
+`versionNamed(t, c, v)` for an installed release by number; `ContentVersionSqlTest` fails a statement
+that names none. The view answers, per catalog, the version the caller means:
 
 1. the version the transaction **targets**, when it is a version of that catalog;
 2. else a subscribed catalog's installed release;
-3. else the authored catalog's highest open draft — the **current** version.
+3. else the authored catalog's **next version**. Long-term work is reached only by targeting it, so a
+   catalog without a next version has no current version and a write that names none fails.
 
-A command or query that addresses one version implements
+A command or query that addresses one draft implements
 [`CatalogVersionScoped`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/versions/CatalogVersionScoped.kt)
-and carries a `CatalogVersionRef` (tenant, catalog, number). `SpringMediator` resolves it before the
-handler runs (an unknown number is `CatalogVersionNotFoundException`, a released one
-`CatalogVersionReleasedException`), runs a query that names one in a read-only transaction, and
-`CatalogVersionTargeting` sets the PostgreSQL setting `epistola.content_version` to the version's
-`version_id`, transaction-locally. Handlers written for "the" version of a catalog then work on that
-draft unchanged, and every message they dispatch inherits it; the caller's target is restored when
-the message ends. A message that names no version works on the current version, the highest draft.
-A self-managed command (`RefreshCodeList`) applies the target in each transaction it opens.
+and carries a `CatalogVersionRef` (tenant, catalog, `DraftRef`: `Next` or `Id`). `SpringMediator`
+resolves it before the handler runs (an unknown draft is `CatalogVersionNotFoundException`), runs a
+query that names one in a read-only transaction, and `CatalogVersionTargeting` sets the PostgreSQL
+setting `epistola.content_version` to the draft's `version_id`, transaction-locally. Handlers written
+for "the" version of a catalog then work on that draft unchanged, and every message they dispatch
+inherits it; the caller's target is restored when the message ends. A message that names no version
+works on the next version. A self-managed command (`RefreshCodeList`) applies the target in each
+transaction it opens.
 
-The REST API's `…/versions/{catalogVersion}/…` paths pass the draft they name to every message they
-dispatch (`ResolvedCatalogVersion.ref`); a released version is read from its retained content.
+The REST API's `…/versions/{catalogVersion}/…` paths take `next`, a draft id or a release number
+(`ResolveCatalogVersion`), pass the draft they name to every message they dispatch
+(`ResolvedCatalogVersion.ref`), and read a released version from its retained content.
 
 ### Choosing a draft in the UI
 
-The web UI names the draft in the catalog's own path segment: `letters@2.0.0` is draft 2.0.0 of
-`letters`, plain `letters` its current version (`CatalogSegment` in `epistola-web`; `@` cannot occur
-in a catalog key). So `/tenants/acme/templates/letters@2.0.0/invoice` is the invoice in that draft,
-and the same works for every per-catalog and per-resource route (catalog page, themes, stencils,
-code lists, fonts, images, the template editor and its preview). List pages take it as their
-`catalog` filter (`/attributes?catalog=letters@2.0.0`), and their create dialogs then create in that
-draft.
+The web UI names long-term work in the catalog's own path segment: `letters@<draft id>` is that work
+of `letters`, plain `letters` its next version (`CatalogSegment` in `epistola-web`; `@` cannot occur in
+a catalog key). So `/tenants/acme/templates/letters@0193…/invoice` is the invoice in that work, and the
+same works for every per-catalog and per-resource route (catalog page, themes, stencils, code lists,
+fonts, images, the template editor and its preview). List pages take it as their `catalog` filter
+(`/attributes?catalog=letters@0193…`), and their create dialogs then create there.
 
 - **Why the URL, not the session.** A link to a draft is shareable and survives reloads, two tabs
   can work in two drafts, and every link, HTMX request and editor call built from the segment stays
   on the draft without any of them knowing about drafts. The editor's own requests read the segment
   from the editor config (`catalogSegment`) and use it for its own catalog's URLs; requests across
-  catalogs (stencil search, image content) name the draft as `in=letters@2.0.0`, so that catalog is
-  read from the draft and every other from its current version.
+  catalogs (stencil search, image content) name the draft as `in=letters@…`, so that catalog is read
+  from the draft and every other from its next version.
 - **Every message names it.** Handlers pass the segment's draft as `catalogVersion` to every command
   and query they dispatch, including the UI-only ones (`GetEditorContext`, `ListTemplateSummaries`,
   `GetThemeUsagePage`, `ResolveTemplateTheme`, `PreviewVariant`, `BrowseCatalog`, …).
-- **The draft bar** (`catalogs/drafts.html`, read model `CatalogDraftBar`) says which draft a page
-  works in, its base, the releases it is behind with their changes, and links to the other drafts;
-  the current draft is linked plainly. A catalog with one draft looks as it always did: its number
-  in the catalog page's _Next release_ heading and no bar on content pages.
-- **On the catalog page** _Next release_ works on the chosen draft: _New draft_ (number, and a draft
-  or release to copy, defaulting to the base), _Discard draft_ (refusals such as a held default
-  theme are shown in the section), _Renumber_ and _Release_. The release dialog lists the releases
-  the draft is behind, with their changes, and asks to confirm each (`acknowledgedBehind`). An
-  authored catalog without a draft offers to open one from its latest release.
-- A route naming a version that is not a draft of the catalog is a 404.
+- **The context bar** (read model `CatalogDraftBar`, [`workspace-shell.md`](workspace-shell.md)) says
+  which draft a page works in: "Next version", or long-term work by its name with a strip saying it is
+  kept apart. Its version menu lists the next version and each piece of long-term work, and offers
+  _Start long-term work…_ (`catalogs/drafts.html`: a name, and the next version or a published version
+  to start from).
+- **Publishing** is offered for the next version only, numbered from its changes; the release dialog
+  lists the releases it is behind, with their changes, and asks to confirm each (`acknowledgedBehind`).
+  _Discard_ on the next version throws its changes away; on long-term work it removes it. An authored
+  catalog without a next version offers to open it from its latest release.
+- A route naming a draft the catalog does not have is a 404; a number names no draft.
 
-Over MCP the content tools take an optional `catalogVersion` argument, and the version tools list,
-open, renumber, release and discard drafts (see [`mcp.md`](mcp.md)).
+Over MCP the content tools take an optional `catalogVersion` argument (`next` or a `draftId`), and the
+version tools list versions, start, rename and discard long-term work, preview the release number and
+release the next version (see [`mcp.md`](mcp.md)).
 
 ## Versioning scheme: SemVer + content fingerprint
 
@@ -361,12 +366,12 @@ draft, a stencil without a draft, and every other resource. `template_versions` 
 
 ## Cutting a release (AUTHORED)
 
-An authored catalog's page has a **Next release** section (`catalogs/next-release.html`): the
-current draft's version number with **Renumber** (a dialog; warnings are shown to acknowledge,
-refusals — a number in use — as a field error), every resource that changed since the draft's base
-with its state and whether it is ready, **Mark all ready**, and the declared
-**Dependencies** with their locks (edited in a dialog: a catalog and an npm range per row; **Resolve
-to latest** moves the locks). **Release** is offered only while nothing blocks it; otherwise the
+An authored catalog's page has a **Next release** section (`catalogs/next-release.html`): every
+resource that changed since the draft's base with its state and whether it is ready, **Mark all
+ready**, and the declared **Dependencies** with their locks (edited in a dialog: the catalogs it uses,
+each tied to its latest published version, which a newer one replaces once it fits what is used;
+**Resolve to latest** moves the locks). The next version has no number until it is published; the
+release dialog picks it from the kind of change and may raise it under Advanced. **Release** is offered only while nothing blocks it; otherwise the
 section says which resources are not ready or which dependencies match no release, and where to fix
 it. The page and the release dialog gate on the same read model, `CatalogReleaseReadiness`. The
 dialog (also reachable from the catalog list) pre-fills the draft's number, offers Patch / Minor /
@@ -563,12 +568,12 @@ To regenerate after an intentional change: run the test, paste the reported
 
 ## Surfaces
 
-| Surface  | Exposure                                                                                                                                                                  |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Web UI   | Version column (`v<version>` / `unreleased`); drafts (choose, open, discard, renumber, release with `acknowledgedBehind`)                                                 |
-| REST     | Catalog versions: list, create, delete, renumber, release (`…/versions/{catalogVersion}/…`)                                                                               |
-| MCP      | `list_catalog_versions`, `create_catalog_version`, `delete_catalog_version`, `renumber_catalog_version`, `release_catalog_version`; `catalogVersion` on the content tools |
-| Exchange | `ReleaseInfo.fingerprint` in the manifest; `schemaVersion` 4                                                                                                              |
+| Surface  | Exposure                                                                                                                                                                                  |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web UI   | Version column (`v<version>` / `unreleased`); the next version and long-term work (start, discard, publish the next version with `acknowledgedBehind`)                                    |
+| REST     | Catalog versions: list, create long-term work, rename, discard, preview the release number, release the next version (`…/versions/{next, draft id or number}/…`)                          |
+| MCP      | `list_catalog_versions`, `start_long_term_work`, `rename_long_term_work`, `discard_catalog_work`, `preview_release_number`, `release_next_version`; `catalogVersion` on the content tools |
+| Exchange | `ReleaseInfo.fingerprint` in the manifest; `schemaVersion` 4                                                                                                                              |
 
 ## Roadmap
 

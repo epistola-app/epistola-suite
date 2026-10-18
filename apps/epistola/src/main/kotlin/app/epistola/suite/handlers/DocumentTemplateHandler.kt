@@ -238,7 +238,7 @@ class DocumentTemplateHandler(
             "templates" to result.items,
             "selectedCatalog" to (catalogSegment?.value ?: ""),
             // Rows of the filtered catalog link into the draft the filter names.
-            "draftSegment" to catalogSegment?.takeIf { it.version != null },
+            "draftSegment" to catalogSegment?.takeIf { it.draft != null },
             "searchTerm" to (searchTerm ?: ""),
             "sort" to sort.param,
             "sortDir" to if (descending) "desc" else "asc",

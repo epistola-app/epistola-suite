@@ -4,51 +4,56 @@
 
 package app.epistola.suite.htmx
 
+import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import java.util.UUID
 
 /** A catalog in a UI route, optionally one of its drafts: `letters` or `letters@2.0.0`. */
 class CatalogSegmentTest {
 
     private val tenant = TenantKey.of("acme")
+    private val work = UUID.fromString("0193a6b2-7f4e-7c1d-9a2b-3c4d5e6f7a8b")
 
     @Test
-    fun `a plain key names the catalog's current version`() {
+    fun `a plain key names the catalog's current version, its next version`() {
         val segment = CatalogSegment.parse("letters")
 
         assertThat(segment.key).isEqualTo(CatalogKey.of("letters"))
-        assertThat(segment.version).isNull()
+        assertThat(segment.draft).isNull()
         assertThat(segment.ref(tenant)).isNull()
         assertThat(segment.value).isEqualTo("letters")
     }
 
     @Test
-    fun `key at version names that draft`() {
-        val segment = CatalogSegment.parse("letters@2.0.0")
+    fun `key at a draft id names that draft`() {
+        val segment = CatalogSegment.parse("letters@$work")
 
         assertThat(segment.key).isEqualTo(CatalogKey.of("letters"))
-        assertThat(segment.ref(tenant)).isEqualTo(CatalogVersionRef(tenant, CatalogKey.of("letters"), "2.0.0"))
-        assertThat(segment.value).isEqualTo("letters@2.0.0")
+        assertThat(segment.ref(tenant)).isEqualTo(CatalogVersionRef(tenant, CatalogKey.of("letters"), DraftRef.Id(work)))
+        assertThat(segment.value).isEqualTo("letters@$work")
         assertThat(segment.at(null).value).isEqualTo("letters")
     }
 
     @Test
-    fun `a version that is not SemVer, or a bad key, is refused`() {
-        assertThatThrownBy { CatalogSegment.parse("letters@latest") }.isInstanceOf(IllegalArgumentException::class.java)
-        assertThatThrownBy { CatalogSegment.parse("Bad Key@1.0.0") }.isInstanceOf(IllegalArgumentException::class.java)
+    fun `a version number, anything else that is not a draft id, or a bad key, is refused`() {
+        assertThatThrownBy { CatalogSegment.parse("letters@2.0.0") }.`as`("a draft has no number: not there, as an old link").isInstanceOf(CatalogVersionNotFoundException::class.java)
+        assertThatThrownBy { CatalogSegment.parse("letters@latest") }.isInstanceOf(CatalogVersionNotFoundException::class.java)
+        assertThatThrownBy { CatalogSegment.parse("Bad Key@$work") }.isInstanceOf(IllegalArgumentException::class.java)
         assertThat(CatalogSegment.parseOrNull("letters@")).isNull()
         assertThat(CatalogSegment.parseOrNull("  ")).isNull()
     }
 
     @Test
     fun `a resource of the same catalog links into the draft, another catalog's plainly`() {
-        val segment = CatalogSegment.parse("letters@2.0.0")
+        val segment = CatalogSegment.parse("letters@$work")
 
-        assertThat(segment.linkFor(CatalogKey.of("letters"))).isEqualTo("letters@2.0.0")
+        assertThat(segment.linkFor(CatalogKey.of("letters"))).isEqualTo("letters@$work")
         assertThat(segment.linkFor("system")).isEqualTo("system")
     }
 }

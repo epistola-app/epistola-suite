@@ -4,7 +4,6 @@
 
 package app.epistola.suite.testing
 
-import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
@@ -31,17 +30,14 @@ fun Mediator.publishAndRelease(variantId: VariantId): String {
 }
 
 /**
- * Marks every changed resource of [catalogId] ready and cuts its next patch release (`1.0.0` for its
- * first), capturing the working copy, as an author releasing what they finished would.
+ * Marks every changed resource of [catalogId] ready and releases its next version under the number its
+ * changes need (`1.0.0` for its first), as an author releasing what they finished would.
  *
  * @return the version cut.
  */
 fun Mediator.releaseNext(catalogId: CatalogId): String {
     send(MarkCatalogReady(catalogId.tenantKey, catalogId.key))
-    val latest = query(GetLatestCatalogRelease(catalogId.tenantKey, catalogId.key)).latestVersion
-    val next = latest?.let { SemVer.parse(it).bumpPatch().toString() } ?: "1.0.0"
-    send(ReleaseCatalogVersion(tenantKey = catalogId.tenantKey, catalogKey = catalogId.key, version = next))
-    return next
+    return send(ReleaseCatalogVersion(tenantKey = catalogId.tenantKey, catalogKey = catalogId.key)).version
 }
 
 /**

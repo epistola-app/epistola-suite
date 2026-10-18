@@ -6,6 +6,7 @@ package app.epistola.suite.api.v1
 
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.versions.CatalogVersionStatus
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -30,15 +31,16 @@ internal object CatalogApiPaths {
 
     /**
      * `…/catalogs/~/{namespace}/{catalogKey}/versions/{version}`; without [version], the catalog's
-     * open draft, or its highest release when it has no draft (a subscribed catalog).
+     * next version (`next`), or its highest release when it has none (a subscribed catalog).
      */
     fun version(tenantKey: TenantKey, catalogKey: String = CatalogKey.DEFAULT.value, version: String? = null): String = "${catalog(tenantKey, catalogKey)}/versions/${version ?: currentVersion(tenantKey, catalogKey)}"
 
-    /** The catalog's open draft version, or its highest release when it has no draft. */
+    /** How an address names the catalog's current version: `next`, or its highest release when it has no next version. */
     fun currentVersion(tenantKey: TenantKey, catalogKey: String = CatalogKey.DEFAULT.value): String {
         val versions = ListCatalogVersions(tenantKey, CatalogKey.of(catalogKey)).query()
-        return (versions.firstOrNull { it.status == CatalogVersionStatus.DRAFT } ?: versions.firstOrNull())?.version
-            ?: error("Catalog $catalogKey of tenant ${tenantKey.value} has no version: an authored catalog should always have its draft")
+        if (versions.any { it.isNext }) return DraftRef.NEXT
+        return versions.firstOrNull { it.status == CatalogVersionStatus.RELEASED }?.version
+            ?: error("Catalog $catalogKey of tenant ${tenantKey.value} has no version: an authored catalog should always have its next version")
     }
 
     /** The catalog's namespace, as a generation or preview request names the catalog. */

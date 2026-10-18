@@ -375,7 +375,7 @@ class StencilHandler(
             "tenantId" to tenantId.key
             "catalogId" to catalogId.value
             "catalogSegment" to segment.value
-            "draftSegment" to segment.takeIf { it.version != null }
+            "draftSegment" to segment.takeIf { it.draft != null }
             "draftBar" to draftBar
             stencilModel(stencil, version = version)
             "parameterSchemaJson" to stencil.parameterSchema?.let { objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(it) }
@@ -561,7 +561,7 @@ class StencilHandler(
                 "tenantId" to tenantId.key
                 "catalogId" to stencilId.catalogKey.value
                 "catalogSegment" to request.catalogSegment().value
-                "draftSegment" to request.catalogSegment().takeIf { it.version != null }
+                "draftSegment" to request.catalogSegment().takeIf { it.draft != null }
                 "stencil" to stencil
                 "usage" to usagePage.items
                 "usagePage" to usagePage

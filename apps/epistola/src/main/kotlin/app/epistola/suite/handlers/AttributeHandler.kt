@@ -207,7 +207,7 @@ class AttributeHandler {
         // stay-on-list refresh would cause. onNonHtmx 303-redirects for the
         // non-HTMX fallback.
         // Created in a draft, the list comes back filtered to it, which is where the attribute is.
-        val destination = catalogSegment?.takeIf { it.version != null }
+        val destination = catalogSegment?.takeIf { it.draft != null }
             ?.let { "/tenants/${tenantId.key}/attributes?catalog=${it.value}" }
             ?: "/tenants/${tenantId.key}/attributes"
         return request.htmx {
@@ -233,7 +233,7 @@ class AttributeHandler {
                 "tenantId" to tenantId.key
                 "attribute" to attribute
                 "codeLists" to codeLists
-                "draftSegment" to request.catalogSegment().takeIf { it.version != null }
+                "draftSegment" to request.catalogSegment().takeIf { it.draft != null }
             }
         }
     }
@@ -254,7 +254,7 @@ class AttributeHandler {
         }
 
         val version = request.catalogVersion()
-        val draftSegment = request.catalogSegment().takeIf { it.version != null }
+        val draftSegment = request.catalogSegment().takeIf { it.draft != null }
         val codeLists = ListCodeLists(tenantId, catalogVersion = version).query()
 
         if (form.hasErrors()) {
@@ -326,7 +326,7 @@ class AttributeHandler {
             ?: return ServerResponse.badRequest().build()
 
         val version = request.catalogVersion()
-        val draftSegment = request.catalogSegment().takeIf { it.version != null }
+        val draftSegment = request.catalogSegment().takeIf { it.draft != null }
         DeleteAttributeDefinition(
             id = attributeId,
             catalogVersion = version,

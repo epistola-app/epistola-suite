@@ -6,6 +6,7 @@ package app.epistola.suite.mcp.support
 
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -38,9 +39,9 @@ internal fun catalogFilter(catalogId: String?): CatalogKey? {
 }
 
 /** The description of the optional `catalogVersion` argument of every tool that addresses catalog content. */
-internal const val CATALOG_VERSION_DESCRIPTION = "Draft of the catalog to work in, by its version number " +
-    "(e.g. `2.0.0`), when the catalog has several; `list_catalog_versions` lists them. Omit for the catalog's " +
-    "current version: its highest open draft (a SUBSCRIBED catalog's installed release)."
+internal const val CATALOG_VERSION_DESCRIPTION = "Draft of the catalog to work in: `next`, or long-term work by its " +
+    "`draftId` from `list_catalog_versions`. Omit for the catalog's current version: its next version (a SUBSCRIBED " +
+    "catalog's installed release)."
 
 /**
  * The draft a tool's `catalogVersion` argument names, of catalog [catalogId], or null for its current
@@ -50,5 +51,7 @@ internal fun catalogVersionRef(catalogId: String?, catalogVersion: String?): Cat
     val version = catalogVersion?.trim()?.takeIf { it.isNotEmpty() } ?: return null
     val catalog = catalogId?.takeIf { it.isNotBlank() }
         ?: throw ValidationException("catalogVersion", "`catalogVersion` is a version of one catalog; give `catalogId` too")
-    return CatalogVersionRef(mcpTenantKey(), CatalogKey.of(catalog), version)
+    val draft = DraftRef.parse(version)
+        ?: throw ValidationException("catalogVersion", "`catalogVersion` is `next` or a `draftId` from `list_catalog_versions`; a draft has no number until it is released")
+    return CatalogVersionRef(mcpTenantKey(), CatalogKey.of(catalog), draft)
 }

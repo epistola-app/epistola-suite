@@ -5,12 +5,10 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.CatalogType
-import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.versions.CatalogVersion
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
 import app.epistola.suite.catalog.versions.CatalogVersionStatus
 import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.CatalogKey
@@ -22,24 +20,23 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.SecurityContext
 
 /**
- * Which version of a catalog a page works in, and the controls for it (contract ADR 0002), in the
- * terms people use (docs/catalog-workspace-navigation.md): an authored catalog has a **next version** —
- * its highest draft, which a plain segment (`letters`) means and which has no number until it is
- * published — and at times **another draft**, such as an in-between version: named by its number
- * (`letters@1.4.1`). A subscribed catalog shows its
- * installed release, which cannot be edited.
+ * Which version of a catalog a page works in, and the controls for it (contract ADR 0002, amendment 2),
+ * in the terms people use (docs/catalog-working-model.md): an authored catalog has a **next version** —
+ * where everyday work goes, which a plain segment (`letters`) means and which has no number until it is
+ * published — and at times **long-term work** next to it, a named draft (`letters@<draft id>`) that is
+ * not published until it becomes the next version. A subscribed catalog shows its installed release,
+ * which cannot be edited.
  *
  * Every page that shows a catalog's content builds one of these and renders it as the bar above the
  * page header, so the catalog page and the content pages agree on what is being changed and on what
  * may be done to it. Templates gate on the names below, never on the raw flags.
  *
  * @property segment the route's catalog segment, which every link on the page carries.
- * @property chosen the draft worked in; null for a catalog that has none (subscribed, or every draft
- *   discarded).
- * @property mayOpenDrafts the viewer holds `TEMPLATE_EDIT`, which opening a draft needs (contract
- *   `createCatalogVersion`).
- * @property mayDiscardDrafts the viewer holds `CATALOG_RELEASE`, which discarding a draft needs (contract
- *   `deleteCatalogVersion`).
+ * @property drafts the open drafts: the next version first, then long-term work.
+ * @property chosen the draft worked in; null for a catalog that has none (subscribed, or a next version
+ *   discarded and not opened again).
+ * @property mayOpenDrafts the viewer holds `TEMPLATE_EDIT`, which starting long-term work needs.
+ * @property mayDiscardDrafts the viewer holds `CATALOG_RELEASE`, which publishing and discarding need.
  */
 data class CatalogDraftBar(
     val tenantKey: TenantKey,
@@ -59,8 +56,8 @@ data class CatalogDraftBar(
     /** The same page at another segment, for the draft links. */
     private val pageAt: (CatalogSegment) -> String,
 ) {
-    /** The catalog's current version: its highest draft, or a subscribed catalog's installed release. */
-    val current: CatalogVersion? get() = if (authored) drafts.firstOrNull() else installed
+    /** The catalog's current version: its next version, or a subscribed catalog's installed release. */
+    val current: CatalogVersion? get() = if (authored) drafts.firstOrNull { it.isNext } else installed
 
     /** The version the page shows: the chosen draft, or a subscribed catalog's installed release. */
     val shown: CatalogVersion? get() = chosen ?: installed
@@ -68,112 +65,49 @@ data class CatalogDraftBar(
     /** Nothing on the page changes the catalog: it is subscribed, so its content is its publisher's. */
     val readOnly: Boolean get() = !authored
 
-    /** The version messages on this page name; null for the current version. */
+    /** The version messages on this page name; null for the next version. */
     val ref: CatalogVersionRef? get() = segment.ref(tenantKey)
 
     /** The segment links on this page carry, as it appears in a URL. */
     val segmentValue: String get() = segment.value
 
-    /** More than one draft is open, so the page says which one it works in and offers the others. */
+    /** Long-term work is open next to the next version, so the page says which draft it works in. */
     val severalDrafts: Boolean get() = drafts.size > 1
 
     /**
-     * An authored catalog with no open draft: there is nothing to edit until one is opened, so the
-     * page offers to open one ([openDraftVersion] from [openDraftFrom]) instead of failing.
+     * An authored catalog with no next version: there is nothing to edit until it is opened, so the
+     * page offers to open it (on [openDraftFrom]) instead of failing.
      */
-    val noDraft: Boolean get() = authored && drafts.isEmpty()
+    val noDraft: Boolean get() = authored && current == null
 
     /**
-     * The page works in another draft than the next version, such as an in-between version: an authored
-     * catalog's draft other than its highest. Shown as a banner, so nobody mistakes it for their work.
+     * The page works in long-term work, not the next version. Shown as a banner, so nobody mistakes it
+     * for everyday work, and publishing is not offered: only the next version is published.
      */
-    val fixing: Boolean get() = authored && chosen != null && current != null && chosen.version != current?.version
+    val onLongTermWork: Boolean get() = authored && chosen != null && !chosen.isNext
 
-    /** The published version a fix changes: the release its draft is based on. */
-    val fixOf: String? get() = chosen?.base?.takeIf { fixing }
-
-    /** The environments the fixed version is live in, so the banner says why the fix matters. */
-    val fixOfLiveIn: List<String> get() = fixOf?.let { version -> releases.firstOrNull { it.version == version }?.deployedTo }.orEmpty()
-
-    /** The same page in the next version, for "go to the next version" from another draft. */
+    /** The same page in the next version, for "go to the next version" from long-term work. */
     val workHref: String get() = pageAt(segment.at(null))
 
     /** The chosen draft's own page, for the bar above a content page. */
     val draftPageHref: String get() = CatalogPages.draft(TenantId(tenantKey), segment)
 
-    /** The other drafts open next to the next version, each linked to this page in that draft. */
-    val openFixes: List<DraftLink>
-        get() = if (!authored || fixing) {
-            emptyList()
-        } else {
-            drafts.drop(1).map { DraftLink(it.version, it.base, pageAt(segment.at(it.version)), active = false, behind = it.behind.isNotEmpty()) }
-        }
-
-    /**
-     * The published versions a fix can be started on: an authored catalog's releases that kept their
-     * content and are the newest patch of their line (fixing 1.4.0 once 1.4.1 exists would fix the
-     * wrong thing), for a viewer who may edit. A LinkedHashSet: SpEL cannot call contains() on
-     * Kotlin's EmptySet.
-     */
-    val fixableVersions: Set<String>
-        get() = LinkedHashSet(
-            if (!authored || !mayOpenDrafts) {
-                emptyList()
-            } else {
-                releases.filter { it.contentRetained == true }.mapNotNull { release ->
-                    val number = SemVer.parseOrNull(release.version) ?: return@mapNotNull null
-                    val newerPatch = releases.any { other ->
-                        SemVer.parseOrNull(other.version)?.let { it.major == number.major && it.minor == number.minor && it > number } == true
-                    }
-                    release.version.takeUnless { newerPatch }
-                }
-            },
-        )
-
-    /**
-     * The newer patch of [version]'s line, when there is one: why a fix of [version] is not offered —
-     * fixing it would fork the line beside that patch. Null when [version] is the newest of its line.
-     */
-    fun newerPatchOf(version: String): String? {
-        val number = SemVer.parseOrNull(version) ?: return null
-        return releases.mapNotNull { release -> SemVer.parseOrNull(release.version)?.takeIf { it.major == number.major && it.minor == number.minor && it > number } }
-            .maxOrNull()?.toString()
-    }
-
-    /** Per published version with a fix open, the fix's number: "Continue the fix" instead of starting another. */
-    val openFixOf: Map<String, String> get() = drafts.drop(1).mapNotNull { draft -> draft.base?.let { it to draft.version } }.toMap()
+    /** Long-term work open next to the next version, each linked to this page in that draft. */
+    val longTermWork: List<DraftLink> get() = draftLinks.filter { !it.next }
 
     /** Per published version, the environments it is live in. */
-    val liveIn: Map<String, List<String>> get() = releases.associate { it.version to it.deployedTo }
+    val liveIn: Map<String, List<String>> get() = releases.associate { requireNotNull(it.version) to it.deployedTo }
 
-    // ---- The catalog page, as people see it (docs/catalog-workspace-navigation.md) ----
+    // ---- The catalog page, as people see it (docs/catalog-working-model.md) ----
 
-    /** The page works in the next version: the highest draft, the one people work in 99% of the time. */
-    val isNext: Boolean get() = authored && chosen != null && !fixing
+    /** The page works in the next version, the one people work in 99% of the time. */
+    val isNext: Boolean get() = authored && chosen?.isNext == true
 
-    /**
-     * What the chosen draft is called: "Next version", which has no number until it is published, or
-     * "Draft v1.2.1" for any other, which is explicit because it is the advanced case.
-     */
-    val draftTitle: String? get() = chosen?.let { if (fixing) "Draft v${it.version}" else "Next version" }
+    /** What the chosen draft is called: "Next version", or long-term work's name. */
+    val draftTitle: String? get() = chosen?.label
 
-    /** The latest published version: what the next version is based on, and what an in-between version starts from. */
+    /** The latest published version: what the next version is based on. */
     val latestPublished: String? get() = latestRelease?.version
-
-    /** The draft already open on the latest published version, to continue instead of starting another. */
-    val openInBetween: String? get() = latestPublished?.let { openFixOf[it] }
-
-    /**
-     * Whether to offer "Start an in-between version": something has to be published before the next
-     * version is ready, so a draft starts from the latest published version, without the unfinished
-     * changes. Offered when there is a next version to keep apart from, the viewer may edit, the latest
-     * published version kept its content to start from, and none is open on it yet.
-     */
-    val offerInBetween: Boolean get() = authored && current != null && openInBetween == null && latestPublished in fixableVersions
-
-    /** An in-between version cannot be started because the latest published version kept no content. */
-    val inBetweenWithheldNoContent: Boolean
-        get() = authored && current != null && mayOpenDrafts && openInBetween == null && latestRelease != null && latestRelease?.contentRetained != true
 
     /**
      * Every version of the catalog, for the catalog page's Versions list: an authored catalog's
@@ -182,44 +116,48 @@ data class CatalogDraftBar(
      */
     val versionRows: List<VersionRow>
         get() = (if (authored) drafts else emptyList()).map { draft ->
-            val next = draft.version == current?.version
+            val at = if (draft.isNext) segment.at(null) else segment.at(draft.draftId)
             VersionRow(
-                version = draft.version,
+                label = draft.label,
+                version = null,
                 draft = true,
-                next = next,
+                next = draft.isNext,
                 base = draft.base,
                 publishedAt = null,
                 liveIn = emptyList(),
                 contentKept = true,
-                href = pageAt(if (next) segment.at(null) else segment.at(draft.version)),
+                href = pageAt(at),
                 offerRemove = mayDiscardDrafts,
                 removeWithheld = !mayDiscardDrafts,
-                removeAction = "/tenants/${tenantKey.value}/catalogs/${catalogKey.value}${if (next) "" else "@${draft.version}"}/drafts/discard",
+                removeAction = "/tenants/${tenantKey.value}/catalogs/${at.value}/drafts/discard",
             )
         } + releases.map { release ->
+            val version = requireNotNull(release.version)
             VersionRow(
-                version = release.version,
+                label = release.label,
+                version = version,
                 draft = false,
                 next = false,
                 base = release.base,
                 publishedAt = release.releasedAt,
                 liveIn = release.deployedTo,
                 contentKept = release.contentRetained == true,
-                href = CatalogPages.release(tenantKey, catalogKey, release.version),
+                href = CatalogPages.release(tenantKey, catalogKey, version),
                 // A subscribed catalog's versions are its publisher's: nothing to delete here.
                 offerRemove = authored && mayDeleteReleases,
                 removeWithheld = authored && !mayDeleteReleases,
-                removeAction = "/tenants/${tenantKey.value}/catalogs/${catalogKey.value}/releases/${release.version}/delete",
+                removeAction = "/tenants/${tenantKey.value}/catalogs/${catalogKey.value}/releases/$version/delete",
             )
         }
 
     /**
-     * One version on the catalog page. [next] marks the next version, shown without its number;
-     * [base] is the published version it started from (null when it started from nothing);
-     * [publishedAt] is null for a draft.
+     * One version on the catalog page: a draft by [label] ("Next version", or long-term work's name), a
+     * published one by [version]; [base] is the published version it started from (null when it
+     * started from nothing); [publishedAt] is null for a draft.
      */
     data class VersionRow(
-        val version: String,
+        val label: String,
+        val version: String?,
         val draft: Boolean,
         val next: Boolean,
         val base: String?,
@@ -239,83 +177,63 @@ data class CatalogDraftBar(
     val removalWithheld: Boolean get() = versionRows.any { it.removeWithheld }
 
     /** Publishing is withheld because the viewer may not publish; the bar says so instead of hiding it. */
-    val publishWithheld: Boolean get() = authored && chosen != null && !mayDiscardDrafts
+    val publishWithheld: Boolean get() = isNext && !mayDiscardDrafts
 
     /** The releases the chosen draft is behind, lowest first, each with what it changed. */
     val behind get() = chosen?.behind.orEmpty()
 
-    /**
-     * Versions published after the next version started that are not in it and that [behind] does
-     * not already name: a fix of an older version (what was live in production), published from side
-     * work. [behind] only covers releases numbered between the draft's base and its own number, so a
-     * fix of an older line would otherwise go unmentioned. Newest first.
-     */
-    val publishedSince: List<CatalogVersion>
-        get() {
-            val draft = chosen?.takeIf { isNext } ?: return emptyList()
-            val since = releases.firstOrNull { it.version == draft.base }?.releasedAt ?: return emptyList()
-            val named = behind.map { it.version }.toSet()
-            return releases.filter { it.version != draft.base && it.version !in named && it.releasedAt?.isAfter(since) == true }
-        }
-
-    /** Whether to offer opening another draft. */
-    val offerCreateDraft: Boolean get() = authored && mayOpenDrafts
+    /** Whether to offer starting long-term work. */
+    val offerCreateDraft: Boolean get() = authored && mayOpenDrafts && current != null
 
     /**
-     * Whether to offer releasing the chosen draft. Releasing is catalog-wide — the draft goes out
-     * whole — and the dialog says whether it is ready; it needs `CATALOG_RELEASE`.
+     * Whether to offer publishing the chosen draft. Only the next version is published; publishing is
+     * catalog-wide — the draft goes out whole — and the dialog says whether it is ready; it needs
+     * `CATALOG_RELEASE`.
      */
-    val offerRelease: Boolean get() = authored && chosen != null && mayDiscardDrafts
+    val offerRelease: Boolean get() = isNext && mayDiscardDrafts
 
     /** Whether to offer discarding the chosen draft. */
     val offerDiscard: Boolean get() = authored && mayDiscardDrafts && chosen != null
 
     /**
-     * Whether to offer opening a draft where there is none. The viewer may, and either nothing was
-     * ever released (an empty draft) or the latest release kept its content to copy.
+     * Whether to offer opening the next version where there is none. The viewer may, and either nothing
+     * was ever released (an empty draft) or the latest release kept its content to copy.
      */
     val offerOpenDraft: Boolean get() = noDraft && mayOpenDrafts && (latestRelease == null || openDraftFrom != null)
 
-    /** There is no draft and one cannot be opened from the latest release, which kept no content. */
+    /** There is no next version and one cannot be opened from the latest release, which kept no content. */
     val openDraftWithheldNoContent: Boolean get() = noDraft && mayOpenDrafts && !offerOpenDraft
 
-    /** Opening a draft is withheld because the viewer may not edit the catalog's content. */
+    /** Starting work is withheld because the viewer may not edit the catalog's content. */
     val draftControlsWithheld: Boolean get() = authored && !mayOpenDrafts
 
     /** Discarding the chosen draft is withheld because the viewer may not release the catalog. */
     val discardWithheld: Boolean get() = authored && chosen != null && !mayDiscardDrafts
 
-    /** The number an opened draft gets when there is none: the patch after the latest release. */
-    val openDraftVersion: String get() = latestRelease?.version?.let { SemVer.parseOrNull(it)?.bumpPatch()?.toString() } ?: "1.0.0"
-
-    /** What an opened draft copies when there is none: the latest release that kept its content. */
+    /** What an opened next version copies when there is none: the latest release that kept its content. */
     val openDraftFrom: String? get() = latestRelease?.takeIf { it.contentRetained == true }?.version
 
-    /** The draft links, highest first, each to this page in that draft. */
+    /** The draft links, the next version first, each to this page in that draft. */
     val draftLinks: List<DraftLink>
         get() = drafts.map { draft ->
-            // The next version is linked plainly, another draft by its number.
-            val target = if (draft.version == current?.version) segment.at(null) else segment.at(draft.version)
-            DraftLink(draft.version, draft.base, pageAt(target), active = draft.version == chosen?.version, behind = draft.behind.isNotEmpty())
+            // The next version is linked plainly, long-term work by its id.
+            val target = if (draft.isNext) segment.at(null) else segment.at(draft.draftId)
+            DraftLink(draft.label, draft.isNext, draft.draftId, draft.base, pageAt(target), active = draft.draftId == chosen?.draftId, behind = draft.behind.isNotEmpty())
         }
 
-    /** What a new draft can be copied from: every draft, and every release that kept its content. */
-    val createFromOptions: List<String> get() = drafts.map { it.version } + releases.filter { it.contentRetained == true }.map { it.version }
-
-    /** The number the create dialog suggests: the next minor above every version. */
-    val suggestedNewVersion: String
-        get() = (drafts + releases).mapNotNull { SemVer.parseOrNull(it.version) }.maxOrNull()?.bumpMinor()?.toString() ?: "1.0.0"
+    /** What long-term work can start from: the next version (null), or a release that kept its content. */
+    val createFromOptions: List<String> get() = releases.filter { it.contentRetained == true }.mapNotNull { it.version }
 
     private val latestRelease: CatalogVersion? get() = releases.firstOrNull()
 
-    /** A draft to switch to. */
-    data class DraftLink(val version: String, val base: String?, val href: String, val active: Boolean, val behind: Boolean)
+    /** A draft to switch to: the [next] version, or long-term work by [label] and [draftId]. */
+    data class DraftLink(val label: String, val next: Boolean, val draftId: java.util.UUID?, val base: String?, val href: String, val active: Boolean, val behind: Boolean)
 
     companion object {
         /**
          * The bar for [segment] of an existing catalog, for the current principal; [pageAt] builds the
-         * page's URL at another segment. A segment naming a version the catalog does not have as a
-         * draft is refused, as a message naming it would be.
+         * page's URL at another segment. A segment naming a draft the catalog does not have is refused,
+         * as a message naming it would be.
          */
         fun of(tenantKey: TenantKey, segment: CatalogSegment, pageAt: (CatalogSegment) -> String): CatalogDraftBar {
             val catalog = GetCatalog(tenantKey, segment.key).query()
@@ -326,15 +244,9 @@ data class CatalogDraftBar(
             val installed = catalog?.installedReleaseVersion?.takeUnless { authored }?.let { number ->
                 versions.firstOrNull { it.version == number } ?: CatalogVersion(number, CatalogVersionStatus.RELEASED)
             }
-            val chosen = when (val version = segment.version) {
-                null -> drafts.firstOrNull()
-
-                installed?.version -> null
-
-                else -> drafts.firstOrNull { it.version == version } ?: run {
-                    if (versions.any { it.version == version }) throw CatalogVersionReleasedException(segment.key, version)
-                    throw CatalogVersionNotFoundException(segment.key, version)
-                }
+            val chosen = when (val draft = segment.draft) {
+                null -> drafts.firstOrNull { it.isNext }
+                else -> drafts.firstOrNull { it.draftId == draft } ?: throw CatalogVersionNotFoundException(segment.key, draft.toString())
             }
             val auth = AuthContext.from(SecurityContext.current(), tenantKey)
             return CatalogDraftBar(
@@ -374,7 +286,7 @@ object CatalogPages {
     /** The catalog page: the next version, every version, where each is live. */
     fun browse(tenantId: TenantId, segment: CatalogSegment): String = "/tenants/${tenantId.key}/catalogs/${segment.key.value}/browse"
 
-    /** A draft's own page: the next version at a plain segment, another draft at `key@version`. */
+    /** A draft's own page: the next version at a plain segment, long-term work at `key@<draft id>`. */
     fun draft(tenantId: TenantId, segment: CatalogSegment): String = "/tenants/${tenantId.key}/catalogs/${segment.value}/draft"
 
     /** A published version's own page. */

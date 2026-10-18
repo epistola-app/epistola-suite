@@ -69,8 +69,8 @@ class CreateCatalogHandler(
                 .bind("name", command.name)
                 .bind("description", command.description)
                 .execute()
-            // Its working copy is its first draft (contract ADR 0002).
-            drafts.open(handle, command.tenantKey, command.id, CatalogDrafts.FIRST, base = null)
+            // Its working copy is its next version (contract ADR 0002, amendment 2).
+            drafts.open(handle, command.tenantKey, command.id, base = null)
 
             handle.findCatalog(command.tenantKey, command.id)!!
         }

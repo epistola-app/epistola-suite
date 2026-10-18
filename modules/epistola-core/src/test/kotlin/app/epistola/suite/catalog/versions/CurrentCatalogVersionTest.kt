@@ -34,10 +34,11 @@ class CurrentCatalogVersionTest : IntegrationTestBase() {
     private val letters = CatalogKey.of("letters")
     private val installed = CatalogKey.of("epistola-demo")
 
-    private fun versionRow(tenantKey: TenantKey, catalogKey: CatalogKey): Pair<UUID, String> = jdbi.withHandle<Pair<UUID, String>, Exception> { handle ->
+    /** The catalog's next version, or its installed release: its only version until another is opened. */
+    private fun versionRow(tenantKey: TenantKey, catalogKey: CatalogKey): Pair<UUID, String?> = jdbi.withHandle<Pair<UUID, String?>, Exception> { handle ->
         handle.createQuery(
             "SELECT v.version_id, v.version FROM catalog_versions v JOIN catalogs c ON c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id " +
-                "WHERE c.tenant_key = :t AND c.catalog_key = :c",
+                "WHERE c.tenant_key = :t AND c.catalog_key = :c AND (v.is_next OR v.kind = 'installed')",
         )
             .bind("t", tenantKey).bind("c", catalogKey)
             .map { rs, _ -> rs.getObject("version_id", UUID::class.java) to rs.getString("version") }
@@ -67,14 +68,25 @@ class CurrentCatalogVersionTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `an authored catalog's current version is its open draft`() {
+    fun `an authored catalog's current version is its next version, which has no number`() {
         val tenantKey = createTenant("Current authored").id
         withMediator { CreateCatalog(tenantKey, letters, "Letters").execute() }
         val (draft, number) = versionRow(tenantKey, letters)
 
+        assertThat(number).`as`("numbered only when released").isNull()
         assertThat(currentInView(tenantKey, letters)).isEqualTo(draft)
         assertThat(versionAtOf(tenantKey, letters)).isEqualTo(draft)
-        assertThat(versionNamedOf(tenantKey, letters, number)).isEqualTo(draft)
+    }
+
+    @Test
+    fun `long-term work is never an authored catalog's current version, however new it is`() {
+        val tenantKey = createTenant("Current long-term").id
+        withMediator { CreateCatalog(tenantKey, letters, "Letters").execute() }
+        val (next, _) = versionRow(tenantKey, letters)
+        withMediator { CreateCatalogDraft(tenantKey, letters, "Redesign").execute() }
+
+        assertThat(currentInView(tenantKey, letters)).isEqualTo(next)
+        assertThat(versionAtOf(tenantKey, letters)).isEqualTo(next)
     }
 
     @Test

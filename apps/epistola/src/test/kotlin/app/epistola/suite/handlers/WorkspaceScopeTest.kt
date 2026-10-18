@@ -13,6 +13,7 @@ import app.epistola.suite.security.Permission
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.OffsetDateTime
+import java.util.UUID
 
 /**
  * Being inside a catalog (docs/workspace-shell.md): what the context bar calls the version a page
@@ -22,7 +23,11 @@ class WorkspaceScopeTest {
 
     private val letters = CatalogKey.of("letters")
 
-    private fun draft(version: String, base: String?) = CatalogVersion(version, CatalogVersionStatus.DRAFT, base = base)
+    private val redesignId = UUID.fromString("0193a6b2-7f4e-7c1d-9a2b-3c4d5e6f7a8b")
+
+    private fun next(base: String?) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, draftId = UUID.fromString("0193a6b2-7f4e-7c1d-9a2b-000000000001"), isNext = true)
+
+    private fun longTerm(name: String, base: String?) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, draftId = redesignId, name = name)
 
     private fun release(version: String, liveIn: List<String> = emptyList()) = CatalogVersion(
         version,
@@ -46,7 +51,7 @@ class WorkspaceScopeTest {
         segment = segment,
         drafts = drafts,
         releases = releases,
-        chosen = segment.version?.let { v -> drafts.first { it.version == v } } ?: drafts.firstOrNull(),
+        chosen = segment.draft?.let { id -> drafts.first { it.draftId == id } } ?: drafts.firstOrNull { it.isNext },
         mayOpenDrafts = true,
         mayDiscardDrafts = true,
         installed = installed,
@@ -55,17 +60,18 @@ class WorkspaceScopeTest {
 
     private val everything: (Permission) -> Boolean = { true }
 
-    private val work = listOf(draft("1.3.0", "1.2.0"), draft("1.2.1", "1.2.0"))
+    private val work = listOf(next("1.2.0"), longTerm("Redesign", "1.1.0"))
+    private val onRedesign = CatalogSegment(letters, redesignId)
     private val published = listOf(release("1.2.0", liveIn = listOf("production")), release("1.1.0", liveIn = listOf("test")))
 
     @Test
-    fun `the bar names the next version plainly, side work by what it fixes and where that is live`() {
+    fun `the bar names the next version plainly, long-term work by its name`() {
         assertThat(WorkspaceBuilder.scope(bar(work, published), null, "/tenants/acme/templates", everything).versionLabel)
             .isEqualTo("Next version")
 
-        val fix = WorkspaceBuilder.scope(bar(work, published, CatalogSegment(letters, "1.2.1")), null, "/tenants/acme/templates", everything)
-        assertThat(fix.versionLabel).isEqualTo("Fix of v1.2.0 · production")
-        assertThat(fix.sideWork).isTrue()
+        val longTerm = WorkspaceBuilder.scope(bar(work, published, onRedesign), null, "/tenants/acme/templates", everything)
+        assertThat(longTerm.versionLabel).isEqualTo("Redesign")
+        assertThat(longTerm.sideWork).isTrue()
     }
 
     @Test
@@ -81,40 +87,32 @@ class WorkspaceScopeTest {
     }
 
     @Test
-    fun `the version menu lists the next version first, then side work by what it fixes, each to its overview`() {
+    fun `the version menu lists the next version first, then long-term work by name and what it started from, each to its overview`() {
         val versions = WorkspaceBuilder.scope(bar(work, published), null, "/tenants/acme/templates", everything).versions
 
-        assertThat(versions.map { it.label }).containsExactly("Next version", "Fix of v1.2.0")
+        assertThat(versions.map { it.label to it.detail }).containsExactly(
+            "Next version" to "Based on v1.2.0",
+            "Redesign" to "Long-term work, started from v1.1.0",
+        )
         // The same from every page, so the bar does not change while moving around in a version.
         assertThat(versions.map { it.href }).containsExactly(
             "/tenants/acme/catalogs/letters/browse",
-            "/tenants/acme/catalogs/letters@1.2.1/draft",
+            "/tenants/acme/catalogs/letters@$redesignId/draft",
         )
         assertThat(versions.first().current).isTrue()
     }
 
     @Test
-    fun `fixing what is live continues an open fix, or starts one from a version that can be fixed`() {
-        val fixes = WorkspaceBuilder.scope(bar(work, published), null, "/", everything).fixLive
-
-        assertThat(fixes.map { Triple(it.environment, it.version, it.continueHref) }).containsExactly(
-            Triple("production", "1.2.0", "/tenants/acme/catalogs/letters@1.2.1/draft"),
-            Triple("test", "1.1.0", null),
-        )
-        assertThat(fixes[1].startHref).isEqualTo("/tenants/acme/catalogs/letters/fixes")
-    }
-
-    @Test
     fun `the catalog nav carries the page's segment to content, the plain key to versions and where it is live`() {
-        val nav = CatalogNav.sections(bar(work, published, CatalogSegment(letters, "1.2.1")), "/tenants/acme/stencils", everything).flatten()
+        val nav = CatalogNav.sections(bar(work, published, onRedesign), "/tenants/acme/stencils", everything).flatten()
 
-        assertThat(nav.associate { it.key to it.href }).containsEntry("templates", "/tenants/acme/templates?catalog=letters@1.2.1")
-            .containsEntry("stencils", "/tenants/acme/stencils?catalog=letters@1.2.1")
-            .containsEntry("dependencies", "/tenants/acme/catalogs/letters@1.2.1/dependencies")
-            .containsEntry("settings", "/tenants/acme/catalogs/letters@1.2.1/settings")
+        assertThat(nav.associate { it.key to it.href }).containsEntry("templates", "/tenants/acme/templates?catalog=letters@$redesignId")
+            .containsEntry("stencils", "/tenants/acme/stencils?catalog=letters@$redesignId")
+            .containsEntry("dependencies", "/tenants/acme/catalogs/letters@$redesignId/dependencies")
+            .containsEntry("settings", "/tenants/acme/catalogs/letters@$redesignId/settings")
             .containsEntry("versions", "/tenants/acme/catalogs/letters/versions")
             .containsEntry("deployments", "/tenants/acme/catalogs/letters/deployments")
-            .`as`("side work's overview is its draft page").containsEntry("overview", "/tenants/acme/catalogs/letters@1.2.1/draft")
+            .`as`("long-term work's overview is its draft page").containsEntry("overview", "/tenants/acme/catalogs/letters@$redesignId/draft")
         assertThat(nav.filter { it.active }.map { it.key }).containsExactly("stencils")
     }
 
@@ -128,7 +126,7 @@ class WorkspaceScopeTest {
     @Test
     fun `each page of a catalog lights up its own item`() {
         assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters/browse", "letters")).isEqualTo("overview")
-        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters@1.2.1/draft", "letters")).isEqualTo("overview")
+        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters@$redesignId/draft", "letters")).isEqualTo("overview")
         assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters/releases/1.2.0", "letters")).isEqualTo("versions")
         assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters/deployments", "letters")).isEqualTo("deployments")
         assertThat(CatalogNav.activeKey("/tenants/acme/templates/letters/invoice", "letters")).isEqualTo("templates")
@@ -137,10 +135,10 @@ class WorkspaceScopeTest {
     }
 
     @Test
-    fun `the way back names the catalog, and the fix when it was one`() {
+    fun `the way back names the catalog, and the long-term work when it was that`() {
         assertThat(WorkspaceBuilder.backLabel(WorkspaceBuilder.scope(bar(work, published), null, "/", everything))).isEqualTo("Back to Letters")
-        assertThat(WorkspaceBuilder.backLabel(WorkspaceBuilder.scope(bar(work, published, CatalogSegment(letters, "1.2.1")), null, "/", everything)))
-            .isEqualTo("Back to Letters, fix of v1.2.0")
+        assertThat(WorkspaceBuilder.backLabel(WorkspaceBuilder.scope(bar(work, published, onRedesign), null, "/", everything)))
+            .`as`("a name as people wrote it").isEqualTo("Back to Letters, Redesign")
     }
 
     @Test

@@ -35,8 +35,9 @@ import org.junit.jupiter.api.Test
 import java.util.UUID
 
 /**
- * A catalog consists of versions (contract ADR 0002): released ones and, for an authored catalog, its
- * open drafts. Releasing the only draft opens the next patch. Several drafts: [SeveralDraftsTest].
+ * A catalog consists of versions (contract ADR 0002, amendment 2): released ones and, for an authored
+ * catalog, its next version (and any long-term work, [SeveralDraftsTest]). A draft has no number until
+ * it is released; releasing the next version continues it on the release.
  */
 class CatalogVersionsTest : IntegrationTestBase() {
 
@@ -48,60 +49,38 @@ class CatalogVersionsTest : IntegrationTestBase() {
         tenant
     }
 
-    private fun versions(tenant: TenantKey) = withMediator { ListCatalogVersions(tenant, letters).query() }.map { it.version to it.status }
+    private fun versions(tenant: TenantKey) = withMediator { ListCatalogVersions(tenant, letters).query() }.map { it.label to it.status }
 
     @Test
-    fun `a new catalog has draft 1_0_0, and releasing it opens the next patch on it`() {
+    fun `a new catalog has a next version without a number, and releasing it numbers it and continues it on the release`() {
         val tenant = catalog("versions-draft")
-        assertThat(versions(tenant)).containsExactly("1.0.0" to CatalogVersionStatus.DRAFT)
+        assertThat(versions(tenant)).containsExactly(CatalogDraft.NEXT_LABEL to CatalogVersionStatus.DRAFT)
+        val next = withMediator { GetCatalogDraft(tenant, letters).query()!! }
+        assertThat(next.version).isNull()
+        assertThat(next.isNext).isTrue()
+        assertThat(next.base).isNull()
 
         withMediator { mediator.releaseNext(CatalogId(letters, TenantId(tenant))) }
 
-        assertThat(versions(tenant)).containsExactly("1.0.1" to CatalogVersionStatus.DRAFT, "1.0.0" to CatalogVersionStatus.RELEASED)
-        val draft = withMediator { GetCatalogVersion(tenant, letters, "1.0.1").query()!! }
-        assertThat(draft.base).isEqualTo("1.0.0")
+        assertThat(versions(tenant)).containsExactly(CatalogDraft.NEXT_LABEL to CatalogVersionStatus.DRAFT, "v1.0.0" to CatalogVersionStatus.RELEASED)
+        val continued = withMediator { GetCatalogDraft(tenant, letters).query()!! }
+        assertThat(continued.draftId).`as`("the same draft").isEqualTo(next.draftId)
+        assertThat(continued.base).isEqualTo("1.0.0")
         assertThat(withMediator { GetCatalogVersion(tenant, letters, "1.0.0").query()!! }.contentRetained).isTrue()
+        assertThat(withMediator { GetCatalogVersion(tenant, letters, "1.0.1").query() }).`as`("a draft is not found by a number").isNull()
     }
 
     @Test
-    fun `a new tenant's default catalog starts on draft 1_0_0`() {
+    fun `a new tenant's default catalog starts with a next version`() {
         val tenant = withMediator { createTenant("versions-default").id }
 
         val versions = withMediator { ListCatalogVersions(tenant, CatalogKey.DEFAULT).query() }
 
-        assertThat(versions.map { it.version to it.status }).containsExactly("1.0.0" to CatalogVersionStatus.DRAFT)
+        assertThat(versions.map { it.label to it.status }).containsExactly(CatalogDraft.NEXT_LABEL to CatalogVersionStatus.DRAFT)
     }
 
     @Test
-    fun `a draft can be renumbered above every release, and a release of it keeps that number`() {
-        val tenant = catalog("versions-renumber")
-        withMediator { mediator.releaseNext(CatalogId(letters, TenantId(tenant))) }
-
-        withMediator { RenumberCatalogVersion(tenant, letters, "1.0.1", "2.0.0").execute() }
-        assertThat(versions(tenant).first()).isEqualTo("2.0.0" to CatalogVersionStatus.DRAFT)
-
-        withMediator { ReleaseCatalogVersion(tenant, letters, "2.0.0").execute() }
-        assertThat(versions(tenant).map { it.first }).containsExactly("2.0.1", "2.0.0", "1.0.0")
-    }
-
-    @Test
-    fun `a renumber is refused onto a number in use or of a released version, and warns below a release it contains`() {
-        val tenant = catalog("versions-refused")
-        withMediator { mediator.releaseNext(CatalogId(letters, TenantId(tenant))) }
-
-        assertThatThrownBy { withMediator { RenumberCatalogVersion(tenant, letters, "1.0.1", "1.0.0").execute() } }
-            .isInstanceOf(CatalogVersionInUseException::class.java)
-        assertThatThrownBy { withMediator { RenumberCatalogVersion(tenant, letters, "1.0.1", "0.9.0").execute() } }
-            .isInstanceOf(RenumberWarningsNotAcknowledgedException::class.java)
-        assertThat(withMediator { PreviewCatalogVersionRenumber(tenant, letters, "1.0.1", "0.9.0").query() }.map { it.kind to it.versions })
-            .containsExactly("contains-later-releases" to listOf("1.0.0"))
-        assertThatThrownBy { withMediator { RenumberCatalogVersion(tenant, letters, "1.0.0", "3.0.0").execute() } }
-            .isInstanceOf(CatalogVersionReleasedException::class.java)
-        assertThat(withMediator { PreviewCatalogVersionRenumber(tenant, letters, "1.0.1", "1.1.0").query() }).isEmpty()
-    }
-
-    @Test
-    fun `an address resolves a catalog by its name and a version by its number`() {
+    fun `an address resolves a catalog by its name, a draft by next or its id, and a release by its number`() {
         val tenant = catalog("versions-resolve")
         withMediator {
             CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(letters, TenantId(tenant))), "Brand").execute()
@@ -110,8 +89,11 @@ class CatalogVersionsTest : IntegrationTestBase() {
         }
         val namespace = withMediator { GetCatalog(tenant, letters).query()!! }.namespace
 
-        val draft = withMediator { ResolveCatalogVersion(tenant, "~", namespace, letters, "1.0.1").query() }
+        val draft = withMediator { ResolveCatalogVersion(tenant, "~", namespace, letters, "next").query() }
         assertThat(draft.isDraft).isTrue()
+        assertThat(draft.version.isNext).isTrue()
+        val byId = withMediator { ResolveCatalogVersion(tenant, "~", namespace, letters, draft.version.draftId.toString()).query() }
+        assertThat(byId.version.draftId).isEqualTo(draft.version.draftId)
         val released = withMediator { ResolveCatalogVersion(tenant, null, namespace, letters, "1.0.0").query() }
         assertThatThrownBy { released.requireDraft() }.isInstanceOf(CatalogVersionReleasedException::class.java)
 
@@ -123,6 +105,10 @@ class CatalogVersionsTest : IntegrationTestBase() {
         assertThatThrownBy { withMediator { ResolveCatalogVersion(tenant, null, "elsewhere", letters, "1.0.0").query() } }
             .isInstanceOf(CatalogNotFoundException::class.java)
         assertThatThrownBy { withMediator { ResolveCatalogVersion(tenant, null, namespace, letters, "9.9.9").query() } }
+            .isInstanceOf(CatalogVersionNotFoundException::class.java)
+        assertThatThrownBy { withMediator { ResolveCatalogVersion(tenant, null, namespace, letters, "1.0.1").query() } }
+            .`as`("the number the next version would get is not its address").isInstanceOf(CatalogVersionNotFoundException::class.java)
+        assertThatThrownBy { withMediator { ResolveCatalogVersion(tenant, null, namespace, letters, UUID.randomUUID().toString()).query() } }
             .isInstanceOf(CatalogVersionNotFoundException::class.java)
     }
 
@@ -143,16 +129,16 @@ class CatalogVersionsTest : IntegrationTestBase() {
             )
         }
 
-        val resolved = runAs(member(tenant, setOf(TenantRole.CONTENT_AUTHOR))) { ResolveCatalogVersion(tenant, null, namespace, letters, "1.0.0").query() }
+        val resolved = runAs(member(tenant, setOf(TenantRole.CONTENT_AUTHOR))) { ResolveCatalogVersion(tenant, null, namespace, letters, "next").query() }
         assertThat(resolved.isDraft).isTrue()
 
         val other = createTenant("versions-outsider").id
-        assertThatThrownBy { runAs(member(other, TenantRole.entries.toSet())) { ResolveCatalogVersion(tenant, null, namespace, letters, "1.0.0").query() } }
+        assertThatThrownBy { runAs(member(other, TenantRole.entries.toSet())) { ResolveCatalogVersion(tenant, null, namespace, letters, "next").query() } }
             .isNotInstanceOf(CatalogVersionNotFoundException::class.java)
     }
 
     @Test
-    fun `an author opens and renumbers drafts, and only a publisher releases, discards and deploys (contract 2_0)`() {
+    fun `an author starts and renames long-term work, and only a publisher releases, discards and deploys (contract 2_0)`() {
         val tenant = catalog("versions-permissions")
         withMediator { mediator.releaseNext(CatalogId(letters, TenantId(tenant))) }
         withMediator { CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute() }
@@ -171,19 +157,20 @@ class CatalogVersionsTest : IntegrationTestBase() {
         val author = member(setOf(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_AUTHOR))
         val publisher = member(setOf(TenantRole.CONTENT_VIEWER, TenantRole.CONTENT_PUBLISHER))
 
-        runAs(author) {
-            CreateCatalogVersion(tenant, letters, "2.0.0").execute()
-            RenumberCatalogVersion(tenant, letters, "2.0.0", "3.0.0").execute()
+        val work = runAs(author) {
+            val created = CreateCatalogDraft(tenant, letters, "Redesign").execute()
+            RenameCatalogDraft(tenant, letters, created.draftId!!, "Redesign 2027").execute()
         }
-        assertThatThrownBy { runAs(author) { DeleteCatalogVersion(tenant, letters, "3.0.0").execute() } }.isInstanceOf(PermissionDeniedException::class.java)
-        assertThatThrownBy { runAs(author) { ReleaseCatalogVersion(tenant, letters, "1.0.1").execute() } }.isInstanceOf(PermissionDeniedException::class.java)
+        val workRef = DraftRef.Id(work.draftId!!)
+        assertThatThrownBy { runAs(author) { DeleteCatalogDraft(tenant, letters, workRef).execute() } }.isInstanceOf(PermissionDeniedException::class.java)
+        assertThatThrownBy { runAs(author) { ReleaseCatalogVersion(tenant, letters).execute() } }.isInstanceOf(PermissionDeniedException::class.java)
         assertThatThrownBy { runAs(author) { DeployRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), letters, "1.0.0").execute() } }
             .isInstanceOf(PermissionDeniedException::class.java)
 
         runAs(publisher) {
-            DeleteCatalogVersion(tenant, letters, "3.0.0").execute()
+            DeleteCatalogDraft(tenant, letters, workRef).execute()
             DeployRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), letters, "1.0.0").execute()
         }
-        assertThat(versions(tenant).map { it.first }).doesNotContain("3.0.0")
+        assertThat(versions(tenant).map { it.first }).doesNotContain("Redesign 2027")
     }
 }

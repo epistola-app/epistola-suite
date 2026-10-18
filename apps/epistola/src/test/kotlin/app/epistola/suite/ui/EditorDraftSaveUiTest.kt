@@ -8,7 +8,8 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CreateCatalogVersion
+import app.epistola.suite.catalog.versions.CreateCatalogDraft
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -29,33 +30,32 @@ import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.Test
 
 /**
- * The template editor opened in one draft of a catalog with several (contract ADR 0002) saves into
- * that draft: its own requests carry the catalog segment (`letters@1.0.1`) from the editor config.
+ * The template editor opened in long-term work (contract ADR 0002, amendment 2) saves into that
+ * work: its own requests carry the catalog segment (`letters@<draft id>`) from the editor config.
  */
 class EditorDraftSaveUiTest : BasePlaywrightTest() {
 
     private val letters = CatalogKey.of("letters")
 
     @Test
-    fun `the editor opened in a draft saves the variant into that draft`() {
+    fun `the editor opened in long-term work saves the variant into that work`() {
         val tenantKey = TenantKey.of("test-editor-draft-${System.nanoTime()}")
         val template = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenantKey)))
         val variant = VariantId(VariantKey.INITIAL, template)
-        withMediator {
+        val work = withMediator {
             CreateTenant(id = tenantKey, name = "Editor Draft Tenant").execute()
             CreateCatalog(tenantKey = tenantKey, id = letters, name = "Letters").execute()
             CreateDocumentTemplate(template, "Invoice").execute().withRequiredDataExample()
             MarkCatalogReady(tenantKey, letters).execute()
             ReleaseCatalogVersion(tenantKey, letters, "1.0.0").execute()
-            // 1.0.1 carries on from the release; 2.0.0 is the higher draft, the current one.
-            CreateCatalogVersion(tenantKey, letters, "2.0.0").execute()
+            requireNotNull(CreateCatalogDraft(tenantKey, letters, "Redesign").execute().draftId)
         }
 
-        gotoAndReady("/tenants/$tenantKey/templates/letters@1.0.1/invoice/variants/${variant.key}/editor")
+        gotoAndReady("/tenants/$tenantKey/templates/letters@$work/invoice/variants/${variant.key}/editor")
         page.getByTestId("editor-container").waitFor()
         page.waitForSelector("epistola-editor")
-        // Side work is named in the editor's bar by what it fixes, so nobody takes it for the next version.
-        assertThat(page.getByTestId("editor-crumb-version")).hasText("Fix of v1.0.0")
+        // Long-term work is named in the editor's bar, so nobody takes it for the next version.
+        assertThat(page.getByTestId("editor-crumb-version")).hasText("Redesign")
 
         // Adding a block marks the document dirty; its autosave is the PUT asserted on.
         val saved: Response = page.waitForResponse(
@@ -63,11 +63,11 @@ class EditorDraftSaveUiTest : BasePlaywrightTest() {
         ) { page.getByTestId("palette-item-container").click() }
 
         Assertions.assertThat(saved.status()).isEqualTo(200)
-        Assertions.assertThat(saved.url()).contains("/templates/letters%401.0.1/invoice/")
-        fun containers(version: String) = withMediator {
-            GetVariantContent(variant, catalogVersion = CatalogVersionRef(tenantKey, letters, version)).query()!!
+        Assertions.assertThat(saved.url()).contains("/templates/letters%40$work/invoice/")
+        fun containers(draft: DraftRef) = withMediator {
+            GetVariantContent(variant, catalogVersion = CatalogVersionRef(tenantKey, letters, draft)).query()!!
         }.nodes.values.count { it.type == "container" }
-        Assertions.assertThat(containers("1.0.1")).isEqualTo(1)
-        Assertions.assertThat(containers("2.0.0")).isZero()
+        Assertions.assertThat(containers(DraftRef.Id(work))).isEqualTo(1)
+        Assertions.assertThat(containers(DraftRef.Next)).isZero()
     }
 }

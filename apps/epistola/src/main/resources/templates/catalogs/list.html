@@ -154,7 +154,7 @@
     <th:block th:fragment="release-dialog">
         <dialog id="release-dialog" class="ep-dialog">
             <div class="ep-dialog-header">
-                <h3 th:text="${readiness.drafts.fixing} ? 'Publish draft v' + ${readiness.drafts.chosen.version} + ' of ' + ${readiness.drafts.catalogName} : 'Publish ' + ${readiness.drafts.catalogName}">Publish Letters</h3>
+                <h3 th:text="'Publish ' + ${readiness.drafts.catalogName}">Publish Letters</h3>
             </div>
             <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
                   hx-target="#release-dialog-container" hx-swap="innerHTML">
@@ -291,7 +291,7 @@
                     <!--/* A published fix that this work does not contain: said in plain words, with
                            one confirmation each, because the contract releases it only when each is
                            acknowledged (`acknowledgedBehind`). */-->
-                    <div th:if="${readiness.draftVersion != null and !readiness.drafts.behind.isEmpty()}" class="form-group" data-testid="release-acknowledge-behind">
+                    <div th:if="${readiness.hasDraft and !readiness.drafts.behind.isEmpty()}" class="form-group" data-testid="release-acknowledge-behind">
                         <span class="ep-label">Published in between</span>
                         <div th:each="release : ${readiness.drafts.behind}" style="margin-top: var(--ep-space-1);">
                             <p style="margin: 0;">
@@ -341,7 +341,8 @@
                                    required pattern="^\d+\.\d+\.\d+$" maxlength="50"
                                    th:value="${releaseVersion}">
                             <span class="form-hint">Picked from the kind of change: corrections raise the last number,
-                                additions the middle one, breaking changes the first.</span>
+                                additions the middle one, breaking changes the first. You can raise it, to mark a bigger
+                                change on purpose, but not lower it.</span>
                         </div>
                     </details>
                     </th:block>

@@ -167,7 +167,7 @@ class GetCatalogBorrowingHandler(
                 used.copy(name = name)
             }
             val authoredWork = if (catalog.type == CatalogType.AUTHORED) {
-                ListCatalogVersions(query.tenantKey, catalog.id, CatalogVersionStatus.DRAFT).query().firstOrNull()
+                ListCatalogVersions(query.tenantKey, catalog.id, CatalogVersionStatus.DRAFT).query().firstOrNull { it.isNext }
             } else {
                 null
             }
@@ -176,8 +176,9 @@ class GetCatalogBorrowingHandler(
                     .filter { it.state != CatalogResourceState.RELEASED }
                     .map { change -> BorrowedResource(change.type, change.slug, change.name) }
             }.orEmpty()
-            val nextNumber = authoredWork?.takeIf { unpublished.isNotEmpty() }?.let { work ->
-                AssessDraftNumber(query.tenantKey, catalog.id, work.version).query()?.takeIf { it.tooLow }?.suggested ?: work.version
+            // The number its next version would be released as now, were it published along.
+            val nextNumber = authoredWork?.takeIf { unpublished.isNotEmpty() }?.let {
+                AssessDraftNumber(query.tenantKey, catalog.id).query()?.suggested
             }
             val latest = latestRetained(query.tenantKey, catalog.id)
             val newerBreaks = if (release != null && latest != null && isAbove(latest, release) && uses.isNotEmpty()) {

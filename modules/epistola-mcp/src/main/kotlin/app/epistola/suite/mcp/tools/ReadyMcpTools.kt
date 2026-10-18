@@ -30,7 +30,7 @@ import org.springframework.stereotype.Component
 
 /**
  * Ready marks (contract ADR 0002): a catalog release contains only content someone marked ready, and
- * an edit makes a mark stale. Releasing is `release_catalog_version` (CatalogVersionMcpTools). Each tool dispatches the command
+ * an edit makes a mark stale. Releasing is `release_next_version` (CatalogVersionMcpTools). Each tool dispatches the command
  * the UI and REST API use, so the same checks apply, including that every stencil instance fits.
  */
 @Component

@@ -216,8 +216,9 @@ class GetCatalogResourceChangesHandler(
             .map { rs, _ -> ReleaseRow(version = rs.getString("version"), fingerprint = rs.getString("fingerprint")) }
             .list()
         val draft = drafts.draft(handle, tenantKey, catalogKey) ?: return@withHandle releases.firstOrNull()
+        // A draft that recorded no base (opened before drafts did) is measured against the latest release.
         val base = draft.base?.takeIf { base -> releases.any { it.version == base } }
-            ?: CatalogDrafts.highestBelow(draft.version, releases.map { it.version })
+            ?: CatalogDrafts.latest(releases.map { it.version })
         releases.firstOrNull { it.version == base }
     }
 

@@ -1,0 +1,331 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package app.epistola.suite.catalog.versions
+
+import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.commands.CatalogReleaseNotRetainedException
+import app.epistola.suite.catalog.commands.ExportCatalogZip
+import app.epistola.suite.catalog.commands.ImportCatalogZip
+import app.epistola.suite.catalog.commands.InstallStatus
+import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.mediator.Command
+import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.validation.FieldLimits
+import app.epistola.suite.validation.ValidationCode
+import app.epistola.suite.validation.validate
+import org.jdbi.v3.core.Handle
+import org.jdbi.v3.core.Jdbi
+import org.springframework.stereotype.Component
+import java.util.UUID
+
+/**
+ * Starts long-term work on an authored catalog (contract `createCatalogDraft`, ADR 0002, amendment 2):
+ * a draft named [name], next to the next version, that is not released until it is ready.
+ *
+ * - Without [from], it starts as a copy of the next version, unreleased changes included; its base is
+ *   the next version's.
+ * - With [from], a released version, it starts as a copy of that release, which is its base.
+ *
+ * A copy keeps every resource's identity. Refused for a subscribed catalog, for a name another draft
+ * of the catalog has, and when [from] is a release that kept no content.
+ */
+data class CreateCatalogDraft(
+    override val tenantKey: TenantKey,
+    val catalogKey: CatalogKey,
+    val name: String,
+    val from: String? = null,
+) : Command<CatalogVersion>,
+    RequiresPermission {
+    override val permission get() = Permission.TEMPLATE_EDIT
+
+    init {
+        validateDraftName(name)
+    }
+}
+
+/** Renames long-term work (contract `renameCatalogDraft`). The next version has no name to change. */
+data class RenameCatalogDraft(
+    override val tenantKey: TenantKey,
+    val catalogKey: CatalogKey,
+    val draftId: UUID,
+    val name: String,
+) : Command<CatalogVersion>,
+    RequiresPermission {
+    override val permission get() = Permission.TEMPLATE_EDIT
+
+    init {
+        validateDraftName(name)
+    }
+}
+
+/**
+ * Discards a draft and everything changed in it (contract `deleteCatalogDraft`): its content rows,
+ * ready marks and dependency declarations. A resource keeps its identity while another version holds
+ * it.
+ *
+ * Discarding the **next version** throws its changes away: it starts again as a copy of the latest
+ * release (empty when there is none), so everyday work always has somewhere to go. Long-term work is
+ * simply gone.
+ *
+ * Refused ([CatalogVersionHeldException]) while the draft alone holds a resource something outside it
+ * still needs: the tenant's default theme, a code list an attribute of another version binds, a theme
+ * a template of another version uses.
+ */
+data class DeleteCatalogDraft(
+    override val tenantKey: TenantKey,
+    val catalogKey: CatalogKey,
+    val draft: DraftRef,
+) : Command<Unit>,
+    RequiresPermission {
+    override val permission get() = Permission.CATALOG_RELEASE
+}
+
+/**
+ * Opens an authored catalog's next version where it has none, as a copy of its latest release (empty
+ * when there is none), so everyday work has somewhere to go. A catalog always has one, except one whose
+ * drafts were all discarded before amendment 2 of ADR 0002 kept it; this opens it again. Refused when
+ * the catalog already has a next version, and when its latest release kept no content to copy.
+ */
+data class OpenNextVersion(
+    override val tenantKey: TenantKey,
+    val catalogKey: CatalogKey,
+) : Command<CatalogVersion>,
+    RequiresPermission {
+    override val permission get() = Permission.TEMPLATE_EDIT
+}
+
+/** A draft has no name the user cannot see, nor one that reads as the next version. */
+private fun validateDraftName(name: String) {
+    validate("name", name.isNotBlank(), ValidationCode.GENERIC) { "Give the work a name" }
+    validate("name", name.length <= FieldLimits.MAX_NAME_LENGTH, ValidationCode.GENERIC) { "A name is at most ${FieldLimits.MAX_NAME_LENGTH} characters" }
+    validate("name", !name.trim().equals(CatalogDraft.NEXT_LABEL, ignoreCase = true) && !name.trim().equals(DraftRef.NEXT, ignoreCase = true), ValidationCode.GENERIC) {
+        "'${name.trim()}' is what the next version is called; choose another name"
+    }
+}
+
+/** Another draft of the catalog is called [name] already; names tell drafts apart, so each is unique. */
+class CatalogDraftNameInUseException(val catalogKey: CatalogKey, val name: String) : RuntimeException("Catalog '${catalogKey.value}' already has work called '$name'")
+
+@Component
+class CreateCatalogDraftHandler(
+    private val jdbi: Jdbi,
+    private val drafts: CatalogDrafts,
+    private val versions: CatalogVersionReader,
+    private val copier: CatalogReleaseCopier,
+) : CommandHandler<CreateCatalogDraft, CatalogVersion> {
+    override fun handle(command: CreateCatalogDraft): CatalogVersion {
+        requireCatalogEditable(command.tenantKey, command.catalogKey)
+        val (tenantKey, catalogKey) = command.tenantKey to command.catalogKey
+        val name = command.name.trim()
+        val created = jdbi.withHandle<UUID, Exception> { handle ->
+            val open = drafts.drafts(handle, tenantKey, catalogKey)
+            if (open.any { it.name.equals(name, ignoreCase = true) }) throw CatalogDraftNameInUseException(catalogKey, name)
+            when (val from = command.from) {
+                null -> {
+                    val next = open.firstOrNull { it.isNext } ?: throw CatalogVersionNotFoundException(catalogKey, DraftRef.NEXT)
+                    drafts.open(handle, tenantKey, catalogKey, next.base, name, CatalogDraft.FROM_NEXT).also { drafts.copyContent(handle, tenantKey, next.versionId, it) }
+                }
+
+                else -> {
+                    val release = versions.all(handle, tenantKey, catalogKey).firstOrNull { it.status == CatalogVersionStatus.RELEASED && it.version == from }
+                        ?: throw CatalogVersionNotFoundException(catalogKey, from)
+                    drafts.open(handle, tenantKey, catalogKey, from, name).also { copier.copy(tenantKey, catalogKey, release, it) }
+                }
+            }
+        }
+        return jdbi.withHandle<CatalogVersion, Exception> { handle -> versions.all(handle, tenantKey, catalogKey).first { it.draftId == created } }
+    }
+}
+
+@Component
+class RenameCatalogDraftHandler(
+    private val jdbi: Jdbi,
+    private val drafts: CatalogDrafts,
+    private val versions: CatalogVersionReader,
+) : CommandHandler<RenameCatalogDraft, CatalogVersion> {
+    override fun handle(command: RenameCatalogDraft): CatalogVersion {
+        requireCatalogEditable(command.tenantKey, command.catalogKey)
+        val name = command.name.trim()
+        return jdbi.withHandle<CatalogVersion, Exception> { handle ->
+            val open = drafts.drafts(handle, command.tenantKey, command.catalogKey)
+            val draft = open.firstOrNull { it.versionId == command.draftId } ?: throw CatalogVersionNotFoundException(command.catalogKey, command.draftId.toString())
+            if (draft.isNext) throw CatalogDraftIsNextException(command.catalogKey, "The next version of catalog '${command.catalogKey.value}' has no name of its own")
+            if (open.any { it.versionId != draft.versionId && it.name.equals(name, ignoreCase = true) }) throw CatalogDraftNameInUseException(command.catalogKey, name)
+            drafts.rename(handle, command.tenantKey, draft.versionId, name)
+            versions.all(handle, command.tenantKey, command.catalogKey).first { it.draftId == draft.versionId }
+        }
+    }
+}
+
+/**
+ * What only one kind of draft can do, asked of the other: renaming the next version (it has no name of
+ * its own), or releasing long-term work (only the next version releases; ADR 0002, amendment 2).
+ */
+class CatalogDraftIsNextException(val catalogKey: CatalogKey, message: String) : RuntimeException(message) {
+    companion object {
+        fun notNext(catalogKey: CatalogKey, name: String) = CatalogDraftIsNextException(
+            catalogKey,
+            "'$name' is long-term work of catalog '${catalogKey.value}': only the next version is released. Make it the next version first.",
+        )
+    }
+}
+
+/**
+ * Copies a released version into a draft. A release's content is the content it retained: rebuilt
+ * as its archive and imported, as a ZIP import would, into the draft (the import writes the version
+ * the transaction targets). Identities are adopted by address, so a resource another version still
+ * holds keeps its identity; one no version holds any more gets a new one.
+ */
+@Component
+class CatalogReleaseCopier(
+    private val targeting: CatalogVersionTargeting,
+) {
+    fun copy(tenantKey: TenantKey, catalogKey: CatalogKey, release: CatalogVersion, into: UUID) {
+        val version = requireNotNull(release.version)
+        if (release.contentRetained != true) throw CatalogReleaseNotRetainedException(catalogKey, version)
+        val archive = ExportCatalogZip(tenantKey, catalogKey, version).execute()
+        val imported = targeting.within(into) {
+            ImportCatalogZip(
+                tenantKey = tenantKey,
+                zipBytes = archive.zipBytes,
+                catalogType = CatalogType.AUTHORED,
+                validateCrossCatalogDeps = false,
+                confirmMigration = true,
+                intoDraft = true,
+            ).execute()
+        }
+        val failed = imported.results.filter { it.status == InstallStatus.FAILED }
+        check(failed.isEmpty()) {
+            "Copying release $version of '${catalogKey.value}' into a draft failed for " +
+                failed.joinToString { "${it.type} '${it.slug}': ${it.errorMessage}" }
+        }
+    }
+}
+
+@Component
+class OpenNextVersionHandler(
+    private val jdbi: Jdbi,
+    private val drafts: CatalogDrafts,
+    private val versions: CatalogVersionReader,
+    private val nextVersions: NextVersionOpener,
+) : CommandHandler<OpenNextVersion, CatalogVersion> {
+    override fun handle(command: OpenNextVersion): CatalogVersion {
+        requireCatalogEditable(command.tenantKey, command.catalogKey)
+        jdbi.withHandle<CatalogDraft?, Exception> { drafts.next(it, command.tenantKey, command.catalogKey) }
+            ?.let { throw CatalogDraftIsNextException(command.catalogKey, "Catalog '${command.catalogKey.value}' has a next version already") }
+        val opened = nextVersions.open(command.tenantKey, command.catalogKey, requireContent = true)
+        return jdbi.withHandle<CatalogVersion, Exception> { handle -> versions.all(handle, command.tenantKey, command.catalogKey).first { it.draftId == opened } }
+    }
+}
+
+/** Opens a catalog's next version on its latest release, as a copy of it. */
+@Component
+class NextVersionOpener(
+    private val jdbi: Jdbi,
+    private val drafts: CatalogDrafts,
+    private val versions: CatalogVersionReader,
+    private val copier: CatalogReleaseCopier,
+) {
+    /**
+     * The new next version's id. A latest release that kept no content leaves it empty on that base,
+     * or, with [requireContent], refuses ([CatalogReleaseNotRetainedException]) before opening it.
+     */
+    fun open(tenantKey: TenantKey, catalogKey: CatalogKey, requireContent: Boolean): UUID {
+        val latest = CatalogDrafts.latest(ListCatalogReleases(tenantKey, catalogKey).query().map { it.version })
+        val release = latest?.let { version ->
+            jdbi.withHandle<CatalogVersion, Exception> { handle -> versions.all(handle, tenantKey, catalogKey).first { it.status == CatalogVersionStatus.RELEASED && it.version == version } }
+        }
+        if (requireContent && release != null && release.contentRetained != true) throw CatalogReleaseNotRetainedException(catalogKey, requireNotNull(release.version))
+        val opened = jdbi.withHandle<UUID, Exception> { drafts.open(it, tenantKey, catalogKey, base = latest) }
+        if (release?.contentRetained == true) copier.copy(tenantKey, catalogKey, release, opened)
+        return opened
+    }
+}
+
+@Component
+class DeleteCatalogDraftHandler(
+    private val jdbi: Jdbi,
+    private val drafts: CatalogDrafts,
+    private val nextVersions: NextVersionOpener,
+) : CommandHandler<DeleteCatalogDraft, Unit> {
+    override fun handle(command: DeleteCatalogDraft) {
+        requireCatalogEditable(command.tenantKey, command.catalogKey)
+        val (tenantKey, catalogKey) = command.tenantKey to command.catalogKey
+        val draft = jdbi.withHandle<CatalogDraft, Exception> { handle ->
+            val draft = drafts.find(handle, tenantKey, catalogKey, command.draft) ?: throw CatalogVersionNotFoundException(catalogKey, command.draft.toString())
+            val holders = holders(handle, tenantKey, draft.versionId)
+            if (holders.isNotEmpty()) throw CatalogVersionHeldException(catalogKey, draft.label, holders)
+            drafts.delete(handle, tenantKey, draft.versionId)
+            draft
+        }
+        // The next version starts again on the latest release, so everyday work has somewhere to go.
+        if (draft.isNext) nextVersions.open(tenantKey, catalogKey, requireContent = false)
+    }
+
+    /**
+     * What outside draft [versionId] references a resource only it holds, each as `what (resource)`.
+     *
+     * Discarding the draft deletes the identity of every resource no other version and no release
+     * holds (`sync_catalog_resource_identity`), and the references into `catalog_resources` would
+     * then fail (the tenant's default theme, an attribute's code list) or be cleared silently (a
+     * template's theme). A reference from inside the draft goes with it. A font face's image
+     * (`font_variants_asset_fkey`) is always in the family's own version, so it is not looked for.
+     */
+    private fun holders(handle: Handle, tenantKey: TenantKey, versionId: UUID): List<String> = handle.createQuery(
+        $$"""
+        WITH own AS (
+            SELECT resource_id FROM themes WHERE tenant_key = :t AND version_id = :v
+            UNION SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id = :v
+            UNION SELECT resource_id FROM variant_attribute_definitions WHERE tenant_key = :t AND version_id = :v
+            UNION SELECT resource_id FROM code_lists WHERE tenant_key = :t AND version_id = :v
+            UNION SELECT resource_id FROM assets WHERE tenant_key = :t AND version_id = :v
+            UNION SELECT resource_id FROM fonts WHERE tenant_key = :t AND version_id = :v
+            UNION SELECT resource_id FROM stencils WHERE tenant_key = :t AND version_id = :v
+        ),
+        elsewhere AS (
+            SELECT resource_id FROM themes WHERE tenant_key = :t AND version_id <> :v
+            UNION SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id <> :v
+            UNION SELECT resource_id FROM variant_attribute_definitions WHERE tenant_key = :t AND version_id <> :v
+            UNION SELECT resource_id FROM code_lists WHERE tenant_key = :t AND version_id <> :v
+            UNION SELECT resource_id FROM assets WHERE tenant_key = :t AND version_id <> :v
+            UNION SELECT resource_id FROM fonts WHERE tenant_key = :t AND version_id <> :v
+            UNION SELECT resource_id FROM stencils WHERE tenant_key = :t AND version_id <> :v
+            UNION SELECT resource_id FROM release_entries WHERE tenant_key = :t
+        ),
+        alone AS (SELECT resource_id FROM own EXCEPT SELECT resource_id FROM elsewhere),
+        refs (holder, holder_resource_id, held_resource_id, ordinal) AS (
+            SELECT 'the tenant''s default theme', NULL::uuid, default_theme_resource_id, 1
+            FROM tenants WHERE id = :t AND default_theme_resource_id IN (SELECT resource_id FROM alone)
+            UNION SELECT 'attribute', resource_id, code_list_resource_id, 2
+            FROM variant_attribute_definitions WHERE tenant_key = :t AND version_id <> :v
+              AND code_list_resource_id IN (SELECT resource_id FROM alone)
+            UNION SELECT 'template', resource_id, theme_resource_id, 3
+            FROM document_templates WHERE tenant_key = :t AND version_id <> :v
+              AND theme_resource_id IN (SELECT resource_id FROM alone)
+        )
+        SELECT DISTINCT r.ordinal,
+               r.holder || COALESCE(' ' || hc.catalog_key || '/' || h.resource_key, '')
+                   || ' (' || CASE held.resource_type WHEN 'asset' THEN 'image' WHEN 'codeList' THEN 'code list' ELSE held.resource_type END
+                   || ' ' || dc.catalog_key || '/' || held.resource_key || ')' AS description
+        FROM refs r
+        JOIN catalog_resources held ON held.tenant_key = :t AND held.resource_id = r.held_resource_id
+        JOIN catalogs dc ON dc.tenant_key = held.tenant_key AND dc.catalog_id = held.catalog_id
+        LEFT JOIN catalog_resources h ON h.tenant_key = :t AND h.resource_id = r.holder_resource_id
+        LEFT JOIN catalogs hc ON hc.tenant_key = h.tenant_key AND hc.catalog_id = h.catalog_id
+        ORDER BY r.ordinal, description
+        """,
+    )
+        .bind("t", tenantKey)
+        .bind("v", versionId)
+        .map { rs, _ -> rs.getString("description") }
+        .list()
+}

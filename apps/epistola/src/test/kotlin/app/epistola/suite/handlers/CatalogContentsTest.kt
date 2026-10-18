@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test
 class CatalogContentsTest {
 
     private val acme = TenantKey.of("acme")
+    private val work = java.util.UUID.fromString("0193a6b2-7f4e-7c1d-9a2b-3c4d5e6f7a8b")
 
     private fun resource(type: String, slug: String, name: String) = BrowseResource(type, slug, name, null, ResourceStatus.INSTALLED)
 
@@ -24,15 +25,15 @@ class CatalogContentsTest {
     fun `every kind is listed, templates first, each resource linked into the version and sorted by name`() {
         val contents = CatalogContents.of(
             acme,
-            CatalogSegment(CatalogKey.of("letters"), "1.2.1"),
+            CatalogSegment(CatalogKey.of("letters"), work),
             listOf(resource("theme", "brand", "Brand"), resource("template", "reminder", "Reminder"), resource("template", "invoice", "Invoice")),
         ) { true }
 
         assertThat(contents.groups.map { it.type }).containsExactly("template", "stencil", "theme", "image", "font", "attribute", "codeList")
         val templates = contents.groups.first()
         assertThat(templates.items.map { it.name }).containsExactly("Invoice", "Reminder")
-        assertThat(templates.items.first().href).isEqualTo("/tenants/acme/templates/letters@1.2.1/invoice")
-        assertThat(templates.newHref).isEqualTo("/tenants/acme/templates/new?catalog=letters@1.2.1")
+        assertThat(templates.items.first().href).isEqualTo("/tenants/acme/templates/letters@$work/invoice")
+        assertThat(templates.newHref).isEqualTo("/tenants/acme/templates/new?catalog=letters@$work")
         assertThat(contents.groups.first { it.type == "stencil" }.items).isEmpty()
         assertThat(contents.filled.map { it.type }).containsExactly("template", "theme")
         assertThat(contents.addable.map { it.type }).containsExactly("stencil", "image", "font", "attribute", "codeList")
@@ -55,14 +56,14 @@ class CatalogContentsTest {
     fun `each kind counts what there is and what is not published yet, and links to its list in the version`() {
         val contents = CatalogContents.of(
             acme,
-            CatalogSegment(CatalogKey.of("letters"), "1.2.1"),
+            CatalogSegment(CatalogKey.of("letters"), work),
             listOf(resource("template", "invoice", "Invoice"), resource("template", "reminder", "Reminder")),
             mapOf("template/reminder" to app.epistola.suite.catalog.queries.CatalogResourceState.NEW),
         ) { true }
 
         val templates = contents.templates
         assertThat(templates.count to templates.changedCount).isEqualTo(2 to 1)
-        assertThat(templates.listHref).isEqualTo("/tenants/acme/templates?catalog=letters@1.2.1")
-        assertThat(contents.groups.first { it.type == "codeList" }.listHref).isEqualTo("/tenants/acme/code-lists?catalog=letters@1.2.1")
+        assertThat(templates.listHref).isEqualTo("/tenants/acme/templates?catalog=letters@$work")
+        assertThat(contents.groups.first { it.type == "codeList" }.listHref).isEqualTo("/tenants/acme/code-lists?catalog=letters@$work")
     }
 }

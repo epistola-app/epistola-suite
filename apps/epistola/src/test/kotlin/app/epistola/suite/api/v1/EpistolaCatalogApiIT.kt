@@ -13,7 +13,6 @@ import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CreateCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -67,7 +66,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
     private lateinit var restTemplate: TestRestTemplate
 
     @Test
-    fun `releasing the draft cuts it under its own number and opens the next`() {
+    fun `releasing the next version numbers it and continues it on the release`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val catalogSlug = "rel-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
@@ -86,7 +85,12 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(body, "$.catalogVersion.fingerprint")).isNotBlank()
         assertThat(JsonPath.read<String>(body, "$.catalogVersion.notes")).isEqualTo("first cut")
         assertThat(JsonPath.read<Boolean>(body, "$.unchangedContent")).isFalse
-        assertThat(JsonPath.read<String>(body, "$.openedDraft")).isEqualTo("1.0.1")
+        assertThat(JsonPath.read<Map<String, Any>>(body, "$")).doesNotContainKey("openedDraft")
+
+        val next = restTemplate.exchange(versionPath(tenantKey, catalogSlug, "next"), HttpMethod.GET, HttpEntity<String>(baseHeaders(apiKey)), String::class.java).body!!
+        assertThat(JsonPath.read<Boolean>(next, "$.isNext")).isTrue
+        assertThat(JsonPath.read<String?>(next, "$.version")).`as`("numbered only when released").isNull()
+        assertThat(JsonPath.read<String>(next, "$.base")).isEqualTo("1.0.0")
     }
 
     @Test
@@ -95,7 +99,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val namespace = withMediator { CatalogApiPaths.namespace(tenantKey) }
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/~/$namespace/missing-catalog/versions/1.0.0/release",
+            "/api/tenants/${tenantKey.value}/catalogs/~/$namespace/missing-catalog/versions/next/release",
             HttpMethod.POST,
             HttpEntity("{}", baseHeaders(apiKey)),
             String::class.java,
@@ -136,53 +140,31 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `renumbering the draft below a release it contains needs its warnings acknowledged`() {
-        val (tenantKey, apiKey) = seedTenantAndKey()
-        val catalogSlug = "rel-${UUID.randomUUID().toString().take(8)}"
-        seedAuthoredCatalog(tenantKey, catalogSlug)
-        withMediator {
-            ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.0.0").execute()
-        }
-
-        val response = restTemplate.exchange(
-            versionPath(tenantKey, catalogSlug),
-            HttpMethod.PATCH,
-            HttpEntity("""{"version":"0.9.0"}""", baseHeaders(apiKey)),
-            String::class.java,
-        )
-
-        assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
-        assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
-        val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/renumber-warnings-not-acknowledged")
-        assertThat(JsonPath.read<List<String>>(body, "$.warnings[*].kind")).containsExactly("contains-later-releases")
-    }
-
-    @Test
-    fun `renumbering a draft with breaking changes to a patch warns with the reasons, until acknowledged`() {
+    fun `the release preview gives the number the changes need, with the reasons, and a lower number is refused`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val catalogSlug = "rel-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
         withMediator {
             ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.0.0").execute()
             DeleteTheme(ThemeId(ThemeKey.of("tha"), CatalogId(CatalogKey.of(catalogSlug), TenantId(tenantKey)))).execute()
+            MarkCatalogReady(tenantKey, CatalogKey.of(catalogSlug)).execute()
         }
         fun call(method: HttpMethod, path: String, body: String? = null) = restTemplate.exchange(path, method, HttpEntity(body, baseHeaders(apiKey)), String::class.java)
 
-        val preview = call(HttpMethod.GET, "${versionPath(tenantKey, catalogSlug, "1.0.1")}/renumber-preview?to=1.0.2")
+        val preview = call(HttpMethod.GET, "${versionPath(tenantKey, catalogSlug, "next")}/release-preview")
         assertThat(preview.statusCode).describedAs(preview.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<List<String>>(preview.body!!, "$.warnings[*].kind")).containsExactly("breaking-changes-in-patch")
-        assertThat(JsonPath.read<List<String>>(preview.body!!, "$.warnings[0].versions")).containsExactly("1.0.0")
-        assertThat(JsonPath.read<List<String>>(preview.body!!, "$.warnings[0].reasons")).contains("theme 'tha': removed")
-        assertThat(JsonPath.read<List<String>>(call(HttpMethod.GET, "${versionPath(tenantKey, catalogSlug, "1.0.1")}/renumber-preview?to=2.0.0").body!!, "$.warnings")).isEmpty()
+        assertThat(JsonPath.read<String>(preview.body!!, "$.latest")).isEqualTo("1.0.0")
+        assertThat(JsonPath.read<String>(preview.body!!, "$.changeKind")).isEqualTo("breaking")
+        assertThat(JsonPath.read<List<String>>(preview.body!!, "$.reasons")).contains("theme 'tha': removed")
+        assertThat(JsonPath.read<String>(preview.body!!, "$.suggested")).isEqualTo("2.0.0")
 
-        val refused = call(HttpMethod.PATCH, versionPath(tenantKey, catalogSlug, "1.0.1"), """{"version":"1.0.2"}""")
-        assertThat(refused.statusCode).isEqualTo(HttpStatus.CONFLICT)
-        assertThat(JsonPath.read<List<String>>(refused.body!!, "$.warnings[*].kind")).containsExactly("breaking-changes-in-patch")
+        val refused = call(HttpMethod.POST, "${versionPath(tenantKey, catalogSlug, "next")}/release", """{"version":"1.0.1"}""")
+        assertThat(refused.statusCode.is4xxClientError).describedAs(refused.body).isTrue()
+        assertThat(refused.body).contains("needs at least 2.0.0")
 
-        val renumbered = call(HttpMethod.PATCH, versionPath(tenantKey, catalogSlug, "1.0.1"), """{"version":"1.0.2","acknowledgeWarnings":true}""")
-        assertThat(renumbered.statusCode).describedAs(renumbered.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(renumbered.body!!, "$.version")).isEqualTo("1.0.2")
+        val released = call(HttpMethod.POST, "${versionPath(tenantKey, catalogSlug, "next")}/release", "{}")
+        assertThat(released.statusCode).describedAs(released.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(released.body!!, "$.catalogVersion.version")).isEqualTo("2.0.0")
     }
 
     @Test
@@ -192,13 +174,10 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         seedAuthoredCatalog(tenantKey, catalogSlug)
         withMediator {
             ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.0.0").execute()
-            // Draft 1.1.0 starts from 1.0.0, beside the automatic 1.0.1, and is released after it.
-            CreateCatalogVersion(tenantKey, CatalogKey.of(catalogSlug), "1.1.0").execute()
-            ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.0.1").execute()
-            ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.1.0", acknowledgedBehind = setOf("1.0.1")).execute()
+            ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug)).execute()
         }
 
-        val response = restTemplate.exchange(versionPath(tenantKey, catalogSlug, "1.1.0"), HttpMethod.GET, HttpEntity<String>(baseHeaders(apiKey)), String::class.java)
+        val response = restTemplate.exchange(versionPath(tenantKey, catalogSlug, "1.0.1"), HttpMethod.GET, HttpEntity<String>(baseHeaders(apiKey)), String::class.java)
 
         assertThat(response.statusCode).describedAs(response.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(response.body!!, "$.status")).isEqualTo("released")
@@ -206,13 +185,12 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
     }
 
     /**
-     * Several drafts (contract ADR 0002): a draft is opened next to the current one, a write to the
-     * draft that is not current lands in that draft only, reads of each answer its own content, and
-     * discarding a draft takes only its content. Releasing the lower one leaves the higher behind it,
-     * which then releases only once that is acknowledged.
+     * Long-term work (contract ADR 0002, amendment 2): started next to the next version, written to
+     * and read back by its id without touching the next version, renamed, never released, and
+     * discarded taking only its content; the listing puts the next version first.
      */
     @Test
-    fun `a second draft is opened, the other written to and read back, and discarded`() {
+    fun `long-term work is started, written to by its id, renamed, not released, and discarded`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val catalogSlug = "drafts-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
@@ -220,57 +198,78 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val versions = "${withMediator { CatalogApiPaths.catalog(tenantKey, catalogSlug) }}/versions"
         fun call(method: HttpMethod, path: String, body: String? = null) = restTemplate.exchange(path, method, HttpEntity(body, baseHeaders(apiKey)), String::class.java)
 
-        val created = call(HttpMethod.POST, versions, """{"version":"2.0.0"}""")
+        val created = call(HttpMethod.POST, versions, """{"name":"Redesign"}""")
         assertThat(created.statusCode).describedAs(created.body).isEqualTo(HttpStatus.CREATED)
-        assertThat(created.headers.location.toString()).endsWith("/versions/2.0.0")
+        val work = JsonPath.read<String>(created.body!!, "$.draftId")
+        assertThat(created.headers.location.toString()).endsWith("/versions/$work")
         assertThat(JsonPath.read<String>(created.body!!, "$.status")).isEqualTo("draft")
+        assertThat(JsonPath.read<Boolean>(created.body!!, "$.isNext")).isFalse
+        assertThat(JsonPath.read<String>(created.body!!, "$.name")).isEqualTo("Redesign")
         assertThat(JsonPath.read<String>(created.body!!, "$.base")).isEqualTo("1.0.0")
-        assertThat(call(HttpMethod.POST, versions, """{"version":"2.0.0"}""").statusCode).isEqualTo(HttpStatus.CONFLICT)
+        val taken = call(HttpMethod.POST, versions, """{"name":"redesign"}""")
+        assertThat(taken.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(JsonPath.read<String>(taken.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-draft-name-in-use")
 
-        // 2.0.0 is now the current draft; 1.0.1 is written to by its address.
-        val written = call(HttpMethod.PATCH, "$versions/1.0.1/themes/tha", """{"name":"Th, fixed"}""")
+        val written = call(HttpMethod.PATCH, "$versions/$work/themes/tha", """{"name":"Th, redesigned"}""")
         assertThat(written.statusCode).describedAs(written.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(call(HttpMethod.GET, "$versions/1.0.1/themes/tha").body!!, "$.name")).isEqualTo("Th, fixed")
-        assertThat(JsonPath.read<String>(call(HttpMethod.GET, "$versions/2.0.0/themes/tha").body!!, "$.name")).isEqualTo("Th")
-        assertThat(JsonPath.read<List<String>>(call(HttpMethod.GET, versions).body!!, "$.items[*].version")).containsExactly("2.0.0", "1.0.1", "1.0.0")
+        assertThat(JsonPath.read<String>(call(HttpMethod.GET, "$versions/$work/themes/tha").body!!, "$.name")).isEqualTo("Th, redesigned")
+        assertThat(JsonPath.read<String>(call(HttpMethod.GET, "$versions/next/themes/tha").body!!, "$.name")).isEqualTo("Th")
+        val listed = call(HttpMethod.GET, versions).body!!
+        assertThat(JsonPath.read<List<Boolean>>(listed, "$.items[*].isNext")).containsExactly(true, false, false)
+        assertThat(JsonPath.read<List<String?>>(listed, "$.items[*].version")).containsExactly(null, null, "1.0.0")
 
-        assertThat(call(HttpMethod.DELETE, "$versions/2.0.0").statusCode).isEqualTo(HttpStatus.NO_CONTENT)
-        assertThat(call(HttpMethod.GET, "$versions/2.0.0/themes/tha").statusCode).isEqualTo(HttpStatus.NOT_FOUND)
-        assertThat(JsonPath.read<String>(call(HttpMethod.GET, "$versions/1.0.1/themes/tha").body!!, "$.name")).isEqualTo("Th, fixed")
+        val renamed = call(HttpMethod.PATCH, "$versions/$work", """{"name":"Redesign 2027"}""")
+        assertThat(renamed.statusCode).describedAs(renamed.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(renamed.body!!, "$.name")).isEqualTo("Redesign 2027")
+        val renameNext = call(HttpMethod.PATCH, "$versions/next", """{"name":"Mine"}""")
+        assertThat(renameNext.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(JsonPath.read<String>(renameNext.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-draft-kind")
+
+        assertThat(call(HttpMethod.POST, "$versions/$work/mark-ready").statusCode).isEqualTo(HttpStatus.OK)
+        val release = call(HttpMethod.POST, "$versions/$work/release", "{}")
+        assertThat(release.statusCode).`as`("only the next version is released").isEqualTo(HttpStatus.CONFLICT)
+        assertThat(JsonPath.read<String>(release.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-draft-kind")
+
+        assertThat(call(HttpMethod.DELETE, "$versions/$work").statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+        assertThat(call(HttpMethod.GET, "$versions/$work/themes/tha").statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        assertThat(JsonPath.read<String>(call(HttpMethod.GET, "$versions/next/themes/tha").body!!, "$.name")).isEqualTo("Th")
         assertThat(call(HttpMethod.DELETE, "$versions/1.0.0").statusCode).isEqualTo(HttpStatus.CONFLICT)
-
-        // Releasing the lower of two drafts leaves the higher behind it.
-        assertThat(call(HttpMethod.POST, versions, """{"version":"2.0.0"}""").statusCode).isEqualTo(HttpStatus.CREATED)
-        assertThat(call(HttpMethod.POST, "$versions/1.0.1/mark-ready").statusCode).isEqualTo(HttpStatus.OK)
-        val lower = call(HttpMethod.POST, "$versions/1.0.1/release", "{}")
-        assertThat(lower.statusCode).describedAs(lower.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<List<String>>(lower.body!!, "$.draftsBehind")).containsExactly("2.0.0")
-        assertThat(JsonPath.read<String?>(lower.body!!, "$.openedDraft")).isNull()
-        assertThat(JsonPath.read<List<String>>(call(HttpMethod.GET, "$versions/2.0.0").body!!, "$.behind[*].version")).containsExactly("1.0.1")
-
-        val refused = call(HttpMethod.POST, "$versions/2.0.0/release", "{}")
-        assertThat(refused.statusCode).isEqualTo(HttpStatus.CONFLICT)
-        assertThat(JsonPath.read<String>(refused.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-version-behind")
-        val higher = call(HttpMethod.POST, "$versions/2.0.0/release", """{"acknowledgedBehind":["1.0.1"]}""")
-        assertThat(higher.statusCode).describedAs(higher.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(higher.body!!, "$.openedDraft")).isEqualTo("2.0.1")
     }
 
     @Test
-    fun `discarding a draft that alone holds the tenant's default theme is a held problem`() {
+    fun `long-term work is behind a release of the next version, which names it`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val catalogSlug = "behind-${UUID.randomUUID().toString().take(8)}"
+        seedAuthoredCatalog(tenantKey, catalogSlug)
+        withMediator { ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.0.0").execute() }
+        val versions = "${withMediator { CatalogApiPaths.catalog(tenantKey, catalogSlug) }}/versions"
+        fun call(method: HttpMethod, path: String, body: String? = null) = restTemplate.exchange(path, method, HttpEntity(body, baseHeaders(apiKey)), String::class.java)
+        val work = JsonPath.read<String>(call(HttpMethod.POST, versions, """{"name":"Redesign"}""").body!!, "$.draftId")
+
+        assertThat(call(HttpMethod.PATCH, "$versions/next/themes/tha", """{"name":"Th, fixed"}""").statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(call(HttpMethod.POST, "$versions/next/mark-ready").statusCode).isEqualTo(HttpStatus.OK)
+        val released = call(HttpMethod.POST, "$versions/next/release", "{}")
+
+        assertThat(released.statusCode).describedAs(released.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<List<String>>(released.body!!, "$.draftsBehind")).containsExactly("Redesign")
+        assertThat(JsonPath.read<List<String>>(call(HttpMethod.GET, "$versions/$work").body!!, "$.behind[*].version")).containsExactly("1.0.1")
+        assertThat(JsonPath.read<List<String>>(call(HttpMethod.GET, "$versions/next").body!!, "$.behind")).isEmpty()
+    }
+
+    @Test
+    fun `discarding the next version while it alone holds the tenant's default theme is a held problem`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val catalogSlug = "held-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
         withMediator {
             val catalogKey = CatalogKey.of(catalogSlug)
             ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.0.0").execute()
-            CreateCatalogVersion(tenantKey, catalogKey, "2.0.0").execute()
-            CreateTheme(ThemeId(ThemeKey.of("seasonal"), CatalogId(catalogKey, TenantId(tenantKey))), "Seasonal", catalogVersion = CatalogVersionRef(tenantKey, catalogKey, "2.0.0")).execute()
+            CreateTheme(ThemeId(ThemeKey.of("seasonal"), CatalogId(catalogKey, TenantId(tenantKey))), "Seasonal").execute()
             SetTenantDefaultTheme(tenantKey, ThemeKey.of("seasonal"), catalogKey).execute()
         }
         val versions = "${withMediator { CatalogApiPaths.catalog(tenantKey, catalogSlug) }}/versions"
 
-        val refused = restTemplate.exchange("$versions/2.0.0", HttpMethod.DELETE, HttpEntity(null, baseHeaders(apiKey)), String::class.java)
+        val refused = restTemplate.exchange("$versions/next", HttpMethod.DELETE, HttpEntity(null, baseHeaders(apiKey)), String::class.java)
 
         assertThat(refused.statusCode).describedAs(refused.body).isEqualTo(HttpStatus.CONFLICT)
         assertThat(JsonPath.read<String>(refused.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-version-held")

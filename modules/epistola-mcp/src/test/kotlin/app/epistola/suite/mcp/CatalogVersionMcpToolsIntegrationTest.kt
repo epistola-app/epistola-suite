@@ -4,8 +4,7 @@
 
 package app.epistola.suite.mcp
 
-import app.epistola.suite.catalog.SemVer
-import app.epistola.suite.catalog.versions.CatalogVersionBehindException
+import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.versions.CatalogVersionHeldException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.common.ids.CatalogKey
@@ -29,9 +28,10 @@ import org.springframework.beans.factory.annotation.Autowired
 import java.util.UUID
 
 /**
- * Several drafts of a catalog over MCP (contract ADR 0002): the version tools list, open, renumber,
- * release and discard drafts, and the content tools read and write the draft their `catalogVersion`
- * argument names.
+ * The drafts of a catalog over MCP (contract ADR 0002, amendment 2): the version tools list drafts and
+ * releases, start, rename and discard long-term work, preview the number the next version gets and
+ * release it; the content tools read and write the draft their `catalogVersion` argument names, the
+ * next version without one.
  */
 class CatalogVersionMcpToolsIntegrationTest : IntegrationTestBase() {
 
@@ -59,164 +59,151 @@ class CatalogVersionMcpToolsIntegrationTest : IntegrationTestBase() {
         )
     }
 
-    /** The default catalog with a `brand` theme, released under its first draft's number; returns that number. */
+    /** The default catalog with a `brand` theme, released; returns the number it was released as. */
     private fun released(tenantId: TenantId): String = runAsApiKey(tenantId) {
         themeTools.createTheme("default", "brand", "Brand", null, null, null, null, null)
         readyTools.markCatalogReady("default")
-        val draft = versionTools.listCatalogVersions("default", "DRAFT").single().version
-        versionTools.releaseCatalogVersion("default", draft, "first", null)
-        draft
+        versionTools.releaseNextVersion("default", null, "first", null).version
     }
 
     private fun newTenant(): TenantId = TenantId(createTenant("MCP Versions ${UUID.randomUUID()}").id)
 
+    /** Starts long-term work called [name]; its `draftId`. */
+    private fun work(tenantId: TenantId, name: String): String = runAsApiKey(tenantId) { versionTools.startLongTermWork("default", name, null) }.draftId!!
+
     @Test
-    fun `a second draft is opened from the last release and listed with its base`() {
+    fun `long-term work is started from the next version and listed after it, without a number`() {
         val tenantId = newTenant()
         val first = released(tenantId)
 
-        val created = runAsApiKey(tenantId) { versionTools.createCatalogVersion("default", "2.0.0", null) }
+        val created = runAsApiKey(tenantId) { versionTools.startLongTermWork("default", "Redesign", null) }
 
         assertThat(created.status).isEqualTo("DRAFT")
+        assertThat(created.version).isNull()
+        assertThat(created.isNext).isFalse()
+        assertThat(created.name).isEqualTo("Redesign")
         assertThat(created.base).isEqualTo(first)
         val versions = runAsApiKey(tenantId) { versionTools.listCatalogVersions("default", null) }
-        assertThat(versions.first().version).isEqualTo("2.0.0")
-        assertThat(versions.filter { it.status == "DRAFT" }.map { it.version }).hasSize(2).contains("2.0.0")
-        assertThat(versions.filter { it.status == "RELEASED" }.map { it.version }).containsExactly(first)
+        assertThat(versions.map { Triple(it.isNext, it.name, it.version) }).containsExactly(
+            Triple(true, null, null),
+            Triple(false, "Redesign", null),
+            Triple(false, null, first),
+        )
     }
 
     @Test
-    fun `content tools read and write the draft catalogVersion names, and the current one without it`() {
+    fun `content tools read and write the draft catalogVersion names, and the next version without it`() {
         val tenantId = newTenant()
         released(tenantId)
-        val lower = runAsApiKey(tenantId) {
-            versionTools.createCatalogVersion("default", "2.0.0", null)
-            versionTools.listCatalogVersions("default", "DRAFT").map { it.version }.single { it != "2.0.0" }
+        val redesign = work(tenantId, "Redesign")
+
+        runAsApiKey(tenantId) {
+            themeTools.updateTheme("default", "brand", "Brand, fixed", null, null, null, null, null, null, null, catalogVersion = "next")
+            themeTools.updateTheme("default", "brand", "Brand redesigned", null, null, null, null, null, null, null, catalogVersion = redesign)
         }
 
         runAsApiKey(tenantId) {
-            themeTools.updateTheme("default", "brand", "Brand, maintenance", null, null, null, null, null, null, null, catalogVersion = lower)
-            themeTools.updateTheme("default", "brand", "Brand two", null, null, null, null, null, null, null, catalogVersion = "2.0.0")
-        }
-
-        runAsApiKey(tenantId) {
-            assertThat(themeTools.getTheme("default", "brand", catalogVersion = lower)!!.name).isEqualTo("Brand, maintenance")
-            assertThat(themeTools.getTheme("default", "brand", catalogVersion = "2.0.0")!!.name).isEqualTo("Brand two")
-            // Without one, the catalog's current version: its highest draft.
-            assertThat(themeTools.getTheme("default", "brand")!!.name).isEqualTo("Brand two")
-            assertThat(themeTools.listThemes("default", null, catalogVersion = lower).map { it.name }).contains("Brand, maintenance")
-            assertThat(readyTools.getCatalogChanges("default", catalogVersion = lower).resources.single { it.key == "brand" }.state).isEqualTo("MODIFIED")
+            assertThat(themeTools.getTheme("default", "brand", catalogVersion = redesign)!!.name).isEqualTo("Brand redesigned")
+            // Without one, the next version, however new long-term work is.
+            assertThat(themeTools.getTheme("default", "brand")!!.name).isEqualTo("Brand, fixed")
+            assertThat(themeTools.listThemes("default", null, catalogVersion = redesign).map { it.name }).contains("Brand redesigned")
+            assertThat(readyTools.getCatalogChanges("default", catalogVersion = redesign).resources.single { it.key == "brand" }.state).isEqualTo("MODIFIED")
         }
     }
 
     @Test
-    fun `a template created in a named draft exists only there`() {
+    fun `a template created in long-term work exists only there`() {
         val tenantId = newTenant()
         released(tenantId)
-        val lower = runAsApiKey(tenantId) {
-            versionTools.createCatalogVersion("default", "2.0.0", null)
-            versionTools.listCatalogVersions("default", "DRAFT").map { it.version }.single { it != "2.0.0" }
-        }
+        val redesign = work(tenantId, "Redesign")
 
-        runAsApiKey(tenantId) { templateTools.createTemplate("default", "invoice", "Invoice", null, null, null, catalogVersion = lower) }
+        runAsApiKey(tenantId) { templateTools.createTemplate("default", "invoice", "Invoice", null, null, null, catalogVersion = redesign) }
 
         runAsApiKey(tenantId) {
-            assertThat(templateTools.getTemplate("default", "invoice", catalogVersion = lower)).isNotNull
-            assertThat(templateTools.getTemplate("default", "invoice", catalogVersion = "2.0.0")).isNull()
-            assertThat(templateTools.listTemplates("default", null, catalogVersion = lower).map { it.id }).contains("invoice")
+            assertThat(templateTools.getTemplate("default", "invoice", catalogVersion = redesign)).isNotNull
+            assertThat(templateTools.getTemplate("default", "invoice", catalogVersion = "next")).isNull()
             assertThat(templateTools.listTemplates("default", null).map { it.id }).doesNotContain("invoice")
         }
     }
 
     @Test
-    fun `a version without a catalog, and a version the catalog does not have, are refused`() {
+    fun `a draft without a catalog, a number, and a draft the catalog does not have, are refused`() {
         val tenantId = newTenant()
 
-        assertThatThrownBy { runAsApiKey(tenantId) { themeTools.listThemes(null, null, catalogVersion = "2.0.0") } }
+        assertThatThrownBy { runAsApiKey(tenantId) { themeTools.listThemes(null, null, catalogVersion = "next") } }
             .isInstanceOf(ValidationException::class.java)
             .hasMessageContaining("catalogId")
-        assertThatThrownBy { runAsApiKey(tenantId) { themeTools.getTheme("default", "brand", catalogVersion = "9.9.9") } }
+        assertThatThrownBy { runAsApiKey(tenantId) { themeTools.getTheme("default", "brand", catalogVersion = "1.0.0") } }
+            .`as`("a draft has no number").isInstanceOf(ValidationException::class.java)
+        assertThatThrownBy { runAsApiKey(tenantId) { themeTools.getTheme("default", "brand", catalogVersion = UUID.randomUUID().toString()) } }
             .isInstanceOf(CatalogVersionNotFoundException::class.java)
     }
 
     @Test
-    fun `renumbering past another draft returns its warnings first, then renumbers when acknowledged`() {
+    fun `long-term work is renamed, and the next version has no name to change`() {
         val tenantId = newTenant()
         released(tenantId)
-        val lower = runAsApiKey(tenantId) {
-            versionTools.createCatalogVersion("default", "1.5.0", null)
-            versionTools.listCatalogVersions("default", "DRAFT").map { it.version }.single { it != "1.5.0" }
-        }
+        val redesign = work(tenantId, "Redesign")
 
-        val warned = runAsApiKey(tenantId) { versionTools.renumberCatalogVersion("default", lower, "1.6.0", null) }
+        val renamed = runAsApiKey(tenantId) { versionTools.renameLongTermWork("default", redesign, "Redesign 2027") }
 
-        assertThat(warned.renumbered).isFalse
-        assertThat(warned.warnings.map { it.kind }).containsExactly("passes-draft")
-        val renumbered = runAsApiKey(tenantId) { versionTools.renumberCatalogVersion("default", lower, "1.6.0", true) }
-        assertThat(renumbered.renumbered).isTrue
-        assertThat(renumbered.version!!.version).isEqualTo("1.6.0")
+        assertThat(renamed.name).isEqualTo("Redesign 2027")
+        assertThatThrownBy { runAsApiKey(tenantId) { versionTools.renameLongTermWork("default", "next", "Mine") } }.isInstanceOf(ValidationException::class.java)
     }
 
     @Test
-    fun `renumbering a draft with additions to a patch returns the warning with its reasons`() {
+    fun `the release number comes from what changed, with the reasons, and releasing uses it`() {
         val tenantId = newTenant()
-        released(tenantId)
-        val draft = runAsApiKey(tenantId) {
-            themeTools.createTheme("default", "extra", "Extra", null, null, null, null, null)
-            versionTools.listCatalogVersions("default", "DRAFT").single().version
-        }
-        val patch = SemVer.parse(draft).bumpPatch().toString()
-
-        val warned = runAsApiKey(tenantId) { versionTools.renumberCatalogVersion("default", draft, patch, null) }
-
-        assertThat(warned.renumbered).isFalse
-        assertThat(warned.warnings.map { it.kind to it.reasons }).containsExactly("additions-in-patch" to listOf("theme 'extra': added"))
-    }
-
-    @Test
-    fun `releasing a draft behind a release needs it acknowledged, and the lower draft is discarded on release`() {
-        val tenantId = newTenant()
-        released(tenantId)
-        val lower = runAsApiKey(tenantId) {
-            versionTools.createCatalogVersion("default", "2.0.0", null)
-            versionTools.listCatalogVersions("default", "DRAFT").map { it.version }.single { it != "2.0.0" }
-        }
-        val lowerRelease = runAsApiKey(tenantId) {
-            themeTools.updateTheme("default", "brand", "Brand, fixed", null, null, null, null, null, null, null, catalogVersion = lower)
-            readyTools.markCatalogReady("default", catalogVersion = lower)
-            versionTools.releaseCatalogVersion("default", lower, null, null)
-        }
-        assertThat(lowerRelease.openedDraft).isNull()
-        assertThat(lowerRelease.draftsBehind).containsExactly("2.0.0")
-        val draft = runAsApiKey(tenantId) { versionTools.listCatalogVersions("default", "DRAFT") }.single()
-        assertThat(draft.behind.map { it.version }).containsExactly(lower)
-        assertThat(draft.behind.single().changes).containsExactly("theme/brand modified")
-
-        runAsApiKey(tenantId) { readyTools.markCatalogReady("default", catalogVersion = "2.0.0") }
-        assertThatThrownBy { runAsApiKey(tenantId) { versionTools.releaseCatalogVersion("default", "2.0.0", null, null) } }
-            .isInstanceOf(CatalogVersionBehindException::class.java)
-        val higher = runAsApiKey(tenantId) { versionTools.releaseCatalogVersion("default", "2.0.0", null, listOf(lower)) }
-        assertThat(higher.openedDraft).isEqualTo("2.0.1")
-        // A number no draft has is refused rather than releasing the current draft renumbered.
-        assertThatThrownBy { runAsApiKey(tenantId) { versionTools.releaseCatalogVersion("default", "3.0.0", null, null) } }
-            .isInstanceOf(CatalogVersionNotFoundException::class.java)
-    }
-
-    @Test
-    fun `discarding a draft deletes it, and one holding the tenant's default theme alone is refused`() {
-        val tenantId = newTenant()
-        released(tenantId)
+        val first = released(tenantId)
         runAsApiKey(tenantId) {
-            versionTools.createCatalogVersion("default", "2.0.0", null)
-            versionTools.createCatalogVersion("default", "3.0.0", null)
-            themeTools.createTheme("default", "seasonal", "Seasonal", null, null, null, null, null, catalogVersion = "3.0.0")
+            themeTools.createTheme("default", "extra", "Extra", null, null, null, null, null)
+            readyTools.markCatalogReady("default")
         }
+
+        val preview = runAsApiKey(tenantId) { versionTools.previewReleaseNumber("default") }
+
+        assertThat(preview.latest).isEqualTo(first)
+        assertThat(preview.changeKind).isEqualTo("ADDITIVE")
+        assertThat(preview.reasons).containsExactly("theme 'extra': added")
+        assertThat(preview.suggested).isEqualTo("1.1.0")
+        assertThatThrownBy { runAsApiKey(tenantId) { versionTools.releaseNextVersion("default", "1.0.1", null, null) } }
+            .`as`("never lower than the changes need").isInstanceOf(CatalogReleaseVersionException::class.java)
+        assertThat(runAsApiKey(tenantId) { versionTools.releaseNextVersion("default", null, null, null) }.version).isEqualTo("1.1.0")
+    }
+
+    @Test
+    fun `releasing the next version continues it, and long-term work is behind the release`() {
+        val tenantId = newTenant()
+        released(tenantId)
+        work(tenantId, "Redesign")
+
+        val release = runAsApiKey(tenantId) {
+            themeTools.updateTheme("default", "brand", "Brand, fixed", null, null, null, null, null, null, null)
+            readyTools.markCatalogReady("default")
+            versionTools.releaseNextVersion("default", null, null, null)
+        }
+
+        assertThat(release.version).isEqualTo("1.0.1")
+        assertThat(release.draftsBehind).containsExactly("Redesign")
+        val drafts = runAsApiKey(tenantId) { versionTools.listCatalogVersions("default", "DRAFT") }
+        assertThat(drafts.single { it.isNext }.base).isEqualTo("1.0.1")
+        val redesign = drafts.single { !it.isNext }
+        assertThat(redesign.behind.map { it.version }).containsExactly("1.0.1")
+        assertThat(redesign.behind.single().changes).containsExactly("theme/brand modified")
+    }
+
+    @Test
+    fun `discarding long-term work removes it, discarding the next version starts it again, and one holding the default theme alone is refused`() {
+        val tenantId = newTenant()
+        released(tenantId)
+        val redesign = work(tenantId, "Redesign")
+        runAsApiKey(tenantId) { themeTools.createTheme("default", "seasonal", "Seasonal", null, null, null, null, null) }
         withMediator { SetTenantDefaultTheme(tenantId.key, ThemeKey.of("seasonal"), CatalogKey.of("default")).execute() }
 
-        val left = runAsApiKey(tenantId) { versionTools.deleteCatalogVersion("default", "2.0.0") }
+        val left = runAsApiKey(tenantId) { versionTools.discardCatalogWork("default", redesign) }
 
-        assertThat(left.map { it.version }).doesNotContain("2.0.0")
-        assertThatThrownBy { runAsApiKey(tenantId) { versionTools.deleteCatalogVersion("default", "3.0.0") } }
+        assertThat(left.map { it.name }).doesNotContain("Redesign")
+        assertThatThrownBy { runAsApiKey(tenantId) { versionTools.discardCatalogWork("default", "next") } }
             .isInstanceOf(CatalogVersionHeldException::class.java)
             .hasMessageContaining("default theme")
     }

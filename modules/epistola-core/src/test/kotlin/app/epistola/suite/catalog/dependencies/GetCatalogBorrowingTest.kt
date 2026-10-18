@@ -10,7 +10,8 @@ import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CreateCatalogVersion
+import app.epistola.suite.catalog.versions.CreateCatalogDraft
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
@@ -116,13 +117,13 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
     @Test
     fun `the view and the declaring follow the draft they name, not the next version`() {
         val tenant = setUp("borrow-draft")
-        withMediator {
+        val work = withMediator {
             CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant))), "Invoice").execute().withRequiredDataExample()
             MarkCatalogReady(tenant, letters).execute()
             ReleaseCatalogVersion(tenant, letters, "1.0.0").execute()
-            CreateCatalogVersion(tenant, letters, "2.0.0").execute()
+            CreateCatalogDraft(tenant, letters, "Redesign").execute()
         }
-        val draft = CatalogVersionRef(tenant, letters, "1.0.1")
+        val draft = CatalogVersionRef(tenant, letters, DraftRef.Id(work.draftId!!))
         invoiceOnSharedTheme(tenant, draft)
 
         assertThat(withMediator { GetCatalogBorrowing(tenant, letters).query() }.catalogs).`as`("the next version uses nothing").isEmpty()

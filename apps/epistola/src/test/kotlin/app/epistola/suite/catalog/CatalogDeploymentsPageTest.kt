@@ -26,6 +26,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -80,7 +81,8 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
             MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenant.id, key, version = "1.0.0").execute()
-            CreateTheme(ThemeId(ThemeKey.of("second"), catalog(tenant)), "Second").execute()
+            // A correction, so the next patch.
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), name = "Brand, corrected").execute()
             MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenant.id, key, version = "1.0.1").execute()
             DeployRelease(production, key, "1.0.0").execute()
@@ -111,7 +113,8 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
             MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenant.id, key, version = "1.0.0").execute()
-            CreateTheme(ThemeId(ThemeKey.of("second"), catalog(tenant)), "Second").execute()
+            // A correction, so the next patch.
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), name = "Brand, corrected").execute()
             MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenant.id, key, version = "1.1.0").execute()
             DeployRelease(production, key, "1.0.0").execute()

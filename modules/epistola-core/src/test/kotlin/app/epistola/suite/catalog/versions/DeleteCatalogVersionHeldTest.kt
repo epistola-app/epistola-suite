@@ -10,6 +10,7 @@ import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -30,6 +31,8 @@ import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.commands.UpdateTheme
+import app.epistola.suite.themes.queries.GetTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -47,88 +50,95 @@ class DeleteCatalogVersionHeldTest : IntegrationTestBase() {
 
     private fun id(tenant: TenantKey, catalog: CatalogKey = letters) = CatalogId(catalog, TenantId(tenant))
 
-    private fun at(tenant: TenantKey, version: String) = CatalogVersionRef(tenant, letters, version)
-
-    /** `letters` with a `brand` theme, released as 1.0.0, its draft 1.0.1, and a second draft 2.0.0. */
+    /**
+     * `letters` with a `brand` theme, released as 1.0.0, its next version, and long-term work "Redesign".
+     * What is created below goes into the next version, the one everything outside the catalog sees:
+     * discarding it would take a resource that is in no release away from what uses it.
+     */
     private fun twoDrafts(name: String): TenantKey = withMediator {
         val tenant = createTenant(name).id
         CreateCatalog(tenant, letters, "Letters").execute()
         CreateTheme(ThemeId(ThemeKey.of("brand"), id(tenant)), "Brand").execute()
         mediator.releaseNext(id(tenant))
-        CreateCatalogVersion(tenant, letters, "2.0.0").execute()
+        CreateCatalogDraft(tenant, letters, "Redesign").execute()
         CreateCatalog(tenant, shared, "Shared").execute()
         tenant
     }
 
-    private fun versions(tenant: TenantKey) = withMediator { ListCatalogVersions(tenant, letters).query() }.map { it.version }
+    /** Which resources the next version holds, by type and key. */
+    private fun inNext(tenant: TenantKey, type: String) = withMediator { GetCatalogResourceChanges(tenant, letters).query() }.resources
+        .filter { it.type == type }.map { it.slug }
 
     @Test
-    fun `a draft holding the tenant's default theme alone is not discarded`() {
+    fun `a next version holding the tenant's default theme alone is not discarded`() {
         val tenant = twoDrafts("held-default-theme")
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("seasonal"), id(tenant)), "Seasonal", catalogVersion = at(tenant, "2.0.0")).execute()
+            CreateTheme(ThemeId(ThemeKey.of("seasonal"), id(tenant)), "Seasonal").execute()
             SetTenantDefaultTheme(tenant, ThemeKey.of("seasonal"), letters).execute()
         }
 
-        assertThatThrownBy { withMediator { DeleteCatalogVersion(tenant, letters, "2.0.0").execute() } }
+        assertThatThrownBy { withMediator { DeleteCatalogDraft(tenant, letters, DraftRef.Next).execute() } }
             .isInstanceOfSatisfying(CatalogVersionHeldException::class.java) { e ->
                 assertThat(e.holders).containsExactly("the tenant's default theme (theme letters/seasonal)")
             }
             .hasMessageContaining("default theme")
-        assertThat(versions(tenant)).contains("2.0.0")
+        assertThat(inNext(tenant, "theme")).`as`("nothing was discarded").contains("seasonal")
     }
 
     @Test
-    fun `a draft whose theme is the default but also held by another draft is discarded`() {
+    fun `a next version whose theme is the default but also held by a release is discarded`() {
         val tenant = twoDrafts("held-default-theme-shared")
-        withMediator { SetTenantDefaultTheme(tenant, ThemeKey.of("brand"), letters).execute() }
+        withMediator {
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), id(tenant)), name = "Brand, edited").execute()
+            SetTenantDefaultTheme(tenant, ThemeKey.of("brand"), letters).execute()
+        }
 
-        withMediator { DeleteCatalogVersion(tenant, letters, "2.0.0").execute() }
+        withMediator { DeleteCatalogDraft(tenant, letters, DraftRef.Next).execute() }
 
-        assertThat(versions(tenant)).doesNotContain("2.0.0")
+        assertThat(withMediator { GetTheme(ThemeId(ThemeKey.of("brand"), id(tenant))).query()!! }.name).`as`("back to the release").isEqualTo("Brand")
     }
 
     @Test
-    fun `a draft holding a code list an attribute of another catalog binds is not discarded`() {
+    fun `a next version holding a code list an attribute of another catalog binds is not discarded`() {
         val tenant = twoDrafts("held-code-list")
         val colours = CodeListId(CodeListKey.of("colours"), id(tenant))
         withMediator {
-            CreateCodeList(colours, "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red")), catalogVersion = at(tenant, "2.0.0")).execute()
+            CreateCodeList(colours, "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red"))).execute()
             CreateAttributeDefinition(AttributeId(AttributeKey.of("colour"), id(tenant, shared)), "Colour", codeListId = colours).execute()
         }
 
-        assertThatThrownBy { withMediator { DeleteCatalogVersion(tenant, letters, "2.0.0").execute() } }
+        assertThatThrownBy { withMediator { DeleteCatalogDraft(tenant, letters, DraftRef.Next).execute() } }
             .isInstanceOfSatisfying(CatalogVersionHeldException::class.java) { e ->
                 assertThat(e.holders).containsExactly("attribute shared/colour (code list letters/colours)")
             }
-        assertThat(versions(tenant)).contains("2.0.0")
+        assertThat(inNext(tenant, "codeList")).`as`("nothing was discarded").contains("colours")
     }
 
     @Test
-    fun `a draft whose code list and the attribute binding it are both its own is discarded`() {
+    fun `a next version whose code list and the attribute binding it are both its own is discarded`() {
         val tenant = twoDrafts("held-code-list-own")
         val colours = CodeListId(CodeListKey.of("colours"), id(tenant))
         withMediator {
-            CreateCodeList(colours, "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red")), catalogVersion = at(tenant, "2.0.0")).execute()
-            CreateAttributeDefinition(AttributeId(AttributeKey.of("colour"), id(tenant)), "Colour", codeListId = colours, catalogVersion = at(tenant, "2.0.0")).execute()
+            CreateCodeList(colours, "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red"))).execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("colour"), id(tenant)), "Colour", codeListId = colours).execute()
         }
 
-        withMediator { DeleteCatalogVersion(tenant, letters, "2.0.0").execute() }
+        withMediator { DeleteCatalogDraft(tenant, letters, DraftRef.Next).execute() }
 
-        assertThat(versions(tenant)).doesNotContain("2.0.0")
+        assertThat(inNext(tenant, "codeList")).`as`("the next version started again on the release").doesNotContain("colours")
     }
 
     @Test
-    fun `a draft holding a theme a template of another catalog uses is not discarded, and the template keeps its theme`() {
+    fun `a next version holding a theme a template of another catalog uses is not discarded, and the template keeps its theme`() {
         val tenant = twoDrafts("held-template-theme")
         val letter = TemplateId(TemplateKey.of("letter"), id(tenant, shared))
         withMediator {
-            CreateTheme(ThemeId(ThemeKey.of("seasonal"), id(tenant)), "Seasonal", catalogVersion = at(tenant, "2.0.0")).execute()
+            CreateTheme(ThemeId(ThemeKey.of("seasonal"), id(tenant)), "Seasonal").execute()
             CreateDocumentTemplate(letter, "Letter").execute()
             UpdateDocumentTemplate(letter, themeId = ThemeKey.of("seasonal"), themeCatalogKey = letters).execute()
         }
 
-        assertThatThrownBy { withMediator { DeleteCatalogVersion(tenant, letters, "2.0.0").execute() } }
+        assertThatThrownBy { withMediator { DeleteCatalogDraft(tenant, letters, DraftRef.Next).execute() } }
             .isInstanceOfSatisfying(CatalogVersionHeldException::class.java) { e ->
                 assertThat(e.holders).containsExactly("template shared/letter (theme letters/seasonal)")
             }

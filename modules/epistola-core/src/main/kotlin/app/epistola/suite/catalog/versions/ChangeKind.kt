@@ -12,6 +12,7 @@ import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.SemVer
+import app.epistola.suite.catalog.dependencies.MissingDependencyDeclarer
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -254,13 +255,21 @@ class ChangeKindEvaluator(private val objectMapper: ObjectMapper) {
 class DraftChangeKinds(
     private val contentBuilder: CatalogContentBuilder,
     private val releases: ReleaseContentAssembler,
+    private val declarer: MissingDependencyDeclarer,
     objectMapper: ObjectMapper,
 ) {
     private val evaluator = ChangeKindEvaluator(objectMapper)
 
-    /** Null when the catalog has no release [base] that retained its content, so there is nothing to compare. */
+    /**
+     * Null when the catalog has no release [base] that retained its content, so there is nothing to
+     * compare. The draft counts the catalogs it uses but does not declare as declared: publishing
+     * declares them before it releases, so the number it is released as has to account for them.
+     */
     fun against(tenantKey: TenantKey, catalogKey: CatalogKey, base: String): ChangeAssessment? {
         val released = releases.assemble(tenantKey, catalogKey, base)?.content ?: return null
-        return evaluator.evaluate(released, contentBuilder.build(tenantKey, catalogKey))
+        val draft = contentBuilder.build(tenantKey, catalogKey)
+        val undeclared = declarer.wouldDeclare(tenantKey, catalogKey, draft)
+        val asPublished = if (undeclared.isEmpty()) draft else draft.copy(catalogDependencies = draft.catalogDependencies.orEmpty() + undeclared.map { it.toWire() })
+        return evaluator.evaluate(released, asPublished)
     }
 }

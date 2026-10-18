@@ -15,11 +15,38 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.UUID
 
-/** One version of a catalog, by number, as a message names it. */
+/**
+ * A draft of a catalog as a message names it (contract ADR 0002, amendment 2): its next version, or
+ * a draft by id. A draft has no number until it is released, so a number never names one.
+ */
+sealed interface DraftRef {
+    /** The catalog's next version: the draft everyday work goes into. */
+    data object Next : DraftRef {
+        override fun toString(): String = NEXT
+    }
+
+    /** A draft by its id, the `version_id` its content rows belong to. */
+    data class Id(val id: UUID) : DraftRef {
+        override fun toString(): String = id.toString()
+    }
+
+    companion object {
+        /** How [Next] is written in an address. */
+        const val NEXT: String = "next"
+
+        /** [value] as an address writes it: `next` or a draft id; null when it is neither. */
+        fun parse(value: String): DraftRef? = when (value) {
+            NEXT -> Next
+            else -> runCatching { UUID.fromString(value) }.getOrNull()?.let(::Id)
+        }
+    }
+}
+
+/** One draft of a catalog, as a message names it. */
 data class CatalogVersionRef(
     val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
-    val version: String,
+    val draft: DraftRef,
 )
 
 /**
@@ -58,41 +85,31 @@ class CatalogVersionTargeting(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     /**
-     * The `version_id` of [ref]. A draft or an installed release has one.
+     * The `version_id` of the draft [ref] names.
      *
      * @throws CatalogNotFoundException when the tenant has no such catalog.
-     * @throws CatalogVersionReleasedException when [ref] names a released version: its content is the
-     *   retained release content, read through the release, and never written.
-     * @throws CatalogVersionNotFoundException when the catalog has no version with that number.
+     * @throws CatalogVersionNotFoundException when the catalog has no such draft: no draft with that
+     *   id, or no next version (a subscribed catalog, or one whose next version was discarded).
      */
     fun resolve(ref: CatalogVersionRef): UUID = jdbi.withHandle<UUID, Exception> { handle ->
+        val match = when (val draft = ref.draft) {
+            DraftRef.Next -> "v.is_next"
+            is DraftRef.Id -> "v.version_id = :id"
+        }
         handle.createQuery(
             """
             SELECT v.version_id FROM catalog_versions v
-            WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} AND v.version = :v
+            WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} AND v.kind = 'draft' AND $match
             """,
         )
             .bind("t", ref.tenantKey)
             .bind("c", ref.catalogKey)
-            .bind("v", ref.version)
+            .also { query -> (ref.draft as? DraftRef.Id)?.let { query.bind("id", it.id) } }
             .mapTo(UUID::class.java)
             .findOne()
             .orElseGet {
-                val released = handle.createQuery(
-                    """
-                    SELECT EXISTS (SELECT 1 FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v)
-                    """,
-                )
-                    .bind("t", ref.tenantKey)
-                    .bind("c", ref.catalogKey)
-                    .bind("v", ref.version)
-                    .mapTo(Boolean::class.java)
-                    .one()
-                when {
-                    released -> throw CatalogVersionReleasedException(ref.catalogKey, ref.version)
-                    !catalogExists(handle, ref) -> throw CatalogNotFoundException(ref.catalogKey)
-                    else -> throw CatalogVersionNotFoundException(ref.catalogKey, ref.version)
-                }
+                if (!catalogExists(handle, ref)) throw CatalogNotFoundException(ref.catalogKey)
+                throw CatalogVersionNotFoundException(ref.catalogKey, ref.draft.toString())
             }
     }
 

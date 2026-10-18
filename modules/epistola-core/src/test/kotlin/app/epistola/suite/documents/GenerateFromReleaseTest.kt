@@ -103,8 +103,9 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
                     filename = "letter.pdf",
                 ),
             )
-            // 1.0.1 requires a field the accepted request does not carry. Rendering 1.0.1 would fail
-            // validation; rendering the release the request was accepted against succeeds.
+            // 2.0.0 requires a field the accepted request does not carry: a breaking change, so the
+            // next major. Rendering 2.0.0 would fail validation; rendering the release the request was
+            // accepted against succeeds.
             // A new contract (the last one was released with 1.0.0), saved even though it breaks.
             execute(UpdateDataContract(templateId, dataModel = contract("reference"), dataExamples = listOf(DataExample("e", "E", objectMapper.createObjectNode().put("reference", "R-1"))), forceUpdate = true))
             execute(UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Letter")))
@@ -112,7 +113,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
             accepted
         }.then { _, accepted ->
             // The premise: the release cut after acceptance really does require the other field.
-            val laterContract = releaseAssembler.readResource(accepted.tenantKey, accepted.catalogKey, "1.0.1", "template", accepted.templateKey.value)
+            val laterContract = releaseAssembler.readResource(accepted.tenantKey, accepted.catalogKey, "2.0.0", "template", accepted.templateKey.value)
                 as app.epistola.catalog.protocol.TemplateResource
             assertThat(laterContract.dataModel?.get("required")).isEqualTo(listOf("reference"))
 

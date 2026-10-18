@@ -130,8 +130,8 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
             assertThat(restoredTenant.defaultThemeCatalogKey?.value).isEqualTo("main")
 
             // A restored authored catalog has a draft to keep working in.
-            assertThat(ListCatalogVersions(tenant.id, main).query().map { it.version to it.status })
-                .containsExactly("1.0.0" to CatalogVersionStatus.DRAFT)
+            assertThat(ListCatalogVersions(tenant.id, main).query().map { it.label to it.status })
+                .containsExactly("Next version" to CatalogVersionStatus.DRAFT)
 
             // The restored tenant is content-identical to the snapshot.
             val rebuilt = BuildTenantSnapshot(tenant.id).execute()

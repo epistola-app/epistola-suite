@@ -6,13 +6,11 @@
            progress, the way to start. Model: `tenantId`, `bar` (CatalogDraftBar) and `readiness`
            (CatalogReleaseReadiness, null without a draft). Every control gates on one name. */-->
     <th:block th:fragment="bar-status"
-              th:with="overview=${bar.fixing} ? ${bar.draftPageHref} : @{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${bar.catalogKey})}">
+              th:with="overview=${bar.onLongTermWork} ? ${bar.draftPageHref} : @{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${bar.catalogKey})}">
         <th:block th:if="${readiness == null}">
             <span class="ws-status-text" data-testid="catalog-draft-none">Nothing in progress</span>
             <form th:if="${bar.offerOpenDraft}" method="post" class="ws-status-form"
                   th:action="@{/tenants/{t}/catalogs/{c}/drafts(t=${tenantId},c=${bar.catalogKey})}">
-                <input type="hidden" name="version" th:value="${bar.openDraftVersion}">
-                <input type="hidden" name="from" th:value="${bar.openDraftFrom}">
                 <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="catalog-draft-open">Start the next version</button>
             </form>
         </th:block>

@@ -60,8 +60,6 @@
                 <div class="ep-row" style="gap: var(--ep-space-2);">
                     <form th:if="${bar.offerOpenDraft}" method="post" style="display: inline;"
                           th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts(tenantId=${tenantId},catalogId=${catalog.id})}">
-                        <input type="hidden" name="version" th:value="${bar.openDraftVersion}">
-                        <input type="hidden" name="from" th:value="${bar.openDraftFrom}">
                         <button type="submit" class="ep-btn ep-btn-primary" data-testid="catalog-draft-open">Start the next version</button>
                     </form>
                     <button th:if="${bar.current != null and contents.isEmpty and contents.templates.mayCreate}" type="button" class="ep-btn ep-btn-primary"
@@ -76,7 +74,7 @@
                 </div>
             </div>
             <p th:if="${bar.openDraftWithheldNoContent}" class="form-hint" data-testid="catalog-draft-open-withheld">
-                The latest published version kept no content to start from. Start from an older one under Versions.
+                The latest published version kept no content to start from.
             </p>
             <p th:if="${bar.draftControlsWithheld and (bar.noDraft or contents.isEmpty)}" class="form-hint" data-testid="catalog-draft-open-withheld">
                 Editing needs the content author role.
@@ -96,24 +94,11 @@
                 </div>
             </div>
 
-            <!--/* A fix published from side work after the next version started, which is not in it. */-->
-            <div th:unless="${bar.publishedSince.isEmpty()}" class="alert alert-warning" style="margin-top: var(--ep-space-3);"
-                 data-testid="catalog-published-since">
-                <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
-                <div>
-                    <p th:each="release : ${bar.publishedSince}" style="margin: 0;" th:data-version="${release.version}">
-                        <a th:href="@{/tenants/{t}/catalogs/{c}/releases/{v}(t=${tenantId},c=${catalog.id},v=${release.version})}"
-                           th:text="'v' + ${release.version}">v1.0.1</a>
-                        was published after the next version started, and is not in it. Make the same change here if it belongs in the next version too.
-                    </p>
-                </div>
-            </div>
-
-            <!--/* Another draft open next to the next version, such as an in-between version. */-->
-            <p th:if="${bar.openInBetween != null}" style="margin: var(--ep-space-3) 0 0;" data-testid="catalog-in-between">
-                <span th:text="'Draft v' + ${bar.openInBetween} + ' is open next to it, to publish on its own.'">Draft v1.2.1 is open next to it.</span>
-                <a th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenantId},c=${catalog.id + '@' + bar.openInBetween})}"
-                   data-testid="catalog-in-between-continue">Continue it</a>
+            <!--/* Long-term work open next to the next version, each to continue. */-->
+            <p th:each="work : ${bar.longTermWork}" style="margin: var(--ep-space-3) 0 0;" data-testid="catalog-long-term"
+               th:attr="data-draft=${work.draftId}">
+                <span th:text="${work.label} + ' is open next to it, as long-term work.'">Redesign 2027 is open next to it.</span>
+                <a th:href="${work.href}" data-testid="catalog-long-term-continue">Continue it</a>
             </p>
 
             <!--/* Where it is live: what an application gets, and Make live. */-->
@@ -156,24 +141,11 @@
             <h2>Versions</h2>
             <button th:if="${bar.offerCreateDraft}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
                     th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts/new(tenantId=${tenantId},catalogId=${catalog.id})}"
-                    hx-target="#dialog-mount" hx-swap="innerHTML"
-                    title="For work published on its own, such as the next major next to the next minor"
-                    data-testid="catalog-draft-new">New draft…</button>
+                    hx-target="#ws-dialog-mount" hx-swap="innerHTML"
+                    title="For a large change that is not ready to go out with everyday work"
+                    data-testid="catalog-draft-new">Start long-term work…</button>
         </div>
         <div class="detail-section-body">
-            <!--/* Something has to go out before the next version is ready (use case 3). */-->
-            <form th:if="${readiness != null and readiness.offerInBetween}" method="post" class="ep-row"
-                  style="gap: var(--ep-space-3); align-items: center; flex-wrap: wrap; margin-bottom: var(--ep-space-4);"
-                  th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/fixes(tenantId=${tenantId},catalogId=${catalog.id})}"
-                  data-testid="catalog-in-between">
-                <input type="hidden" name="of" th:value="${bar.latestPublished}">
-                <span>Need to publish something before the next version is ready?</span>
-                <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-in-between-start">Start an in-between version</button>
-                <span class="form-hint" style="flex-basis: 100%;"
-                      th:text="'It starts from v' + ${bar.latestPublished} + ', without the changes in the next version, and is published on its own. The next version stays as it is.'">It starts from v1.2.0.</span>
-            </form>
-            <p th:if="${bar.inBetweenWithheldNoContent}" class="form-hint" data-testid="catalog-in-between-withheld"
-               th:text="'v' + ${bar.latestPublished} + ' was published before Epistola kept the contents of a version, so an in-between version cannot start from it.'"></p>
             <p th:if="${bar.versionRows.isEmpty()}" class="text-muted">This catalog has no versions.</p>
             <div th:unless="${bar.versionRows.isEmpty()}" class="ep-table-scroll" role="region" aria-label="Versions" tabindex="0">
                 <table class="ep-table">
@@ -188,10 +160,10 @@
                     </thead>
                     <tbody>
                         <tr th:each="row : ${bar.versionRows}" data-testid="catalog-version-row"
-                            th:attr="data-version=${row.version},data-status=${row.draft} ? 'draft' : 'published'">
+                            th:attr="data-version=${row.version},data-status=${row.draft} ? 'draft' : 'published',data-next=${row.next}">
                             <td style="font-weight: 500;">
-                                <a th:href="${row.href}" data-testid="catalog-version-link"
-                                   th:text="${row.next} ? 'Next version' : (${row.draft} ? 'Draft v' + ${row.version} : 'v' + ${row.version})">v1.0.0</a>
+                                <a th:href="${row.href}" data-testid="catalog-version-link" th:text="${row.label}">v1.0.0</a>
+                                <span th:if="${row.draft and !row.next}" class="text-muted" style="font-size: var(--ep-text-xs);">long-term work</span>
                             </td>
                             <!--/* Every version starts from a published one, unless it started from nothing. */-->
                             <td data-testid="catalog-version-base">
@@ -223,7 +195,7 @@
                                             data-confirm-submit
                                             th:attr="data-confirm-submit-title=${row.draft} ? 'Discard this draft' : 'Delete this version',
                                                      data-confirm-submit-message=${row.draft}
-                                                         ? (${row.next} ? 'The next version' : 'Draft v' + ${row.version}) + ' is discarded with every change made in it. Published versions and other drafts are not affected. This cannot be undone.'
+                                                         ? (${row.next} ? 'Every change in the next version is thrown away; it starts again from the latest published version. Published versions and long-term work are not affected. This cannot be undone.' : ${row.label} + ' is discarded with every change made in it. Published versions and the next version are not affected. This cannot be undone.')
                                                          : 'v' + ${row.version} + ' is removed entirely, with its content, its notes and its fingerprint. Anything already sent to Epistola Exchange stays there. This cannot be undone.',
                                                      data-confirm-submit-label=${row.draft} ? 'Discard draft' : 'Delete version'"
                                             data-confirm-submit-class="ep-btn-destructive"

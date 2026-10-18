@@ -38,17 +38,13 @@ class CatalogRoutes(
             POST("/{catalogId}/delete", handler::unregister)
             GET("/{catalogId}/release", handler::releaseDialog)
             POST("/{catalogId}/release", handler::release)
-            // A catalog's drafts (contract ADR 0002). `{catalogId}` may name one as `key@version`,
-            // on these routes and every other per-catalog and per-resource route.
+            // A catalog's drafts (contract ADR 0002, amendment 2). `{catalogId}` may name long-term
+            // work as `key@<draft id>`, on these routes and every other per-catalog and per-resource route.
             GET("/{catalogId}/drafts/new", drafts::createForm)
             POST("/{catalogId}/drafts", drafts::create)
             POST("/{catalogId}/drafts/discard", drafts::discard)
-            // A fix of a published version: the one kind of second draft people see.
-            POST("/{catalogId}/fixes", drafts::startFix)
-            // Preparing the next release: readiness, the draft's number, declared dependencies
+            // Preparing the next release: readiness, declared dependencies
             POST("/{catalogId}/ready", nextRelease::markReady)
-            GET("/{catalogId}/renumber", nextRelease::renumberForm)
-            POST("/{catalogId}/renumber", nextRelease::renumber)
             GET("/{catalogId}/dependencies/edit", nextRelease::dependenciesForm)
             POST("/{catalogId}/dependencies", nextRelease::updateDependencies)
             POST("/{catalogId}/dependencies/resolve", nextRelease::resolveDependencies)

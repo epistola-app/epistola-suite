@@ -53,7 +53,7 @@ class CatalogDraftsMigrationTest {
                 )
             }
         }
-        flyway(null).migrate()
+        flyway(UNDER_TEST).migrate()
 
         val drafts = DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             connection.createStatement().use { st ->
@@ -81,6 +81,9 @@ class CatalogDraftsMigrationTest {
     }
 
     private companion object {
+        /** The migration under test: later ones change what it left, and are tested on their own. */
+        const val UNDER_TEST = "20261017001641"
+
         /** The last migration before the one under test. */
         const val BEFORE = "20261016232900"
     }

@@ -6,7 +6,8 @@ package app.epistola.suite.tenants
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
-import app.epistola.suite.catalog.versions.CreateCatalogVersion
+import app.epistola.suite.catalog.versions.CreateCatalogDraft
+import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -17,6 +18,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeployRelease
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -35,7 +37,7 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
     private lateinit var restTemplate: TestRestTemplate
 
     @Test
-    fun `the tenant home shows each catalog's next version, other drafts, published version and where it is live`() {
+    fun `the tenant home shows each catalog's next version, long-term work, published version and where it is live`() {
         val tenant = createTenant("Home Overview")
         val letters = CatalogKey.of("letters")
         val catalog = CatalogId(letters, TenantId(tenant.id))
@@ -43,7 +45,7 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
             CreateCatalog(tenant.id, letters, "Letters").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute()
             mediator.releaseNext(catalog)
-            CreateCatalogVersion(tenant.id, letters, "2.0.0").execute()
+            CreateCatalogDraft(tenant.id, letters, "Redesign").execute()
             CreateTheme(ThemeId(ThemeKey.of("seasonal"), catalog), "Seasonal").execute()
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
             DeployRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), letters, "1.0.0", includeDependencies = true).execute()
@@ -58,8 +60,9 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
         assertThat(card).contains(">Authored<")
         assertThat(card).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/browse\"")
         assertThat(card).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/draft\"").contains(">Next version<")
-        assertThat(card).`as`("the lower draft is another draft, based on 1.0.0").contains("href=\"/tenants/${tenant.id.value}/catalogs/letters@1.0.1/draft\"")
-            .contains(">Draft v1.0.1<").contains("based on v1.0.0")
+        val redesign = withMediator { ListCatalogVersions(tenant.id, letters).query() }.single { it.name == "Redesign" }.draftId
+        assertThat(card).`as`("long-term work, by its name").contains("href=\"/tenants/${tenant.id.value}/catalogs/letters@$redesign/draft\"")
+            .contains(">Redesign<").contains("long-term work")
         assertThat(card).contains("1 change not published yet")
         assertThat(card).contains("v1.0.0")
         assertThat(card).contains(">production</a>")

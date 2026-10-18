@@ -28,6 +28,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -183,8 +184,8 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
         val target = GetCatalog(tenant.id, shared).query()!!
         UpdateCatalogDependencies(tenant.id, LETTERS, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "*"))).execute()
         MarkCatalogReady(tenant.id, LETTERS).execute()
-        ReleaseCatalogVersion(tenant.id, LETTERS, version = "1.0.2").execute()
-        "1.0.2"
+        // A dependency added is a breaking change: released as the number that needs.
+        ReleaseCatalogVersion(tenant.id, LETTERS).execute().version
     }
 
     /** A catalog `letters` with releases 1.0.0 and 1.0.1, and an environment `production`. */
@@ -199,7 +200,8 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute()
             MarkCatalogReady(tenant.id, LETTERS).execute()
             ReleaseCatalogVersion(tenant.id, LETTERS, version = "1.0.0").execute()
-            CreateTheme(ThemeId(ThemeKey.of("second"), catalog), "Second").execute()
+            // A correction, so the next patch.
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog), name = "Brand, corrected").execute()
             MarkCatalogReady(tenant.id, LETTERS).execute()
             ReleaseCatalogVersion(tenant.id, LETTERS, version = "1.0.1").execute()
         }

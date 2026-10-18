@@ -143,11 +143,10 @@ class RestoreTenantSnapshotHandler(
                 .bind("name", entry.name)
                 .bind("type", entry.type)
                 .execute()
-            // A restore keeps no releases, so an authored catalog's draft starts again where a new
-            // catalog's does, on the next patch after the release the snapshot was taken at.
+            // A restore keeps no releases, so an authored catalog's next version starts again where a
+            // new catalog's does, on no release.
             if (inserted > 0 && entry.type == CatalogType.AUTHORED.name) {
-                val draft = entry.version?.let(CatalogDrafts::nextAfter) ?: CatalogDrafts.FIRST
-                drafts.open(handle, tenantKey, CatalogKey.of(entry.catalogKey), draft, base = null)
+                drafts.open(handle, tenantKey, CatalogKey.of(entry.catalogKey), base = null)
             }
         }
     }

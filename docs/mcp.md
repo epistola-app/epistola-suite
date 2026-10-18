@@ -86,7 +86,7 @@ Then enter the URL and `Authorization: ApiKey <key>` header in the Inspector UI.
 | `list_fonts`                | Discover font families in the current tenant, optionally filtered by catalog. Each entry carries the present variant faces (`regular`/`bold`/`italic`/`bold_italic`) and a `readOnly` flag for SUBSCRIBED-catalog families (the bundled `system` fonts: inter, roboto, lato, source-sans-3, source-serif-4, merriweather, lora, jetbrains-mono). Use this to pick a `fontFamily` ref (`{ slug, catalogKey }`) for a theme or template.                                                                                        |
 | `list_images`               | Discover images in the current tenant, optionally filtered by catalog or name. Returns image IDs, media types, dimensions, sizes, and catalog provenance without binary content.                                                                                                                                                                                                                                                                                                                                              |
 | `get_image`                 | Fetch metadata for one exact image reference by catalog and UUID. Use this to verify image identity and dimensions while tracing template and stencil dependencies.                                                                                                                                                                                                                                                                                                                                                           |
-| `list_catalog_versions`     | A catalog's versions, highest first: its open drafts (with their base and the releases they are `behind`, each with its changes) and its releases. See [Catalog versions](#catalog-versions-beta).                                                                                                                                                                                                                                                                                                                            |
+| `list_catalog_versions`     | A catalog's versions: its next version, then long-term work (each with its base and the releases it is `behind`, with their changes), then its releases, highest first. See [Catalog versions](#catalog-versions-beta).                                                                                                                                                                                                                                                                                                       |
 | `get_authoring_schemas`     | The JSON Schemas the write tools accept — `templateDocument`, `theme`, the `shared` definitions both refer to — and the style registry (every style key, type and unit). Ships in the `epistola-catalog` artifact.                                                                                                                                                                                                                                                                                                            |
 
 ## Write tools (beta)
@@ -119,21 +119,24 @@ and REST API use, so validation, permissions and the read-only rule for SUBSCRIB
 
 ### Catalog versions (beta)
 
-A catalog can have several drafts at once (contract ADR 0002), each its own copy of the content —
-a maintenance line next to the next major, for example. Every read and write tool that addresses
-catalog content takes an optional **`catalogVersion`**: the number of the draft to work in, e.g.
-`2.0.0`, from `list_catalog_versions`. Omitted, a tool works on the catalog's current version, its
-highest draft (a SUBSCRIBED catalog's installed release), as before. It needs `catalogId`: a list
-tool given `catalogVersion` without one is refused. `preview_document` with `catalogVersion`
-renders that draft's working copy, and cannot be combined with `releaseVersion` or `environmentId`.
-`analyze_template_data` checks against a release and takes no `catalogVersion`.
+Every authored catalog has a **next version**, where everyday work goes, and may hold **long-term
+work** next to it: a named draft for a large change that is not ready yet (contract ADR 0002,
+amendment 2). A draft has no number until it is released, and only the next version is released.
+Every read and write tool that addresses catalog content takes an optional **`catalogVersion`**:
+`next`, or long-term work's `draftId` from `list_catalog_versions`. Omitted, a tool works on the
+catalog's next version (a SUBSCRIBED catalog's installed release). It needs `catalogId`: a list tool
+given `catalogVersion` without one is refused, and so is a version number, which names no draft.
+`preview_document` with `catalogVersion` renders that draft's working copy, and cannot be combined
+with `releaseVersion` or `environmentId`. `analyze_template_data` checks against a release and takes
+no `catalogVersion`.
 
-| Tool                       | Purpose                                                                                                                                                                                                                                                                 | Permission        |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| `create_catalog_version`   | Open a draft numbered `version`: a copy of its base (the highest release below its number) by default, or of the draft or release `from` names.                                                                                                                         | `TEMPLATE_EDIT`   |
-| `renumber_catalog_version` | Give a draft another number. When that moves it past a release or another draft, or to a lower kind of version than its changes need (each such warning with its `reasons`), nothing changes and the `warnings` come back; call again with `acknowledgeWarnings: true`. | `TEMPLATE_EDIT`   |
-| `release_catalog_version`  | Release a draft under its own number. Refused while a changed resource is not ready, and while the draft is behind a release `acknowledgedBehind` does not name. Returns `draftsBehind` and `openedDraft`.                                                              | `CATALOG_RELEASE` |
-| `delete_catalog_version`   | Discard a draft and everything changed in it. Refused while the draft alone holds something used outside it (the tenant's default theme, a code list another catalog's attribute binds), naming it.                                                                     | `CATALOG_RELEASE` |
+| Tool                     | Purpose                                                                                                                                                                                                                                                           | Permission        |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `start_long_term_work`   | Start long-term work, named: a copy of the next version (unreleased changes included) by default, or of the release `from` names.                                                                                                                                 | `TEMPLATE_EDIT`   |
+| `rename_long_term_work`  | Give long-term work another name. The next version has no name of its own.                                                                                                                                                                                        | `TEMPLATE_EDIT`   |
+| `preview_release_number` | The number releasing the next version would give it, from the kind of change against the latest release, with the `reasons` that make it more than a fix.                                                                                                         | `CATALOG_VIEW`    |
+| `release_next_version`   | Release the next version, numbered as its changes need, or as `version` when that is higher. Refused while a changed resource is not ready, and while it is behind a release `acknowledgedBehind` does not name. Returns `draftsBehind`.                          | `CATALOG_RELEASE` |
+| `discard_catalog_work`   | Discard a draft: the next version (`next`) starts again from the latest release, long-term work is removed. Refused while the draft alone holds something used outside it (the tenant's default theme, a code list another catalog's attribute binds), naming it. | `CATALOG_RELEASE` |
 
 Releasing and discarding change what can be generated and cannot be undone, so an assistant does
 them only when the user asks.
@@ -163,7 +166,7 @@ it is, so changing a stencil changes every template that uses it; `list_stencil_
 that no longer fit. A stencil may itself use stencils.
 
 Finishing a catalog built this way: `mark_template_ready` for each template (or `mark_catalog_ready`
-for everything changed), after the user has reviewed it, and `release_catalog_version` when the
+for everything changed), after the user has reviewed it, and `release_next_version` when the
 user asks for a release. Marking is refused while a stencil instance
 does not fit its stencil: a fill for a placeholder the stencil does not have, or a required parameter
 left unbound. `get_catalog_changes` shows what is still not ready. A template has no versions: the

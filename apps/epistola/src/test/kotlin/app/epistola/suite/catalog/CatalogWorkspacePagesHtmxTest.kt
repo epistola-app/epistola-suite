@@ -157,6 +157,7 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
 
     @Test
     fun `every version can be removed from Versions, a draft discarded and a published version deleted, landing back there`() {
+        // Discarding the next version throws its changes away; it is opened again on the latest release.
         val tenant = seed("Workspace Remove")
 
         val versions = get(tenant, "/catalogs/shared/versions")
@@ -174,7 +175,9 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
             String::class.java,
         )
         assertThat(discarded.headers.location.toString()).isEqualTo("/tenants/${tenant.id}/catalogs/shared/versions")
-        assertThat(get(tenant, "/catalogs/shared/versions")).doesNotContain("data-status=\"draft\"")
+        // The next version is not gone: it starts again on the latest published version.
+        assertThat(get(tenant, "/catalogs/shared/versions").substringAfter("data-status=\"draft\"").substringBefore("</tr>"))
+            .contains(">Next version<").contains(">v1.0.0<")
     }
 
     @Test

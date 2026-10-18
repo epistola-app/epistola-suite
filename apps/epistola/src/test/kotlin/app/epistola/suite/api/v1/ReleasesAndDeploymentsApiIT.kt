@@ -91,7 +91,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<Int>(list.body!!, "$.page.totalElements")).isEqualTo(2)
 
         val all = exchange(HttpMethod.GET, "$catalog/versions", key)
-        assertThat(JsonPath.read<List<String>>(all.body!!, "$.items[*].version")).`as`("the open draft, then the releases").containsExactly("1.0.2", "1.0.1", "1.0.0")
+        assertThat(JsonPath.read<List<String?>>(all.body!!, "$.items[*].version")).`as`("the next version, numbered when released, then the releases").containsExactly(null, "1.0.1", "1.0.0")
         assertThat(JsonPath.read<String>(all.body!!, "$.items[0].status")).isEqualTo("draft")
 
         val paged = exchange(HttpMethod.GET, "$catalog/versions?status=released&page=1&size=1", key)

@@ -10,13 +10,8 @@ import app.epistola.suite.catalog.commands.ResolveCatalogDependencies
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogs
-import app.epistola.suite.catalog.versions.CatalogVersionInUseException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
-import app.epistola.suite.catalog.versions.PreviewCatalogVersionRenumber
-import app.epistola.suite.catalog.versions.RenumberCatalogVersion
-import app.epistola.suite.catalog.versions.RenumberWarning
-import app.epistola.suite.catalog.versions.RenumberWarningsNotAcknowledgedException
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.FormData
@@ -41,8 +36,8 @@ data class DependencyOptionView(val value: String, val label: String)
 
 /**
  * The actions that prepare an authored catalog's next release, from its page's "Next release"
- * section (`catalogs/next-release.html`): marking everything ready, renumbering the draft, and
- * declaring the catalogs it depends on. Releasing itself is [CatalogHandler.release].
+ * section (`catalogs/next-release.html`): marking everything ready and declaring the catalogs it
+ * depends on. Releasing itself is [CatalogHandler.release]; a draft is numbered when it is released.
  */
 @Component
 class CatalogReleaseHandler {
@@ -58,105 +53,6 @@ class CatalogReleaseHandler {
             e.message
         }
         return nextRelease(request, tenantId, segment, error)
-    }
-
-    // ── Renumber ───────────────────────────────────────────────────────────
-
-    fun renumberForm(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
-        val segment = request.catalogSegment()
-        val draft = draftVersion(tenantId, segment) ?: return ServerResponse.notFound().build()
-        return request.htmx {
-            fragment("catalogs/next-release", "renumber-dialog") {
-                "tenantId" to tenantId.key
-                "catalogId" to segment.value
-                "draftVersion" to draft
-            }
-            onFullPage { redirect(browseUrl(tenantId, segment)) }
-        }
-    }
-
-    /**
-     * `POST /{catalogId}/renumber`. The renumber is previewed first: warnings come back in the dialog
-     * to acknowledge, refusals (a number in use, not above every release) as an error on the field.
-     */
-    fun renumber(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
-        val segment = request.catalogSegment()
-        val catalogKey = segment.key
-        val bar = drafts(tenantId, segment)
-        val draft = bar.chosen?.version ?: return ServerResponse.notFound().build()
-
-        val form = request.form {
-            field("to") {
-                required()
-                maxLength(50)
-                pattern("^\\d+\\.\\d+\\.\\d+$")
-            }
-        }
-        val acknowledged = request.params().getFirst("acknowledgeWarnings") == "true"
-
-        fun reRender(result: FormData, warnings: List<RenumberWarning> = emptyList()): ServerResponse = request.htmx {
-            dialogFieldErrors(
-                template = "catalogs/next-release",
-                fragmentName = "renumber-form",
-                formTarget = "#renumber-catalog-form",
-                formData = result,
-            ) {
-                "tenantId" to tenantId.key
-                "catalogId" to segment.value
-                "draftVersion" to draft
-                "warnings" to warnings
-            }
-            onFullPage { redirect(browseUrl(tenantId, segment)) }
-        }
-
-        if (form.hasErrors()) {
-            return reRender(FormData(form.formData, mapOf("to" to "Version must be SemVer — MAJOR.MINOR.PATCH (e.g. 1.4.0).")))
-        }
-        val to = form["to"].trim()
-
-        try {
-            if (!acknowledged) {
-                val warnings = PreviewCatalogVersionRenumber(tenantId.key, catalogKey, draft, to).query()
-                if (warnings.isNotEmpty()) return reRender(form, warnings)
-            }
-            RenumberCatalogVersion(tenantId.key, catalogKey, draft, to, acknowledgeWarnings = acknowledged).execute()
-        } catch (e: RenumberWarningsNotAcknowledgedException) {
-            return reRender(form, e.warnings)
-        } catch (e: RuntimeException) {
-            val message = renumberRefusal(e) ?: throw e
-            return reRender(FormData(form.formData, mapOf("to" to message)))
-        }
-
-        // With several drafts the page names the draft it works in, and that name just changed: land on
-        // the renumbered draft. With one, the section is re-rendered in place, as it always was.
-        if (bar.severalDrafts) {
-            val renumbered = segment.at(if (drafts(tenantId, segment.at(null)).current?.version == to) null else to)
-            return request.htmx {
-                dialogLocation(browseUrl(tenantId, renumbered))
-                onFullPage { redirect(browseUrl(tenantId, renumbered)) }
-            }
-        }
-        return request.htmx {
-            dialogSuccess("catalogs/next-release", "next-release", browseUrl(tenantId, segment)) {
-                nextReleaseModel(tenantId, segment)
-            }
-            onFullPage { redirect(browseUrl(tenantId, segment)) }
-        }
-    }
-
-    /** The message of a renumber the catalog refuses, or null when [e] is not such a refusal. */
-    private fun renumberRefusal(e: RuntimeException): String? = when (e) {
-        is CatalogVersionInUseException,
-        is CatalogVersionReleasedException,
-        is CatalogVersionNotFoundException,
-        is ValidationException,
-        -> e.message
-
-        else -> null
     }
 
     // ── Dependencies ───────────────────────────────────────────────────────

@@ -3,9 +3,9 @@
 <body>
     <!--
     What a draft has not published yet, on the draft's own page (docs/catalog-workspace-navigation.md):
-    by name, and Publish. Everything technical — the draft's number, renumbering, other
-    drafts, ready marks, dependencies — is folded under Advanced: it still works, and nobody has to
-    understand it to publish.
+    by name, and Publish. Everything technical — ready marks, dependencies, discarding — is folded
+    under Advanced: it still works, and nobody has to understand it to publish. A draft has no number
+    until it is published; the publish dialog picks it from the kind of change.
 
     Every control gates on one name of `readiness` (CatalogReleaseReadiness), the model the publish
     dialog gates on, so the page and the dialog cannot disagree. Re-rendered in place after "Mark all
@@ -29,24 +29,22 @@
                 <span th:text="${nextReleaseError}"></span>
             </div>
 
-            <!--/* Nothing open: every draft was discarded. Offer to start again. */-->
+            <!--/* No next version: one left over from before every catalog kept one. Offer to start again. */-->
             <th:block th:if="${readiness.drafts.noDraft}">
                 <p class="text-muted" data-testid="catalog-draft-none">Nothing is open to edit.</p>
                 <form th:if="${readiness.drafts.offerOpenDraft}" method="post" style="display: inline;"
                       th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts(tenantId=${tenantId},catalogId=${readiness.catalogKey})}">
-                    <input type="hidden" name="version" th:value="${readiness.drafts.openDraftVersion}">
-                    <input type="hidden" name="from" th:value="${readiness.drafts.openDraftFrom}">
                     <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="catalog-draft-open">Start editing</button>
                 </form>
                 <p th:if="${readiness.drafts.openDraftWithheldNoContent}" class="form-hint" data-testid="catalog-draft-open-withheld">
-                    Its latest published version kept no content to start from. Start from an older one under Advanced.
+                    Its latest published version kept no content to start from.
                 </p>
                 <p th:if="${readiness.drafts.draftControlsWithheld}" class="form-hint" data-testid="catalog-draft-open-withheld">
                     Editing needs the content author role.
                 </p>
             </th:block>
 
-            <th:block th:if="${readiness.draftVersion != null}">
+            <th:block th:if="${readiness.hasDraft}">
             <!--/* A version published after this draft started, which it lacks: said plainly, with what it changed. */-->
             <div th:unless="${readiness.drafts.behind.isEmpty()}" class="alert alert-warning" style="margin-bottom: var(--ep-space-3);"
                  data-testid="catalog-draft-behind-list">
@@ -131,26 +129,27 @@
         <details class="detail-section-body" style="border-top: 1px solid var(--ep-border-color);" data-testid="catalog-advanced"
                  th:attr="open=${nextReleaseError != null} ? 'open' : null">
             <summary>Advanced</summary>
-            <p th:if="${readiness.draftVersion != null}" class="form-hint" style="margin-top: var(--ep-space-2);">
-                This draft is numbered <span data-testid="catalog-draft-version" th:text="'v' + ${readiness.draftVersion}">v1.0.1</span> for now;
-                publishing picks the number from the kind of change.
+            <p th:if="${readiness.publishable}" class="form-hint" style="margin-top: var(--ep-space-2);">
+                The next version has no number until it is published: publishing picks it from the kind of change.
             </p>
-            <div th:replace="~{catalogs/next-release :: number-too-low(readiness=${readiness})}"></div>
+            <p th:if="${readiness.hasDraft and !readiness.publishable}" class="form-hint" style="margin-top: var(--ep-space-2);"
+               data-testid="catalog-long-term-not-published">
+                This is long-term work: it is not published until it becomes the next version.
+            </p>
             <div class="ep-row" style="gap: var(--ep-space-2); margin: var(--ep-space-2) 0;">
                 <form th:if="${readiness.drafts.offerDiscard}" method="post" style="display: inline;"
                       th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts/discard(tenantId=${tenantId},catalogId=${catalogId})}">
                     <button type="button" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
                             data-testid="catalog-draft-discard"
                             data-confirm-submit
-                            data-confirm-submit-title="Discard this draft"
-                            th:attr="data-confirm-submit-message='Draft v' + ${readiness.draftVersion} + ' is discarded with every change made in it. Releases and other drafts are not affected. This cannot be undone.'"
-                            data-confirm-submit-label="Discard draft"
-                            data-confirm-submit-class="ep-btn-destructive">Discard draft</button>
+                            th:attr="data-confirm-submit-title=${readiness.publishable} ? 'Discard all changes' : 'Discard this work',
+                                     data-confirm-submit-message=${readiness.publishable}
+                                         ? 'Every change in the next version is thrown away; it starts again from the latest published version. Published versions and long-term work are not affected. This cannot be undone.'
+                                         : ${readiness.draft.label} + ' is discarded with every change made in it. Published versions and the next version are not affected. This cannot be undone.',
+                                     data-confirm-submit-label=${readiness.publishable} ? 'Discard all changes' : 'Discard work'"
+                            data-confirm-submit-class="ep-btn-destructive"
+                            th:text="${readiness.publishable} ? 'Discard all changes' : 'Discard this work'">Discard draft</button>
                 </form>
-                <button th:if="${readiness.offerRenumber}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
-                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/renumber(tenantId=${tenantId},catalogId=${catalogId})}"
-                        hx-target="#dialog-mount" hx-swap="innerHTML"
-                        data-testid="catalog-renumber-open">Renumber</button>
                 <form th:if="${readiness.offerMarkAllReady}" style="display: inline;"
                       th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/ready(tenantId=${tenantId},catalogId=${catalogId})}"
                       hx-target="#catalog-next-release" hx-swap="outerHTML">
@@ -161,14 +160,14 @@
                th:text="${readiness.notReady.size() == 1} ? '1 change is not marked ready yet; publishing marks it.' : ${readiness.notReady.size()} + ' changes are not marked ready yet; publishing marks them.'"></p>
             <p th:if="${readiness.drafts.draftControlsWithheld and readiness.drafts.severalDrafts}" class="form-hint"
                data-testid="catalog-draft-controls-withheld">
-                Opening and renumbering drafts needs the content author role.
+                Starting long-term work needs the content author role.
             </p>
             <p th:if="${readiness.drafts.discardWithheld}" class="form-hint"
                data-testid="catalog-draft-discard-withheld">
                 Discarding a draft needs the content publisher role, as publishing does.
             </p>
         <!-- Dependencies: the catalogs this one declares it uses, and the release each is locked to. -->
-        <div th:if="${readiness.draftVersion != null}" id="catalog-dependencies" class="detail-section-body" 
+        <div th:if="${readiness.hasDraft}" id="catalog-dependencies" class="detail-section-body" 
              data-testid="catalog-dependencies">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--ep-space-2);">
                 <h3 style="margin: 0;">Dependencies</h3>
@@ -210,85 +209,6 @@
         </div>
         </details>
     </div>
-
-    <!--
-    Renumber the draft the page works in (any draft, with several). On submit the handler previews
-    the renumber: warnings come back in the dialog with an acknowledgement box, refusals as field
-    errors.
-    Model: `tenantId`, `catalogId`, `draftVersion`, and on re-render `formData`/`errors`/`warnings`.
-    -->
-    <!--/* The draft's number is too small a step for its changes: shown, not refused (ADR 0002 makes it a
-           renumber warning). Included by the catalog page and the release dialog. */-->
-    <div th:fragment="number-too-low(readiness)" th:if="${readiness.numberTooLow}" class="alert alert-warning"
-         style="margin-bottom: var(--ep-space-3);" data-testid="catalog-number-too-low">
-        <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
-        <div>
-            <div class="alert-title"
-                 th:text="'As v' + ${readiness.numbering.version} + ' this draft is a ' + ${readiness.numbering.step.name().toLowerCase()} + ' of v' + ${readiness.numbering.base} + ', but its changes need v' + ${readiness.numbering.suggested} + ' or higher.'">
-                Its changes need a higher number.</div>
-            <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);" data-testid="catalog-number-too-low-reasons">
-                <li th:each="reason : ${readiness.numbering.reasons}" th:text="${reason}"></li>
-            </ul>
-            <p th:if="${readiness.offerRenumber}" style="margin: var(--ep-space-1) 0 0;">
-                Renumber it before releasing, so that releases of this catalog say what changed.
-            </p>
-            <p th:unless="${readiness.offerRenumber}" style="margin: var(--ep-space-1) 0 0;">
-                An author can renumber it before it is released.
-            </p>
-        </div>
-    </div>
-
-    <th:block th:fragment="renumber-dialog">
-        <div th:replace="~{epistola-web/dialog :: dialog-shell(
-            dialogId='renumber-catalog-dialog',
-            title='Renumber the draft',
-            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalogId})},
-            content=~{::renumber-form})}"></div>
-    </th:block>
-
-    <form th:fragment="renumber-form" id="renumber-catalog-form"
-          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/renumber(tenantId=${tenantId},catalogId=${catalogId})}"
-          hx-target="#renumber-catalog-form" hx-swap="outerHTML">
-        <div th:replace="~{epistola-web/form-error :: form-error(id='renumber-catalog-error')}"></div>
-        <div class="ep-dialog-body">
-            <p class="form-hint">
-                This draft is <strong th:text="'v' + ${draftVersion}">v1.0.1</strong>. Its content
-                stays as it is; only the number changes. Moving it past a release or another draft,
-                or to a lower kind of version than its changes need, asks for a second look.
-            </p>
-            <div class="form-group" th:classappend="${errors?.containsKey('to')} ? 'error' : ''">
-                <label class="ep-label" for="renumber-to">New version</label>
-                <input type="text" id="renumber-to" name="to" class="ep-input" required maxlength="50"
-                       pattern="^\d+\.\d+\.\d+$"
-                       th:value="${formData?.to ?: draftVersion}">
-                <span class="form-hint">Semantic version: MAJOR.MINOR.PATCH</span>
-                <span class="form-error" th:if="${errors?.containsKey('to')}" th:text="${errors.to}"
-                      data-testid="renumber-error"></span>
-            </div>
-            <div th:if="${warnings != null and !warnings.isEmpty()}" class="alert alert-warning" data-testid="renumber-warnings">
-                <div>
-                    <div class="alert-title">Renumbering needs a second look</div>
-                    <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
-                        <li th:each="warning : ${warnings}" th:attr="data-warning-kind=${warning.kind}">
-                            <span th:text="${warning.message}"></span>
-                            <ul th:if="${!warning.reasons.isEmpty()}" style="margin: 0; padding-left: var(--ep-space-4);"
-                                data-testid="renumber-warning-reasons">
-                                <li th:each="reason : ${warning.reasons}" th:text="${reason}"></li>
-                            </ul>
-                        </li>
-                    </ul>
-                    <label style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-2);">
-                        <input type="checkbox" name="acknowledgeWarnings" value="true" required>
-                        Renumber anyway
-                    </label>
-                </div>
-            </div>
-        </div>
-        <div class="ep-dialog-footer">
-            <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="renumber-catalog-dialog">Cancel</button>
-            <button type="submit" class="ep-btn ep-btn-primary" data-testid="renumber-submit">Renumber</button>
-        </div>
-    </form>
 
     <!--
     Edit the declared dependencies: one row per declaration plus an empty one to add another.

@@ -6,11 +6,14 @@ package app.epistola.suite.catalog.upgrade
 
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.ContentSource
+import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.RecordInstalledRelease
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.dependencies.MissingDependencyDeclarer
+import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.versions.CatalogDraft
 import app.epistola.suite.catalog.versions.CatalogDrafts
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
@@ -20,6 +23,7 @@ import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.SystemUser
 import org.jdbi.v3.core.Jdbi
@@ -117,9 +121,13 @@ class CatalogUpgradeRunner(
         if (!hasRetainedRelease(catalog) &&
             contentBuilder.build(catalog.tenantKey, catalog.catalogKey, ContentSource.PUBLISHED_BEFORE_2_0).resourceEntries.isNotEmpty()
         ) {
-            val version = requireNotNull(jdbi.withHandle<String?, Exception> { drafts.draft(it, catalog.tenantKey, catalog.catalogKey)?.version }) {
-                "catalog ${catalog.catalogKey.value} has no draft to release"
+            requireNotNull(jdbi.withHandle<CatalogDraft?, Exception> { drafts.next(it, catalog.tenantKey, catalog.catalogKey) }) {
+                "catalog ${catalog.catalogKey.value} has no next version to release"
             }
+            // What was published before 2.0 becomes the next patch after its latest release, or the
+            // first version, as the 2.0 upgrade numbered its draft (V20261017001641).
+            val version = CatalogDrafts.latest(ListCatalogReleases(catalog.tenantKey, catalog.catalogKey).query().map { it.version })
+                ?.let { SemVer.parse(it).bumpPatch().toString() } ?: CatalogDrafts.FIRST
             ReleaseCatalogVersion(
                 tenantKey = catalog.tenantKey,
                 catalogKey = catalog.catalogKey,

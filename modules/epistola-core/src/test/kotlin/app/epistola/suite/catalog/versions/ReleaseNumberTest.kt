@@ -11,10 +11,15 @@ import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
+import app.epistola.suite.catalog.commands.MarkCatalogReady
+import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
+import app.epistola.suite.catalog.dependencies.DeclareUsedCatalogs
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -26,6 +31,8 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
@@ -39,6 +46,7 @@ import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -46,11 +54,11 @@ import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
 /**
- * Renumbering a draft to a lower kind of version than its changes against its base need (contract
- * ADR 0002, by the rule ADR 0001 sets for hotfixes) warns, listing every reason: breaking changes need
- * a major, additions at least a minor, and a fix fits a patch.
+ * The number a draft is released as (contract ADR 0002, amendment 2): numbered from the kind of change
+ * it holds against the latest release, by the rule ADR 0001 sets for hotfixes. Breaking changes need a
+ * major, additions a minor, and a fix fits a patch; the author may raise the number, never lower it.
  */
-class ChangeKindRenumberTest : IntegrationTestBase() {
+class ReleaseNumberTest : IntegrationTestBase() {
 
     private val letters = CatalogKey.of("letters")
     private val json = ObjectMapper()
@@ -76,7 +84,8 @@ class ChangeKindRenumberTest : IntegrationTestBase() {
     /**
      * `letters` with an invoice (a contract with an optional `name`), a letterhead stencil (placeholder
      * `body`, optional parameter `title`), an attribute allowing `nl` and `en`, and a code list of red
-     * and blue, released as 1.0.0; its draft is 1.0.1. With [dependency], it also depends on `shared`.
+     * and blue, released as 1.0.0, its next version continuing on it. With [dependency], it also depends
+     * on `shared`.
      */
     private fun released(name: String, dependency: Boolean = false): TenantKey = withMediator {
         val tenant = createTenant(name).id
@@ -97,34 +106,47 @@ class ChangeKindRenumberTest : IntegrationTestBase() {
         tenant
     }
 
-    private fun preview(tenant: TenantKey, to: String) = withMediator { PreviewCatalogVersionRenumber(tenant, letters, "1.0.1", to).query() }
-
-    /** The warnings about the kind of version, each kind with its reasons. */
-    private fun kindWarnings(tenant: TenantKey, to: String) = preview(tenant, to)
-        .filter { it.kind in KINDS }
-        .map { it.kind to it.reasons }
+    /** The number the next version would be released as, and why. */
+    private fun assess(tenant: TenantKey) = withMediator { AssessDraftNumber(tenant, letters).query()!! }
 
     @Test
-    fun `an unchanged draft, or one with only fixes, is fine as a patch`() {
-        val tenant = released("change-kind-none")
-        assertThat(preview(tenant, "1.0.2")).isEmpty()
+    fun `a catalog never released is released as 1_0_0, whatever it holds`() {
+        val tenant = withMediator { createTenant("release-number-first").id }
+        withMediator { CreateCatalog(tenant, letters, "Letters").execute() }
 
-        withMediator { UpdateDocumentTemplate(invoice(tenant), name = "Invoice, renamed").execute() }
+        val first = withMediator { AssessDraftNumber(tenant, letters).query()!! }
 
-        assertThat(preview(tenant, "1.0.2")).isEmpty()
+        assertThat(first.latest).isNull()
+        assertThat(first.needs).isNull()
+        assertThat(first.suggested).isEqualTo("1.0.0")
+        assertThat(first.refuses("0.9.0")).`as`("any first number").isNull()
     }
 
     @Test
-    fun `a removed resource is breaking, so a patch or a minor warns and a major does not`() {
+    fun `an unchanged next version, or one with only fixes, is the next patch`() {
+        val tenant = released("change-kind-none")
+        assertThat(assess(tenant).suggested).isEqualTo("1.0.1")
+
+        withMediator { UpdateDocumentTemplate(invoice(tenant), name = "Invoice, renamed").execute() }
+
+        assertThat(assess(tenant).needs).isEqualTo(ChangeKind.NONE)
+        assertThat(assess(tenant).reasons).isEmpty()
+        assertThat(assess(tenant).suggested).isEqualTo("1.0.1")
+    }
+
+    @Test
+    fun `a removed resource is breaking, so it needs a major`() {
         val tenant = released("change-kind-removed")
         withMediator { DeleteDocumentTemplate(invoice(tenant)).execute() }
 
-        assertThat(kindWarnings(tenant, "1.0.2")).containsExactly("breaking-changes-in-patch" to listOf("template 'invoice': removed"))
-        assertThat(kindWarnings(tenant, "1.1.0")).containsExactly("breaking-changes-in-minor" to listOf("template 'invoice': removed"))
-        assertThat(kindWarnings(tenant, "2.0.0")).isEmpty()
-        val warning = preview(tenant, "1.0.2").single()
-        assertThat(warning.versions).containsExactly("1.0.0")
-        assertThat(warning.text).contains("template 'invoice': removed")
+        val assessment = assess(tenant)
+        assertThat(assessment.needs).isEqualTo(ChangeKind.BREAKING)
+        assertThat(assessment.reasons).containsExactly("template 'invoice': removed")
+        assertThat(assessment.suggested).isEqualTo("2.0.0")
+        assertThat(assessment.refuses("1.0.1")).contains("needs at least 2.0.0").contains("template 'invoice': removed")
+        assertThat(assessment.refuses("1.1.0")).isNotNull()
+        assertThat(assessment.refuses("2.0.0")).isNull()
+        assertThat(assessment.refuses("3.0.0")).`as`("a higher number is the author's choice").isNull()
     }
 
     @Test
@@ -138,9 +160,8 @@ class ChangeKindRenumberTest : IntegrationTestBase() {
             ).execute()
         }
 
-        assertThat(kindWarnings(tenant, "1.1.0")).containsExactly(
-            "breaking-changes-in-minor" to listOf("template 'invoice': data contract: \"name\" is now required"),
-        )
+        assertThat(assess(tenant).reasons).containsExactly("template 'invoice': data contract: \"name\" is now required")
+        assertThat(assess(tenant).suggested).isEqualTo("2.0.0")
     }
 
     @Test
@@ -154,13 +175,12 @@ class ChangeKindRenumberTest : IntegrationTestBase() {
             ).execute()
         }
 
-        assertThat(kindWarnings(tenant, "1.0.2")).containsExactly(
-            "breaking-changes-in-patch" to listOf(
-                "stencil 'letterhead': placeholder 'body' removed",
-                "stencil 'letterhead': parameter 'title' changed type from string to number",
-                "stencil 'letterhead': placeholder 'content' added",
-            ),
+        assertThat(assess(tenant).reasons).containsExactly(
+            "stencil 'letterhead': placeholder 'body' removed",
+            "stencil 'letterhead': parameter 'title' changed type from string to number",
+            "stencil 'letterhead': placeholder 'content' added",
         )
+        assertThat(assess(tenant).suggested).isEqualTo("2.0.0")
     }
 
     @Test
@@ -170,9 +190,8 @@ class ChangeKindRenumberTest : IntegrationTestBase() {
             UpdateStencil(letterhead(tenant), parameterSchema = schema("""{"type":"object","properties":{"title":{"type":"string"}},"required":["title"]}""")).execute()
         }
 
-        assertThat(kindWarnings(tenant, "1.1.0")).containsExactly(
-            "breaking-changes-in-minor" to listOf("stencil 'letterhead': parameter 'title' must now be bound"),
-        )
+        assertThat(assess(tenant).reasons).containsExactly("stencil 'letterhead': parameter 'title' must now be bound")
+        assertThat(assess(tenant).needs).isEqualTo(ChangeKind.BREAKING)
     }
 
     @Test
@@ -183,9 +202,8 @@ class ChangeKindRenumberTest : IntegrationTestBase() {
             UpdateCodeList(colours(tenant), "Colours", entries = listOf(CodeListEntry("red", "Red"))).execute()
         }
 
-        assertThat(kindWarnings(tenant, "1.0.2")).containsExactly(
-            "breaking-changes-in-patch" to listOf("attribute 'language': no longer allows en", "codeList 'colours': entry 'blue' removed"),
-        )
+        assertThat(assess(tenant).reasons).containsExactly("attribute 'language': no longer allows en", "codeList 'colours': entry 'blue' removed")
+        assertThat(assess(tenant).suggested).isEqualTo("2.0.0")
     }
 
     @Test
@@ -196,13 +214,12 @@ class ChangeKindRenumberTest : IntegrationTestBase() {
             UpdateCatalogDependencies(tenant, letters, listOf(DeclaredCatalogDependency(shared.registry, shared.namespace, "shared", "~1.0.0"))).execute()
         }
 
-        val warnings = kindWarnings(tenant, "1.1.0")
-        assertThat(warnings.map { it.first }).containsExactly("breaking-changes-in-minor")
-        assertThat(warnings.single().second.single()).endsWith("/shared': its range changed from ^1.0.0 to ~1.0.0")
+        assertThat(assess(tenant).needs).isEqualTo(ChangeKind.BREAKING)
+        assertThat(assess(tenant).reasons.single()).endsWith("/shared': its range changed from ^1.0.0 to ~1.0.0")
     }
 
     @Test
-    fun `an added resource or a widened data contract is additive, so a patch warns and a minor does not`() {
+    fun `an added resource or a widened data contract is additive, so it needs a minor`() {
         val tenant = released("change-kind-additive")
         withMediator {
             CreateDocumentTemplate(TemplateId(TemplateKey.of("reminder"), catalogId(tenant)), "Reminder").execute()
@@ -210,50 +227,64 @@ class ChangeKindRenumberTest : IntegrationTestBase() {
             UpdateAttributeDefinition(language(tenant), "Language", allowedValues = listOf("nl", "en", "de")).execute()
         }
 
-        assertThat(kindWarnings(tenant, "1.0.2")).containsExactly(
-            "additions-in-patch" to listOf(
-                "attribute 'language': also allows de",
-                "template 'invoice': its data contract accepts more input",
-                "template 'reminder': added",
-            ),
+        val assessment = assess(tenant)
+        assertThat(assessment.needs).isEqualTo(ChangeKind.ADDITIVE)
+        assertThat(assessment.reasons).containsExactly(
+            "attribute 'language': also allows de",
+            "template 'invoice': its data contract accepts more input",
+            "template 'reminder': added",
         )
-        assertThat(kindWarnings(tenant, "1.1.0")).isEmpty()
+        assertThat(assessment.suggested).isEqualTo("1.1.0")
+        assertThat(assessment.refuses("1.0.1")).contains("needs at least 1.1.0")
+        assertThat(assessment.refuses("1.1.0")).isNull()
     }
 
     @Test
-    fun `the draft a release opens says when its own number is too low for its changes, and what would fit`() {
-        val tenant = released("change-kind-own-number")
-        fun assess() = withMediator { AssessDraftNumber(tenant, letters, "1.0.1").query()!! }
-        assertThat(assess().tooLow).`as`("nothing changed yet").isFalse()
+    fun `a catalog used but not declared counts as declared, since publishing declares it first`() {
+        val tenant = released("change-kind-undeclared")
+        withMediator {
+            val shared = CatalogKey.of("shared")
+            CreateCatalog(tenant, shared, "Shared").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant))), "Brand").execute()
+            mediator.releaseNext(CatalogId(shared, TenantId(tenant)))
+            UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalogKey = shared).execute()
+        }
+        assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }).`as`("not declared yet").isEmpty()
 
-        withMediator { DeleteDocumentTemplate(invoice(tenant)).execute() }
+        val assessment = assess(tenant)
 
-        val assessment = assess()
-        assertThat(assessment.tooLow).isTrue()
-        assertThat(assessment.needs).isEqualTo(ChangeKind.BREAKING)
-        assertThat(assessment.reasons).containsExactly("template 'invoice': removed")
+        // The number offered is the one publishing then accepts, after it declares Shared.
+        assertThat(assessment.reasons.single { it.contains("shared") }).contains("added")
         assertThat(assessment.suggested).isEqualTo("2.0.0")
+        withMediator {
+            DeclareUsedCatalogs(tenant, letters).execute()
+            MarkCatalogReady(tenant, letters).execute()
+        }
+        assertThat(withMediator { ReleaseCatalogVersion(tenant, letters, assessment.suggested).execute() }.version).isEqualTo("2.0.0")
     }
 
     @Test
-    fun `renumbering to a version too low for the changes is refused until acknowledged`() {
-        val tenant = released("change-kind-acknowledge")
-        withMediator { DeleteDocumentTemplate(invoice(tenant)).execute() }
+    fun `releasing numbers the next version from its changes, refuses a number too low or taken, and takes a higher one`() {
+        val tenant = released("change-kind-release")
+        withMediator {
+            DeleteDocumentTemplate(invoice(tenant)).execute()
+            MarkCatalogReady(tenant, letters).execute()
+        }
 
-        assertThatThrownBy { withMediator { RenumberCatalogVersion(tenant, letters, "1.0.1", "1.0.2").execute() } }
-            .isInstanceOf(RenumberWarningsNotAcknowledgedException::class.java)
+        assertThatThrownBy { withMediator { ReleaseCatalogVersion(tenant, letters, "1.0.1").execute() } }
+            .isInstanceOf(CatalogReleaseVersionException::class.java)
+            .hasMessageContaining("needs at least 2.0.0")
             .hasMessageContaining("template 'invoice': removed")
-            .satisfies({ assertThat((it as RenumberWarningsNotAcknowledgedException).warnings.map { w -> w.kind }).containsExactly("breaking-changes-in-patch") })
+        assertThatThrownBy { withMediator { ReleaseCatalogVersion(tenant, letters, "1.0.0").execute() } }
+            .isInstanceOf(CatalogReleaseVersionException::class.java)
+            .hasMessageContaining("released already")
 
-        val renumbered = withMediator { RenumberCatalogVersion(tenant, letters, "1.0.1", "1.0.2", acknowledgeWarnings = true).execute() }
+        assertThat(withMediator { ReleaseCatalogVersion(tenant, letters).execute() }.version).isEqualTo("2.0.0")
 
-        assertThat(renumbered.version).isEqualTo("1.0.2")
-        assertThat(renumbered.base).isEqualTo("1.0.0")
-        // Renumbered to a major, nothing is left to acknowledge.
-        withMediator { RenumberCatalogVersion(tenant, letters, "1.0.2", "2.0.0").execute() }
-    }
-
-    private companion object {
-        val KINDS = setOf("breaking-changes-in-patch", "breaking-changes-in-minor", "additions-in-patch")
+        // Nothing changed since: a patch, unless the author asks for more.
+        withMediator { MarkCatalogReady(tenant, letters).execute() }
+        assertThat(withMediator { ReleaseCatalogVersion(tenant, letters, "3.0.0").execute() }.version).isEqualTo("3.0.0")
+        assertThat(assess(tenant).latest).isEqualTo("3.0.0")
+        assertThat(assess(tenant).suggested).isEqualTo("3.0.1")
     }
 }

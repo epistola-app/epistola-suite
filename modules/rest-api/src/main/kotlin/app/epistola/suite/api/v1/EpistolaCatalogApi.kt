@@ -9,22 +9,22 @@ import app.epistola.api.model.BehindReleaseDto
 import app.epistola.api.model.CatalogChangesDto
 import app.epistola.api.model.CatalogDependencyDto
 import app.epistola.api.model.CatalogDependencyListResponse
+import app.epistola.api.model.CatalogDraftReleasePreview
+import app.epistola.api.model.CatalogDraftSummary
 import app.epistola.api.model.CatalogDto
 import app.epistola.api.model.CatalogInstallResultDto
 import app.epistola.api.model.CatalogListResponse
 import app.epistola.api.model.CatalogUpgradeDiff
 import app.epistola.api.model.CatalogVersionDto
 import app.epistola.api.model.CatalogVersionListResponse
-import app.epistola.api.model.CatalogVersionRenumberPreview
-import app.epistola.api.model.CreateCatalogVersionRequest
+import app.epistola.api.model.CreateCatalogDraftRequest
 import app.epistola.api.model.ImportCatalogResponse
-import app.epistola.api.model.ReleaseCatalogVersionRequest
-import app.epistola.api.model.ReleaseCatalogVersionResponse
+import app.epistola.api.model.ReleaseCatalogDraftRequest
+import app.epistola.api.model.ReleaseCatalogDraftResponse
 import app.epistola.api.model.ReleaseDependencyDto
 import app.epistola.api.model.ReleasedChangeDto
 import app.epistola.api.model.RemovedCatalogResourceDto
-import app.epistola.api.model.RenumberCatalogVersionRequest
-import app.epistola.api.model.RenumberWarningDto
+import app.epistola.api.model.RenameCatalogDraftRequest
 import app.epistola.api.model.ResourceChangeDto
 import app.epistola.api.model.UpdateCatalogDependenciesRequest
 import app.epistola.api.model.UpgradeCatalogResponse
@@ -33,6 +33,7 @@ import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogAt
 import app.epistola.suite.api.v1.shared.catalogVersionAt
 import app.epistola.suite.api.v1.shared.draftAt
+import app.epistola.suite.api.v1.shared.draftRef
 import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.tenantKey
 import app.epistola.suite.catalog.Catalog
@@ -56,17 +57,17 @@ import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.UpgradeResourceChange
+import app.epistola.suite.catalog.versions.AssessDraftNumber
 import app.epistola.suite.catalog.versions.CatalogVersion
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.CreateCatalogVersion
-import app.epistola.suite.catalog.versions.DeleteCatalogVersion
+import app.epistola.suite.catalog.versions.CreateCatalogDraft
+import app.epistola.suite.catalog.versions.DeleteCatalogDraft
 import app.epistola.suite.catalog.versions.GetCatalogNames
 import app.epistola.suite.catalog.versions.GetCatalogVersion
 import app.epistola.suite.catalog.versions.ListCatalogVersions
-import app.epistola.suite.catalog.versions.PreviewCatalogVersionRenumber
-import app.epistola.suite.catalog.versions.RenumberCatalogVersion
+import app.epistola.suite.catalog.versions.RenameCatalogDraft
 import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
@@ -246,22 +247,23 @@ class EpistolaCatalogApi(
         return ResponseEntity.ok(at.version.toDto(at.catalog))
     }
 
-    /** Opens a draft, as a copy of its base or of the version `from` names. */
-    override fun createCatalogVersion(
+    /** Starts long-term work, as a copy of the next version or of the release `from` names. */
+    override fun createCatalogDraft(
         tenantKey: String,
         registry: String,
         namespace: String,
         catalogKey: String,
-        createCatalogVersionRequest: CreateCatalogVersionRequest,
+        createCatalogDraftRequest: CreateCatalogDraftRequest,
     ): ResponseEntity<CatalogVersionDto> {
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        val version = CreateCatalogVersion(catalog.tenantKey, catalog.id, createCatalogVersionRequest.version, createCatalogVersionRequest.from).execute()
+        val draft = CreateCatalogDraft(catalog.tenantKey, catalog.id, createCatalogDraftRequest.name, createCatalogDraftRequest.from).execute()
         return ResponseEntity.status(HttpStatus.CREATED)
-            .location(versionLocation(version.version))
-            .body(version.toDto(catalog))
+            .location(versionLocation(requireNotNull(draft.draftId).toString()))
+            .body(draft.toDto(catalog))
     }
 
-    override fun deleteCatalogVersion(
+    /** Discards a draft; the next version starts again on the latest release. */
+    override fun deleteCatalogDraft(
         tenantKey: String,
         registry: String,
         namespace: String,
@@ -269,79 +271,73 @@ class EpistolaCatalogApi(
         catalogVersion: String,
     ): ResponseEntity<Unit> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
-        DeleteCatalogVersion(draft.tenantKey, draft.catalogKey, draft.version.version).execute()
+        DeleteCatalogDraft(draft.tenantKey, draft.catalogKey, draft.draftRef).execute()
         return ResponseEntity.noContent().build()
     }
 
-    override fun renumberCatalogVersion(
+    override fun renameCatalogDraft(
         tenantKey: String,
         registry: String,
         namespace: String,
         catalogKey: String,
         catalogVersion: String,
-        renumberCatalogVersionRequest: RenumberCatalogVersionRequest,
+        renameCatalogDraftRequest: RenameCatalogDraftRequest,
     ): ResponseEntity<CatalogVersionDto> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
-        val renumbered = RenumberCatalogVersion(
-            tenantKey = draft.tenantKey,
-            catalogKey = draft.catalogKey,
-            version = draft.version.version,
-            to = renumberCatalogVersionRequest.version,
-            acknowledgeWarnings = renumberCatalogVersionRequest.acknowledgeWarnings ?: false,
-        ).execute()
-        return ResponseEntity.ok()
-            .location(versionLocation(renumbered.version, replacing = draft.version.version))
-            .body(renumbered.toDto(draft.catalog))
+        val renamed = RenameCatalogDraft(draft.tenantKey, draft.catalogKey, requireNotNull(draft.version.draftId), renameCatalogDraftRequest.name).execute()
+        return ResponseEntity.ok(renamed.toDto(draft.catalog))
     }
 
-    override fun previewCatalogVersionRenumber(
-        to: String,
+    /** The number releasing the draft would give it, from the kind of change against the latest release. */
+    override fun previewCatalogDraftRelease(
         tenantKey: String,
         registry: String,
         namespace: String,
         catalogKey: String,
         catalogVersion: String,
-    ): ResponseEntity<CatalogVersionRenumberPreview> {
+    ): ResponseEntity<CatalogDraftReleasePreview> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
-        val warnings = PreviewCatalogVersionRenumber(draft.tenantKey, draft.catalogKey, draft.version.version, to).query()
+        val assessment = AssessDraftNumber(draft.tenantKey, draft.catalogKey, draft.draftRef).query()
+            ?: throw CatalogVersionNotFoundException(draft.catalogKey, catalogVersion)
         return ResponseEntity.ok(
-            CatalogVersionRenumberPreview(
-                from = draft.version.version,
-                to = to,
-                warnings = warnings.map { RenumberWarningDto(kind = it.kind, message = it.message, versions = it.versions, reasons = it.reasons) },
+            CatalogDraftReleasePreview(
+                latest = assessment.latest,
+                changeKind = assessment.needs?.let { CatalogDraftReleasePreview.ChangeKind.forValue(it.name.lowercase()) },
+                reasons = assessment.reasons,
+                suggested = assessment.suggested,
             ),
         )
     }
 
     /**
-     * Releases the draft under its own number. A draft behind releases needs `acknowledgedBehind` to
-     * name each one (409 otherwise). With no draft open above it, the draft carries on as the next
-     * patch (`openedDraft`); otherwise it is discarded.
+     * Releases the next version, numbered as asked or as its changes need; it then continues on the
+     * release. A next version behind releases needs `acknowledgedBehind` to name each one (409
+     * otherwise); long-term work is not released (409).
      */
-    override fun releaseCatalogVersion(
+    override fun releaseCatalogDraft(
         tenantKey: String,
         registry: String,
         namespace: String,
         catalogKey: String,
         catalogVersion: String,
-        releaseCatalogVersionRequest: ReleaseCatalogVersionRequest,
-    ): ResponseEntity<ReleaseCatalogVersionResponse> {
+        releaseCatalogDraftRequest: ReleaseCatalogDraftRequest,
+    ): ResponseEntity<ReleaseCatalogDraftResponse> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val result = ReleaseCatalogVersion(
             tenantKey = draft.tenantKey,
             catalogKey = draft.catalogKey,
-            version = draft.version.version,
-            notes = releaseCatalogVersionRequest.notes,
-            acknowledgedBehind = releaseCatalogVersionRequest.acknowledgedBehind.orEmpty().toSet(),
+            version = releaseCatalogDraftRequest.version,
+            notes = releaseCatalogDraftRequest.notes,
+            acknowledgedBehind = releaseCatalogDraftRequest.acknowledgedBehind.orEmpty().toSet(),
+            catalogVersion = draft.ref,
         ).execute()
         val released = GetCatalogVersion(draft.tenantKey, draft.catalogKey, result.version).query()
             ?: throw CatalogVersionNotFoundException(draft.catalogKey, result.version)
         return ResponseEntity.ok(
-            ReleaseCatalogVersionResponse(
+            ReleaseCatalogDraftResponse(
                 catalogVersion = released.toDto(draft.catalog),
                 unchangedContent = result.unchangedContent,
                 draftsBehind = result.draftsBehind,
-                openedDraft = result.openedDraft,
             ),
         )
     }
@@ -424,8 +420,9 @@ class EpistolaCatalogApi(
             name = name,
             description = description,
             type = CatalogDto.Type.valueOf(type.name),
-            draftVersions = if (authored) {
-                ListCatalogVersions(tenantKey, id, CatalogVersionStatus.DRAFT).query().map { it.version }.sortedWith(LOWEST_FIRST)
+            drafts = if (authored) {
+                ListCatalogVersions(tenantKey, id, CatalogVersionStatus.DRAFT).query()
+                    .map { CatalogDraftSummary(draftId = requireNotNull(it.draftId), isNext = it.isNext, name = it.name) }
             } else {
                 emptyList()
             },
@@ -443,12 +440,15 @@ class EpistolaCatalogApi(
     private fun CatalogVersion.toDto(catalog: Catalog): CatalogVersionDto {
         val draft = status == CatalogVersionStatus.DRAFT
         val dependencies = if (draft) {
-            ListCatalogDependencies(catalog.tenantKey, catalog.id, catalogVersion = CatalogVersionRef(catalog.tenantKey, catalog.id, version)).query()
+            ListCatalogDependencies(catalog.tenantKey, catalog.id, catalogVersion = CatalogVersionRef(catalog.tenantKey, catalog.id, requireNotNull(draftRef))).query()
         } else {
-            ListReleaseDependencies(catalog.tenantKey, catalog.id, version).query()
+            ListReleaseDependencies(catalog.tenantKey, catalog.id, requireNotNull(version)).query()
         }
         return CatalogVersionDto(
             version = version,
+            draftId = draftId,
+            isNext = isNext,
+            name = name,
             status = if (draft) CatalogVersionStatusDto.DRAFT else CatalogVersionStatusDto.RELEASED,
             behind = behind.map { release ->
                 BehindReleaseDto(
@@ -490,7 +490,7 @@ class EpistolaCatalogApi(
     private fun dependenciesOf(at: ResolvedCatalogVersion): List<CatalogDependencyDeclaration> = if (at.isDraft) {
         ListCatalogDependencies(at.tenantKey, at.catalogKey, catalogVersion = at.ref).query()
     } else {
-        ListReleaseDependencies(at.tenantKey, at.catalogKey, at.version.version).query()
+        ListReleaseDependencies(at.tenantKey, at.catalogKey, requireNotNull(at.version.version)).query()
     }
 
     /**
@@ -531,27 +531,21 @@ class EpistolaCatalogApi(
      */
     private fun baseOf(at: ResolvedCatalogVersion): String? {
         at.version.base?.let { return it }
-        val own = SemVer.parseOrNull(at.version.version) ?: return null
+        val own = at.version.version?.let(SemVer::parseOrNull) ?: return null
         return ListCatalogVersions(at.tenantKey, at.catalogKey, CatalogVersionStatus.RELEASED).query()
-            .mapNotNull { version -> SemVer.parseOrNull(version.version)?.let { it to version.version } }
+            .mapNotNull { version -> version.version?.let { number -> SemVer.parseOrNull(number)?.let { it to number } } }
             .filter { (semVer, _) -> semVer < own }
             .maxByOrNull { (semVer, _) -> semVer }
             ?.second
     }
 
-    /** `…/versions/{version}`, from the request's own address. */
-    private fun versionLocation(version: String, replacing: String? = null) = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUri().let { current ->
-        val path = current.path.removeSuffix("/")
-        val base = if (replacing != null) path.removeSuffix("/$replacing") else path
-        current.resolve("$base/$version")
+    /** `…/versions/{draftId}`, from the request's own address. */
+    private fun versionLocation(segment: String) = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUri().let { current ->
+        current.resolve("${current.path.removeSuffix("/")}/$segment")
     }
 
     private fun CatalogVersionStatusDto.toDomain() = when (this) {
         CatalogVersionStatusDto.DRAFT -> CatalogVersionStatus.DRAFT
         CatalogVersionStatusDto.RELEASED -> CatalogVersionStatus.RELEASED
-    }
-
-    private companion object {
-        val LOWEST_FIRST: Comparator<String> = compareBy<String, SemVer?>(nullsLast()) { SemVer.parseOrNull(it) }.thenBy { it }
     }
 }

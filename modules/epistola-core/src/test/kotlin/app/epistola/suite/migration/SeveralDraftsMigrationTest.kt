@@ -69,7 +69,7 @@ class SeveralDraftsMigrationTest {
                 """.trimIndent(),
             )
         }
-        flyway(null).migrate()
+        flyway(UNDER_TEST).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             fun one(sql: String): String? = connection.createStatement().use { st -> st.executeQuery(sql).use { rs -> if (rs.next()) rs.getString(1) else null } }
@@ -131,6 +131,9 @@ class SeveralDraftsMigrationTest {
     private fun Connection.exec(sql: String) = createStatement().use { it.execute(sql) }
 
     private companion object {
+        /** The migration under test: later ones change what it left, and are tested on their own. */
+        const val UNDER_TEST = "20261017115602"
+
         /** The last migration before the one under test. */
         const val BEFORE = "20261017112401"
 

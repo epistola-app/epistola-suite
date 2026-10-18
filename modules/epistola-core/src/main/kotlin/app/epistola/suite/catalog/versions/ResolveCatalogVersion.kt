@@ -31,13 +31,14 @@ data class ResolvedCatalogVersion(
 
     /** @throws CatalogVersionReleasedException when the version is released: only a draft changes. */
     fun requireDraft(): ResolvedCatalogVersion = apply {
-        if (!isDraft) throw CatalogVersionReleasedException(catalogKey, version.version)
+        if (!isDraft) throw CatalogVersionReleasedException(catalogKey, version.version ?: version.label)
     }
 }
 
 /**
  * Resolves `…/catalogs/{registry}/{namespace}/{catalogKey}/versions/{catalogVersion}` (contract ADR
- * 0002/0003): the tenant's catalog with that name, and its version with that number. [registry]
+ * 0002/0003): the tenant's catalog with that name, and the version [version] names: `next` or a draft
+ * id for a draft, a number for a release. [registry]
  * null, or `~`, is the installation's default registry. A catalog whose key matches but whose name
  * does not is another catalog, and not found.
  *
@@ -65,8 +66,13 @@ class ResolveCatalogVersionHandler(
         val catalog = handle.findCatalog(query.tenantKey, query.catalogKey)
             ?.takeIf { it.registry == registry && it.namespace == query.namespace }
             ?: throw CatalogNotFoundException(query.catalogKey)
-        val version = versions.all(handle, query.tenantKey, query.catalogKey).firstOrNull { it.version == query.version }
-            ?: throw CatalogVersionNotFoundException(query.catalogKey, query.version)
+        // A draft is named `next` or by its id; a release by its number (ADR 0002, amendment 2).
+        val all = versions.all(handle, query.tenantKey, query.catalogKey)
+        val version = when (val draft = DraftRef.parse(query.version)) {
+            DraftRef.Next -> all.firstOrNull { it.isNext }
+            is DraftRef.Id -> all.firstOrNull { it.status == CatalogVersionStatus.DRAFT && it.draftId == draft.id }
+            null -> all.firstOrNull { it.status == CatalogVersionStatus.RELEASED && it.version == query.version }
+        } ?: throw CatalogVersionNotFoundException(query.catalogKey, query.version)
         ResolvedCatalogVersion(catalog, version)
     }
 

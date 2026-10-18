@@ -6,8 +6,6 @@ package app.epistola.suite.catalog.versions
 
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
-import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
@@ -37,8 +35,6 @@ class ReleaseBaseTest : IntegrationTestBase() {
 
     private fun catalogId(tenant: TenantKey) = CatalogId(letters, TenantId(tenant))
 
-    private fun at(tenant: TenantKey, version: String) = CatalogVersionRef(tenant, letters, version)
-
     private fun version(tenant: TenantKey, version: String) = withMediator { GetCatalogVersion(tenant, letters, version).query()!! }
 
     @Test
@@ -57,31 +53,28 @@ class ReleaseBaseTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `what a release a draft is behind changed is measured against that release's own base`() {
+    fun `long-term work is behind every release since its base, each with what it changed`() {
+        val invoice = { tenant: TenantKey -> TemplateId(TemplateKey.of("invoice"), catalogId(tenant)) }
         val tenant = withMediator {
             val tenant = createTenant("release-base-behind").id
             CreateCatalog(tenant, letters, "Letters").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant)), "Brand").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId(tenant)), "Invoice").execute().withRequiredDataExample()
+            CreateDocumentTemplate(invoice(tenant), "Invoice").execute().withRequiredDataExample()
             mediator.releaseNext(catalogId(tenant))
-            // Drafts 1.1.0 and 2.0.0 both start from 1.0.0, beside draft 1.0.1.
-            CreateCatalogVersion(tenant, letters, "1.1.0").execute()
-            CreateCatalogVersion(tenant, letters, "2.0.0").execute()
-            // 1.0.1 changes the invoice; 1.1.0 changes the theme only.
-            UpdateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId(tenant)), name = "Invoice, fixed", catalogVersion = at(tenant, "1.0.1")).execute()
-            MarkCatalogReady(tenant, letters, catalogVersion = at(tenant, "1.0.1")).execute()
-            ReleaseCatalogVersion(tenant, letters, "1.0.1").execute()
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant)), name = "Brand, new", catalogVersion = at(tenant, "1.1.0")).execute()
-            MarkCatalogReady(tenant, letters, catalogVersion = at(tenant, "1.1.0")).execute()
-            ReleaseCatalogVersion(tenant, letters, "1.1.0", acknowledgedBehind = setOf("1.0.1")).execute()
+            CreateCatalogDraft(tenant, letters, "Redesign").execute()
+            // The next version changes the invoice and is released, then the theme and is released.
+            UpdateDocumentTemplate(invoice(tenant), name = "Invoice, fixed").execute()
+            mediator.releaseNext(catalogId(tenant))
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant)), name = "Brand, new").execute()
+            mediator.releaseNext(catalogId(tenant))
             tenant
         }
 
-        assertThat(version(tenant, "1.1.0").base).isEqualTo("1.0.0")
-        val behind = version(tenant, "2.0.0").behind.associate { it.version to it.changes }
-        assertThat(behind.keys).containsExactly("1.0.1", "1.1.0")
+        assertThat(version(tenant, "1.0.2").base).isEqualTo("1.0.1")
+        val work = withMediator { ListCatalogVersions(tenant, letters).query() }.single { it.name == "Redesign" }
+        val behind = work.behind.associate { it.version to it.changes }
+        assertThat(behind.keys).containsExactly("1.0.1", "1.0.2")
         assertThat(behind["1.0.1"]).containsExactly(ReleasedChange("template", "invoice", "modified"))
-        // Against the release below it (1.0.1), 1.1.0 would also seem to change the invoice back.
-        assertThat(behind["1.1.0"]).containsExactly(ReleasedChange("theme", "brand", "modified"))
+        assertThat(behind["1.0.2"]).containsExactly(ReleasedChange("theme", "brand", "modified"))
     }
 }

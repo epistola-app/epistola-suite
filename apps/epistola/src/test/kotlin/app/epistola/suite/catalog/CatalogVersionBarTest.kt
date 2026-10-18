@@ -12,7 +12,8 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CreateCatalogVersion
+import app.epistola.suite.catalog.versions.CreateCatalogDraft
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
@@ -111,35 +112,35 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `side work is named by what it fixes and where that is live, with a strip and the way back`() {
-        val tenant = seed("Version Bar Fix")
-        withMediator {
-            CreateCatalogVersion(tenant.id, catalogKey, "2.0.0").execute() // the next version; 1.0.1 is now another draft
-            CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
-            DeployRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), catalogKey, "1.0.0", includeDependencies = true).execute()
-            // The fix changes something, so it has something to publish.
+    fun `long-term work is named, with a strip and the way back, and offers no publishing`() {
+        val tenant = seed("Version Bar Long Term")
+        val work = withMediator {
+            val draft = CreateCatalogDraft(tenant.id, catalogKey, "Redesign 2027").execute()
+            // The work changes something, so it has changes of its own.
             CreateTheme(
                 id = ThemeId(ThemeKey.of("fixed"), CatalogId(catalogKey, TenantId(tenant.id))),
                 name = "Fixed",
-                catalogVersion = CatalogVersionRef(tenant.id, catalogKey, "1.0.1"),
+                catalogVersion = CatalogVersionRef(tenant.id, catalogKey, DraftRef.Id(draft.draftId!!)),
             ).execute()
+            draft.draftId!!
         }
 
-        val fix = get(tenant, "/themes/bar-cat@1.0.1/house")
-        assertThat(fix).contains("ws-bar-side")
-        assertThat(fix.substringAfter("data-testid=\"ws-crumb-version\"").substringBefore("</button>")).contains(">Fix of v1.0.0 · production<")
-        assertThat(fix).contains("data-testid=\"catalog-fix-banner\"").contains("a fix of v1.0.0, which is deployed to production")
-        assertThat(fix).contains("hx-get=\"/tenants/${tenant.id.value}/catalogs/bar-cat@1.0.1/bar-status\"")
-        assertThat(fix).contains("href=\"/tenants/${tenant.id.value}/themes/bar-cat/house\" data-testid=\"catalog-fix-back\"")
-        assertThat(barStatus(tenant, "bar-cat@1.0.1")).contains("/catalogs/bar-cat@1.0.1/release")
+        val page = get(tenant, "/themes/bar-cat@$work/house")
+        assertThat(page).contains("ws-bar-side")
+        assertThat(page.substringAfter("data-testid=\"ws-crumb-version\"").substringBefore("</button>")).contains(">Redesign 2027<")
+        assertThat(page).contains("data-testid=\"catalog-long-term-banner\"").contains("You are changing Redesign 2027, long-term work kept apart from the next version")
+        assertThat(page).contains("hx-get=\"/tenants/${tenant.id.value}/catalogs/bar-cat@$work/bar-status\"")
+        assertThat(page).contains("href=\"/tenants/${tenant.id.value}/themes/bar-cat/house\" data-testid=\"catalog-long-term-back\"")
+        assertThat(barStatus(tenant, "bar-cat@$work")).`as`("only the next version is published").doesNotContain("data-testid=\"catalog-bar-publish\"")
 
-        val work = get(tenant, "/themes/bar-cat/house")
-        assertThat(work).doesNotContain("data-testid=\"catalog-fix-banner\"")
-        assertThat(work.substringAfter("data-testid=\"ws-version-menu\"").substringBefore("</div>"))
-            .contains(">Next version<").contains(">Fix of v1.0.0<")
-            .contains("href=\"/tenants/${tenant.id.value}/catalogs/bar-cat@1.0.1/draft\"")
-        assertThat(Regex("ws-menu-check").findAll(work.substringAfter("data-testid=\"ws-version-menu\"").substringBefore("ws-menu-sep")).count())
+        val next = get(tenant, "/themes/bar-cat/house")
+        assertThat(next).doesNotContain("data-testid=\"catalog-long-term-banner\"")
+        assertThat(next.substringAfter("data-testid=\"ws-version-menu\"").substringBefore("ws-menu-sep"))
+            .contains(">Next version<").contains(">Redesign 2027<")
+            .contains("href=\"/tenants/${tenant.id.value}/catalogs/bar-cat@$work/draft\"")
+        assertThat(Regex("ws-menu-check").findAll(next.substringAfter("data-testid=\"ws-version-menu\"").substringBefore("ws-menu-sep")).count())
             .`as`("only the version the page is in is ticked").isEqualTo(1)
+        assertThat(next).`as`("long-term work is started from the bar").contains("data-testid=\"ws-start-long-term\"")
     }
 
     @Test

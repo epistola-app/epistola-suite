@@ -27,20 +27,13 @@
                     <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments(tenantId=${tenantId},catalogId=${catalogId})}">Deploy a version or undeploy it</a>
                     under Deployments.
                 </p>
-                <p class="form-hint">A published version does not change. To change it, start a draft from it and publish that.</p>
+                <p class="form-hint">A published version does not change. Change the next version and publish that; for a large change that is not ready yet, start long-term work from this version.</p>
 
                 <div class="ep-row" style="gap: var(--ep-space-2); flex-wrap: wrap;">
-                    <a th:if="${bar.openFixOf.containsKey(version)}" class="ep-btn ep-btn-outline ep-btn-sm"
-                       data-testid="release-continue-draft"
-                       th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenantId},c=${catalogId + '@' + bar.openFixOf.get(version)})}"
-                       th:text="'Continue draft v' + ${bar.openFixOf.get(version)}">Continue draft v1.0.1</a>
-                    <form th:if="${!bar.openFixOf.containsKey(version) and bar.fixableVersions.contains(version)}"
-                          method="post" style="display: inline;"
-                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/fixes(tenantId=${tenantId},catalogId=${catalogId})}">
-                        <input type="hidden" name="of" th:value="${version}">
-                        <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="release-start-draft"
-                                th:title="'Change v' + ${version} + ' without the next version, and publish it on its own'">Start a draft from this version</button>
-                    </form>
+                    <button th:if="${bar.offerCreateDraft and bar.createFromOptions.contains(version)}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                            data-testid="release-start-draft"
+                            th:hx-get="@{/tenants/{t}/catalogs/{c}/drafts/new(t=${tenantId},c=${catalogId},from=${version})}"
+                            hx-target="#ws-dialog-mount" hx-swap="innerHTML">Start long-term work from this version</button>
 
                     <!--/* Offered where it can be carried out: the catalog can publish at all, this
                            release kept content to send, and it has not been sent already. */-->

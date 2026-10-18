@@ -347,7 +347,7 @@ class FontHandler(
 
         // Success. Browser dialog: close + OOB-refresh the grid; boosted: redirect.
         if (request.isHtmx) {
-            val draft = catalogSegment?.takeIf { it.version != null }
+            val draft = catalogSegment?.takeIf { it.draft != null }
             val fonts = ListFonts(tenantId = tenantId, catalogKey = draft?.key, catalogVersion = version).query().map { toFontView(tenantId, it, version) }
             return request.htmx {
                 dialogSuccess("fonts/list", "font-grid-items", "/tenants/${tenantKey.value}/fonts") {
@@ -396,7 +396,7 @@ class FontHandler(
         }
 
         val tenant = GetTenant(id = tenantKey).query()
-        val draft = segment.takeIf { it.version != null }
+        val draft = segment.takeIf { it.draft != null }
         val fonts = ListFonts(tenantId = tenantId, catalogKey = draft?.key, catalogVersion = version).query()
         return request.htmx {
             fragment("fonts/list", "font-grid-items") {

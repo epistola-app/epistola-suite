@@ -50,7 +50,7 @@ data class Workspace(
             tenantKey.value,
             tenantName,
             catalogs,
-            catalog?.let { listOf(it.bar.segmentValue, it.name, it.versionLabel, it.sideWork, it.readOnly, it.versions, it.fixLive, it.statusHref, it.versionsHref) },
+            catalog?.let { listOf(it.bar.segmentValue, it.name, it.versionLabel, it.sideWork, it.readOnly, it.versions, it.statusHref, it.versionsHref) },
             back,
             section,
         ).hashCode().toUInt().toString(36)
@@ -77,12 +77,11 @@ data class NavLink(val key: String, val label: String, val href: String, val ico
  *
  * @property versionLabel what the bar calls the version: "Next version", "Fix of v1.2.0", or a
  *   subscribed catalog's "v2.0.0".
- * @property sideWork the page works in a draft other than the next version, which the bar marks so
+ * @property sideWork the page works in long-term work, not the next version, which the bar marks so
  *   nobody edits it thinking it is their everyday work.
  * @property sections the catalog nav, in groups: the catalog and its templates; the parts templates
  *   are built from; its versions, where it is live, what it uses and its details.
  * @property versions the drafts to switch to, the next version first.
- * @property fixLive per environment that serves a version that can be fixed, the way to fix it.
  * @property statusHref the bar's status — what is not published yet, and Publish — loaded after the
  *   page, because working it out builds the catalog.
  */
@@ -92,7 +91,6 @@ data class CatalogScope(
     val sideWork: Boolean,
     val sections: List<List<NavLink>>,
     val versions: List<VersionLink>,
-    val fixLive: List<FixLive>,
     val statusHref: String?,
     val versionsHref: String,
 ) {
@@ -105,12 +103,6 @@ data class CatalogScope(
 
 /** A draft in the version menu. [detail] says what it is based on. */
 data class VersionLink(val label: String, val detail: String?, val href: String, val current: Boolean)
-
-/**
- * Fixing what an environment serves: [continueHref] when a fix of [version] is open already,
- * else [startHref] to start one (a form post with `of = version`).
- */
-data class FixLive(val environment: String, val version: String, val continueHref: String?, val startHref: String?)
 
 /** What a catalog's side nav is built from; kept apart so its links and gating are tested alone. */
 object CatalogNav {
@@ -140,7 +132,7 @@ object CatalogNav {
         val active = activeKey(path, key)
         fun link(key: String, label: String, href: String, icon: String) = NavLink(key, label, href, icon, active == key)
 
-        val overview = if (bar.fixing) bar.draftPageHref else CatalogPages.browse(TenantId(bar.tenantKey), bar.segment)
+        val overview = if (bar.onLongTermWork) bar.draftPageHref else CatalogPages.browse(TenantId(bar.tenantKey), bar.segment)
         val first = buildList {
             add(link("overview", "Overview", overview, "house"))
             // Quality findings are about this catalog's templates (alpha, behind its feature).

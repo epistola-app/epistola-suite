@@ -318,7 +318,7 @@ class ThemeHandler(
                 "tenantId" to tenantId.key
                 "catalogId" to themeId.catalogKey.value
                 "catalogSegment" to request.catalogSegment().value
-                "draftSegment" to request.catalogSegment().takeIf { it.version != null }
+                "draftSegment" to request.catalogSegment().takeIf { it.draft != null }
                 "theme" to theme
                 themeUsageModel(usagePage, page)
             }

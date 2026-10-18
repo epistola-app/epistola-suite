@@ -8,6 +8,7 @@ import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.catalog.versions.GetReleasedResource
 import app.epistola.suite.catalog.versions.ListReleasedResources
 import app.epistola.suite.catalog.versions.ResolveCatalog
@@ -53,7 +54,10 @@ internal val ResolvedCatalogVersion.tenantKey: TenantKey get() = catalog.tenantK
  * write that draft, whichever of the catalog's drafts it is. Null for a released version, whose
  * content is read from the release instead.
  */
-internal val ResolvedCatalogVersion.ref: CatalogVersionRef? get() = if (isDraft) CatalogVersionRef(catalog.tenantKey, catalogKey, version.version) else null
+internal val ResolvedCatalogVersion.ref: CatalogVersionRef? get() = if (isDraft) CatalogVersionRef(catalog.tenantKey, catalogKey, draftRef) else null
+
+/** How a message names the draft this address names: `next`, or long-term work by its id. */
+internal val ResolvedCatalogVersion.draftRef: DraftRef get() = requireNotNull(version.draftRef) { "not a draft" }
 
 internal val ResolvedCatalogVersion.catalogId: CatalogId get() = catalog.catalogId
 
@@ -69,10 +73,10 @@ internal val ResolvedCatalogVersion.releasedAt: OffsetDateTime get() = version.r
 internal val Catalog.isSubscribed: Boolean get() = type == CatalogType.SUBSCRIBED
 
 /** The resource of [type] at [key] the released version holds, or null when it holds none. */
-internal inline fun <reified R : CatalogResource> ResolvedCatalogVersion.releasedResource(type: String, key: String): R? = GetReleasedResource(tenantKey, catalogKey, version.version, type, key).query() as? R
+internal inline fun <reified R : CatalogResource> ResolvedCatalogVersion.releasedResource(type: String, key: String): R? = GetReleasedResource(tenantKey, catalogKey, requireNotNull(version.version), type, key).query() as? R
 
 /**
  * Every resource of [type] the released version holds, in key order. A list endpoint pages these in
  * memory: released content is assembled whole anyway, and bounded by the size of the catalog.
  */
-internal inline fun <reified R : CatalogResource> ResolvedCatalogVersion.releasedResources(type: String): List<R> = ListReleasedResources(tenantKey, catalogKey, version.version, type).query().filterIsInstance<R>()
+internal inline fun <reified R : CatalogResource> ResolvedCatalogVersion.releasedResources(type: String): List<R> = ListReleasedResources(tenantKey, catalogKey, requireNotNull(version.version), type).query().filterIsInstance<R>()

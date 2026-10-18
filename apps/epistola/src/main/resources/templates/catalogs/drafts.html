@@ -1,51 +1,50 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-    <!--/* Drafts of an authored catalog (contract ADR 0002). Which draft a page works in is shown
-           by the workspace bar (layout/nav), built from CatalogDraftBar. */-->
+    <!--/* Long-term work of an authored catalog (contract ADR 0002, amendment 2). Which draft a page
+           works in is shown by the workspace bar (layout/nav), built from CatalogDraftBar. */-->
 
-    <!--/* Open a draft. The number is free text, the source a choice among the catalog's drafts and
-           the releases that kept their content; without one, the draft copies its base (the highest
-           release below its number), as the contract defaults.
-           Model: `tenantId`, `catalogId`, `bar`, and on re-render `formData`/`errors`. */-->
+    <!--/* Start long-term work: a name, and what it starts from — the next version, unpublished changes
+           included, or a published version that kept its content.
+           Model: `tenantId`, `bar`, and on re-render `formData`/`errors`. */-->
     <th:block th:fragment="create-dialog">
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='create-draft-dialog',
-            title='New draft',
-            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${bar.segmentValue})},
+            title='Start long-term work',
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${bar.catalogKey})},
             content=~{::create-form})}"></div>
     </th:block>
 
     <form th:fragment="create-form" id="create-draft-form"
-          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts(tenantId=${tenantId},catalogId=${bar.segmentValue})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts(tenantId=${tenantId},catalogId=${bar.catalogKey})}"
           hx-target="#create-draft-form" hx-swap="outerHTML">
         <div th:replace="~{epistola-web/form-error :: form-error(id='create-draft-error')}"></div>
         <div class="ep-dialog-body">
             <p class="form-hint">
-                A draft is its own copy of the catalog's content, edited and released on its own: a
-                maintenance line next to the next major, for example.
+                For a large change that is not ready to go out with everyday work, such as a redesign.
+                It is kept apart from the next version and is not published until it is ready.
             </p>
-            <div class="form-group" th:classappend="${errors?.containsKey('version')} ? 'error' : ''">
-                <label class="ep-label" for="create-draft-version">Version</label>
-                <input type="text" id="create-draft-version" name="version" class="ep-input" required maxlength="50"
-                       pattern="^\d+\.\d+\.\d+$" th:value="${formData?.get('version') ?: bar.suggestedNewVersion}">
-                <span class="form-hint">Semantic version: MAJOR.MINOR.PATCH. Unique among the catalog's drafts and releases.</span>
-                <span class="form-error" th:if="${errors?.containsKey('version')}" th:text="${errors.version}"
+            <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
+                <label class="ep-label" for="create-draft-name">Name</label>
+                <input type="text" id="create-draft-name" name="name" class="ep-input" required maxlength="100"
+                       placeholder="Redesign 2027" th:value="${formData?.get('name')}" data-testid="create-draft-name">
+                <span class="form-hint">What your team calls this work.</span>
+                <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"
                       data-testid="create-draft-error"></span>
             </div>
             <div class="form-group" th:classappend="${errors?.containsKey('from')} ? 'error' : ''">
-                <label class="ep-label" for="create-draft-from">Copy</label>
+                <label class="ep-label" for="create-draft-from">Start from</label>
                 <select id="create-draft-from" name="from" class="ep-select" data-testid="create-draft-from">
-                    <option value="">Its base: the highest release below its number</option>
-                    <option th:each="option : ${bar.createFromOptions}" th:value="${option}" th:text="'v' + ${option}"
-                            th:selected="${formData != null and option == formData.get('from')}">v1.0.0</option>
+                    <option value="">The next version, with what is not published yet</option>
+                    <option th:each="option : ${bar.createFromOptions}" th:value="${option}" th:text="'Published v' + ${option}"
+                            th:selected="${formData != null and option == formData.get('from')}">Published v1.0.0</option>
                 </select>
                 <span class="form-error" th:if="${errors?.containsKey('from')}" th:text="${errors.from}"></span>
             </div>
         </div>
         <div class="ep-dialog-footer">
             <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="create-draft-dialog">Cancel</button>
-            <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-draft-submit">Open draft</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-draft-submit">Start</button>
         </div>
     </form>
 </body>

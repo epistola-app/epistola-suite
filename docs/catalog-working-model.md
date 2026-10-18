@@ -10,6 +10,11 @@ SPDX-License-Identifier: AGPL-3.0-only
 > (see [workspace-shell.md](workspace-shell.md)). Supersedes the "simple model" section of
 > [catalog-workspace-navigation.md](catalog-workspace-navigation.md) where they differ. Needs an
 > amendment to contract ADR 0002 (drafts) and a change to how dependencies are locked (ADR 0003).
+> **Built since (18 October 2026):** ADR 0002 amendment 2, stage 1. A draft is numbered when it is
+> published; the next version is explicit; "side work" is _long-term work_, named and never published
+> until it becomes the next version (promotion and pre-releases are stage 2). The fix of what is live
+> described below is not built: hotfixes follow ADR 0001, fitted to this model later. Dependencies are
+> exact pins checked per use. The current behaviour is in [catalog-versioning.md](catalog-versioning.md).
 
 ## The balance
 

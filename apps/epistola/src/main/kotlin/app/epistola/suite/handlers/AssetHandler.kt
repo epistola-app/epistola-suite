@@ -307,7 +307,7 @@ class AssetHandler(
 
         // Success. Browser dialog: close + OOB-refresh the grid; boosted: redirect.
         if (request.isHtmx) {
-            val draft = catalogSegment?.takeIf { it.version != null }
+            val draft = catalogSegment?.takeIf { it.draft != null }
             val assets = listImages(tenantId = tenantId, catalogKey = draft?.key, version = draft?.ref(tenantId))
             return request.htmx {
                 dialogSuccess("images/list", "asset-list", "/tenants/${tenantId.value}/images") {

@@ -479,6 +479,12 @@ class CatalogHandler {
             else -> ReleasePublication.SKIP
         }
 
+        // Only the next version is published (ADR 0002, amendment 2): refused before anything is
+        // marked ready or published along, so long-term work is left as it was.
+        if (draftBar(tenantId, segment).onLongTermWork) {
+            return reRenderWithError("Long-term work is not published. Its changes go out once it becomes the next version.")
+        }
+
         return try {
             if (publicationChoice == ReleasePublication.PUBLISH) {
                 chooseNamespaceIfOffered(request, tenantId.key, catalogKey)
@@ -526,11 +532,9 @@ class CatalogHandler {
             }
 
             // Releasing is the start of something to watch, not the end of a dialog: publication
-            // runs in the background, so land on the catalog where its progress is shown — in the
-            // draft the release carried on as, or at the current version when it was discarded.
-            val landing = draftBar(tenantId, segment.at(null)).let { bar ->
-                segment.at(result.openedDraft?.takeIf { it != bar.current?.version })
-            }
+            // runs in the background, so land on the catalog where its progress is shown, in the next
+            // version, which continues on the release.
+            val landing = segment.at(null)
             request.htmx {
                 dialogLocation(CatalogPages.browse(tenantId, landing))
                 onNonHtmx {
@@ -813,7 +817,7 @@ class CatalogHandler {
      */
     fun browse(request: ServerRequest): ServerResponse {
         val segment = request.catalogSegment()
-        if (segment.version != null) {
+        if (segment.draft != null) {
             return ServerResponse.status(303).header("Location", CatalogPages.draft(request.tenantId(), segment)).build()
         }
         return browse(request, error = null)
@@ -821,18 +825,14 @@ class CatalogHandler {
 
     /**
      * `GET /{catalogId}/draft`: a draft's own page — what is not published yet, its contents and its
-     * details. A plain segment is the next version; `key@version` another draft. A published version
-     * has its own page, a subscribed catalog no drafts, and a catalog with nothing open its catalog
-     * page, which offers to start; each goes there instead.
+     * details. A plain segment is the next version; `key@<draft id>` long-term work. A subscribed
+     * catalog has no drafts, and a catalog with nothing open goes to its catalog page, which offers to
+     * start.
      */
     fun draftPage(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val segment = request.catalogSegment()
-        val bar = try {
-            draftBar(tenantId, segment)
-        } catch (e: CatalogVersionReleasedException) {
-            return ServerResponse.status(303).header("Location", CatalogPages.release(tenantId.key, segment.key, segment.version!!)).build()
-        }
+        val bar = draftBar(tenantId, segment)
         if (bar.chosen == null) return ServerResponse.status(303).header("Location", CatalogPages.browse(tenantId, segment)).build()
         return catalogPage(request, "catalogs/version", segment, bar, error = null)
     }
@@ -856,11 +856,7 @@ class CatalogHandler {
     private fun catalogSection(request: ServerRequest, template: String, catalogWide: Boolean): ServerResponse {
         val tenantId = request.tenantId()
         val segment = request.catalogSegment().let { if (catalogWide) it.at(null) else it }
-        val bar = try {
-            draftBar(tenantId, segment)
-        } catch (e: CatalogVersionReleasedException) {
-            return ServerResponse.status(303).header("Location", CatalogPages.release(tenantId.key, segment.key, segment.version!!)).build()
-        }
+        val bar = draftBar(tenantId, segment)
         return catalogPage(request, template, segment, bar, error = null)
     }
 

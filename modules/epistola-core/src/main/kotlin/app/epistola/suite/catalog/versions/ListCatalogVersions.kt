@@ -19,8 +19,9 @@ import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
 
 /**
- * The versions of a catalog, highest first (contract `listCatalogVersions`): its open drafts and its
- * releases. [status] narrows to one kind.
+ * The versions of a catalog (contract `listCatalogVersions`): its open drafts, the next version first
+ * and then long-term work, oldest first; then its releases, highest first. [status] narrows to one
+ * kind.
  */
 data class ListCatalogVersions(
     override val tenantKey: TenantKey,
@@ -31,11 +32,21 @@ data class ListCatalogVersions(
     override val permission get() = Permission.CATALOG_VIEW
 }
 
-/** One version of a catalog, or null when it has none with that number (contract `getCatalogVersion`). */
+/** One released version of a catalog, or null when it has none with that number (contract `getCatalogVersion`). */
 data class GetCatalogVersion(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
     val version: String,
+) : Query<CatalogVersion?>,
+    RequiresPermission {
+    override val permission get() = Permission.CATALOG_VIEW
+}
+
+/** One draft of a catalog, or null when it has no such draft (contract `getCatalogDraft`). */
+data class GetCatalogDraft(
+    override val tenantKey: TenantKey,
+    val catalogKey: CatalogKey,
+    val draft: DraftRef = DraftRef.Next,
 ) : Query<CatalogVersion?>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW
@@ -57,7 +68,22 @@ class GetCatalogVersionHandler(
     private val versions: CatalogVersionReader,
 ) : QueryHandler<GetCatalogVersion, CatalogVersion?> {
     override fun handle(query: GetCatalogVersion): CatalogVersion? = jdbi.withHandle<CatalogVersion?, Exception> { handle ->
-        versions.all(handle, query.tenantKey, query.catalogKey).firstOrNull { it.version == query.version }
+        versions.all(handle, query.tenantKey, query.catalogKey).firstOrNull { it.status == CatalogVersionStatus.RELEASED && it.version == query.version }
+    }
+}
+
+@Component
+class GetCatalogDraftHandler(
+    private val jdbi: Jdbi,
+    private val versions: CatalogVersionReader,
+) : QueryHandler<GetCatalogDraft, CatalogVersion?> {
+    override fun handle(query: GetCatalogDraft): CatalogVersion? = jdbi.withHandle<CatalogVersion?, Exception> { handle ->
+        versions.all(handle, query.tenantKey, query.catalogKey).firstOrNull { version ->
+            when (val ref = query.draft) {
+                DraftRef.Next -> version.isNext
+                is DraftRef.Id -> version.status == CatalogVersionStatus.DRAFT && version.draftId == ref.id
+            }
+        }
     }
 }
 
@@ -101,22 +127,25 @@ class CatalogVersionReader(
                 )
             }
             .list()
-        val released = releases.map { it.version }
-        val bases = releases.associate { it.version to it.base }
+        val released = releases.mapNotNull { it.version }
+        val bases = releases.associate { it.version!! to it.base }
         val changes = mutableMapOf<String, List<ReleasedChange>>()
         val open = drafts.drafts(handle, tenantKey, catalogKey).map { draft ->
             CatalogVersion(
-                draft.version,
-                CatalogVersionStatus.DRAFT,
+                version = null,
+                status = CatalogVersionStatus.DRAFT,
                 base = draft.base,
                 createdFrom = draft.createdFrom,
                 createdAt = draft.createdAt,
-                behind = CatalogDrafts.behind(draft.version, draft.base, released).map { version ->
+                behind = CatalogDrafts.behind(draft.base, released).map { version ->
                     BehindRelease(version, changes.getOrPut(version) { changesOf(handle, tenantKey, catalogKey, version, bases[version], released) })
                 },
+                draftId = draft.versionId,
+                name = draft.name,
+                isNext = draft.isNext,
             )
         }
-        return (open + releases).sortedWith(HIGHEST_FIRST)
+        return open + releases.sortedWith(HIGHEST_FIRST)
     }
 
     /**
@@ -142,7 +171,7 @@ class CatalogVersionReader(
 
     private companion object {
         /** SemVer order, highest first; a version that is not SemVer (imported before 2.0) last. */
-        val HIGHEST_FIRST: Comparator<CatalogVersion> = compareByDescending<CatalogVersion, SemVer?>(nullsFirst()) { SemVer.parseOrNull(it.version) }
+        val HIGHEST_FIRST: Comparator<CatalogVersion> = compareByDescending<CatalogVersion, SemVer?>(nullsFirst()) { it.version?.let(SemVer::parseOrNull) }
             .thenByDescending { it.version }
     }
 }

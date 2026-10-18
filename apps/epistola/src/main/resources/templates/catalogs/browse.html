@@ -254,26 +254,6 @@
                                         </select>
                                         <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Deploy</button>
                                     </form>
-                                    <!--/* Changing what is live here without the next version: side work from exactly
-                                           that version (docs/catalog-working-model.md, the hotfix). */-->
-                                    <th:block th:if="${draftBar != null and draftBar.authored}"
-                                              th:with="live=${row.served.isEmpty() ? null : row.served[0].version}">
-                                        <a th:if="${live != null and draftBar.openFixOf.containsKey(live)}"
-                                           class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-live-continue-fix"
-                                           th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenantId},c=${catalog.id + '@' + draftBar.openFixOf.get(live)})}"
-                                           th:text="'Continue the fix of v' + ${live}">Continue the fix</a>
-                                        <form th:if="${live != null and !draftBar.openFixOf.containsKey(live) and draftBar.fixableVersions.contains(live)}"
-                                              method="post" style="display: inline;"
-                                              th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/fixes(tenantId=${tenantId},catalogId=${catalog.id})}">
-                                            <input type="hidden" name="of" th:value="${live}">
-                                            <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-live-fix"
-                                                    th:title="'Change v' + ${live} + ' as it is deployed to ' + ${row.environmentName} + ', without the next version, and publish it as a fix'"
-                                                    th:text="'Fix what is deployed here'">Fix what is deployed here</button>
-                                        </form>
-                                        <span th:if="${live != null and !draftBar.openFixOf.containsKey(live) and !draftBar.fixableVersions.contains(live) and draftBar.newerPatchOf(live) != null and draftBar.mayOpenDrafts}"
-                                              class="form-hint" data-testid="catalog-live-fix-withheld"
-                                              th:text="'v' + ${draftBar.newerPatchOf(live)} + ' already continues v' + ${live} + ': deploy that, or fix it.'"></span>
-                                    </th:block>
                                 </td>
                             </tr>
                         </tbody>

@@ -6,6 +6,7 @@ package app.epistola.suite.catalog
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -142,16 +143,16 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `a version in the catalog page's address goes to that version's own page`() {
-        val tenant = catalog("Page Redirects") { _, catalog ->
+    fun `long-term work in the catalog page's address goes to its own page`() {
+        lateinit var work: java.util.UUID
+        val tenant = catalog("Page Redirects") { tenant, catalog ->
             invoice(catalog)
             mediator.releaseNext(catalog)
+            work = requireNotNull(CreateCatalogDraft(tenant.id, CatalogKey.of("letters"), "Redesign").execute().draftId)
         }
 
-        assertThat(get(tenant, "/catalogs/letters@1.0.1/browse").headers.location.toString())
-            .isEqualTo("/tenants/${tenant.id}/catalogs/letters@1.0.1/draft")
-        assertThat(get(tenant, "/catalogs/letters@1.0.0/draft").headers.location.toString())
-            .isEqualTo("/tenants/${tenant.id}/catalogs/letters/releases/1.0.0")
+        assertThat(get(tenant, "/catalogs/letters@$work/browse").headers.location.toString())
+            .isEqualTo("/tenants/${tenant.id}/catalogs/letters@$work/draft")
     }
 
     @Test

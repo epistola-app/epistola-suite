@@ -97,8 +97,8 @@ history), but no 1.x release kept its content, so the upgrade cannot deploy anyt
 4. **Resubmit** any generation request that was still queued at the upgrade: it named a template
    version, which 2.0 no longer renders.
 
-Work that was unpublished in 1.x is in each catalog's draft, to be marked ready and released as usual. Each catalog comes across with that one draft; from 2.0 a catalog can have several
-drafts at once (see [several drafts](catalog-versioning.md#catalog-versions-and-several-drafts)).
+Work that was unpublished in 1.x is in each catalog's draft, to be marked ready and released as usual. Each catalog comes across with that one draft, its next version; from 2.0 a catalog can also hold
+long-term work next to it (see [drafts](catalog-versioning.md#catalog-versions-and-drafts)).
 
 ## Backups and upgrades
 

@@ -914,14 +914,17 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         )
         assertThat(release.statusCode).`as`(release.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(release.body!!, "$.catalogVersion.version")).isEqualTo("1.0.0")
-        assertThat(JsonPath.read<String>(release.body!!, "$.openedDraft")).isEqualTo("1.0.1")
-        assertThat(status(firstDraft)).`as`("the released version").isEqualTo("released")
+        assertThat(JsonPath.read<Map<String, Any>>(release.body!!, "$")).`as`("the next version continues; nothing is opened").doesNotContainKey("openedDraft")
+        // The release has its own address, by number; the next version stays at `next` and continues.
+        val releasedVersion = firstDraft.replace("/versions/next", "/versions/1.0.0")
+        assertThat(firstDraft).endsWith("/versions/next")
+        assertThat(status(releasedVersion)).`as`("the released version").isEqualTo("released")
         val nextDraft = draft(tenantKey)
-        assertThat(nextDraft).endsWith("/versions/1.0.1")
-        assertThat(status(nextDraft)).`as`("the next draft, unchanged since the release").isEqualTo("released")
+        assertThat(nextDraft).isEqualTo(firstDraft)
+        assertThat(status(nextDraft)).`as`("the next version, unchanged since the release").isEqualTo("released")
 
         val editReleased = restTemplate.exchange(
-            contentUrl(firstDraft),
+            contentUrl(releasedVersion),
             HttpMethod.PUT,
             HttpEntity("""{"templateModel": ${validTemplateModel("body", "edited")}}""", baseHeaders(key)),
             String::class.java,

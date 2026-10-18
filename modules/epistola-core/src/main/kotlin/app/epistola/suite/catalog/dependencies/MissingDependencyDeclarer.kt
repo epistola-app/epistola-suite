@@ -4,10 +4,12 @@
 
 package app.epistola.suite.catalog.dependencies
 
+import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -28,21 +30,33 @@ class MissingDependencyDeclarer(
     /** @return the declarations added. */
     fun declareMissing(tenantKey: TenantKey, catalogKey: CatalogKey): List<CatalogDependencyDeclaration> {
         val content = contentBuilder.build(tenantKey, catalogKey)
-        val own = Triple(content.catalog.registry, content.catalog.namespace, content.catalog.key)
         return jdbi.inTransaction<List<CatalogDependencyDeclaration>, Exception> { handle ->
-            val declared = store.declarations(handle, tenantKey, catalogKey)
-            val referenced = content.dependencies.orEmpty()
-                .mapNotNull { ref -> ref.registry?.let { registry -> ref.namespace?.let { Triple(registry, it, ref.catalogKey) } } }
-                .distinct()
-                .filter { it != own && declared.none { declaration -> declaration.identity == it } }
-            val added = referenced.map { (registry, namespace, key) ->
-                val declaration = CatalogDependencyDeclaration(registry, namespace, key, "*")
-                store.highestMatch(handle, tenantKey, declaration)
-                    ?.let { declaration.copy(releaseVersion = it.version, releaseFingerprint = it.fingerprint) }
-                    ?: declaration
-            }
-            if (added.isNotEmpty()) store.replace(handle, tenantKey, catalogKey, declared + added)
+            val added = missing(handle, tenantKey, catalogKey, content)
+            if (added.isNotEmpty()) store.replace(handle, tenantKey, catalogKey, store.declarations(handle, tenantKey, catalogKey) + added)
             added
+        }
+    }
+
+    /**
+     * What [declareMissing] would declare for [content], the catalog's content as built now, without
+     * declaring it: what the release number of a draft has to count, since publishing declares it first.
+     */
+    fun wouldDeclare(tenantKey: TenantKey, catalogKey: CatalogKey, content: CatalogContent): List<CatalogDependencyDeclaration> = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { handle ->
+        missing(handle, tenantKey, catalogKey, content)
+    }
+
+    private fun missing(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, content: CatalogContent): List<CatalogDependencyDeclaration> {
+        val own = Triple(content.catalog.registry, content.catalog.namespace, content.catalog.key)
+        val declared = store.declarations(handle, tenantKey, catalogKey)
+        val referenced = content.dependencies.orEmpty()
+            .mapNotNull { ref -> ref.registry?.let { registry -> ref.namespace?.let { Triple(registry, it, ref.catalogKey) } } }
+            .distinct()
+            .filter { it != own && declared.none { declaration -> declaration.identity == it } }
+        return referenced.map { (registry, namespace, key) ->
+            val declaration = CatalogDependencyDeclaration(registry, namespace, key, "*")
+            store.highestMatch(handle, tenantKey, declaration)
+                ?.let { declaration.copy(releaseVersion = it.version, releaseFingerprint = it.fingerprint) }
+                ?: declaration
         }
     }
 

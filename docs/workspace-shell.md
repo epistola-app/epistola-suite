@@ -32,10 +32,10 @@ build one — the catalog's segment as `workspaceCatalog` (the quality report do
   _Subscribed_. The system catalog, part of every tenant, is left out; every catalog is under _All
   catalogs_. Built as a list, so a filter and a _Starred_ group can be added without changing it.
 - **Version (Next version ▾):** the next version nearly always. The menu holds the advanced cases out
-  of the way: other drafts (side work), _Fix what is deployed to …_ per environment that serves a
-  version that can be fixed, and _Published versions_. Side work is named by what it fixes
-  ("Fix of v1.2.0 · production") and turns the bar amber, with a strip under it saying the next
-  version is not affected and a way back to it.
+  of the way: long-term work, each by its name and what it started from, _Start long-term work…_,
+  and _Published versions_. Long-term work turns the bar amber, with a strip under it saying it is
+  kept apart from the next version and not published until it is ready, and a way back. Hotfixes of
+  what is deployed come later (contract ADR 0001), fitted to the next-version model.
 - **Status:** what the version has not published yet and **Publish…**, or, with nothing in progress,
   **Start the next version**. Loaded after the page (`/catalogs/{segment}/bar-status`), because
   working it out builds the catalog.
@@ -78,8 +78,8 @@ Deploy, the state "deployed to production". "Live" is not used. Deploying uses t
 (they render from the tenant's copy), so they are never deployed along; the environment page lists
 them under "Comes along".
 
-Side work's overview is its draft page (`/catalogs/letters@1.2.1/draft`); the next version's is the
-catalog page (`/catalogs/letters/browse`).
+Long-term work's overview is its draft page (`/catalogs/letters@<draft id>/draft`); the next
+version's is the catalog page (`/catalogs/letters/browse`).
 
 ## The editor
 

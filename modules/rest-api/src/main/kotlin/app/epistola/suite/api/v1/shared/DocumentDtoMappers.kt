@@ -16,6 +16,7 @@ import app.epistola.api.model.VariantSelectionAttribute
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogName
 import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.common.ids.BatchKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
@@ -227,19 +228,19 @@ internal fun GenerateBatchRequest.toCommand(
 // ==================== Preview ====================
 
 /**
- * A preview renders a release (`version`, `environmentKey`) or, with `draftVersion`, the draft of that
- * number. [requireDraft] resolves the draft and refuses a version that is not one.
+ * A preview renders a release (`version`, `environmentKey`) or, with `draft`, a draft: `next`, or
+ * long-term work by its id. [requireDraft] resolves the draft and refuses one the catalog does not have.
  */
 internal fun PreviewDocumentRequest.toQuery(
     tenantKey: String,
     catalogAt: (registry: String?, namespace: String, catalogKey: String) -> Catalog,
     requireDraft: (catalog: Catalog, version: String) -> Unit,
 ): PreviewDocument {
-    if (draftVersion != null && (version != null || environmentKey != null)) {
-        throw ValidationException(field = "draftVersion", message = "draftVersion cannot be combined with version or environmentKey")
+    if (draft != null && (version != null || environmentKey != null)) {
+        throw ValidationException(field = "draft", message = "draft cannot be combined with version or environmentKey")
     }
     val catalog = catalogAt(registry, namespace, catalogKey)
-    draftVersion?.let { requireDraft(catalog, it) }
+    draft?.let { requireDraft(catalog, it) }
     return PreviewDocument(
         tenantId = TenantKey.of(tenantKey),
         catalogKey = catalog.id,
@@ -248,9 +249,9 @@ internal fun PreviewDocumentRequest.toQuery(
         variantSelectionCriteria = attributes?.toSelectionCriteria(catalog, catalogAt),
         data = data,
         releaseVersion = version,
-        workingCopy = draftVersion != null,
+        workingCopy = draft != null,
         environmentId = environmentKey?.let { EnvironmentKey.of(it) },
-        // The draft of that number, whichever of the catalog's drafts it is.
-        catalogVersion = draftVersion?.let { CatalogVersionRef(catalog.tenantKey, catalog.id, it) },
+        // The draft it names: the next version, or long-term work by its id.
+        catalogVersion = draft?.let { CatalogVersionRef(catalog.tenantKey, catalog.id, requireNotNull(DraftRef.parse(it)) { "Not a draft: '$it'" }) },
     )
 }

@@ -19,6 +19,7 @@ import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
+import java.util.UUID
 
 /**
  * Where every catalog of a tenant stands (docs/catalog-workspace-navigation.md, landing): for each,
@@ -55,12 +56,15 @@ data class CatalogOverview(
 ) {
     val authored: Boolean get() = type == CatalogType.AUTHORED
 
-    /** The version a page opened from here works in: the highest draft, else the latest release. */
-    val current: String? get() = drafts.firstOrNull()?.version ?: latestRelease?.version
+    /** Its next version, where everyday work goes; null for a subscribed catalog, or one without. */
+    val next: DraftOverview? get() = drafts.firstOrNull { it.isNext }
 }
 
-/** An open draft, and the releases it does not contain that are above its base. */
-data class DraftOverview(val version: String, val base: String?, val behind: List<String>)
+/**
+ * An open draft: the next version, or long-term work by [label]; and the releases it does not
+ * contain that are above its base.
+ */
+data class DraftOverview(val draftId: UUID, val label: String, val isNext: Boolean, val base: String?, val behind: List<String>)
 
 data class ReleaseOverview(val version: String, val releasedAt: OffsetDateTime?)
 
@@ -83,10 +87,10 @@ class GetCatalogOverviewHandler(
                     name = catalog.name,
                     namespace = catalog.namespace,
                     type = catalog.type,
-                    drafts = drafts.map { DraftOverview(it.version, it.base, it.behind.map { behind -> behind.version }) },
+                    drafts = drafts.map { DraftOverview(requireNotNull(it.draftId), it.label, it.isNext, it.base, it.behind.map { behind -> behind.version }) },
                     latestRelease = (catalog.installedReleaseVersion?.let { installed -> releases.firstOrNull { it.version == installed } } ?: releases.firstOrNull())
-                        ?.let { ReleaseOverview(it.version, it.releasedAt) },
-                    // The current version's readiness: the highest draft's.
+                        ?.let { ReleaseOverview(requireNotNull(it.version), it.releasedAt) },
+                    // The current version's readiness: the next version's.
                     notReady = if (drafts.isEmpty()) null else readyMarks.readiness(handle, query.tenantKey, catalog.id).count { !it.value },
                     served = servedBy(releases),
                 )
@@ -95,7 +99,7 @@ class GetCatalogOverviewHandler(
     }
 
     private fun servedBy(releases: List<CatalogVersion>): Map<String, List<String>> = releases
-        .flatMap { release -> release.deployedTo.map { environment -> environment to release.version } }
+        .flatMap { release -> release.deployedTo.map { environment -> environment to requireNotNull(release.version) } }
         .groupBy({ it.first }, { it.second })
         .toSortedMap()
 }

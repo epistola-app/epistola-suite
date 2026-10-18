@@ -4,17 +4,14 @@
 
 package app.epistola.suite.handlers
 
-import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.commands.CatalogReleaseNotRetainedException
+import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
+import app.epistola.suite.catalog.versions.CatalogDraftNameInUseException
 import app.epistola.suite.catalog.versions.CatalogVersionHeldException
-import app.epistola.suite.catalog.versions.CatalogVersionInUseException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
-import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.CreateCatalogVersion
-import app.epistola.suite.catalog.versions.DeleteCatalogVersion
-import app.epistola.suite.catalog.versions.ListCatalogVersions
-import app.epistola.suite.catalog.versions.RenumberCatalogVersion
+import app.epistola.suite.catalog.versions.CreateCatalogDraft
+import app.epistola.suite.catalog.versions.DeleteCatalogDraft
+import app.epistola.suite.catalog.versions.OpenNextVersion
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.FormData
@@ -26,108 +23,113 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
+import app.epistola.suite.validation.FieldLimits
 import app.epistola.suite.validation.ValidationException
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 
 /**
- * Opening and discarding drafts of an authored catalog (contract ADR 0002), from the catalog page and
- * from the empty state of a catalog without one. Renumbering and releasing a draft are
- * [CatalogReleaseHandler] and [CatalogHandler]; which draft a page works in is the route's catalog
- * segment ([CatalogSegment]).
+ * Starting and discarding drafts of an authored catalog (contract ADR 0002, amendment 2), from the
+ * catalog page and from the empty state of a catalog without a next version. Publishing is
+ * [CatalogHandler]; which draft a page works in is the route's catalog segment ([CatalogSegment]).
  */
 @Component
 class CatalogDraftHandler(
     private val catalogs: CatalogHandler,
 ) {
 
-    /** `GET /{catalogId}/drafts/new`: the dialog opening a draft. */
+    /**
+     * `GET /{catalogId}/drafts/new`: the dialog starting long-term work, from the next version or, with
+     * `from`, the published version it was opened on.
+     */
     fun createForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
-        val segment = request.catalogSegment()
+        val segment = request.catalogSegment().at(null)
+        val from = request.param("from").orElse("").trim()
         return request.htmx {
             fragment("catalogs/drafts", "create-dialog") {
                 "tenantId" to tenantId.key
                 "bar" to bar(tenantId, segment)
+                "formData" to (if (from.isEmpty()) emptyMap() else mapOf(Pair("from", from)))
             }
             onFullPage { redirect(CatalogPages.browse(tenantId, segment)) }
         }
     }
 
     /**
-     * `POST /{catalogId}/drafts` with `version` and optionally `from`: opens the draft and lands on the
-     * catalog page in it. From the dialog a refusal comes back on its field; from the empty state, which
-     * is a plain form, it comes back on the catalog page.
+     * `POST /{catalogId}/drafts`. With `name` (and optionally `from`, a published version) it starts
+     * long-term work and lands on its page; a refusal comes back on its field. Without one, from the
+     * empty state of a catalog without a next version (a plain form), it opens the next version on the
+     * latest release, and a refusal comes back on the catalog page.
      */
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
-        val segment = request.catalogSegment()
+        val segment = request.catalogSegment().at(null)
         val form = request.form {
-            field("version") {
-                required()
-                maxLength(50)
-                pattern("^\\d+\\.\\d+\\.\\d+$")
-            }
+            field("name") { maxLength(FieldLimits.MAX_NAME_LENGTH) }
         }
-        val from = form.formData["from"]?.trim()?.ifBlank { null }
         val fromDialog = request.headers().firstHeader("HX-Target") == "create-draft-form"
+        if (!fromDialog) return openNext(request, tenantId, segment)
 
-        fun refused(field: String, message: String): ServerResponse = if (fromDialog) {
-            request.htmx {
-                dialogFieldErrors(
-                    template = "catalogs/drafts",
-                    fragmentName = "create-form",
-                    formTarget = "#create-draft-form",
-                    formData = FormData(form.formData, mapOf(field to message)),
-                ) {
-                    "tenantId" to tenantId.key
-                    "bar" to bar(tenantId, segment)
-                }
-                onFullPage { redirect(CatalogPages.browse(tenantId, segment)) }
+        fun refused(field: String, message: String): ServerResponse = request.htmx {
+            dialogFieldErrors(
+                template = "catalogs/drafts",
+                fragmentName = "create-form",
+                formTarget = "#create-draft-form",
+                formData = FormData(form.formData, mapOf(field to message)),
+            ) {
+                "tenantId" to tenantId.key
+                "bar" to bar(tenantId, segment)
             }
-        } else {
-            catalogs.browseWithError(request, segment.at(null), message)
+            onFullPage { redirect(CatalogPages.browse(tenantId, segment)) }
         }
 
-        if (form.hasErrors()) return refused("version", "Version must be SemVer — MAJOR.MINOR.PATCH (e.g. 2.0.0).")
-        val version = form["version"].trim()
-        try {
-            CreateCatalogVersion(tenantId.key, segment.key, version, from).execute()
-        } catch (e: CatalogVersionInUseException) {
-            return refused("version", e.message ?: "That number is in use.")
+        if (form.hasErrors()) return refused("name", "A name is at most ${FieldLimits.MAX_NAME_LENGTH} characters.")
+        val from = form.formData["from"]?.trim()?.ifBlank { null }
+        val created = try {
+            CreateCatalogDraft(tenantId.key, segment.key, form.formData["name"].orEmpty(), from).execute()
+        } catch (e: CatalogDraftNameInUseException) {
+            return refused("name", "Other work is called that already. Choose another name.")
         } catch (e: CatalogVersionNotFoundException) {
-            return refused("from", e.message ?: "There is no such version to copy.")
+            return refused("from", e.message ?: "There is no such version to start from.")
         } catch (e: CatalogReleaseNotRetainedException) {
-            return refused("from", e.message ?: "That release kept no content to copy.")
+            return refused("from", e.message ?: "That published version kept no content to start from.")
         } catch (e: ValidationException) {
-            return refused(if (e.field == "from") "from" else "version", e.message)
+            return refused(if (e.field == "from") "from" else "name", e.message)
         }
-        val target = CatalogPages.draft(tenantId, landing(tenantId, segment, version))
-        return if (fromDialog) {
-            request.htmx {
-                dialogLocation(target)
-                onFullPage { redirect(target) }
-            }
-        } else {
-            ServerResponse.status(303).header("Location", target).build()
+        val target = CatalogPages.draft(tenantId, segment.at(created.draftId))
+        return request.htmx {
+            dialogLocation(target)
+            onFullPage { redirect(target) }
         }
     }
 
+    /** Opens the next version where there is none, and lands on it. */
+    private fun openNext(request: ServerRequest, tenantId: TenantId, segment: CatalogSegment): ServerResponse = try {
+        OpenNextVersion(tenantId.key, segment.key).execute()
+        ServerResponse.status(303).header("Location", CatalogPages.draft(tenantId, segment)).build()
+    } catch (e: CatalogReleaseNotRetainedException) {
+        catalogs.browseWithError(request, segment, e.message ?: "The latest published version kept no content to start from.")
+    } catch (e: CatalogDraftIsNextException) {
+        ServerResponse.status(303).header("Location", CatalogPages.draft(tenantId, segment)).build()
+    }
+
     /**
-     * `POST /{catalogId}/drafts/discard`: discards the draft the segment names (or the current one) and
-     * lands on the catalog page at its current version. A refusal, such as the draft alone holding the
-     * tenant's default theme, is shown on the catalog page in the draft.
+     * `POST /{catalogId}/drafts/discard`: discards the draft the segment names (or the next version)
+     * and lands on the catalog page. Discarding the next version throws its changes away: it starts
+     * again on the latest release. A refusal, such as the draft alone holding the tenant's default
+     * theme, is shown on the catalog page in the draft.
      */
     fun discard(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.CATALOG_RELEASE)
         val segment = request.catalogSegment()
-        val draft = bar(tenantId, segment).chosen ?: return ServerResponse.notFound().build()
+        val draft = bar(tenantId, segment).chosen?.draftRef ?: return ServerResponse.notFound().build()
         return try {
-            DeleteCatalogVersion(tenantId.key, segment.key, draft.version).execute()
+            DeleteCatalogDraft(tenantId.key, segment.key, draft).execute()
             // From the Versions page, back there; else to the catalog.
             val back = if (request.param("from").orElse("") == "versions") {
                 "/tenants/${tenantId.key}/catalogs/${segment.key.value}/versions"
@@ -137,50 +139,8 @@ class CatalogDraftHandler(
             ServerResponse.status(303).header("Location", back).build()
         } catch (e: CatalogVersionHeldException) {
             catalogs.browseWithError(request, segment, e.message ?: "The draft cannot be discarded.")
-        } catch (e: CatalogVersionReleasedException) {
-            catalogs.browseWithError(request, segment.at(null), e.message ?: "The version is released.")
         }
-    }
-
-    /**
-     * `POST /{catalogId}/fixes` with `of`: starts a draft next to the next version from
-     * published version `of` — an in-between version (docs/catalog-workspace-navigation.md, use case
-     * 3) — and lands on its page.
-     *
-     * It is a draft numbered as the next patch of `of`, copying its content. When the next version holds
-     * that number — it usually does, as publishing opens the next version as the next patch — it moves
-     * up a minor first: people never see its number, which Publish picks from the kind of change.
-     * Offered only on what [CatalogDraftBar.fixableVersions] allows; a fix already open is continued.
-     */
-    fun startFix(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
-        val segment = request.catalogSegment().at(null)
-        val of = request.param("of").orElse("").trim()
-        val bar = bar(tenantId, segment)
-        bar.openFixOf[of]?.let { open -> return ServerResponse.status(303).header("Location", CatalogPages.draft(tenantId, segment.at(open))).build() }
-        if (of !in bar.fixableVersions) return catalogs.browseWithError(request, segment, "v$of cannot be fixed: only the newest published version of a line, with its content kept, can.")
-        val fix = SemVer.parse(of).bumpPatch().toString()
-        val versions = bar.drafts + bar.releases
-        try {
-            bar.drafts.firstOrNull { it.version == fix }?.let { work ->
-                val above = versions.mapNotNull { SemVer.parseOrNull(it.version) }.max().bumpMinor().toString()
-                RenumberCatalogVersion(tenantId.key, segment.key, work.version, above, acknowledgeWarnings = true).execute()
-            }
-            CreateCatalogVersion(tenantId.key, segment.key, fix, from = of).execute()
-        } catch (e: ValidationException) {
-            return catalogs.browseWithError(request, segment, e.message)
-        } catch (e: RuntimeException) {
-            return catalogs.browseWithError(request, segment, e.message ?: "The fix could not be started.")
-        }
-        return ServerResponse.status(303).header("Location", CatalogPages.draft(tenantId, segment.at(fix))).build()
     }
 
     private fun bar(tenantId: TenantId, segment: CatalogSegment): CatalogDraftBar = CatalogDraftBar.of(tenantId.key, segment) { CatalogPages.draft(tenantId, it) }
-
-    /** The segment of draft [version] after it was opened: plain when it is the current (highest) draft. */
-    private fun landing(tenantId: TenantId, segment: CatalogSegment, version: String): CatalogSegment {
-        val highest = ListCatalogVersions(tenantId.key, segment.key, CatalogVersionStatus.DRAFT).query().firstOrNull()?.version
-        return if (highest == version) segment.at(null) else segment.at(version)
-    }
 }

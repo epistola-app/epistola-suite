@@ -90,12 +90,12 @@ object ApiProblemTypes {
     val ENVIRONMENT_IN_USE = problem("ENVIRONMENT_IN_USE", "Environment In Use", HttpStatus.CONFLICT, "The environment cannot be deleted while it serves catalog releases.", listOf("environmentId", "deploymentCount"))
     val CATALOG_READ_ONLY = problem("CATALOG_READ_ONLY", "Catalog Read Only", HttpStatus.CONFLICT, "The catalog is subscribed/read-only and cannot be modified through this API.", emptyList())
     val CATALOG_NOT_FOUND = problem("CATALOG_NOT_FOUND", "Catalog Not Found", HttpStatus.NOT_FOUND, "The requested catalog does not exist or is not visible to the caller.", listOf("catalogId"))
-    val CATALOG_VERSION_NOT_FOUND = problem("CATALOG_VERSION_NOT_FOUND", "Catalog Version Not Found", HttpStatus.NOT_FOUND, "The catalog has no version with this number.", listOf("catalogKey", "version"))
+    val CATALOG_VERSION_NOT_FOUND = problem("CATALOG_VERSION_NOT_FOUND", "Catalog Version Not Found", HttpStatus.NOT_FOUND, "The catalog has no such version: no release with this number, or no such draft.", listOf("catalogKey", "version"))
     val CATALOG_VERSION_RELEASED = problem("CATALOG_VERSION_RELEASED", "Catalog Version Released", HttpStatus.CONFLICT, "The catalog version is released and cannot change; change a draft.", listOf("catalogKey", "version"))
-    val CATALOG_VERSION_IN_USE = problem("CATALOG_VERSION_IN_USE", "Catalog Version In Use", HttpStatus.CONFLICT, "The catalog already has a version with this number.", listOf("catalogKey", "version"))
+    val CATALOG_DRAFT_NAME_IN_USE = problem("CATALOG_DRAFT_NAME_IN_USE", "Catalog Draft Name In Use", HttpStatus.CONFLICT, "Another draft of the catalog has this name; names tell drafts apart.", listOf("catalogKey", "name"))
+    val CATALOG_DRAFT_KIND = problem("CATALOG_DRAFT_KIND", "Catalog Draft Kind", HttpStatus.CONFLICT, "Only the next version is released, and only long-term work has a name of its own.", listOf("catalogKey"))
     val CATALOG_VERSION_HELD = problem("CATALOG_VERSION_HELD", "Catalog Version Held", HttpStatus.CONFLICT, "The draft alone holds resources something outside it still uses; change those first.", listOf("catalogKey", "version", "heldBy"))
     val CATALOG_VERSION_BEHIND = problem("CATALOG_VERSION_BEHIND", "Catalog Version Behind", HttpStatus.CONFLICT, "The draft is behind releases it does not contain; name every one in acknowledgedBehind to release it.", listOf("catalogKey", "version", "behind"))
-    val RENUMBER_WARNINGS_NOT_ACKNOWLEDGED = problem("RENUMBER_WARNINGS_NOT_ACKNOWLEDGED", "Renumber Warnings Not Acknowledged", HttpStatus.CONFLICT, "Renumbering the draft has consequences; retry with acknowledgeWarnings=true to accept them.", listOf("warnings"))
     val CATALOG_NOT_UPGRADEABLE = problem("CATALOG_NOT_UPGRADEABLE", "Catalog Not Upgradeable", HttpStatus.CONFLICT, "The requested catalog is not in a state that supports upgrade operations.", listOf("catalogId"))
     val CATALOG_RELEASE_VERSION_INVALID = problem("CATALOG_RELEASE_VERSION_INVALID", "Invalid Catalog Release Version", HttpStatus.BAD_REQUEST, "The requested catalog release version is invalid or does not advance the current version.", emptyList())
     val CATALOG_UPGRADE_CONFLICT = problem("CATALOG_UPGRADE_CONFLICT", "Catalog Upgrade Conflict", HttpStatus.CONFLICT, "The catalog upgrade would remove resources that are still in use.", listOf("conflicts"))
@@ -165,10 +165,10 @@ object ApiProblemTypes {
         CATALOG_NOT_FOUND,
         CATALOG_VERSION_NOT_FOUND,
         CATALOG_VERSION_RELEASED,
-        CATALOG_VERSION_IN_USE,
+        CATALOG_DRAFT_NAME_IN_USE,
+        CATALOG_DRAFT_KIND,
         CATALOG_VERSION_BEHIND,
         CATALOG_VERSION_HELD,
-        RENUMBER_WARNINGS_NOT_ACKNOWLEDGED,
         CATALOG_NOT_UPGRADEABLE,
         CATALOG_RELEASE_VERSION_INVALID,
         CATALOG_UPGRADE_CONFLICT,
