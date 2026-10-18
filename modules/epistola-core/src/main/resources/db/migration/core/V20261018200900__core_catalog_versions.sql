@@ -51,20 +51,12 @@ COMMENT ON COLUMN catalog_versions.name IS
 COMMENT ON COLUMN catalog_versions.created_from IS
     'The released version a draft was copied from when that is not its base; ''next'' when it was copied from the next version, unreleased changes included.';
 
--- Every authored catalog's working copy becomes its next version, continuing on its latest release
--- (its base): that is what it was working towards. A release whose version is not SemVer has no
--- order and is skipped as a base; the authored releases the suite cut always are.
-INSERT INTO catalog_versions (tenant_key, catalog_id, kind, base_version, is_next)
-SELECT c.tenant_key, c.catalog_id, 'draft', latest.version, TRUE
-FROM catalogs c
-LEFT JOIN LATERAL (
-    SELECT r.version
-    FROM catalog_releases r
-    WHERE r.tenant_key = c.tenant_key AND r.catalog_id = c.catalog_id AND r.version_major IS NOT NULL
-    ORDER BY r.version_major DESC, r.version_minor DESC, r.version_patch DESC
-    LIMIT 1
-) latest ON TRUE
-WHERE c.type = 'AUTHORED';
+-- Every authored catalog's working copy becomes its next version. It has no base: no 1.x release
+-- kept its content, so the upgrade removes them (V20261018201400) and cuts a first release instead.
+INSERT INTO catalog_versions (tenant_key, catalog_id, kind, is_next)
+SELECT tenant_key, catalog_id, 'draft', TRUE
+FROM catalogs
+WHERE type = 'AUTHORED';
 
 -- Every subscribed catalog's content is its installed release, numbered by it ('0.0.0' until it
 -- installs one). Kept so by the triggers below, whoever creates or upgrades it.

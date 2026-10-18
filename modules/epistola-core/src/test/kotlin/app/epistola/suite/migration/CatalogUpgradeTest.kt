@@ -87,11 +87,15 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         CatalogId(key, TenantId(tenant))
     }
 
-    /** What the upgrade migration does for every authored catalog of a 1.x installation. */
-    private fun queue(catalog: CatalogId) = jdbi.useHandle<Exception> { handle ->
-        handle.createUpdate("INSERT INTO catalog_upgrade_queue (tenant_key, catalog_id) VALUES (:t, ${catalogAt("t", "c")})")
+    /**
+     * What the upgrade migration does for every authored catalog of a 1.x installation, recording its
+     * highest 1.x release ([continuesAfter]) before it removes the 1.x releases.
+     */
+    private fun queue(catalog: CatalogId, continuesAfter: String? = null) = jdbi.useHandle<Exception> { handle ->
+        handle.createUpdate("INSERT INTO catalog_upgrade_queue (tenant_key, catalog_id, continues_after) VALUES (:t, ${catalogAt("t", "c")}, :after)")
             .bind("t", catalog.tenantKey)
             .bind("c", catalog.key)
+            .bind("after", continuesAfter)
             .execute()
     }
 
@@ -167,6 +171,19 @@ class CatalogUpgradeTest : IntegrationTestBase() {
     }
 
     // ── The first release ──
+
+    @Test
+    fun `a catalog released in 1_x continues its numbering, with one release and the next version`() {
+        val catalog = catalog(tenant("upgrade-continues"), letters)
+        val invoice = TemplateId(TemplateKey.of("invoice"), catalog)
+        withMediator { CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample() }
+        published1x("template_versions", "template_resource_id", resourceId(catalog, "template", "invoice"), mapOf("variant_key" to VariantKey.INITIAL.value), document("published"))
+        queue(catalog, continuesAfter = "1.3.0")
+
+        runUpgrade()
+
+        assertThat(versions(catalog)).containsExactly("Next version" to CatalogVersionStatus.DRAFT, "v1.3.1" to CatalogVersionStatus.RELEASED)
+    }
 
     @Test
     fun `the first release holds what was last published, and the draft keeps the unpublished work`() {

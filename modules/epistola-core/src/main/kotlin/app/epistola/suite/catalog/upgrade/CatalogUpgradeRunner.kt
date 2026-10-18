@@ -44,10 +44,10 @@ import java.util.concurrent.atomic.AtomicLong
  *    and attributes, a shared theme) undeclared, and 2.0 refuses to release that (contract ADR 0003).
  *    Every catalog its content references is declared `*`, locked to the highest release there is
  *    ([MissingDependencyDeclarer]).
- * 2. **A first release.** No 1.x release kept its content, so after the upgrade nothing could
- *    render. The catalog is released once from what was last published before 2.0
- *    ([ContentSource.PUBLISHED_BEFORE_2_0]), numbered as its draft, not published to Exchange and
- *    deployed nowhere: operators deploy it. Its draft, the working copy with any unpublished 1.x
+ * 2. **A first release.** No 1.x release kept its content, so the upgrade migration removed them
+ *    and nothing could render. The catalog is released once from what was last published before 2.0
+ *    ([ContentSource.PUBLISHED_BEFORE_2_0]), numbered the patch after its highest 1.x release (or
+ *    1.0.0), not published to Exchange and deployed nowhere: operators deploy it. Its draft, the working copy with any unpublished 1.x
  *    work, opens on top. A catalog with nothing to release, or one that already has a release with
  *    content, gets none.
  *
@@ -94,7 +94,8 @@ class CatalogUpgradeRunner(
 
     override fun handle(task: ClusterScheduledTask) = run()
 
-    private data class Queued(val tenantKey: TenantKey, val catalogKey: CatalogKey, val subscribed: Boolean)
+    /** [continuesAfter]: the catalog's highest 1.x release, which the migration recorded before removing it. */
+    private data class Queued(val tenantKey: TenantKey, val catalogKey: CatalogKey, val subscribed: Boolean, val continuesAfter: String?)
 
     /** Upgrades every queued catalog it can; a no-op once the queue is empty. */
     fun run() {
@@ -146,9 +147,10 @@ class CatalogUpgradeRunner(
             requireNotNull(jdbi.withHandle<CatalogDraft?, Exception> { drafts.next(it, catalog.tenantKey, catalog.catalogKey) }) {
                 "catalog ${catalog.catalogKey.value} has no next version to release"
             }
-            // What was published before 2.0 becomes the next patch after its latest release, or the
-            // first version; the next version the 2.0 upgrade opened (V20261018200900) is based on that latest.
-            val version = CatalogDrafts.latest(ListCatalogReleases(catalog.tenantKey, catalog.catalogKey).query().map { it.version })
+            // What was published before 2.0 becomes the next patch after its latest release, 1.x ones
+            // included, or the first version.
+            val released = ListCatalogReleases(catalog.tenantKey, catalog.catalogKey).query().map { it.version }
+            val version = CatalogDrafts.latest(released + listOfNotNull(catalog.continuesAfter))
                 ?.let { SemVer.parse(it).bumpPatch().toString() } ?: CatalogDrafts.FIRST
             ReleaseCatalogVersion(
                 tenantKey = catalog.tenantKey,
@@ -165,13 +167,13 @@ class CatalogUpgradeRunner(
     private fun queued(): List<Queued> = jdbi.withHandle<List<Queued>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT q.tenant_key, c.catalog_key, c.type = 'SUBSCRIBED' AS subscribed
+            SELECT q.tenant_key, c.catalog_key, c.type = 'SUBSCRIBED' AS subscribed, q.continues_after
             FROM catalog_upgrade_queue q
             JOIN catalogs c ON c.tenant_key = q.tenant_key AND c.catalog_id = q.catalog_id
             ORDER BY q.tenant_key, c.catalog_key
             """,
         )
-            .map { rs, _ -> Queued(TenantKey.of(rs.getString(1)), CatalogKey.of(rs.getString(2)), rs.getBoolean(3)) }
+            .map { rs, _ -> Queued(TenantKey.of(rs.getString(1)), CatalogKey.of(rs.getString(2)), rs.getBoolean(3), rs.getString(4)) }
             .list()
     }
 

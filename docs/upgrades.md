@@ -96,7 +96,10 @@ that outage, and tell the teams whose applications request documents.
 2. **Upgrade** as a breaking upgrade (above), and move REST clients to contract 2.0.
 3. **Wait for the first releases.** At the first start a background task gives every authored
    catalog its dependency declarations and a first release, cut from what was last published before
-   the upgrade, and every subscribed catalog its installed release as one it can render from (see
+   the upgrade and numbered the patch after the catalog's highest 1.x release (or 1.0.0), and every
+   subscribed catalog its installed release as one it can render from. The 1.x releases themselves
+   are removed: they kept only a number, a fingerprint and notes, so nothing could render, export or
+   deploy them, and their Exchange publication records go with them (see
    [`catalog-versioning.md`](catalog-versioning.md#declared-dependencies)). It runs at startup and
    then every five minutes (`epistola.catalog.upgrade.interval-ms`) until the queue is empty. Follow
    it in:

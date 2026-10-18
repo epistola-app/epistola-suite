@@ -59,20 +59,14 @@ class CatalogIdentityMigrationTest {
                 SELECT 'theme', t.id, c.catalog_key FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
                 UNION ALL
                 SELECT 'resource', r.resource_key, c.catalog_key FROM catalog_resources r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
-                UNION ALL
-                SELECT 'release', rel.version, c.catalog_key FROM catalog_releases rel JOIN catalogs c ON c.tenant_key = rel.tenant_key AND c.catalog_id = rel.catalog_id
                 ORDER BY 1, 2
             """.trimIndent()
             assertThat(rows(connection, owners)).containsExactly(
-                listOf("release", "1.0.0", "letters"),
                 listOf("resource", "corporate", "letters"),
                 listOf("resource", "plain", "default"),
                 listOf("theme", "corporate", "letters"),
                 listOf("theme", "plain", "default"),
             )
-
-            // Fingerprints recorded before stay as they were.
-            assertThat(rows(connection, "SELECT fingerprint FROM catalog_releases")).containsExactly(listOf("a".repeat(64)))
         }
     }
 
@@ -89,8 +83,6 @@ class CatalogIdentityMigrationTest {
                 INSERT INTO themes (id, tenant_key, catalog_key, name) VALUES
                     ('plain', 'acme', 'default', 'Plain'),
                     ('corporate', 'acme', 'letters', 'Corporate');
-                INSERT INTO catalog_releases (tenant_key, catalog_key, version, fingerprint, manifest_snapshot)
-                    VALUES ('acme', 'letters', '1.0.0', '${"a".repeat(64)}', '{}');
                 """.trimIndent(),
             )
         }

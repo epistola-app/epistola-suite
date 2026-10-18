@@ -325,8 +325,10 @@ archive's release only when the tenant has every pinned release.
 1.x had no declarations, and no 1.x release kept its content. The upgrade queues every authored
 catalog that exists then (`catalog_upgrade_queue`), and a background task (`CatalogUpgradeRunner`)
 gives each a declaration `*` for every catalog it references, locked to that catalog's highest
-release (as a move does), then releases it from what was last published before 2.0, numbered as its
-draft. A template whose default variant was never published, and a stencil never published, are left
+release (as a move does), then releases it from what was last published before 2.0, numbered the
+patch after its highest 1.x release, or 1.0.0. The upgrade migration records that number in the queue
+(`continues_after`) and removes the 1.x releases, which kept no content, so each catalog starts 2.0
+with that one release and its next version on top. A template whose default variant was never published, and a stencil never published, are left
 out of that release; unpublished work stays in the draft. Nothing is deployed: operators deploy the
 first releases. Catalogs are taken in rounds, so one is released after the catalogs it depends on;
 one that cannot be released yet stays queued with the reason (`last_error`) and is retried. A catalog
@@ -404,7 +406,7 @@ localised to one resource and the drift check and the detail cannot disagree. It
 is the authored mirror of the SUBSCRIBED upgrade diff, which reads
 `installed_resource_fingerprints` the same way.
 
-A release cut before those entries existed (migration `V20261018200200`) recorded
+A release without those entries (one from 1.x; the 2.0 upgrade removes them) recorded
 no baseline, and none can be reconstructed — the manifest snapshot holds the
 manifest entries, not the payloads they were built from. While such a catalog
 still matches its released fingerprint the working digests _are_ that release's
@@ -490,7 +492,7 @@ it when it was cut, it is immutable, and a rule that has tightened since must no
 a published release unexportable. The fingerprint _is_ recomputed and a mismatch refuses the export
 — it should be impossible, and if it happens the retained content has been altered.
 
-Releases cut before `V20261018200200` retained no content and refuse with
+A release that retained no content (one from 1.x; the 2.0 upgrade removes them) refuses with
 `CatalogReleaseNotRetainedException` rather than quietly substituting the working copy.
 
 ### With what it uses (fat export)

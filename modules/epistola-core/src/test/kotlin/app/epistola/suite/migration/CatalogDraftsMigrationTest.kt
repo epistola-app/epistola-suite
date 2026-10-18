@@ -14,9 +14,11 @@ import java.sql.Connection
 import java.sql.DriverManager
 
 /**
- * `core_catalog_versions` on a 1.x installation: every authored catalog's working copy becomes its
- * next version, unnumbered, on its latest release; a subscribed catalog's content is its installed
- * release. A caller that names no version then means the next version.
+ * `core_catalog_versions` and `core_upgrade_to_2_0` on a 1.x installation: every authored catalog's
+ * working copy becomes its next version, unnumbered; its 1.x releases, which kept no content, are
+ * removed, and the highest is recorded for the upgrade to number the first release after. A subscribed
+ * catalog's content is its installed release. A caller that names no version then means the next
+ * version.
  *
  * Seeded with raw SQL on purpose: commands speak only the current schema, and this fixture must
  * match the schema of 1.x.
@@ -25,7 +27,7 @@ import java.sql.DriverManager
 class CatalogDraftsMigrationTest {
 
     @Test
-    fun `every authored catalog gets its next version on its latest release`() {
+    fun `every authored catalog gets its next version, and its 1_x releases make way for a first release after them`() {
         val postgres = TestRuntimeLifecycle.postgres()
         val database = "catalog_drafts_migration"
         DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password).use { admin ->
@@ -66,9 +68,14 @@ class CatalogDraftsMigrationTest {
             )
             assertThat(drafts).containsExactly(
                 listOf("fresh", "t", null, null, null),
-                // 1.10.0 is the latest by SemVer, not by text.
-                listOf("released", "t", null, "1.10.0", null),
+                listOf("released", "t", null, null, null),
             )
+            assertThat(connection.rows("SELECT count(*) FROM catalog_releases")).`as`("1.x releases kept no content").containsExactly(listOf("0"))
+            assertThat(
+                connection.rows(
+                    "SELECT c.catalog_key, q.continues_after FROM catalog_upgrade_queue q JOIN catalogs c ON c.catalog_id = q.catalog_id WHERE c.type = 'AUTHORED' ORDER BY 1",
+                ),
+            ).`as`("1.10.0 is the highest by SemVer, not by text").containsExactly(listOf("fresh", null), listOf("released", "1.10.0"))
             assertThat(
                 connection.rows(
                     "SELECT c.catalog_key, v.version FROM catalog_versions v JOIN catalogs c ON c.catalog_id = v.catalog_id WHERE v.kind = 'installed' ORDER BY 1",
