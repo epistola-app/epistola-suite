@@ -3,19 +3,7 @@ type: feat
 scopes: [environments, generation, catalog]
 audience: user
 breaking: true
-title: An environment deploys a catalog release, replacing per-template activations.
+title: An environment uses deployed catalog versions, replacing per-template activations.
 ---
 
-Each environment now serves one release per catalog, chosen on the catalog page's new Deployments
-card or on the environment's own new page: deploy a release to an environment, deploy another to
-move it, deploy an earlier one to roll back. The environment page also shows what it served over
-time, every deploy and undeploy with who made it, and offers an earlier release again in one click. Generation and preview that name an environment render the release it serves for the
-template's catalog, bound when the request is accepted, and fail with a clear error when it serves
-none; a resource borrowed from another catalog comes from the release the environment serves of that
-catalog, or else its latest. A release an environment serves cannot be deleted or have its content
-forgotten, and an environment that serves releases cannot be deleted.
-Per-template activations are gone, with the template's Deployments tab; existing activations are not
-carried over, so every environment starts with nothing deployed. The REST operations for
-activations, and publishing a version to an environment, now answer that the operation is not
-implemented, until the 2.0 contract removes them. Subscribed catalogs now list the releases they
-installed.
+In 1.x an environment activated a version of each template. In 2.0 you deploy a published version of a catalog to an environment: from the environment's page, from the catalog's **Deployments** page, or by ticking environments when you publish. In the web UI deploying a version replaces the one deployed there, and deploying an earlier one rolls back; over REST, `deployRelease` adds a version beside those already served, and a request through the environment gets the highest it serves, or the highest that matches the request's `version`. A deployed version uses the versions of other catalogs it was published with without them being deployed: the environment page lists them under **Comes along**, and deploying with its dependencies deploys them as well. **Use as latest** makes one of the versions an environment serves the one documents get when they ask for no exact version, for a rollback or to hold back a newer one; **Use the highest again** undoes it. A test environment can also follow the next version or long-term work (**Try it on an environment…**): its documents come from the work as it is changed, carry the preview watermark and say which work they came from. An environment marked **production** uses only published versions. The environment's history records every deploy, undeploy and change of what it uses, with who made it. A version an environment uses cannot be deleted, and an environment that serves versions cannot be deleted. **Action on upgrade:** activations are not carried over, so every environment starts with nothing deployed and refuses document requests until you deploy; environments keyed or named `production`, `prod`, `prd` or `productie` are marked production.

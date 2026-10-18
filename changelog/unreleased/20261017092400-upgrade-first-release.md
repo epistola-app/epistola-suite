@@ -1,15 +1,8 @@
 ---
 type: feat
-scopes: [catalog]
+scopes: [catalog, upgrade]
 breaking: true
-title: The upgrade to 2.0 gives every catalog its declarations and a first release; nothing is deployed.
+title: The upgrade from 1.x gives every catalog a first published version, and deploys nothing.
 ---
 
-No 1.x release kept its content, and 1.x environments activated template versions rather than releases, so after the upgrade nothing could render. Shortly after the upgrade, a background task takes every authored catalog that existed before it and:
-
-- declares each catalog its content references (1.x had no declarations, and 2.0 refuses to release an undeclared reference), with version `*`, locked to the highest release there is;
-- releases it once from what was last published before 2.0, numbered as its draft. A template whose default variant was never published, and a stencil never published, are left out. Unpublished 1.x work stays in the draft that opens on top.
-
-A subscribed catalog installed under 1.x gets the release it has installed recorded as one it can render from; a legacy publisher fingerprint, which names no algorithm, is replaced by the qualified fingerprint of the installed content, so catalogs that depend on it can lock to it.
-
-**Operators must deploy these releases to their environments**: the upgrade deploys nothing, and generation for an environment fails until a release is deployed to it. A catalog that cannot be released yet, because a catalog it depends on has no release, is retried every five minutes; the reason is logged. Catalogs created after the upgrade are left to their authors.
+Upgrading from 1.x is a breaking upgrade that needs a maintenance window, and document generation stops at the upgrade until you deploy (follow the Upgrades guide). Before upgrading, take a database-level backup and drain the generation queue, and plan to move REST clients to contract 2.0. On upgrade each template variant and stencil keeps what you were working on (its draft, else its latest published version), and what was published counts as ready, so unfinished 1.x drafts are what remains to publish. 1.x environments activated template versions and no 1.x release kept its content, so as soon as the application starts a background task prepares every catalog that existed before the upgrade: an authored catalog gets a dependency on each catalog its content uses and a first published version made from what was last published before 2.0, numbered as the next patch after its latest 1.x release, or 1.0.0. A template whose default variant was never published, and a stencil never published, are left out of it, and unpublished work stays in the next version. A subscribed catalog gets the release it has installed recorded as one it can render from. A catalog that cannot be prepared yet, for instance because a catalog it uses has no release yet, is retried every five minutes with the reason logged. The tenant home says how many catalogs are still being prepared, the log says `2.0 upgrade finished` when all are, and `epistola_catalog_upgrade_queued` counts those waiting. **Action on upgrade:** deploy these versions to every environment, which refuses document requests until you do; resubmit requests that failed in the queue; with the HPA on, scale the application back up after the upgrade.

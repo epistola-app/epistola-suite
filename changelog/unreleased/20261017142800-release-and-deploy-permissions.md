@@ -2,7 +2,7 @@
 type: feat
 scopes: [security]
 breaking: true
-title: Releasing and deploying have their own permissions; template and stencil publish are gone.
+title: Publishing and deploying have their own permissions; template and stencil publish are gone.
 ---
 
-Following contract 2.0, `CATALOG_RELEASE` (cut a release, discard a draft) and `ENVIRONMENT_DEPLOY` (choose what an environment serves) replace `TEMPLATE_PUBLISH` and `STENCIL_PUBLISH`. The content publisher role grants both, so nobody's access changes. Opening and renumbering a draft and editing its dependencies are part of editing (`TEMPLATE_EDIT`), so an author can do them. A refusal names the new permission (`catalog-release`, `environment-deploy`).
+Following contract 2.0, `CATALOG_RELEASE` and `ENVIRONMENT_DEPLOY` replace `TEMPLATE_PUBLISH` and `STENCIL_PUBLISH`. `CATALOG_RELEASE` publishes the next version, makes long-term work the next version and discards work; `ENVIRONMENT_DEPLOY` deploys and undeploys versions and chooses which version an environment uses or follows. The content publisher role grants both, so nobody's access changes. Marking content ready, starting and renaming long-term work and editing a catalog's dependencies are part of editing (`TEMPLATE_EDIT`), so an author can do them. A refusal names the new permission (`catalog-release`, `environment-deploy`).
