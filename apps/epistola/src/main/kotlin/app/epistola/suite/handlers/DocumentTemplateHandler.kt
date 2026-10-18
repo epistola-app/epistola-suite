@@ -461,7 +461,7 @@ class DocumentTemplateHandler(
                 // The catalog segment the editor's own requests carry, so they stay on the draft.
                 "catalogSegment" to segment.value,
                 // The editor keeps the context bar, slimmed to one line (docs/workspace-shell.md).
-                "editorScope" to WorkspaceBuilder.scope(draftBar, null, request.path()) { auth.has(it) },
+                "editorScope" to WorkspaceBuilder.scope(draftBar, null, request.path(), { auth.has(it) }),
                 "templateId" to templateId.key,
                 "variantId" to variantId.key,
                 "templateName" to context.templateName,

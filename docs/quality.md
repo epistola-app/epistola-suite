@@ -60,9 +60,10 @@ core, mirroring `FeedbackKey` — feedback is likewise its own module.
 The module ships its **own UI** (`ui/QualityHandler` + `templates/quality/`), following
 `epistola-support-feedback`: Spring merges classpath templates from every JAR, so a feature
 module hosts its handlers and templates while the host app keeps owning the chrome
-(`layout/shell`, `layout/nav`). `QualityNavContributor` contributes the item into the host's
-**Authoring** group — quality is about the templates being authored, and it is OSS, not
-support-tier, so it does not belong under Support.
+(`layout/shell`, `layout/nav`). Quality is about a catalog's templates, so it is an item of the
+catalog's own nav (`CatalogNav`, docs/workspace-shell.md), shown while the feature is available:
+it opens the report filtered to that catalog, and the page passes the catalog as
+`workspaceCatalog`, so the shell shows that catalog's bar and nav around it.
 
 ## The report page
 

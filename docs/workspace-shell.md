@@ -16,13 +16,14 @@ catalog, or which version of it, they are changing.
 
 ## Two places
 
-| Where                | Context bar                                            | Side nav                                                                                    |
-| -------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| **Inside a catalog** | `Acme / Letters ▾ / Next version ▾`, changes, Publish… | Overview, Templates · Stencils … Code lists · Versions, Deployments, Dependencies, Settings |
-| **Outside one**      | `Acme / Environments`, "← Back to Letters"             | Home · your catalogs and All catalogs · Documents · Operations · Settings · Support         |
+| Where                | Context bar                                            | Side nav                                                                                                   |
+| -------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| **Inside a catalog** | `Acme / Letters ▾ / Next version ▾`, changes, Publish… | Overview, Quality · Templates, Stencils … Code lists · Versions, Deployments, Dependencies, Settings       |
+| **Outside one**      | `Acme / Environments`, "← Back to Letters"             | Home · the 5 catalogs changed most recently and All catalogs · Documents · Operations · Settings · Support |
 
 A page is inside a catalog when its handler puts a `CatalogDraftBar` in the model as `draftBar`, as
-every content page already did for the old catalog bar. `ShellModelInterceptor` turns that into a
+every content page already did for the old catalog bar, or — from a feature module, which cannot
+build one — the catalog's segment as `workspaceCatalog` (the quality report does). `ShellModelInterceptor` turns that into a
 `Workspace` (`handlers/Workspace.kt`) for every full page of a tenant.
 
 ## The context bar

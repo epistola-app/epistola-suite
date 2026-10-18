@@ -142,4 +142,15 @@ class WorkspaceScopeTest {
         assertThat(WorkspaceBuilder.backLabel(WorkspaceBuilder.scope(bar(work, published, CatalogSegment(letters, "1.2.1")), null, "/", everything)))
             .isEqualTo("Back to Letters, fix of v1.2.0")
     }
+
+    @Test
+    fun `templates lead the group of what the catalog holds, and quality sits with the overview when it is on`() {
+        val sections = CatalogNav.sections(bar(work, published), "/tenants/acme/quality", everything, qualityAvailable = true)
+
+        assertThat(sections[0].map { it.key }).containsExactly("overview", "quality")
+        assertThat(sections[1].map { it.key }).containsExactly("templates", "stencils", "themes", "images", "fonts", "attributes", "code-lists")
+        assertThat(sections[0].first { it.key == "quality" }.href).isEqualTo("/tenants/acme/quality?catalog=letters")
+        assertThat(sections.flatten().filter { it.active }.map { it.key }).containsExactly("quality")
+        assertThat(CatalogNav.sections(bar(work, published), "/", everything).flatten().map { it.key }).doesNotContain("quality")
+    }
 }

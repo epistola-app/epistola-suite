@@ -168,9 +168,9 @@
             </div>
             <div th:each="group : ${navGroups}" class="ws-nav-group" th:attr="data-testid=${group.testId}">
                 <div class="ws-nav-label" th:text="${group.label}">Catalogs</div>
-                <!--/* The catalogs themselves come first in their group. */-->
+                <!--/* The catalogs changed most recently come first in their group; All catalogs lists every one. */-->
                 <th:block th:if="${group.key == 'authoring'}">
-                    <a th:each="c : ${ws.catalogs}" th:href="${c.href}" class="ws-nav-item" th:attr="data-catalog=${c.key},data-testid='ws-nav-catalog'"
+                    <a th:each="c : ${ws.recentCatalogs}" th:href="${c.href}" class="ws-nav-item" th:attr="data-catalog=${c.key},data-testid='ws-nav-catalog'"
                        th:title="${c.authored} ? null : 'Subscribed'">
                         <span th:text="${c.name}">Letters</span>
                         <span th:unless="${c.authored}" class="ws-nav-note">Subscribed</span>

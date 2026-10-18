@@ -14,6 +14,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -95,6 +96,8 @@ class QualityHandler(
             "pageTitle" to "Quality - Epistola"
             "tenant" to tenant
             "activeNavSection" to "quality"
+            // Filtered to a catalog, the page is inside it: the shell shows that catalog's bar and nav.
+            "workspaceCatalog" to request.queryParam("catalog")?.takeIf { it.isNotBlank() }?.let { CatalogSegment.parse(it) }
             "stage" to KnownFeatures.metadata[KnownFeatures.QUALITY]?.stage
             "catalogs" to catalogsOf(templates)
             "templates" to templates.narrowedTo(filters.catalogKey)
@@ -150,6 +153,8 @@ class QualityHandler(
             "tenant" to tenant
             "tenantId" to tenantId.key
             "activeNavSection" to "quality"
+            // Filtered to a catalog, the page is inside it: the shell shows that catalog's bar and nav.
+            "workspaceCatalog" to request.queryParam("catalog")?.takeIf { it.isNotBlank() }?.let { CatalogSegment.parse(it) }
             "finding" to finding
             "comments" to GetFindingComments(tenantId.key, findingKey).query()
             "sourceName" to sourceName(finding.sourceId)

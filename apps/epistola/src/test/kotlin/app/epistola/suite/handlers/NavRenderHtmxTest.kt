@@ -50,6 +50,34 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `the tenant nav lists the five catalogs changed most recently`() {
+        val tenant = createTenant("Nav Recent")
+        withMediator { (1..7).forEach { CreateCatalog(tenant.id, CatalogKey.of("catalog-$it"), "Catalog $it").execute() } }
+
+        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/environments", String::class.java).body!!
+
+        val listed = Regex("""data-catalog="([^"]+)" data-testid="ws-nav-catalog"""").findAll(body).map { it.groupValues[1] }.toList()
+        assertThat(listed).`as`("newest first").containsExactly("catalog-7", "catalog-6", "catalog-5", "catalog-4", "catalog-3")
+        assertThat(body).contains("data-testid=\"nav-item-catalogs\"")
+    }
+
+    @Test
+    fun `quality filtered to a catalog is inside that catalog, and not in the tenant nav`() {
+        val tenant = createTenant("Nav Quality")
+        withMediator {
+            CreateCatalog(tenant.id, CatalogKey.of("letters"), "Letters").execute()
+            SaveFeatureToggle(tenant.id, KnownFeatures.QUALITY, enabled = true).execute()
+        }
+
+        val quality = restTemplate.getForEntity("/tenants/${tenant.id.value}/quality?catalog=letters", String::class.java).body!!
+        assertThat(quality.substringAfter("data-testid=\"ws-crumb-catalog\"").substringBefore("</button>")).contains(">Letters<")
+        assertThat(quality.replace(Regex("\\s+"), " ")).contains("class=\"ws-nav-item active\" data-testid=\"ws-nav-quality\"")
+
+        val outside = restTemplate.getForEntity("/tenants/${tenant.id.value}/environments", String::class.java).body!!
+        assertThat(outside).doesNotContain("nav-item-quality")
+    }
+
+    @Test
     fun `shared chrome renders the application display name`() {
         val tenant = createTenant("Nav Display Name")
 

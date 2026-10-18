@@ -23,7 +23,7 @@ import app.epistola.suite.security.Permission
  * [CatalogDraftBar] as `draftBar`, as it already did for the old catalog bar.
  *
  * @property catalogs the catalogs people work with — authored and subscribed — for the catalog
- *   switcher and the tenant nav. The system catalog, part of every tenant, is left out.
+ *   switcher. The system catalog, part of every tenant, is left out.
  * @property catalog where someone is inside a catalog; null outside one.
  * @property back outside a catalog, the catalog someone came from.
  * @property section outside a catalog, what the page is called, for the bar.
@@ -32,6 +32,8 @@ data class Workspace(
     val tenantKey: TenantKey,
     val tenantName: String,
     val catalogs: List<CatalogLink>,
+    /** The catalogs changed most recently, for the tenant's side nav; [catalogs] are all of them. */
+    val recentCatalogs: List<CatalogLink> = emptyList(),
     val catalog: CatalogScope?,
     val back: BackLink?,
     val section: String?,
@@ -127,11 +129,11 @@ object CatalogNav {
 
     /**
      * The catalog nav for [bar], with the item for [path] marked active; [may] says whether the viewer
-     * holds a permission. Content pages carry the page's segment, so side work stays side work as
+     * holds a permission, [qualityAvailable] whether the quality feature is on. Content pages carry the page's segment, so side work stays side work as
      * someone moves around; versions and where it is live are the same for every version and carry
      * the catalog's plain key.
      */
-    fun sections(bar: CatalogDraftBar, path: String, may: (Permission) -> Boolean): List<List<NavLink>> {
+    fun sections(bar: CatalogDraftBar, path: String, may: (Permission) -> Boolean, qualityAvailable: Boolean = false): List<List<NavLink>> {
         val tenant = "/tenants/${bar.tenantKey.value}"
         val segment = bar.segmentValue
         val key = bar.catalogKey.value
@@ -141,9 +143,14 @@ object CatalogNav {
         val overview = if (bar.fixing) bar.draftPageHref else CatalogPages.browse(TenantId(bar.tenantKey), bar.segment)
         val first = buildList {
             add(link("overview", "Overview", overview, "house"))
-            if (may(Permission.TEMPLATE_VIEW)) add(link("templates", "Templates", "$tenant/templates?catalog=$segment", "file-text"))
+            // Quality findings are about this catalog's templates (alpha, behind its feature).
+            if (qualityAvailable && may(Permission.TEMPLATE_VIEW)) add(link("quality", "Quality", "$tenant/quality?catalog=$key", "scan"))
         }
-        val parts = PARTS.filter { may(it.permission) }.map { link(it.key, it.label, "$tenant/${it.area}?catalog=$segment", it.icon) }
+        // What the catalog holds, templates first: what documents are made from, then what they are built from.
+        val parts = buildList {
+            if (may(Permission.TEMPLATE_VIEW)) add(link("templates", "Templates", "$tenant/templates?catalog=$segment", "file-text"))
+            addAll(PARTS.filter { may(it.permission) }.map { link(it.key, it.label, "$tenant/${it.area}?catalog=$segment", it.icon) })
+        }
         val catalog = listOf(
             link("versions", "Versions", "$tenant/catalogs/$key/versions", "history"),
             link("deployments", "Deployments", "$tenant/catalogs/$key/deployments", "radio"),
@@ -171,6 +178,7 @@ object CatalogNav {
         }
         return when (area) {
             "templates" -> "templates"
+            "quality" -> "quality"
             in PARTS.map { it.area } -> PARTS.first { it.area == area }.key
             else -> null
         }
