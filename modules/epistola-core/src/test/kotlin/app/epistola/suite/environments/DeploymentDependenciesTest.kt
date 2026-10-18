@@ -18,13 +18,12 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.MissingDependencyReason.CONTENT_NOT_RETAINED
-import app.epistola.suite.environments.MissingDependencyReason.NOT_DEPLOYED
-import app.epistola.suite.environments.MissingDependencyReason.NOT_INSTALLED
 import app.epistola.suite.environments.MissingDependencyReason.UNAVAILABLE
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeployRelease
 import app.epistola.suite.environments.queries.ListDeploymentHistory
 import app.epistola.suite.environments.queries.ListDeployments
+import app.epistola.suite.environments.queries.ListImplicitDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
@@ -36,9 +35,9 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 
 /**
- * Deploying a release checks the releases of other catalogs it renders with, direct and transitive
- * (contract ADR 0003, `deployRelease`): refused while the environment does not serve one, unless
- * they are deployed along — all or nothing.
+ * Deploying a release uses the releases of other catalogs it renders with, direct and transitive,
+ * implicitly (contract ADR 0003, `deployRelease`): they must be there to render from, and are
+ * deployed too only when asked — all or nothing.
  *
  * The chain: `letters@1.0.0` pins `shared@1.0.0`, which pins `base@1.0.0`.
  */
@@ -52,31 +51,26 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
     private val letters = CatalogKey.of("letters")
 
     @Test
-    fun `a release whose dependencies the environment does not serve is refused, listing direct and transitive ones`() {
-        val (tenant, production) = chain("deps-refused")
+    fun `a release whose dependencies the environment does not serve is deployed, using them implicitly, direct and transitive`() {
+        val (tenant, production) = chain("deps-implicit")
 
-        val refusal = refusedDeploying(production, letters, includeDependencies = false)
+        withMediator { DeployRelease(production, letters, "1.0.0").execute() }
 
-        assertThat(refusal.missing.map { it.catalogKey to it.reason }).containsExactly(shared.value to NOT_DEPLOYED, base.value to NOT_DEPLOYED)
-        assertThat(refusal.missing.first()).isEqualTo(
-            MissingReleaseDependency(registry(tenant, shared), namespace(tenant, shared), shared.value, "1.0.0", NOT_DEPLOYED),
-        )
-        assertThat(refusal.deployableAlong).isTrue()
-        assertThat(served(tenant)).`as`("nothing deployed").isEmpty()
-        assertThat(withMediator { ListDeploymentHistory(production).query() }).`as`("nothing logged").isEmpty()
+        assertThat(served(tenant)).`as`("only what was deployed").containsExactly("letters@1.0.0")
+        assertThat(implicit(tenant, production)).containsExactlyInAnyOrder("shared@1.0.0", "base@1.0.0")
+        assertThat(withMediator { ListDeploymentHistory(production).query() }.map { "${it.catalogKey.value}@${it.version}" })
+            .`as`("only what was deployed is logged").containsExactly("letters@1.0.0")
     }
 
     @Test
-    fun `a dependency the environment already serves is not missing`() {
+    fun `a dependency the environment serves itself is not used implicitly`() {
         val (tenant, production) = chain("deps-served")
         withMediator { DeployRelease(production, base, "1.0.0").execute() }
 
-        assertThat(refusedDeploying(production, letters, includeDependencies = false).missing.map { it.catalogKey })
-            .containsExactly(shared.value)
-
-        withMediator { DeployRelease(production, shared, "1.0.0").execute() }
         withMediator { DeployRelease(production, letters, "1.0.0").execute() }
-        assertThat(served(tenant)).containsExactlyInAnyOrder("base@1.0.0", "shared@1.0.0", "letters@1.0.0")
+
+        assertThat(served(tenant)).containsExactlyInAnyOrder("base@1.0.0", "letters@1.0.0")
+        assertThat(implicit(tenant, production)).containsExactly("shared@1.0.0")
     }
 
     @Test
@@ -92,7 +86,7 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a pinned release the tenant does not have is NOT_INSTALLED, and UNAVAILABLE when deploying along`() {
+    fun `a pinned release the tenant does not have refuses the deployment, as nothing could render from it`() {
         val (tenant, production) = chain("deps-not-installed")
         // A pin on a release this tenant lacks arrives only with an imported release; no command cuts one.
         jdbi.useHandle<Exception> { handle ->
@@ -106,7 +100,7 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
         }
 
         val refused = refusedDeploying(production, letters, includeDependencies = false)
-        assertThat(refused.missing.map { "${it.catalogKey}@${it.releaseVersion}" to it.reason }).containsExactly("shared@9.9.9" to NOT_INSTALLED)
+        assertThat(refused.missing.map { "${it.catalogKey}@${it.releaseVersion}" to it.reason }).containsExactly("shared@9.9.9" to UNAVAILABLE)
         assertThat(refused.deployableAlong).`as`("deploying along cannot install it").isFalse()
 
         val along = refusedDeploying(production, letters, includeDependencies = true)
@@ -115,7 +109,7 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a transitive dependency without content refuses deploying along, and nothing is deployed`() {
+    fun `a transitive dependency without content refuses the deployment, and nothing is deployed`() {
         val (tenant, production) = chain("deps-no-content")
         // A pinned release cannot lose its content through a command while its pinner keeps its own
         // (ReleaseInUse); a release imported without content is the state this stands for.
@@ -130,7 +124,7 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
         }
 
         val refused = refusedDeploying(production, letters, includeDependencies = false)
-        assertThat(refused.missing.map { it.catalogKey to it.reason }).containsExactly(shared.value to NOT_DEPLOYED, base.value to CONTENT_NOT_RETAINED)
+        assertThat(refused.missing.map { it.catalogKey to it.reason }).`as`("only what nothing could render from").containsExactly(base.value to CONTENT_NOT_RETAINED)
         assertThat(refused.deployableAlong).isFalse()
 
         val along = refusedDeploying(production, letters, includeDependencies = true)
@@ -162,6 +156,10 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
         assertThatThrownBy { withMediator { DeployRelease(production, catalog, "1.0.0", includeDependencies).execute() } }
             .isInstanceOfSatisfying(ReleaseDependenciesMissingException::class.java) { refusal = it }
         return refusal!!
+    }
+
+    private fun implicit(tenant: TenantKey, environment: EnvironmentId): List<String> = withMediator {
+        ListImplicitDeployments(tenant, environment.key).query().map { "${it.catalogKey.value}@${it.version}" }
     }
 
     private fun served(tenant: TenantKey): List<String> = withMediator {

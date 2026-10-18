@@ -20,6 +20,7 @@ import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeployRelease
 import app.epistola.suite.environments.queries.ListDeploymentHistory
 import app.epistola.suite.environments.queries.ListDeployments
+import app.epistola.suite.environments.queries.ListImplicitDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
@@ -28,9 +29,9 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 /**
- * Making a version live with `replace` (the UI's "make live", one live version per catalog per
- * environment): the catalog's other versions stop being served, in the same transaction — except
- * one another live release still renders with.
+ * Deploying a version with `replace` (the UI's "deploy", one deployed version per catalog per
+ * environment): the catalog's other versions stop being served, in the same transaction; one another
+ * deployed release is pinned to is used implicitly from then on.
  */
 class MakeLiveReplacesTest : IntegrationTestBase() {
 
@@ -79,15 +80,16 @@ class MakeLiveReplacesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a version another live release still renders with stays live when a newer one replaces it`() {
+    fun `a version another deployed release is pinned to goes when a newer one replaces it, and is used implicitly`() {
         val (tenant, production) = setUp("live-replace-needed")
         withMediator { DeployRelease(production, letters, "1.0.0", includeDependencies = true).execute() }
         releaseShared(tenant, "1.1.0", "second")
 
         withMediator { DeployRelease(production, shared, "1.1.0", replace = true).execute() }
 
-        assertThat(served(tenant)).`as`("letters@1.0.0 renders with shared@1.0.0")
-            .containsExactlyInAnyOrder("letters@1.0.0", "shared@1.0.0", "shared@1.1.0")
+        assertThat(served(tenant)).`as`("one deployed version per catalog").containsExactlyInAnyOrder("letters@1.0.0", "shared@1.1.0")
+        assertThat(withMediator { ListImplicitDeployments(tenant, production.key).query() }.map { "${it.catalogKey.value}@${it.version}" })
+            .`as`("letters@1.0.0 still renders with shared@1.0.0").containsExactly("shared@1.0.0")
     }
 
     @Test

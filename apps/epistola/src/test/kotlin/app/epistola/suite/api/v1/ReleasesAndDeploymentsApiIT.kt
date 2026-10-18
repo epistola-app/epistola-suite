@@ -163,7 +163,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `a release whose dependency the environment does not serve is refused with release-dependencies-missing, and deployed with it on request`() {
+    fun `a release whose dependency the environment does not serve is deployed, using it implicitly, and deploys it too on request`() {
         val (tenant, key) = tenantWithTwoReleases()
         val version = withMediator {
             val shared = CatalogKey.of("shared")
@@ -175,24 +175,19 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
             UpdateCatalogDependencies(tenant, CatalogKey.DEFAULT, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "*"))).execute()
             mediator.releaseNext(CatalogId.default(TenantId(tenant)))
         }
-        val shared = withMediator { GetCatalog(tenant, CatalogKey.of("shared")).query()!! }
 
-        val refused = exchange(HttpMethod.PUT, "${deployments(tenant)}/$version", key)
-        assertThat(refused.statusCode).describedAs(refused.body).isEqualTo(HttpStatus.CONFLICT)
-        assertThat(refused.headers.contentType.toString()).startsWith("application/problem+json")
-        assertThat(JsonPath.read<String>(refused.body!!, "$.type")).isEqualTo("https://epistola.app/errors/release-dependencies-missing")
-        assertThat(JsonPath.read<String>(refused.body!!, "$.title")).isEqualTo("Release Dependencies Missing")
-        assertThat(JsonPath.read<Map<String, Any>>(refused.body!!, "$.missingDependencies[0]")).isEqualTo(
-            mapOf("registry" to shared.registry, "namespace" to shared.namespace, "catalogKey" to "shared", "releaseVersion" to "1.0.0", "reason" to "NOT_DEPLOYED"),
-        )
         val env = "/api/tenants/${tenant.value}/environments/production"
-        assertThat(JsonPath.read<List<Any>>(exchange(HttpMethod.GET, "$env/deployments", key).body!!, "$.items")).`as`("nothing deployed").isEmpty()
+        val deployed = exchange(HttpMethod.PUT, "${deployments(tenant)}/$version", key)
+        assertThat(deployed.statusCode).describedAs(deployed.body).`as`("what it depends on is used implicitly").isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<List<String>>(exchange(HttpMethod.GET, "$env/deployments", key).body!!, "$.items[*].catalogKey"))
+            .`as`("only what was deployed").containsExactly("default")
 
         val along = exchange(HttpMethod.PUT, "${deployments(tenant)}/$version?includeDependencies=true", key)
         assertThat(along.statusCode).describedAs(along.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(along.body!!, "$.releaseVersion")).isEqualTo(version)
         val served = exchange(HttpMethod.GET, "$env/deployments", key)
-        assertThat(JsonPath.read<List<String>>(served.body!!, "$.items[*].catalogKey")).containsExactlyInAnyOrder("default", "shared")
+        assertThat(JsonPath.read<List<String>>(served.body!!, "$.items[*].catalogKey")).`as`("deployed explicitly too, on request")
+            .containsExactlyInAnyOrder("default", "shared")
     }
 
     @Test

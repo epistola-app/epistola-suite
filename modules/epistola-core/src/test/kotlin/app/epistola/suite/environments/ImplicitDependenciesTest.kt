@@ -16,7 +16,6 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
-import app.epistola.suite.environments.ReleaseDependenciesMissingException
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeployRelease
 import app.epistola.suite.environments.queries.ListDeployments
@@ -26,12 +25,12 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
 /**
- * Deploying a catalog uses the versions of other catalogs it is pinned to implicitly: they render
- * from the tenant's copy, so the environment need not deploy them, and says it uses them.
+ * Deploying a catalog uses the versions of other catalogs it is pinned to implicitly (contract ADR
+ * 0003): they render from the tenant's copy, so the environment need not deploy them, and says it
+ * uses them. Deploying them too is a choice.
  */
 class ImplicitDependenciesTest : IntegrationTestBase() {
 
@@ -61,7 +60,7 @@ class ImplicitDependenciesTest : IntegrationTestBase() {
     fun `a deploy uses what it is pinned to without deploying it, and the environment says it uses it`() {
         val (tenant, production) = setUp("implicit-deploy")
 
-        withMediator { DeployRelease(production, letters, "1.0.0", replace = true, implicitDependencies = true).execute() }
+        withMediator { DeployRelease(production, letters, "1.0.0", replace = true).execute() }
 
         assertThat(withMediator { ListDeployments(tenant).query() }.map { "${it.catalogKey.value}@${it.version}" })
             .`as`("only what was deployed").containsExactly("letters@1.0.0")
@@ -71,10 +70,13 @@ class ImplicitDependenciesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `without it the deploy is refused for what the environment does not serve, as before`() {
-        val (_, production) = setUp("explicit-deploy")
+    fun `asked to, it deploys them explicitly too`() {
+        val (tenant, production) = setUp("explicit-deploy")
 
-        assertThatThrownBy { withMediator { DeployRelease(production, letters, "1.0.0").execute() } }
-            .isInstanceOf(ReleaseDependenciesMissingException::class.java)
+        withMediator { DeployRelease(production, letters, "1.0.0", includeDependencies = true).execute() }
+
+        assertThat(withMediator { ListDeployments(tenant).query() }.map { "${it.catalogKey.value}@${it.version}" })
+            .containsExactlyInAnyOrder("letters@1.0.0", "shared@1.0.0")
+        assertThat(withMediator { ListImplicitDeployments(tenant, production.key).query() }).`as`("served, so not implicit").isEmpty()
     }
 }

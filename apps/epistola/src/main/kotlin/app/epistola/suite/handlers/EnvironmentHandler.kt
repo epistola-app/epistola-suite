@@ -268,8 +268,7 @@ class EnvironmentHandler {
         val includeDependencies = request.param("includeDependencies").orElse("") == "true"
         return try {
             // One live version per catalog per environment in the UI: making one live replaces the others.
-            // What it is pinned to comes along implicitly: it renders from the tenant's copy.
-            DeployRelease(environmentId, catalogKey, version, includeDependencies, replace = true, implicitDependencies = true).execute()
+            DeployRelease(environmentId, catalogKey, version, includeDependencies, replace = true).execute()
             redirectTo(environmentId)
         } catch (failure: ReleaseNotDeployableException) {
             detail(request, error = failure.message)

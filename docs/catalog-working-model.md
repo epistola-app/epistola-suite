@@ -146,10 +146,13 @@ in core and REST — the UI just names them and gives each a purpose.
 ## Decided
 
 - **One live version per catalog per environment** (18 October). Making a version live replaces the
-  one that was live, in one transaction, logged as "made v1.1.0 live, replacing v1.0.0". A version
-  another live catalog still renders with stays served. The API keeps serving several when asked
-  (`deployRelease` without replace). Built: `DeployRelease(replace = true)`, used by every "make live"
-  in the UI.
+  one that was live, in one transaction, logged as "made v1.1.0 live, replacing v1.0.0". The API keeps
+  serving several when asked (`deployRelease` without replace). Built: `DeployRelease(replace = true)`,
+  used by every "make live" in the UI.
+- **Dependencies are always used implicitly, and can also be deployed explicitly** (18 October). A
+  deployed version renders the versions it is pinned to from the tenant's copy, so they are not
+  deployed along; the environment says what comes along. Deploying a dependency yourself, or
+  `includeDependencies`, deploys it explicitly too (contract ADR 0003).
 - **Follow or stay per catalog used** (18 October), rule 5.
 
 ## Open questions

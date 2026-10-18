@@ -38,25 +38,22 @@ import org.springframework.stereotype.Component
  * nothing and logs nothing.
  *
  * A release renders with the releases of other catalogs it was cut with, direct and transitive
- * ([ReleaseDependencies]), so the environment must serve those too. When it does not serve one:
- * - without [includeDependencies], the deployment is refused with [ReleaseDependenciesMissingException]
- *   listing every missing release and why, and nothing is deployed;
- * - with it, every missing release the tenant has with its content is deployed along, in the same
- *   transaction. A release the tenant does not have is not fetched from its registry (this
- *   installation does not install from a registry while deploying), so it is reported `UNAVAILABLE`;
- *   one without content stays `CONTENT_NOT_RETAINED`. It is all or nothing: when any remains,
- *   the deployment is refused with those, and nothing is deployed.
+ * ([ReleaseDependencies]): it is pinned to them, and renders them from the tenant's copy whatever the
+ * environment serves ([ReleaseRenderSource][app.epistola.suite.generation.release.ReleaseRenderSource]).
+ * So the environment uses them **implicitly**: they are not deployed, and nothing else it serves
+ * changes (contract ADR 0003). They must be there to render from: one the tenant does not have
+ * (`UNAVAILABLE`; this installation does not fetch from a registry while deploying) or that kept no
+ * content (`CONTENT_NOT_RETAINED`) refuses the deployment with [ReleaseDependenciesMissingException],
+ * and nothing is deployed.
  *
- * With [implicitDependencies], the releases it is pinned to are not deployed at all: a pinned
- * release renders from the tenant's copy whatever the environment serves ([ReleaseRenderSource][app.epistola.suite.generation.release.ReleaseRenderSource]), so
- * the environment uses them implicitly — the UI's "deploy". Only a pinned release the tenant does not
- * have, or one that kept no content, still refuses, as nothing could render from it.
+ * With [includeDependencies] they are also deployed **explicitly**, the ones the environment does not
+ * serve yet, in the same transaction: so it serves those catalogs' own templates too.
  *
  * With [replace], the release takes the place of the catalog's other releases in the environment:
- * they stop being served, in the same transaction — the UI's "make live", which shows one live
- * version per catalog per environment. A release another release served there still renders with
- * (a dependency pin) stays served, since taking it away would break that one. Without it the release
- * is served beside them, as the contract's `deployRelease` does.
+ * they stop being served, in the same transaction — the UI's "deploy", which shows one deployed
+ * version per catalog per environment. A release another deployed release is pinned to keeps being
+ * used implicitly. Without it the release is served beside them, as the contract's `deployRelease`
+ * does.
  *
  * Every release deployed or replaced is logged in `environment_deployment_log`, in the same
  * transaction.
@@ -71,7 +68,6 @@ data class DeployRelease(
     val version: String,
     val includeDependencies: Boolean = false,
     val replace: Boolean = false,
-    val implicitDependencies: Boolean = false,
 ) : Command<CatalogDeployment>,
     RequiresPermission {
     override val permission get() = Permission.ENVIRONMENT_DEPLOY
@@ -98,31 +94,26 @@ class DeployReleaseHandler(
 
         requireDeployable(handle, tenantKey, command.catalogKey, command.version)
         served(handle, command, command.catalogKey, command.version)?.let { deployment ->
-            // Already live: replacing only takes the others away, each logged as taken offline.
+            // Already deployed: replacing only takes the others away, each logged as undeployed, and
+            // asking for its dependencies deploys the ones not served yet.
             if (command.replace) replaceable(handle, command).forEach { stopServing(handle, command, it, log = true) }
+            if (command.includeDependencies) {
+                dependencies.missing(handle, tenantKey, environmentKey, command.catalogKey, command.version)
+                    .filter { it.reason == MissingDependencyReason.NOT_DEPLOYED }
+                    .forEach { deploy(handle, command, it.tenantCatalogKey, it.releaseVersion) }
+            }
             return@inTransaction deployment
         }
 
         val missing = dependencies.missing(handle, tenantKey, environmentKey, command.catalogKey, command.version)
-        if (missing.isNotEmpty() && command.implicitDependencies) {
-            // Used where they are, not deployed: only what cannot be rendered from refuses.
-            val unrenderable = missing.filter { it.reason != MissingDependencyReason.NOT_DEPLOYED }
-                .map { if (it.reason == MissingDependencyReason.NOT_INSTALLED) it.copy(reason = MissingDependencyReason.UNAVAILABLE) else it }
-            if (unrenderable.isNotEmpty()) {
-                throw ReleaseDependenciesMissingException(environmentKey, command.catalogKey, command.version, unrenderable, includedDependencies = true)
-            }
-        } else if (missing.isNotEmpty()) {
-            if (!command.includeDependencies) {
-                throw ReleaseDependenciesMissingException(environmentKey, command.catalogKey, command.version, missing, includedDependencies = false)
-            }
-            val blocking = missing
-                .filter { it.reason != MissingDependencyReason.NOT_DEPLOYED }
-                .map { if (it.reason == MissingDependencyReason.NOT_INSTALLED) it.copy(reason = MissingDependencyReason.UNAVAILABLE) else it }
-            if (blocking.isNotEmpty()) {
-                throw ReleaseDependenciesMissingException(environmentKey, command.catalogKey, command.version, blocking, includedDependencies = true)
-            }
-            missing.forEach { deploy(handle, command, it.tenantCatalogKey, it.releaseVersion) }
+        // Used implicitly, so only one nothing could render from refuses.
+        val unrenderable = missing.filter { it.reason != MissingDependencyReason.NOT_DEPLOYED }
+            .map { if (it.reason == MissingDependencyReason.NOT_INSTALLED) it.copy(reason = MissingDependencyReason.UNAVAILABLE) else it }
+        if (unrenderable.isNotEmpty()) {
+            throw ReleaseDependenciesMissingException(environmentKey, command.catalogKey, command.version, unrenderable, includedDependencies = command.includeDependencies)
         }
+        // Asked to deploy them too: the ones the environment does not serve yet.
+        if (command.includeDependencies) missing.forEach { deploy(handle, command, it.tenantCatalogKey, it.releaseVersion) }
         // Replacing: the others stop being served first, so the release is logged as replacing the
         // one it took the place of ("made v1.1.0 live, replacing v1.0.0"); more than one replaced
         // are each logged as taken offline.
@@ -132,32 +123,21 @@ class DeployReleaseHandler(
     }
 
     /**
-     * The catalog's other releases the environment serves that [command] replaces: all of them,
-     * except one that a release staying there renders with.
+     * The catalog's other releases the environment serves, which [command] replaces: all of them. A
+     * release another one deployed there is pinned to keeps rendering, implicitly.
      */
-    private fun replaceable(handle: Handle, command: DeployRelease): List<String> {
-        val tenantKey = command.environmentId.tenantKey
-        val environmentKey = command.environmentId.key
-        val others = handle.createQuery(
-            """
-            SELECT d.version FROM environment_catalog_deployments d
-            WHERE d.tenant_key = :t AND d.environment_key = :e AND d.catalog_id = ${catalogAt("t", "c")} AND d.version <> :v
-            """,
-        )
-            .bind("t", tenantKey)
-            .bind("e", environmentKey)
-            .bind("c", command.catalogKey)
-            .bind("v", command.version)
-            .mapTo<String>()
-            .list()
-        if (others.isEmpty()) return emptyList()
-        // What stays: everything served but these, plus the release being made live and what it
-        // brought along (not served yet when this runs, so added by hand).
-        val staying = dependencies.served(handle, tenantKey, environmentKey).filterNot { it.first == command.catalogKey && it.second in others } +
-            (command.catalogKey to command.version)
-        val needed = dependencies.needed(handle, tenantKey, staying)
-        return others.filterNot { (command.catalogKey to it) in needed }
-    }
+    private fun replaceable(handle: Handle, command: DeployRelease): List<String> = handle.createQuery(
+        """
+        SELECT d.version FROM environment_catalog_deployments d
+        WHERE d.tenant_key = :t AND d.environment_key = :e AND d.catalog_id = ${catalogAt("t", "c")} AND d.version <> :v
+        """,
+    )
+        .bind("t", command.environmentId.tenantKey)
+        .bind("e", command.environmentId.key)
+        .bind("c", command.catalogKey)
+        .bind("v", command.version)
+        .mapTo<String>()
+        .list()
 
     private fun stopServing(handle: Handle, command: DeployRelease, version: String, log: Boolean) {
         val tenantKey = command.environmentId.tenantKey

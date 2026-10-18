@@ -126,13 +126,14 @@ version included), bound when the request is accepted. Without an environment th
 every release that kept its content. No candidate satisfying the selector refuses the request.
 
 A release renders with the releases of other catalogs it was cut with (its pinned dependencies,
-direct and transitive), so deploying it checks that the environment serves each of them. A missing
-one refuses the deployment (`release-dependencies-missing`, 409) with each missing release and why:
-`NOT_DEPLOYED`, `NOT_INSTALLED` or `CONTENT_NOT_RETAINED`. Asking to deploy them along
-(`includeDependencies`, or "Deploy with its dependencies" in the UI) deploys every `NOT_DEPLOYED` one
-in the same transaction; a release the tenant does not have is not fetched from its registry and is
-reported `UNAVAILABLE`, and then nothing is deployed. A pin that recorded no release (a release
-imported from catalog wire v7) cannot be checked and is skipped.
+direct and transitive), from the tenant's copy whatever the environment serves. Deploying it makes
+the environment use them implicitly: they are not deployed, and the environment's page lists them
+under "Comes along". Deploying them as well is a choice: deploy that catalog, or ask for them
+(`includeDependencies`), which deploys the ones not served yet in the same transaction. Only a
+pinned release nothing could render from refuses the deployment (`release-dependencies-missing`,
+409): one the tenant does not have (`UNAVAILABLE`; it is not fetched from its registry) or one that
+kept no content (`CONTENT_NOT_RETAINED`). A pin that recorded no release (a release imported from
+catalog wire v7) cannot be checked and is skipped.
 
 Each environment has a page listing every release it serves and its history: every deploy and
 undeploy, naming the release and who made the change, recorded in the same transaction as the change.
