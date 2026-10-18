@@ -4,6 +4,7 @@
 
 package app.epistola.suite.assets
 
+import app.epistola.suite.assets.ImagePixelPolicy
 import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.assets.queries.GetAssetContent
@@ -242,15 +243,8 @@ class AssetHandler(
         // Extract image dimensions (null for SVG or on failure) — best-effort
         // metadata, never an error.
         val dimensions = if (mediaType != null && mediaType != AssetMediaType.SVG && contentBytes != null) {
-            try {
-                contentBytes.inputStream().use { stream ->
-                    val image = ImageIO.read(stream)
-                    if (image != null) image.width to image.height else null
-                }
-            } catch (e: Exception) {
-                logger.warn("Failed to read image dimensions for {}: {}", originalFilename, e.message)
-                null
-            }
+            // From the header only: decoding a file that declares a huge size would take the node's memory.
+            ImagePixelPolicy.dimensions(mediaType, contentBytes)
         } else {
             null
         }

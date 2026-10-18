@@ -7,6 +7,7 @@ package app.epistola.suite.assets.commands
 import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.AssetTooLargeException
+import app.epistola.suite.assets.ImagePixelPolicy
 import app.epistola.suite.assets.MAX_ASSET_SIZE_BYTES
 import app.epistola.suite.assets.SvgContentPolicy
 import app.epistola.suite.assets.assetContentScope
@@ -73,6 +74,8 @@ data class UploadAsset(
         }
         // An SVG must be self-contained and inert before it is stored (see SvgContentPolicy).
         SvgContentPolicy.requireSafe(mediaType, content)
+        // A raster image must not declare more pixels than a render can decode.
+        ImagePixelPolicy.requireReasonable(mediaType, content)
     }
 
     override fun equals(other: Any?): Boolean {

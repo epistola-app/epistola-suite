@@ -78,6 +78,8 @@ class DocumentGenerationExecutor(
     private val retentionDays: Int,
     @Value("\${epistola.generation.documents.max-size-mb:50}")
     private val maxDocumentSizeMb: Long,
+    @Value("\${epistola.generation.polling.max-recoveries:3}")
+    private val maxRecoveries: Int = 3,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -109,6 +111,12 @@ class DocumentGenerationExecutor(
         var outcome = "success"
         var renderPath = "unknown"
         try {
+            // A render that keeps stopping its node (a template asking for more than a node has) is
+            // not handed to the next one again: it fails, with the reason, like any other failure.
+            check(request.recoveries < maxRecoveries) {
+                "Rendering this document stopped ${request.recoveries} times without finishing (the node rendering it " +
+                    "crashed or stopped responding), so it is not tried again. Check the template, then resubmit."
+            }
             // Generate the document
             val (document, pdfBytes, usedPath) = generateDocument(request)
             renderPath = usedPath

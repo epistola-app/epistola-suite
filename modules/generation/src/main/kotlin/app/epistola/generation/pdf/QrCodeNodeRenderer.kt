@@ -113,7 +113,9 @@ class QrCodeNodeRenderer : NodeRenderer {
     }
 
     private fun generateQrCodePng(value: String, sizePt: Float): ByteArray {
-        val pixelSize = maxOf(MIN_PIXEL_SIZE, sizePt.roundToInt())
+        // The PDF scales the image to its size in points, so the pixel resolution only needs to keep
+        // the modules crisp: bounded both ways, or a large size allocates its square in pixels.
+        val pixelSize = sizePt.roundToInt().coerceIn(MIN_PIXEL_SIZE, MAX_PIXEL_SIZE)
         val matrix = QRCodeWriter().encode(
             value,
             BarcodeFormat.QR_CODE,
@@ -140,6 +142,9 @@ class QrCodeNodeRenderer : NodeRenderer {
     private companion object {
         private const val DEFAULT_SIZE_PT = 120f
         private const val MIN_PIXEL_SIZE = 128
+
+        /** Over 10 pixels per module for the densest QR code (version 40, 177 modules). */
+        private const val MAX_PIXEL_SIZE = 2048
         private const val MAX_VALUE_BYTES = 2500
         private const val BLACK = -0x1000000
         private const val WHITE = -0x1

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-package app.epistola.suite.handlers.nav
+package app.epistola.suite.handlers
 
 import app.epistola.suite.environments.queries.GenerationReadiness
 import app.epistola.suite.environments.queries.GetGenerationReadiness

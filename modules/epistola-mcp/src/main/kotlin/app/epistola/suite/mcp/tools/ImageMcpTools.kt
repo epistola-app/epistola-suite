@@ -6,6 +6,7 @@ package app.epistola.suite.mcp.tools
 
 import app.epistola.suite.assets.AssetMediaCategory
 import app.epistola.suite.assets.AssetTypeCatalog
+import app.epistola.suite.assets.ImagePixelPolicy
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.common.ids.AssetKey
@@ -145,7 +146,6 @@ class ImageMcpTools(
         )
     }
 
-    private fun imageDimensions(content: ByteArray): Pair<Int, Int>? = runCatching {
-        ImageIO.read(content.inputStream())?.let { it.width to it.height }
-    }.getOrNull()
+    // From the header only: decoding a file that declares a huge size would take the node's memory.
+    private fun imageDimensions(content: ByteArray): Pair<Int, Int>? = ImagePixelPolicy.dimensions(content)
 }

@@ -21,6 +21,7 @@ import app.epistola.suite.assets.AssetMediaCategory
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.AssetNotFoundException
 import app.epistola.suite.assets.AssetTypeCatalog
+import app.epistola.suite.assets.ImagePixelPolicy
 import app.epistola.suite.assets.SvgContentPolicy
 import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
@@ -199,7 +200,6 @@ class EpistolaImagesApi(
     private fun releasedBytes(tenantKey: TenantKey, image: ImageResource): ByteArray = GetReleasedBinary(tenantKey, image.contentHash).query()
         ?: throw AssetNotFoundException(tenantKey, AssetKey.of(image.key))
 
-    private fun imageDimensions(content: ByteArray): Pair<Int, Int>? = runCatching {
-        ImageIO.read(content.inputStream())?.let { it.width to it.height }
-    }.getOrNull()
+    // From the header only: decoding a file that declares a huge size would take the node's memory.
+    private fun imageDimensions(content: ByteArray): Pair<Int, Int>? = ImagePixelPolicy.dimensions(content)
 }

@@ -71,6 +71,8 @@ data class DocumentGenerationRequest(
     val draftId: java.util.UUID? = null,
     /** The draft's name when the request was accepted. */
     val draftLabel: String? = null,
+    /** Times it was taken back from a node that stopped while rendering it (stale-job recovery). */
+    val recoveries: Int = 0,
     @Json val data: ObjectNode,
     val filename: String?,
     val correlationId: String?,
