@@ -78,6 +78,9 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
+    @Autowired
+    private lateinit var usage: app.epistola.suite.environments.DeploymentUsage
+
     @Test
     fun `released versions list newest first with the environments serving them, and one reads by version`() {
         val (tenant, key) = tenantWithTwoReleases()
@@ -275,6 +278,34 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         assertThat(exchange(HttpMethod.DELETE, override, key).statusCode).isEqualTo(HttpStatus.NO_CONTENT)
         assertThat(exchange(HttpMethod.DELETE, override, key).statusCode).`as`("idempotent").isEqualTo(HttpStatus.NO_CONTENT)
         assertThat(JsonPath.read<String>(generated("production"), "$.items[0].releaseVersion")).isEqualTo("1.0.1")
+    }
+
+    @Test
+    fun `a deployment reports its usage, and deploying with replace stops serving the others`() {
+        val (tenant, key) = tenantWithTwoReleases()
+        val namespace = withMediator { CatalogApiPaths.namespace(tenant) }
+        exchange(HttpMethod.PUT, "${deployments(tenant)}/1.0.0", key)
+        exchange(HttpMethod.PUT, "${deployments(tenant)}/1.0.1", key)
+        val fresh = exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/environments/production/deployments", key).body!!
+        assertThat(JsonPath.read<List<Int>>(fresh, "$.items[*].documentsRequested")).containsOnly(0)
+        assertThat(JsonPath.read<List<Any?>>(fresh, "$.items[*].lastUsedAt")).containsOnly(null)
+
+        val accepted = exchange(
+            HttpMethod.POST,
+            "/api/tenants/${tenant.value}/documents/generate",
+            key,
+            """{"namespace":"$namespace","catalogKey":"default","templateKey":"invoice","variantKey":"${VariantKey.INITIAL.value}","environmentKey":"production","data":{}}""",
+        )
+        assertThat(accepted.statusCode).describedAs(accepted.body).isEqualTo(HttpStatus.ACCEPTED)
+        usage.flush()
+        val used = exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/environments/production/deployments", key).body!!
+        assertThat(JsonPath.read<List<Int>>(used, "$.items[?(@.releaseVersion == '1.0.1')].documentsRequested")).containsExactly(1)
+        assertThat(JsonPath.read<List<String?>>(used, "$.items[?(@.releaseVersion == '1.0.1')].lastUsedAt").single()).isNotNull()
+
+        val replaced = exchange(HttpMethod.PUT, "${deployments(tenant)}/1.0.0?replace=true", key)
+        assertThat(replaced.statusCode).describedAs(replaced.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<List<String>>(exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/environments/production/deployments", key).body!!, "$.items[*].releaseVersion"))
+            .containsExactly("1.0.0")
     }
 
     private fun catalogPath(tenant: TenantKey): String = withMediator { CatalogApiPaths.catalog(tenant) }

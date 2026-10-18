@@ -401,9 +401,10 @@ class EpistolaTenantApi(
         catalogKey: String,
         releaseVersion: String,
         includeDependencies: Boolean,
+        replace: Boolean,
     ): ResponseEntity<DeploymentDto> {
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        val deployment = DeployRelease(environmentId(tenantKey, environmentKey), catalog.id, releaseVersion, includeDependencies).execute()
+        val deployment = DeployRelease(environmentId(tenantKey, environmentKey), catalog.id, releaseVersion, includeDependencies, replace = replace).execute()
         return ResponseEntity.ok(deployment.toDto(catalog.catalogName))
     }
 
@@ -530,6 +531,8 @@ class EpistolaTenantApi(
         catalogKey = catalogKey.value,
         releaseVersion = version,
         deployedAt = deployedAt,
+        lastUsedAt = lastUsedAt,
+        documentsRequested = documentsRequested,
     )
 
     private companion object {
