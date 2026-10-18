@@ -300,7 +300,7 @@
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='catalog-dependencies-dialog',
             title='Dependencies',
-            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalogId})},
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/dependencies(tenantId=${tenantId},catalogId=${catalogId})},
             content=~{::dependencies-form})}"></div>
     </th:block>
 

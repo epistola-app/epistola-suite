@@ -63,6 +63,9 @@ class CodeListHandler(
         val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
         val catalogs = ListCatalogs(tenantId.key).query()
         val codeLists = ListCodeLists(tenantId = tenantId, catalogKey = segment?.key, catalogVersion = segment?.ref(tenantId.key)).query()
+        val bar = segment?.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/code-lists?catalog=${it.value}" } }
+        // What the catalogs this one depends on hold of this kind, listed read-only below its own.
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListCodeLists(tenantId = tenantId, catalogKey = it).query() }) { l, c, n -> FromOtherCatalog(l.displayName, "/tenants/${tenantId.key}/code-lists/${c.value}/${l.slug.value}", n) }
         return ServerResponse.ok().page("code-lists/list") {
             "pageTitle" to "Code lists - Epistola"
             "tenant" to tenant
@@ -70,7 +73,8 @@ class CodeListHandler(
             "catalogs" to catalogs
             "selectedCatalog" to (segment?.value ?: "")
             "draftSegment" to segment
-            "draftBar" to segment?.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/code-lists?catalog=${it.value}" } }
+            "draftBar" to bar
+            "fromOtherCatalogs" to fromOtherCatalogs
             "codeLists" to codeLists
         }
     }

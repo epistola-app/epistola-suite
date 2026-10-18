@@ -58,9 +58,9 @@ class CatalogRoutes(
             // A draft's own page: the next version at a plain segment, another draft at key@version.
             GET("/{catalogId}/draft", handler::draftPage)
             GET("/{catalogId}/versions", handler::versionsPage)
-            GET("/{catalogId}/live", handler::livePage)
-            GET("/{catalogId}/uses", handler::usesPage)
-            GET("/{catalogId}/details", handler::detailsPage)
+            GET("/{catalogId}/deployments", handler::deploymentsPage)
+            GET("/{catalogId}/dependencies", handler::dependenciesPage)
+            GET("/{catalogId}/settings", handler::settingsPage)
             GET("/{catalogId}/bar-status", handler::barStatus)
             GET("/{catalogId}/releases/{version}", handler::releaseDetail)
             POST("/{catalogId}/releases/{version}/forget", handler::forgetReleaseContent)

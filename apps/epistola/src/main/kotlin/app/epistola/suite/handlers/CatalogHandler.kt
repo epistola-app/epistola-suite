@@ -37,6 +37,7 @@ import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.dependencies.DeclareUsedCatalogs
+import app.epistola.suite.catalog.dependencies.ListCatalogDependents
 import app.epistola.suite.catalog.dependencies.PublishUsedCatalogs
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
@@ -515,10 +516,10 @@ class CatalogHandler {
                 try {
                     DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, result.version, includeDependencies = true, replace = true).execute()
                 } catch (e: ValidationException) {
-                    return reRenderWithError("Published v${result.version}, but it could not be made live in $environment: ${e.message} Make it live under Live on the catalog page.")
+                    return reRenderWithError("Published v${result.version}, but it could not be deployed to $environment: ${e.message} Make it live under Live on the catalog page.")
                 } catch (e: RuntimeException) {
                     logger.warn("Making v{} of '{}' live in {} failed: {}", result.version, catalogKey.value, environment, e.message)
-                    return reRenderWithError("Published v${result.version}, but it could not be made live in $environment: ${e.message ?: "it was refused."} Make it live under Live on the catalog page.")
+                    return reRenderWithError("Published v${result.version}, but it could not be deployed to $environment: ${e.message ?: "it was refused."} Make it live under Live on the catalog page.")
                 }
             }
 
@@ -566,18 +567,18 @@ class CatalogHandler {
     private fun publicationPolicy(raw: String?): CatalogPublicationPolicy = CatalogPublicationPolicy.entries.firstOrNull { it.name == raw }
         ?: throw ValidationException("publicationPolicy", "Choose a valid publication policy.")
 
-    /** Withdraws a queued publication; rejections stay on the Details page, where Exchange is, like the publish action. */
+    /** Withdraws a queued publication; rejections stay on the Settings page, where Exchange is, like the publish action. */
     fun cancelPublication(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = request.catalogId()
         return try {
             CancelCatalogPublication(tenantId.key, UUID.fromString(request.pathVariable("publicationId"))).execute()
             ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/details")
+                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/settings")
                 .build()
         } catch (failure: ValidationException) {
             logger.warn("Cancelling a publication of '{}' was rejected: {}", catalogKey.value, failure.message)
-            section(request, "catalogs/details", failure.message)
+            section(request, "catalogs/settings", failure.message)
         }
     }
 
@@ -605,27 +606,27 @@ class CatalogHandler {
      * Deploys a release of this catalog to an environment, beside what it serves. With
      * `includeDependencies`, the releases of other catalogs it renders with are deployed along.
      * Refusals -- the release kept no content, the environment is gone, a dependency release is not
-     * served -- come back on the catalog's Live page with the reason.
+     * served -- come back on the catalog's Deployments page with the reason.
      */
     fun deploy(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = request.catalogId()
         val environment = request.param("environmentId").orElse("").trim()
         val version = request.param("version").orElse("").trim()
-        if (environment.isEmpty() || version.isEmpty()) return live(request, error = "Choose an environment and a release to deploy.")
+        if (environment.isEmpty() || version.isEmpty()) return deployments(request, error = "Choose an environment and a release to deploy.")
         val includeDependencies = request.param("includeDependencies").orElse("") == "true"
         return try {
             // One live version per catalog per environment in the UI: making one live replaces the others.
             DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, version, includeDependencies, replace = true).execute()
             ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/live")
+                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
                 .build()
         } catch (failure: ReleaseNotDeployableException) {
-            live(request, error = failure.message)
+            deployments(request, error = failure.message)
         } catch (failure: EnvironmentNotFoundException) {
-            live(request, error = failure.message)
+            deployments(request, error = failure.message)
         } catch (failure: ReleaseDependenciesMissingException) {
-            live(
+            deployments(
                 request,
                 error = null,
                 deployRefusal = DeployRefusalView.of(
@@ -642,10 +643,10 @@ class CatalogHandler {
         val tenantId = request.tenantId()
         val catalogKey = request.catalogId()
         val version = request.param("version").orElse("").trim()
-        if (version.isEmpty()) return live(request, error = "Choose a release to undeploy.")
+        if (version.isEmpty()) return deployments(request, error = "Choose a release to undeploy.")
         UndeployRelease(EnvironmentId(EnvironmentKey.of(request.pathVariable("environmentId")), tenantId), catalogKey, version).execute()
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/live")
+            .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
             .build()
     }
 
@@ -681,7 +682,7 @@ class CatalogHandler {
     /**
      * The button that offered this action was rendered from state that may have moved since — the
      * working copy edited in another tab, a second administrator queueing first. Those races are
-     * exactly what the command validates, so a rejection returns the Details page, where Exchange is,
+     * exactly what the command validates, so a rejection returns the Settings page, where Exchange is,
      * with the reason rather than an error page.
      */
     fun publishCurrentRelease(request: ServerRequest): ServerResponse {
@@ -697,11 +698,11 @@ class CatalogHandler {
                 version = request.param("version").orElse(null)?.ifBlank { null },
             ).execute()
             ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/details")
+                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/settings")
                 .build()
         } catch (failure: ValidationException) {
             logger.warn("Publishing the current release of '{}' was rejected: {}", catalogKey.value, failure.message)
-            section(request, "catalogs/details", failure.message)
+            section(request, "catalogs/settings", failure.message)
         }
     }
 
@@ -833,14 +834,14 @@ class CatalogHandler {
     /** `GET /{catalogId}/versions`: every version of the catalog, each to its own page. */
     fun versionsPage(request: ServerRequest): ServerResponse = catalogSection(request, "catalogs/versions", catalogWide = true)
 
-    /** `GET /{catalogId}/live`: what each environment serves of the catalog, and making another live. */
-    fun livePage(request: ServerRequest): ServerResponse = catalogSection(request, "catalogs/live", catalogWide = true)
+    /** `GET /{catalogId}/deployments`: what each environment serves of the catalog, and deploying another version. */
+    fun deploymentsPage(request: ServerRequest): ServerResponse = catalogSection(request, "catalogs/deployments", catalogWide = true)
 
-    /** `GET /{catalogId}/uses`: the catalogs this version uses, and how it stands with each. */
-    fun usesPage(request: ServerRequest): ServerResponse = catalogSection(request, "catalogs/uses", catalogWide = false)
+    /** `GET /{catalogId}/dependencies`: the catalogs this version depends on, how it stands with each, and the catalogs that depend on it. */
+    fun dependenciesPage(request: ServerRequest): ServerResponse = catalogSection(request, "catalogs/dependencies", catalogWide = false)
 
-    /** `GET /{catalogId}/details`: what this version goes out with, its key, and Exchange. */
-    fun detailsPage(request: ServerRequest): ServerResponse = catalogSection(request, "catalogs/details", catalogWide = false)
+    /** `GET /{catalogId}/settings`: what this version goes out with (name, description, presentation), its key, and Exchange. */
+    fun settingsPage(request: ServerRequest): ServerResponse = catalogSection(request, "catalogs/settings", catalogWide = false)
 
     /**
      * One of a catalog's own pages (docs/workspace-shell.md). A [catalogWide] page is the same for
@@ -857,8 +858,8 @@ class CatalogHandler {
         return catalogPage(request, template, segment, bar, error = null)
     }
 
-    /** The Live page with [error] or a refused deploy shown, for a deploy that did not go through. */
-    private fun live(request: ServerRequest, error: String?, deployRefusal: DeployRefusalView? = null): ServerResponse = section(request, "catalogs/live", error, deployRefusal)
+    /** The Deployments page with [error] or a refused deploy shown, for a deploy that did not go through. */
+    private fun deployments(request: ServerRequest, error: String?, deployRefusal: DeployRefusalView? = null): ServerResponse = section(request, "catalogs/deployments", error, deployRefusal)
 
     /**
      * One of the catalog's own pages ([template]) with [error] shown: where an action taken there
@@ -981,13 +982,16 @@ class CatalogHandler {
 
             // Inside the model builder `to` means a model entry, so the map is built out here.
             val changeStates = readiness?.changes?.resources.orEmpty().associateBy({ "${it.type}/${it.slug}" }, { it.state })
+            // Only the Dependencies page says who depends on this catalog; the others skip the lookup.
+            val dependents = if (template == "catalogs/dependencies") ListCatalogDependents(tenantId.key, catalogKey).query() else emptyList()
+            val editsDependencies = authored && drafts.chosen != null
             ServerResponse.ok().page(template) {
                 "pageTitle" to when (template) {
                     "catalogs/version" -> "${drafts.draftTitle} - ${result.catalog.name} - Epistola"
                     "catalogs/versions" -> "Versions - ${result.catalog.name} - Epistola"
-                    "catalogs/live" -> "Live - ${result.catalog.name} - Epistola"
-                    "catalogs/uses" -> "Uses - ${result.catalog.name} - Epistola"
-                    "catalogs/details" -> "Details - ${result.catalog.name} - Epistola"
+                    "catalogs/deployments" -> "Deployments - ${result.catalog.name} - Epistola"
+                    "catalogs/dependencies" -> "Dependencies - ${result.catalog.name} - Epistola"
+                    "catalogs/settings" -> "Settings - ${result.catalog.name} - Epistola"
                     else -> "${result.catalog.name} - Catalog - Epistola"
                 }
                 "tenantId" to tenantId.key
@@ -998,6 +1002,9 @@ class CatalogHandler {
                 "draftBar" to drafts
                 "readiness" to readiness
                 "gettingStarted" to gettingStarted
+                "dependents" to dependents
+                "mayEditDependencies" to (editsDependencies && auth.has(Permission.TEMPLATE_EDIT))
+                "dependenciesWithheld" to (editsDependencies && !auth.has(Permission.TEMPLATE_EDIT))
                 // What the version holds, by kind, with a way to add each kind there.
                 if (authored) {
                     "contents" to CatalogContents.of(

@@ -223,11 +223,11 @@ class CatalogReleaseHandler {
             }
         }
 
+        // Back on the Dependencies page, which now lists what was declared.
+        val dependenciesPage = "/tenants/${tenantId.key}/catalogs/${segment.value}/dependencies"
         return request.htmx {
-            dialogSuccess("catalogs/next-release", "next-release", browseUrl(tenantId, segment)) {
-                nextReleaseModel(tenantId, segment)
-            }
-            onFullPage { redirect(browseUrl(tenantId, segment)) }
+            dialogLocation(dependenciesPage)
+            onFullPage { redirect(dependenciesPage) }
         }
     }
 

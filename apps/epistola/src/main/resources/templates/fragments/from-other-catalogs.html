@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/* On a catalog's list of one kind: what the catalogs it depends on hold of that kind, read-only,
+           each linked to where it is changed. Model: `fromOtherCatalogs` (FromOtherCatalog rows),
+           `kind` in the plural, lower case. */-->
+    <div th:fragment="section(items, kind)" th:if="${items != null and !items.isEmpty()}"
+         class="ep-panel detail-section" data-testid="from-other-catalogs" style="margin-top: var(--ep-space-6);">
+        <div class="detail-section-header">
+            <div>
+                <h2>From catalogs it depends on</h2>
+                <p class="text-muted text-sm" style="margin: var(--ep-space-1) 0 0;"
+                   th:text="'Available to the templates here too. You change these ' + ${kind} + ' in the catalog they belong to.'">Available to the templates here too.</p>
+            </div>
+        </div>
+        <div class="ep-table-scroll" role="region" th:attr="aria-label=${kind} + ' from other catalogs'" tabindex="0">
+            <table class="ep-table">
+                <tbody>
+                    <tr th:each="item : ${items}" data-testid="from-other-catalog-row">
+                        <td><a th:href="${item.href}" th:text="${item.name}">Footer</a></td>
+                        <td class="text-muted" th:text="'In ' + ${item.catalogName}">In Shared</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

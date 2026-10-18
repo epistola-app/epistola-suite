@@ -19,6 +19,8 @@ import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.handlers.AuthContext
 import app.epistola.suite.handlers.CatalogDraftBar
+import app.epistola.suite.handlers.FromOtherCatalog
+import app.epistola.suite.handlers.FromOtherCatalogs
 import app.epistola.suite.handlers.WorkspaceBuilder
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.ModelBuilder
@@ -157,10 +159,14 @@ class DocumentTemplateHandler(
         val catalogs = ListCatalogs(tenantId.key).query()
         val model = templateListModel(request, tenantId)
         val segment = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogSegment.parse(it) }
+        val bar = segment?.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/templates?catalog=${it.value}" } }
+        // What the catalogs this one depends on hold of this kind, listed read-only below its own.
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListTemplateSummaries(tenantId = tenantId, catalogKey = it, limit = 200).query().items }) { t, c, n -> FromOtherCatalog(t.name, "/tenants/${tenantId.key}/templates/${c.value}/${t.id.value}", n) }
         return ServerResponse.ok().page("templates/list") {
             "pageTitle" to "Document Templates - Epistola"
             "catalogs" to catalogs
-            "draftBar" to segment?.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/templates?catalog=${it.value}" } }
+            "draftBar" to bar
+            "fromOtherCatalogs" to fromOtherCatalogs
             putAll(model)
         }
     }
@@ -285,8 +291,8 @@ class DocumentTemplateHandler(
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("templates/new", "dialog") {
                 "tenantId" to tenantId.key
-                // Opened from a list filtered to a draft, the dialog creates in that draft.
-                "draftSegment" to request.catalogParam()?.takeIf { it.version != null }
+                // Opened inside a catalog (or a draft of one), the dialog creates there.
+                "draftSegment" to request.catalogParam()
                 "authoredCatalogs" to authoredCatalogs
                 "selectedCatalog" to selectedCatalog
             }

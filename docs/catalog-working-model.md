@@ -6,7 +6,8 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # Working on catalogs: the model (2.0)
 
-> **Status:** proposal, 18 October 2026. Supersedes the "simple model" section of
+> **Status:** proposal, 18 October 2026. The screens say _deployed_ where this page says _live_
+> (see [workspace-shell.md](workspace-shell.md)). Supersedes the "simple model" section of
 > [catalog-workspace-navigation.md](catalog-workspace-navigation.md) where they differ. Needs an
 > amendment to contract ADR 0002 (drafts) and a change to how dependencies are locked (ADR 0003).
 
@@ -31,12 +32,12 @@ The model puts the control where it pays off and nowhere else:
 
 There are four, and only four:
 
-| Word                  | Is                                                                                                                |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Next version**      | The work on a catalog. One per catalog. What every page edits unless it says otherwise. No number.                |
-| **Published version** | A frozen copy, numbered (`v1.3.0`). Never changes. What applications get.                                         |
-| **Live**              | Which published version an environment serves, per catalog. One per environment; making another live replaces it. |
-| **Side work**         | Other work on the catalog, kept apart from the next version, always with a name and a reason. The advanced case.  |
+| Word                  | Is                                                                                                               |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Next version**      | The work on a catalog. One per catalog. What every page edits unless it says otherwise. No number.               |
+| **Published version** | A frozen copy, numbered (`v1.3.0`). Never changes. What applications get.                                        |
+| **Deployed**          | Which published version an environment serves, per catalog. One per environment; deploying another replaces it.  |
+| **Side work**         | Other work on the catalog, kept apart from the next version, always with a name and a reason. The advanced case. |
 
 "Draft", "release", "renumber", "base", "behind", "dependency lock" stay out of the default screens.
 

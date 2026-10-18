@@ -55,7 +55,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         }
 
         val before = live(tenant, "dep-page")
-        assertThat(before).contains("<h2>Live</h2>").contains("Production").contains(">not live<")
+        assertThat(before).contains("<h2>Environments</h2>").contains("Production").contains(">not deployed<")
         assertThat(before).contains("catalogs/dep-page/deployments").contains("value=\"1.0.0\"")
 
         val response = restTemplate.postForEntity(
@@ -63,11 +63,11 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             form("environmentId" to "production", "version" to "1.0.0"),
             String::class.java,
         )
-        assertThat(response.statusCode.is2xxSuccessful).`as`("the redirect lands back on the Live page").isTrue()
+        assertThat(response.statusCode.is2xxSuccessful).`as`("the redirect lands back on the Deployments page").isTrue()
 
         val served = withMediator { ListDeployments(tenant.id, CatalogKey.of("dep-page")).query() }
         assertThat(served.map { it.environmentKey.value to it.version }).containsExactly("production" to "1.0.0")
-        assertThat(live(tenant, "dep-page")).contains("v1.0.0").contains("Take offline")
+        assertThat(live(tenant, "dep-page")).contains("v1.0.0").contains("Undeploy")
     }
 
     @Test
@@ -90,7 +90,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         val body = live(tenant, "dep-two")
         assertThat(body).contains("data-version=\"1.0.1\"").contains("data-version=\"1.0.0\"")
         assertThat(body).contains("name=\"version\" value=\"1.0.1\"").contains("name=\"version\" value=\"1.0.0\"")
-        assertThat(body).contains("v1.0.1 (live)").contains("v1.0.0 (live)")
+        assertThat(body).contains("v1.0.1 (deployed)").contains("v1.0.0 (deployed)")
 
         restTemplate.postForEntity(
             "/tenants/${tenant.id.value}/catalogs/dep-two/deployments/production/undeploy",
@@ -170,7 +170,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         val body = live(tenant, "dep-noenv")
 
         assertThat(body).contains("There are no environments yet").contains("/tenants/${tenant.id.value}/environments")
-        assertThat(body).doesNotContain("catalogs/dep-noenv/deployments\"")
+        assertThat(body).`as`("no deploy form").doesNotContain("action=\"/tenants/${tenant.id.value}/catalogs/dep-noenv/deployments\"")
     }
 
     @Test
@@ -186,7 +186,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
 
         val body = live(tenant, "dep-norelease")
 
-        assertThat(body).contains("Nothing can be made live yet")
+        assertThat(body).contains("Nothing can be deployed yet")
         assertThat(body).`as`("no deploy form with an empty select").doesNotContain("name=\"version\"")
     }
 
@@ -231,8 +231,8 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         return HttpEntity(body, headers)
     }
 
-    /** The catalog's Live page (docs/workspace-shell.md), where what each environment serves is shown. */
+    /** The catalog's Deployments page (docs/workspace-shell.md), where what each environment serves is shown. */
     private fun live(tenant: Tenant, catalogKey: String): String = restTemplate
-        .getForEntity("/tenants/${tenant.id.value}/catalogs/$catalogKey/live", String::class.java)
+        .getForEntity("/tenants/${tenant.id.value}/catalogs/$catalogKey/deployments", String::class.java)
         .body!!
 }

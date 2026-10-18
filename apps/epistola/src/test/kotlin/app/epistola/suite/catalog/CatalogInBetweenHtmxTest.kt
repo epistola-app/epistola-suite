@@ -84,7 +84,7 @@ class CatalogInBetweenHtmxTest : BaseIntegrationTest() {
 
         val page = get(tenant, "/catalogs/letters@1.0.1/draft").body!!
         assertThat(page).contains(">Draft v1.0.1<")
-        assertThat(page).contains("data-testid=\"catalog-fix-banner\"").contains("a fix of v1.0.0, which is live in production")
+        assertThat(page).contains("data-testid=\"catalog-fix-banner\"").contains("a fix of v1.0.0, which is deployed to production")
 
         assertThat(get(tenant, "/catalogs/letters/browse").body!!).contains("data-testid=\"catalog-in-between-continue\"")
         val after = get(tenant, "/catalogs/letters/versions").body!!
@@ -108,7 +108,7 @@ class CatalogInBetweenHtmxTest : BaseIntegrationTest() {
         val tenant = live("In Between Release Page")
 
         val before = get(tenant, "/catalogs/letters/releases/1.0.0").body!!
-        assertThat(before.substringAfter("data-testid=\"release-live\"").substringBefore("</p>")).contains("Live in <strong>production</strong>")
+        assertThat(before.substringAfter("data-testid=\"release-live\"").substringBefore("</p>")).contains("Deployed to <strong>production</strong>")
         assertThat(before).contains("data-testid=\"release-start-draft\"")
 
         post(tenant, "/catalogs/letters/fixes", mapOf("of" to "1.0.0"))
@@ -127,7 +127,7 @@ class CatalogInBetweenHtmxTest : BaseIntegrationTest() {
             ReleaseCatalogVersion(tenant.id, letters, "1.1.0").execute()
         }
 
-        val page = get(tenant, "/catalogs/letters/live").body!!
+        val page = get(tenant, "/catalogs/letters/deployments").body!!
         val production = page.substringAfter("data-environment=\"production\"").substringBefore("</tr>")
         assertThat(production).contains("data-testid=\"catalog-live-fix\"").contains("name=\"of\" value=\"1.0.0\"")
 

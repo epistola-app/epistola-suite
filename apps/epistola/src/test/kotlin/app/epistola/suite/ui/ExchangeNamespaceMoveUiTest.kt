@@ -57,8 +57,8 @@ class ExchangeNamespaceMoveUiTest : BasePlaywrightTest() {
             worker.run()
         }
 
-        // Exchange publication is on the catalog's Details page.
-        gotoAndReady("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/details")
+        // Exchange publication is on the catalog's Settings page.
+        gotoAndReady("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/settings")
         val dialog = page.openDialogByTrigger(
             page.locator("button[hx-get*='section=publication'], button[data-hx-get*='section=publication']").first(),
             "#catalog-metadata-dialog",

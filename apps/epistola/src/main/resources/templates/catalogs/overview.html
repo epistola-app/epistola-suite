@@ -11,7 +11,7 @@
            (CatalogReleaseReadiness) or `gettingStarted` (CatalogGettingStarted). */-->
 
     <!--/* What to do now, in one box at the top: the state of the next version with the action that
-           moves it on (New template, Publish…), and where the catalog is live with Make live. People
+           moves it on (New template, Publish…), and where the catalog is deployed with Deploy… People
            work in the next version almost always; its own page holds the rest (Advanced). Every
            control gates on one name of `readiness`, `draftBar` (readiness.drafts), `gettingStarted`
            or `contents`. */-->
@@ -121,7 +121,7 @@
                  data-testid="catalog-status-live">
                 <div style="flex: 1; min-width: 16rem;">
                     <th:block th:if="${gs.live}">
-                        <strong>Live in
+                        <strong>Deployed to
                             <th:block th:each="row, stat : ${deployments}" th:unless="${row.served.isEmpty()}"><span
                                 th:text="${row.environmentName} + ' (v' + ${#strings.listJoin(row.servedVersions, ', v')} + ')'">Production (v1.0.0)</span><th:block th:unless="${stat.last}"> </th:block></th:block>
                         </strong>
@@ -131,21 +131,21 @@
                         </div>
                     </th:block>
                     <th:block th:unless="${gs.live}">
-                        <strong>Not live anywhere yet.</strong>
+                        <strong>Not deployed anywhere yet.</strong>
                         <div class="text-muted text-sm" th:if="${gs.needsEnvironment}" data-testid="catalog-step-no-environment">
                             Your application gets documents from an environment, and there is none yet.
                             <a th:href="@{/tenants/{t}/environments(t=${tenantId})}">Add one</a>, such as <em>test</em>.
                         </div>
                         <div class="text-muted text-sm" th:if="${!gs.needsEnvironment and !gs.published}">
-                            Publish it, and make it live in an environment so your application can use it.
+                            Publish it, and deploy it to an environment so your application can use it.
                         </div>
                         <div class="text-muted text-sm" th:if="${!gs.needsEnvironment and gs.published}">
-                            Make a published version live so your application can use it.
+                            Deploy a published version so your application can use it.
                         </div>
                     </th:block>
                 </div>
                 <a th:if="${gs.published and !gs.needsEnvironment and gs.mayDeploy}" class="ep-btn ep-btn-outline"
-                   th:href="@{/tenants/{t}/catalogs/{c}/live(t=${tenantId},c=${catalog.id})}" data-testid="catalog-status-make-live">Make live…</a>
+                   th:href="@{/tenants/{t}/catalogs/{c}/deployments(t=${tenantId},c=${catalog.id})}" data-testid="catalog-status-make-live">Deploy…</a>
             </div>
         </div>
     </div>
@@ -180,8 +180,9 @@
                     <thead>
                         <tr>
                             <th>Version</th>
+                            <th>Based on</th>
                             <th>Status</th>
-                            <th>Live in</th>
+                            <th>Deployed to</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -191,10 +192,14 @@
                                 <a th:href="${row.href}" data-testid="catalog-version-link"
                                    th:text="${row.next} ? 'Next version' : (${row.draft} ? 'Draft v' + ${row.version} : 'v' + ${row.version})">v1.0.0</a>
                             </td>
+                            <!--/* Every version starts from a published one, unless it started from nothing. */-->
+                            <td data-testid="catalog-version-base">
+                                <span th:if="${row.base != null}" th:text="'v' + ${row.base}">v1.0.0</span>
+                                <span th:if="${row.base == null}" class="text-muted">Started from nothing</span>
+                            </td>
                             <td>
                                 <th:block th:if="${row.draft}">
                                     <span class="badge badge-outline">Draft</span>
-                                    <span class="text-muted" th:text="${row.base != null} ? 'based on v' + ${row.base} : 'nothing published before it'">based on v1.0.0</span>
                                 </th:block>
                                 <th:block th:unless="${row.draft}">
                                     <span th:text="'Published ' + ${#temporals.format(row.publishedAt, 'yyyy-MM-dd')}">Published 2026-10-01</span>

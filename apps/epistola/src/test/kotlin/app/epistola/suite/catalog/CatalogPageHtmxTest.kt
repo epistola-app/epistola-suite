@@ -69,7 +69,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
         assertThat(status).contains("Start with a template.")
         assertThat(status).contains("data-testid=\"catalog-status-new-template\"").contains("hx-get=\"/tenants/${tenant.id}/templates/new?catalog=letters\"")
         assertThat(status).doesNotContain("data-testid=\"catalog-release-open\"")
-        assertThat(status).contains("Not live anywhere yet.").contains("data-testid=\"catalog-step-no-environment\"")
+        assertThat(status).contains("Not deployed anywhere yet.").contains("data-testid=\"catalog-step-no-environment\"")
     }
 
     @Test
@@ -87,8 +87,8 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
 
         val published = get(tenant, "/catalogs/letters/browse").body!!
         assertThat(status(published)).contains("Everything is published, as v1.0.0.").doesNotContain("data-testid=\"catalog-release-open\"")
-        assertThat(status(published)).contains("Not live anywhere yet.").contains("href=\"/tenants/${tenant.id}/catalogs/letters/live\"")
-        assertThat(get(tenant, "/catalogs/letters/live").body!!).contains("id=\"catalog-deployments\"")
+        assertThat(status(published)).contains("Not deployed anywhere yet.").contains("href=\"/tenants/${tenant.id}/catalogs/letters/deployments\"")
+        assertThat(get(tenant, "/catalogs/letters/deployments").body!!).contains("id=\"catalog-deployments\"")
         assertThat(get(tenant, "/catalogs/letters/versions").body!!).contains("href=\"/tenants/${tenant.id}/catalogs/letters/releases/1.0.0\"")
     }
 
@@ -138,8 +138,8 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
         assertThat(body).contains("<span id=\"page-title-text\">Next version</span>")
         assertThat(body).contains("data-testid=\"catalog-next-release\"").contains("<h2>Not published yet</h2>")
         assertThat(body).contains("href=\"/tenants/${tenant.id}/templates/letters/invoice\"")
-        assertThat(body).contains("href=\"/tenants/${tenant.id}/catalogs/letters/details\"")
-        assertThat(get(tenant, "/catalogs/letters/details").body!!).contains("id=\"catalog-metadata\"")
+        assertThat(body).contains("href=\"/tenants/${tenant.id}/catalogs/letters/settings\"")
+        assertThat(get(tenant, "/catalogs/letters/settings").body!!).contains("id=\"catalog-metadata\"")
     }
 
     @Test
@@ -168,8 +168,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
                 HttpEntity<Void>(HttpHeaders().apply { set("HX-Request", "true") }),
                 String::class.java,
             ).body!!
-            val option = dialog.substringAfter("value=\"letters\"").substringBefore(">")
-            assertThat(option).`as`("$area preselects the catalog it was opened on").contains("selected")
+            assertThat(dialog).`as`("$area creates in the catalog it was opened on").contains("type=\"hidden\" name=\"catalog\" value=\"letters\"")
         }
     }
 

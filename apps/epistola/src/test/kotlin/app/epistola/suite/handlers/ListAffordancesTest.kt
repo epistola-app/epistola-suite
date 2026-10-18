@@ -111,7 +111,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
      * on the list — and a template then gets created in the wrong catalog.
      */
     @Test
-    fun `the new-template dialog opens on the catalog the list is filtered to`() {
+    fun `the new-template dialog opened inside a catalog creates there, with no catalog to choose`() {
         val tenant = createTenant("New Template Catalog")
         // "zzz-last" sorts after the auto-created Default catalog, so preselecting it cannot
         // pass by accident on the browser's first-option fallback.
@@ -128,7 +128,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
             requireNotNull(it.body)
         }
 
-        assertThat(selectedOption(body)).isEqualTo(filtered.value)
+        assertThat(body).contains("type=\"hidden\" name=\"catalog\" value=\"${filtered.value}\"").doesNotContain("<select id=\"catalog\"")
     }
 
     @Test
@@ -199,7 +199,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
         val catalogKey = CatalogKey.of("presentation-card")
         withMediator { CreateCatalog(tenant.id, catalogKey, "Presentation card").execute() }
 
-        val body = get("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/details")
+        val body = get("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/settings")
 
         assertThat(body).contains("This catalog has no images yet")
         assertThat(body).doesNotContain("section='presentation'")
@@ -222,7 +222,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
         val base = "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}"
 
         val onPage = Regex("""badge badge-outline"[^>]*>([^<]+)<""")
-            .findAll(get("$base/details").substringAfter("id=\"catalog-metadata\""))
+            .findAll(get("$base/settings").substringAfter("id=\"catalog-metadata\""))
             .map { it.groupValues[1] }
             .toList()
         val inDialog = get("$base/metadata?section=keywords")

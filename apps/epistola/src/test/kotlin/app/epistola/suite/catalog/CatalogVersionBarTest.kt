@@ -128,7 +128,7 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
         val fix = get(tenant, "/themes/bar-cat@1.0.1/house")
         assertThat(fix).contains("ws-bar-side")
         assertThat(fix.substringAfter("data-testid=\"ws-crumb-version\"").substringBefore("</button>")).contains(">Fix of v1.0.0 · production<")
-        assertThat(fix).contains("data-testid=\"catalog-fix-banner\"").contains("a fix of v1.0.0, which is live in production")
+        assertThat(fix).contains("data-testid=\"catalog-fix-banner\"").contains("a fix of v1.0.0, which is deployed to production")
         assertThat(fix).contains("hx-get=\"/tenants/${tenant.id.value}/catalogs/bar-cat@1.0.1/bar-status\"")
         assertThat(fix).contains("href=\"/tenants/${tenant.id.value}/themes/bar-cat/house\" data-testid=\"catalog-fix-back\"")
         assertThat(barStatus(tenant, "bar-cat@1.0.1")).contains("/catalogs/bar-cat@1.0.1/release")

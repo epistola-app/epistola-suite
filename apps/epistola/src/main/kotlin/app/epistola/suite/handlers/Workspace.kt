@@ -131,9 +131,9 @@ object CatalogNav {
         val parts = PARTS.filter { may(it.permission) }.map { link(it.key, it.label, "$tenant/${it.area}?catalog=$segment", it.icon) }
         val catalog = listOf(
             link("versions", "Versions", "$tenant/catalogs/$key/versions", "history"),
-            link("live", "Live", "$tenant/catalogs/$key/live", "radio"),
-            link("uses", "Uses", "$tenant/catalogs/$segment/uses", "link"),
-            link("details", "Details", "$tenant/catalogs/$segment/details", "settings"),
+            link("deployments", "Deployments", "$tenant/catalogs/$key/deployments", "radio"),
+            link("dependencies", "Dependencies", "$tenant/catalogs/$segment/dependencies", "link"),
+            link("settings", "Settings", "$tenant/catalogs/$segment/settings", "settings"),
         )
         return listOf(first, parts, catalog).filter { it.isNotEmpty() }
     }
@@ -148,9 +148,9 @@ object CatalogNav {
             return when (page) {
                 "browse", "draft", null -> "overview"
                 "releases", "versions" -> "versions"
-                "live" -> "live"
-                "uses" -> "uses"
-                "details" -> "details"
+                "deployments" -> "deployments"
+                "dependencies" -> "dependencies"
+                "settings" -> "settings"
                 else -> null
             }.takeIf { parts.getOrNull(3)?.substringBefore('@') == catalogKey }
         }

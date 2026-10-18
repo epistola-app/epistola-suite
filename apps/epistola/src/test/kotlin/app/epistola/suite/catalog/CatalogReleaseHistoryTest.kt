@@ -225,7 +225,7 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         assertThat(response.statusCode.is2xxSuccessful).isTrue()
 
         val after = versions(versionsPage(tenant.id.value, "hist-delete"))
-        assertThat(after).`as`("gone from the list, unlike forgetting its content").doesNotContain(">v1.1.0<")
+        assertThat(after).`as`("gone from the list, unlike forgetting its content").doesNotContain("data-version=\"1.1.0\"")
         assertThat(after).`as`("and the one before it is still there").contains(">v1.0.0<")
     }
 

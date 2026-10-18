@@ -6,12 +6,12 @@
            the environment page and the catalog page, which post the offer to their own deploy action. */-->
     <div th:fragment="refusal(refusal)" class="alert alert-error" data-testid="deploy-refusal">
         <p th:if="${!refusal.includedDependencies}"
-           th:text="${refusal.catalogKey} + ' v' + ${refusal.version} + ' needs versions of other catalogs that are not live in ' + ${refusal.environmentKey} + ', so it was not made live:'">
-            letters v1.4.0 needs versions of other catalogs that are not live in production, so it was not made live:
+           th:text="${refusal.catalogKey} + ' v' + ${refusal.version} + ' needs versions of other catalogs that are not deployed to ' + ${refusal.environmentKey} + ', so it was not deployed:'">
+            letters v1.4.0 needs versions of other catalogs that are not deployed to production, so it was not deployed:
         </p>
         <p th:if="${refusal.includedDependencies}"
-           th:text="${refusal.catalogKey} + ' v' + ${refusal.version} + ' was not made live: these versions it needs cannot be made live with it, so nothing was.'">
-            letters v1.4.0 was not made live: these versions it needs cannot be made live with it, so nothing was.
+           th:text="${refusal.catalogKey} + ' v' + ${refusal.version} + ' was not deployed: these versions it needs cannot be deployed with it, so nothing was.'">
+            letters v1.4.0 was not deployed: these versions it needs cannot be deployed with it, so nothing was.
         </p>
         <ul data-testid="deploy-refusal-missing">
             <li th:each="dependency : ${refusal.missing}" th:attr="data-reason=${dependency.reason}">
@@ -22,11 +22,11 @@
         <form th:if="${refusal.deployableAlong}" method="post" th:action="${refusal.deployUrl}" data-testid="deploy-with-dependencies">
             <input th:each="field : ${refusal.fields}" type="hidden" th:name="${field.key}" th:value="${field.value}">
             <input type="hidden" name="includeDependencies" value="true">
-            <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm">Make live with what it needs</button>
+            <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm">Deploy with what it needs</button>
         </form>
         <p th:if="${!refusal.deployableAlong and !refusal.includedDependencies}" data-testid="deploy-with-dependencies-withheld">
-            Making it live with what it needs is not offered: only a version this tenant has, with its
-            content, can be made live along with it. Install the missing versions first, then try again.
+            Deploying with what it needs is not offered: only a version this tenant has, with its
+            content, can be deployed along with it. Install the missing versions first, then try again.
         </p>
     </div>
 </body>

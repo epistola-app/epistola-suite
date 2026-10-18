@@ -29,7 +29,9 @@ class CatalogContentsUiTest : BasePlaywrightTest() {
 
         val dialog = page.locator("dialog[open]#create-template-dialog")
         assertThat(dialog).isVisible()
-        assertThat(dialog.locator("select#catalog")).hasValue("letters")
+        // Inside a catalog there is no catalog to choose: it creates here.
+        assertThat(dialog.locator("input[type='hidden'][name='catalog']")).hasValue("letters")
+        assertThat(dialog.locator("select#catalog")).hasCount(0)
 
         page.keyboard().press("Escape")
         assertThat(page.locator("dialog[open]#create-template-dialog")).hasCount(0)

@@ -109,10 +109,10 @@ class WorkspaceScopeTest {
 
         assertThat(nav.associate { it.key to it.href }).containsEntry("templates", "/tenants/acme/templates?catalog=letters@1.2.1")
             .containsEntry("stencils", "/tenants/acme/stencils?catalog=letters@1.2.1")
-            .containsEntry("uses", "/tenants/acme/catalogs/letters@1.2.1/uses")
-            .containsEntry("details", "/tenants/acme/catalogs/letters@1.2.1/details")
+            .containsEntry("dependencies", "/tenants/acme/catalogs/letters@1.2.1/dependencies")
+            .containsEntry("settings", "/tenants/acme/catalogs/letters@1.2.1/settings")
             .containsEntry("versions", "/tenants/acme/catalogs/letters/versions")
-            .containsEntry("live", "/tenants/acme/catalogs/letters/live")
+            .containsEntry("deployments", "/tenants/acme/catalogs/letters/deployments")
             .`as`("side work's overview is its draft page").containsEntry("overview", "/tenants/acme/catalogs/letters@1.2.1/draft")
         assertThat(nav.filter { it.active }.map { it.key }).containsExactly("stencils")
     }
@@ -129,7 +129,7 @@ class WorkspaceScopeTest {
         assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters/browse", "letters")).isEqualTo("overview")
         assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters@1.2.1/draft", "letters")).isEqualTo("overview")
         assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters/releases/1.2.0", "letters")).isEqualTo("versions")
-        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters/live", "letters")).isEqualTo("live")
+        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters/deployments", "letters")).isEqualTo("deployments")
         assertThat(CatalogNav.activeKey("/tenants/acme/templates/letters/invoice", "letters")).isEqualTo("templates")
         assertThat(CatalogNav.activeKey("/tenants/acme/code-lists", "letters")).isEqualTo("code-lists")
         assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/shared/browse", "letters")).`as`("another catalog").isNull()

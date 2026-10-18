@@ -102,9 +102,9 @@
                             </th:block>
                             <span th:if="${catalog.latestRelease == null}" class="text-muted">Not yet</span>
                         </dd>
-                        <dt>Live</dt>
+                        <dt>Deployed</dt>
                         <dd data-testid="catalog-overview-served">
-                            <span th:if="${catalog.served.isEmpty()}" class="text-muted">Not live anywhere yet</span>
+                            <span th:if="${catalog.served.isEmpty()}" class="text-muted">Not deployed anywhere yet</span>
                             <div th:each="entry : ${catalog.served}">
                                 <a th:href="@{/tenants/{t}/environments/{e}(t=${tenant.id},e=${entry.key})}" th:text="${entry.key}">production</a>
                                 <span class="text-muted" th:text="${#strings.listJoin(entry.value.![('v' + #this)], ', ')}">v1.0.0</span>

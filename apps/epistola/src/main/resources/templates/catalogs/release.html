@@ -22,10 +22,10 @@
              th:with="bar=${draftBar}, canForget=${auth.has('CATALOG_MANAGE')}, version=${release.version}">
             <div class="detail-section-body">
                 <p style="margin-top: 0;" data-testid="release-live">
-                    <th:block th:if="${liveIn.isEmpty()}">Not live anywhere.</th:block>
-                    <th:block th:unless="${liveIn.isEmpty()}">Live in <strong th:text="${#strings.listJoin(liveIn, ', ')}">production</strong>.</th:block>
-                    <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalogId})} + '#catalog-deployments'">Make a version live or take it offline</a>
-                    on the catalog page.
+                    <th:block th:if="${liveIn.isEmpty()}">Not deployed anywhere.</th:block>
+                    <th:block th:unless="${liveIn.isEmpty()}">Deployed to <strong th:text="${#strings.listJoin(liveIn, ', ')}">production</strong>.</th:block>
+                    <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments(tenantId=${tenantId},catalogId=${catalogId})}">Deploy a version or undeploy it</a>
+                    under Deployments.
                 </p>
                 <p class="form-hint">A published version does not change. To change it, start a draft from it and publish that.</p>
 
@@ -74,7 +74,7 @@
                     </form>
                 </div>
                 <p th:if="${!release.retained}" class="form-hint" style="margin-bottom: 0;">
-                    It was published before Epistola kept the content of a version, so it cannot be made live, exported or changed.
+                    It was published before Epistola kept the content of a version, so it cannot be deployed, exported or changed.
                 </p>
             </div>
         </div>

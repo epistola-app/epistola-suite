@@ -88,13 +88,20 @@
     <!--/* What this version takes from other catalogs (GetCatalogBorrowing): a row per catalog it uses
            or records — what it uses, and the version that renders from. Shown as its own section only
            when there is something; otherwise Contents says so in one line. Model: `readiness`, `tenantId`. */-->
-    <div th:fragment="borrowed" th:if="${!readiness.borrowing.catalogs.isEmpty()}"
-         class="ep-panel detail-section" data-testid="catalog-borrowed">
+    <div th:fragment="borrowed" class="ep-panel detail-section" data-testid="catalog-borrowed">
         <div class="detail-section-header">
-            <h2>From other catalogs</h2>
+            <h2>Depends on</h2>
+            <!--/* Declaring is what the publish dialog does for what is used; this adds one ahead of
+                   use, or sets the range it accepts. */-->
+            <button th:if="${mayEditDependencies}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                    th:hx-get="@{/tenants/{t}/catalogs/{c}/dependencies/edit(t=${tenantId},c=${catalogId})}"
+                    hx-target="#dialog-mount" hx-swap="innerHTML" data-testid="catalog-dependencies-edit">Edit dependencies…</button>
         </div>
         <div class="detail-section-body">
-            <table class="ep-table">
+            <p th:if="${readiness.borrowing.catalogs.isEmpty()}" class="text-muted" data-testid="catalog-uses-none"
+               th:text="${catalog.name} + ' depends on no other catalog yet. Add one to use its stencils, themes, images, fonts or code lists; using one in a template adds it when you publish.'">Letters depends on no other catalog yet.</p>
+            <p th:if="${dependenciesWithheld}" class="form-hint" data-testid="catalog-dependencies-edit-withheld">Changing dependencies needs the content author role.</p>
+            <table th:unless="${readiness.borrowing.catalogs.isEmpty()}" class="ep-table">
                 <thead>
                     <tr><th>Catalog</th><th>Used here</th><th>Version</th></tr>
                 </thead>

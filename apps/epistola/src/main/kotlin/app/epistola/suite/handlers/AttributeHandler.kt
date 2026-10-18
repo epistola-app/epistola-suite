@@ -21,6 +21,8 @@ import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.handlers.CatalogDraftBar
+import app.epistola.suite.handlers.FromOtherCatalog
+import app.epistola.suite.handlers.FromOtherCatalogs
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.ModelBuilder
@@ -53,6 +55,9 @@ class AttributeHandler {
         val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
         val catalogs = ListCatalogs(tenantId.key).query()
         val attributes = ListAttributeDefinitions(tenantId = tenantId, catalogKey = segment?.key, catalogVersion = segment?.ref(tenantId.key)).query()
+        val bar = segment?.let { draftBarFor(tenantId, it) }
+        // What the catalogs this one depends on hold of this kind, listed read-only below its own.
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListAttributeDefinitions(tenantId = tenantId, catalogKey = it).query() }) { a, c, n -> FromOtherCatalog(a.displayName, "/tenants/${tenantId.key}/attributes?catalog=${c.value}", n) }
         return ServerResponse.ok().page("attributes/list") {
             "pageTitle" to "Attributes - Epistola"
             "tenant" to tenant
@@ -60,7 +65,8 @@ class AttributeHandler {
             "catalogs" to catalogs
             "selectedCatalog" to (segment?.value ?: "")
             "draftSegment" to segment
-            "draftBar" to segment?.let { draftBarFor(tenantId, it) }
+            "draftBar" to bar
+            "fromOtherCatalogs" to fromOtherCatalogs
             "attributes" to attributes
         }
     }

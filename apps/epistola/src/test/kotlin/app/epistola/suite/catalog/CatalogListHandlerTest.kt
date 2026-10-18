@@ -681,7 +681,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `authored catalog metadata sections can be edited independently from the catalog's Details page`() = fixture {
+    fun `authored catalog metadata sections can be edited independently from the catalog's Settings page`() = fixture {
         lateinit var t: Tenant
         lateinit var otherCatalogImageSlug: String
         given {
@@ -732,7 +732,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
 
         whenever {
             val browseResponse = restTemplate.getForEntity(
-                "/tenants/${t.id}/catalogs/metadata/details",
+                "/tenants/${t.id}/catalogs/metadata/settings",
                 String::class.java,
             )
             assertThat(browseResponse.statusCode).isEqualTo(HttpStatus.OK)

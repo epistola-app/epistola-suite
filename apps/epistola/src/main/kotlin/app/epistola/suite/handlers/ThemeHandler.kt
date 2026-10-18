@@ -13,6 +13,8 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.handlers.CatalogDraftBar
+import app.epistola.suite.handlers.FromOtherCatalog
+import app.epistola.suite.handlers.FromOtherCatalogs
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogId
@@ -77,6 +79,9 @@ class ThemeHandler(
         val tenant = GetTenant(id = tenantId.key).query()
         val catalogs = ListCatalogs(tenantId.key).query()
         val themes = ListThemes(tenantId = tenantId, catalogKey = catalogFilter, catalogVersion = segment?.ref(tenantId.key)).query()
+        val bar = segment?.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/themes?catalog=${it.value}" } }
+        // What the catalogs this one depends on hold of this kind, listed read-only below its own.
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListThemes(tenantId = tenantId, catalogKey = it).query() }) { t, c, n -> FromOtherCatalog(t.name, "/tenants/${tenantId.key}/themes/${c.value}/${t.id.value}", n) }
         return ServerResponse.ok().page("themes/list") {
             "pageTitle" to "Themes - Epistola"
             "tenantId" to tenantId.key
@@ -84,7 +89,8 @@ class ThemeHandler(
             "catalogs" to catalogs
             "selectedCatalog" to (segment?.value ?: "")
             "draftSegment" to segment
-            "draftBar" to segment?.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/themes?catalog=${it.value}" } }
+            "draftBar" to bar
+            "fromOtherCatalogs" to fromOtherCatalogs
             "themes" to themes
         }
     }

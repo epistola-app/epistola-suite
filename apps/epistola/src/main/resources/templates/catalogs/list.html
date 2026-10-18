@@ -197,7 +197,7 @@
                             <div class="alert-title">This can break what is connected to it</div>
                             <p style="margin: var(--ep-space-1) 0 0;">
                                 Systems that send data to these templates, or catalogs that use this one, may need to change
-                                before this version is made live:
+                                before this version is deployed:
                             </p>
                             <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
                                 <li th:each="reason : ${readiness.impactReasons}" th:text="${reason}">template 'invoice': variant 'en' removed</li>
@@ -309,19 +309,19 @@
                     <!--/* Publish and make live in one go: the common case of changing a template and
                            having the application use it (PublishLiveChoice). */-->
                     <div th:if="${live.offer}" class="form-group" data-testid="publish-live">
-                        <span class="ep-label">Make it live in</span>
+                        <span class="ep-label">Deploy to</span>
                         <label th:each="target : ${live.environments}" style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-1);"
                                data-testid="publish-live-target" th:attr="data-environment=${target.key}">
                             <input type="checkbox" name="liveIn" th:value="${target.key}" th:checked="${live.checked(target.key)}">
                             <span>
                                 <span th:text="${target.name}">Test</span>
-                                <span class="text-muted" th:text="${target.liveNow.isEmpty()} ? '(nothing live yet)' : '(now v' + ${#strings.listJoin(target.liveNow, ', v')} + ')'">(now v1.0.0)</span>
+                                <span class="text-muted" th:text="${target.liveNow.isEmpty()} ? '(nothing deployed yet)' : '(now v' + ${#strings.listJoin(target.liveNow, ', v')} + ')'">(now v1.0.0)</span>
                             </span>
                         </label>
-                        <p class="form-hint">Applications using an environment get the new version straight away. Leave it unticked to make it live later.</p>
+                        <p class="form-hint">Applications using an environment get the new version straight away. Leave it unticked to deploy it later.</p>
                     </div>
                     <p th:if="${live.withheld}" class="form-hint" data-testid="publish-live-withheld">
-                        Making it live needs the permission to deploy; someone who has it can do that on the catalog page.
+                        Deploying needs the permission to deploy; someone who has it can do that under Deployments.
                     </p>
 
                     <details data-testid="publish-advanced">

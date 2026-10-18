@@ -16,10 +16,10 @@ catalog, or which version of it, they are changing.
 
 ## Two places
 
-| Where                | Context bar                                            | Side nav                                                                            |
-| -------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| **Inside a catalog** | `Acme / Letters ▾ / Next version ▾`, changes, Publish… | Overview, Templates · Stencils … Code lists · Versions, Live, Uses, Details         |
-| **Outside one**      | `Acme / Environments`, "← Back to Letters"             | Home · your catalogs and All catalogs · Documents · Operations · Settings · Support |
+| Where                | Context bar                                            | Side nav                                                                                    |
+| -------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| **Inside a catalog** | `Acme / Letters ▾ / Next version ▾`, changes, Publish… | Overview, Templates · Stencils … Code lists · Versions, Deployments, Dependencies, Settings |
+| **Outside one**      | `Acme / Environments`, "← Back to Letters"             | Home · your catalogs and All catalogs · Documents · Operations · Settings · Support         |
 
 A page is inside a catalog when its handler puts a `CatalogDraftBar` in the model as `draftBar`, as
 every content page already did for the old catalog bar. `ShellModelInterceptor` turns that into a
@@ -31,7 +31,7 @@ every content page already did for the old catalog bar. `ShellModelInterceptor` 
   _Subscribed_. The system catalog, part of every tenant, is left out; every catalog is under _All
   catalogs_. Built as a list, so a filter and a _Starred_ group can be added without changing it.
 - **Version (Next version ▾):** the next version nearly always. The menu holds the advanced cases out
-  of the way: other drafts (side work), _Fix what is live in …_ per environment that serves a
+  of the way: other drafts (side work), _Fix what is deployed to …_ per environment that serves a
   version that can be fixed, and _Published versions_. Side work is named by what it fixes
   ("Fix of v1.2.0 · production") and turns the bar amber, with a strip under it saying the next
   version is not affected and a way back to it.
@@ -43,14 +43,17 @@ every content page already did for the old catalog bar. `ShellModelInterceptor` 
 
 ## The catalog's pages
 
-| Page                                                               | Shows                                                                           | Segment     |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------- | ----------- |
-| Overview                                                           | What is not published yet and the action that moves it on; templates            | the version |
-| Templates, Stencils, Themes, Images, Fonts, Attributes, Code lists | The lists, filtered to the catalog                                              | the version |
-| Versions                                                           | The next version, side work, the published versions                             | the catalog |
-| Live                                                               | What each environment serves; make another live; fix what is live               | the catalog |
-| Uses                                                               | The catalogs it uses, and how it stands with each                               | the version |
-| Details                                                            | Name, description and presentation (published with each version); key; Exchange | the version |
+| Page                                                               | Shows                                                                                                                                                      | Segment     |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| Overview                                                           | What is not published yet and the action that moves it on; templates; About (name, description, key)                                                       | the version |
+| Templates, Stencils, Themes, Images, Fonts, Attributes, Code lists | The catalog's own, then — read-only — what the catalogs it depends on hold of that kind. No catalog filter, and New creates in this catalog without asking | the version |
+| Versions                                                           | The next version, side work, the published versions, each with the version it started from                                                                 | the catalog |
+| Deployments                                                        | Which version each environment serves; deploy another; fix what is deployed                                                                                | the catalog |
+| Dependencies                                                       | What it depends on (and Edit dependencies…), and which catalogs depend on it                                                                               | the version |
+| Settings                                                           | Name, description and presentation (published with each version); key; Exchange                                                                            | the version |
+
+**Words.** Environments get a catalog version by _deploying_ it: the page is Deployments, the action
+Deploy, the state "deployed to production". "Live" is not used.
 
 Side work's overview is its draft page (`/catalogs/letters@1.2.1/draft`); the next version's is the
 catalog page (`/catalogs/letters/browse`).

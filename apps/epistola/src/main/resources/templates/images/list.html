@@ -13,7 +13,8 @@
 
         <!--/* Filtered to a catalog with several drafts: which one the rows are from, and the others. */-->
 
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
+        <!--/* Inside a catalog the list is that catalog's: no catalog to choose (docs/workspace-shell.md). */-->
+        <div th:if="${draftBar == null and (catalogs != null and !catalogs.isEmpty())}" style="margin-bottom: var(--ep-space-4);">
             <select id="catalog-filter" class="ep-select" style="max-width: 300px;"
                     th:attr="data-catalog-filter-base=@{/tenants/{tenantId}/images(tenantId=${tenantId})}">
                 <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
@@ -100,6 +101,8 @@
              openDialog=true, embedding the dialog for the same JS to open on
              load. The openDialog guard MUST wrap the th:replace on an OUTER
              element (th:replace precedence 100 runs before th:if 300). -->
+        <div th:replace="~{fragments/from-other-catalogs :: section(${fromOtherCatalogs}, 'images')}"></div>
+
         <div id="dialog-mount" data-dialog-mount>
             <th:block th:if="${openDialog}">
                 <th:block th:replace="~{images/new :: dialog}"></th:block>

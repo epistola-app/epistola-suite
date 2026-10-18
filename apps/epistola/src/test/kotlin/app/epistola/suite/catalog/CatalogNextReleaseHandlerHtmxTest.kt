@@ -249,7 +249,8 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("data-testid=\"catalog-dependency-row\"")
+            // Back on the Dependencies page, which lists it.
+            assertThat(response.headers.getFirst("HX-Location").orEmpty()).contains("/tenants/${tenant.id}/catalogs/letters/dependencies")
             val declared = withMediator { ListCatalogDependencies(tenant.id, CatalogKey.of("letters")).query() }.single()
             assertThat(declared.catalogKey).isEqualTo("shared")
             assertThat(declared.releaseVersion).isEqualTo("1.0.0")

@@ -80,7 +80,7 @@
                                     <a th:if="${fix.continueHref != null}" th:href="${fix.continueHref}" class="app-nav-dropdown-item ws-menu-item"
                                        role="menuitem" data-testid="ws-fix-live">
                                         <span class="ws-menu-text">
-                                            <span th:text="'Continue the fix of what is live in ' + ${fix.environment}">Continue the fix</span>
+                                            <span th:text="'Continue the fix of what is deployed to ' + ${fix.environment}">Continue the fix</span>
                                             <span class="ws-menu-detail" th:text="'v' + ${fix.version}">v1.2.0</span>
                                         </span>
                                     </a>
@@ -88,7 +88,7 @@
                                         <input type="hidden" name="of" th:value="${fix.version}">
                                         <button type="submit" class="app-nav-dropdown-item ws-menu-item" role="menuitem" data-testid="ws-fix-live">
                                             <span class="ws-menu-text">
-                                                <span th:text="'Fix what is live in ' + ${fix.environment}">Fix what is live in production</span>
+                                                <span th:text="'Fix what is deployed to ' + ${fix.environment}">Fix what is deployed to production</span>
                                                 <span class="ws-menu-detail" th:text="'Starts from v' + ${fix.version} + ', apart from the next version'">Starts from v1.2.0</span>
                                             </span>
                                         </button>
@@ -194,7 +194,7 @@
          data-testid="catalog-fix-banner" th:attr="data-catalog=${bar.catalogKey},data-catalog-version=${bar.chosen.version}">
         <span th:if="${bar.fixOf != null}"
               th:text="${bar.fixOfLiveIn.isEmpty()} ? 'You are changing a fix of v' + ${bar.fixOf} + ', published on its own as v' + ${bar.chosen.version} + '. The next version is not affected.'
-                       : 'You are changing a fix of v' + ${bar.fixOf} + ', which is live in ' + ${#strings.listJoin(bar.fixOfLiveIn, ', ')} + '. It is published on its own as v' + ${bar.chosen.version} + '; the next version is not affected.'">You are changing a fix of v1.2.0.</span>
+                       : 'You are changing a fix of v' + ${bar.fixOf} + ', which is deployed to ' + ${#strings.listJoin(bar.fixOfLiveIn, ', ')} + '. It is published on its own as v' + ${bar.chosen.version} + '; the next version is not affected.'">You are changing a fix of v1.2.0.</span>
         <span th:if="${bar.fixOf == null}"
               th:text="'You are changing draft v' + ${bar.chosen.version} + ', published on its own. The next version is not affected.'">You are changing draft v2.0.0.</span>
         <a class="ep-btn ep-btn-outline ep-btn-sm" th:href="${bar.workHref}" data-testid="catalog-fix-back">Back to the next version</a>

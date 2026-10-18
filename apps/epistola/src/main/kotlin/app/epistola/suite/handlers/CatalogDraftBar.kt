@@ -196,7 +196,7 @@ data class CatalogDraftBar(
                 version = release.version,
                 draft = false,
                 next = false,
-                base = null,
+                base = release.base,
                 publishedAt = release.releasedAt,
                 liveIn = release.deployedTo,
                 contentKept = release.contentRetained == true,
@@ -206,6 +206,7 @@ data class CatalogDraftBar(
 
     /**
      * One version on the catalog page. [next] marks the next version, shown without its number;
+     * [base] is the published version it started from (null when it started from nothing);
      * [publishedAt] is null for a draft.
      */
     data class VersionRow(

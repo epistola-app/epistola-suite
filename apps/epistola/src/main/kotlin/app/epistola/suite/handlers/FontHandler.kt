@@ -30,6 +30,8 @@ import app.epistola.suite.fonts.queries.GetFontVariantContent
 import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
 import app.epistola.suite.handlers.CatalogDraftBar
+import app.epistola.suite.handlers.FromOtherCatalog
+import app.epistola.suite.handlers.FromOtherCatalogs
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogParam
@@ -78,6 +80,9 @@ class FontHandler(
         val tenant = GetTenant(id = tenantKey).query()
         val catalogs = ListCatalogs(tenantKey).query()
         val fonts = ListFonts(tenantId = tenantId, catalogKey = segment?.key, catalogVersion = version).query()
+        val bar = segment?.let { s -> CatalogDraftBar.of(tenantKey, s) { "/tenants/${tenantKey.value}/fonts?catalog=${it.value}" } }
+        // What the catalogs this one depends on hold of this kind, listed read-only below its own.
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListFonts(tenantId = tenantId, catalogKey = it).query() }) { f, c, n -> FromOtherCatalog(f.name, "/tenants/${tenantKey.value}/fonts?catalog=${c.value}", n) }
         return ServerResponse.ok().render(
             "layout/shell",
             mapOf(
@@ -88,7 +93,8 @@ class FontHandler(
                 "catalogs" to catalogs,
                 "selectedCatalog" to (segment?.value ?: ""),
                 "draftSegment" to segment,
-                "draftBar" to segment?.let { s -> CatalogDraftBar.of(tenantKey, s) { "/tenants/${tenantKey.value}/fonts?catalog=${it.value}" } },
+                "draftBar" to bar,
+                "fromOtherCatalogs" to fromOtherCatalogs,
                 "fonts" to fonts.map { toFontView(tenantId, it, version) },
                 "activeNavSection" to "fonts",
             ),

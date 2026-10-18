@@ -5,14 +5,14 @@
 
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${catalog.name},
-            pageDescription=${catalog.description}
+            pageDescription=null
         )}"></div>
 
         <div id="catalog-alert"></div>
 
         <!--/* A catalog's overview (docs/workspace-shell.md): what is not published yet and the action
-               that moves it on, then its templates. Its parts, versions, where it is live, what it
-               uses and its details each have a page in the catalog's nav. */-->
+               that moves it on, then its templates. Its parts, versions, deployments,
+               dependencies and settings each have a page in the catalog's nav. */-->
         <th:block th:if="${readiness != null}">
             <div th:replace="~{catalogs/overview :: status}"></div>
             <th:block th:if="${readiness.drafts.current != null}">
@@ -23,6 +23,35 @@
         <th:block th:if="${catalog.type.name() == 'SUBSCRIBED'}">
             <th:block th:replace="~{catalogs/content :: contents}"></th:block>
         </th:block>
+
+        <!--/* The catalog's settings at a glance; they are changed on its Settings page. */-->
+        <div class="ep-panel detail-section" data-testid="catalog-about">
+            <div class="detail-section-header">
+                <h2>About</h2>
+                <a class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-about-settings"
+                   th:href="@{/tenants/{t}/catalogs/{c}/settings(t=${tenantId},c=${catalogId})}"
+                   th:text="${catalog.type.name() == 'AUTHORED' and auth.has('CATALOG_MANAGE')} ? 'Change in Settings' : 'All settings'">Change in Settings</a>
+            </div>
+            <dl class="description-list detail-section-body">
+                <dt>Name</dt>
+                <dd th:text="${catalog.name}">Letters</dd>
+                <dt>Description</dt>
+                <dd>
+                    <span th:if="${catalog.description != null and !#strings.isEmpty(catalog.description)}" th:text="${catalog.description}">Letters to customers</span>
+                    <span th:unless="${catalog.description != null and !#strings.isEmpty(catalog.description)}" class="text-muted">None yet</span>
+                </dd>
+                <dt>Key</dt>
+                <dd><code th:text="${catalog.namespace} + '/' + ${catalog.id}">acme/letters</code></dd>
+                <th:block th:unless="${keywords.isEmpty()}">
+                    <dt>Keywords</dt>
+                    <dd th:text="${#strings.listJoin(keywords, ', ')}">letters, invoices</dd>
+                </th:block>
+                <th:block th:if="${catalog.type.name() == 'SUBSCRIBED'}">
+                    <dt>Installed</dt>
+                    <dd th:text="${catalog.installedReleaseVersion != null} ? 'v' + ${catalog.installedReleaseVersion} : '—'">v2.0.0</dd>
+                </th:block>
+            </dl>
+        </div>
         <!-- HTMX host for catalog metadata and other URL-addressable dialogs. -->
         <div id="dialog-mount" data-dialog-mount></div>
 
@@ -146,38 +175,38 @@
         </div>
     </th:block>
 
-    <!--/* Sections of the catalog's own pages (Live, Details), each a page in the catalog nav. */-->
+    <!--/* Sections of the catalog's own pages (Deployments, Settings), each a page in the catalog nav. */-->
         <!--/* What each environment serves of this catalog: any number of releases. Deploying adds one;
                generation naming the environment renders the highest it serves, or the highest
                satisfying the request's version selector. Each served release has its own Undeploy. */-->
         <div th:fragment="live-section" id="catalog-deployments" class="ep-panel detail-section" data-testid="catalog-deployments"
              th:with="canDeploy=${auth.has('ENVIRONMENT_DEPLOY')}">
             <div class="detail-section-header">
-                <h2>Live</h2>
+                <h2>Environments</h2>
             </div>
             <div class="detail-section-body">
                 <th:block th:if="${deployRefusal != null}">
                     <div th:replace="~{environments/deploy-refusal :: refusal(${deployRefusal})}"></div>
                 </th:block>
                 <p th:if="${deployments.isEmpty()}" class="text-muted">
-                    There are no environments yet, so nothing can be made live.
+                    There are no environments yet, so nothing can be deployed.
                     <a th:href="@{/tenants/{tenantId}/environments(tenantId=${tenantId})}">Add an environment</a>
                     first.
                 </p>
                 <th:block th:if="${!deployments.isEmpty()}">
                     <p th:if="${deployableVersions.isEmpty()}" class="text-muted">
-                        Nothing can be made live yet: only a published version can.
+                        Nothing can be deployed yet: only a published version can.
                         <th:block th:if="${catalog.type.name() == 'AUTHORED'}">Publish it first.</th:block>
                     </p>
                     <p th:if="${!canDeploy and !deployableVersions.isEmpty()}" class="text-muted">
-                        Making a version live needs the permission to deploy.
+                        Deploying a version needs the permission to deploy.
                     </p>
                     <div class="ep-table-scroll" role="region" aria-label="Deployments table" tabindex="0">
                     <table class="ep-table">
                         <thead>
                             <tr>
                                 <th>Environment</th>
-                                <th>Live version</th>
+                                <th>Deployed version</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -200,13 +229,13 @@
                                             <button type="button"
                                                     class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
                                                     data-confirm-submit
-                                                    data-confirm-submit-title="Take this version offline"
-                                                    th:attr="data-confirm-submit-message=${row.environmentName} + ' stops using v' + ${served.version} + ' of ' + ${catalog.name} + '. Documents made there use another live version of it, or fail when there is none.'"
-                                                    data-confirm-submit-label="Take offline"
-                                                    data-confirm-submit-class="ep-btn-destructive">Take offline</button>
+                                                    data-confirm-submit-title="Undeploy this version"
+                                                    th:attr="data-confirm-submit-message=${row.environmentName} + ' stops using v' + ${served.version} + ' of ' + ${catalog.name} + '. Documents made there use another deployed version of it, or fail when there is none.'"
+                                                    data-confirm-submit-label="Undeploy"
+                                                    data-confirm-submit-class="ep-btn-destructive">Undeploy</button>
                                         </form>
                                     </div>
-                                    <span th:if="${row.served.isEmpty()}" class="text-muted">not live</span>
+                                    <span th:if="${row.served.isEmpty()}" class="text-muted">not deployed</span>
                                 </td>
                                 <td class="actions">
                                     <form th:if="${canDeploy and !deployableVersions.isEmpty()}"
@@ -214,12 +243,12 @@
                                           th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}">
                                         <input type="hidden" name="environmentId" th:value="${row.environmentKey}">
                                         <select name="version" class="ep-select ep-select-sm" required
-                                                th:attr="aria-label='Version to make live in ' + ${row.environmentName}">
+                                                th:attr="aria-label='Version to deploy to ' + ${row.environmentName}">
                                             <option th:each="version : ${deployableVersions}"
                                                     th:value="${version}"
-                                                    th:text="'v' + ${version} + (${row.servedVersions.contains(version)} ? ' (live)' : '')">v1.0.0</option>
+                                                    th:text="'v' + ${version} + (${row.servedVersions.contains(version)} ? ' (deployed)' : '')">v1.0.0</option>
                                         </select>
-                                        <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Make live</button>
+                                        <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Deploy</button>
                                     </form>
                                     <!--/* Changing what is live here without the next version: side work from exactly
                                            that version (docs/catalog-working-model.md, the hotfix). */-->
@@ -234,12 +263,12 @@
                                               th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/fixes(tenantId=${tenantId},catalogId=${catalog.id})}">
                                             <input type="hidden" name="of" th:value="${live}">
                                             <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-live-fix"
-                                                    th:title="'Change v' + ${live} + ' as it is live in ' + ${row.environmentName} + ', without the next version, and publish it as a fix'"
-                                                    th:text="'Fix what is live here'">Fix what is live here</button>
+                                                    th:title="'Change v' + ${live} + ' as it is deployed to ' + ${row.environmentName} + ', without the next version, and publish it as a fix'"
+                                                    th:text="'Fix what is deployed here'">Fix what is deployed here</button>
                                         </form>
                                         <span th:if="${live != null and !draftBar.openFixOf.containsKey(live) and !draftBar.fixableVersions.contains(live) and draftBar.newerPatchOf(live) != null and draftBar.mayOpenDrafts}"
                                               class="form-hint" data-testid="catalog-live-fix-withheld"
-                                              th:text="'v' + ${draftBar.newerPatchOf(live)} + ' already continues v' + ${live} + ': make that live, or fix it.'"></span>
+                                              th:text="'v' + ${draftBar.newerPatchOf(live)} + ' already continues v' + ${live} + ': deploy that, or fix it.'"></span>
                                     </th:block>
                                 </td>
                             </tr>

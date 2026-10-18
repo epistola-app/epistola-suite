@@ -23,9 +23,10 @@ class CatalogDraftBarVersionsTest {
 
     private fun draft(version: String, base: String?) = CatalogVersion(version, CatalogVersionStatus.DRAFT, base = base)
 
-    private fun release(version: String, retained: Boolean = true, liveIn: List<String> = emptyList()) = CatalogVersion(
+    private fun release(version: String, retained: Boolean = true, liveIn: List<String> = emptyList(), base: String? = null) = CatalogVersion(
         version,
         CatalogVersionStatus.RELEASED,
+        base = base,
         releasedAt = OffsetDateTime.parse("2026-10-01T10:00:00Z"),
         contentRetained = retained,
         deployedTo = liveIn,
@@ -70,6 +71,16 @@ class CatalogDraftBarVersionsTest {
             "/tenants/acme/catalogs/letters/releases/1.1.0",
         )
         assertThat(rows[2].liveIn).containsExactly("production")
+    }
+
+    @Test
+    fun `every version says the published version it started from, a published one too`() {
+        val rows = bar(
+            drafts = listOf(draft("1.3.0", "1.2.0")),
+            releases = listOf(release("1.2.0", base = "1.1.0"), release("1.1.0")),
+        ).versionRows
+
+        assertThat(rows.map { it.version to it.base }).containsExactly("1.3.0" to "1.2.0", "1.2.0" to "1.1.0", "1.1.0" to null)
     }
 
     @Test
