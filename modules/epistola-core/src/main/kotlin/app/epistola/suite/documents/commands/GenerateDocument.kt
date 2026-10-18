@@ -21,6 +21,7 @@ import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
+import app.epistola.suite.environments.DeploymentUsage
 import app.epistola.suite.generation.release.ReleaseTargetResolver
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -83,6 +84,7 @@ data class GenerateDocument(
 class GenerateDocumentHandler(
     private val jdbi: Jdbi,
     private val releaseTargetResolver: ReleaseTargetResolver,
+    private val usage: DeploymentUsage,
 ) : CommandHandler<GenerateDocument, DocumentGenerationRequest> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -143,6 +145,10 @@ class GenerateDocumentHandler(
 
             logger.info("Created generation request {} for tenant {}", request.id, command.tenantId)
             request
+        }.also {
+            // How much the deployed version is used, for deciding when to undeploy it.
+            val version = target.releaseVersion
+            if (command.environmentId != null && version != null) usage.record(command.tenantId, command.environmentId, command.catalogKey, version)
         }
     }
 }

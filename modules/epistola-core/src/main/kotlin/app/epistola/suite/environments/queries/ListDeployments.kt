@@ -37,7 +37,7 @@ class ListDeploymentsHandler(
     override fun handle(query: ListDeployments): List<CatalogDeployment> = jdbi.withHandle<List<CatalogDeployment>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT d.environment_key, cat.catalog_key AS catalog_key, d.version, d.deployed_at, d.deployed_by
+            SELECT d.environment_key, cat.catalog_key AS catalog_key, d.version, d.deployed_at, d.deployed_by, d.documents_requested, d.last_used_at
             FROM environment_catalog_deployments d
             JOIN catalogs cat ON cat.tenant_key = d.tenant_key AND cat.catalog_id = d.catalog_id
             JOIN catalog_releases r ON r.tenant_key = d.tenant_key AND r.catalog_id = d.catalog_id AND r.version = d.version

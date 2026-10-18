@@ -28,6 +28,7 @@ import app.epistola.suite.environments.queries.ListImplicitDeployments
 import app.epistola.suite.generation.release.CatalogSelection
 import app.epistola.suite.handlers.CatalogPages
 import app.epistola.suite.handlers.DeployRefusalView
+import app.epistola.suite.handlers.DeploymentUsageText
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.environmentId
@@ -254,6 +255,8 @@ class EnvironmentHandler {
                     catalogName = catalogNames[deployment.catalogKey] ?: deployment.catalogKey.value,
                     version = deployment.version,
                     deployedAt = deployment.deployedAt,
+                    documentsRequested = deployment.documentsRequested,
+                    lastUsedAt = deployment.lastUsedAt,
                     latest = (latest[deployment.catalogKey] as? CatalogSelection.Release)?.version == deployment.version,
                     overridden = overridden[deployment.catalogKey]?.version == deployment.version,
                     catalogOverridden = overridden.containsKey(deployment.catalogKey),
@@ -298,9 +301,10 @@ class EnvironmentHandler {
         val catalogKey = CatalogKey.validateOrNull(catalog)
         if (catalogKey == null || version.isEmpty()) return detail(request, error = "Choose a release to deploy.")
         val includeDependencies = request.param("includeDependencies").orElse("") == "true"
+        // Beside what the environment serves, unless the deployer chose to stop using the others.
+        val replace = request.param("replace").orElse("") == "true"
         return try {
-            // One live version per catalog per environment in the UI: making one live replaces the others.
-            DeployRelease(environmentId, catalogKey, version, includeDependencies, replace = true).execute()
+            DeployRelease(environmentId, catalogKey, version, includeDependencies, replace = replace).execute()
             redirectTo(environmentId)
         } catch (failure: ReleaseNotDeployableException) {
             detail(request, error = failure.message)
@@ -393,6 +397,12 @@ class EnvironmentHandler {
         val catalogName: String,
         val version: String,
         val deployedAt: OffsetDateTime,
+        /** Generation requests through this environment accepted for it since it was deployed. */
+        val documentsRequested: Long = 0,
+        /** When the last was; null when none was, so it may be safe to undeploy. */
+        val lastUsedAt: OffsetDateTime? = null,
+        /** How much it is used, as people read it. */
+        val usage: String = DeploymentUsageText.of(documentsRequested, lastUsedAt),
         /** What a request naming no version gets here. */
         val latest: Boolean = false,
         /** It is the latest because an override names it. */

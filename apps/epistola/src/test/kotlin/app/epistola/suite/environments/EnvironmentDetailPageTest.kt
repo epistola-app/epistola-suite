@@ -21,6 +21,7 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeployRelease
+import app.epistola.suite.environments.commands.UndeployRelease
 import app.epistola.suite.environments.queries.ListDeployableReleases
 import app.epistola.suite.environments.queries.ListDeploymentHistory
 import app.epistola.suite.environments.queries.ListDeployments
@@ -74,13 +75,18 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `making a version live from the page replaces the live one, and the history says which`() {
+    fun `deploying from the page adds the version, replaces the others when asked, and the history says which`() {
         val (tenant, production) = tenantWithReleases("env-deploy")
         withMediator { DeployRelease(production, LETTERS, "1.0.1").execute() }
 
-        val response = post("/tenants/${tenant.id.value}/environments/production/deployments", "release" to "letters@1.0.0")
+        val added = post("/tenants/${tenant.id.value}/environments/production/deployments", "release" to "letters@1.0.0")
+        assertThat(added.statusCode.is2xxSuccessful).`as`("the redirect lands back on the environment").isTrue()
+        assertThat(withMediator { ListDeployments(tenant.id, environmentKey = production.key).query() }.map { it.version })
+            .`as`("beside the other").containsExactly("1.0.1", "1.0.0")
+        assertThat(page(tenant, "production")).contains("Not used since it was deployed")
 
-        assertThat(response.statusCode.is2xxSuccessful).`as`("the redirect lands back on the environment").isTrue()
+        withMediator { UndeployRelease(production, LETTERS, "1.0.0").execute() }
+        post("/tenants/${tenant.id.value}/environments/production/deployments", "release" to "letters@1.0.0", "replace" to "true")
         assertThat(withMediator { ListDeployments(tenant.id, environmentKey = production.key).query() }.map { it.version }).containsExactly("1.0.0")
         assertThat(withMediator { ListDeploymentHistory(production).query() }.first().version).isEqualTo("1.0.0")
         assertThat(page(tenant, "production")).contains("Deployed letters v1.0.0").contains("replacing v1.0.1")

@@ -414,6 +414,13 @@ next release records one.
 
 ## What an environment uses
 
+Deploying (`DeployRelease`) adds a version beside the ones an environment serves, in the UI as over
+REST; `replace` (the UI's _Stop using the catalog's other versions here_) stops serving the others.
+Each deployment counts the generation requests accepted through the environment for it and when the
+last was (`documents_requested`, `last_used_at`; `DeploymentUsage` tallies per node and adds them
+about once a minute), so a version nobody asks for any more can be undeployed. Undeploying resets
+the count.
+
 An environment serves releases of a catalog (`DeployRelease`), and a request through it that names no
 version gets the highest of them. An **override** (`SetEnvironmentOverride`, `ClearEnvironmentOverride`,
 table `environment_catalog_overrides`) names what it uses instead, per catalog:

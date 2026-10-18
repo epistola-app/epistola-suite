@@ -22,6 +22,7 @@ import app.epistola.suite.documents.NoPublishedVersionException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.model.RequestStatus
+import app.epistola.suite.environments.DeploymentUsage
 import app.epistola.suite.generation.release.ReleaseRef
 import app.epistola.suite.generation.release.ReleaseTargetResolver
 import app.epistola.suite.mediator.Command
@@ -132,6 +133,7 @@ data class GenerateDocumentBatch(
 class GenerateDocumentBatchHandler(
     private val jdbi: Jdbi,
     private val releaseTargetResolver: ReleaseTargetResolver,
+    private val usage: DeploymentUsage,
 ) : CommandHandler<GenerateDocumentBatch, BatchKey> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -216,6 +218,13 @@ class GenerateDocumentBatchHandler(
 
             // Requests stay in PENDING status - the JobPoller drains them on its next poll.
             batchId
+        }.also {
+            // How much each deployed version is used, for deciding when to undeploy it.
+            command.items.indices
+                .mapNotNull { i -> command.items[i].environmentId?.let { env -> targets[i].releaseVersion?.let { Triple(env, command.items[i].catalogKey, it) } } }
+                .groupingBy { it }
+                .eachCount()
+                .forEach { (key, count) -> usage.record(command.tenantId, key.first, key.second, key.third, count) }
         }
     }
 }

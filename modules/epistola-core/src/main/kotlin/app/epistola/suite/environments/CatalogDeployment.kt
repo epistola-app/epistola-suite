@@ -16,6 +16,10 @@ data class CatalogDeployment(
     val version: String,
     val deployedAt: OffsetDateTime,
     val deployedBy: UserKey?,
+    /** Generation requests through the environment accepted for this version since it was deployed. */
+    val documentsRequested: Long = 0,
+    /** When the last of those was accepted; null when none was. */
+    val lastUsedAt: OffsetDateTime? = null,
 )
 
 /** A release cannot be deployed: it does not exist, or it kept no content to render from. */

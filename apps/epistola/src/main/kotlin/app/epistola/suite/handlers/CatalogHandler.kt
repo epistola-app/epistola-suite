@@ -400,13 +400,15 @@ class CatalogHandler {
         version: String? = null,
         acknowledged: Set<String> = emptySet(),
         liveChosen: Set<String>? = null,
+        replaceChosen: Boolean = false,
     ): Map<String, Any?> {
         val readiness = CatalogReleaseReadiness.of(draftBar(tenantId, segment))
         val status = GetLatestCatalogRelease(tenantId.key, segment.key).query()
         val live = PublishLiveChoice(
-            environments = deploymentRows(tenantId.key, segment.key).map { PublishLiveChoice.Target(it.environmentKey, it.environmentName, it.served.map { s -> s.version }) },
+            environments = deploymentRows(tenantId.key, segment.key).map { PublishLiveChoice.Target(it.environmentKey, it.environmentName, it.served.map { s -> s.version }, it.production) },
             mayDeploy = AuthContext.from(SecurityContext.current(), tenantId.key).has(Permission.ENVIRONMENT_DEPLOY),
             chosen = liveChosen,
+            replace = replaceChosen,
         )
         return mapOf(
             // Where publishing makes the new version live, ticked in the dialog.
@@ -448,6 +450,8 @@ class CatalogHandler {
         val acknowledged = request.params()["acknowledgedBehind"].orEmpty().map { it.trim() }.filter { it.isNotEmpty() }.toSet()
         // The environments to make the new version live in, ticked in the dialog.
         val liveIn = request.params()["liveIn"].orEmpty().map { it.trim() }.filter { it.isNotEmpty() }.toCollection(LinkedHashSet())
+        // Deployed beside what each environment uses, unless the publisher chose to stop using those.
+        val replaceLive = request.param("replaceLive").orElse("") == "true"
 
         // What was published along before this catalog's own publish, so a refusal of that says it.
         var publishedAlong: Map<String, String> = emptyMap()
@@ -466,6 +470,7 @@ class CatalogHandler {
                 version = form.formData["version"]?.ifBlank { null },
                 acknowledged = acknowledged,
                 liveChosen = liveIn,
+                replaceChosen = replaceLive,
             ),
         )
 
@@ -523,7 +528,7 @@ class CatalogHandler {
             if (liveIn.isNotEmpty()) requirePermission(tenantId.key, Permission.ENVIRONMENT_DEPLOY)
             liveIn.forEach { environment ->
                 try {
-                    DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, result.version, replace = true).execute()
+                    DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, result.version, replace = replaceLive).execute()
                 } catch (e: ValidationException) {
                     return reRenderWithError("Published v${result.version}, but it could not be deployed to $environment: ${e.message} Deploy it under Deployments.")
                 } catch (e: RuntimeException) {
@@ -622,9 +627,10 @@ class CatalogHandler {
         val version = request.param("version").orElse("").trim()
         if (environment.isEmpty() || version.isEmpty()) return deployments(request, error = "Choose an environment and a release to deploy.")
         val includeDependencies = request.param("includeDependencies").orElse("") == "true"
+        // Beside what the environment serves, unless the deployer chose to stop using the others.
+        val replace = request.param("replace").orElse("") == "true"
         return try {
-            // One live version per catalog per environment in the UI: making one live replaces the others.
-            DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, version, includeDependencies, replace = true).execute()
+            DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, version, includeDependencies, replace = replace).execute()
             ServerResponse.status(303)
                 .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
                 .build()
@@ -665,7 +671,8 @@ class CatalogHandler {
             DeploymentRowView(
                 environmentKey = environment.id.value,
                 environmentName = environment.name,
-                served = served[environment.id].orEmpty().map { ServedReleaseView(it.version, it.deployedAt) },
+                production = environment.production,
+                served = served[environment.id].orEmpty().map { ServedReleaseView(it.version, it.deployedAt, it.documentsRequested, it.lastUsedAt) },
                 // Not deployed itself, but used there because a deployed catalog depends on it.
                 implicit = ListImplicitDeployments(tenantKey, environment.id).query().filter { it.catalogKey == catalogKey }
                     .map { ImplicitUseView(it.version, it.neededBy.map { key -> names[key] ?: key.value }) },
@@ -1574,6 +1581,7 @@ class CatalogHandler {
     data class DeploymentRowView(
         val environmentKey: String,
         val environmentName: String,
+        val production: Boolean = false,
         val served: List<ServedReleaseView>,
         val implicit: List<ImplicitUseView> = emptyList(),
     ) {
@@ -1584,7 +1592,17 @@ class CatalogHandler {
     data class ImplicitUseView(val version: String, val neededBy: List<String>)
 
     /** One release an environment serves, and since when. */
-    data class ServedReleaseView(val version: String, val deployedAt: java.time.OffsetDateTime)
+    data class ServedReleaseView(
+        val version: String,
+        val deployedAt: java.time.OffsetDateTime,
+        /** Generation requests through the environment accepted for it since it was deployed. */
+        val documentsRequested: Long = 0,
+        /** When the last was; null when none was. */
+        val lastUsedAt: java.time.OffsetDateTime? = null,
+    ) {
+        /** How much it is used, as people read it. */
+        val usage: String get() = DeploymentUsageText.of(documentsRequested, lastUsedAt)
+    }
 
     /** One release as the catalog page shows it: the release, and what may be done with it. */
     data class CatalogReleaseView(

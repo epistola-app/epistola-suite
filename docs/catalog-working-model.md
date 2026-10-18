@@ -143,17 +143,20 @@ and must be above every published one) or made the next version (scenario 5).
 | Side work started from a published version resolves other catalogs at that version's locks (rule 6)    | core (`catalog_current_versions`, resolvers) | ADR 0003      |
 | Publish several catalogs in one transaction, in dependency order                                       | core                                         | new operation |
 | Take over: a resource-level three-way merge (base / published / next version) with choices on conflict | core, UI                                     | new operation |
-| One live version per catalog per environment in the UI (the API keeps version selectors)               | UI                                           | none          |
+| Deploying adds beside what an environment serves; replacing is a choice; usage shown per version       | UI, REST                                     | none          |
 
 What stays: immutable releases, fingerprints and locks, ready marks (set by publishing), several drafts
 in core and REST — the UI just names them and gives each a purpose.
 
 ## Decided
 
-- **One live version per catalog per environment** (18 October). Making a version live replaces the
-  one that was live, in one transaction, logged as "made v1.1.0 live, replacing v1.0.0". The API keeps
-  serving several when asked (`deployRelease` without replace). Built: `DeployRelease(replace = true)`,
-  used by every "make live" in the UI.
+- **Deploying adds; replacing is a choice** (19 October, replacing the 18 October "one live version
+  per catalog per environment"). A deploy in the UI, as over REST, adds the version beside those the
+  environment serves: requests naming no version get the highest (or the one chosen with _Use as
+  latest_), and a client pinned to an older version keeps getting it. The deployer may tick _Stop
+  using the catalog's other versions here_ (`replace`), logged as "replacing v1.0.0". Each deployed
+  version shows how much it is used (documents requested through the environment, and when last),
+  so it is undeployed once nobody asks for it.
 - **Dependencies are always used implicitly, and can also be deployed explicitly** (18 October). A
   deployed version renders the versions it is pinned to from the tenant's copy, so they are not
   deployed along; the environment says what comes along. Deploying a dependency yourself, or

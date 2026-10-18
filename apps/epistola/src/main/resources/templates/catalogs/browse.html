@@ -222,7 +222,7 @@
                                          style="display: flex; gap: var(--ep-space-2); align-items: center;">
                                         <span th:text="'v' + ${served.version}">v1.0.0</span>
                                         <span class="text-muted" style="font-size: var(--ep-text-xs);"
-                                              th:text="'since ' + ${#temporals.format(served.deployedAt, 'yyyy-MM-dd HH:mm')}"></span>
+                                              th:text="'since ' + ${#temporals.format(served.deployedAt, 'yyyy-MM-dd HH:mm')} + ' · ' + ${served.usage}"></span>
                                         <form th:if="${canDeploy}"
                                               method="post" style="display: inline;"
                                               th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments/{environmentId}/undeploy(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},environmentId=${row.environmentKey})}">
@@ -252,6 +252,10 @@
                                                     th:value="${version}"
                                                     th:text="'v' + ${version} + (${row.servedVersions.contains(version)} ? ' (deployed)' : '')">v1.0.0</option>
                                         </select>
+                                        <label th:unless="${row.served.isEmpty()}" class="text-sm" style="display: flex; gap: var(--ep-space-1); align-items: center;">
+                                            <input type="checkbox" name="replace" value="true" data-testid="catalog-deploy-replace">
+                                            <span>instead of the others</span>
+                                        </label>
                                         <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Deploy</button>
                                     </form>
                                 </td>

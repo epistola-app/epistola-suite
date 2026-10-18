@@ -78,6 +78,7 @@
                             <th>Catalog</th>
                             <th>Version</th>
                             <th>Deployed since</th>
+                            <th>Used</th>
                             <th th:if="${canDeploy}"></th>
                         </tr>
                     </thead>
@@ -94,6 +95,7 @@
                                       th:text="${row.overridden} ? 'Latest here (chosen)' : 'Latest here'">Latest here</span>
                             </td>
                             <td th:text="${#temporals.format(row.deployedAt, 'yyyy-MM-dd HH:mm')}"></td>
+                            <td data-testid="environment-usage" th:text="${row.usage}">Not used since it was deployed</td>
                             <td class="actions" th:if="${canDeploy}">
                                 <form th:if="${!row.latest}" method="post" style="display: inline;"
                                       th:action="@{/tenants/{t}/environments/{e}/overrides(t=${tenantId},e=${environment.id})}">
@@ -144,8 +146,16 @@
                             </optgroup>
                         </select>
                     </div>
+                    <label style="display: flex; gap: var(--ep-space-2); align-items: center; margin: 0;">
+                        <input type="checkbox" name="replace" value="true" data-testid="environment-deploy-replace">
+                        <span>Stop using the catalog's other versions here</span>
+                    </label>
                     <button type="submit" class="ep-btn ep-btn-primary">Deploy</button>
                 </form>
+                <p th:if="${canDeploy and !releaseGroups.isEmpty()}" class="form-hint">
+                    A version is deployed beside the others: applications asking for no version get the highest, and
+                    those asking for an older one keep getting it. Undeploy a version once its "Used" shows nobody asks for it.
+                </p>
             </div>
         </div>
 

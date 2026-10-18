@@ -104,7 +104,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `making a version live on the catalog page replaces the one that was live there`() {
+    fun `deploying on the catalog page adds the version, and replaces the others only when asked`() {
         val tenant = tenantWithCatalog("dep-replace")
         val key = CatalogKey.of("dep-replace")
         withMediator {
@@ -125,7 +125,14 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             form("environmentId" to "production", "version" to "1.1.0"),
             String::class.java,
         )
+        assertThat(withMediator { ListDeployments(tenant.id, key).query() }.map { it.version })
+            .`as`("beside the other: requests pinned to 1.0.0 keep working").containsExactly("1.1.0", "1.0.0")
 
+        restTemplate.postForEntity(
+            "/tenants/${tenant.id.value}/catalogs/dep-replace/deployments",
+            form("environmentId" to "production", "version" to "1.1.0", "replace" to "true"),
+            String::class.java,
+        )
         assertThat(withMediator { ListDeployments(tenant.id, key).query() }.map { it.version }).containsExactly("1.1.0")
     }
 

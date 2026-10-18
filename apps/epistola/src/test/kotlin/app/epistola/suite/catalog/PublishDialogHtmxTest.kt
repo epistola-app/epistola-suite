@@ -26,6 +26,8 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
+import app.epistola.suite.environments.commands.DeployRelease
+import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -155,6 +157,31 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
 
         val live = withMediator { ListCatalogVersions(tenant.id, letters, CatalogVersionStatus.RELEASED).query() }.first { it.version == "1.1.0" }.deployedTo
         assertThat(live).containsExactly("test")
+    }
+
+    @Test
+    fun `a production environment is never ticked for you, and publishing to it adds beside what it uses unless asked to replace`() {
+        val tenant = published("Publish Production")
+        val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id))
+        withMediator {
+            CreateEnvironment(production, "Production", production = true).execute()
+            DeployRelease(production, letters, "1.0.0").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant.id))), "Invoice")
+                .execute().withRequiredDataExample()
+        }
+
+        val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
+        val target = dialog.substringAfter("data-environment=\"production\"").substringBefore("</label>")
+        assertThat(target).`as`("the only environment, but production").doesNotContain("checked").contains(">Production</span>")
+        assertThat(dialog).contains("data-testid=\"publish-live-replace\"")
+
+        postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.1.0", "liveIn" to "production"))
+        assertThat(withMediator { ListDeployments(tenant.id, letters).query() }.map { it.version })
+            .`as`("beside 1.0.0, which pinned requests keep getting").containsExactlyInAnyOrder("1.1.0", "1.0.0")
+
+        withMediator { CreateDocumentTemplate(TemplateId(TemplateKey.of("reminder"), CatalogId(letters, TenantId(tenant.id))), "Reminder").execute().withRequiredDataExample() }
+        postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.2.0", "liveIn" to "production", "replaceLive" to "true"))
+        assertThat(withMediator { ListDeployments(tenant.id, letters).query() }.map { it.version }).containsExactly("1.2.0")
     }
 
     @Test
