@@ -108,17 +108,22 @@ class ChangeKindEvaluatorTest {
     }
 
     @Test
-    fun `a dependency added or removed is breaking, and a moved lock is as big as the move`() {
+    fun `a dependency added is an addition, one removed no change, and a moved lock breaks only what is used`() {
         val shared = "dependency 'exchange.epistola.app/acme/shared'"
         assertThat(evaluate(content(), content(dependencies = listOf(dependency("^1.0.0", "1.0.0")))))
-            .containsExactly(ChangeKind.BREAKING to "$shared: added; an installation needs it")
+            .containsExactly(ChangeKind.ADDITIVE to "$shared: added; an installation brings it along")
         assertThat(evaluate(content(dependencies = listOf(dependency("^1.0.0", "1.0.0"))), content()))
-            .containsExactly(ChangeKind.BREAKING to "$shared: removed")
-        fun lockMove(from: String, to: String) = evaluate(content(dependencies = listOf(dependency(">=1.0.0", from))), content(dependencies = listOf(dependency(">=1.0.0", to))))
-        assertThat(lockMove("1.0.0", "1.0.1")).isEmpty()
-        assertThat(lockMove("1.0.0", "1.1.0")).containsExactly(ChangeKind.ADDITIVE to "$shared: locked to 1.1.0 instead of 1.0.0")
-        assertThat(lockMove("1.0.0", "2.0.0")).containsExactly(ChangeKind.BREAKING to "$shared: locked to 2.0.0 instead of 1.0.0")
-        assertThat(lockMove("1.1.0", "1.0.0")).containsExactly(ChangeKind.BREAKING to "$shared: locked to 1.0.0 instead of 1.1.0")
+            .containsExactly(ChangeKind.NONE to "$shared: no longer used")
+
+        // Which moves break is the per-use check's answer, here: only to 2.0.0, and only the footer.
+        val perUse = ChangeKindEvaluator(ObjectMapper()) { _, _, to -> if (to == "2.0.0") listOf("stencil 'footer': placeholder 'body' removed") else emptyList() }
+        fun lockMove(from: String, to: String, with: ChangeKindEvaluator = perUse) = with
+            .evaluate(content(dependencies = listOf(dependency(">=1.0.0", from))), content(dependencies = listOf(dependency(">=1.0.0", to))))
+            .reasons.map { it.kind to it.toString() }
+        assertThat(lockMove("1.0.0", "1.1.0")).containsExactly(ChangeKind.NONE to "$shared: now uses v1.1.0 instead of v1.0.0, which fits what is used")
+        assertThat(lockMove("1.0.0", "3.0.0")).`as`("a new major that fits").containsExactly(ChangeKind.NONE to "$shared: now uses v3.0.0 instead of v1.0.0, which fits what is used")
+        assertThat(lockMove("1.0.0", "2.0.0")).containsExactly(ChangeKind.BREAKING to "$shared: v2.0.0 breaks what is used of it: stencil 'footer': placeholder 'body' removed")
+        assertThat(lockMove("1.0.0", "2.0.0", evaluator).map { it.first }).`as`("without a per-use check, a move is a fix").containsExactly(ChangeKind.NONE)
         // Not locked yet: it is locked when the draft is released, so there is nothing to compare.
         assertThat(lockMove("1.0.0", "")).isEmpty()
     }

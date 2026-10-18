@@ -119,11 +119,14 @@ releases (and an installed release) are numbered.
   by them may get another variant); a stencil placeholder removed, a parameter an instance must now
   bind, or one retyped (the fit rule of `StencilInstances.placeholders` / `mustBind`, plus type); an
   attribute value no longer allowed, a restriction where there was none, or another code-list binding;
-  a code-list code removed; a dependency added, removed, its range changed, or its lock moved down or
-  to another major. Additive, needing at least a minor: a resource, variant, placeholder or optional
-  parameter added; a contract widened or dropped; a parameter no longer required or removed (a binding
-  of it is ignored); values allowed or a restriction lifted; a code-list entry added or its label,
-  order or hidden flag changed; a lock moved to another minor. Everything else is a fix. The same rules
+  a code-list code removed; a dependency's lock moved to a version that breaks a resource this catalog
+  uses (`UseCompatibility`: compatibility is judged per use, so a dependency's new major that breaks
+  only what is not used here is a fix, and a patch that breaks something used is breaking). Additive,
+  needing at least a minor: a resource, variant, placeholder or optional parameter added; a contract
+  widened or dropped; a parameter no longer required or removed (a binding of it is ignored); values
+  allowed or a restriction lifted; a code-list entry added or its label, order or hidden flag changed;
+  a dependency added (an installation brings it along). Everything else is a fix, including a
+  dependency removed or its range changed: neither changes what others rely on. The same rules
   decide whether a newer release of a catalog this one uses fits what it uses (`GetCatalogBorrowing`).
 - **Relocation** moves the next version's rows, so it is refused (`several-drafts`) while the source
   or target catalog has long-term work.

@@ -189,7 +189,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
 
     /**
      * The number the publish dialog offers, from what changed. Starting to use another catalog adds a
-     * dependency, which the change rules count as breaking (installing it now needs that catalog).
+     * dependency: an addition, so a minor, never a break.
      */
     private fun offered(dialog: String): String = Regex("""id="release-version" name="version"[^>]*value="([^"]+)"""").find(dialog)!!.groupValues[1]
 
@@ -201,12 +201,12 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
         val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
         assertThat(dialog).contains("data-testid=\"publish-borrowed\"").contains("It uses Brand from Shared: Shared v1.0.0 is recorded with it")
         assertThat(dialog).contains("data-testid=\"release-submit\"")
-        assertThat(offered(dialog)).`as`("a dependency added is breaking").isEqualTo("2.0.0")
+        assertThat(offered(dialog)).`as`("a dependency added is an addition").isEqualTo("1.1.0")
 
         postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to offered(dialog)))
 
-        assertThat(withMediator { ListCatalogVersions(tenant.id, letters, CatalogVersionStatus.RELEASED).query() }.map { it.version }).contains("2.0.0")
-        assertThat(withMediator { ListReleaseDependencies(tenant.id, letters, "2.0.0").query() }.map { it.catalogKey to it.releaseVersion })
+        assertThat(withMediator { ListCatalogVersions(tenant.id, letters, CatalogVersionStatus.RELEASED).query() }.map { it.version }).contains("1.1.0")
+        assertThat(withMediator { ListReleaseDependencies(tenant.id, letters, "1.1.0").query() }.map { it.catalogKey to it.releaseVersion })
             .containsExactly("shared" to "1.0.0")
     }
 

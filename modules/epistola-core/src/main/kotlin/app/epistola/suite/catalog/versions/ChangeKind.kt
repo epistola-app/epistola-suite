@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.dependencies.MissingDependencyDeclarer
+import app.epistola.suite.catalog.dependencies.UseCompatibility
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -85,11 +86,18 @@ enum class VersionStep(
  * - **Code-list entries**: a code removed is breaking; a code added, or an entry's label, order or
  *   hidden flag changed, additive (ADR 0001 keeps entries unchanged in a hotfix; a hidden entry stays
  *   valid for what used it).
- * - **Declared dependencies**: one added (an installation needs it), removed, or its range changed
- *   is breaking. A lock moved within the same range is as big as the move: to another major breaking,
- *   another minor additive, a higher patch nothing; a lower lock is breaking.
+ * - **Declared dependencies**: what a catalog depends on is not part of what others rely on, so a
+ *   dependency added is additive (an installation now brings it along), and one removed or its range
+ *   changed is no change at all. A lock moved to another version of a dependency is breaking only when
+ *   that version breaks a resource this catalog uses ([lockMove], the per-use check of
+ *   `UseCompatibility`); otherwise it is a fix, whatever the step in its number. Without [lockMove] a
+ *   lock move is a fix.
  */
-class ChangeKindEvaluator(private val objectMapper: ObjectMapper) {
+class ChangeKindEvaluator(
+    private val objectMapper: ObjectMapper,
+    /** What moving dependency `catalogKey`'s lock from one version to another breaks of what is used, as reasons. */
+    private val lockMove: ((catalogKey: String, from: String, to: String) -> List<String>)? = null,
+) {
 
     private val schemas = SchemaCompatibilityChecker()
 
@@ -207,25 +215,21 @@ class ChangeKindEvaluator(private val objectMapper: ObjectMapper) {
         val now = new.associateBy { it.id() }
         fun reason(kind: ChangeKind, id: String, text: String) = ChangeReason(kind, "dependency", id, text)
         val reasons = mutableListOf<ChangeReason>()
-        (was.keys - now.keys).sorted().forEach { reasons += reason(ChangeKind.BREAKING, it, "removed") }
-        (now.keys - was.keys).sorted().forEach { reasons += reason(ChangeKind.BREAKING, it, "added; an installation needs it") }
+        (was.keys - now.keys).sorted().forEach { reasons += reason(ChangeKind.NONE, it, "no longer used") }
+        (now.keys - was.keys).sorted().forEach { reasons += reason(ChangeKind.ADDITIVE, it, "added; an installation brings it along") }
         for (id in was.keys.intersect(now.keys).sorted()) {
             val before = was.getValue(id)
             val after = now.getValue(id)
-            if (before.version != after.version) {
-                reasons += reason(ChangeKind.BREAKING, id, "its range changed from ${before.version} to ${after.version}")
-                continue
-            }
             // A declaration not locked yet is locked when the draft is released: nothing to compare.
-            val lockedBefore = before.releaseVersion?.let(SemVer::parseOrNull) ?: continue
-            val lockedAfter = after.releaseVersion?.let(SemVer::parseOrNull) ?: continue
-            val kind = when (VersionStep.between(lockedBefore, lockedAfter)) {
-                null -> if (lockedAfter == lockedBefore) null else ChangeKind.BREAKING
-                VersionStep.PATCH -> null
-                VersionStep.MINOR -> ChangeKind.ADDITIVE
-                VersionStep.MAJOR -> ChangeKind.BREAKING
+            val lockedBefore = before.releaseVersion?.takeIf { SemVer.parseOrNull(it) != null } ?: continue
+            val lockedAfter = after.releaseVersion?.takeIf { SemVer.parseOrNull(it) != null } ?: continue
+            if (lockedBefore == lockedAfter) continue
+            val broken = lockMove?.invoke(after.catalogKey, lockedBefore, lockedAfter).orEmpty()
+            reasons += if (broken.isEmpty()) {
+                reason(ChangeKind.NONE, id, "now uses v$lockedAfter instead of v$lockedBefore, which fits what is used")
+            } else {
+                reason(ChangeKind.BREAKING, id, "v$lockedAfter breaks what is used of it: " + broken.joinToString("; "))
             }
-            kind?.let { reasons += reason(it, id, "locked to $lockedAfter instead of $lockedBefore") }
         }
         return reasons
     }
@@ -256,9 +260,9 @@ class DraftChangeKinds(
     private val contentBuilder: CatalogContentBuilder,
     private val releases: ReleaseContentAssembler,
     private val declarer: MissingDependencyDeclarer,
-    objectMapper: ObjectMapper,
+    private val compatibility: UseCompatibility,
+    private val objectMapper: ObjectMapper,
 ) {
-    private val evaluator = ChangeKindEvaluator(objectMapper)
 
     /**
      * Null when the catalog has no release [base] that retained its content, so there is nothing to
@@ -270,6 +274,13 @@ class DraftChangeKinds(
         val draft = contentBuilder.build(tenantKey, catalogKey)
         val undeclared = declarer.wouldDeclare(tenantKey, catalogKey, draft)
         val asPublished = if (undeclared.isEmpty()) draft else draft.copy(catalogDependencies = draft.catalogDependencies.orEmpty() + undeclared.map { it.toWire() })
+        // A dependency's newer version counts only for what the draft uses of it.
+        val evaluator = ChangeKindEvaluator(objectMapper) { dependency, from, to ->
+            compatibility.breaks(tenantKey, CatalogKey.of(dependency), from, to, UseCompatibility.usedOf(draft.dependencies.orEmpty(), dependency))
+                .map { "${typeName(it.type)} '${it.key}': ${it.reason}" }
+        }
         return evaluator.evaluate(released, asPublished)
     }
 }
+
+private fun typeName(type: String): String = if (type == "codeList") "code list" else type

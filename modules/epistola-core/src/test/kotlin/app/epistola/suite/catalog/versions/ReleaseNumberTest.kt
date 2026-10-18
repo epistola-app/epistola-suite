@@ -16,6 +16,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ResolveCatalogDependencies
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.dependencies.DeclareUsedCatalogs
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -33,14 +34,18 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
+import app.epistola.suite.stencils.commands.DeleteStencil
 import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.stencils.stencilDocument
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.DeleteDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.testing.IntegrationTestBase
@@ -207,15 +212,76 @@ class ReleaseNumberTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a changed dependency range is breaking`() {
+    fun `a changed dependency range is no change to what others rely on`() {
         val tenant = released("change-kind-dependency", dependency = true)
         withMediator {
             val shared = GetCatalog(tenant, CatalogKey.of("shared")).query()!!
             UpdateCatalogDependencies(tenant, letters, listOf(DeclaredCatalogDependency(shared.registry, shared.namespace, "shared", "~1.0.0"))).execute()
         }
 
-        assertThat(assess(tenant).needs).isEqualTo(ChangeKind.BREAKING)
-        assertThat(assess(tenant).reasons.single()).endsWith("/shared': its range changed from ^1.0.0 to ~1.0.0")
+        assertThat(assess(tenant).needs).isEqualTo(ChangeKind.NONE)
+        assertThat(assess(tenant).suggested).isEqualTo("1.0.1")
+    }
+
+    /**
+     * `shared` (theme `brand`, stencil `footer` with placeholder `body`) released as 1.0.0, then
+     * [change] released as 2.0.0; `letters` with an invoice on `brand`, filling `footer` when
+     * [usesFooter], released as 1.0.0 on shared 1.0.0, then its lock moved to shared 2.0.0.
+     */
+    private fun lockMovedToNewMajor(name: String, usesFooter: Boolean, change: (TenantKey) -> Unit): TenantKey = withMediator {
+        val tenant = createTenant(name).id
+        val shared = CatalogKey.of("shared")
+        val sharedId = CatalogId(shared, TenantId(tenant))
+        CreateCatalog(tenant, shared, "Shared").execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), sharedId), "Brand").execute()
+        CreateStencil(StencilId(StencilKey.of("footer"), sharedId), "Footer", content = stencilContent("body")).execute()
+        mediator.releaseNext(sharedId)
+        CreateCatalog(tenant, letters, "Letters").execute()
+        CreateDocumentTemplate(invoice(tenant), "Invoice").execute().withRequiredDataExample()
+        UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalogKey = shared).execute()
+        if (usesFooter) {
+            UpdateVariantContent(
+                VariantId(VariantKey.INITIAL, invoice(tenant)),
+                stencilDocument {
+                    text("signed", "Signed")
+                    placeholder("fill", "body", fill = listOf("signed"))
+                    stencil("footer-1", "footer", fills = listOf("fill"), catalogKey = "shared")
+                    build("footer-1")
+                },
+            ).execute()
+        }
+        DeclareUsedCatalogs(tenant, letters).execute()
+        mediator.releaseNext(catalogId(tenant))
+        change(tenant)
+        MarkCatalogReady(tenant, shared).execute()
+        ReleaseCatalogVersion(tenant, shared, "2.0.0").execute()
+        ResolveCatalogDependencies(tenant, letters).execute()
+        tenant
+    }
+
+    @Test
+    fun `a dependency's new major that breaks only what is not used here is a fix`() {
+        val tenant = lockMovedToNewMajor("change-kind-lock-fits", usesFooter = false) { t ->
+            DeleteStencil(StencilId(StencilKey.of("footer"), CatalogId(CatalogKey.of("shared"), TenantId(t)))).execute()
+        }
+
+        val assessment = assess(tenant)
+
+        assertThat(assessment.needs).`as`("Footer is not used here").isEqualTo(ChangeKind.NONE)
+        assertThat(assessment.suggested).isEqualTo("1.0.1")
+    }
+
+    @Test
+    fun `a dependency's new version that breaks what is used here is breaking, naming what`() {
+        val tenant = lockMovedToNewMajor("change-kind-lock-breaks", usesFooter = true) { t ->
+            UpdateStencil(StencilId(StencilKey.of("footer"), CatalogId(CatalogKey.of("shared"), TenantId(t))), content = stencilContent("content")).execute()
+        }
+
+        val assessment = assess(tenant)
+
+        assertThat(assessment.needs).isEqualTo(ChangeKind.BREAKING)
+        assertThat(assessment.reasons.single()).endsWith("/shared': v2.0.0 breaks what is used of it: stencil 'footer': placeholder 'body' removed")
+        assertThat(assessment.suggested).isEqualTo("2.0.0")
     }
 
     @Test
@@ -253,14 +319,16 @@ class ReleaseNumberTest : IntegrationTestBase() {
 
         val assessment = assess(tenant)
 
-        // The number offered is the one publishing then accepts, after it declares Shared.
+        // The number offered is the one publishing then accepts, after it declares Shared: a dependency
+        // added is an addition, not a break.
         assertThat(assessment.reasons.single { it.contains("shared") }).contains("added")
-        assertThat(assessment.suggested).isEqualTo("2.0.0")
+        assertThat(assessment.needs).isEqualTo(ChangeKind.ADDITIVE)
+        assertThat(assessment.suggested).isEqualTo("1.1.0")
         withMediator {
             DeclareUsedCatalogs(tenant, letters).execute()
             MarkCatalogReady(tenant, letters).execute()
         }
-        assertThat(withMediator { ReleaseCatalogVersion(tenant, letters, assessment.suggested).execute() }.version).isEqualTo("2.0.0")
+        assertThat(withMediator { ReleaseCatalogVersion(tenant, letters, assessment.suggested).execute() }.version).isEqualTo("1.1.0")
     }
 
     @Test
