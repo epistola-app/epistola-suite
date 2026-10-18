@@ -747,6 +747,13 @@
       overflow-x: auto;
     }
 
+    /* Inside a catalog the tenant gives way, so the catalog and the version stay in view;
+       the logo still leads to the tenant's home. */
+    .ws-crumbs:has(.ws-crumb-version) > .ws-crumb:first-child,
+    .ws-crumbs:has(.ws-crumb-version) > .ws-crumb:first-child + .ws-crumb-sep {
+      display: none;
+    }
+
     .ws-account-name,
     .ws-status-text {
       display: none;
