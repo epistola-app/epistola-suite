@@ -242,8 +242,6 @@ class ReleaseRenderSource(
         binary(scope.tenantKey, face.contentHash)?.let { FontFaceBytes(it, face.contentHash) }
     }
 
-    /** [templateKey] as [release] holds it, from the same cache rendering reads, or null when it holds none. */
-
     /** The identity of [templateKey] in [release], from its entries; null when the release has no such template. */
     fun templateResourceId(tenantKey: TenantKey, release: ReleaseRef, templateKey: String): java.util.UUID? = jdbi.withHandle<java.util.UUID?, Exception> { handle ->
         handle.createQuery(
@@ -262,6 +260,7 @@ class ReleaseRenderSource(
             .orElse(null)
     }
 
+    /** [templateKey] as [release] holds it, from the same cache rendering reads, or null when it holds none. */
     fun template(tenantKey: TenantKey, release: ReleaseRef, templateKey: String): TemplateResource? = read(tenantKey, release, "template", templateKey) as? TemplateResource
 
     private fun read(tenantKey: TenantKey, release: ReleaseRef, type: String, key: String): CatalogResource? = resources.get(

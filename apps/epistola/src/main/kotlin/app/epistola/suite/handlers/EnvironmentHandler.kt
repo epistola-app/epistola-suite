@@ -321,8 +321,6 @@ class EnvironmentHandler {
         }
     }
 
-    /** Stops the environment serving one release of a catalog, given as the `version` field. */
-
     /**
      * `POST /{environmentId}/overrides` with `catalog` and `version`: the environment uses that
      * release, one it serves, as its latest of the catalog. `POST /{environmentId}/overrides/{catalogId}/clear`
@@ -377,6 +375,7 @@ class EnvironmentHandler {
                 (entry.version?.let { ", not v$it" } ?: entry.draftLabel?.let { ", not $it" }.orEmpty())
     }
 
+    /** Stops the environment serving one release of a catalog, given as the `version` field. */
     fun undeploy(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val environmentId = request.environmentId(tenantId) ?: return ServerResponse.notFound().build()
