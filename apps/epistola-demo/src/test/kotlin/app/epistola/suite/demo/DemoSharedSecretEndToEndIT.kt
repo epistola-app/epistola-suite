@@ -44,6 +44,8 @@ import org.springframework.http.ResponseEntity
     classes = [EpistolaDemoApplication::class],
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = [
+        // The actuator on a random port of its own, not a fixed one shared between contexts.
+        "management.server.port=0",
         "epistola.demo.enabled=false",
         "epistola.generation.polling.enabled=false",
     ],

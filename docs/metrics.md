@@ -236,9 +236,11 @@ cost.
 
 ### Prometheus scrape
 
-Expose and scrape `/actuator/prometheus`. In the prod profile the actuator
-endpoints serve on a separate management port (`4040`); the Helm chart can add
-the scrape annotations:
+Scrape `/actuator/prometheus` on the management port, `4040`. The actuator serves there in every
+profile and never on the application port, so an ingress in front of the application never
+publishes metrics (they carry tenant and template keys); set `MANAGEMENT_SERVER_PORT` to move it.
+Probes stay on the application port at `/livez` and `/readyz`. The Helm chart adds the scrape
+annotations, on `4040` unless a port is given:
 
 ```yaml
 observability:

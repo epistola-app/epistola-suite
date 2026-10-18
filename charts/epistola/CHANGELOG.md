@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **The Prometheus scrape port defaults to `4040` in every profile.** From Epistola 2.0 the actuator
+  (`/actuator/health`, `/actuator/info`, `/actuator/prometheus`) serves on the management port
+  `4040` whatever `config.profiles` is, and no longer on the application port, so an ingress in
+  front of the application port never publishes metrics. Probes stay on `/livez` and `/readyz` on
+  the application port. A scrape configured explicitly for port `4000` must move to `4040`.
+
 ### Added
 
 - **`generation.fontCache.maxSize` and `generation.fontCache.maxFaces` — bounds of the parsed-font

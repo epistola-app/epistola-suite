@@ -17,10 +17,9 @@ spec:
       annotations:
         {{- if .Values.observability.prometheus.enabled }}
         prometheus.io/scrape: "true"
-        {{- /* Actuator serves on the management port 4040 under the prod profile,
-               else on the main port 4000. Derive it from config.profiles so the
-               scrape target follows the actuator; an explicit port overrides. */}}
-        prometheus.io/port: {{ .Values.observability.prometheus.port | default (ternary "4040" "4000" (contains "prod" (.Values.config.profiles | default ""))) | quote }}
+        {{- /* The actuator serves on the management port 4040 in every profile (app 2.0);
+               an explicit port overrides. */}}
+        prometheus.io/port: {{ .Values.observability.prometheus.port | default "4040" | quote }}
         prometheus.io/path: {{ .Values.observability.prometheus.path | quote }}
         {{- end }}
         {{- with .Values.podAnnotations }}
@@ -57,8 +56,8 @@ spec:
             - name: http
               containerPort: 4000
               protocol: TCP
-            # Actuator/management endpoints (health, info, prometheus) in the
-            # prod profile. Declared for in-cluster scraping only — intentionally
+            # Actuator/management endpoints (health, info, prometheus). Declared
+            # for in-cluster scraping only — intentionally
             # NOT added to the Service, so it is never exposed via the Ingress.
             - name: management
               containerPort: 4040

@@ -11,6 +11,10 @@ spring:
 
 # PrometheusEndpointTest reads these; setting them for every test lets it share the base context.
 management:
+  # The actuator keeps its own port in tests, as in every installation, but a random one: a fixed
+  # port would collide between test contexts.
+  server:
+    port: 0
   prometheus:
     metrics:
       export:
