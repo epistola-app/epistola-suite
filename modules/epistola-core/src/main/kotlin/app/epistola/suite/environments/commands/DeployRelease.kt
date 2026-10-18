@@ -12,6 +12,7 @@ import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.environments.CatalogDeployment
 import app.epistola.suite.environments.DeploymentAction
 import app.epistola.suite.environments.DeploymentLog
+import app.epistola.suite.environments.EnvironmentOverrideStore
 import app.epistola.suite.environments.MissingDependencyReason
 import app.epistola.suite.environments.ReleaseDependencies
 import app.epistola.suite.environments.ReleaseDependenciesMissingException
@@ -141,6 +142,7 @@ class DeployReleaseHandler(
 
     private fun stopServing(handle: Handle, command: DeployRelease, version: String, log: Boolean) {
         val tenantKey = command.environmentId.tenantKey
+        val ended = EnvironmentOverrideStore.list(handle, tenantKey, command.environmentId.key, command.catalogKey).filter { it.version == version }
         handle.createUpdate(
             "DELETE FROM environment_catalog_deployments WHERE tenant_key = :t AND environment_key = :e AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
         )
@@ -150,6 +152,7 @@ class DeployReleaseHandler(
             .bind("v", version)
             .execute()
         if (log) DeploymentLog.record(handle, tenantKey, command.environmentId.key, command.catalogKey, DeploymentAction.UNDEPLOYED, version)
+        EnvironmentOverrideStore.recordEnded(handle, tenantKey, ended)
     }
 
     /** Refuses a release that does not exist or kept no content to render from. */

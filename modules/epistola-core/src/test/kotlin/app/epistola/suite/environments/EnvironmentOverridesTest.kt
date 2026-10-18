@@ -251,9 +251,10 @@ class EnvironmentOverridesTest : IntegrationTestBase() {
         withMediator { SetEnvironmentOverride(env(setup, test), default, version = "1.0.0").execute() }
         withMediator { ClearEnvironmentOverride(env(setup, test), default).execute() }
         val history = withMediator { ListDeploymentHistory(env(setup, test)).query() }
-        assertThat(history.take(3).map { Triple(it.action, it.version, it.draftLabel) }).containsExactly(
+        assertThat(history.take(4).map { Triple(it.action, it.version, it.draftLabel) }).containsExactly(
             Triple(DeploymentAction.OVERRIDE_CLEARED, "1.0.0", null),
             Triple(DeploymentAction.OVERRIDE_SET, "1.0.0", null),
+            Triple(DeploymentAction.OVERRIDE_CLEARED, null, "Redesign"),
             Triple(DeploymentAction.OVERRIDE_SET, null, "Redesign"),
         )
     }
@@ -298,5 +299,26 @@ class EnvironmentOverridesTest : IntegrationTestBase() {
 
         assertThat(analyze(production).valid).`as`("production's release asks for name").isTrue()
         assertThat(analyze(test).valid).`as`("test's draft asks for reference").isFalse()
+    }
+
+    @Test
+    fun `an override that ends because its release is undeployed or its draft discarded is recorded`() {
+        val setup = setup("override-ended")
+        withMediator { SetEnvironmentOverride(env(setup, production), default, version = "1.0.0").execute() }
+        withMediator { UndeployRelease(env(setup, production), default, "1.0.0").execute() }
+        assertThat(withMediator { ListDeploymentHistory(env(setup, production)).query() }.take(2).map { Triple(it.action, it.version, it.draftLabel) })
+            .containsExactly(Triple(DeploymentAction.OVERRIDE_CLEARED, "1.0.0", null), Triple(DeploymentAction.UNDEPLOYED, "1.0.0", null))
+
+        val work = withMediator { CreateCatalogDraft(setup.tenant, default, name = "Redesign").execute() }
+        withMediator { SetEnvironmentOverride(env(setup, test), default, draft = DraftRef.Id(work.draftId!!)).execute() }
+        withMediator { DeleteCatalogDraft(setup.tenant, default, DraftRef.Id(work.draftId!!)).execute() }
+        assertThat(withMediator { ListDeploymentHistory(env(setup, test)).query() }.first().let { Triple(it.action, it.version, it.draftLabel) })
+            .isEqualTo(Triple(DeploymentAction.OVERRIDE_CLEARED, null, "Redesign"))
+
+        withMediator { SetEnvironmentOverride(env(setup, test), default, version = "1.0.0").execute() }
+        withMediator { DeployRelease(env(setup, test), default, "1.0.1", replace = true).execute() }
+        assertThat(withMediator { ListDeploymentHistory(env(setup, test)).query() }.map { it.action to it.version })
+            .`as`("deploying in its place ends it too").contains(DeploymentAction.OVERRIDE_CLEARED to "1.0.0")
+        assertThat(withMediator { ListEnvironmentOverrides(setup.tenant, test).query() }).isEmpty()
     }
 }

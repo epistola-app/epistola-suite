@@ -45,6 +45,7 @@ import app.epistola.suite.documents.TemplateNotInReleaseException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.environments.EnvironmentInUseException
+import app.epistola.suite.environments.EnvironmentOverrideRefusedException
 import app.epistola.suite.environments.ReleaseDependenciesMissingException
 import app.epistola.suite.environments.ReleaseNotDeployableException
 import app.epistola.suite.fonts.FontNotFoundException
@@ -585,6 +586,12 @@ object ApiExceptionMappings {
             defaultDetail = "Only the next version is released, and only long-term work has a name",
             extensions = { mapOf("catalogKey" to it.catalogKey.value) },
             logMessage = { "Draft operation refused for its kind: ${it.message}" },
+        )
+
+        builder.register<EnvironmentOverrideRefusedException>(
+            problemType = ApiProblemTypes.ENVIRONMENT_OVERRIDE_REFUSED,
+            defaultDetail = "The environment cannot use that version",
+            logMessage = { "Environment override refused: ${it.message}" },
         )
 
         builder.register<CatalogVersionBehindException>(

@@ -440,14 +440,19 @@ table `environment_catalog_overrides`) names what it uses instead, per catalog:
   on requests and documents, no release version), validate their data against the draft's contract,
   and carry the preview watermark, so nobody takes one for a published document. They do not pin
   the draft's exact content: a document says which draft it came from and when, not a fingerprint.
-- **Changes to the draft**: discarding a followed draft ends the override; promoting long-term work
-  moves environments following the next version to the new next version.
+- **Changes to what it names**: undeploying the release, deploying another in its place, or
+  discarding the followed draft ends the override, recorded in the history as cleared; promoting
+  long-term work moves environments following the next version to the new next version.
 - **History.** Setting and clearing an override is recorded in the environment's history beside
   deploys (`OVERRIDE_SET`, `OVERRIDE_CLEARED`).
 - **In the UI** the environment page marks the release that is _Latest here_, offers _Use as latest_
   on every other release it serves, lists the work in progress it follows, and shows the production
   mark. A draft's version menu offers _Try it on an environment…_, listing production environments
   without offering them; the long-term work banner names the environments following it.
+- **Over REST** `setEnvironmentOverride` (`releaseVersion` or `catalogVersion`), `clearEnvironmentOverride`
+  and `listEnvironmentOverrides`; a refusal is 409 `environment-override-refused`. `EnvironmentDto.production`,
+  history actions `override-set`/`override-cleared`, and `draftId`/`draftLabel` on documents, job items
+  and collected results.
 - **Over MCP** nothing sets an override, as nothing deploys; `preview_document` and
   `analyze_template_data` with an `environmentId` follow it.
 

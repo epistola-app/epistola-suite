@@ -78,6 +78,14 @@ ALTER TABLE documents
 COMMENT ON COLUMN documents.draft_id IS 'The draft this document was rendered from, live, through an environment override. NULL when rendered from a release.';
 COMMENT ON COLUMN documents.draft_label IS 'The draft''s name when the document was rendered';
 
+-- The collect feed says the same of each result.
+ALTER TABLE generation_results
+    ADD COLUMN draft_id UUID,
+    ADD COLUMN draft_label VARCHAR(100);
+
+COMMENT ON COLUMN generation_results.draft_id IS 'The draft rendered, live, through an environment that follows it. NULL when rendered from a release.';
+COMMENT ON COLUMN generation_results.draft_label IS 'The draft''s name when it was rendered';
+
 -- 4. The environment's history records overrides --------------------------------------------
 -- Setting an override names the release it uses (`version`) or the draft (`draft_label`, its name
 -- then); clearing one names what it used.

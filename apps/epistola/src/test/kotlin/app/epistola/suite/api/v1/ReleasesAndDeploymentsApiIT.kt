@@ -228,6 +228,55 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<Boolean>(ready.body!!, "$.releasable")).isTrue()
     }
 
+    @Test
+    fun `an override makes a served release, or a draft on a test environment, the one generation uses`() {
+        val (tenant, key) = tenantWithTwoReleases()
+        val namespace = withMediator { CatalogApiPaths.namespace(tenant) }
+        val environments = "/api/tenants/${tenant.value}/environments"
+        exchange(HttpMethod.PUT, "${deployments(tenant)}/1.0.0", key)
+        exchange(HttpMethod.PUT, "${deployments(tenant)}/1.0.1", key)
+        val override = "$environments/production/overrides/~/$namespace/default"
+        val generated = { environment: String ->
+            val accepted = exchange(
+                HttpMethod.POST,
+                "/api/tenants/${tenant.value}/documents/generate",
+                key,
+                """{"namespace":"$namespace","catalogKey":"default","templateKey":"invoice","variantKey":"${VariantKey.INITIAL.value}","environmentKey":"$environment","data":{}}""",
+            )
+            assertThat(accepted.statusCode).describedAs(accepted.body).isEqualTo(HttpStatus.ACCEPTED)
+            exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/documents/jobs/${JsonPath.read<String>(accepted.body!!, "$.requestId")}", key).body!!
+        }
+
+        val set = exchange(HttpMethod.PUT, override, key, """{"releaseVersion":"1.0.0"}""")
+        assertThat(set.statusCode).describedAs(set.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(set.body!!, "$.releaseVersion")).isEqualTo("1.0.0")
+        assertThat(JsonPath.read<String>(generated("production"), "$.items[0].releaseVersion")).isEqualTo("1.0.0")
+        assertThat(JsonPath.read<List<String>>(exchange(HttpMethod.GET, "$environments/production/overrides", key).body!!, "$.items[*].releaseVersion")).containsExactly("1.0.0")
+        assertThat(JsonPath.read<String>(exchange(HttpMethod.GET, "$environments/production/deployment-history", key).body!!, "$.items[0].action")).isEqualTo("override-set")
+
+        val both = exchange(HttpMethod.PUT, override, key, """{"releaseVersion":"1.0.0","catalogVersion":"next"}""")
+        assertThat(both.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+
+        // Production uses only published versions.
+        val marked = exchange(HttpMethod.PATCH, "$environments/production", key, """{"production":true}""")
+        assertThat(marked.statusCode).describedAs(marked.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(marked.body!!, "$.name")).`as`("a partial update keeps the name").isEqualTo("Production")
+        assertThat(JsonPath.read<Boolean>(marked.body!!, "$.production")).isTrue()
+        val refused = exchange(HttpMethod.PUT, override, key, """{"catalogVersion":"next"}""")
+        assertThat(refused.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(JsonPath.read<String>(refused.body!!, "$.type")).isEqualTo("https://epistola.app/errors/environment-override-refused")
+
+        assertThat(exchange(HttpMethod.PATCH, "$environments/production", key, """{"production":false}""").statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(exchange(HttpMethod.PUT, override, key, """{"catalogVersion":"next"}""").statusCode).isEqualTo(HttpStatus.OK)
+        val fromDraft = generated("production")
+        assertThat(JsonPath.read<String?>(fromDraft, "$.items[0].releaseVersion")).isNull()
+        assertThat(JsonPath.read<String>(fromDraft, "$.items[0].draftLabel")).isEqualTo("Next version")
+
+        assertThat(exchange(HttpMethod.DELETE, override, key).statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+        assertThat(exchange(HttpMethod.DELETE, override, key).statusCode).`as`("idempotent").isEqualTo(HttpStatus.NO_CONTENT)
+        assertThat(JsonPath.read<String>(generated("production"), "$.items[0].releaseVersion")).isEqualTo("1.0.1")
+    }
+
     private fun catalogPath(tenant: TenantKey): String = withMediator { CatalogApiPaths.catalog(tenant) }
 
     /** `…/environments/production/deployments/~/{namespace}/default`: append a release version. */

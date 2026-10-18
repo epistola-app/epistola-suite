@@ -111,6 +111,8 @@ class NdjsonResultStream(
         "templateId" to templateId?.value,
         "variantId" to variantId?.value,
         "releaseVersion" to releaseVersion,
+        "draftId" to draftId,
+        "draftLabel" to draftLabel,
         "filename" to filename,
         "contentType" to contentType,
         "sizeBytes" to sizeBytes,

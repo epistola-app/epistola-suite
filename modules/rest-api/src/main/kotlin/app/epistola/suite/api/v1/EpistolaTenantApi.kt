@@ -18,6 +18,9 @@ import app.epistola.api.model.DeploymentHistoryResponse
 import app.epistola.api.model.DeploymentListResponse
 import app.epistola.api.model.EnvironmentDto
 import app.epistola.api.model.EnvironmentListResponse
+import app.epistola.api.model.EnvironmentOverrideDto
+import app.epistola.api.model.EnvironmentOverrideListResponse
+import app.epistola.api.model.SetEnvironmentOverrideRequest
 import app.epistola.api.model.TenantDto
 import app.epistola.api.model.TenantListResponse
 import app.epistola.api.model.UpdateAttributeRequest
@@ -48,6 +51,7 @@ import app.epistola.suite.catalog.CatalogName
 import app.epistola.suite.catalog.catalogName
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.catalog.versions.GetCatalogNames
 import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
 import app.epistola.suite.common.ids.AttributeId
@@ -62,7 +66,11 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.documents.NoReleaseDeployedException
 import app.epistola.suite.environments.CatalogDeployment
+import app.epistola.suite.environments.ClearEnvironmentOverride
 import app.epistola.suite.environments.DeploymentAction
+import app.epistola.suite.environments.EnvironmentOverride
+import app.epistola.suite.environments.ListEnvironmentOverrides
+import app.epistola.suite.environments.SetEnvironmentOverride
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeleteEnvironment
 import app.epistola.suite.environments.commands.DeployRelease
@@ -328,6 +336,7 @@ class EpistolaTenantApi(
         val environment = CreateEnvironment(
             id = EnvironmentId(EnvironmentKey.of(createEnvironmentRequest.key), TenantId(TenantKey.of(tenantKey))),
             name = createEnvironmentRequest.name,
+            production = createEnvironmentRequest.production ?: false,
         ).execute()
         return ResponseEntity.status(HttpStatus.CREATED).body(environment.toDto())
     }
@@ -347,10 +356,10 @@ class EpistolaTenantApi(
         environmentKey: String,
         updateEnvironmentRequest: UpdateEnvironmentRequest,
     ): ResponseEntity<EnvironmentDto> {
-        val name = updateEnvironmentRequest.name
-            ?: throw ValidationException(field = "name", message = "Environment name is required")
         val id = environmentId(tenantKey, environmentKey)
-        val environment = UpdateEnvironment(id = id, name = name).execute()
+        // A partial update: what is left out stays as it is.
+        val current = GetEnvironment(id = id).query() ?: throw EnvironmentNotFoundException(id.tenantKey, id.key)
+        val environment = UpdateEnvironment(id = id, name = updateEnvironmentRequest.name ?: current.name, production = updateEnvironmentRequest.production).execute()
             ?: throw EnvironmentNotFoundException(id.tenantKey, id.key)
         return ResponseEntity.ok(environment.toDto())
     }
@@ -426,16 +435,21 @@ class EpistolaTenantApi(
         val catalogs by lazy { GetCatalogNames(environment.tenantKey, history.map { it.catalogKey }).query() }
         return ResponseEntity.ok(
             DeploymentHistoryResponse(
-                // BRIDGE: override entries reach the API with the contract's OVERRIDE_* actions.
-                items = history.filter { it.version != null && it.action in setOf(DeploymentAction.DEPLOYED, DeploymentAction.UNDEPLOYED) }.map { entry ->
+                items = history.map { entry ->
                     // An entry recorded the catalog's name; one from before it did reads the catalog's current name.
                     val catalog = if (entry.registry == null || entry.namespace == null) catalogs[entry.catalogKey] else null
                     DeploymentEventDto(
                         registry = entry.registry ?: catalog?.registry ?: identity.defaultRegistry,
                         namespace = entry.namespace ?: catalog?.namespace ?: CatalogIdentityProperties.defaultNamespace(environment.tenantKey),
                         catalogKey = entry.catalogKey.value,
-                        action = if (entry.action == DeploymentAction.DEPLOYED) DeploymentEventDto.Action.DEPLOYED else DeploymentEventDto.Action.UNDEPLOYED,
-                        releaseVersion = entry.version!!,
+                        action = when (entry.action) {
+                            DeploymentAction.DEPLOYED -> DeploymentEventDto.Action.DEPLOYED
+                            DeploymentAction.UNDEPLOYED -> DeploymentEventDto.Action.UNDEPLOYED
+                            DeploymentAction.OVERRIDE_SET -> DeploymentEventDto.Action.OVERRIDE_SET
+                            DeploymentAction.OVERRIDE_CLEARED -> DeploymentEventDto.Action.OVERRIDE_CLEARED
+                        },
+                        releaseVersion = entry.version,
+                        draftLabel = entry.draftLabel,
                         changedAt = entry.changedAt,
                         changedBy = entry.changedByName,
                     )
@@ -444,6 +458,63 @@ class EpistolaTenantApi(
             ),
         )
     }
+
+    // ================== Overrides ==================
+    //
+    // What an environment uses as its latest version of a catalog instead of the highest release it
+    // serves: one of those releases, or a draft (never on production). Requests naming an exact
+    // release are not affected.
+
+    override fun listEnvironmentOverrides(tenantKey: String, environmentKey: String): ResponseEntity<EnvironmentOverrideListResponse> {
+        val environment = existingEnvironment(tenantKey, environmentKey)
+        val overrides = ListEnvironmentOverrides(environment.tenantKey, environment.key).query()
+        val catalogs = GetCatalogNames(environment.tenantKey, overrides.map { it.catalogKey }).query()
+        return ResponseEntity.ok(EnvironmentOverrideListResponse(items = overrides.mapNotNull { override -> catalogs[override.catalogKey]?.let { override.toDto(it) } }))
+    }
+
+    override fun setEnvironmentOverride(
+        tenantKey: String,
+        environmentKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        setEnvironmentOverrideRequest: SetEnvironmentOverrideRequest,
+    ): ResponseEntity<EnvironmentOverrideDto> {
+        val environment = existingEnvironment(tenantKey, environmentKey)
+        val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
+        val release = setEnvironmentOverrideRequest.releaseVersion
+        val draft = setEnvironmentOverrideRequest.catalogVersion
+        if ((release == null) == (draft == null)) {
+            throw ValidationException(field = "releaseVersion", message = "Give either releaseVersion or catalogVersion, not both")
+        }
+        val draftRef = draft?.let { DraftRef.parse(it) ?: throw ValidationException(field = "catalogVersion", message = "catalogVersion is 'next' or a draft id") }
+        val override = SetEnvironmentOverride(environment, catalog.id, version = release, draft = draftRef).execute()
+        return ResponseEntity.ok(override.toDto(CatalogName(catalog.registry, catalog.namespace, catalog.id)))
+    }
+
+    override fun clearEnvironmentOverride(
+        tenantKey: String,
+        environmentKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+    ): ResponseEntity<Unit> {
+        val environment = existingEnvironment(tenantKey, environmentKey)
+        val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
+        ClearEnvironmentOverride(environment, catalog.id).execute()
+        return ResponseEntity.noContent().build()
+    }
+
+    private fun EnvironmentOverride.toDto(catalog: CatalogName) = EnvironmentOverrideDto(
+        environmentKey = environmentKey.value,
+        registry = catalog.registry,
+        namespace = catalog.namespace,
+        catalogKey = catalogKey.value,
+        setAt = setAt,
+        releaseVersion = version,
+        draftId = draftId,
+        draftLabel = draftLabel,
+    )
 
     private fun environmentId(tenantKey: String, environmentKey: String) = EnvironmentId(EnvironmentKey.of(environmentKey), TenantId(TenantKey.of(tenantKey)))
 

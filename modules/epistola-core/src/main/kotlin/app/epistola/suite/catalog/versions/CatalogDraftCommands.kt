@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.environments.EnvironmentOverrideStore
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.execute
@@ -337,7 +338,10 @@ class DeleteCatalogDraftHandler(
             val draft = drafts.find(handle, tenantKey, catalogKey, command.draft) ?: throw CatalogVersionNotFoundException(catalogKey, command.draft.toString())
             val holders = holders(handle, tenantKey, draft.versionId)
             if (holders.isNotEmpty()) throw CatalogVersionHeldException(catalogKey, draft.label, holders)
+            // Environments following it stop: recorded in their history.
+            val ended = EnvironmentOverrideStore.list(handle, tenantKey, null, catalogKey).filter { it.draftId == draft.versionId }
             drafts.delete(handle, tenantKey, draft.versionId)
+            EnvironmentOverrideStore.recordEnded(handle, tenantKey, ended)
             draft
         }
         // The next version starts again on the latest release, so everyday work has somewhere to go.

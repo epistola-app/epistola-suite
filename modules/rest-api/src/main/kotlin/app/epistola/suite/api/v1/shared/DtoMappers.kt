@@ -68,6 +68,7 @@ internal fun Environment.toDto() = EnvironmentDto(
     key = id.value,
     tenantKey = tenantKey.value,
     name = name,
+    production = production,
     createdAt = createdAt,
 )
 

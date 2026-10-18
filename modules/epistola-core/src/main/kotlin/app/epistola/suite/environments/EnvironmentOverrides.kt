@@ -235,6 +235,15 @@ object EnvironmentOverrideStore {
         }
         .list()
 
+    /**
+     * Records [overrides] as cleared, for those that end because what they named goes away: an
+     * undeployed release, a discarded draft. Call it with what [list] returned before the change,
+     * after making it; the foreign keys remove the rows.
+     */
+    internal fun recordEnded(handle: Handle, tenantKey: TenantKey, overrides: List<EnvironmentOverride>) = overrides.forEach {
+        DeploymentLog.record(handle, tenantKey, it.environmentKey, it.catalogKey, DeploymentAction.OVERRIDE_CLEARED, it.version, draftLabel = it.draftLabel)
+    }
+
     /** A draft's label in SQL, over alias `v`: its name, or "Next version" for the next version. */
     private val LABEL = "CASE WHEN v.is_next THEN '${CatalogDraft.NEXT_LABEL}' ELSE v.name END"
 }

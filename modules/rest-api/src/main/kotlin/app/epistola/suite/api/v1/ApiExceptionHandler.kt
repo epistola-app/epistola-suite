@@ -47,6 +47,7 @@ import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.commands.BatchValidationException
 import app.epistola.suite.environments.EnvironmentInUseException
+import app.epistola.suite.environments.EnvironmentOverrideRefusedException
 import app.epistola.suite.environments.ReleaseDependenciesMissingException
 import app.epistola.suite.environments.ReleaseNotDeployableException
 import app.epistola.suite.fonts.FontNotFoundException
@@ -296,6 +297,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         CatalogDraftNameInUseException::class,
         CatalogBundleException::class,
         CatalogDraftIsNextException::class,
+        EnvironmentOverrideRefusedException::class,
         CatalogVersionBehindException::class,
         CatalogVersionHeldException::class,
     )

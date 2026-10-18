@@ -9,6 +9,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.environments.DeploymentAction
 import app.epistola.suite.environments.DeploymentLog
+import app.epistola.suite.environments.EnvironmentOverrideStore
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
@@ -50,6 +51,8 @@ class UndeployReleaseHandler(
             .bind("e", command.environmentId.key)
             .mapTo(String::class.java)
             .findOne()
+        val ended = EnvironmentOverrideStore.list(handle, command.environmentId.tenantKey, command.environmentId.key, command.catalogKey)
+            .filter { it.version == command.version }
         val removed = handle.createUpdate(
             """
             DELETE FROM environment_catalog_deployments
@@ -70,6 +73,7 @@ class UndeployReleaseHandler(
             DeploymentAction.UNDEPLOYED,
             command.version,
         )
+        EnvironmentOverrideStore.recordEnded(handle, command.environmentId.tenantKey, ended)
         true
     }
 }
