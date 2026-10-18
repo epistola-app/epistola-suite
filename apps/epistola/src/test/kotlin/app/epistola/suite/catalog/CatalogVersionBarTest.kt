@@ -138,7 +138,7 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
         assertThat(next).doesNotContain("data-testid=\"catalog-long-term-banner\"")
         assertThat(next.substringAfter("data-testid=\"ws-version-menu\"").substringBefore("ws-menu-sep"))
             .contains(">Next version<").contains(">Redesign 2027<")
-            .contains("href=\"/tenants/${tenant.id.value}/catalogs/bar-cat@$work/draft\"")
+            .`as`("a switch keeps the page someone is on").contains("href=\"/tenants/${tenant.id.value}/catalogs/bar-cat@$work/switch\"")
         assertThat(Regex("ws-menu-check").findAll(next.substringAfter("data-testid=\"ws-version-menu\"").substringBefore("ws-menu-sep")).count())
             .`as`("only the version the page is in is ticked").isEqualTo(1)
         assertThat(next).`as`("long-term work is started from the bar").contains("data-testid=\"ws-start-long-term\"")
