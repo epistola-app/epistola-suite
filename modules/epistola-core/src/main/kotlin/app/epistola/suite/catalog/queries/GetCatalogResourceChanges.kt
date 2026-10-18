@@ -91,7 +91,7 @@ data class CatalogResourceChanges(
     val latestVersion: String?,
     /**
      * False when the catalog has drifted from a release cut before releases recorded their
-     * resources (V20260923201010), which cannot be reconstructed. Every resource is then
+     * resources (V20261018200200), which cannot be reconstructed. Every resource is then
      * [CatalogResourceState.UNKNOWN]; the next release restores the detail.
      */
     val baselineAvailable: Boolean,
@@ -163,7 +163,7 @@ class GetCatalogResourceChangesHandler(
         }
 
         val baseline = released.mapValues { (_, entry) -> entry.fingerprint }.takeIf { retainedVersions.contains(release.version) }
-            // A release cut before V20260923201010 recorded no resources. When the working copy
+            // A release cut before V20261018200200 recorded no resources. When the working copy
             // still matches its fingerprint the content is identical by definition, so the working
             // digests *are* that release's digests and the answer is exact without them.
             ?: if (fingerprintService.matchesFingerprint(content, release.fingerprint)) {

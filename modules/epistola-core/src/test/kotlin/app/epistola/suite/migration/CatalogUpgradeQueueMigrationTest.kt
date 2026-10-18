@@ -70,6 +70,6 @@ class CatalogUpgradeQueueMigrationTest {
 
     private companion object {
         /** The migration before `core_catalog_upgrade_queue`. */
-        const val BEFORE = "20261017001641"
+        const val BEFORE = "20261018201300"
     }
 }

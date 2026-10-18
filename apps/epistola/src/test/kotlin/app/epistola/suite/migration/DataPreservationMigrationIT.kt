@@ -232,7 +232,7 @@ class DataPreservationMigrationIT {
 
             // Hierarchy rows name the template's identity now, so every lookup resolves the
             // seeded address through document_templates rather than filtering on a copy of it.
-            // A catalog is named by its key until 2.0 identities it (V20261016152126): resources
+            // A catalog is named by its key until 2.0 identities it (V20261018200100): resources
             // name the catalog's opaque catalog_id, so lookups resolve the seeded key to it.
             fun catalogId(key: String) = "(SELECT catalog_id FROM catalogs WHERE tenant_key = '$TENANT' AND catalog_key = '$key')"
             val ofInvoice =
@@ -373,12 +373,12 @@ class DataPreservationMigrationIT {
                 .describedAs("the hierarchy IS backfilled -- it is bounded, and its foreign keys require it")
                 .isEqualTo("0")
 
-            // 2.0 names every catalog (V20261016145905): an authored catalog on the default
+            // 2.0 names every catalog (V20261018200100): an authored catalog on the default
             // registry, in the tenant's namespace.
             assertThat(one("SELECT registry || '~' || namespace FROM catalogs WHERE tenant_key = '$TENANT' AND catalog_key = 'shared'"))
                 .isEqualTo("exchange.epistola.app~$TENANT")
 
-            // 2.0 keeps one working copy (V20261016162314, V20261016232900): what each author was
+            // 2.0 keeps one working copy (V20261018200400, V20261018200600): what each author was
             // working on, the draft where there is one, else the published version.
             assertThat(one("SELECT template_model::text FROM template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'main'"))
                 .describedAs("a variant's working model is its draft")
@@ -412,12 +412,12 @@ class DataPreservationMigrationIT {
             assertThat(ready("SELECT resource_id FROM themes WHERE tenant_key = '$TENANT' AND id = 'brand'", ""))
                 .describedAs("a resource that had no drafts").isEqualTo("true")
 
-            // Every authored catalog has the draft it works in (V20261017001641), its next version, which
-            // has no number until it is released (V20261018131409).
+            // Every authored catalog has the draft it works in, its next version, which has no number
+            // until it is released (V20261018200900).
             assertThat(one("SELECT string_agg(c.catalog_key || '@' || CASE WHEN d.is_next THEN 'next' ELSE d.name END || COALESCE('#' || d.version, ''), ',' ORDER BY c.catalog_key) FROM catalog_versions d JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id WHERE d.tenant_key = '$TENANT' AND d.kind = 'draft'"))
                 .isEqualTo("default@next,shared@next")
 
-            // Every authored 1.x catalog is queued for its declarations and first release (V20261017091832).
+            // Every authored 1.x catalog is queued for its declarations and first release (V20261018201400).
             assertThat(one("SELECT string_agg(c.catalog_key, ',' ORDER BY c.catalog_key) FROM catalog_upgrade_queue q JOIN catalogs c ON c.tenant_key = q.tenant_key AND c.catalog_id = q.catalog_id WHERE q.tenant_key = '$TENANT'"))
                 .isEqualTo("default,shared")
 
@@ -472,7 +472,7 @@ class DataPreservationMigrationIT {
             """{"root": "root", "nodes": {"root": {"id": "root", "type": "root", "slots": []}, "linked": {"id": "linked", "type": "stencil", "slots": [], "props": {"stencilId": "header", "version": 1, "isDraft": true}}, "new": {"id": "new", "type": "stencil", "slots": [], "props": {"stencilId": "draft-only", "version": 1, "isDraft": true}}}, "slots": {}, "marker": "catalog-v5"}"""
 
         /**
-         * The draft as wire v8 stores it (V20261016162512): a stencil instance is a reference by key
+         * The draft as wire v8 stores it (V20261018200500): a stencil instance is a reference by key
          * with a `children` slot for its fills, and pins no version (contract ADR 0006).
          */
         private const val MIGRATED_DRAFT_TEMPLATE_MODEL =

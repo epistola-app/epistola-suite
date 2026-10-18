@@ -39,7 +39,7 @@ import java.sql.ResultSet
  * Works on JSON, not on the application's model, so that later code cannot change what it did.
  */
 @Suppress("ClassName")
-class V20261016162512__core_template_content_v8 : BaseJavaMigration() {
+class V20261018200500__core_template_content_v8 : BaseJavaMigration() {
 
     private val log = LoggerFactory.getLogger(javaClass)
     private val mapper = JsonMapper.builder().build()

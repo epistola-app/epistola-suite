@@ -21,7 +21,7 @@ import tools.jackson.databind.node.ObjectNode
  * suffix rules) must be the contract's, not a second copy of it.
  */
 @Suppress("ClassName")
-class V20261016161423__core_data_example_keys : BaseJavaMigration() {
+class V20261018200300__core_data_example_keys : BaseJavaMigration() {
 
     override fun migrate(context: Context) {
         val mapper = JsonMapper.builder().build()

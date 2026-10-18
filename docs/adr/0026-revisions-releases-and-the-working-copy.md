@@ -138,7 +138,7 @@ CREATE TABLE release_entries (
 CREATE INDEX idx_release_entries_resource ON release_entries (tenant_key, resource_id);
 ```
 
-Three details the shipped tables settled (`V20260923162028`). The kind is its own lookup rather than
+Three details the shipped tables settled (`V20261018200200`). The kind is its own lookup rather than
 `catalog_resource_types`, which holds the catalog wire's own tokens so that a registry address is the
 triple an export uses — a revision kind is storage, and includes `templateModel`, which the wire
 never names on its own. `revision_binaries` carries the dedup `scope` as well as the hash, because
@@ -169,7 +169,7 @@ CREATE INDEX idx_catalog_releases_order
 ```
 
 Shipped as `V20260923150918`. The per-resource digests a release needs, recorded because they
-cannot be recovered afterwards, live on `release_entries` (`V20260923201010`) rather than on a
+cannot be recovered afterwards, live on `release_entries` (`V20261018200200`) rather than on a
 column of their own. An interim `catalog_releases.resource_fingerprints` column carried them while
 the revisions they point at were still being built, and was folded into that table before any of
 this work was released — one record of one fact, rather than two that come to disagree.

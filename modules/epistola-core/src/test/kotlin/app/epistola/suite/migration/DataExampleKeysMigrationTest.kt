@@ -82,6 +82,6 @@ class DataExampleKeysMigrationTest {
 
     private companion object {
         /** The last migration before `core_data_example_keys`. */
-        const val BEFORE = "20261016152126"
+        const val BEFORE = "20261018200200"
     }
 }

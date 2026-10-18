@@ -58,15 +58,14 @@ data class ExportCatalogZip(
     override val permission get() = Permission.CATALOG_VIEW
 }
 
-/**
- * Thrown when a release cannot be exported because its content was never retained — every release
- * cut before `V20260923201010`. The working copy is not a substitute: it is whatever the catalog
- * looks like now, which is the thing the caller asked not to be given.
- */
-
 /** A fat export cannot be made: what it would bundle is not there to bundle, or does not agree. */
 class CatalogBundleException(message: String) : RuntimeException(message)
 
+/**
+ * Thrown when a release cannot be exported because its content was never retained — every release
+ * cut before `V20261018200200`. The working copy is not a substitute: it is whatever the catalog
+ * looks like now, which is the thing the caller asked not to be given.
+ */
 class CatalogReleaseNotRetainedException(catalogKey: CatalogKey, version: String) :
     RuntimeException(
         "Release $version of catalog '${catalogKey.value}' did not retain its content and cannot be exported as released. " +

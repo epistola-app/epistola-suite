@@ -58,7 +58,7 @@ class ReleaseContentAssembler(
 
     /**
      * The content of [version] of a catalog, or null when that release retained none — every
-     * release cut before `V20260923201010`, which cannot be reconstructed from the working copy
+     * release cut before `V20261018200200`, which cannot be reconstructed from the working copy
      * and must not be guessed at from it.
      */
     fun assemble(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): RetainedRelease? = jdbi.withHandle<RetainedRelease?, Exception> { handle ->

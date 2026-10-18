@@ -196,7 +196,7 @@ in place, **Define parameters…** changes the schema, which **Save Stencil** wr
 
 | Concern                     | Path                                                                                                        |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| DB column                   | `modules/epistola-core/src/main/resources/db/migration/core/V20261016162314__core_stencil_working_copy.sql` |
+| DB column                   | `modules/epistola-core/src/main/resources/db/migration/core/V20261018200400__core_stencil_working_copy.sql` |
 | Generic prop keys           | `modules/epistola-core/src/main/kotlin/.../templates/model/NodeParameterKeys.kt`                            |
 | Transient schema key        | `modules/epistola-core/src/main/kotlin/.../stencils/StencilNodeKeys.kt`                                     |
 | Expansion and fit           | `modules/epistola-core/src/main/kotlin/.../stencils/model/StencilInstances.kt`                              |

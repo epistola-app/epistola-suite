@@ -221,6 +221,6 @@ class TemplateContentV8MigrationTest {
 
     private companion object {
         /** The last migration before the stencil working copy. */
-        const val BEFORE = "20261016161423"
+        const val BEFORE = "20261018200300"
     }
 }

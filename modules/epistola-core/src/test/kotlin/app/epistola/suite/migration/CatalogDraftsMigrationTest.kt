@@ -6,20 +6,26 @@ package app.epistola.suite.migration
 
 import app.epistola.suite.testing.TestRuntimeLifecycle
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import java.sql.Connection
 import java.sql.DriverManager
 
 /**
- * `core_catalog_drafts` gives every authored catalog the draft it is working on: the patch after its
- * latest release, on that release, or 1.0.0 when it was never released. A subscribed catalog has none.
+ * `core_catalog_versions` on a 1.x installation: every authored catalog's working copy becomes its
+ * next version, unnumbered, on its latest release; a subscribed catalog's content is its installed
+ * release. A caller that names no version then means the next version.
+ *
+ * Seeded with raw SQL on purpose: commands speak only the current schema, and this fixture must
+ * match the schema of 1.x.
  */
 @Tag("integration")
 class CatalogDraftsMigrationTest {
 
     @Test
-    fun `every authored catalog gets its draft after its latest release`() {
+    fun `every authored catalog gets its next version on its latest release`() {
         val postgres = TestRuntimeLifecycle.postgres()
         val database = "catalog_drafts_migration"
         DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password).use { admin ->
@@ -37,54 +43,83 @@ class CatalogDraftsMigrationTest {
 
         flyway(BEFORE).migrate()
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
-            // Rows as an installation before 2.0 has them; no command writes a release without a draft any more.
-            connection.createStatement().use {
-                it.execute(
-                    """
-                    INSERT INTO tenants (id, name) VALUES ('acme', 'Acme');
-                    INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, type, catalog_metadata) VALUES
-                        ('released', 'acme', 'exchange.epistola.app', 'acme', 'Released', 'AUTHORED', '{}'),
-                        ('fresh', 'acme', 'exchange.epistola.app', 'acme', 'Fresh', 'AUTHORED', '{}'),
-                        ('mirror', 'acme', 'exchange.epistola.app', 'epistola', 'Mirror', 'SUBSCRIBED', '{}');
-                    INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, manifest_snapshot)
-                    SELECT 'acme', catalog_id, v, 'v5:' || repeat('0', 64), '{}'
-                    FROM catalogs, unnest(ARRAY['1.0.0', '1.10.0', '1.9.3']) v WHERE catalog_key IN ('released', 'mirror');
-                    """.trimIndent(),
-                )
-            }
+            connection.exec(
+                """
+                INSERT INTO tenants (id, name) VALUES ('acme', 'Acme');
+                INSERT INTO catalogs (id, tenant_key, name, type, source_url, installed_release_version) VALUES
+                    ('released', 'acme', 'Released', 'AUTHORED', NULL, NULL),
+                    ('fresh', 'acme', 'Fresh', 'AUTHORED', NULL, NULL),
+                    ('mirror', 'acme', 'Mirror', 'SUBSCRIBED', 'classpath:epistola/catalogs/system/catalog.json', '3.1.0'),
+                    ('waiting', 'acme', 'Waiting', 'SUBSCRIBED', 'classpath:epistola/catalogs/system/catalog.json', NULL);
+                INSERT INTO catalog_releases (tenant_key, catalog_key, version, fingerprint, manifest_snapshot)
+                SELECT 'acme', 'released', v, repeat('0', 64), '{}' FROM unnest(ARRAY['1.0.0', '1.10.0', '1.9.3']) v;
+                INSERT INTO themes (id, tenant_key, catalog_key, name) VALUES ('brand', 'acme', 'released', 'Brand');
+                """.trimIndent(),
+            )
         }
-        flyway(UNDER_TEST).migrate()
+        flyway(null).migrate()
 
-        val drafts = DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
-            connection.createStatement().use { st ->
-                st.executeQuery(
-                    "SELECT c.catalog_key, d.version, d.base_version FROM catalog_versions d JOIN catalogs c ON c.catalog_id = d.catalog_id WHERE d.kind = 'draft'",
-                ).use { rs -> buildMap { while (rs.next()) put(rs.getString(1), rs.getString(2) to rs.getString(3)) } }
-            }
-        }
-
-        assertThat(drafts).containsExactlyInAnyOrderEntriesOf(
-            mapOf(
+        DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
+            val drafts = connection.rows(
+                "SELECT c.catalog_key, v.is_next, v.version, v.base_version, v.name FROM catalog_versions v " +
+                    "JOIN catalogs c ON c.catalog_id = v.catalog_id WHERE v.kind = 'draft' ORDER BY c.catalog_key",
+            )
+            assertThat(drafts).containsExactly(
+                listOf("fresh", "t", null, null, null),
                 // 1.10.0 is the latest by SemVer, not by text.
-                "released" to ("1.10.1" to "1.10.0"),
-                "fresh" to ("1.0.0" to null),
-            ),
-        )
-        val installed = DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
-            connection.createStatement().use { st ->
-                st.executeQuery(
-                    "SELECT c.catalog_key, d.version FROM catalog_versions d JOIN catalogs c ON c.catalog_id = d.catalog_id WHERE d.kind = 'installed'",
-                ).use { rs -> buildMap { while (rs.next()) put(rs.getString(1), rs.getString(2)) } }
-            }
+                listOf("released", "t", null, "1.10.0", null),
+            )
+            assertThat(
+                connection.rows(
+                    "SELECT c.catalog_key, v.version FROM catalog_versions v JOIN catalogs c ON c.catalog_id = v.catalog_id WHERE v.kind = 'installed' ORDER BY 1",
+                ),
+            ).`as`("a subscribed catalog's content is its installed release, 0.0.0 until it installs one")
+                .containsExactly(listOf("mirror", "3.1.0"), listOf("waiting", "0.0.0"))
+
+            // The working copy's content is in the next version, and that is what a caller naming none means.
+            val next = connection.rows(
+                "SELECT v.version_id FROM catalog_versions v JOIN catalogs c ON c.catalog_id = v.catalog_id WHERE c.catalog_key = 'released' AND v.is_next",
+            ).single().single()
+            assertThat(connection.rows("SELECT version_id FROM themes WHERE id = 'brand'")).containsExactly(listOf(next))
+            fun current(catalog: String) = connection.rows(
+                "SELECT cv.version_id FROM catalog_current_versions cv JOIN catalogs c ON c.catalog_id = cv.catalog_id WHERE c.catalog_key = '$catalog'",
+            ).single().single()
+            assertThat(current("released")).isEqualTo(next)
+
+            // Long-term work is reached only by targeting it.
+            connection.exec(
+                "INSERT INTO catalog_versions (tenant_key, catalog_id, kind, base_version, name) SELECT tenant_key, catalog_id, 'draft', '1.0.0', 'Redesign' FROM catalogs WHERE catalog_key = 'released'",
+            )
+            val longTerm = connection.rows("SELECT version_id FROM catalog_versions WHERE name = 'Redesign'").single().single()
+            assertThat(current("released")).isEqualTo(next)
+            connection.autoCommit = false
+            connection.exec("SELECT set_config('epistola.content_version', '$longTerm', TRUE)")
+            assertThat(current("released")).`as`("unless the transaction targets another").isEqualTo(longTerm)
+            connection.commit()
+            connection.autoCommit = true
+
+            // One next version per catalog; a draft has no number; long-term work has a name.
+            assertThatThrownBy { connection.exec("INSERT INTO catalog_versions (tenant_key, catalog_id, kind, is_next) SELECT tenant_key, catalog_id, 'draft', TRUE FROM catalogs WHERE catalog_key = 'released'") }
+                .hasMessageContaining("uq_catalog_versions_one_next")
+            assertThatThrownBy { connection.exec("INSERT INTO catalog_versions (tenant_key, catalog_id, kind, version, name) SELECT tenant_key, catalog_id, 'draft', '4.0.0', 'Four' FROM catalogs WHERE catalog_key = 'released'") }
+                .hasMessageContaining("chk_catalog_versions_numbered")
+            assertThatThrownBy { connection.exec("INSERT INTO catalog_versions (tenant_key, catalog_id, kind) SELECT tenant_key, catalog_id, 'draft' FROM catalogs WHERE catalog_key = 'released'") }
+                .hasMessageContaining("chk_catalog_versions_long_term_named")
         }
-        assertThat(installed).`as`("a subscribed catalog's content is its installed release; none installed yet").containsExactlyEntriesOf(mapOf("mirror" to "0.0.0"))
+    }
+
+    private fun Connection.exec(sql: String) = createStatement().use { it.execute(sql) }
+
+    /** Every row of [sql], each column as text (booleans as `t`/`f`), nulls kept. */
+    private fun Connection.rows(sql: String): List<List<String?>> = createStatement().use { st ->
+        st.executeQuery(sql).use { rs ->
+            val columns = rs.metaData.columnCount
+            buildList { while (rs.next()) add((1..columns).map { rs.getString(it) }) }
+        }
     }
 
     private companion object {
-        /** The migration under test: later ones change what it left, and are tested on their own. */
-        const val UNDER_TEST = "20261017001641"
-
-        /** The last migration before the one under test. */
-        const val BEFORE = "20261016232900"
+        /** The last migration of 1.x (v1.5.0): what an upgrade to 2.0 starts from. */
+        const val BEFORE = "20260923150918"
     }
 }

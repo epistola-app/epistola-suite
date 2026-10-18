@@ -147,7 +147,7 @@ class CatalogUpgradeRunner(
                 "catalog ${catalog.catalogKey.value} has no next version to release"
             }
             // What was published before 2.0 becomes the next patch after its latest release, or the
-            // first version, as the 2.0 upgrade numbered its draft (V20261017001641).
+            // first version; the next version the 2.0 upgrade opened (V20261018200900) is based on that latest.
             val version = CatalogDrafts.latest(ListCatalogReleases(catalog.tenantKey, catalog.catalogKey).query().map { it.version })
                 ?.let { SemVer.parse(it).bumpPatch().toString() } ?: CatalogDrafts.FIRST
             ReleaseCatalogVersion(

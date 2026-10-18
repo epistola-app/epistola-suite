@@ -118,7 +118,7 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
             MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
-        // A release cut before V20260923201010 has no entries and its content was never retained.
+        // A release cut before V20261018200200 has no entries and its content was never retained.
         jdbi.forgetRetainedContent(catalog.tenantKey, catalog.key)
 
         assertThat(assembler.assemble(catalog.tenantKey, catalog.key, "1.0.0")).isNull()

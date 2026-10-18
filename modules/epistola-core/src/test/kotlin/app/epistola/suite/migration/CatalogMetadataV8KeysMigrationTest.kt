@@ -90,6 +90,6 @@ class CatalogMetadataV8KeysMigrationTest {
 
     private companion object {
         /** The last migration before `core_catalog_metadata_v8_keys`. */
-        const val BEFORE = "20261016162512"
+        const val BEFORE = "20261018200500"
     }
 }

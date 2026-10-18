@@ -1,3 +1,40 @@
+-- A catalog is identified by registry, namespace and key (contract ADR 0003). Until now a catalog
+-- had only its key.
+--
+-- Existing catalogs are named on the default registry, exchange.epistola.app, with `epistola` as
+-- namespace for the catalogs Epistola ships (installed from the classpath), and otherwise their
+-- tenant's key, padded with `0` to the 3 characters a namespace needs, as the contract pads a short
+-- key. The namespace stays changeable until the catalog is first published.
+ALTER TABLE catalogs
+    ADD COLUMN registry TEXT,
+    ADD COLUMN namespace TEXT;
+
+UPDATE catalogs
+SET registry  = 'exchange.epistola.app',
+    namespace = CASE
+        WHEN source_url LIKE 'classpath:epistola/catalogs/%' THEN 'epistola'
+        WHEN length(tenant_key) < 3 THEN rpad(tenant_key, 3, '0')
+        ELSE tenant_key
+    END;
+
+ALTER TABLE catalogs
+    ALTER COLUMN registry SET NOT NULL,
+    ALTER COLUMN namespace SET NOT NULL;
+
+COMMENT ON COLUMN catalogs.registry IS
+    'The registry the catalog is named on (contract ADR 0003): a DNS name, written in full.';
+COMMENT ON COLUMN catalogs.namespace IS
+    'The catalog''s namespace on its registry (contract ADR 0003). Defaults to the tenant key for an authored catalog; fixed once the catalog is published.';
+
+-- Wire v8 writes a fingerprint as `<algorithm>:<hex>` (`v5:` + 64 hex characters). A fingerprint
+-- recorded before keeps its bare 64-character hex, which the contract reads as "algorithm not
+-- recorded".
+ALTER TABLE catalogs
+    ALTER COLUMN installed_fingerprint TYPE VARCHAR(80),
+    ALTER COLUMN released_fingerprint TYPE VARCHAR(80);
+ALTER TABLE catalog_releases ALTER COLUMN fingerprint TYPE VARCHAR(80);
+ALTER TABLE catalog_release_publications ALTER COLUMN fingerprint TYPE VARCHAR(80);
+
 -- A catalog gets an opaque identity, `catalog_id`, and is named by (registry, namespace, key)
 -- (contract ADR 0003). A key alone is not unique in a tenant: two publishers may each have a
 -- catalog called `letters`. Live tables reference a catalog by `catalog_id`, as resources already
@@ -7,12 +44,7 @@
 
 -- 1. The catalog's own identity -----------------------------------------------------------------
 
-ALTER TABLE catalogs ADD COLUMN catalog_id UUID;
-UPDATE catalogs SET catalog_id = epistola_uuidv7();
-ALTER TABLE catalogs ALTER COLUMN catalog_id SET NOT NULL;
--- Opaque and never named by a caller, so the database assigns it.
-ALTER TABLE catalogs ALTER COLUMN catalog_id SET DEFAULT epistola_uuidv7();
-ALTER TABLE catalogs ADD CONSTRAINT uq_catalogs_catalog_id UNIQUE (tenant_key, catalog_id);
+ALTER TABLE catalogs ADD COLUMN catalog_id UUID NOT NULL DEFAULT epistola_uuidv7();
 
 -- 2. Live tables gain catalog_id, filled from their catalog_key ---------------------------------
 
@@ -23,8 +55,8 @@ DECLARE
 BEGIN
     FOREACH t IN ARRAY ARRAY[
         'catalog_resources', 'themes', 'document_templates', 'variant_attribute_definitions',
-        'assets', 'stencils', 'code_lists', 'fonts', 'catalog_releases', 'release_entries',
-        'catalog_release_publications', 'environment_catalog_deployments', 'catalog_upstream_checks'
+        'assets', 'stencils', 'code_lists', 'fonts', 'catalog_releases',
+        'catalog_release_publications', 'catalog_upstream_checks'
     ] LOOP
         EXECUTE format('ALTER TABLE %I ADD COLUMN catalog_id UUID', t);
         EXECUTE format(
@@ -42,7 +74,6 @@ END $$;
 
 ALTER TABLE documents ADD COLUMN registry TEXT, ADD COLUMN namespace TEXT;
 ALTER TABLE document_generation_requests ADD COLUMN registry TEXT, ADD COLUMN namespace TEXT;
-ALTER TABLE environment_deployment_log ADD COLUMN registry TEXT, ADD COLUMN namespace TEXT;
 
 -- A row whose catalog no longer exists keeps its key and is named on the default registry in its
 -- tenant's namespace, which is what a catalog of that tenant was named on the move to 2.0.
@@ -58,20 +89,11 @@ FROM (SELECT DISTINCT tenant_key, catalog_key FROM document_generation_requests)
 LEFT JOIN catalogs c ON c.tenant_key = k.tenant_key AND c.id = k.catalog_key
 WHERE d.tenant_key = k.tenant_key AND d.catalog_key = k.catalog_key;
 
-UPDATE environment_deployment_log l SET registry = COALESCE(c.registry, 'exchange.epistola.app'),
-                       namespace = COALESCE(c.namespace, CASE WHEN length(l.tenant_key) < 3 THEN rpad(l.tenant_key, 3, '0') ELSE l.tenant_key END)
-FROM (SELECT DISTINCT tenant_key, catalog_key FROM environment_deployment_log) k
-LEFT JOIN catalogs c ON c.tenant_key = k.tenant_key AND c.id = k.catalog_key
-WHERE l.tenant_key = k.tenant_key AND l.catalog_key = k.catalog_key;
-
 ALTER TABLE documents ALTER COLUMN registry SET NOT NULL, ALTER COLUMN namespace SET NOT NULL;
 ALTER TABLE document_generation_requests ALTER COLUMN registry SET NOT NULL, ALTER COLUMN namespace SET NOT NULL;
-ALTER TABLE environment_deployment_log ALTER COLUMN registry SET NOT NULL, ALTER COLUMN namespace SET NOT NULL;
 
 -- 4. Drop every constraint and index built on catalog_key ---------------------------------------
 
-ALTER TABLE environment_catalog_deployments DROP CONSTRAINT fk_environment_catalog_deployments_release;
-ALTER TABLE release_entries DROP CONSTRAINT fk_release_entries_release;
 ALTER TABLE catalog_release_publications DROP CONSTRAINT fk_catalog_release_publications_release;
 ALTER TABLE catalog_release_publications DROP CONSTRAINT uq_catalog_release_publications_release;
 
@@ -85,9 +107,6 @@ ALTER TABLE code_lists DROP CONSTRAINT code_lists_tenant_key_catalog_key_fkey, D
 ALTER TABLE fonts DROP CONSTRAINT fonts_tenant_key_catalog_key_fkey, DROP CONSTRAINT uq_fonts_address;
 ALTER TABLE catalog_resources DROP CONSTRAINT fk_catalog_resources_catalog, DROP CONSTRAINT uq_catalog_resources_address;
 ALTER TABLE catalog_upstream_checks DROP CONSTRAINT catalog_upstream_checks_tenant_key_catalog_key_fkey, DROP CONSTRAINT catalog_upstream_checks_pkey;
-ALTER TABLE release_entries DROP CONSTRAINT pk_release_entries;
-ALTER TABLE environment_catalog_deployments DROP CONSTRAINT pk_environment_catalog_deployments;
-DROP INDEX idx_environment_catalog_deployments_release;
 DROP INDEX idx_catalog_releases_lookup;
 DROP INDEX idx_catalog_releases_version_order;
 ALTER TABLE catalog_releases DROP CONSTRAINT catalog_releases_pkey;
@@ -95,7 +114,6 @@ ALTER TABLE catalog_releases DROP CONSTRAINT catalog_releases_pkey;
 -- 5. The catalog is keyed by its id and named by registry, namespace and key --------------------
 
 ALTER TABLE catalogs DROP CONSTRAINT catalogs_pkey;
-ALTER TABLE catalogs DROP CONSTRAINT uq_catalogs_catalog_id;
 ALTER TABLE catalogs RENAME COLUMN id TO catalog_key;
 ALTER TABLE catalogs ADD CONSTRAINT catalogs_pkey PRIMARY KEY (tenant_key, catalog_id);
 ALTER TABLE catalogs ADD CONSTRAINT uq_catalogs_name UNIQUE (tenant_key, registry, namespace, catalog_key);
@@ -126,26 +144,19 @@ ALTER TABLE catalog_resources DROP COLUMN catalog_key,
     ADD CONSTRAINT uq_catalog_resources_address UNIQUE (tenant_key, resource_type, catalog_id, resource_key);
 
 ALTER TABLE themes DROP COLUMN catalog_key,
-    ADD CONSTRAINT fk_themes_catalog FOREIGN KEY (tenant_key, catalog_id) REFERENCES catalogs(tenant_key, catalog_id) ON DELETE CASCADE,
-    ADD CONSTRAINT uq_themes_address UNIQUE (tenant_key, catalog_id, id);
+    ADD CONSTRAINT fk_themes_catalog FOREIGN KEY (tenant_key, catalog_id) REFERENCES catalogs(tenant_key, catalog_id) ON DELETE CASCADE;
 ALTER TABLE document_templates DROP COLUMN catalog_key,
-    ADD CONSTRAINT fk_document_templates_catalog FOREIGN KEY (tenant_key, catalog_id) REFERENCES catalogs(tenant_key, catalog_id) ON DELETE CASCADE,
-    ADD CONSTRAINT uq_document_templates_address UNIQUE (tenant_key, catalog_id, id);
+    ADD CONSTRAINT fk_document_templates_catalog FOREIGN KEY (tenant_key, catalog_id) REFERENCES catalogs(tenant_key, catalog_id) ON DELETE CASCADE;
 ALTER TABLE variant_attribute_definitions DROP COLUMN catalog_key,
-    ADD CONSTRAINT fk_variant_attributes_catalog FOREIGN KEY (tenant_key, catalog_id) REFERENCES catalogs(tenant_key, catalog_id) ON DELETE CASCADE,
-    ADD CONSTRAINT uq_variant_attributes_address UNIQUE (tenant_key, catalog_id, id);
+    ADD CONSTRAINT fk_variant_attributes_catalog FOREIGN KEY (tenant_key, catalog_id) REFERENCES catalogs(tenant_key, catalog_id) ON DELETE CASCADE;
 ALTER TABLE assets DROP COLUMN catalog_key,
-    ADD CONSTRAINT fk_assets_catalog FOREIGN KEY (tenant_key, catalog_id) REFERENCES catalogs(tenant_key, catalog_id) ON DELETE CASCADE,
-    ADD CONSTRAINT uq_assets_address UNIQUE (tenant_key, catalog_id, id);
+    ADD CONSTRAINT fk_assets_catalog FOREIGN KEY (tenant_key, catalog_id) REFERENCES catalogs(tenant_key, catalog_id) ON DELETE CASCADE;
 ALTER TABLE stencils DROP COLUMN catalog_key,
-    ADD CONSTRAINT fk_stencils_catalog FOREIGN KEY (tenant_key, catalog_id) REFERENCES catalogs(tenant_key, catalog_id) ON DELETE CASCADE,
-    ADD CONSTRAINT uq_stencils_address UNIQUE (tenant_key, catalog_id, id);
+    ADD CONSTRAINT fk_stencils_catalog FOREIGN KEY (tenant_key, catalog_id) REFERENCES catalogs(tenant_key, catalog_id) ON DELETE CASCADE;
 ALTER TABLE code_lists DROP COLUMN catalog_key,
-    ADD CONSTRAINT fk_code_lists_catalog FOREIGN KEY (tenant_key, catalog_id) REFERENCES catalogs(tenant_key, catalog_id) ON DELETE CASCADE,
-    ADD CONSTRAINT uq_code_lists_address UNIQUE (tenant_key, catalog_id, slug);
+    ADD CONSTRAINT fk_code_lists_catalog FOREIGN KEY (tenant_key, catalog_id) REFERENCES catalogs(tenant_key, catalog_id) ON DELETE CASCADE;
 ALTER TABLE fonts DROP COLUMN catalog_key,
-    ADD CONSTRAINT fk_fonts_catalog FOREIGN KEY (tenant_key, catalog_id) REFERENCES catalogs(tenant_key, catalog_id) ON DELETE CASCADE,
-    ADD CONSTRAINT uq_fonts_address UNIQUE (tenant_key, catalog_id, slug);
+    ADD CONSTRAINT fk_fonts_catalog FOREIGN KEY (tenant_key, catalog_id) REFERENCES catalogs(tenant_key, catalog_id) ON DELETE CASCADE;
 
 ALTER TABLE catalog_releases DROP COLUMN catalog_key,
     ADD CONSTRAINT catalog_releases_pkey PRIMARY KEY (tenant_key, catalog_id, version),
@@ -154,28 +165,41 @@ CREATE INDEX idx_catalog_releases_lookup ON catalog_releases (tenant_key, catalo
 CREATE INDEX idx_catalog_releases_version_order
     ON catalog_releases (tenant_key, catalog_id, version_major DESC, version_minor DESC, version_patch DESC);
 
-ALTER TABLE release_entries DROP COLUMN catalog_key,
-    ADD CONSTRAINT pk_release_entries PRIMARY KEY (tenant_key, catalog_id, version, resource_type, resource_key),
-    ADD CONSTRAINT fk_release_entries_release FOREIGN KEY (tenant_key, catalog_id, version)
-        REFERENCES catalog_releases(tenant_key, catalog_id, version) ON DELETE CASCADE;
-
 ALTER TABLE catalog_release_publications DROP COLUMN catalog_key,
     ADD CONSTRAINT uq_catalog_release_publications_release UNIQUE (tenant_key, catalog_id, version),
     ADD CONSTRAINT fk_catalog_release_publications_release FOREIGN KEY (tenant_key, catalog_id, version)
         REFERENCES catalog_releases(tenant_key, catalog_id, version) ON DELETE CASCADE;
 
-ALTER TABLE environment_catalog_deployments DROP COLUMN catalog_key,
-    ADD CONSTRAINT pk_environment_catalog_deployments PRIMARY KEY (tenant_key, environment_key, catalog_id),
-    ADD CONSTRAINT fk_environment_catalog_deployments_release FOREIGN KEY (tenant_key, catalog_id, version)
-        REFERENCES catalog_releases(tenant_key, catalog_id, version) DEFERRABLE INITIALLY DEFERRED;
-CREATE INDEX idx_environment_catalog_deployments_release ON environment_catalog_deployments (tenant_key, catalog_id, version);
-
 ALTER TABLE catalog_upstream_checks DROP COLUMN catalog_key,
     ADD CONSTRAINT catalog_upstream_checks_pkey PRIMARY KEY (tenant_key, catalog_id),
     ADD CONSTRAINT fk_catalog_upstream_checks_catalog FOREIGN KEY (tenant_key, catalog_id) REFERENCES catalogs(tenant_key, catalog_id) ON DELETE CASCADE;
 
--- 7. Functions follow --------------------------------------------------------------------------
+-- 7. Generation history finds its template through the catalog's name -------------------------------
 
+-- A generated document names its template's catalog by (registry, namespace, catalog_key).
+CREATE OR REPLACE FUNCTION fill_generation_template_identity() RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.template_resource_id IS NULL THEN
+        SELECT t.resource_id INTO NEW.template_resource_id
+        FROM document_templates t
+        JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
+        WHERE t.tenant_key = NEW.tenant_key
+          AND c.registry = NEW.registry
+          AND c.namespace = NEW.namespace
+          AND c.catalog_key = NEW.catalog_key
+          AND t.id = NEW.template_key;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'no template % in catalog %/%/% for tenant %',
+                NEW.template_key, NEW.registry, NEW.namespace, NEW.catalog_key, NEW.tenant_key;
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 8. Resource identity follows the catalog by id --------------------------------------------------
+-- The content-per-version migration gives this function its final form, once content is kept per
+-- catalog version.
 CREATE OR REPLACE FUNCTION sync_catalog_resource_identity() RETURNS TRIGGER AS $$
 DECLARE
     resource_type_value TEXT := TG_ARGV[0];
@@ -230,53 +254,6 @@ BEGIN
         -- address, silently; every public address lookup reads the registry.
         IF NOT FOUND THEN
             RAISE EXCEPTION 'catalog resource % has no identity row', OLD.resource_id;
-        END IF;
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION touch_catalog_content_on_delete() RETURNS trigger
-    LANGUAGE plpgsql
-AS $$
-BEGIN
-    -- Matches nothing when the catalog itself is being deleted, because the parent row is gone
-    -- before its children cascade. That is correct: there is no working copy left to describe.
-    UPDATE catalogs
-    SET content_updated_at = now()
-    WHERE tenant_key = OLD.tenant_key AND catalog_id = OLD.catalog_id;
-    RETURN OLD;
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION touch_catalog_content_on_variant_delete() RETURNS trigger
-    LANGUAGE plpgsql
-AS $$
-BEGIN
-    UPDATE catalogs c
-    SET content_updated_at = now()
-    FROM document_templates t
-    WHERE t.tenant_key = OLD.tenant_key AND t.resource_id = OLD.template_resource_id
-      AND c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id;
-    RETURN OLD;
-END;
-$$;
-
--- A generated document names its template's catalog by (registry, namespace, catalog_key).
-CREATE OR REPLACE FUNCTION fill_generation_template_identity() RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.template_resource_id IS NULL THEN
-        SELECT t.resource_id INTO NEW.template_resource_id
-        FROM document_templates t
-        JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
-        WHERE t.tenant_key = NEW.tenant_key
-          AND c.registry = NEW.registry
-          AND c.namespace = NEW.namespace
-          AND c.catalog_key = NEW.catalog_key
-          AND t.id = NEW.template_key;
-        IF NOT FOUND THEN
-            RAISE EXCEPTION 'no template % in catalog %/%/% for tenant %',
-                NEW.template_key, NEW.registry, NEW.namespace, NEW.catalog_key, NEW.tenant_key;
         END IF;
     END IF;
     RETURN NEW;

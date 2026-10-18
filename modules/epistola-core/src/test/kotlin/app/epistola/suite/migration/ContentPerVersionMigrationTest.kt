@@ -14,15 +14,19 @@ import java.sql.Connection
 import java.sql.DriverManager
 
 /**
- * `core_content_per_version` puts every content row in its catalog's content version: existing rows
- * are backfilled, children take their parent's, a writer that names none gets the catalog's only one,
- * and a resource moved to another catalog follows into that catalog's version.
+ * `core_content_per_version` on a 1.x installation: every content row lands in its catalog's next
+ * version, children with their parent, and every reference between resources holds. A catalog can
+ * then hold a second draft of the same resources under the same identities, and a resource moved to
+ * another catalog takes its children along.
+ *
+ * Seeded with raw SQL on purpose: commands speak only the current schema, and this fixture must
+ * match the schema of 1.x.
  */
 @Tag("integration")
 class ContentPerVersionMigrationTest {
 
     @Test
-    fun `content rows belong to their catalog's version, and keep doing so as they are written and moved`() {
+    fun `content keeps its rows and references, and a catalog can then hold a second draft of it`() {
         val postgres = TestRuntimeLifecycle.postgres()
         val database = "content_per_version_migration"
         DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password).use { admin ->
@@ -40,63 +44,89 @@ class ContentPerVersionMigrationTest {
 
         flyway(BEFORE).migrate()
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
-            // Rows as the schema before this migration holds them; no command of today writes that schema.
             connection.exec(
                 """
                 INSERT INTO tenants (id, name) VALUES ('acme', 'Acme');
-                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, type) VALUES
-                    ('letters', 'acme', 'exchange.epistola.app', 'acme', 'Letters', 'AUTHORED'),
-                    ('shared', 'acme', 'exchange.epistola.app', 'acme', 'Shared', 'AUTHORED');
-                INSERT INTO catalog_versions (tenant_key, catalog_id, version, kind)
-                SELECT tenant_key, catalog_id, '1.0.0', 'draft' FROM catalogs;
-                INSERT INTO document_templates (id, tenant_key, catalog_id, name)
-                    VALUES ('invoice', 'acme', (SELECT catalog_id FROM catalogs WHERE catalog_key = 'letters'), 'Invoice');
-                INSERT INTO template_variants (id, tenant_key, template_resource_id, title, template_model)
-                    VALUES ('default', 'acme', (SELECT resource_id FROM document_templates), 'Default', '{}');
+                INSERT INTO catalogs (id, tenant_key, name, type) VALUES
+                    ('letters', 'acme', 'Letters', 'AUTHORED'),
+                    ('shared', 'acme', 'Shared', 'AUTHORED');
+                INSERT INTO themes (id, tenant_key, catalog_key, name) VALUES ('brand', 'acme', 'letters', 'Brand');
+                UPDATE tenants SET default_theme_resource_id = (SELECT resource_id FROM themes) WHERE id = 'acme';
+                INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_resource_id)
+                    VALUES ('invoice', 'acme', 'letters', 'Invoice', (SELECT resource_id FROM themes));
+                INSERT INTO template_variants (id, tenant_key, template_resource_id, title)
+                    SELECT 'default', 'acme', resource_id, 'Default' FROM document_templates;
+                INSERT INTO code_lists (slug, tenant_key, catalog_key, display_name, source_type)
+                    VALUES ('colours', 'acme', 'letters', 'Colours', 'INLINE');
+                INSERT INTO code_list_entries (tenant_key, code_list_resource_id, code, label)
+                    SELECT 'acme', resource_id, 'red', 'Red' FROM code_lists;
+                INSERT INTO variant_attribute_definitions (id, tenant_key, catalog_key, display_name, code_list_resource_id)
+                    VALUES ('colour', 'acme', 'letters', 'Colour', (SELECT resource_id FROM code_lists));
+                INSERT INTO stencils (id, tenant_key, catalog_key, name) VALUES ('header', 'acme', 'letters', 'Header');
                 """.trimIndent(),
             )
         }
-        // Up to this migration only: the next one removes the transitional trigger tested here.
-        flyway(UNDER_TEST).migrate()
+        flyway(null).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             fun one(sql: String): String? = connection.createStatement().use { st -> st.executeQuery(sql).use { rs -> if (rs.next()) rs.getString(1) else null } }
-            fun versionOf(catalog: String) = one("SELECT v.version_id FROM catalog_versions v JOIN catalogs c ON c.catalog_id = v.catalog_id WHERE c.catalog_key = '$catalog'")
+            fun nextOf(catalog: String) = one("SELECT v.version_id FROM catalog_versions v JOIN catalogs c ON c.catalog_id = v.catalog_id WHERE c.catalog_key = '$catalog' AND v.is_next")
+            fun count(table: String) = one("SELECT count(*) FROM $table")!!.toInt()
+            val next = nextOf("letters")
 
-            assertThat(one("SELECT version_id FROM document_templates WHERE id = 'invoice'")).`as`("backfilled").isEqualTo(versionOf("letters"))
-            assertThat(one("SELECT version_id FROM template_variants WHERE id = 'default'")).`as`("a child takes its parent's").isEqualTo(versionOf("letters"))
+            // Every row is kept, in the next version, children with their parent, and its references hold.
+            CONTENT.forEach { table ->
+                assertThat(count(table)).`as`(table).isEqualTo(1)
+                assertThat(one("SELECT version_id FROM $table")).`as`("$table version").isEqualTo(next)
+            }
+            assertThat(one("SELECT theme_resource_id FROM document_templates")).isEqualTo(one("SELECT resource_id FROM themes"))
+            assertThat(one("SELECT default_theme_resource_id FROM tenants")).isEqualTo(one("SELECT resource_id FROM themes"))
+            assertThat(one("SELECT code_list_resource_id FROM variant_attribute_definitions")).isEqualTo(one("SELECT resource_id FROM code_lists"))
+            assertThat(one("SELECT count(*) FROM catalog_resources")).isEqualTo("5")
+            assertThat(one("SELECT string_agg(a.attname, ',' ORDER BY k.n) FROM pg_constraint c CROSS JOIN LATERAL unnest(c.conkey) WITH ORDINALITY k(attnum, n) JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum WHERE c.conname = 'themes_pkey'"))
+                .isEqualTo("tenant_key,version_id,resource_id")
 
-            connection.exec("INSERT INTO themes (id, tenant_key, catalog_id, name) VALUES ('brand', 'acme', (SELECT catalog_id FROM catalogs WHERE catalog_key = 'shared'), 'Brand')")
-            assertThat(one("SELECT version_id FROM themes WHERE id = 'brand'")).`as`("a writer that names none").isEqualTo(versionOf("shared"))
-
-            connection.exec("UPDATE document_templates SET catalog_id = (SELECT catalog_id FROM catalogs WHERE catalog_key = 'shared') WHERE id = 'invoice'")
-            assertThat(one("SELECT version_id FROM document_templates WHERE id = 'invoice'")).`as`("a move follows").isEqualTo(versionOf("shared"))
-            assertThat(one("SELECT version_id FROM template_variants WHERE id = 'default'")).`as`("its variants with it").isEqualTo(versionOf("shared"))
-
-            // Deleting a version deletes the content it holds.
-            connection.exec("DELETE FROM catalog_versions WHERE catalog_id = (SELECT catalog_id FROM catalogs WHERE catalog_key = 'shared')")
-            assertThat(one("SELECT count(*) FROM document_templates")).isEqualTo("0")
-
-            // A catalog with two content versions makes a writer name one.
+            // A second draft, filled with a copy, holds the same resources under the same identities.
             connection.exec(
                 """
-                DROP INDEX uq_catalog_versions_one_per_catalog;
-                INSERT INTO catalog_versions (tenant_key, catalog_id, version, kind)
-                SELECT tenant_key, catalog_id, v, 'draft' FROM catalogs, unnest(ARRAY['1.1.0', '2.0.0']) v WHERE catalog_key = 'shared';
+                INSERT INTO catalog_versions (tenant_key, catalog_id, kind, name)
+                SELECT tenant_key, catalog_id, 'draft', 'Redesign' FROM catalogs WHERE catalog_key = 'letters';
+                SELECT copy_catalog_version_content('acme', '$next', (SELECT version_id FROM catalog_versions WHERE name = 'Redesign'));
                 """.trimIndent(),
             )
-            assertThatThrownBy { connection.exec("INSERT INTO themes (id, tenant_key, catalog_id, name) VALUES ('other', 'acme', (SELECT catalog_id FROM catalogs WHERE catalog_key = 'shared'), 'Other')") }
-                .hasMessageContaining("has 2 content versions; name the version")
+            val second = one("SELECT version_id FROM catalog_versions WHERE name = 'Redesign'")
+            CONTENT.forEach { table ->
+                assertThat(one("SELECT count(*) FROM $table WHERE version_id = '$second'")).`as`("$table copied").isEqualTo("1")
+            }
+            assertThat(one("SELECT count(*) FROM catalog_resources")).isEqualTo("5")
+
+            // Deleting one version's row keeps an identity the other still holds; discarding a draft
+            // takes its content and leaves the other's.
+            connection.exec("DELETE FROM themes WHERE version_id = '$second'")
+            assertThat(one("SELECT count(*) FROM catalog_resources WHERE resource_type = 'theme'")).isEqualTo("1")
+            connection.exec("DELETE FROM catalog_versions WHERE version_id = '$second'")
+            CONTENT.forEach { table -> assertThat(count(table)).`as`("$table after discarding the draft").isEqualTo(1) }
+
+            // A template moved to another catalog lands in its version, its variants with it.
+            connection.exec(
+                "UPDATE document_templates SET catalog_id = (SELECT catalog_id FROM catalogs WHERE catalog_key = 'shared'), version_id = '${nextOf("shared")}' WHERE id = 'invoice'",
+            )
+            assertThat(one("SELECT version_id FROM template_variants WHERE id = 'default'")).isEqualTo(nextOf("shared"))
+            // A content row's version belongs to its catalog.
+            assertThatThrownBy { connection.exec("UPDATE themes SET version_id = '${nextOf("shared")}'") }
+                .hasMessageContaining("fk_themes_version")
+            // A writer names the version.
+            assertThatThrownBy { connection.exec("INSERT INTO themes (id, tenant_key, catalog_id, name) SELECT 'other', 'acme', catalog_id, 'Other' FROM catalogs WHERE catalog_key = 'letters'") }
+                .hasMessageContaining("version_id")
         }
     }
 
     private fun Connection.exec(sql: String) = createStatement().use { it.execute(sql) }
 
     private companion object {
-        /** The last migration before the one under test. */
-        const val BEFORE = "20261017102724"
+        /** The last migration of 1.x (v1.5.0): what an upgrade to 2.0 starts from. */
+        const val BEFORE = "20260923150918"
 
-        /** The migration under test. */
-        const val UNDER_TEST = "20261017110649"
+        val CONTENT = listOf("themes", "document_templates", "template_variants", "code_lists", "code_list_entries", "variant_attribute_definitions", "stencils")
     }
 }

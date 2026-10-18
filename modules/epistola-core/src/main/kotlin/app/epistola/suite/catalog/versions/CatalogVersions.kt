@@ -28,7 +28,7 @@ enum class CatalogVersionStatus { DRAFT, RELEASED }
  *
  * @property base the released version a draft started from; for a release, the one its draft started
  *   from. Null for a draft of a catalog that was never released, a catalog's first release, a release
- *   installed from elsewhere, and a release cut before releases recorded it (`V20261017144436`).
+ *   installed from elsewhere, and a release cut before releases recorded it (`V20261018200200`).
  * @property createdFrom for a draft, the released version it was copied from when that is not its
  *   base, or [CatalogDraft.FROM_NEXT] when it was copied from the next version.
  * @property behind for a draft, the released versions above its base, lowest first: it does not

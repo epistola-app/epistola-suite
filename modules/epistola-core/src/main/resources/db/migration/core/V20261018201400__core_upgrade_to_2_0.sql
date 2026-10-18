@@ -1,6 +1,5 @@
--- SPDX-FileCopyrightText: Epistola Nederland B.V.
---
--- SPDX-License-Identifier: AGPL-3.0-only
+-- The catalogs of a 1.x installation, queued for what 2.0 needs of them and SQL cannot do; and the
+-- alpha toggle 2.0 retires.
 
 -- The catalogs of a 1.x installation, queued for what 2.0 needs of them and SQL cannot do: which
 -- catalogs a catalog references is read from its content by application code, and a release is cut
@@ -33,3 +32,9 @@ COMMENT ON COLUMN catalog_upgrade_queue.last_error IS
 INSERT INTO catalog_upgrade_queue (tenant_key, catalog_id)
 SELECT tenant_key, catalog_id FROM catalogs
 WHERE type = 'AUTHORED' OR (type = 'SUBSCRIBED' AND installed_release_version IS NOT NULL);
+
+-- The `catalog-context` feature toggle is retired: in 2.0 every catalog page states the catalog
+-- version it shows, always (docs/catalog-workspace-navigation.md). Delete any tenant override rows
+-- so no dangling state remains.
+DELETE FROM feature_toggles
+WHERE feature_key = 'catalog-context';

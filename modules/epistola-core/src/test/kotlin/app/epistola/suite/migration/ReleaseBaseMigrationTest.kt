@@ -85,7 +85,7 @@ class ReleaseBaseMigrationTest {
 
     private companion object {
         /** The last migration before `core_release_base`. */
-        const val BEFORE = "20261017115602"
+        const val BEFORE = "20261018200100"
 
         const val RELEASES = "SELECT version, fingerprint, notes, base_version FROM catalog_releases ORDER BY version"
     }

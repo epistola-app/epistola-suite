@@ -96,7 +96,7 @@ releases (and an installed release) are numbered.
   against its own base. The next version continues on each release, so it is behind none in the
   ordinary course; long-term work is behind every release since it started. Releasing a draft that is
   behind is refused (`CATALOG_VERSION_BEHIND`, 409) until `acknowledgedBehind` names every one.
-- **A release records its base** (`catalog_releases.base_version`, `V20261017144436`): the release
+- **A release records its base** (`catalog_releases.base_version`, `V20261018200200`): the release
   its draft started from, which `getCatalogVersion` reports as a released version's `base` and which
   `behind` measures its changes against. It is null for a catalog's first release, a release installed
   from elsewhere (`RecordInstalledRelease`; the archive does not carry the publisher's base), and every
@@ -361,7 +361,7 @@ and `MarkCatalogReady` (every changed resource of the catalog) set them; MCP has
 modified since the last release — of any type — is not ready. `GetCatalogResourceChanges` (below)
 reports each resource's state and whether it is `ready`.
 
-The 2.0 upgrade (`V20261016232900__core_working_copy_without_versions.sql`) gives each variant its
+The 2.0 upgrade (`V20261018200600__core_working_copy.sql`) gives each variant its
 draft model, else its latest published, else its latest archived; each template its draft contract,
 else its latest published. What was publishable before is marked ready: a variant with no unfinished
 draft, a stencil without a draft, and every other resource. `template_versions` and
@@ -404,7 +404,7 @@ localised to one resource and the drift check and the detail cannot disagree. It
 is the authored mirror of the SUBSCRIBED upgrade diff, which reads
 `installed_resource_fingerprints` the same way.
 
-A release cut before those entries existed (migration `V20260923201010`) recorded
+A release cut before those entries existed (migration `V20261018200200`) recorded
 no baseline, and none can be reconstructed — the manifest snapshot holds the
 manifest entries, not the payloads they were built from. While such a catalog
 still matches its released fingerprint the working digests _are_ that release's
@@ -490,7 +490,7 @@ it when it was cut, it is immutable, and a rule that has tightened since must no
 a published release unexportable. The fingerprint _is_ recomputed and a mismatch refuses the export
 — it should be impossible, and if it happens the retained content has been altered.
 
-Releases cut before `V20260923201010` retained no content and refuse with
+Releases cut before `V20261018200200` retained no content and refuse with
 `CatalogReleaseNotRetainedException` rather than quietly substituting the working copy.
 
 ### With what it uses (fat export)

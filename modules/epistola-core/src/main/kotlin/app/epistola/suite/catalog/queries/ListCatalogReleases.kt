@@ -24,7 +24,7 @@ import java.time.OffsetDateTime
  * over exactly as it was released.
  *
  * Which is also why [CatalogReleaseSummary.retained] is on every row rather than assumed. Releases
- * cut before `V20260923201010` kept no content and cannot be rebuilt, so a screen that offered them
+ * cut before `V20261018200200` kept no content and cannot be rebuilt, so a screen that offered them
  * would be offering something that fails at download.
  */
 data class ListCatalogReleases(

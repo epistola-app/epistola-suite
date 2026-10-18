@@ -61,22 +61,15 @@ class CatalogIdentityMigrationTest {
                 SELECT 'resource', r.resource_key, c.catalog_key FROM catalog_resources r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
                 UNION ALL
                 SELECT 'release', rel.version, c.catalog_key FROM catalog_releases rel JOIN catalogs c ON c.tenant_key = rel.tenant_key AND c.catalog_id = rel.catalog_id
-                UNION ALL
-                SELECT 'deployment', d.version, c.catalog_key FROM environment_catalog_deployments d JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id
                 ORDER BY 1, 2
             """.trimIndent()
             assertThat(rows(connection, owners)).containsExactly(
-                listOf("deployment", "1.0.0", "letters"),
                 listOf("release", "1.0.0", "letters"),
                 listOf("resource", "corporate", "letters"),
                 listOf("resource", "plain", "default"),
                 listOf("theme", "corporate", "letters"),
                 listOf("theme", "plain", "default"),
             )
-
-            // History keeps the name its catalog had.
-            assertThat(rows(connection, "SELECT catalog_key, version, registry, namespace FROM environment_deployment_log"))
-                .containsExactly(listOf("letters", "1.0.0", "exchange.epistola.app", "acme"))
 
             // Fingerprints recorded before stay as they were.
             assertThat(rows(connection, "SELECT fingerprint FROM catalog_releases")).containsExactly(listOf("a".repeat(64)))
@@ -98,11 +91,6 @@ class CatalogIdentityMigrationTest {
                     ('corporate', 'acme', 'letters', 'Corporate');
                 INSERT INTO catalog_releases (tenant_key, catalog_key, version, fingerprint, manifest_snapshot)
                     VALUES ('acme', 'letters', '1.0.0', '${"a".repeat(64)}', '{}');
-                INSERT INTO environments (id, tenant_key, name) VALUES ('production', 'acme', 'Production');
-                INSERT INTO environment_catalog_deployments (tenant_key, environment_key, catalog_key, version)
-                    VALUES ('acme', 'production', 'letters', '1.0.0');
-                INSERT INTO environment_deployment_log (tenant_key, environment_key, catalog_key, version, action)
-                    VALUES ('acme', 'production', 'letters', '1.0.0', 'DEPLOYED');
                 """.trimIndent(),
             )
         }
@@ -116,7 +104,7 @@ class CatalogIdentityMigrationTest {
     }
 
     private companion object {
-        /** The last migration before the catalog identity migrations. */
-        const val BEFORE_IDENTITY = "20261002155641"
+        /** The last migration of 1.x (v1.5.0): what an upgrade to 2.0 starts from. */
+        const val BEFORE_IDENTITY = "20260923150918"
     }
 }

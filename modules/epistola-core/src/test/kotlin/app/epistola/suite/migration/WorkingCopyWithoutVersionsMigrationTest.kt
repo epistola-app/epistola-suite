@@ -86,7 +86,7 @@ class WorkingCopyWithoutVersionsMigrationTest {
 
     private companion object {
         /** The last migration before the one under test. */
-        const val BEFORE = "20261016173052"
+        const val BEFORE = "20261018200500"
 
         fun model(root: String) = """{"modelVersion": 1, "root": "$root", "nodes": {"$root": {"id": "$root", "type": "root", "slots": []}}, "slots": {}, "themeRef": {"type": "inherit"}}"""
 

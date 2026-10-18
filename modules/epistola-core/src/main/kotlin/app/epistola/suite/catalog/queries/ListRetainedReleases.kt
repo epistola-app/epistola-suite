@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component
 /**
  * The versions of a catalog that can be handed over exactly as released, newest first.
  *
- * A release retains its content only from `V20260923201010`; older ones are a fingerprint and a
+ * A release retains its content only from `V20261018200200`; older ones are a fingerprint and a
  * promise, and there is no way to reconstruct them. This is the single definition of "which
  * releases can be read back", so an offer to export one and the export itself cannot disagree —
  * the read model owns the predicate and the screen gates on it.
