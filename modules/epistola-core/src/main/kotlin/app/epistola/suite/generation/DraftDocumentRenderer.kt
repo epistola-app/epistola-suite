@@ -69,7 +69,7 @@ data class PreparedDraftRender(
  * @throws IllegalArgumentException when [data] does not satisfy the draft's data contract
  */
 data class PrepareDraftRender(
-    val tenantId: TenantKey,
+    override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
     val templateId: TemplateKey,
     val variantId: VariantKey,
@@ -79,7 +79,6 @@ data class PrepareDraftRender(
     Query<PreparedDraftRender>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_VIEW
-    override val tenantKey get() = tenantId
 }
 
 @Component
@@ -93,14 +92,14 @@ class PrepareDraftRenderHandler(
 ) : QueryHandler<PrepareDraftRender, PreparedDraftRender> {
 
     override fun handle(query: PrepareDraftRender): PreparedDraftRender {
-        val templateId = TemplateId(query.templateId, CatalogId(query.catalogKey, TenantId(query.tenantId)))
+        val templateId = TemplateId(query.templateId, CatalogId(query.catalogKey, TenantId(query.tenantKey)))
         val variantId = VariantId(query.variantId, templateId)
         val model = mediator.query(GetVariantContent(variantId))
             ?: throw IllegalStateException("Variant ${query.variantId} not found")
         val template = mediator.query(GetDocumentTemplate(templateId))
             ?: throw IllegalStateException("Template ${query.templateId} not found")
-        val tenant = mediator.query(GetTenant(id = query.tenantId))
-            ?: throw IllegalStateException("Tenant ${query.tenantId} not found")
+        val tenant = mediator.query(GetTenant(id = query.tenantKey))
+            ?: throw IllegalStateException("Tenant ${query.tenantKey} not found")
 
         // The draft's contract, as generation from this draft promises it.
         val dataModel = mediator.query(GetDataContract(templateId))?.dataModel
@@ -112,9 +111,9 @@ class PrepareDraftRenderHandler(
             }
         }
 
-        val expanded = stencilResolvers.expandWithWorkingCopies(query.tenantId, template.catalogKey, model)
+        val expanded = stencilResolvers.expandWithWorkingCopies(query.tenantKey, template.catalogKey, model)
         val theme = generationService.resolveTheme(
-            query.tenantId,
+            query.tenantKey,
             expanded,
             template.themeKey,
             tenant.defaultThemeKey,
@@ -125,7 +124,7 @@ class PrepareDraftRenderHandler(
             handle.createQuery(
                 "SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND id = :template",
             )
-                .bind("t", query.tenantId)
+                .bind("t", query.tenantKey)
                 .bind("c", query.catalogKey)
                 .bind("template", query.templateId)
                 .mapTo(UUID::class.java)

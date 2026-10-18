@@ -26,11 +26,14 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.SystemUser
+import io.micrometer.core.instrument.Gauge
+import io.micrometer.core.instrument.MeterRegistry
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * The 2.0 upgrade of each catalog of a 1.x installation, queued by the upgrade migration
@@ -65,16 +68,27 @@ class CatalogUpgradeRunner(
     private val drafts: CatalogDrafts,
     @Value("\${epistola.catalog.upgrade.interval-ms:300000}")
     private val intervalMs: Long,
+    meterRegistry: MeterRegistry,
 ) : ClusterScheduledTaskHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
+
+    /** Catalogs still waiting for their 2.0 upgrade, as of the last run on this node; -1 before it. */
+    private val waiting = AtomicLong(-1)
+
+    init {
+        Gauge.builder("epistola.catalog.upgrade.queued", waiting) { it.get().toDouble() }
+            .description("Catalogs still waiting for their 2.0 upgrade (first release), as of this node's last run; -1 before its first")
+            .register(meterRegistry)
+    }
 
     @Bean
     fun catalogUpgradeScheduledTaskDefinition(): ClusterScheduledTaskDefinition = ClusterScheduledTaskDefinition(
         taskKey = TASK_KEY,
         routingKey = ROUTING_KEY,
         taskType = TASK_TYPE,
-        schedule = ClusterScheduledTaskSchedule.FixedDelay(intervalMs),
+        // At startup: after an upgrade from 1.x nothing generates until the first releases exist.
+        schedule = ClusterScheduledTaskSchedule.FixedDelay(intervalMs, initialDelayMs = 0),
         executionScope = ClusterScheduledTaskExecutionScope.SINGLE_OWNER,
     )
 
@@ -85,7 +99,9 @@ class CatalogUpgradeRunner(
     /** Upgrades every queued catalog it can; a no-op once the queue is empty. */
     fun run() {
         var pending = queued()
+        waiting.set(pending.size.toLong())
         if (pending.isEmpty()) return
+        val queuedAtStart = pending.size
         val errors = mutableMapOf<Queued, String>()
         while (pending.isNotEmpty()) {
             val done = pending.filter { catalog ->
@@ -104,6 +120,12 @@ class CatalogUpgradeRunner(
             val error = errors[catalog].orEmpty()
             logger.warn("2.0 upgrade of catalog {}/{} not finished, will retry: {}", catalog.tenantKey.value, catalog.catalogKey.value, error)
             recordError(catalog, error)
+        }
+        waiting.set(pending.size.toLong())
+        if (pending.isEmpty()) {
+            logger.info("2.0 upgrade finished: all {} queued catalogs upgraded. Deploy their releases to the environments that should use them.", queuedAtStart)
+        } else {
+            logger.warn("2.0 upgrade: {} of {} catalogs upgraded, {} waiting (see catalog_upgrade_queue.last_error)", queuedAtStart - pending.size, queuedAtStart, pending.size)
         }
     }
 

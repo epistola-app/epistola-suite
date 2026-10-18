@@ -66,9 +66,11 @@ sealed interface ClusterScheduledTaskSchedule {
     data class Cron(val expression: String) : ClusterScheduledTaskSchedule
 
     /**
-     * Interval in milliseconds measured from successful completion.
+     * Interval in milliseconds measured from successful completion. The first run is due
+     * [initialDelayMs] after the task is registered: one interval unless said otherwise, 0 for a
+     * task whose first run should not wait.
      */
-    data class FixedDelay(val intervalMs: Long) : ClusterScheduledTaskSchedule
+    data class FixedDelay(val intervalMs: Long, val initialDelayMs: Long = intervalMs) : ClusterScheduledTaskSchedule
 
     /**
      * Interval in milliseconds measured from the previous due time.

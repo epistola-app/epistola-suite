@@ -17,6 +17,7 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeployRelease
+import app.epistola.suite.environments.queries.ListDeployableReleases
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.releaseNext
@@ -69,5 +70,27 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
         assertThat(body).contains("data-catalog=\"system\"").contains(">Subscribed<")
         // There is no page to generate a document from here; a link to one led nowhere.
         assertThat(body).doesNotContain("/tenants/${tenant.id.value}/generate")
+    }
+
+    @Test
+    fun `the tenant home says which environments make no documents yet, until a version is deployed`() {
+        val tenant = createTenant("Home Readiness")
+        val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id))
+        val test = EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant.id))
+        withMediator {
+            CreateEnvironment(production, "Production").execute()
+            CreateEnvironment(test, "Test").execute()
+        }
+        fun notice() = restTemplate.getForEntity("/tenants/${tenant.id.value}", String::class.java).body!!
+            .substringAfter("data-testid=\"generation-readiness-notice\"", missingDelimiterValue = "")
+
+        assertThat(notice()).contains("Production and Test use no catalog yet, so documents requested there fail.")
+            .contains("href=\"/tenants/${tenant.id.value}/environments\"").contains("Deploy a version")
+
+        withMediator { DeployRelease(production, CatalogKey.of("system"), ListDeployableReleases(tenant.id).query().first { it.catalogKey == CatalogKey.of("system") }.version).execute() }
+        assertThat(notice()).contains("Test uses no catalog yet").contains("href=\"/tenants/${tenant.id.value}/environments/test\"")
+
+        withMediator { DeployRelease(test, CatalogKey.of("system"), ListDeployableReleases(tenant.id).query().first { it.catalogKey == CatalogKey.of("system") }.version).execute() }
+        assertThat(notice()).`as`("everything can make documents: no notice").isEmpty()
     }
 }

@@ -29,7 +29,7 @@ class ClusterScheduledTaskScheduleCalculator {
      */
     fun initialDueAt(definition: ClusterScheduledTaskDefinition, now: OffsetDateTime = EpistolaClock.offsetDateTime()): OffsetDateTime = when (val schedule = definition.schedule) {
         is ClusterScheduledTaskSchedule.Cron -> nextCron(schedule.expression, definition.zoneId, now)
-        is ClusterScheduledTaskSchedule.FixedDelay -> now.plusNanos(schedule.intervalMs * NANOS_PER_MILLI)
+        is ClusterScheduledTaskSchedule.FixedDelay -> now.plusNanos(schedule.initialDelayMs * NANOS_PER_MILLI)
         is ClusterScheduledTaskSchedule.FixedRate -> now.plusNanos(schedule.intervalMs * NANOS_PER_MILLI)
     }
 

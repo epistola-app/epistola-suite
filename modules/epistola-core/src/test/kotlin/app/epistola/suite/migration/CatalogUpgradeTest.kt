@@ -37,6 +37,7 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.environments.queries.GetGenerationReadiness
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -134,6 +135,17 @@ class CatalogUpgradeTest : IntegrationTestBase() {
     }
 
     // ── Declarations ──
+
+    @Test
+    fun `the tenant home counts catalogs waiting for their upgrade until it has run`() {
+        val tenant = tenant("upgrade-readiness")
+        queue(catalog(tenant, CatalogKey.of("letters")))
+        assertThat(withMediator { GetGenerationReadiness(tenant).query() }.catalogsUpgrading).isEqualTo(1)
+
+        runUpgrade()
+
+        assertThat(withMediator { GetGenerationReadiness(tenant).query() }.catalogsUpgrading).isZero()
+    }
 
     @Test
     fun `a catalog that references system undeclared declares it, and is released`() {

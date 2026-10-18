@@ -28,7 +28,8 @@ renamed one, a changed primary key. Here the default ordering works against you:
 1. The `pre-upgrade` hook Job commits the new schema.
 2. _Only then_ is the Deployment updated.
 3. Kubernetes replaces pods 25% at a time (the chart declares no `strategy:`, so this is the
-   default), and there is no PodDisruptionBudget.
+   default). A PodDisruptionBudget (`podDisruptionBudget.enabled`) does not change this: it limits
+   evictions, not a rolling update.
 
 Between steps 1 and 3, **every replica still serving traffic is running code that cannot read the
 schema underneath it**. During step 1 those same pods are also blocked on the `ACCESS EXCLUSIVE`
@@ -53,6 +54,10 @@ psql "$DATABASE_URL" -c \
 
 # 3. Upgrade. The pre-upgrade Job migrates, then the Deployment rolls back up.
 helm upgrade --install epistola epistola/epistola --version <new> -f values.yaml
+
+# 4. With the HPA on (autoscaling.hpa.enabled), the chart leaves `replicas` to the HPA, and an HPA
+#    does not scale a Deployment up from zero: scale it back up yourself.
+kubectl scale deployment/epistola --replicas=<autoscaling.hpa.minReplicas>
 ```
 
 Step 2 is manual today. [#906](https://github.com/epistola-app/epistola-suite/issues/906) tracks
@@ -83,19 +88,47 @@ anything substantial.
 activated per environment. Nothing of 1.x is lost (template, contract and stencil versions stay as
 history), but no 1.x release kept its content, so the upgrade cannot deploy anything for you:
 
-1. **Upgrade** as a breaking upgrade (above).
-2. **Wait for the first releases.** Within a few minutes of the first start, a background task gives
-   every authored catalog its dependency declarations and a first release, cut from what was last
-   published before the upgrade, and every subscribed catalog its installed release as one it can
-   render from and numbered as the catalog's draft (see
-   [`catalog-versioning.md`](catalog-versioning.md#declared-dependencies)). The log names each
-   catalog it releases, and any it cannot release yet with the reason; those are retried every five
-   minutes.
-3. **Deploy those releases** to each environment. Until an environment has a release deployed, a
-   generation request for it is refused. A release that renders with releases of other catalogs (the
-   system catalog, a shared catalog) uses them implicitly; they need not be deployed.
-4. **Resubmit** any generation request that was still queued at the upgrade: it named a template
-   version, which 2.0 no longer renders.
+**Generation stops at the upgrade and resumes per environment as you deploy.** Plan the upgrade as
+that outage, and tell the teams whose applications request documents.
+
+1. **Drain the generation queue** before scaling down: a request still queued at the upgrade named
+   a template version, which 2.0 no longer renders, and fails.
+2. **Upgrade** as a breaking upgrade (above), and move REST clients to contract 2.0.
+3. **Wait for the first releases.** At the first start a background task gives every authored
+   catalog its dependency declarations and a first release, cut from what was last published before
+   the upgrade, and every subscribed catalog its installed release as one it can render from (see
+   [`catalog-versioning.md`](catalog-versioning.md#declared-dependencies)). It runs at startup and
+   then every five minutes (`epistola.catalog.upgrade.interval-ms`) until the queue is empty. Follow
+   it in:
+   - the **tenant home**, which says how many catalogs are still being prepared and which
+     environments make no documents yet;
+   - the **log**: each catalog it releases, each it cannot release yet with the reason, and
+     `2.0 upgrade finished` when the queue is empty;
+   - the metric **`epistola_catalog_upgrade_queued`**: catalogs still waiting (0 when done, -1
+     before this node's first run);
+   - the table, for a catalog that stays queued:
+
+     ```sql
+     SELECT c.tenant_key, c.catalog_key, q.last_error
+     FROM catalog_upgrade_queue q JOIN catalogs c USING (tenant_key, catalog_id);
+     ```
+
+     `last_error` says why. A catalog whose content references another catalog that has no
+     release yet waits for it (released in a later round of the same run); one that references a
+     catalog the tenant does not have needs that catalog installed; anything else is a defect to
+     report with the message.
+
+4. **Deploy those releases** to each environment, from its page (Environments) or with
+   `deployRelease`. Until an environment has a release deployed, a generation request for it is
+   refused, and the tenant home names it. A release that renders with releases of other catalogs
+   (the system catalog, a shared catalog) uses them implicitly; they need not be deployed.
+5. **Resubmit** what failed in the queue:
+
+   ```sql
+   SELECT tenant_key, id, correlation_id, error_message
+   FROM document_generation_requests
+   WHERE status = 'FAILED' AND release_version IS NULL AND draft_id IS NULL;
+   ```
 
 Work that was unpublished in 1.x is in each catalog's draft, to be marked ready and released as usual. Each catalog comes across with that one draft, its next version; from 2.0 a catalog can also hold
 long-term work next to it (see [drafts](catalog-versioning.md#catalog-versions-and-drafts)).
