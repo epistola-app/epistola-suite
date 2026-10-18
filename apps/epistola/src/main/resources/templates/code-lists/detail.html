@@ -11,7 +11,7 @@
 
             <div th:replace="~{epistola-web/page-header :: page-header(
                 pageTitle=${codeList.displayName},
-                backLinkHref=@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})},
+                backLinkHref=${draftBar != null} ? @{/tenants/{tenantId}/code-lists(tenantId=${tenantId},catalog=${draftBar.segmentValue})} : @{/tenants/{tenantId}/code-lists(tenantId=${tenantId})},
                 backLinkLabel='Code lists',
                 pageDescription=${codeList.description},
                 actions=~{::code-list-detail-actions}

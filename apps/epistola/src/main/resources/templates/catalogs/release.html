@@ -5,8 +5,8 @@
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='v' + ${release.version},
             pageDescription=${release.catalog.name} + ' · published ' + ${#temporals.format(release.releasedAt, 'yyyy-MM-dd')},
-            backLinkHref=@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalogId})},
-            backLinkLabel=${release.catalog.name},
+            backLinkHref=@{/tenants/{tenantId}/catalogs/{catalogId}/versions(tenantId=${tenantId},catalogId=${catalogId})},
+            backLinkLabel='Versions',
             actions=~{::release-actions}
         )}"></div>
 

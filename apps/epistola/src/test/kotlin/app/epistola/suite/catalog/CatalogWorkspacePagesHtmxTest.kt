@@ -177,6 +177,18 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
         assertThat(get(tenant, "/catalogs/shared/versions")).doesNotContain("data-status=\"draft\"")
     }
 
+    @Test
+    fun `a resource's back link returns to its catalog's list, and a published version's to Versions`() {
+        val tenant = seed("Workspace Back")
+
+        fun back(path: String) = Regex("""href="([^"]+)"\s+class="back-link"""").find(get(tenant, path))!!.groupValues[1]
+
+        assertThat(back("/templates/letters/invoice")).isEqualTo("/tenants/${tenant.id}/templates?catalog=letters")
+        assertThat(back("/stencils/shared/footer")).isEqualTo("/tenants/${tenant.id}/stencils?catalog=shared")
+        assertThat(back("/themes/shared/brand")).isEqualTo("/tenants/${tenant.id}/themes?catalog=shared")
+        assertThat(back("/catalogs/shared/releases/1.0.0")).isEqualTo("/tenants/${tenant.id}/catalogs/shared/versions")
+    }
+
     private fun get(tenant: Tenant, path: String): String = restTemplate.withRedirects(HttpRedirects.DONT_FOLLOW)
         .getForEntity("/tenants/${tenant.id}$path", String::class.java).body!!
 
