@@ -5,6 +5,8 @@
 package app.epistola.suite.fonts.queries
 
 import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
@@ -54,7 +56,10 @@ data class ResolveFontFace(
     val slug: FontKey,
     val weight: Int,
     val italic: Boolean,
-) : Query<ResolvedFontFace?>,
+    /** The catalog version a render reads; null for each catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<ResolvedFontFace?>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_VIEW
     override val tenantKey get() = tenantId

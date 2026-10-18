@@ -91,21 +91,14 @@ class GenerationService(
 
         // Live editor previews can provide the exact theme snapshot used by
         // the canvas; all other callers resolve the authoritative cascade.
-        val resolvedTheme = resolvedThemeOverride ?: themeStyleResolver.resolveStyles(
+        val resolvedTheme = resolvedThemeOverride ?: resolveTheme(
             tenantId,
+            templateModel,
             templateDefaultThemeId,
             tenantDefaultThemeId,
-            templateModel,
-            templateCatalogKey = templateCatalogKey,
-            tenantDefaultThemeCatalogKey = tenantDefaultThemeCatalogKey,
-        ).let { resolvedStyles ->
-            ResolvedTheme(
-                documentStyles = resolvedStyles.documentStyles,
-                pageSettings = resolvedStyles.pageSettings,
-                blockStylePresets = resolvedStyles.blockStylePresets.mapValues { (_, preset) -> preset.styles },
-                spacingUnit = resolvedStyles.spacingUnit,
-            )
-        }
+            templateCatalogKey,
+            tenantDefaultThemeCatalogKey,
+        )
 
         pdfRenderer.render(
             document = templateModel,
@@ -121,6 +114,34 @@ class GenerationService(
             culture = culture,
             clock = EpistolaClock.current(),
             watermarkText = watermarkText,
+        )
+    }
+
+    /**
+     * The theme cascade [renderPdf] applies when it is given none: the template model's own theme,
+     * then the template's, then the tenant's default. Reads the themes of the catalog version the
+     * calling message targets, so a caller can resolve it in a short read and render later.
+     */
+    fun resolveTheme(
+        tenantId: TenantKey,
+        templateModel: TemplateDocument,
+        templateDefaultThemeId: ThemeKey?,
+        tenantDefaultThemeId: ThemeKey?,
+        templateCatalogKey: CatalogKey?,
+        tenantDefaultThemeCatalogKey: CatalogKey?,
+    ): ResolvedTheme = themeStyleResolver.resolveStyles(
+        tenantId,
+        templateDefaultThemeId,
+        tenantDefaultThemeId,
+        templateModel,
+        templateCatalogKey = templateCatalogKey,
+        tenantDefaultThemeCatalogKey = tenantDefaultThemeCatalogKey,
+    ).let { resolvedStyles ->
+        ResolvedTheme(
+            documentStyles = resolvedStyles.documentStyles,
+            pageSettings = resolvedStyles.pageSettings,
+            blockStylePresets = resolvedStyles.blockStylePresets.mapValues { (_, preset) -> preset.styles },
+            spacingUnit = resolvedStyles.spacingUnit,
         )
     }
 

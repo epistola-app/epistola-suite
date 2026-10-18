@@ -37,6 +37,7 @@ class FakeDocumentGenerationExecutor(
     schemaValidator: app.epistola.suite.templates.validation.JsonSchemaValidator,
     localeResolver: app.epistola.suite.i18n.TenantLocaleResolver,
     releaseRenderSource: app.epistola.suite.generation.release.ReleaseRenderSource,
+    draftRenderer: app.epistola.suite.generation.DraftDocumentRenderer,
     @Value("\${epistola.generation.jobs.retention-days:7}")
     retentionDays: Int = 7,
     @Value("\${epistola.generation.documents.max-size-mb:50}")
@@ -51,6 +52,7 @@ class FakeDocumentGenerationExecutor(
     meterRegistry = meterRegistry,
     localeResolver = localeResolver,
     releaseRenderSource = releaseRenderSource,
+    draftRenderer = draftRenderer,
     retentionDays = retentionDays,
     maxDocumentSizeMb = maxDocumentSizeMb,
 ) {

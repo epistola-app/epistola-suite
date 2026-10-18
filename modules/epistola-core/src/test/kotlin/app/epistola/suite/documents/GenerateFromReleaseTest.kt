@@ -62,10 +62,12 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
 
     @Autowired private lateinit var releaseRenderSource: ReleaseRenderSource
 
+    @Autowired private lateinit var draftRenderer: app.epistola.suite.generation.DraftDocumentRenderer
+
     private val realExecutor by lazy {
         DocumentGenerationExecutor(
             jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore,
-            meterRegistry, localeResolver, releaseRenderSource,
+            meterRegistry, localeResolver, releaseRenderSource, draftRenderer,
             retentionDays = 7, maxDocumentSizeMb = 50,
         )
     }

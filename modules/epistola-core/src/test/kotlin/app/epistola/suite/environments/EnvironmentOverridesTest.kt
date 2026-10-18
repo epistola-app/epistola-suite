@@ -4,6 +4,7 @@
 
 package app.epistola.suite.environments
 
+import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.catalog.versions.DeleteCatalogDraft
 import app.epistola.suite.catalog.versions.DraftRef
@@ -15,6 +16,8 @@ import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.batch.DocumentGenerationExecutor
 import app.epistola.suite.documents.commands.BatchGenerationItem
@@ -34,13 +37,18 @@ import app.epistola.suite.environments.commands.UpdateEnvironment
 import app.epistola.suite.environments.queries.GetEnvironmentLatest
 import app.epistola.suite.environments.queries.ListDeploymentHistory
 import app.epistola.suite.fonts.FontByteCache
+import app.epistola.suite.fonts.queries.ResolveFontFace
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.generation.release.CatalogSelection
 import app.epistola.suite.generation.release.ReleaseRenderSource
 import app.epistola.suite.i18n.TenantLocaleResolver
+import app.epistola.suite.mediator.DispatchOutcome
+import app.epistola.suite.mediator.Query
+import app.epistola.suite.mediator.QueryListener
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.storage.DocumentContentStore
+import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
@@ -48,12 +56,16 @@ import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.publishAndRelease
+import app.epistola.suite.themes.commands.CreateTheme
 import io.micrometer.core.instrument.MeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.TestConfiguration
+import org.springframework.context.annotation.Import
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
@@ -62,7 +74,10 @@ import tools.jackson.databind.node.ObjectNode
  * (a rollback), or a draft, rendered live — never a draft on production. A request naming an exact
  * release is not affected; a range is.
  */
+@Import(FontLookupProbe::class)
 class EnvironmentOverridesTest : IntegrationTestBase() {
+
+    @Autowired private lateinit var fontLookups: FontLookupProbe
 
     private val objectMapper = ObjectMapper()
 
@@ -80,11 +95,13 @@ class EnvironmentOverridesTest : IntegrationTestBase() {
 
     @Autowired private lateinit var releaseRenderSource: ReleaseRenderSource
 
+    @Autowired private lateinit var draftRenderer: app.epistola.suite.generation.DraftDocumentRenderer
+
     // Integration tests wire a fake executor that never renders, so run the production one.
     private val realExecutor by lazy {
         DocumentGenerationExecutor(
             jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore,
-            meterRegistry, localeResolver, releaseRenderSource,
+            meterRegistry, localeResolver, releaseRenderSource, draftRenderer,
             retentionDays = 7, maxDocumentSizeMb = 50,
         )
     }
@@ -313,5 +330,34 @@ class EnvironmentOverridesTest : IntegrationTestBase() {
         assertThat(withMediator { ListDeploymentHistory(env(setup, test)).query() }.map { it.action to it.version })
             .`as`("deploying in its place ends it too").contains(DeploymentAction.OVERRIDE_CLEARED to "1.0.0")
         assertThat(withMediator { ListEnvironmentOverrides(setup.tenant, test).query() }).isEmpty()
+    }
+
+    @Test
+    fun `a document from a draft is rendered outside any transaction, each font read on its own`() {
+        val setup = setup("override-draft-tx")
+        withMediator {
+            val theme = ThemeId(ThemeKey.of("house"), CatalogId(default, TenantId(setup.tenant)))
+            CreateTheme(theme, "House", documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to SYSTEM_CATALOG_KEY.value))).execute()
+            UpdateDocumentTemplate(setup.variant.templateId, themeId = theme.key, themeCatalogKey = default).execute()
+            SetEnvironmentOverride(env(setup, test), default, draft = DraftRef.Next).execute()
+        }
+        val accepted = generate(setup, test)
+        fontLookups.inTransaction.clear()
+
+        withMediator { realExecutor.execute(accepted) }
+
+        assertThat(withMediator { GetGenerationJob(setup.tenant, accepted.id).query()!! }.request.status).isEqualTo(RequestStatus.COMPLETED)
+        assertThat(fontLookups.inTransaction).`as`("the theme's font was read while rendering").isNotEmpty()
+        assertThat(fontLookups.inTransaction).`as`("no read during the render ran inside a transaction held for it").containsOnly(false)
+    }
+}
+
+/** Records, for each font face lookup, whether a transaction was still open when it finished. */
+@TestConfiguration
+class FontLookupProbe : QueryListener {
+    val inTransaction: MutableList<Boolean> = java.util.Collections.synchronizedList(mutableListOf())
+
+    override fun onQuery(query: Query<*>, outcome: DispatchOutcome, error: Throwable?) {
+        if (query is ResolveFontFace) inTransaction += TransactionSynchronizationManager.isActualTransactionActive()
     }
 }

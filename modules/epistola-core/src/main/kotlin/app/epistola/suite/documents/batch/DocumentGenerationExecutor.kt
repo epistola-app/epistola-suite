@@ -73,6 +73,7 @@ class DocumentGenerationExecutor(
     private val meterRegistry: MeterRegistry,
     private val localeResolver: TenantLocaleResolver,
     private val releaseRenderSource: ReleaseRenderSource,
+    private val draftRenderer: app.epistola.suite.generation.DraftDocumentRenderer,
     @Value("\${epistola.generation.jobs.retention-days:7}")
     private val retentionDays: Int,
     @Value("\${epistola.generation.documents.max-size-mb:50}")
@@ -300,35 +301,18 @@ class DocumentGenerationExecutor(
 
     /**
      * Renders a request bound to a draft its environment follows (an override): the draft as it is
-     * now, live, as the editor previews it, so it carries the preview watermark. Its data is
-     * validated against the draft's contract. A draft discarded since the request was accepted fails
-     * it.
+     * now, live, with the preview watermark ([app.epistola.suite.generation.DraftDocumentRenderer],
+     * which holds no database connection while it lays out the document). Its data is validated
+     * against the draft's contract. A draft discarded since the request was accepted fails it.
      */
     private fun generateFromDraft(request: DocumentGenerationRequest, draftId: UUID): Triple<Document, ByteArray, String> {
-        val draft = CatalogVersionRef(request.tenantKey, request.catalogKey, DraftRef.Id(draftId))
-        val pdfBytes = mediator.query(
-            PreviewVariant(
-                tenantId = request.tenantKey,
-                catalogKey = request.catalogKey,
-                templateId = request.templateKey,
-                variantId = request.variantKey,
-                data = request.data,
-                catalogVersion = draft,
-            ),
-        )
+        val rendered = draftRenderer.render(request.tenantKey, request.catalogKey, request.templateKey, request.variantKey, request.data, draftId)
+        val pdfBytes = rendered.pdf
         val maxSizeBytes = maxDocumentSizeMb * 1024 * 1024
         if (pdfBytes.size > maxSizeBytes) {
             throw IllegalStateException("Generated document size (${pdfBytes.size} bytes) exceeds maximum ($maxSizeBytes bytes)")
         }
-        val templateResourceId = jdbi.withHandle<UUID?, Exception> { handle ->
-            handle.createQuery("SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id = :v AND id = :template")
-                .bind("t", request.tenantKey)
-                .bind("v", draftId)
-                .bind("template", request.templateKey)
-                .mapTo(UUID::class.java)
-                .findOne()
-                .orElse(null)
-        }
+        val templateResourceId = rendered.templateResourceId
         val document = Document(
             id = DocumentKey.generate(),
             tenantKey = request.tenantKey,

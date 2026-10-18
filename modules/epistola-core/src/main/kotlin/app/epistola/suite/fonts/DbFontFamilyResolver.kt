@@ -6,6 +6,7 @@ package app.epistola.suite.fonts
 
 import app.epistola.generation.pdf.FontFaceBytes
 import app.epistola.generation.pdf.FontFamilyResolver
+import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
@@ -31,6 +32,8 @@ import app.epistola.suite.mediator.query
 fun fontFamilyResolver(
     tenantKey: TenantKey,
     owningCatalogKey: CatalogKey,
+    /** The catalog version the render reads, for a render outside the message that targets it. */
+    catalogVersion: CatalogVersionRef? = null,
 ): FontFamilyResolver = FontFamilyResolver { catalogKey, slug, weight, italic ->
     val fontKey = FontKey.validateOrNull(slug) ?: return@FontFamilyResolver null
     val effectiveCatalog = catalogKey?.let(CatalogKey::of) ?: owningCatalogKey
@@ -42,5 +45,6 @@ fun fontFamilyResolver(
         slug = fontKey,
         weight = weight,
         italic = italic,
+        catalogVersion = catalogVersion,
     ).query()?.let { face -> FontFaceBytes(face.content, face.contentHash) }
 }
