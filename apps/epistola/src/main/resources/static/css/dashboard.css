@@ -59,3 +59,49 @@ a.stat-card:hover {
 .dashboard-actions h2 {
   margin-bottom: var(--ep-space-3);
 }
+
+/* ── Catalog tiles (tenant home) ─────────────────────────────────────── */
+
+.home-catalogs {
+  margin-bottom: var(--ep-space-8);
+}
+
+.home-catalogs h2 {
+  margin-bottom: var(--ep-space-3);
+}
+
+/* Tile width for .ep-auto-grid; grid/gap come from the design-system primitive. */
+.home-catalogs-grid {
+  --ep-grid-min: 300px;
+}
+
+/* Card chrome via .ep-panel; this adds the header and body spacing. */
+.catalog-tile {
+  display: flex;
+  flex-direction: column;
+}
+
+.catalog-tile-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-1);
+  padding: var(--ep-space-4) var(--ep-space-5);
+  border-bottom: 1px solid var(--ep-border-color);
+}
+
+.catalog-tile-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ep-space-2);
+  font-weight: 600;
+}
+
+.catalog-tile-body {
+  margin: 0;
+  padding: var(--ep-space-4) var(--ep-space-5);
+}
+
+.catalog-tile-body dd > div + div {
+  margin-top: var(--ep-space-1);
+}

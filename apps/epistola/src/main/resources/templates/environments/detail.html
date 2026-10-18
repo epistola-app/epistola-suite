@@ -14,15 +14,14 @@
             <div th:replace="~{environments/deploy-refusal :: refusal(${refusal})}"></div>
         </th:block>
 
-        <!--/* Any number of releases per catalog. Deploying adds one; generation naming the environment
-               renders the highest it serves of a catalog, or the highest satisfying the request's
-               version selector. Undeploying the highest moves generation back to the next. */-->
-        <div class="card" data-testid="environment-deployments"
+        <!--/* One live version per catalog (docs/catalog-working-model.md): making one live replaces the
+               one that was, except a version another live catalog still renders with. */-->
+        <div class="ep-panel detail-section" data-testid="environment-deployments"
              th:with="canDeploy=${auth.has('ENVIRONMENT_DEPLOY')}">
-            <div class="card-header">
+            <div class="detail-section-header">
                 <h2>Live here</h2>
             </div>
-            <div class="card-body">
+            <div class="detail-section-body">
                 <p th:if="${deployments.isEmpty()}" class="text-muted">
                     Nothing is live here yet, so documents made here fail.
                     <th:block th:if="${canDeploy and !releaseGroups.isEmpty()}">Make a version live below.</th:block>
@@ -89,12 +88,12 @@
             </div>
         </div>
 
-        <div class="card" data-testid="environment-history"
+        <div class="ep-panel detail-section" data-testid="environment-history"
              th:with="canDeploy=${auth.has('ENVIRONMENT_DEPLOY')}">
-            <div class="card-header">
+            <div class="detail-section-header">
                 <h2>History</h2>
             </div>
-            <div class="card-body">
+            <div class="detail-section-body">
                 <p th:if="${history.isEmpty()}" class="text-muted">Nothing has been made live here yet.</p>
                 <div th:if="${!history.isEmpty()}" class="ep-table-scroll" role="region" aria-label="Deployment history" tabindex="0">
                 <table class="ep-table">
@@ -112,7 +111,7 @@
                             <td>
                                 <th:block th:if="${entry.deployed}">
                                     <span th:text="'Made ' + ${entry.catalogName} + ' v' + ${entry.version} + ' live'">Made Letters v1.0.1 live</span>
-                                    <!--/* Only a deploy from before an environment served several releases replaced one. */-->
+                                    <!--/* A deploy that replaced the live version names it. */-->
                                     <span th:if="${entry.previousVersion != null}" class="text-muted"
                                           th:text="'replacing v' + ${entry.previousVersion}">replacing v1.0.0</span>
                                 </th:block>

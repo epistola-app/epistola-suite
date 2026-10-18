@@ -83,8 +83,10 @@ class DesignSystemClassTest {
         /**
          * Families whose absence is silent. A missing `alert-error` still renders the sentence, so
          * only the colour and icon go missing — exactly the kind of thing review does not catch.
+         * `card-` joined after `card-body`, which does not exist (`card-content` does), left the
+         * tenant home's catalog cards and an environment's page with their text against the border.
          */
-        val GUARDED = listOf("alert", "text-", "ep-alert", "ep-text-", "badge", "ep-badge", "ep-gap-")
+        val GUARDED = listOf("alert", "text-", "ep-alert", "ep-text-", "badge", "ep-badge", "ep-gap-", "card-")
 
         /** Families whose variants carry meaning, so each one needs a documented "use when". */
         val DOCUMENTED_FAMILIES = listOf("badge", "ep-btn")
