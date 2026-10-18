@@ -256,20 +256,19 @@ class CatalogDrafts {
         /** The highest of [releases] below [version], by SemVer; null when none is. */
         fun highestBelow(version: String, releases: Collection<String>): String? {
             val own = SemVer.parseOrNull(version) ?: return null
-            return releases.mapNotNull { r -> SemVer.releaseOrNull(r)?.let { it to r } }.filter { it.first < own }.maxByOrNull { it.first }?.second
+            return releases.mapNotNull { r -> SemVer.parseOrNull(r)?.let { it to r } }.filter { it.first < own }.maxByOrNull { it.first }?.second
         }
 
-        /** The highest of [releases] by SemVer, a pre-release never; null when there is none. */
-        fun latest(releases: Collection<String>): String? = releases.mapNotNull { r -> SemVer.releaseOrNull(r)?.let { it to r } }.maxByOrNull { it.first }?.second
+        /** The highest of [releases] by SemVer; null when there is none. */
+        fun latest(releases: Collection<String>): String? = releases.mapNotNull { r -> SemVer.parseOrNull(r)?.let { it to r } }.maxByOrNull { it.first }?.second
 
         /**
          * The released versions a draft on [base] is behind (contract ADR 0002): every release above its
-         * base, lowest first, pre-releases left out (they are work being tried, not releases to carry
-         * over). Without a base, every release.
+         * base, lowest first. Without a base, every release.
          */
         fun behind(base: String?, releases: Collection<String>): List<String> {
             val floor = base?.let(SemVer::parseOrNull)
-            return releases.mapNotNull { r -> SemVer.releaseOrNull(r)?.let { it to r } }
+            return releases.mapNotNull { r -> SemVer.parseOrNull(r)?.let { it to r } }
                 .filter { (semVer, _) -> floor == null || semVer > floor }
                 .sortedBy { it.first }
                 .map { it.second }

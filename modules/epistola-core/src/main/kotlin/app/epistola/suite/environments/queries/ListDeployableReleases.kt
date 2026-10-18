@@ -45,7 +45,7 @@ class ListDeployableReleasesHandler(
             WHERE r.tenant_key = :t AND r.content_retained
             ORDER BY c.name, c.catalog_key,
                      r.version_major DESC NULLS LAST, r.version_minor DESC NULLS LAST,
-                     r.version_patch DESC NULLS LAST, (r.version_pre_release IS NULL) DESC, r.released_at DESC
+                     r.version_patch DESC NULLS LAST, r.released_at DESC
             """,
         )
             .bind("t", query.tenantKey)

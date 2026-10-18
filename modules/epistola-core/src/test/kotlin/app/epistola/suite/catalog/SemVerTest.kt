@@ -28,8 +28,7 @@ class SemVerTest {
     fun `parse rejects non-SemVer strings`() {
         assertThrows<IllegalArgumentException> { SemVer.parse("5.5") }
         assertThrows<IllegalArgumentException> { SemVer.parse("1") }
-        assertThrows<IllegalArgumentException> { SemVer.parse("1.2.3-") }
-        assertThrows<IllegalArgumentException> { SemVer.parse("1.2.3-a..b") }
+        assertThrows<IllegalArgumentException> { SemVer.parse("1.2.3-rc1") }
         assertThrows<IllegalArgumentException> { SemVer.parse("v1.2.3") }
         assertThrows<IllegalArgumentException> { SemVer.parse("") }
     }
@@ -60,21 +59,5 @@ class SemVerTest {
         assertEquals(SemVer(2, 0, 0), SemVer(1, 4, 7).bumpMajor())
         assertEquals(SemVer(1, 5, 0), SemVer(1, 4, 7).bumpMinor())
         assertEquals(SemVer(1, 4, 8), SemVer(1, 4, 7).bumpPatch())
-    }
-
-    @Test
-    fun `a pre-release parses, renders and sorts below the release of its number, by SemVer precedence`() {
-        val pre = SemVer.parse("2.0.0-redesign-2027.1")
-        assertEquals(SemVer(2, 0, 0, "redesign-2027.1"), pre)
-        assertEquals("2.0.0-redesign-2027.1", pre.toString())
-        assertEquals(true, pre.isPreRelease)
-        assertEquals(SemVer(2, 0, 0), pre.core)
-        assertNull(SemVer.releaseOrNull("2.0.0-redesign-2027.1"))
-
-        // SemVer 2.0.0 §11.4's own example, plus numeric identifiers compared as numbers.
-        val ordered = listOf("1.0.0-alpha", "1.0.0-alpha.1", "1.0.0-alpha.beta", "1.0.0-beta", "1.0.0-beta.2", "1.0.0-beta.11", "1.0.0-rc.1", "1.0.0")
-        assertEquals(ordered, ordered.shuffled(java.util.Random(7)).sortedBy { SemVer.parse(it) })
-        assertEquals(true, SemVer.parse("1.9.9") < SemVer.parse("2.0.0-redesign.1"))
-        assertEquals(SemVer(2, 0, 1), SemVer.parse("2.0.0-x.1").bumpPatch())
     }
 }

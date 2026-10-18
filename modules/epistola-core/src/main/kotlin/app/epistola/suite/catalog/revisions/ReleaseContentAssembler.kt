@@ -171,10 +171,10 @@ class ReleaseContentAssembler(
         return bytes.takeIf { sha256Hex(it) == contentHash }
     }
 
-    /** The latest release of a catalog that retained its content, a pre-release never, or null when none has. */
+    /** The latest release of a catalog that retained its content, or null when none has. */
     fun assembleLatest(tenantKey: TenantKey, catalogKey: CatalogKey): RetainedRelease? {
         val latest = jdbi.withHandle<String?, Exception> { handle ->
-            releaseEntryStore.latestRetainedRelease(handle, tenantKey, catalogKey)
+            releaseEntryStore.retainedVersions(handle, tenantKey, catalogKey).firstOrNull()
         }
         return latest?.let { assemble(tenantKey, catalogKey, it) }
     }

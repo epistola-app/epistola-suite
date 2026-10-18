@@ -89,10 +89,11 @@ class GenerateDocumentHandler(
 
     override fun handle(command: GenerateDocument): DocumentGenerationRequest {
         // Every request renders a release: the one it names, the one its environment serves for the
-        // catalog, or the catalog's latest. The variant is chosen from the variants that
+        // catalog (or its override names), or the catalog's latest; or the draft its environment's
+        // override follows, live. The variant is chosen from the variants that
         // release holds. Bound now, at acceptance: a release cut or deployed while the request waits
         // in the queue does not change what it renders.
-        val target = releaseTargetResolver.resolve(
+        val target = releaseTargetResolver.resolveForGeneration(
             command.tenantId,
             command.catalogKey,
             command.templateId,
@@ -102,7 +103,7 @@ class GenerateDocumentHandler(
             command.releaseVersion,
         )
 
-        logger.info("Generating single document for tenant {} template {} variant {} from {}@{}", command.tenantId, command.templateId, target.variantKey, command.catalogKey, target.release.version)
+        logger.info("Generating single document for tenant {} template {} variant {} from {}@{}", command.tenantId, command.templateId, target.variantKey, command.catalogKey, target.releaseVersion ?: target.draft?.label)
 
         return jdbi.inTransaction<DocumentGenerationRequest, Exception> { handle ->
             val requestId = GenerationRequestKey.generate()
@@ -110,15 +111,15 @@ class GenerateDocumentHandler(
                 """
                 INSERT INTO document_generation_requests (
                     id, batch_id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key,
-                    environment_key, release_version, data, filename, correlation_id, routing_key, document_key, status
+                    environment_key, release_version, draft_id, draft_label, data, filename, correlation_id, routing_key, document_key, status
                 )
                 VALUES (:id, NULL, :tenantId, :catalogKey,
                         (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
                         (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
                         :templateId, :variantId, NULL, :environmentId,
-                        :releaseVersion, :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status)
+                        :releaseVersion, :draftId, :draftLabel, :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status)
                 RETURNING id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
-                          release_version, data, filename, correlation_id, routing_key, document_key, status, claimed_by,
+                          release_version, draft_id, draft_label, data, filename, correlation_id, routing_key, document_key, status, claimed_by,
                           claimed_at, error_message, created_at, started_at, completed_at, expires_at
                 """,
             )
@@ -128,7 +129,9 @@ class GenerateDocumentHandler(
                 .bind("templateId", command.templateId)
                 .bind("variantId", target.variantKey)
                 .bind("environmentId", command.environmentId)
-                .bind("releaseVersion", target.release.version)
+                .bind("releaseVersion", target.releaseVersion)
+                .bind("draftId", target.draft?.draftId)
+                .bind("draftLabel", target.draft?.label)
                 .bind("data", command.data.toString())
                 .bind("filename", command.filename)
                 .bind("correlationId", command.correlationId)

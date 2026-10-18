@@ -111,6 +111,7 @@ class EnvironmentHandlerHtmxTest : BaseIntegrationTest() {
             val form: MultiValueMap<String, String> = LinkedMultiValueMap()
             form.add("name", "Production")
             form.add("slug", "INVALID SLUG") // uppercase + space → fails asEnvironmentId
+            form.add("production", "true")
             restTemplate.postForEntity(
                 "/tenants/${testTenant.id}/environments",
                 HttpEntity(form, htmxFormHeaders()),
@@ -130,6 +131,8 @@ class EnvironmentHandlerHtmxTest : BaseIntegrationTest() {
             // The re-rendered form: preserved value + an inline error.
             assertThat(response.body).contains("""id="create-environment-form"""")
             assertThat(response.body).contains("form-error")
+            // The production mark stays ticked.
+            assertThat(response.body).containsPattern("""name="production" value="true"[^>]*checked""")
             // tenantId prefill made it into the model → the action URL is intact.
             assertThat(response.body).contains("/tenants/${testTenant.id}/environments")
         }

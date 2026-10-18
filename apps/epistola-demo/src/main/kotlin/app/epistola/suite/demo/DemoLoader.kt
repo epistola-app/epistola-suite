@@ -106,7 +106,7 @@ class DemoLoader(
             ensureDemoApiKey(tenantId)
 
             mediator.send(CreateEnvironment(id = EnvironmentId(EnvironmentKey.of("staging"), tenantId), name = "Staging"))
-            mediator.send(CreateEnvironment(id = EnvironmentId(EnvironmentKey.of("production"), tenantId), name = "Production"))
+            mediator.send(CreateEnvironment(id = EnvironmentId(EnvironmentKey.of("production"), tenantId), name = "Production", production = true))
             log.info("Created environments: staging, production")
         }
     }

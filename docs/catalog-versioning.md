@@ -64,8 +64,8 @@ releases (and an installed release) are numbered.
   (`catalog_versions.is_next`, one per catalog): the draft everyday work goes into, the one a caller
   that names no version means, and the only one released as a release. Any other draft is **long-term
   work**: named (`catalog_versions.name`, unique per catalog ignoring case), kept apart from the next
-  version, released only as a **pre-release** to try it, and made the next version when it is ready
-  (`PromoteCatalogDraft`). A draft is identified by its `version_id`, its `draftId`.
+  version, tried through an environment override, and made the next version when it is ready
+  (`PromoteCatalogDraft`); only then is it released. A draft is identified by its `version_id`, its `draftId`.
 - **Content belongs to a version.** Every content row (`themes`, `document_templates`,
   `template_variants`, `variant_attribute_definitions`, `code_lists`, `code_list_entries`, `assets`,
   `fonts`, `font_variants`, `stencils`) is keyed `(tenant_key, version_id, resource_id)`; its address
@@ -412,29 +412,58 @@ digests, so the answer stays exact; once it has drifted the query reports
 UNKNOWN and says it has no baseline rather than calling everything new. The
 next release records one.
 
-## Pre-releases and promotion
+## What an environment uses
 
-Long-term work is tried before it goes out (contract ADR 0002, amendment 2):
+An environment serves releases of a catalog (`DeployRelease`), and a request through it that names no
+version gets the highest of them. An **override** (`SetEnvironmentOverride`, `ClearEnvironmentOverride`,
+table `environment_catalog_overrides`) names what it uses instead, per catalog:
 
-- **A pre-release.** `ReleaseCatalogVersion` on long-term work releases `MAJOR.MINOR.PATCH-<label>.<n>`:
-  the number its changes need against the latest release, a label from its name (`preReleaseLabel`:
-  `Redesign 2027` → `redesign-2027`), counted (`2.0.0-redesign-2027.1`, then `.2`; `nextPreRelease`,
-  previewed by `PreviewPreRelease`). It is a release in every other way (immutable, pinned, retained,
-  deployable, exportable), but **never the latest release**: `catalog_releases.version_pre_release`
-  (`V20261018153258`) marks it, the latest-release lookups leave it out (`NOT_PRE_RELEASE`), it does
-  not move `catalogs.released_version`, no version range matches it (npm semantics), generation without
-  an environment never picks it, the next version is not behind it, and it is never sent to an
-  exchange. An environment it is deployed to serves it, by its number. It sorts below the release of
-  its number (`SemVer` precedence; `LATEST_RELEASE_ORDER`). The work carries on, on its own base; a
-  pre-release is not held to the releases the work is behind.
+- **A release it serves**, for a rollback or to hold back a newer one. Only a release the environment
+  serves can be named; undeploying it ends the override.
+- **A draft**, the next version or long-term work, rendered **live**: what is changed in it is what the
+  next document gets, with no release in between. This is how work is tried before it is published.
+
+| A request through the environment asks for | With an override | Without one                          |
+| ------------------------------------------ | ---------------- | ------------------------------------ |
+| no version                                 | the override     | the highest release it serves        |
+| a range (`^1.4.0`)                         | the override     | the highest served release that fits |
+| an exact release (`1.4.2`)                 | that release     | that release                         |
+
+`ReleaseTargetResolver.select` makes the choice for generation, batches, `PreviewDocument` and
+`AnalyzeTemplateData` alike; `GetEnvironmentLatest` reports it per catalog.
+
+- **Production.** An environment marked `production` uses only published versions: an override there
+  names a release, and marking an environment production while it follows a draft is refused
+  (`EnvironmentOverrideRefusedException`). The migration marks environments keyed or named
+  `production`, `prod`, `prd` or `productie`.
+- **Documents from a draft** record the draft's id and its name at the time (`draft_id`, `draft_label`
+  on requests and documents, no release version), validate their data against the draft's contract,
+  and carry the preview watermark, so nobody takes one for a published document. They do not pin
+  the draft's exact content: a document says which draft it came from and when, not a fingerprint.
+- **Changes to the draft**: discarding a followed draft ends the override; promoting long-term work
+  moves environments following the next version to the new next version.
+- **History.** Setting and clearing an override is recorded in the environment's history beside
+  deploys (`OVERRIDE_SET`, `OVERRIDE_CLEARED`).
+- **In the UI** the environment page marks the release that is _Latest here_, offers _Use as latest_
+  on every other release it serves, lists the work in progress it follows, and shows the production
+  mark. A draft's version menu offers _Try it on an environment…_, listing production environments
+  without offering them; the long-term work banner names the environments following it.
+- **Over MCP** nothing sets an override, as nothing deploys; `preview_document` and
+  `analyze_template_data` with an `environmentId` follow it.
+
+## Promotion
+
+Long-term work is not released; it is tried by pointing a test environment at it (an
+[environment override](#what-an-environment-uses)) and released once it is the next version.
+
 - **Promotion.** `PromoteCatalogDraft` makes long-term work the next version. It must contain every
   release published since it started, or `acknowledgedBehind` names those it leaves out; it then
   continues on the latest release (its base moves there), behind nothing. The draft that was the next
   version is discarded (held resources refuse it, as discarding does) or kept as long-term work under
   `keepPreviousAs`.
-- **In the UI** the long-term work banner offers _Publish a pre-release…_ (the dialog names the number)
-  and _Make this the next version…_ (published-since releases confirmed one by one; the old next version
-  kept under a suggested name, or discarded). Versions marks pre-releases; Deployments offers them.
+- **In the UI** the long-term work banner offers _Make this the next version…_: releases published
+  since it started are confirmed one by one, and the old next version is kept under a suggested name,
+  or discarded.
 
 ## Exporting a release
 
@@ -457,8 +486,8 @@ Releases cut before `V20260923201010` retained no content and refuse with
 `ExportCatalogZip(includeDependencies = true)` writes a **catalog bundle** (`CatalogBundle`, contract
 `docs/catalog-bundle.md`): one ZIP with `bundle.json` and one ordinary archive per catalog, the
 releases the export is pinned to (a release's pins; the working copy's locked declarations), followed
-transitively, dependencies first and the exported catalog last. It is how a catalog, or a pre-release,
-reaches an installation that receives catalogs as files. Refused (`CatalogBundleException`) while a
+transitively, dependencies first and the exported catalog last. It is how a catalog reaches an
+installation that receives catalogs as files. Refused (`CatalogBundleException`) while a
 declaration is not tied to a release, or when a pinned release kept no content here. The export dialog
 has _Include the catalogs it uses_; a published version's page has _Export with what it uses_.
 

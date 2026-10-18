@@ -209,20 +209,14 @@ class CatalogVersionMcpToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `long-term work is released as a pre-release, then made the next version`() {
+    fun `long-term work is made the next version, keeping the old one by name`() {
         val tenantId = newTenant()
         released(tenantId)
         val redesign = work(tenantId, "Redesign")
-        runAsApiKey(tenantId) {
-            themeTools.updateTheme("default", "brand", "Brand redesigned", null, null, null, null, null, null, null, catalogVersion = redesign)
-            readyTools.markCatalogReady("default", catalogVersion = redesign)
-        }
+        runAsApiKey(tenantId) { themeTools.updateTheme("default", "brand", "Brand redesigned", null, null, null, null, null, null, null, catalogVersion = redesign) }
 
-        val pre = runAsApiKey(tenantId) { versionTools.releaseLongTermWork("default", redesign, null, null) }
-
-        assertThat(pre.version).isEqualTo("1.0.1-redesign.1")
-        assertThat(runAsApiKey(tenantId) { versionTools.listCatalogVersions("default", "RELEASED") }.single { it.version == pre.version }.preRelease).isTrue()
         val promoted = runAsApiKey(tenantId) { versionTools.promoteLongTermWork("default", redesign, "Old next", null) }
+
         assertThat(promoted.isNext).isTrue()
         assertThat(runAsApiKey(tenantId) { versionTools.listCatalogVersions("default", "DRAFT") }.map { it.name }).containsExactly(null, "Old next")
         assertThat(runAsApiKey(tenantId) { themeTools.getTheme("default", "brand")!!.name }).isEqualTo("Brand redesigned")

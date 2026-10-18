@@ -5,9 +5,6 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.commands.CatalogReleaseNotRetainedException
-import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
-import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
 import app.epistola.suite.catalog.versions.CatalogDraftNameInUseException
 import app.epistola.suite.catalog.versions.CatalogVersion
@@ -16,10 +13,17 @@ import app.epistola.suite.catalog.versions.CatalogVersionHeldException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.catalog.versions.DeleteCatalogDraft
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.catalog.versions.OpenNextVersion
-import app.epistola.suite.catalog.versions.PreviewPreRelease
 import app.epistola.suite.catalog.versions.PromoteCatalogDraft
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.environments.ClearEnvironmentOverride
+import app.epistola.suite.environments.EnvironmentOverrideRefusedException
+import app.epistola.suite.environments.ListEnvironmentOverrides
+import app.epistola.suite.environments.SetEnvironmentOverride
+import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.FormData
 import app.epistola.suite.htmx.ModelBuilder
@@ -30,7 +34,6 @@ import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
-import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.requirePermission
 import app.epistola.suite.validation.FieldLimits
 import app.epistola.suite.validation.ValidationException
@@ -151,63 +154,6 @@ class CatalogDraftHandler(
         }
     }
 
-    /** `GET /{catalogId}/pre-release` at long-term work: the dialog publishing it as a pre-release. */
-    fun preReleaseForm(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.CATALOG_RELEASE)
-        val segment = request.catalogSegment()
-        val bar = bar(tenantId, segment)
-        val work = bar.chosen?.takeIf { bar.onLongTermWork } ?: return ServerResponse.notFound().build()
-        return request.htmx {
-            fragment("catalogs/drafts", "pre-release-dialog") {
-                preReleaseModel(tenantId, segment, bar, work)
-            }
-            onFullPage { redirect(CatalogPages.draft(tenantId, segment)) }
-        }
-    }
-
-    /**
-     * `POST /{catalogId}/pre-release` at long-term work: marks its changes ready (publishing is the
-     * decision that they are) and publishes it as a pre-release, then lands on the work again, which
-     * carries on. A refusal comes back in the dialog.
-     */
-    fun preRelease(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.CATALOG_RELEASE)
-        val segment = request.catalogSegment()
-        val bar = bar(tenantId, segment)
-        val work = bar.chosen?.takeIf { bar.onLongTermWork } ?: return ServerResponse.notFound().build()
-        val notes = request.param("notes").orElse("").trim().ifBlank { null }
-        return try {
-            if (AuthContext.from(SecurityContext.current(), tenantId.key).has(Permission.TEMPLATE_EDIT)) {
-                MarkCatalogReady(tenantId.key, segment.key, catalogVersion = segment.ref(tenantId.key)).execute()
-            }
-            ReleaseCatalogVersion(tenantId.key, segment.key, notes = notes, catalogVersion = segment.ref(tenantId.key)).execute()
-            val target = CatalogPages.draft(tenantId, segment)
-            request.htmx {
-                dialogLocation(target)
-                onFullPage { redirect(target) }
-            }
-        } catch (e: RuntimeException) {
-            if (e !is ValidationException && e !is CatalogReleaseVersionException) throw e
-            request.htmx {
-                fragment("catalogs/drafts", "pre-release-dialog") {
-                    preReleaseModel(tenantId, segment, bar, work)
-                    "error" to (e.message ?: "It could not be published.")
-                }
-                onFullPage { redirect(CatalogPages.draft(tenantId, segment)) }
-            }
-        }
-    }
-
-    private fun ModelBuilder.preReleaseModel(tenantId: TenantId, segment: CatalogSegment, bar: CatalogDraftBar, work: CatalogVersion) {
-        "tenantId" to tenantId.key
-        "bar" to bar
-        "segment" to segment.value
-        "workName" to work.label
-        "preReleaseVersion" to PreviewPreRelease(tenantId.key, segment.key, requireNotNull(work.draftId)).query()
-    }
-
     /** `GET /{catalogId}/promote` at long-term work: the dialog making it the next version. */
     fun promoteForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -272,5 +218,93 @@ class CatalogDraftHandler(
         "keepAsSuggestion" to "Next version before ${work.label}".take(100)
     }
 
+    /**
+     * `GET /{catalogId}/follow` at a draft: the dialog for trying it on an environment, which then
+     * uses it, live, as its latest version of the catalog (an override). Production environments are
+     * listed, not offered: they use only published versions.
+     */
+    fun followForm(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.ENVIRONMENT_DEPLOY)
+        val segment = request.catalogSegment()
+        val bar = bar(tenantId, segment)
+        if (!bar.offerFollow) return ServerResponse.notFound().build()
+        return request.htmx {
+            fragment("catalogs/drafts", "follow-dialog") { followModel(tenantId, segment, bar) }
+            onFullPage { redirect(CatalogPages.draft(tenantId, segment)) }
+        }
+    }
+
+    /**
+     * `POST /{catalogId}/follow` at a draft, with `environment`: that environment follows the draft;
+     * `POST /{catalogId}/unfollow` with `environment` ends it. Both land back on the draft.
+     */
+    fun follow(request: ServerRequest): ServerResponse = changeFollowing(request, follow = true)
+
+    fun unfollow(request: ServerRequest): ServerResponse = changeFollowing(request, follow = false)
+
+    private fun changeFollowing(request: ServerRequest, follow: Boolean): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.ENVIRONMENT_DEPLOY)
+        val segment = request.catalogSegment()
+        val bar = bar(tenantId, segment)
+        val draftId = bar.chosen?.draftId?.takeIf { bar.offerFollow } ?: return ServerResponse.notFound().build()
+        val environment = request.param("environment").orElse(null)?.let { runCatching { EnvironmentKey.of(it) }.getOrNull() }
+            ?: return ServerResponse.badRequest().build()
+        val environmentId = EnvironmentId(environment, tenantId)
+        return try {
+            if (follow) {
+                SetEnvironmentOverride(environmentId, segment.key, draft = DraftRef.Id(draftId)).execute()
+            } else {
+                ClearEnvironmentOverride(environmentId, segment.key).execute()
+            }
+            val target = CatalogPages.draft(tenantId, segment)
+            request.htmx {
+                dialogLocation(target)
+                onFullPage { redirect(target) }
+            }
+        } catch (e: EnvironmentOverrideRefusedException) {
+            request.htmx {
+                fragment("catalogs/drafts", "follow-dialog") {
+                    followModel(tenantId, segment, bar)
+                    "error" to e.message
+                }
+                onFullPage { redirect(CatalogPages.draft(tenantId, segment)) }
+            }
+        }
+    }
+
+    private fun ModelBuilder.followModel(tenantId: TenantId, segment: CatalogSegment, bar: CatalogDraftBar) {
+        val overrides = ListEnvironmentOverrides(tenantId.key, catalogKey = segment.key).query().associateBy { it.environmentKey }
+        "tenantId" to tenantId.key
+        "segment" to segment.value
+        "draftName" to bar.chosen?.label
+        "environments" to ListEnvironments(tenantId).query().map { environment ->
+            val override = overrides[environment.id]
+            FollowEnvironmentView(
+                key = environment.id.value,
+                name = environment.name,
+                production = environment.production,
+                following = override?.draftId != null && override.draftId == bar.chosen?.draftId,
+                usesNow = override?.label,
+            )
+        }
+    }
+
     private fun bar(tenantId: TenantId, segment: CatalogSegment): CatalogDraftBar = CatalogDraftBar.of(tenantId.key, segment) { CatalogPages.draft(tenantId, it) }
 }
+
+/**
+ * An environment in the dialog for trying a draft on one.
+ *
+ * @property following it follows this draft already.
+ * @property usesNow what its override names now (`v1.0.0`, or a draft's name); null when it uses the
+ *   highest release it serves.
+ */
+data class FollowEnvironmentView(
+    val key: String,
+    val name: String,
+    val production: Boolean,
+    val following: Boolean,
+    val usesNow: String?,
+)

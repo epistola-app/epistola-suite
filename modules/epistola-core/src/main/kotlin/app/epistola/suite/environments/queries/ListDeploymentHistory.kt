@@ -51,7 +51,7 @@ class ListDeploymentHistoryHandler(
     override fun handle(query: ListDeploymentHistory): List<DeploymentLogEntry> = jdbi.withHandle<List<DeploymentLogEntry>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT l.environment_key, l.catalog_key, l.registry, l.namespace, l.action, l.version, l.previous_version, l.changed_at,
+            SELECT l.environment_key, l.catalog_key, l.registry, l.namespace, l.action, l.version, l.previous_version, l.draft_label, l.changed_at,
                    u.display_name
             FROM environment_deployment_log l
             LEFT JOIN users u ON u.id = l.changed_by
@@ -75,6 +75,7 @@ class ListDeploymentHistoryHandler(
                     changedByName = rs.getString("display_name"),
                     registry = rs.getString("registry"),
                     namespace = rs.getString("namespace"),
+                    draftLabel = rs.getString("draft_label"),
                 )
             }
             .list()

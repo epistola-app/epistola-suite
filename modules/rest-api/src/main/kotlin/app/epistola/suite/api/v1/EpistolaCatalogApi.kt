@@ -475,7 +475,7 @@ class EpistolaCatalogApi(
             version = version,
             draftId = draftId,
             isNext = isNext,
-            preRelease = version?.let { SemVer.parseOrNull(it)?.isPreRelease } == true,
+            preRelease = false, // BRIDGE: removed with the contract's pre-releases
             name = name,
             status = if (draft) CatalogVersionStatusDto.DRAFT else CatalogVersionStatusDto.RELEASED,
             behind = behind.map { release ->

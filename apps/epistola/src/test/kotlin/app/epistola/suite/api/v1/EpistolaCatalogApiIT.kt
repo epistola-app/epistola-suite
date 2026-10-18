@@ -186,11 +186,11 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
 
     /**
      * Long-term work (contract ADR 0002, amendment 2): started next to the next version, written to
-     * and read back by its id without touching the next version, renamed, released as a pre-release,
-     * and discarded taking only its content; the listing puts the next version first.
+     * and read back by its id without touching the next version, renamed, never released, and
+     * discarded taking only its content; the listing puts the next version first.
      */
     @Test
-    fun `long-term work is started, written to by its id, renamed, released as a pre-release, and discarded`() {
+    fun `long-term work is started, written to by its id, renamed, not released, and discarded`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val catalogSlug = "drafts-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
@@ -227,10 +227,8 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
 
         assertThat(call(HttpMethod.POST, "$versions/$work/mark-ready").statusCode).isEqualTo(HttpStatus.OK)
         val release = call(HttpMethod.POST, "$versions/$work/release", "{}")
-        assertThat(release.statusCode).describedAs(release.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(release.body!!, "$.catalogVersion.version")).`as`("released as a pre-release").isEqualTo("1.0.1-redesign-2027.1")
-        assertThat(JsonPath.read<Boolean>(release.body!!, "$.catalogVersion.preRelease")).isTrue
-        assertThat(JsonPath.read<String>(call(HttpMethod.GET, "$versions/1.0.1-redesign-2027.1").body!!, "$.status")).`as`("addressed by its number").isEqualTo("released")
+        assertThat(release.statusCode).`as`("only the next version is released").isEqualTo(HttpStatus.CONFLICT)
+        assertThat(JsonPath.read<String>(release.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-draft-kind")
 
         assertThat(call(HttpMethod.DELETE, "$versions/$work").statusCode).isEqualTo(HttpStatus.NO_CONTENT)
         assertThat(call(HttpMethod.GET, "$versions/$work/themes/tha").statusCode).isEqualTo(HttpStatus.NOT_FOUND)

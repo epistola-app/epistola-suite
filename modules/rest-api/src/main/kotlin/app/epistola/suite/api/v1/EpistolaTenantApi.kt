@@ -426,7 +426,8 @@ class EpistolaTenantApi(
         val catalogs by lazy { GetCatalogNames(environment.tenantKey, history.map { it.catalogKey }).query() }
         return ResponseEntity.ok(
             DeploymentHistoryResponse(
-                items = history.map { entry ->
+                // BRIDGE: override entries reach the API with the contract's OVERRIDE_* actions.
+                items = history.filter { it.version != null && it.action in setOf(DeploymentAction.DEPLOYED, DeploymentAction.UNDEPLOYED) }.map { entry ->
                     // An entry recorded the catalog's name; one from before it did reads the catalog's current name.
                     val catalog = if (entry.registry == null || entry.namespace == null) catalogs[entry.catalogKey] else null
                     DeploymentEventDto(
@@ -434,7 +435,7 @@ class EpistolaTenantApi(
                         namespace = entry.namespace ?: catalog?.namespace ?: CatalogIdentityProperties.defaultNamespace(environment.tenantKey),
                         catalogKey = entry.catalogKey.value,
                         action = if (entry.action == DeploymentAction.DEPLOYED) DeploymentEventDto.Action.DEPLOYED else DeploymentEventDto.Action.UNDEPLOYED,
-                        releaseVersion = entry.version,
+                        releaseVersion = entry.version!!,
                         changedAt = entry.changedAt,
                         changedBy = entry.changedByName,
                     )

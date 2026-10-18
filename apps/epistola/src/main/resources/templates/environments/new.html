@@ -43,6 +43,14 @@
                 <span class="form-hint">3-30 characters, lowercase letters, numbers, and hyphens only</span>
                 <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
             </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="production" value="true" data-testid="environment-production"
+                           th:checked="${formData?.get('production') == 'true'}">
+                    Production
+                </label>
+                <span class="form-hint">Only published versions are used here. Test environments can follow work in progress.</span>
+            </div>
         </div>
         <div class="ep-dialog-footer">
             <button type="button" class="ep-btn ep-btn-ghost"

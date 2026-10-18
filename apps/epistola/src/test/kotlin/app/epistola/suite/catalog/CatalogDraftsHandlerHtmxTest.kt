@@ -459,31 +459,6 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `long-term work is published as a pre-release from its banner, which says the number, and carries on`() = fixture {
-        lateinit var tenant: Tenant
-        lateinit var work: UUID
-        given {
-            tenant = tenant("Drafts Pre-release")
-            work = withRedesign(tenant)
-        }
-        whenever {
-            val page = get("/tenants/${tenant.id}/catalogs/letters@$work/draft").body!!
-            assertThat(page).contains("data-testid=\"catalog-pre-release-open\"").contains("data-testid=\"catalog-promote-open\"")
-            assertThat(get("/tenants/${tenant.id}/catalogs/letters/draft").body!!).`as`("not on the next version").doesNotContain("catalog-pre-release-open")
-            val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/pre-release").body!!
-            assertThat(dialog).contains("<strong>v1.0.1-redesign.1</strong>")
-            postForm("/tenants/${tenant.id}/catalogs/letters@$work/pre-release", mapOf("notes" to "Try the new invoice"))
-        }
-        then {
-            assertThat(result<ResponseEntity<String>>().headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters@$work/draft")
-            val versions = get("/tenants/${tenant.id}/catalogs/letters/versions").body!!
-            assertThat(versions.substringAfter("data-version=\"1.0.1-redesign.1\"").substringBefore("</tr>")).contains("data-testid=\"catalog-version-pre-release\"")
-            assertThat(drafts(tenant)).`as`("the work carries on").containsExactly("Next version", "Redesign")
-            assertThat(get("/tenants/${tenant.id}/catalogs/letters/releases/1.0.1-redesign.1").statusCode).isEqualTo(HttpStatus.OK)
-        }
-    }
-
-    @Test
     fun `making long-term work the next version asks to confirm what was published meanwhile, and keeps the old one by name`() = fixture {
         lateinit var tenant: Tenant
         lateinit var work: UUID

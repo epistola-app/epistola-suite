@@ -8,7 +8,6 @@ import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.commands.preReleaseLabel
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.common.ids.CatalogId
@@ -41,10 +40,10 @@ import org.springframework.beans.factory.annotation.Autowired
 import java.util.UUID
 
 /**
- * Long-term work, stage 2 of contract ADR 0002 amendment 2: it is released as a pre-release to try
- * it, which nothing takes for the latest release, and it becomes the next version when it is ready.
+ * Long-term work, stage 2 of contract ADR 0002 amendment 2: it becomes the next version when it is
+ * ready, after what was published meanwhile is acknowledged, and is never released before that.
  */
-class PreReleaseTest : IntegrationTestBase() {
+class PromotionTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var resolver: ReleaseTargetResolver
@@ -76,77 +75,9 @@ class PreReleaseTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `the label comes from the name, and is never numeric`() {
-        assertThat(preReleaseLabel("Redesign 2027")).isEqualTo("redesign-2027")
-        assertThat(preReleaseLabel("  Nieuwe huisstijl! ")).isEqualTo("nieuwe-huisstijl")
-        assertThat(preReleaseLabel("2027")).isEqualTo("work-2027")
-        assertThat(preReleaseLabel("***")).isEqualTo("work")
-    }
-
-    @Test
-    fun `long-term work is released as a pre-release of the number its changes need, counted, and carries on`() {
-        val (tenant, work) = withWork("pre-release-numbered")
-        withMediator { CreateTheme(ThemeId(ThemeKey.of("seasonal"), catalogId(tenant)), "Seasonal", catalogVersion = at(tenant, work)).execute() }
-
-        val first = releaseWork(tenant, work)
-        withMediator { UpdateTheme(brand(tenant), name = "Brand redesigned", catalogVersion = at(tenant, work)).execute() }
-        val second = releaseWork(tenant, work)
-
-        assertThat(first.version).`as`("an addition: the next minor").isEqualTo("1.1.0-redesign-2027.1")
-        assertThat(second.version).isEqualTo("1.1.0-redesign-2027.2")
-        assertThat(withMediator { GetCatalogDraft(tenant, letters, DraftRef.Id(work)).query() }).`as`("the work carries on").isNotNull
-        assertThat(withMediator { GetCatalogDraft(tenant, letters, DraftRef.Id(work)).query()!! }.base).`as`("on its own base").isEqualTo("1.0.0")
-        assertThat(withMediator { GetTheme(brand(tenant)).query()!! }.name).`as`("the next version is untouched").isEqualTo("Brand")
-    }
-
-    @Test
-    fun `a pre-release is never the latest release, nor what a range or a request without an environment gets`() {
-        val (tenant, work) = withWork("pre-release-not-latest")
-        withMediator { UpdateTheme(brand(tenant), name = "Brand redesigned", catalogVersion = at(tenant, work)).execute() }
-        val pre = releaseWork(tenant, work).version
-
-        assertThat(pre).isEqualTo("1.0.1-redesign-2027.1")
-        assertThat(withMediator { GetCatalog(tenant, letters).query()!! }.releasedVersion).isEqualTo("1.0.0")
-        assertThat(withMediator { GetLatestCatalogRelease(tenant, letters).query() }.latestVersion).isEqualTo("1.0.0")
-        assertThat(withMediator { resolver.selectRelease(tenant, letters, null, null) }).isEqualTo("1.0.0")
-        assertThat(withMediator { resolver.selectRelease(tenant, letters, null, "*") }).isEqualTo("1.0.0")
-        assertThat(withMediator { ListCatalogVersions(tenant, letters, CatalogVersionStatus.RELEASED).query() }.map { it.version })
-            .`as`("listed, below nothing it is not above").containsExactly(pre, "1.0.0")
-        // The next version is measured against the latest release, not the pre-release.
-        assertThat(withMediator { AssessDraftNumber(tenant, letters).query()!! }.latest).isEqualTo("1.0.0")
-        assertThat(withMediator { GetCatalogDraft(tenant, letters).query()!! }.behind).isEmpty()
-    }
-
-    @Test
-    fun `a pre-release deployed to an environment is what that environment serves, by its number`() {
-        val (tenant, work) = withWork("pre-release-deployed")
-        withMediator { UpdateTheme(brand(tenant), name = "Brand redesigned", catalogVersion = at(tenant, work)).execute() }
-        val pre = releaseWork(tenant, work).version
-        val test = EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant))
-        withMediator {
-            CreateEnvironment(test, "Test").execute()
-            DeployRelease(test, letters, pre).execute()
-        }
-
-        assertThat(withMediator { resolver.selectRelease(tenant, letters, EnvironmentKey.of("test"), null) }).isEqualTo(pre)
-        assertThat(withMediator { resolver.selectRelease(tenant, letters, EnvironmentKey.of("test"), pre) }).isEqualTo(pre)
-    }
-
-    @Test
-    fun `a number asked for must be a pre-release for long-term work, and a release for the next version`() {
-        val (tenant, work) = withWork("pre-release-asked")
-        withMediator { CreateTheme(ThemeId(ThemeKey.of("seasonal"), catalogId(tenant)), "Seasonal", catalogVersion = at(tenant, work)).execute() }
-
-        assertThatThrownBy { releaseWork(tenant, work, "2.0.0") }.isInstanceOf(CatalogReleaseVersionException::class.java).hasMessageContaining("pre-release")
-        assertThatThrownBy { releaseWork(tenant, work, "1.0.1-try.1") }.`as`("an addition needs a minor").isInstanceOf(CatalogReleaseVersionException::class.java)
-        assertThat(releaseWork(tenant, work, "2.0.0-beta.1").version).isEqualTo("2.0.0-beta.1")
-        assertThatThrownBy {
-            withMediator {
-                MarkCatalogReady(tenant, letters).execute()
-                ReleaseCatalogVersion(tenant, letters, "1.1.0-x.1").execute()
-            }
-        }
-            .isInstanceOf(CatalogReleaseVersionException::class.java).hasMessageContaining("released as a release")
+    fun `long-term work is not released, it is tried through an environment and made the next version`() {
+        val (tenant, work) = withWork("long-term-not-released")
+        assertThatThrownBy { releaseWork(tenant, work) }.isInstanceOf(CatalogDraftIsNextException::class.java).hasMessageContaining("make it the next version")
     }
 
     @Test

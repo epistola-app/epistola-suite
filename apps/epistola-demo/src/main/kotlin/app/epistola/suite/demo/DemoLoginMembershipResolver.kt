@@ -124,7 +124,7 @@ class DemoLoginMembershipResolver(
                 mediator.send(CreateTenant(id = tenantKey, name = email))
                 val tenantId = TenantId(tenantKey)
                 mediator.send(CreateEnvironment(EnvironmentId(EnvironmentKey.of("staging"), tenantId), "Staging"))
-                mediator.send(CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), tenantId), "Production"))
+                mediator.send(CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), tenantId), "Production", production = true))
             }
         } catch (e: DuplicateIdException) {
             // Two tabs finishing OIDC at once. First login is now the common case rather than a rare

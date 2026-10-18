@@ -8,17 +8,27 @@ import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.environments.ClearEnvironmentOverride
+import app.epistola.suite.environments.DeploymentLogEntry
+import app.epistola.suite.environments.EnvironmentOverrideRefusedException
+import app.epistola.suite.environments.ListEnvironmentOverrides
+import app.epistola.suite.environments.SetEnvironmentOverride
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeleteEnvironment
 import app.epistola.suite.environments.commands.DeployRelease
 import app.epistola.suite.environments.commands.UndeployRelease
+import app.epistola.suite.environments.commands.UpdateEnvironment
 import app.epistola.suite.environments.queries.GetEnvironment
+import app.epistola.suite.environments.queries.GetEnvironmentLatest
 import app.epistola.suite.environments.queries.ListDeployableReleases
 import app.epistola.suite.environments.queries.ListDeploymentHistory
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.environments.queries.ListImplicitDeployments
+import app.epistola.suite.generation.release.CatalogSelection
+import app.epistola.suite.handlers.CatalogPages
 import app.epistola.suite.handlers.DeployRefusalView
+import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.environmentId
 import app.epistola.suite.htmx.executeOrFormError
@@ -100,6 +110,7 @@ class EnvironmentHandler {
                 required()
                 maxLength(100)
             }
+            field("production") {}
         }
 
         // Field validation and the command-level failure (duplicate slug) both
@@ -111,6 +122,7 @@ class EnvironmentHandler {
                 CreateEnvironment(
                     id = EnvironmentId(form.getEnvironmentId("slug")!!, tenantId),
                     name = form["name"],
+                    production = form["production"] == "true",
                 ).execute()
             }
         }
@@ -201,13 +213,17 @@ class EnvironmentHandler {
                 catalogKey = entry.catalogKey.value,
                 catalogName = catalogNames[entry.catalogKey] ?: entry.catalogKey.value,
                 deployed = entry.action == DeploymentAction.DEPLOYED,
+                change = historyText(entry, catalogNames[entry.catalogKey] ?: entry.catalogKey.value),
                 version = entry.version,
                 previousVersion = entry.previousVersion,
                 changedAt = entry.changedAt,
                 changedByName = entry.changedByName,
                 // Offered again only when deploying it would change something and can succeed:
                 // the release still kept its content, and the environment does not serve it now.
-                redeployable = (entry.catalogKey to entry.version) in deployableSet &&
+                // An override names no release to deploy.
+                redeployable = entry.version != null &&
+                    entry.action in setOf(DeploymentAction.DEPLOYED, DeploymentAction.UNDEPLOYED) &&
+                    (entry.catalogKey to entry.version) in deployableSet &&
                     (entry.catalogKey to entry.version) !in servedReleases,
             )
         }
@@ -222,6 +238,10 @@ class EnvironmentHandler {
             )
         }
 
+        // What a request naming no version gets here, per catalog: the override, or the highest it serves.
+        val latest = GetEnvironmentLatest(tenantId.key, environmentId.key).query()
+        val overridden = ListEnvironmentOverrides(tenantId.key, environmentId.key).query().associateBy { it.catalogKey }
+
         return ServerResponse.ok().page("environments/detail") {
             "pageTitle" to "${environment.name} - Environments - Epistola"
             "tenantId" to tenantId.key
@@ -234,6 +254,18 @@ class EnvironmentHandler {
                     catalogName = catalogNames[deployment.catalogKey] ?: deployment.catalogKey.value,
                     version = deployment.version,
                     deployedAt = deployment.deployedAt,
+                    latest = (latest[deployment.catalogKey] as? CatalogSelection.Release)?.version == deployment.version,
+                    overridden = overridden[deployment.catalogKey]?.version == deployment.version,
+                    catalogOverridden = overridden.containsKey(deployment.catalogKey),
+                )
+            }
+            // The drafts it follows, live: documents here come from them.
+            "following" to overridden.values.filter { it.draftId != null }.map { override ->
+                FollowedDraftView(
+                    catalogKey = override.catalogKey.value,
+                    catalogName = allNames[override.catalogKey] ?: override.catalogKey.value,
+                    draftLabel = override.label,
+                    href = CatalogPages.draft(tenantId, CatalogSegment(override.catalogKey, override.draftId)),
                 )
             }
             "releaseGroups" to deployable.groupBy { it.catalogKey }.map { (catalogKey, releases) ->
@@ -286,6 +318,61 @@ class EnvironmentHandler {
     }
 
     /** Stops the environment serving one release of a catalog, given as the `version` field. */
+
+    /**
+     * `POST /{environmentId}/overrides` with `catalog` and `version`: the environment uses that
+     * release, one it serves, as its latest of the catalog. `POST /{environmentId}/overrides/{catalogId}/clear`
+     * ends the override: it uses the highest release it serves again.
+     */
+    fun setOverride(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.ENVIRONMENT_DEPLOY)
+        val environmentId = request.environmentId(tenantId) ?: return ServerResponse.notFound().build()
+        val catalogKey = CatalogKey.validateOrNull(request.param("catalog").orElse("")) ?: return detail(request, error = "Choose a catalog.")
+        val version = request.param("version").orElse("").trim().ifEmpty { null } ?: return detail(request, error = "Choose a release.")
+        return try {
+            SetEnvironmentOverride(environmentId, catalogKey, version = version).execute()
+            redirectTo(environmentId)
+        } catch (e: EnvironmentOverrideRefusedException) {
+            detail(request, error = e.message)
+        }
+    }
+
+    fun clearOverride(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.ENVIRONMENT_DEPLOY)
+        val environmentId = request.environmentId(tenantId) ?: return ServerResponse.notFound().build()
+        val catalogKey = CatalogKey.validateOrNull(request.pathVariable("catalogId")) ?: return ServerResponse.notFound().build()
+        ClearEnvironmentOverride(environmentId, catalogKey).execute()
+        return redirectTo(environmentId)
+    }
+
+    /** `POST /{environmentId}/production` with `production` (`true` or `false`): marks it, or not. */
+    fun setProduction(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
+        val environmentId = request.environmentId(tenantId) ?: return ServerResponse.notFound().build()
+        val environment = GetEnvironment(environmentId).query() ?: return ServerResponse.notFound().build()
+        return try {
+            UpdateEnvironment(environmentId, environment.name, production = request.param("production").orElse("") == "true").execute()
+            redirectTo(environmentId)
+        } catch (e: EnvironmentOverrideRefusedException) {
+            detail(request, error = e.message)
+        }
+    }
+
+    private fun historyText(entry: DeploymentLogEntry, catalogName: String): String = when (entry.action) {
+        DeploymentAction.DEPLOYED -> "Deployed $catalogName v${entry.version}"
+
+        DeploymentAction.UNDEPLOYED -> "Undeployed $catalogName v${entry.version}"
+
+        DeploymentAction.OVERRIDE_SET -> entry.version?.let { "Uses $catalogName v$it as its latest" } ?: "Follows ${entry.draftLabel} of $catalogName"
+
+        DeploymentAction.OVERRIDE_CLEARED ->
+            "Uses the highest $catalogName release it serves again" +
+                (entry.version?.let { ", not v$it" } ?: entry.draftLabel?.let { ", not $it" }.orEmpty())
+    }
+
     fun undeploy(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val environmentId = request.environmentId(tenantId) ?: return ServerResponse.notFound().build()
@@ -306,7 +393,16 @@ class EnvironmentHandler {
         val catalogName: String,
         val version: String,
         val deployedAt: OffsetDateTime,
+        /** What a request naming no version gets here. */
+        val latest: Boolean = false,
+        /** It is the latest because an override names it. */
+        val overridden: Boolean = false,
+        /** The catalog has an override here, this release or a draft. */
+        val catalogOverridden: Boolean = false,
     )
+
+    /** A draft the environment follows, live. */
+    data class FollowedDraftView(val catalogKey: String, val catalogName: String, val draftLabel: String, val href: String)
 
     /** One catalog's deployable releases, newest first, and those the environment serves. */
     data class ReleaseGroupView(
@@ -321,7 +417,9 @@ class EnvironmentHandler {
         val catalogKey: String,
         val catalogName: String,
         val deployed: Boolean,
-        val version: String,
+        /** The change as people read it. */
+        val change: String,
+        val version: String?,
         val previousVersion: String?,
         val changedAt: OffsetDateTime,
         val changedByName: String?,

@@ -67,6 +67,10 @@ data class DocumentGenerationRequest(
      * [routingKey], so a SELECT that does not ask for `release_version` still maps.
      */
     val releaseVersion: String? = null,
+    /** The draft this request renders, live, when its environment follows one; null for a release. */
+    val draftId: java.util.UUID? = null,
+    /** The draft's name when the request was accepted. */
+    val draftLabel: String? = null,
     @Json val data: ObjectNode,
     val filename: String?,
     val correlationId: String?,
@@ -87,7 +91,7 @@ data class DocumentGenerationRequest(
     val expiresAt: OffsetDateTime?,
 ) {
     init {
-        require(versionKey != null || environmentKey != null || releaseVersion != null) {
+        require(versionKey != null || environmentKey != null || releaseVersion != null || draftId != null) {
             "A request renders a release, an environment's deployment, or (before 2.0) a version"
         }
     }

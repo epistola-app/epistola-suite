@@ -9,6 +9,8 @@ import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.BatchKey
 import app.epistola.suite.common.ids.CatalogId
@@ -23,6 +25,7 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.model.Document
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
+import app.epistola.suite.documents.queries.PreviewVariant
 import app.epistola.suite.fonts.fontFamilyResolver
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.generation.collect.commands.EmitGenerationResult
@@ -50,6 +53,7 @@ import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.util.UUID
 
 /**
  * Executes document generation jobs.
@@ -223,6 +227,7 @@ class DocumentGenerationExecutor(
         )
 
         if (request.releaseVersion != null) return generateFromRelease(request, request.releaseVersion)
+        if (request.draftId != null) return generateFromDraft(request, request.draftId)
 
         // Accepted before 2.0, against a template version or an environment activation. The catalog
         // release is the only version now, and neither is carried over, so there is nothing to
@@ -297,6 +302,57 @@ class DocumentGenerationExecutor(
     }
 
     /**
+     * Renders a request bound to a draft its environment follows (an override): the draft as it is
+     * now, live, as the editor previews it, so it carries the preview watermark. Its data is
+     * validated against the draft's contract. A draft discarded since the request was accepted fails
+     * it.
+     */
+    private fun generateFromDraft(request: DocumentGenerationRequest, draftId: UUID): Triple<Document, ByteArray, String> {
+        val draft = CatalogVersionRef(request.tenantKey, request.catalogKey, DraftRef.Id(draftId))
+        val pdfBytes = mediator.query(
+            PreviewVariant(
+                tenantId = request.tenantKey,
+                catalogKey = request.catalogKey,
+                templateId = request.templateKey,
+                variantId = request.variantKey,
+                data = request.data,
+                catalogVersion = draft,
+            ),
+        )
+        val maxSizeBytes = maxDocumentSizeMb * 1024 * 1024
+        if (pdfBytes.size > maxSizeBytes) {
+            throw IllegalStateException("Generated document size (${pdfBytes.size} bytes) exceeds maximum ($maxSizeBytes bytes)")
+        }
+        val templateResourceId = jdbi.withHandle<UUID?, Exception> { handle ->
+            handle.createQuery("SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id = :v AND id = :template")
+                .bind("t", request.tenantKey)
+                .bind("v", draftId)
+                .bind("template", request.templateKey)
+                .mapTo(UUID::class.java)
+                .findOne()
+                .orElse(null)
+        }
+        val document = Document(
+            id = DocumentKey.generate(),
+            tenantKey = request.tenantKey,
+            catalogKey = request.catalogKey,
+            templateKey = request.templateKey,
+            variantKey = request.variantKey,
+            versionKey = null,
+            draftId = draftId,
+            draftLabel = request.draftLabel,
+            templateResourceId = templateResourceId,
+            filename = request.filename ?: "document-${request.id.value}.pdf",
+            correlationId = request.correlationId,
+            contentType = "application/pdf",
+            sizeBytes = pdfBytes.size.toLong(),
+            createdAt = EpistolaClock.offsetDateTime(),
+            createdBy = currentUserIdOrNull(),
+        )
+        return Triple(document, pdfBytes, "draft")
+    }
+
+    /**
      * Save the generated document and mark the request as completed.
      *
      * Marking `document_generation_requests.status='COMPLETED'` looks redundant
@@ -347,7 +403,7 @@ class DocumentGenerationExecutor(
             handle.createUpdate(
                 """
                 INSERT INTO documents (
-                    id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key, release_version,
+                    id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key, release_version, draft_id, draft_label,
                     template_resource_id, filename, correlation_id, content_type, size_bytes,
                     created_at, created_by
                 )
@@ -355,7 +411,7 @@ class DocumentGenerationExecutor(
                     :id, :tenantId, :catalogKey,
                     (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
                     (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
-                    :templateId, :variantId, :versionId, :releaseVersion,
+                    :templateId, :variantId, :versionId, :releaseVersion, :draftId, :draftLabel,
                     :templateResourceId, :filename, :correlationId, :contentType, :sizeBytes,
                     :createdAt, :createdBy
                 )
@@ -368,6 +424,8 @@ class DocumentGenerationExecutor(
                 .bind("variantId", document.variantKey)
                 .bind("versionId", document.versionKey)
                 .bind("releaseVersion", document.releaseVersion)
+                .bind("draftId", document.draftId)
+                .bind("draftLabel", document.draftLabel)
                 .bind("templateResourceId", document.templateResourceId)
                 .bind("filename", document.filename)
                 .bind("correlationId", document.correlationId)

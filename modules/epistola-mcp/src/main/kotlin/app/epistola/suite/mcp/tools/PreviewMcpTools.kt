@@ -37,7 +37,7 @@ class PreviewMcpTools(
             "When `data` is omitted, the contract's first sample example is used. " +
             "By default this renders the catalog's latest release, exactly as generation would, and fails when " +
             "the catalog has never been released. Set `workingCopy` to render the working copy " +
-            "instead, to see unreleased work, or `catalogVersion` to render one draft's. Set `environmentId` to render the highest release that environment serves, " +
+            "instead, to see unreleased work, or `catalogVersion` to render one draft's. Set `environmentId` to render what that environment uses (its chosen release or followed draft, else the highest release it serves), " +
             "and `releaseVersion` to pick the highest release satisfying a version selector; the two combine. " +
             "If the data does not satisfy the template's data contract the call fails; `analyze_template_data` " +
             "then says which fields are missing or wrong.",
@@ -64,7 +64,7 @@ class PreviewMcpTools(
         )
         releaseVersion: String?,
         @McpToolParam(
-            description = "Environment key (e.g. 'production'). The highest release that environment serves (satisfying `releaseVersion`, when set) is rendered.",
+            description = "Environment key (e.g. 'production'). What that environment uses is rendered: the release or draft it was pointed at (unless `releaseVersion` names an exact release), else the highest release it serves satisfying `releaseVersion`.",
             required = false,
         )
         environmentId: String?,
@@ -129,7 +129,7 @@ class PreviewMcpTools(
         )
         releaseVersion: String?,
         @McpToolParam(
-            description = "Environment key (e.g. 'production'); the highest release it serves (satisfying `releaseVersion`, when set) is checked against.",
+            description = "Environment key (e.g. 'production'); what it uses is checked against: the release or draft it was pointed at (unless `releaseVersion` names an exact release), else the highest release it serves satisfying `releaseVersion`.",
             required = false,
         )
         environmentId: String?,

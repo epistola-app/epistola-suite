@@ -12,13 +12,25 @@ import org.jdbi.v3.core.Handle
 import java.time.OffsetDateTime
 
 /** What happened to one release an environment serves. */
-enum class DeploymentAction { DEPLOYED, UNDEPLOYED }
+enum class DeploymentAction {
+    DEPLOYED,
+    UNDEPLOYED,
+
+    /** An override was set: the environment uses [DeploymentLogEntry.version] or the draft [DeploymentLogEntry.draftLabel] as its latest. */
+    OVERRIDE_SET,
+
+    /** An override was cleared: the environment uses the highest release it serves again. */
+    OVERRIDE_CLEARED,
+}
 
 /**
- * One change to what an environment serves: one release of a catalog deployed or undeployed. An
- * environment serves any number of releases of a catalog, so a deploy replaces nothing.
+ * One change to what an environment serves: one release of a catalog deployed or undeployed, or an
+ * override set or cleared. An environment serves any number of releases of a catalog, so a deploy
+ * replaces nothing.
  *
- * @property version the release deployed or undeployed.
+ * @property version the release deployed or undeployed, or the release an override used; null for
+ *   an override naming a draft.
+ * @property draftLabel for an override naming a draft, the draft's name then; null otherwise.
  * @property previousVersion for a deploy logged while an environment served one release per catalog
  *   (before 2.0), the release it replaced; null otherwise.
  * @property changedByName the display name of who made the change; null for a system change or a
@@ -30,12 +42,13 @@ data class DeploymentLogEntry(
     val environmentKey: EnvironmentKey,
     val catalogKey: CatalogKey,
     val action: DeploymentAction,
-    val version: String,
+    val version: String?,
     val previousVersion: String?,
     val changedAt: OffsetDateTime,
     val changedByName: String?,
     val registry: String? = null,
     val namespace: String? = null,
+    val draftLabel: String? = null,
 )
 
 /**
@@ -49,19 +62,21 @@ internal object DeploymentLog {
         environmentKey: EnvironmentKey,
         catalogKey: CatalogKey,
         action: DeploymentAction,
-        version: String,
+        version: String?,
         /** The version a deploy replaced, so the history reads "made v1.1.0 live, replacing v1.0.0". */
         previousVersion: String? = null,
+        /** For an override naming a draft: the draft's name. */
+        draftLabel: String? = null,
     ) {
         handle.createUpdate(
             """
             INSERT INTO environment_deployment_log
-                (tenant_key, environment_key, catalog_key, registry, namespace, action, version, previous_version, changed_at, changed_by)
+                (tenant_key, environment_key, catalog_key, registry, namespace, action, version, previous_version, draft_label, changed_at, changed_by)
             VALUES (
                 :t, :e, :c,
                 (SELECT registry FROM catalogs WHERE tenant_key = :t AND catalog_key = :c),
                 (SELECT namespace FROM catalogs WHERE tenant_key = :t AND catalog_key = :c),
-                :action, :v, :previous, NOW(), :by
+                :action, :v, :previous, :draft, NOW(), :by
             )
             """,
         )
@@ -71,6 +86,7 @@ internal object DeploymentLog {
             .bind("action", action.name)
             .bind("v", version)
             .bind("previous", previousVersion)
+            .bind("draft", draftLabel)
             .bind("by", currentUserIdOrNull()?.value)
             .execute()
     }

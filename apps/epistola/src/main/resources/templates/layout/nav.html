@@ -87,6 +87,18 @@
                                     </span>
                                 </button>
                             </th:block>
+                            <!--/* Trying the version shown on an environment, which follows it as it is changed. */-->
+                            <th:block th:if="${scope.bar.offerFollow}">
+                                <div class="ws-menu-sep"></div>
+                                <button type="button" class="app-nav-dropdown-item ws-menu-item" role="menuitem" data-testid="ws-follow"
+                                        th:hx-get="@{/tenants/{t}/catalogs/{c}/follow(t=${scope.bar.tenantKey},c=${scope.bar.segmentValue})}"
+                                        hx-target="#ws-dialog-mount" hx-swap="innerHTML">
+                                    <span class="ws-menu-text">
+                                        <span>Try it on an environment…</span>
+                                        <span class="ws-menu-detail" th:text="${scope.bar.followedByText ?: 'Documents there use it as it is changed'}">Documents there use it as it is changed</span>
+                                    </span>
+                                </button>
+                            </th:block>
                             <div class="ws-menu-sep"></div>
                             <a th:href="${scope.versionsHref}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Published versions</a>
                         </div>
@@ -185,11 +197,11 @@
     <!--/* Long-term work is hard to miss: what is being changed, and that the next version is not. */-->
     <div th:fragment="side-strip" th:with="bar=${workspace.catalog.bar}" class="ws-side-strip" role="status"
          data-testid="catalog-long-term-banner" th:attr="data-catalog=${bar.catalogKey},data-draft=${bar.chosen.draftId}">
-        <span th:text="'You are changing ' + ${bar.chosen.label} + ', long-term work kept apart from the next version.'">You are changing Redesign 2027.</span>
+        <span>
+            <span th:text="'You are changing ' + ${bar.chosen.label} + ', long-term work kept apart from the next version.'">You are changing Redesign 2027.</span>
+            <strong th:if="${bar.followedByText != null}" data-testid="catalog-long-term-followed" th:text="${bar.followedByText} + '.'">Test follows it.</strong>
+        </span>
         <span class="ep-row" style="gap: var(--ep-space-2);">
-            <button th:if="${bar.offerPreRelease}" type="button" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-pre-release-open"
-                    th:hx-get="@{/tenants/{t}/catalogs/{c}/pre-release(t=${bar.tenantKey},c=${bar.segmentValue})}"
-                    hx-target="#ws-dialog-mount" hx-swap="innerHTML">Publish a pre-release…</button>
             <button th:if="${bar.offerPromote}" type="button" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-promote-open"
                     th:hx-get="@{/tenants/{t}/catalogs/{c}/promote(t=${bar.tenantKey},c=${bar.segmentValue})}"
                     hx-target="#ws-dialog-mount" hx-swap="innerHTML">Make this the next version…</button>

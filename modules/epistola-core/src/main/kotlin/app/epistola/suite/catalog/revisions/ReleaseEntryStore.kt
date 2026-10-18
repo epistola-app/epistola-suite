@@ -8,7 +8,6 @@ import app.epistola.catalog.protocol.ResourceEntry
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.LATEST_RELEASE_ORDER
-import app.epistola.suite.catalog.queries.NOT_PRE_RELEASE
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
@@ -148,7 +147,7 @@ class ReleaseEntryStore {
         .createQuery(
             """
             SELECT version FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND content_retained AND $NOT_PRE_RELEASE
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND content_retained
             $LATEST_RELEASE_ORDER
             LIMIT 1
             """,
@@ -165,7 +164,7 @@ class ReleaseEntryStore {
             """
             SELECT DISTINCT ON (cat.catalog_key) cat.catalog_key, r.version FROM catalog_releases r
             JOIN catalogs cat ON cat.tenant_key = r.tenant_key AND cat.catalog_id = r.catalog_id
-            WHERE r.tenant_key = :t AND r.content_retained AND r.version_pre_release IS NULL
+            WHERE r.tenant_key = :t AND r.content_retained
             ORDER BY cat.catalog_key, r.version_major DESC NULLS LAST, r.version_minor DESC NULLS LAST,
                      r.version_patch DESC NULLS LAST, r.released_at DESC
             """,

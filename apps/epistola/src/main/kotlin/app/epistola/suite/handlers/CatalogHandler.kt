@@ -1057,9 +1057,7 @@ class CatalogHandler {
                 // Nothing to forget about a release that kept nothing, which is also the state
                 // forgetting one leaves behind -- so the action disappears once it has been used.
                 forgettable = release.retained,
-                // A pre-release is work being tried: never sent to Exchange (ADR 0002, amendment 2).
                 publishable = release.retained &&
-                    SemVer.parseOrNull(release.version)?.isPreRelease != true &&
                     publication != null &&
                     publication.canPublish &&
                     publication.hasPublishableDestination &&

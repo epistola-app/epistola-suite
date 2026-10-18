@@ -142,16 +142,17 @@ class GenerateDocumentBatchHandler(
         // the whole batch: the highest candidate satisfying the selector, among the releases its
         // environment serves or, without one, every release that kept its content. A release cut or
         // deployed while the batch is being accepted does not split it across releases.
-        val releases = command.items
+        val selections = command.items
             .map { Triple(it.releaseVersion, it.environmentId, it.catalogKey) }
             .distinct()
             .associateWith { (selector, environment, catalog) ->
-                releaseTargetResolver.selectRelease(command.tenantId, catalog, environment, selector)
+                releaseTargetResolver.select(command.tenantId, catalog, environment, selector)
             }
         val targets = command.items.map { item ->
             releaseTargetResolver.resolveIn(
                 command.tenantId,
-                ReleaseRef(item.catalogKey, releases.getValue(Triple(item.releaseVersion, item.environmentId, item.catalogKey))),
+                item.catalogKey,
+                selections.getValue(Triple(item.releaseVersion, item.environmentId, item.catalogKey)),
                 item.templateId,
                 item.variantId,
                 item.variantSelectionCriteria,
@@ -177,13 +178,13 @@ class GenerateDocumentBatchHandler(
                 """
                 INSERT INTO document_generation_requests (
                     id, batch_id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key,
-                    environment_key, release_version, data, filename, correlation_id, routing_key, document_key, status
+                    environment_key, release_version, draft_id, draft_label, data, filename, correlation_id, routing_key, document_key, status
                 )
                 VALUES (:id, :batchId, :tenantId, :catalogKey,
                         (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
                         (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
                         :templateId, :variantId, NULL, :environmentId,
-                        :releaseVersion, :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status)
+                        :releaseVersion, :draftId, :draftLabel, :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status)
                 """,
             )
 
@@ -198,7 +199,9 @@ class GenerateDocumentBatchHandler(
                     .bind("templateId", item.templateId)
                     .bind("variantId", targets[index].variantKey)
                     .bind("environmentId", item.environmentId)
-                    .bind("releaseVersion", targets[index].release.version)
+                    .bind("releaseVersion", targets[index].releaseVersion)
+                    .bind("draftId", targets[index].draft?.draftId)
+                    .bind("draftLabel", targets[index].draft?.label)
                     .bind("data", item.data.toString())
                     .bind("filename", item.filename)
                     .bind("correlationId", item.correlationId)

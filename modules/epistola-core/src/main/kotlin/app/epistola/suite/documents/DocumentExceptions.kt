@@ -66,19 +66,20 @@ class CatalogNotReleasedException(
     val catalogKey: CatalogKey,
 ) : RuntimeException("Catalog '${catalogKey.value}' has no release to generate from. Release the catalog first.")
 
-/** The release being generated from does not contain the requested template or variant. */
+/**
+ * The release being generated from does not contain the requested template or variant; or, with
+ * [draftLabel], the draft an environment uses does not ([releaseVersion] is then that label).
+ */
 class TemplateNotInReleaseException(
     val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
     val releaseVersion: String,
     val templateId: TemplateKey,
     val variantId: VariantKey?,
+    val draftLabel: String? = null,
 ) : RuntimeException(
-    if (variantId == null) {
-        "Release ${catalogKey.value}@$releaseVersion does not contain template '${templateId.value}'"
-    } else {
-        "Release ${catalogKey.value}@$releaseVersion has no variant '${variantId.value}' of template '${templateId.value}'"
-    },
+    (if (draftLabel != null) "'$draftLabel' of ${catalogKey.value}" else "Release ${catalogKey.value}@$releaseVersion") +
+        if (variantId == null) " does not contain template '${templateId.value}'" else " has no variant '${variantId.value}' of template '${templateId.value}'",
 )
 
 /** A request names a release of the template's catalog that does not exist or kept no content to render. */

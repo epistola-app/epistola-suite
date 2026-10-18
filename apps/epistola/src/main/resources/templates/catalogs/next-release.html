@@ -134,8 +134,8 @@
             </p>
             <p th:if="${readiness.hasDraft and !readiness.publishable}" class="form-hint" style="margin-top: var(--ep-space-2);"
                data-testid="catalog-long-term-not-published">
-                This is long-term work: publish a pre-release to try it, and make it the next version when it is
-                ready to go out with everyday work.
+                This is long-term work: try it by pointing a test environment at it, and make it the next version
+                when it is ready to go out with everyday work.
             </p>
             <div class="ep-row" style="gap: var(--ep-space-2); margin: var(--ep-space-2) 0;">
                 <form th:if="${readiness.drafts.offerDiscard}" method="post" style="display: inline;"

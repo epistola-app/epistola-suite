@@ -5,7 +5,6 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.CatalogType
-import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.versions.CatalogVersion
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
@@ -15,6 +14,8 @@ import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.environments.ListEnvironmentOverrides
+import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
@@ -54,9 +55,22 @@ data class CatalogDraftBar(
     val installed: CatalogVersion? = null,
     /** The viewer holds `CATALOG_MANAGE`, which deleting a published version needs. */
     val mayDeleteReleases: Boolean = false,
+    /** The viewer holds `ENVIRONMENT_DEPLOY`, which pointing an environment at a version needs. */
+    val mayDeploy: Boolean = false,
+    /** The environments that follow [chosen], live (an override naming it), by name. */
+    val followedBy: List<String> = emptyList(),
     /** The same page at another segment, for the draft links. */
     private val pageAt: (CatalogSegment) -> String,
 ) {
+    /** Whether to offer trying [chosen] on an environment, which then follows it as it is changed. */
+    val offerFollow: Boolean get() = authored && chosen != null && mayDeploy
+
+    /** "Test and Acceptance follow it", or null when no environment does. */
+    val followedByText: String? get() = followedBy.takeIf { it.isNotEmpty() }?.let { names ->
+        (if (names.size == 1) names.single() else names.dropLast(1).joinToString(", ") + " and " + names.last()) +
+            (if (names.size == 1) " follows it" else " follow it")
+    }
+
     /** The catalog's current version: its next version, or a subscribed catalog's installed release. */
     val current: CatalogVersion? get() = if (authored) drafts.firstOrNull { it.isNext } else installed
 
@@ -148,7 +162,6 @@ data class CatalogDraftBar(
                 offerRemove = authored && mayDeleteReleases,
                 removeWithheld = authored && !mayDeleteReleases,
                 removeAction = "/tenants/${tenantKey.value}/catalogs/${catalogKey.value}/releases/$version/delete",
-                preRelease = SemVer.parseOrNull(version)?.isPreRelease == true,
             )
         }
 
@@ -173,8 +186,6 @@ data class CatalogDraftBar(
         val removeWithheld: Boolean = false,
         /** Where removing it posts: a draft is discarded at its segment, a published version deleted. */
         val removeAction: String = "",
-        /** A pre-release of long-term work: used only where it is deployed by its number. */
-        val preRelease: Boolean = false,
     )
 
     /** Some row's removal is withheld, so the Versions page says what it needs. */
@@ -195,9 +206,6 @@ data class CatalogDraftBar(
      * `CATALOG_RELEASE`.
      */
     val offerRelease: Boolean get() = isNext && mayDiscardDrafts
-
-    /** Whether to offer publishing long-term work as a pre-release, to try it (`CATALOG_RELEASE`). */
-    val offerPreRelease: Boolean get() = onLongTermWork && mayDiscardDrafts
 
     /** Whether to offer making long-term work the next version (`CATALOG_RELEASE`). */
     val offerPromote: Boolean get() = onLongTermWork && mayDiscardDrafts
@@ -259,6 +267,15 @@ data class CatalogDraftBar(
                 else -> drafts.firstOrNull { it.draftId == draft } ?: throw CatalogVersionNotFoundException(segment.key, draft.toString())
             }
             val auth = AuthContext.from(SecurityContext.current(), tenantKey)
+            val followedBy = chosen?.draftId?.takeIf { authored }?.let { draftId ->
+                val following = ListEnvironmentOverrides(tenantKey, catalogKey = segment.key).query().filter { it.draftId == draftId }.map { it.environmentKey }
+                if (following.isEmpty()) {
+                    emptyList()
+                } else {
+                    val names = ListEnvironments(TenantId(tenantKey)).query().associate { it.id to it.name }
+                    following.map { names[it] ?: it.value }
+                }
+            }.orEmpty()
             return CatalogDraftBar(
                 tenantKey = tenantKey,
                 catalogKey = segment.key,
@@ -272,6 +289,8 @@ data class CatalogDraftBar(
                 mayDiscardDrafts = auth.has(Permission.CATALOG_RELEASE),
                 installed = installed,
                 mayDeleteReleases = auth.has(Permission.CATALOG_MANAGE),
+                mayDeploy = auth.has(Permission.ENVIRONMENT_DEPLOY),
+                followedBy = followedBy,
                 pageAt = pageAt,
             )
         }

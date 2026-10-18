@@ -349,8 +349,10 @@ class SeveralDraftsTest : IntegrationTestBase() {
         assertThat(withMediator { GetCatalogDraft(tenant, letters).query()!! }.behind).`as`("the next version never is").isEmpty()
 
         withMediator { MarkCatalogReady(tenant, letters, catalogVersion = at(tenant, redesign)).execute() }
-        assertThat(withMediator { ReleaseCatalogVersion(tenant, letters, catalogVersion = at(tenant, redesign)).execute() }.version)
-            .`as`("long-term work is released as a pre-release, see PreReleaseTest").isEqualTo("1.0.2-redesign.1")
+        assertThatThrownBy { withMediator { ReleaseCatalogVersion(tenant, letters, catalogVersion = at(tenant, redesign)).execute() } }
+            .`as`("only the next version is released")
+            .isInstanceOf(CatalogDraftIsNextException::class.java)
+            .hasMessageContaining("Redesign")
     }
 
     @Test

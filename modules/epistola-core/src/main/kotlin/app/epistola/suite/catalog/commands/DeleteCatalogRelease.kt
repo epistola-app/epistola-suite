@@ -132,7 +132,7 @@ class DeleteCatalogReleaseHandler(
             FROM (
                 SELECT r.version, r.fingerprint, r.released_at
                 FROM catalog_releases r
-                WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version_pre_release IS NULL
+                WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")}
                 ORDER BY r.version_major DESC NULLS LAST, r.version_minor DESC NULLS LAST,
                          r.version_patch DESC NULLS LAST, r.released_at DESC
                 LIMIT 1

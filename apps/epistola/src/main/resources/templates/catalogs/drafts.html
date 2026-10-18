@@ -47,42 +47,6 @@
             <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-draft-submit">Start</button>
         </div>
     </form>
-    <!--/* Publish long-term work as a pre-release, to try it where it is deployed (ADR 0002, amendment 2).
-           Model: `tenantId`, `bar`, `segment`, `workName`, `preReleaseVersion`, optionally `error`. */-->
-    <th:block th:fragment="pre-release-dialog">
-        <div th:replace="~{epistola-web/dialog :: dialog-shell(
-            dialogId='pre-release-dialog',
-            title='Publish a pre-release',
-            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/draft(tenantId=${tenantId},catalogId=${segment})},
-            content=~{::pre-release-form})}"></div>
-    </th:block>
-
-    <form th:fragment="pre-release-form" id="pre-release-form"
-          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/pre-release(tenantId=${tenantId},catalogId=${segment})}"
-          hx-target="#ws-dialog-mount" hx-swap="innerHTML">
-        <div class="ep-dialog-body">
-            <div th:if="${error != null}" class="alert alert-error" data-testid="pre-release-error" th:text="${error}"></div>
-            <p th:if="${preReleaseVersion != null}" data-testid="pre-release-version">
-                <span th:text="${workName}">Redesign 2027</span> is published as
-                <strong th:text="'v' + ${preReleaseVersion}">v2.0.0-redesign-2027.1</strong>.
-            </p>
-            <p class="form-hint">
-                A pre-release is for trying the work: deploy it to a test environment, or export it to another
-                installation. Applications only get it where it is deployed; it is never the latest version and is
-                not sent to Epistola Exchange. The work carries on, and the next version is not affected.
-            </p>
-            <div class="form-group">
-                <label class="ep-label" for="pre-release-notes">Notes</label>
-                <textarea id="pre-release-notes" name="notes" class="ep-textarea" rows="3" maxlength="4000"
-                          placeholder="What to try in this pre-release"></textarea>
-            </div>
-        </div>
-        <div class="ep-dialog-footer">
-            <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="pre-release-dialog">Cancel</button>
-            <button type="submit" class="ep-btn ep-btn-primary" data-testid="pre-release-submit">Publish pre-release</button>
-        </div>
-    </form>
-
     <!--/* Make long-term work the next version (ADR 0002, amendment 2). What was published since it started
            is confirmed one by one; the current next version is kept under a name, or discarded.
            Model: `tenantId`, `bar`, `segment`, `workName`, `behind`, `keepAsSuggestion`, optionally `error`. */-->
@@ -134,5 +98,53 @@
             <button type="submit" class="ep-btn ep-btn-primary" data-testid="promote-submit">Make it the next version</button>
         </div>
     </form>
+    <!--/* Trying a draft on an environment: it then uses the draft, live, as its latest version of the
+           catalog. Production uses only published versions, so it is listed but not offered. */-->
+    <th:block th:fragment="follow-dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='follow-dialog',
+            title='Try it on an environment',
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/draft(tenantId=${tenantId},catalogId=${segment})},
+            content=~{::follow-body})}"></div>
+    </th:block>
+
+    <div th:fragment="follow-body" id="follow-body">
+        <div class="ep-dialog-body">
+            <div th:if="${error != null}" class="alert alert-error" data-testid="follow-error" th:text="${error}"></div>
+            <p style="margin-top: 0;">
+                An environment that follows <strong th:text="${draftName}">Next version</strong> makes its documents from it
+                as it is changed, without publishing. Documents made there are marked as a preview.
+            </p>
+            <p th:if="${environments.isEmpty()}" class="text-muted">There are no environments yet.</p>
+            <table th:unless="${environments.isEmpty()}" class="ep-table" data-testid="follow-environments">
+                <tbody>
+                    <tr th:each="env : ${environments}" th:attr="data-environment=${env.key}">
+                        <td>
+                            <strong th:text="${env.name}">Test</strong>
+                            <div class="form-hint" style="margin: 0;"
+                                 th:text="${env.production} ? 'Production: uses only published versions'
+                                     : (${env.following} ? 'Follows it'
+                                     : (${env.usesNow != null} ? 'Uses ' + ${env.usesNow} + ' now' : 'Uses the highest version it serves'))">Uses the highest version it serves</div>
+                        </td>
+                        <td class="actions">
+                            <form th:unless="${env.production}" style="display: inline;"
+                                  th:hx-post="${env.following}
+                                      ? @{/tenants/{t}/catalogs/{c}/unfollow(t=${tenantId},c=${segment})}
+                                      : @{/tenants/{t}/catalogs/{c}/follow(t=${tenantId},c=${segment})}"
+                                  hx-target="#ws-dialog-mount" hx-swap="innerHTML">
+                                <input type="hidden" name="environment" th:value="${env.key}">
+                                <button type="submit" class="ep-btn ep-btn-sm" data-testid="follow-toggle"
+                                        th:classappend="${env.following} ? 'ep-btn-ghost' : 'ep-btn-outline'"
+                                        th:text="${env.following} ? 'Stop following' : 'Follow'">Follow</button>
+                            </form>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="follow-dialog">Close</button>
+        </div>
+    </div>
 </body>
 </html>

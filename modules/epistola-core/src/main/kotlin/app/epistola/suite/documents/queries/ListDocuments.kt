@@ -49,7 +49,7 @@ class ListDocumentsHandler(
     override fun handle(query: ListDocuments): List<DocumentMetadata> = jdbi.withHandle<List<DocumentMetadata>, Exception> { handle ->
         val sql = StringBuilder(
             """
-            SELECT id, tenant_key, catalog_key, template_key, variant_key, release_version,
+            SELECT id, tenant_key, catalog_key, template_key, variant_key, release_version, draft_id, draft_label,
                    filename, correlation_id, content_type, size_bytes,
                    created_at, created_by
             FROM documents
@@ -89,6 +89,8 @@ class ListDocumentsHandler(
                 templateId = TemplateKey(rs.getString("template_key")),
                 variantId = VariantKey(rs.getString("variant_key")),
                 releaseVersion = rs.getString("release_version"),
+                draftId = rs.getObject("draft_id", java.util.UUID::class.java),
+                draftLabel = rs.getString("draft_label"),
                 filename = rs.getString("filename"),
                 correlationId = rs.getString("correlation_id"),
                 contentType = rs.getString("content_type"),

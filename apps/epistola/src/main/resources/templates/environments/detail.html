@@ -10,6 +10,51 @@
         )}"></div>
 
         <div class="alert alert-error" th:if="${error != null}" th:text="${error}" data-testid="environment-error"></div>
+
+        <!--/* Production uses only published versions: it cannot follow work in progress. */-->
+        <div class="ep-panel detail-section" data-testid="environment-production">
+            <div class="detail-section-body ep-row" style="justify-content: space-between; gap: var(--ep-space-4);">
+                <p style="margin: 0;" th:if="${environment.production}">
+                    <span class="badge badge-outline">Production</span>
+                    Only published versions are used here.
+                </p>
+                <p style="margin: 0;" th:unless="${environment.production}" class="text-muted">
+                    Not production: it can follow work in progress, so it can be used to try changes before they are published.
+                </p>
+                <form th:if="${auth.has('TENANT_SETTINGS')}" method="post"
+                      th:action="@{/tenants/{t}/environments/{e}/production(t=${tenantId},e=${environment.id})}">
+                    <input type="hidden" name="production" th:value="${!environment.production}">
+                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="environment-production-toggle"
+                            th:text="${environment.production} ? 'Not production' : 'Mark as production'">Mark as production</button>
+                </form>
+            </div>
+        </div>
+
+        <!--/* Work in progress this environment follows: its documents come from it as it is changed. */-->
+        <div th:unless="${following.isEmpty()}" class="ep-panel detail-section" data-testid="environment-following">
+            <div class="detail-section-header">
+                <h2>Follows work in progress</h2>
+            </div>
+            <div class="detail-section-body">
+                <p class="form-hint" style="margin-top: 0;">
+                    Documents made here come from these, as they are changed, and are marked as a preview. A request
+                    naming an exact version still gets that version.
+                </p>
+                <table class="ep-table">
+                    <tbody>
+                        <tr th:each="row : ${following}" th:attr="data-catalog=${row.catalogKey}">
+                            <td><a th:href="${row.href}" th:text="${row.catalogName} + ': ' + ${row.draftLabel}">Letters: Next version</a></td>
+                            <td class="actions" th:if="${auth.has('ENVIRONMENT_DEPLOY')}">
+                                <form method="post" style="display: inline;"
+                                      th:action="@{/tenants/{t}/environments/{e}/overrides/{c}/clear(t=${tenantId},e=${environment.id},c=${row.catalogKey})}">
+                                    <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="environment-stop-following">Stop following</button>
+                                </form>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
         <th:block th:if="${refusal != null}">
             <div th:replace="~{environments/deploy-refusal :: refusal(${refusal})}"></div>
         </th:block>
@@ -42,9 +87,25 @@
                                 <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${row.catalogKey})}"
                                    th:text="${row.catalogName}">Letters</a>
                             </td>
-                            <td th:text="'v' + ${row.version}">v1.0.0</td>
+                            <td>
+                                <span th:text="'v' + ${row.version}">v1.0.0</span>
+                                <span th:if="${row.latest}" class="badge badge-outline" data-testid="environment-latest"
+                                      th:title="${row.overridden} ? 'Chosen as the latest here: requests without a version, or with a range, get it' : 'The highest served: requests without a version get it'"
+                                      th:text="${row.overridden} ? 'Latest here (chosen)' : 'Latest here'">Latest here</span>
+                            </td>
                             <td th:text="${#temporals.format(row.deployedAt, 'yyyy-MM-dd HH:mm')}"></td>
                             <td class="actions" th:if="${canDeploy}">
+                                <form th:if="${!row.latest}" method="post" style="display: inline;"
+                                      th:action="@{/tenants/{t}/environments/{e}/overrides(t=${tenantId},e=${environment.id})}">
+                                    <input type="hidden" name="catalog" th:value="${row.catalogKey}">
+                                    <input type="hidden" name="version" th:value="${row.version}">
+                                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="environment-use-as-latest"
+                                            th:title="'Requests without a version, or with a range, get v' + ${row.version} + ' here'">Use as latest</button>
+                                </form>
+                                <form th:if="${row.overridden}" method="post" style="display: inline;"
+                                      th:action="@{/tenants/{t}/environments/{e}/overrides/{c}/clear(t=${tenantId},e=${environment.id},c=${row.catalogKey})}">
+                                    <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="environment-use-highest">Use the highest again</button>
+                                </form>
                                 <form method="post" style="display: inline;"
                                       th:action="@{/tenants/{tenantId}/environments/{environmentId}/deployments/{catalogId}/undeploy(tenantId=${tenantId},environmentId=${environment.id},catalogId=${row.catalogKey})}">
                                     <input type="hidden" name="version" th:value="${row.version}">
@@ -130,14 +191,10 @@
                         <tr th:each="entry : ${history}">
                             <td th:text="${#temporals.format(entry.changedAt, 'yyyy-MM-dd HH:mm')}"></td>
                             <td>
-                                <th:block th:if="${entry.deployed}">
-                                    <span th:text="'Deployed ' + ${entry.catalogName} + ' v' + ${entry.version}">Deployed Letters v1.0.1</span>
-                                    <!--/* A deploy that replaced the live version names it. */-->
-                                    <span th:if="${entry.previousVersion != null}" class="text-muted"
-                                          th:text="'replacing v' + ${entry.previousVersion}">replacing v1.0.0</span>
-                                </th:block>
-                                <span th:unless="${entry.deployed}"
-                                      th:text="'Undeployed ' + ${entry.catalogName} + ' v' + ${entry.version}">Undeployed Letters v1.0.0</span>
+                                <span th:text="${entry.change}">Deployed Letters v1.0.1</span>
+                                <!--/* A deploy that replaced the live version names it. */-->
+                                <span th:if="${entry.deployed and entry.previousVersion != null}" class="text-muted"
+                                      th:text="'replacing v' + ${entry.previousVersion}">replacing v1.0.0</span>
                             </td>
                             <td th:text="${entry.changedByName ?: 'System'}"></td>
                             <td class="actions" th:if="${canDeploy}">

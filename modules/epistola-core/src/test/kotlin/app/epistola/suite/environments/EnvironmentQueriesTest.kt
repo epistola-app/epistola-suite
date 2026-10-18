@@ -35,6 +35,21 @@ class EnvironmentQueriesTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `the production mark is read back by GetEnvironment and ListEnvironments`(): Unit = withMediator {
+        val tenant = createTenant("Env Production")
+        val tenantId = TenantId(tenant.id)
+        val production = EnvironmentId(TestIdHelpers.nextEnvironmentId(), tenantId)
+        val test = EnvironmentId(TestIdHelpers.nextEnvironmentId(), tenantId)
+        CreateEnvironment(id = production, name = "Live", production = true).execute()
+        CreateEnvironment(id = test, name = "Try-out").execute()
+
+        assertThat(GetEnvironment(id = production).query()!!.production).isTrue()
+        assertThat(GetEnvironment(id = test).query()!!.production).isFalse()
+        assertThat(ListEnvironments(tenantId).query().associate { it.name to it.production }).isEqualTo(mapOf("Live" to true, "Try-out" to false))
+        assertThat(ListEnvironments(tenantId, searchTerm = "Live").query().single().production).isTrue()
+    }
+
+    @Test
     fun `GetEnvironment returns null for an unknown environment`(): Unit = withMediator {
         val tenant = createTenant("Env Get Missing")
         val envId = EnvironmentId(TestIdHelpers.nextEnvironmentId(), TenantId(tenant.id))

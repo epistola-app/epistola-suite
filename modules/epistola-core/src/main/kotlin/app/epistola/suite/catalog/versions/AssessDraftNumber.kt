@@ -93,31 +93,3 @@ class AssessDraftNumberHandler(
         )
     }
 }
-
-/**
- * The pre-release long-term work [draftId] would be released as now (`2.0.0-redesign-2027.1`): the
- * number its changes need, labelled after its name and counted. Null for a draft that is not
- * long-term work.
- */
-data class PreviewPreRelease(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
-    val draftId: java.util.UUID,
-) : Query<String?>,
-    RequiresPermission {
-    override val permission get() = Permission.CATALOG_VIEW
-}
-
-@Component
-class PreviewPreReleaseHandler(
-    private val jdbi: Jdbi,
-    private val drafts: CatalogDrafts,
-) : QueryHandler<PreviewPreRelease, String?> {
-    override fun handle(query: PreviewPreRelease): String? {
-        val draft = jdbi.withHandle<CatalogDraft?, Exception> { drafts.find(it, query.tenantKey, query.catalogKey, DraftRef.Id(query.draftId)) }
-            ?.takeIf { !it.isNext } ?: return null
-        val needs = AssessDraftNumber(query.tenantKey, query.catalogKey, draft.ref).query()?.suggested ?: return null
-        val released = ListCatalogReleases(query.tenantKey, query.catalogKey).query().map { it.version }
-        return app.epistola.suite.catalog.commands.nextPreRelease(SemVer.parse(needs), draft.label, released).toString()
-    }
-}

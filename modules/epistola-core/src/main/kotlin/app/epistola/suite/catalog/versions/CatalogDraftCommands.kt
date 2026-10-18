@@ -202,6 +202,17 @@ class PromoteCatalogDraftHandler(
                 if (holders.isNotEmpty()) throw CatalogVersionHeldException(catalogKey, previous.label, holders)
             }
             // Behind nothing now: it continues on the latest release, as the next version does.
+            // An environment following the next version keeps following the next version: the work now.
+            if (previous != null) {
+                handle.createUpdate(
+                    """
+                    UPDATE environment_catalog_overrides SET draft_id = :work
+                    WHERE tenant_key = :t AND draft_id = :previous
+                    """,
+                )
+                    .bind("t", tenantKey).bind("work", work.versionId).bind("previous", previous.versionId)
+                    .execute()
+            }
             drafts.promote(handle, tenantKey, work.versionId, previous?.versionId, keepAs, CatalogDrafts.latest(releases) ?: work.base)
             versions.all(handle, tenantKey, catalogKey).first { it.draftId == work.versionId }
         }
@@ -236,7 +247,7 @@ class CatalogDraftIsNextException(val catalogKey: CatalogKey, message: String) :
     companion object {
         fun notNext(catalogKey: CatalogKey, name: String) = CatalogDraftIsNextException(
             catalogKey,
-            "'$name' is long-term work of catalog '${catalogKey.value}': only the next version is released. Make it the next version first.",
+            "'$name' is long-term work of catalog '${catalogKey.value}': only the next version is released. Try it by pointing a test environment at it, and make it the next version when it is ready.",
         )
     }
 }
