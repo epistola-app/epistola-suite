@@ -245,11 +245,24 @@ export class SaveService {
       if (this._disposed) return;
       this._saving = false;
       this._pendingDoc = null;
-      const message = err instanceof Error ? err.message : 'Save failed';
+      const message = readableSaveError(err instanceof Error ? err.message : 'Save failed');
       const e = err as SaveErrorLike;
       const type = typeof e?.type === 'string' ? e.type : undefined;
       const field = typeof e?.field === 'string' ? e.field : undefined;
       this._setState({ status: 'error', message, type, field });
     }
   }
+}
+
+/**
+ * The reason a save failed, as the author reads it. A server that answers with a web page instead of
+ * an error (a sign-in page once the session ended, a proxy's error page) is said in a sentence,
+ * never shown as markup.
+ */
+export function readableSaveError(message: string): string {
+  const trimmed = message.trim();
+  if (trimmed.startsWith('<') || /<html|<body|<!doctype/i.test(trimmed)) {
+    return 'The server did not accept the save, perhaps because you were signed out. Your changes are still here: sign in again in another tab, then save.';
+  }
+  return trimmed || 'Save failed';
 }

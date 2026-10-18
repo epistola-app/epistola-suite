@@ -161,3 +161,39 @@ describe('EpistolaToolbar shortcut popover accessibility', () => {
     expect(calls).toEqual(['data', 'template']);
   });
 });
+
+describe('EpistolaToolbar save failure', () => {
+  function saveMarkup(saveState: EpistolaToolbar['saveState']): string {
+    const toolbar = new EpistolaToolbar();
+    toolbar.saveState = saveState;
+    // The markup with every interpolated string and nested template in place, so text set through a
+    // binding reads as the user sees it.
+    const flatten = (value: unknown): string => {
+      if (typeof value === 'string') return value;
+      if (value && typeof value === 'object' && 'strings' in value && 'values' in value) {
+        const { strings, values } = value as { strings: string[]; values: unknown[] };
+        return strings
+          .map((part, i) => part + (i < values.length ? flatten(values[i]) : ''))
+          .join('');
+      }
+      return '';
+    };
+    return flatten(
+      (toolbar as unknown as { _renderSaveButton: () => unknown })._renderSaveButton(),
+    );
+  }
+
+  it('says in visible text that the changes are not saved, and why', () => {
+    const markup = saveMarkup({
+      status: 'error',
+      message: 'The server could not save it (HTTP 502)',
+    });
+
+    expect(markup).toContain('role="alert"');
+    expect(markup).toContain('Not saved: The server could not save it (HTTP 502)');
+  });
+
+  it('shows no alert while everything is saved', () => {
+    expect(saveMarkup({ status: 'saved' })).not.toContain('role="alert"');
+  });
+});

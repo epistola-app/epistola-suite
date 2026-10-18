@@ -43,3 +43,11 @@ describe('formatPreviewErrorResponse', () => {
     expect(formatPreviewErrorResponse('{}', 'Bad Request')).toBe('Bad Request');
   });
 });
+
+describe('formatPreviewErrorResponse with a web page', () => {
+  it('says in a sentence what went wrong instead of showing markup', () => {
+    const text = formatPreviewErrorResponse('<!DOCTYPE html><html><body>Sign in</body></html>');
+    expect(text).not.toContain('<');
+    expect(text).toContain('signed out');
+  });
+});

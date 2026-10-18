@@ -16,7 +16,9 @@ import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
 import app.epistola.suite.mediator.query
 import app.epistola.suite.validation.ValidationException
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -52,6 +54,8 @@ class TemplatePreviewHandler(
     private val objectMapper: ObjectMapper,
     private val generationService: GenerationService,
 ) {
+
+    private val logger = LoggerFactory.getLogger(javaClass)
 
     fun preview(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -132,8 +136,19 @@ class TemplatePreviewHandler(
                         ),
                     ),
                 )
-        } catch (_: IllegalStateException) {
-            return ServerResponse.notFound().build()
+        } catch (e: IllegalStateException) {
+            // The variant, its template or the tenant is gone (deleted meanwhile, or in another
+            // version than the one open). Said in a sentence the editor shows, not a bare 404.
+            logger.info("Preview of {}/{} refused: {}", templateId, variantId, e.message)
+            return ServerResponse.status(HttpStatus.NOT_FOUND)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(
+                    mapOf(
+                        "errors" to listOf(
+                            mapOf("path" to "", "message" to "This variant could not be found: it may have been deleted, or belong to another version. Reload the page."),
+                        ),
+                    ),
+                )
         }
 
         return ServerResponse.ok()

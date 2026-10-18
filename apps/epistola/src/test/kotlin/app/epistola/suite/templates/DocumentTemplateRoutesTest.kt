@@ -1671,6 +1671,33 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     inner class PreviewEndpointTest {
 
         @Test
+        fun `POST preview for a variant that is gone says so in a sentence`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_JSON
+                restTemplate.postForEntity(
+                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/gone/preview",
+                    HttpEntity("""{"data": {}}""", headers),
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+                assertThat(response.body).contains("could not be found").contains("Reload the page")
+            }
+        }
+
+        @Test
         fun `POST preview returns 400 with structured errors when data validation fails`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
