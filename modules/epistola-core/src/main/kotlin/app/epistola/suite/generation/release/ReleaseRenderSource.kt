@@ -132,20 +132,8 @@ class ReleaseRenderSource(
 
         val (themeCatalog, theme) = resolveTheme(scope, tenant, template, model)
 
-        val templateResourceId = jdbi.withHandle<java.util.UUID, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT resource_id FROM release_entries
-                WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
-                  AND resource_type = 'template' AND resource_key = :key
-                """,
-            )
-                .bind("t", tenantKey)
-                .bind("c", release.catalogKey)
-                .bind("version", release.version)
-                .bind("key", templateKey)
-                .mapTo(java.util.UUID::class.java)
-                .one()
+        val templateResourceId = requireNotNull(templateResourceId(tenantKey, release, templateKey)) {
+            "Release ${release.label()} has no entry for template '$templateKey'"
         }
 
         return ReleaseRenderInputs(
@@ -255,6 +243,25 @@ class ReleaseRenderSource(
     }
 
     /** [templateKey] as [release] holds it, from the same cache rendering reads, or null when it holds none. */
+
+    /** The identity of [templateKey] in [release], from its entries; null when the release has no such template. */
+    fun templateResourceId(tenantKey: TenantKey, release: ReleaseRef, templateKey: String): java.util.UUID? = jdbi.withHandle<java.util.UUID?, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT resource_id FROM release_entries
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
+              AND resource_type = 'template' AND resource_key = :key
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("c", release.catalogKey)
+            .bind("version", release.version)
+            .bind("key", templateKey)
+            .mapTo(java.util.UUID::class.java)
+            .findOne()
+            .orElse(null)
+    }
+
     fun template(tenantKey: TenantKey, release: ReleaseRef, templateKey: String): TemplateResource? = read(tenantKey, release, "template", templateKey) as? TemplateResource
 
     private fun read(tenantKey: TenantKey, release: ReleaseRef, type: String, key: String): CatalogResource? = resources.get(

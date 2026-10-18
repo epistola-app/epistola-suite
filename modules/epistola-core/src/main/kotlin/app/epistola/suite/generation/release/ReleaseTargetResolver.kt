@@ -53,7 +53,16 @@ sealed interface CatalogSelection {
  * What a generation request renders: a variant of a template, in a release ([releaseVersion]) or in
  * the draft its environment follows ([draft]); exactly one of them.
  */
-data class GenerationTarget(val variantKey: VariantKey, val releaseVersion: String?, val draft: DraftSource?)
+data class GenerationTarget(
+    val variantKey: VariantKey,
+    val releaseVersion: String?,
+    val draft: DraftSource?,
+    /**
+     * The template's identity in what is rendered, recorded on the request: the next version may
+     * have dropped or moved the template since that release.
+     */
+    val templateResourceId: UUID? = null,
+)
 
 /** Refused: a release is asked of an environment that uses a draft of the catalog, which has none. */
 class EnvironmentUsesDraftException(val environmentKey: EnvironmentKey, val catalogKey: CatalogKey, val draftLabel: String) : RuntimeException("Environment '${environmentKey.value}' uses '$draftLabel' of ${catalogKey.value}, which is not a release")
@@ -117,16 +126,28 @@ class ReleaseTargetResolver(
         variantKey: VariantKey?,
         criteria: VariantSelectionCriteria?,
     ): GenerationTarget = when (selection) {
-        is CatalogSelection.Release -> GenerationTarget(
-            resolveIn(tenantKey, ReleaseRef(catalogKey, selection.version), templateKey, variantKey, criteria).variantKey,
-            releaseVersion = selection.version,
-            draft = null,
-        )
+        is CatalogSelection.Release -> ReleaseRef(catalogKey, selection.version).let { release ->
+            GenerationTarget(
+                resolveIn(tenantKey, release, templateKey, variantKey, criteria).variantKey,
+                releaseVersion = selection.version,
+                draft = null,
+                templateResourceId = renderSource.templateResourceId(tenantKey, release, templateKey.value),
+            )
+        }
 
         is CatalogSelection.Draft -> GenerationTarget(
             resolveInDraft(tenantKey, selection.source, templateKey, variantKey, criteria),
             releaseVersion = null,
             draft = selection.source,
+            templateResourceId = jdbi.withHandle<UUID?, Exception> { handle ->
+                handle.createQuery("SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id = :v AND id = :template")
+                    .bind("t", tenantKey)
+                    .bind("v", selection.source.draftId)
+                    .bind("template", templateKey)
+                    .mapTo(UUID::class.java)
+                    .findOne()
+                    .orElse(null)
+            },
         )
     }
 

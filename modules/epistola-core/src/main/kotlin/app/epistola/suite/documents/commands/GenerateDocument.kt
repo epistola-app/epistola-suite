@@ -111,13 +111,13 @@ class GenerateDocumentHandler(
                 """
                 INSERT INTO document_generation_requests (
                     id, batch_id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key,
-                    environment_key, release_version, draft_id, draft_label, data, filename, correlation_id, routing_key, document_key, status
+                    environment_key, release_version, draft_id, draft_label, template_resource_id, data, filename, correlation_id, routing_key, document_key, status
                 )
                 VALUES (:id, NULL, :tenantId, :catalogKey,
                         (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
                         (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
                         :templateId, :variantId, NULL, :environmentId,
-                        :releaseVersion, :draftId, :draftLabel, :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status)
+                        :releaseVersion, :draftId, :draftLabel, :templateResourceId, :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status)
                 RETURNING id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
                           release_version, draft_id, draft_label, data, filename, correlation_id, routing_key, document_key, status, claimed_by,
                           claimed_at, error_message, created_at, started_at, completed_at, expires_at
@@ -132,6 +132,7 @@ class GenerateDocumentHandler(
                 .bind("releaseVersion", target.releaseVersion)
                 .bind("draftId", target.draft?.draftId)
                 .bind("draftLabel", target.draft?.label)
+                .bind("templateResourceId", target.templateResourceId)
                 .bind("data", command.data.toString())
                 .bind("filename", command.filename)
                 .bind("correlationId", command.correlationId)

@@ -127,6 +127,38 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a template deleted from the next version still generates from the release that has it`(): Unit = scenario {
+        given {
+            val tenant = tenant("Template gone from next")
+            val templateId = TemplateId(template(tenant.id, "Letter").id, CatalogId.default(TenantId(tenant.id)))
+            val variant = VariantId(variant(templateId, "Default").id, templateId)
+            released(variant, TestTemplateBuilder.buildMinimal(name = "Letter"))
+            val production = app.epistola.suite.common.ids.EnvironmentId(app.epistola.suite.common.ids.EnvironmentKey.of("production"), TenantId(tenant.id))
+            execute(app.epistola.suite.environments.commands.CreateEnvironment(production, "Production"))
+            execute(app.epistola.suite.environments.commands.DeployRelease(production, CatalogKey.DEFAULT, "1.0.0"))
+            // The next version drops the letter; production still serves the release that has it.
+            execute(app.epistola.suite.templates.commands.DeleteDocumentTemplate(templateId))
+            Triple(tenant, templateId, variant)
+        }.whenever { (tenant, templateId, variant) ->
+            execute(
+                GenerateDocument(
+                    tenantId = tenant.id,
+                    templateId = templateId.key,
+                    variantId = variant.key,
+                    environmentId = app.epistola.suite.common.ids.EnvironmentKey.of("production"),
+                    data = objectMapper.createObjectNode(),
+                    filename = null,
+                ),
+            )
+        }.then { _, accepted ->
+            assertThat(accepted.releaseVersion).isEqualTo("1.0.0")
+            realExecutor.execute(accepted)
+            val job = mediator.query(GetGenerationJob(accepted.tenantKey, accepted.id))!!
+            assertThat(job.request.status).`as`(job.request.errorMessage ?: "").isEqualTo(RequestStatus.COMPLETED)
+        }
+    }
+
+    @Test
     fun `a request accepted after a new release renders the new one`(): Unit = scenario {
         given {
             val tenant = tenant("Release latest")
