@@ -221,11 +221,11 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `the catalog page says what the next version takes from other catalogs, and what else it could use`() {
+    fun `the catalog's Uses page says what the next version takes from other catalogs, and what else it could use`() {
         val tenant = published("Publish Borrowed Page")
         usingSharedTheme(tenant)
 
-        val page = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/browse", String::class.java).body!!
+        val page = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/uses", String::class.java).body!!
         val borrowed = page.substringAfter("data-testid=\"catalog-borrowed\"")
 
         assertThat(borrowed.substringAfter("data-catalog=\"shared\"").substringBefore("</tr>"))

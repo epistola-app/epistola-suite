@@ -75,7 +75,9 @@ class CatalogReleaseDetailTest : BaseIntegrationTest() {
             .body!!
 
         assertThat(body).contains("Named at release", "Described at release", "frozen-keyword", "the first")
-        assertThat(body)
+        // The context bar and side nav name the catalog as it is called today, which is where it is;
+        // the page itself shows what the release froze.
+        assertThat(body.substringAfter("id=\"main-content\""))
             .`as`("the live catalog has moved on and must not leak onto a release page")
             .doesNotContain("Renamed since", "Described differently since", "later-keyword")
         // The resources are the release's own, listed from what it retained.

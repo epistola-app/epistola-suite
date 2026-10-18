@@ -1,0 +1,163 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package app.epistola.suite.handlers
+
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.security.Permission
+
+/**
+ * The frame around every tenant page (docs/workspace-shell.md): a context bar that always says
+ * where someone is, and a side nav for the place they are in.
+ *
+ * There are two places. **Inside a catalog** — every page that shows a catalog's content — the bar
+ * reads `Acme / Letters / Next version`, with what is not published yet and Publish, and the side
+ * nav is the catalog's own: its overview, templates, the parts templates are built from, and its
+ * versions. **Outside a catalog** — environments, settings, operations — the bar reads `Acme /
+ * Environments`, with a way back to the catalog someone came from, and the side nav is the
+ * tenant's, listing their catalogs.
+ *
+ * Which place a page is in follows from its model: a page that shows a catalog's content passes a
+ * [CatalogDraftBar] as `draftBar`, as it already did for the old catalog bar.
+ *
+ * @property catalogs the catalogs people work with — authored and subscribed — for the catalog
+ *   switcher and the tenant nav. The system catalog, part of every tenant, is left out.
+ * @property catalog where someone is inside a catalog; null outside one.
+ * @property back outside a catalog, the catalog someone came from.
+ * @property section outside a catalog, what the page is called, for the bar.
+ */
+data class Workspace(
+    val tenantKey: TenantKey,
+    val tenantName: String,
+    val catalogs: List<CatalogLink>,
+    val catalog: CatalogScope?,
+    val back: BackLink?,
+    val section: String?,
+    /** The page is the tenant's home. */
+    val atHome: Boolean = false,
+) {
+    /** The tenant's home page, which the logo and the tenant crumb lead to. */
+    val homeHref: String get() = "/tenants/${tenantKey.value}"
+
+    /** The catalogs someone authors, then the ones they subscribed to, each a group in the switcher. */
+    val authoredCatalogs: List<CatalogLink> get() = catalogs.filter { it.authored }
+    val subscribedCatalogs: List<CatalogLink> get() = catalogs.filterNot { it.authored }
+}
+
+/** A catalog in the switcher and the tenant nav. [current] marks the one someone is in. */
+data class CatalogLink(val key: String, val name: String, val authored: Boolean, val href: String, val current: Boolean)
+
+/** Back to the catalog someone came from, named with the version they were in. */
+data class BackLink(val href: String, val label: String)
+
+/** A link in a side nav; [icon] names an icon in the sprite. */
+data class NavLink(val key: String, val label: String, val href: String, val icon: String, val active: Boolean)
+
+/**
+ * Being inside a catalog: which version the page works in, and the catalog's nav.
+ *
+ * @property versionLabel what the bar calls the version: "Next version", "Fix of v1.2.0", or a
+ *   subscribed catalog's "v2.0.0".
+ * @property sideWork the page works in a draft other than the next version, which the bar marks so
+ *   nobody edits it thinking it is their everyday work.
+ * @property sections the catalog nav, in groups: the catalog and its templates; the parts templates
+ *   are built from; its versions, where it is live, what it uses and its details.
+ * @property versions the drafts to switch to, the next version first.
+ * @property fixLive per environment that serves a version that can be fixed, the way to fix it.
+ * @property statusHref the bar's status — what is not published yet, and Publish — loaded after the
+ *   page, because working it out builds the catalog.
+ */
+data class CatalogScope(
+    val bar: CatalogDraftBar,
+    val versionLabel: String,
+    val sideWork: Boolean,
+    val sections: List<List<NavLink>>,
+    val versions: List<VersionLink>,
+    val fixLive: List<FixLive>,
+    val statusHref: String?,
+    val versionsHref: String,
+) {
+    val name: String get() = bar.catalogName
+    val readOnly: Boolean get() = bar.readOnly
+
+    /** The version menu has something to switch to or start, beyond the published versions. */
+    val offerVersionMenu: Boolean get() = bar.authored
+}
+
+/** A draft in the version menu. [detail] says what it is based on. */
+data class VersionLink(val label: String, val detail: String?, val href: String, val current: Boolean)
+
+/**
+ * Fixing what an environment serves: [continueHref] when a fix of [version] is open already,
+ * else [startHref] to start one (a form post with `of = version`).
+ */
+data class FixLive(val environment: String, val version: String, val continueHref: String?, val startHref: String?)
+
+/** What a catalog's side nav is built from; kept apart so its links and gating are tested alone. */
+object CatalogNav {
+
+    private data class Part(val key: String, val label: String, val area: String, val icon: String, val permission: Permission)
+
+    /** The parts templates are built from, in the order people reach for them. */
+    private val PARTS = listOf(
+        Part("stencils", "Stencils", "stencils", "layers", Permission.STENCIL_VIEW),
+        Part("themes", "Themes", "themes", "palette", Permission.THEME_VIEW),
+        Part("images", "Images", "images", "image", Permission.TEMPLATE_VIEW),
+        Part("fonts", "Fonts", "fonts", "type", Permission.REFERENCE_VIEW),
+        Part("attributes", "Attributes", "attributes", "tag", Permission.REFERENCE_VIEW),
+        Part("code-lists", "Code lists", "code-lists", "list", Permission.REFERENCE_VIEW),
+    )
+
+    /**
+     * The catalog nav for [bar], with the item for [path] marked active; [may] says whether the viewer
+     * holds a permission. Content pages carry the page's segment, so side work stays side work as
+     * someone moves around; versions and where it is live are the same for every version and carry
+     * the catalog's plain key.
+     */
+    fun sections(bar: CatalogDraftBar, path: String, may: (Permission) -> Boolean): List<List<NavLink>> {
+        val tenant = "/tenants/${bar.tenantKey.value}"
+        val segment = bar.segmentValue
+        val key = bar.catalogKey.value
+        val active = activeKey(path, key)
+        fun link(key: String, label: String, href: String, icon: String) = NavLink(key, label, href, icon, active == key)
+
+        val overview = if (bar.fixing) bar.draftPageHref else CatalogPages.browse(TenantId(bar.tenantKey), bar.segment)
+        val first = buildList {
+            add(link("overview", "Overview", overview, "house"))
+            if (may(Permission.TEMPLATE_VIEW)) add(link("templates", "Templates", "$tenant/templates?catalog=$segment", "file-text"))
+        }
+        val parts = PARTS.filter { may(it.permission) }.map { link(it.key, it.label, "$tenant/${it.area}?catalog=$segment", it.icon) }
+        val catalog = listOf(
+            link("versions", "Versions", "$tenant/catalogs/$key/versions", "history"),
+            link("live", "Live", "$tenant/catalogs/$key/live", "radio"),
+            link("uses", "Uses", "$tenant/catalogs/$segment/uses", "link"),
+            link("details", "Details", "$tenant/catalogs/$segment/details", "settings"),
+        )
+        return listOf(first, parts, catalog).filter { it.isNotEmpty() }
+    }
+
+    /** Which catalog nav item [path] belongs to; null when none does. */
+    fun activeKey(path: String, catalogKey: String): String? {
+        val parts = path.substringBefore('?').trim('/').split('/')
+        // "tenants", tenant, area, catalog, page
+        val area = parts.getOrNull(2) ?: return null
+        if (area == "catalogs") {
+            val page = parts.getOrNull(4)
+            return when (page) {
+                "browse", "draft", null -> "overview"
+                "releases", "versions" -> "versions"
+                "live" -> "live"
+                "uses" -> "uses"
+                "details" -> "details"
+                else -> null
+            }.takeIf { parts.getOrNull(3)?.substringBefore('@') == catalogKey }
+        }
+        return when (area) {
+            "templates" -> "templates"
+            in PARTS.map { it.area } -> PARTS.first { it.area == area }.key
+            else -> null
+        }
+    }
+}

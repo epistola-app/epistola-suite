@@ -83,7 +83,7 @@ class ThemeHandler(
             "tenant" to tenant
             "catalogs" to catalogs
             "selectedCatalog" to (segment?.value ?: "")
-            "draftSegment" to segment?.takeIf { it.version != null }
+            "draftSegment" to segment
             "draftBar" to segment?.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/themes?catalog=${it.value}" } }
             "themes" to themes
         }
@@ -101,7 +101,7 @@ class ThemeHandler(
                 "tenantId" to tenantId.key
                 "tenant" to tenant
                 "themes" to themes
-                "draftSegment" to segment?.takeIf { it.version != null }
+                "draftSegment" to segment
                 // Lets the fragment tell "no matches" apart from "none yet". A search swaps only
                 // this fragment, so the distinction has to reach it.
                 "searchTerm" to searchTerm.orEmpty()

@@ -8,7 +8,6 @@
                below says what you are editing in it. Kept apart deliberately — see
                catalogs/bar.html. */-->
         <!--/* Which draft of the catalog this page edits, once there is more than one. */-->
-        <div th:replace="~{catalogs/drafts :: content-draft-bar(bar=${draftBar})}"></div>
 
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${template.name},

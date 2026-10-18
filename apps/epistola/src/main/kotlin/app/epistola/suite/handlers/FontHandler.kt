@@ -87,7 +87,7 @@ class FontHandler(
                 "tenant" to tenant,
                 "catalogs" to catalogs,
                 "selectedCatalog" to (segment?.value ?: ""),
-                "draftSegment" to segment?.takeIf { it.version != null },
+                "draftSegment" to segment,
                 "draftBar" to segment?.let { s -> CatalogDraftBar.of(tenantKey, s) { "/tenants/${tenantKey.value}/fonts?catalog=${it.value}" } },
                 "fonts" to fonts.map { toFontView(tenantId, it, version) },
                 "activeNavSection" to "fonts",

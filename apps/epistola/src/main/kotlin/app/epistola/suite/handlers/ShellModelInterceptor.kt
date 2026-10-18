@@ -21,7 +21,8 @@ import org.springframework.web.servlet.ModelAndView
  * feature flags, footer chrome) come from [CommonViewModel] — the SAME source the
  * HTMX fragment render path uses ([HtmxFragmentModelContributor]) so the two
  * paths can't drift. This interceptor adds, on top, the shell-only nav model
- * (`navGroups`, `activeNavSection`) when rendering `layout/shell`.
+ * (`navGroups`, `activeNavSection`) and the [workspace][Workspace]
+ * — the context bar and side nav — when rendering `layout/shell`.
  *
  * The [CommonViewModel] attributes are merged into EVERY view that renders (not
  * just tenant-scoped ones) — `auth` and `isManager` are deliberately always
@@ -33,6 +34,7 @@ import org.springframework.web.servlet.ModelAndView
 class ShellModelInterceptor(
     private val commonViewModel: CommonViewModel,
     private val navMenuAggregator: NavMenuAggregator,
+    private val workspaceBuilder: WorkspaceBuilder,
 ) : HandlerInterceptor {
 
     override fun postHandle(
@@ -66,5 +68,10 @@ class ShellModelInterceptor(
         val nav = navMenuAggregator.build(context, requestPath)
         modelAndView.addObject("navGroups", nav.groups)
         modelAndView.addObject("activeNavSection", nav.activeNavSection)
+        val tenantName = modelAndView.model["tenantName"]?.toString() ?: tenantId
+        modelAndView.addObject(
+            "workspace",
+            workspaceBuilder.build(TenantKey.of(tenantId), tenantName, auth, modelAndView.model, request, requestPath, nav),
+        )
     }
 }

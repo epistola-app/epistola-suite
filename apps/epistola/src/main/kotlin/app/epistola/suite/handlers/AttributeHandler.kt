@@ -59,7 +59,7 @@ class AttributeHandler {
             "tenantId" to tenantId.key
             "catalogs" to catalogs
             "selectedCatalog" to (segment?.value ?: "")
-            "draftSegment" to segment?.takeIf { it.version != null }
+            "draftSegment" to segment
             "draftBar" to segment?.let { draftBarFor(tenantId, it) }
             "attributes" to attributes
         }

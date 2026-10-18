@@ -431,123 +431,325 @@
     width: 100%;
   }
 
-  /* ── Mobile menu (hidden on desktop) ────────────────────────────────── */
+  /* ── Workspace shell (docs/workspace-shell.md) ───────────────────────────
+     The context bar on top, the side nav for the place someone is in, the page
+     beside it. Side work turns the bar's version amber, so nobody edits it
+     thinking it is the next version. */
 
-  .app-nav-mobile {
-    display: none;
+  .ws-bar {
+    gap: var(--ep-space-4);
+    padding: 0 var(--ep-space-4);
   }
 
-  /* ── Responsive: mobile navigation ───────────────────────────────────── */
+  .ws-bar-side {
+    border-bottom: 2px solid var(--ep-amber-500);
+  }
+
+  .ws-bar-left {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-3);
+    min-width: 0;
+    flex: 1;
+    height: 100%;
+  }
+
+  .ws-bar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-3);
+    height: 100%;
+  }
+
+  .ws-crumbs {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-0-5);
+    min-width: 0;
+    height: 100%;
+  }
+
+  .ws-crumb {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ep-space-1-5);
+    padding: var(--ep-space-1-5) var(--ep-space-2);
+    border: 0;
+    border-radius: var(--ep-radius-sm);
+    background: none;
+    color: var(--ep-foreground);
+    font: inherit;
+    font-size: var(--ep-text-sm);
+    font-weight: 500;
+    white-space: nowrap;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .ws-crumb:hover {
+    background: var(--ep-muted);
+    color: var(--ep-foreground);
+    text-decoration: none;
+  }
+
+  .ws-crumb-sep {
+    color: var(--ep-stone-300);
+  }
+
+  .ws-crumb-version {
+    background: var(--ep-terracotta-50);
+    color: var(--ep-primary-strong);
+  }
+
+  .ws-crumb-version:hover {
+    background: var(--ep-terracotta-100);
+    color: var(--ep-primary-strong);
+  }
+
+  .ws-crumb-side,
+  .ws-crumb-side:hover {
+    background: var(--ep-amber-100);
+    color: var(--ep-amber-800);
+  }
+
+  .ws-crumb-here,
+  .ws-crumb-here:hover {
+    background: none;
+    cursor: default;
+  }
+
+  /* The crumbs' menus reuse the nav dropdown; these set their width and content. */
+  .ws-menu-panel {
+    min-width: 15rem;
+  }
+
+  .ws-menu-wide {
+    min-width: 21rem;
+  }
+
+  .ws-menu-right {
+    left: auto;
+    right: 0;
+  }
+
+  .ws-menu-label {
+    padding: var(--ep-space-2) var(--ep-space-3) var(--ep-space-1);
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-muted-foreground);
+  }
+
+  .ws-menu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    width: 100%;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: var(--ep-text-sm);
+    text-align: left;
+    cursor: pointer;
+    white-space: normal;
+  }
+
+  .ws-menu-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .ws-menu-detail {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+  }
+
+  .ws-menu-check {
+    margin-left: auto;
+    color: var(--ep-primary);
+  }
+
+  .ws-menu-sep {
+    height: 1px;
+    margin: var(--ep-space-1) 0;
+    background: var(--ep-border-color);
+  }
+
+  .ws-menu-form {
+    margin: 0;
+  }
+
+  .ws-status {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-3);
+  }
+
+  .ws-status-text {
+    font-size: var(--ep-text-sm);
+    color: var(--ep-muted-foreground);
+    white-space: nowrap;
+  }
+
+  a.ws-status-text:hover {
+    color: var(--ep-foreground);
+  }
+
+  .ws-status-form {
+    margin: 0;
+  }
+
+  .ws-account-name {
+    max-width: 12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ws-body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 15rem minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .ws-body-plain {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ws-nav {
+    position: sticky;
+    top: 48px;
+    height: calc(100vh - 48px);
+    overflow-y: auto;
+    padding: var(--ep-space-4) var(--ep-space-2-5);
+    background: var(--ep-white);
+    border-right: 1px solid var(--ep-border-color);
+  }
+
+  .ws-nav-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ep-space-2);
+    padding: 0 var(--ep-space-2-5) var(--ep-space-3);
+  }
+
+  .ws-nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .ws-nav-group + .ws-nav-group {
+    margin-top: var(--ep-space-3);
+    padding-top: var(--ep-space-3);
+    border-top: 1px solid var(--ep-border-color);
+  }
+
+  .ws-nav-label {
+    padding: var(--ep-space-1) var(--ep-space-2-5);
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-muted-foreground);
+  }
+
+  .ws-nav-item {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2-5);
+    padding: var(--ep-space-1-5) var(--ep-space-2-5);
+    border-radius: var(--ep-radius-sm);
+    color: var(--ep-foreground);
+    font-size: var(--ep-text-sm);
+    text-decoration: none;
+  }
+
+  .ws-nav-item:hover {
+    background: var(--ep-muted);
+    color: var(--ep-foreground);
+    text-decoration: none;
+  }
+
+  .ws-nav-item .ep-icon {
+    color: var(--ep-muted-foreground);
+  }
+
+  .ws-nav-item.active {
+    background: var(--ep-terracotta-50);
+    color: var(--ep-primary-strong);
+    font-weight: 600;
+  }
+
+  .ws-nav-item.active .ep-icon {
+    color: inherit;
+  }
+
+  .ws-nav-count,
+  .ws-nav-note {
+    margin-left: auto;
+  }
+
+  .ws-nav-note {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+  }
+
+  .ws-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .ws-side-strip {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--ep-space-3);
+    padding: var(--ep-space-2) var(--ep-space-6);
+    background: var(--ep-amber-50);
+    border-bottom: 1px solid var(--ep-amber-200);
+    color: var(--ep-amber-800);
+    font-size: var(--ep-text-sm);
+  }
+
+  .ws-side-strip .ep-btn {
+    margin-left: auto;
+  }
+
+  /* ── Responsive: the side nav becomes a panel behind the menu button ── */
 
   @media (max-width: 56rem) {
-    .app-nav-left {
-      flex: 1;
-    }
-
-    .app-nav-links {
-      display: none;
-    }
-
-    .app-nav-right {
-      display: none;
-    }
-
-    .app-nav-left .app-nav-logo {
-      flex: 1;
-    }
-
     .app-nav-hamburger {
       display: flex;
     }
 
-    /* Mobile overlay menu */
-    .app-nav-mobile {
+    .ws-body {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .ws-nav {
       display: none;
       position: fixed;
       top: 48px;
-      left: 0;
-      right: 0;
       bottom: 0;
+      left: 0;
+      width: min(18rem, 85vw);
+      height: auto;
       z-index: var(--ep-z-overlay);
+      box-shadow: var(--ep-shadow-xl);
     }
 
-    .app-nav.nav-open .app-nav-mobile {
+    body:has(.app-nav.nav-open) .ws-nav {
       display: block;
     }
 
-    .app-nav-mobile-backdrop {
-      position: absolute;
-      inset: 0;
-      background: rgb(0 0 0 / 0.3);
+    .ws-crumbs {
+      overflow-x: auto;
     }
 
-    .app-nav-mobile-panel {
-      position: relative;
-      background: var(--ep-white);
-      border-bottom: 1px solid var(--ep-border-color);
-      box-shadow: var(--ep-shadow-xl);
-      padding: var(--ep-space-4) var(--ep-space-6);
-      max-height: calc(100vh - 48px);
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: var(--ep-space-4);
-    }
-
-    .app-nav-mobile-group {
-      display: flex;
-      flex-direction: column;
-      gap: var(--ep-space-1);
-    }
-
-    .app-nav-mobile-label {
-      font-size: var(--ep-text-xs);
-      font-weight: 600;
-      color: var(--ep-muted-foreground);
-      text-transform: uppercase;
-      letter-spacing: var(--ep-tracking-wider);
-      padding: var(--ep-space-1) var(--ep-space-3);
-    }
-
-    .app-nav-mobile-item {
-      display: flex;
-      align-items: center;
-      gap: var(--ep-space-2);
-      padding: var(--ep-space-2) var(--ep-space-3);
-      font-size: var(--ep-text-sm);
-      color: var(--ep-muted-foreground);
-      text-decoration: none;
-      border-radius: var(--ep-radius-md);
-      transition: var(--ep-transition-colors);
-    }
-
-    .app-nav-mobile-item:hover {
-      color: var(--ep-foreground);
-      background: var(--ep-muted);
-      text-decoration: none;
-    }
-
-    .app-nav-mobile-item.active {
-      color: var(--ep-foreground);
-      background: var(--ep-muted);
-      font-weight: 500;
-    }
-
-    .app-nav-mobile-footer {
-      display: flex;
-      flex-direction: column;
-      gap: var(--ep-space-1);
-      border-top: 1px solid var(--ep-border-color);
-      padding-top: var(--ep-space-4);
-    }
-
-    .app-nav-mobile-logout {
-      width: 100%;
-      background: none;
-      border: none;
-      font: inherit;
-      cursor: pointer;
-      text-align: left;
+    .ws-account-name,
+    .ws-status-text {
+      display: none;
     }
 
     .main-content {

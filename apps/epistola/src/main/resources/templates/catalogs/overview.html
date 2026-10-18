@@ -145,7 +145,7 @@
                     </th:block>
                 </div>
                 <a th:if="${gs.published and !gs.needsEnvironment and gs.mayDeploy}" class="ep-btn ep-btn-outline"
-                   href="#catalog-deployments" data-testid="catalog-status-make-live">Make live…</a>
+                   th:href="@{/tenants/{t}/catalogs/{c}/live(t=${tenantId},c=${catalog.id})}" data-testid="catalog-status-make-live">Make live…</a>
             </div>
         </div>
     </div>

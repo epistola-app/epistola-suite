@@ -54,7 +54,8 @@ class EditorDraftSaveUiTest : BasePlaywrightTest() {
         gotoAndReady("/tenants/$tenantKey/templates/letters@1.0.1/invoice/variants/${variant.key}/editor")
         page.getByTestId("editor-container").waitFor()
         page.waitForSelector("epistola-editor")
-        assertThat(page.getByTestId("editor-draft")).hasText("Draft v1.0.1")
+        // Side work is named in the editor's bar by what it fixes, so nobody takes it for the next version.
+        assertThat(page.getByTestId("editor-crumb-version")).hasText("Fix of v1.0.0")
 
         // Adding a block marks the document dirty; its autosave is the PUT asserted on.
         val saved: Response = page.waitForResponse(

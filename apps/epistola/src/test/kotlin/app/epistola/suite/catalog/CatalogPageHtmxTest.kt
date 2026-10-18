@@ -87,9 +87,9 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
 
         val published = get(tenant, "/catalogs/letters/browse").body!!
         assertThat(status(published)).contains("Everything is published, as v1.0.0.").doesNotContain("data-testid=\"catalog-release-open\"")
-        assertThat(status(published)).contains("Not live anywhere yet.").contains("href=\"#catalog-deployments\"")
-        assertThat(published).contains("id=\"catalog-deployments\"")
-        assertThat(published).contains("href=\"/tenants/${tenant.id}/catalogs/letters/releases/1.0.0\"")
+        assertThat(status(published)).contains("Not live anywhere yet.").contains("href=\"/tenants/${tenant.id}/catalogs/letters/live\"")
+        assertThat(get(tenant, "/catalogs/letters/live").body!!).contains("id=\"catalog-deployments\"")
+        assertThat(get(tenant, "/catalogs/letters/versions").body!!).contains("href=\"/tenants/${tenant.id}/catalogs/letters/releases/1.0.0\"")
     }
 
     @Test
@@ -108,7 +108,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `templates come first and say what is not published yet, the other kinds below with one line to add the rest`() {
+    fun `the overview lists the templates with what is not published yet, and the nav each kind of part`() {
         val tenant = catalog("Page Contents") { _, catalog ->
             invoice(catalog)
             mediator.releaseNext(catalog)
@@ -117,17 +117,18 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
 
         val page = get(tenant, "/catalogs/letters/browse").body!!
 
-        val templates = page.substringAfter("data-testid=\"catalog-templates\"").substringBefore("data-testid=\"catalog-contents\"")
+        val templates = page.substringAfter("data-testid=\"catalog-templates\"").substringBefore("id=\"dialog-mount\"")
         assertThat(templates).contains("href=\"/tenants/${tenant.id}/templates/letters/invoice\"")
         assertThat(templates.substringAfter("data-slug=\"reminder\"")).contains(">New<")
         assertThat(templates.substringAfter("data-slug=\"invoice\"").substringBefore("data-slug=\"reminder\"")).doesNotContain(">New<").doesNotContain(">Changed<")
         assertThat(templates).contains("hx-get=\"/tenants/${tenant.id}/templates/new?catalog=letters\"")
-        val add = page.substringAfter("data-testid=\"catalog-contents-add\"").substringBefore("</div>")
-        assertThat(add).contains("hx-get=\"/tenants/${tenant.id}/stencils/new?catalog=letters\"")
+        // The parts templates are built from each have a page in the catalog's nav.
+        assertThat(page).contains("href=\"/tenants/${tenant.id}/stencils?catalog=letters\" class=\"ws-nav-item\"")
+            .contains("href=\"/tenants/${tenant.id}/themes?catalog=letters\" class=\"ws-nav-item\"")
     }
 
     @Test
-    fun `the next version has its own page with what is not published yet, its contents and its details`() {
+    fun `the next version has its own page with what is not published yet and its templates, its details a page of their own`() {
         val tenant = catalog("Page Draft") { _, catalog -> invoice(catalog) }
 
         val page = get(tenant, "/catalogs/letters/draft")
@@ -137,7 +138,8 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
         assertThat(body).contains("<span id=\"page-title-text\">Next version</span>")
         assertThat(body).contains("data-testid=\"catalog-next-release\"").contains("<h2>Not published yet</h2>")
         assertThat(body).contains("href=\"/tenants/${tenant.id}/templates/letters/invoice\"")
-        assertThat(body).contains("id=\"catalog-metadata\"")
+        assertThat(body).contains("href=\"/tenants/${tenant.id}/catalogs/letters/details\"")
+        assertThat(get(tenant, "/catalogs/letters/details").body!!).contains("id=\"catalog-metadata\"")
     }
 
     @Test
@@ -168,6 +170,22 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
             ).body!!
             val option = dialog.substringAfter("value=\"letters\"").substringBefore(">")
             assertThat(option).`as`("$area preselects the catalog it was opened on").contains("selected")
+        }
+    }
+
+    /**
+     * The catalog's nav leads to each kind's list filtered to it, plainly (`?catalog=letters`); the
+     * list's New must create in that catalog, not in the one that sorts first.
+     */
+    @Test
+    fun `a part list opened from the catalog's nav creates in that catalog`() {
+        val tenant = catalog("Page List New") { tenant, _ ->
+            CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of("aardvark"), name = "Aardvark").execute()
+        }
+
+        listOf("stencils", "themes", "images", "fonts", "code-lists").forEach { area ->
+            val list = get(tenant, "/$area?catalog=letters").body!!
+            assertThat(list).`as`("$area New carries the catalog").contains("hx-get=\"/tenants/${tenant.id}/$area/new?catalog=letters\"")
         }
     }
 

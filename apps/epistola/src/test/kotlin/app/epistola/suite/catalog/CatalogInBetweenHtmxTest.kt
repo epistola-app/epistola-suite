@@ -69,10 +69,10 @@ class CatalogInBetweenHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `the catalog page offers an in-between version, which opens on its own page while the next version moves out of its way`() {
+    fun `the catalog's Versions page offers an in-between version, which opens on its own page while the next version moves out of its way`() {
         val tenant = live("In Between Start")
 
-        val before = get(tenant, "/catalogs/letters/browse").body!!
+        val before = get(tenant, "/catalogs/letters/versions").body!!
         assertThat(before).contains("data-testid=\"catalog-in-between-start\"").contains("It starts from v1.0.0, without the changes in the next version")
 
         val started = post(tenant, "/catalogs/letters/fixes", mapOf("of" to "1.0.0"))
@@ -84,10 +84,11 @@ class CatalogInBetweenHtmxTest : BaseIntegrationTest() {
 
         val page = get(tenant, "/catalogs/letters@1.0.1/draft").body!!
         assertThat(page).contains(">Draft v1.0.1<")
-        assertThat(page).contains("data-testid=\"catalog-fix-banner\"").contains("v1.0.0 is live in production")
+        assertThat(page).contains("data-testid=\"catalog-fix-banner\"").contains("a fix of v1.0.0, which is live in production")
 
-        val after = get(tenant, "/catalogs/letters/browse").body!!
-        assertThat(after).contains("data-testid=\"catalog-in-between-continue\"").doesNotContain("data-testid=\"catalog-in-between-start\"")
+        assertThat(get(tenant, "/catalogs/letters/browse").body!!).contains("data-testid=\"catalog-in-between-continue\"")
+        val after = get(tenant, "/catalogs/letters/versions").body!!
+        assertThat(after).doesNotContain("data-testid=\"catalog-in-between-start\"")
         assertThat(after).contains(">Draft v1.0.1<")
     }
 
@@ -126,7 +127,7 @@ class CatalogInBetweenHtmxTest : BaseIntegrationTest() {
             ReleaseCatalogVersion(tenant.id, letters, "1.1.0").execute()
         }
 
-        val page = get(tenant, "/catalogs/letters/browse").body!!
+        val page = get(tenant, "/catalogs/letters/live").body!!
         val production = page.substringAfter("data-environment=\"production\"").substringBefore("</tr>")
         assertThat(production).contains("data-testid=\"catalog-live-fix\"").contains("name=\"of\" value=\"1.0.0\"")
 

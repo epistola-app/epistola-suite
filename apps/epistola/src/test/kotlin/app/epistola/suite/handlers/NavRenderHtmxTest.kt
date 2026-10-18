@@ -5,6 +5,8 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
@@ -27,20 +29,24 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
     private lateinit var restTemplate: TestRestTemplate
 
     @Test
-    fun `core nav groups render on the tenant shell`() {
+    fun `outside a catalog the tenant nav lists the catalogs, then the groups, with the page marked`() {
         val tenant = createTenant("Nav Core")
+        withMediator { CreateCatalog(tenant.id, CatalogKey.of("letters"), "Letters").execute() }
 
-        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/templates", String::class.java).let {
+        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/environments", String::class.java).let {
             assertThat(it.statusCode).isEqualTo(HttpStatus.OK)
             it.body!!
         }
 
-        assertThat(body).contains("nav-dropdown-authoring", "nav-dropdown-resources", "nav-dropdown-operations", "nav-dropdown-settings")
-        assertThat(body).contains("/tenants/${tenant.id.value}/themes", "/tenants/${tenant.id.value}/code-lists")
-        // Active highlighting: the Templates item is marked active on the templates page.
-        // (Thymeleaf classappend can emit extra whitespace, so normalise before matching.)
-        assertThat(body).contains("nav-item-templates")
-        assertThat(body.replace(Regex("\\s+"), " ")).contains("app-nav-dropdown-item active")
+        assertThat(body).contains("nav-group-catalogs", "nav-group-documents", "nav-group-operations", "nav-group-settings")
+        // The catalogs come first in their group; the system catalog, part of every tenant, is not among them.
+        assertThat(body).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/browse\" class=\"ws-nav-item\" data-catalog=\"letters\"")
+        assertThat(body).doesNotContain("data-catalog=\"system\" data-testid=\"ws-nav-catalog\"")
+        // Parts live in a catalog's own nav, not here.
+        assertThat(body).doesNotContain("nav-item-themes").doesNotContain("nav-item-code-lists")
+        // The page is marked in the nav and named in the bar.
+        assertThat(body.replace(Regex("\\s+"), " ")).contains("class=\"ws-nav-item active\" data-testid=\"nav-item-environments\" aria-current=\"page\"")
+        assertThat(body).contains("data-testid=\"ws-crumb-section\">Environments<")
     }
 
     @Test
@@ -48,7 +54,7 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
         val tenant = createTenant("Nav Display Name")
 
         val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/templates", String::class.java).body!!
-        val navUser = body.substringAfter("""class="app-nav-username"""").substringBefore("</a>")
+        val navUser = body.substringAfter("""class="ws-account-name"""").substringBefore("</span>")
         val footerUser = body.substringAfter("""class="user-info"""").substringBefore("</footer>")
 
         assertThat(navUser).contains(">${TestPrincipalUser.DISPLAY_NAME}")

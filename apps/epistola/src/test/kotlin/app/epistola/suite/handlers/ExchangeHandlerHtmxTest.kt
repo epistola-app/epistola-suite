@@ -169,7 +169,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
      * twenty-four hours it takes to give up on a submission Exchange never decides.
      */
     @Test
-    fun `a release that has been waiting too long says so on the catalog page`() {
+    fun `a release that has been waiting too long says so on the catalog's Details page`() {
         val tenant = createTenant("Exchange Stalled")
         val catalogKey = CatalogKey.of("stalled")
         withMediator {
@@ -195,7 +195,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
 
     private fun catalogPage(tenant: Tenant, catalogKey: CatalogKey): String {
         val response = restTemplate.getForEntity(
-            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/browse",
+            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/details",
             String::class.java,
         )
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
@@ -223,7 +223,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         }
 
         val response = restTemplate.getForEntity(
-            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/browse",
+            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/details",
             String::class.java,
         )
 
@@ -235,7 +235,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
     }
 
     @Test
-    fun `a rejected release says on the catalog page why Exchange refused it`() {
+    fun `a rejected release says on the catalog's Details page why Exchange refused it`() {
         val tenant = createTenant("Exchange Refusal Reason")
         val catalogKey = CatalogKey.of("refusal-reason")
         exchange.submitResponse = {
@@ -303,7 +303,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         }
 
         val healthy = restTemplate.getForEntity(
-            "/tenants/${tenant.id.value}/catalogs/${healthyKey.value}/browse",
+            "/tenants/${tenant.id.value}/catalogs/${healthyKey.value}/details",
             String::class.java,
         )
         assertThat(healthy.statusCode).isEqualTo(HttpStatus.OK)
@@ -313,7 +313,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         assertThat(healthy.body).doesNotContain("Reappoint the publisher on Exchange")
 
         val refused = restTemplate.getForEntity(
-            "/tenants/${tenant.id.value}/catalogs/${refusedKey.value}/browse",
+            "/tenants/${tenant.id.value}/catalogs/${refusedKey.value}/details",
             String::class.java,
         )
         assertThat(refused.statusCode).isEqualTo(HttpStatus.OK)
@@ -325,7 +325,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
     }
 
     @Test
-    fun `the catalog page still offers a release that kept its content after the catalog moves on`() {
+    fun `the catalog's Details page still offers a release that kept its content after the catalog moves on`() {
         val tenant = createTenant("Exchange Drifted")
         val catalogKey = CatalogKey.of("drifted")
         withMediator {
@@ -344,7 +344,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         }
 
         val response = restTemplate.getForEntity(
-            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/browse",
+            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/details",
             String::class.java,
         )
 
@@ -442,7 +442,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
      * offered the button and a required namespace select with no options in it.
      */
     @Test
-    fun `the catalog page does not offer publishing when the tenant is not connected`() {
+    fun `the catalog's Details page does not offer publishing when the tenant is not connected`() {
         val tenant = createTenant("Browse No Connection")
         val catalogKey = CatalogKey.of("browse-no-connection")
         enablePublishing(tenant)
@@ -460,7 +460,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
     }
 
     @Test
-    fun `the catalog page does not offer publishing when the organization grants no namespace`() {
+    fun `the catalog's Details page does not offer publishing when the organization grants no namespace`() {
         val tenant = createTenant("Browse No Namespace")
         val catalogKey = CatalogKey.of("browse-no-namespace")
         exchange.namespaces = emptyList()
@@ -479,7 +479,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
     }
 
     @Test
-    fun `the catalog page offers publishing once there is somewhere for it to go`() {
+    fun `the catalog's Details page offers publishing once there is somewhere for it to go`() {
         val tenant = createTenant("Browse Publishable")
         val catalogKey = CatalogKey.of("browse-publishable")
         withMediator {
@@ -559,7 +559,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
 
     private fun browsePage(tenant: Tenant, catalogKey: CatalogKey): String {
         val response = restTemplate.getForEntity(
-            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/browse",
+            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/details",
             String::class.java,
         )
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)

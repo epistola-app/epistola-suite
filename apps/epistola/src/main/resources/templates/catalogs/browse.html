@@ -5,31 +5,152 @@
 
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${catalog.name},
-            backLinkHref=@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
-            backLinkLabel='Catalogs',
             pageDescription=${catalog.description}
         )}"></div>
 
         <div id="catalog-alert"></div>
 
-        <!--/* An authored catalog, as people use it (docs/catalog-workspace-navigation.md): what to do
-               now, the templates, what they are built from, and where it is live. Everything else is
-               under More at the bottom. */-->
+        <!--/* A catalog's overview (docs/workspace-shell.md): what is not published yet and the action
+               that moves it on, then its templates. Its parts, versions, where it is live, what it
+               uses and its details each have a page in the catalog's nav. */-->
         <th:block th:if="${readiness != null}">
             <div th:replace="~{catalogs/overview :: status}"></div>
             <th:block th:if="${readiness.drafts.current != null}">
                 <div th:replace="~{catalogs/content :: templates}"></div>
-                <div th:replace="~{catalogs/content :: parts}"></div>
             </th:block>
         </th:block>
-        <th:block th:if="${readiness == null}">
-            <div th:replace="~{catalogs/overview :: versions}"></div>
-        </th:block>
 
+        <th:block th:if="${catalog.type.name() == 'SUBSCRIBED'}">
+            <th:block th:replace="~{catalogs/content :: contents}"></th:block>
+        </th:block>
+        <!-- HTMX host for catalog metadata and other URL-addressable dialogs. -->
+        <div id="dialog-mount" data-dialog-mount></div>
+
+        <!-- Usage detail dialog -->
+        <dialog id="usage-detail-dialog" class="ep-dialog">
+            <div id="usage-detail-body">
+                <div class="ep-dialog-body">
+                    <p class="text-muted">Loading...</p>
+                </div>
+            </div>
+        </dialog>
+
+        <!-- Install preview dialog (subscribed catalogs only) -->
+        <dialog th:if="${catalog.type.name() == 'SUBSCRIBED'}" id="install-preview-dialog" class="ep-dialog">
+            <div id="install-preview-body">
+                <div class="ep-dialog-body">
+                    <p class="text-muted">Loading...</p>
+                </div>
+            </div>
+        </dialog>
+    </th:block>
+
+    <!-- Fragment: install preview content (loaded into dialog via HTMX) -->
+    <th:block th:fragment="install-preview">
+        <div class="ep-dialog-header">
+            <h3>Confirm Installation</h3>
+        </div>
+        <div class="ep-dialog-body">
+            <p>The whole catalog is installed. These resources will be added or updated:</p>
+
+            <table class="ep-table" style="margin-top: var(--ep-space-3);">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Name</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="resource : ${allResources}">
+                        <td>
+                            <span th:if="${resource.type == 'template'}" class="badge badge-info">template</span>
+                            <span th:if="${resource.type == 'theme'}" class="badge badge-default">theme</span>
+                            <span th:if="${resource.type == 'stencil'}" class="badge badge-default">stencil</span>
+                            <span th:if="${resource.type == 'attribute'}" class="badge badge-default">attribute</span>
+                            <span th:if="${resource.type == 'image'}" class="badge badge-default">image</span>
+                        </td>
+                        <td th:text="${resource.name}"></td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <form id="install-confirm-form"
+              th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/install(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}"
+              hx-target="#resource-table"
+              hx-swap="outerHTML"
+              data-close-dialog-on-success="install-preview-dialog">
+            <div class="ep-dialog-footer">
+                <button type="button" class="ep-btn ep-btn-ghost"
+                        data-close-dialog="install-preview-dialog">Cancel</button>
+                <button type="submit" class="ep-btn ep-btn-primary">
+                    Install
+                    <span th:text="${#lists.size(allResources)}"></span>
+                    resource(s)
+                </button>
+            </div>
+        </form>
+    </th:block>
+
+    <!-- Fragment: install preview error -->
+    <th:block th:fragment="install-preview-error">
+        <div class="ep-dialog-header">
+            <h3>Cannot Install</h3>
+        </div>
+        <div class="ep-dialog-body">
+            <div class="alert alert-error" th:text="${error}"></div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost"
+                    data-close-dialog="install-preview-dialog">Close</button>
+        </div>
+    </th:block>
+
+    <!-- Fragment: usage detail (loaded into dialog via HTMX) -->
+    <th:block th:fragment="usage-detail">
+        <div class="ep-dialog-header">
+            <h3>
+                Used by
+                <span style="opacity: 0.6;" th:text="'(' + ${resourceType} + ': ' + ${resourceSlug} + ')'"></span>
+            </h3>
+        </div>
+        <div class="ep-dialog-body">
+            <table class="ep-table" th:if="${!usages.isEmpty()}">
+                <thead>
+                    <tr>
+                        <th>Template</th>
+                        <th>Catalog</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="usage : ${usages}">
+                        <td th:text="${usage.referencedByName}"></td>
+                        <td><code th:text="${usage.referencedByCatalog}"></code></td>
+                    </tr>
+                </tbody>
+            </table>
+            <p th:if="${usages.isEmpty()}" class="text-muted">No external usages found.</p>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost"
+                    data-close-dialog="usage-detail-dialog">Close</button>
+        </div>
+    </th:block>
+
+    <!-- OOB alert fragment -->
+    <th:block th:fragment="alert">
+        <div id="catalog-alert" hx-swap-oob="true">
+            <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}" data-testid="alert-success"></div>
+            <div th:if="${errorMessage}" class="alert alert-error" th:text="${errorMessage}"></div>
+        </div>
+    </th:block>
+
+    <!--/* Sections of the catalog's own pages (Live, Details), each a page in the catalog nav. */-->
         <!--/* What each environment serves of this catalog: any number of releases. Deploying adds one;
                generation naming the environment renders the highest it serves, or the highest
                satisfying the request's version selector. Each served release has its own Undeploy. */-->
-        <div id="catalog-deployments" class="ep-panel detail-section" data-testid="catalog-deployments"
+        <div th:fragment="live-section" id="catalog-deployments" class="ep-panel detail-section" data-testid="catalog-deployments"
              th:with="canDeploy=${auth.has('ENVIRONMENT_DEPLOY')}">
             <div class="detail-section-header">
                 <h2>Live</h2>
@@ -129,24 +250,7 @@
             </div>
         </div>
 
-        <th:block th:if="${catalog.type.name() == 'SUBSCRIBED'}">
-            <th:block th:replace="~{catalogs/content :: contents}"></th:block>
-            <div th:replace="~{catalogs/content :: metadata-card}"></div>
-        </th:block>
-
-        <!--/* Everything that is not today's work, folded away: every version (and an in-between
-               version), what comes from other catalogs, the catalog's own settings, and Exchange. */-->
-        <details th:if="${readiness != null}" class="detail-section" data-testid="catalog-more"
-                 th:attr="open=${publicationError != null} ? 'open' : null">
-            <summary class="ep-btn ep-btn-ghost" style="margin-bottom: var(--ep-space-3);">
-                <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
-                More: versions, other catalogs, settings and Exchange
-            </summary>
-            <div th:replace="~{catalogs/overview :: versions}"></div>
-            <div th:replace="~{catalogs/content :: borrowed}"></div>
-        <!--/* What is the catalog's own, across its versions: its key. Name, description, keywords,
-                   presentation and license go out with each version, so they are on a version's page. */-->
-            <div th:if="${catalog.type.name() == 'AUTHORED'}" class="ep-panel detail-section" data-testid="catalog-identity">
+            <div th:fragment="identity-section" th:if="${catalog.type.name() == 'AUTHORED'}" class="ep-panel detail-section" data-testid="catalog-identity">
                 <div class="detail-section-header catalog-detail-header">
                     <div class="catalog-detail-heading">
                         <h2>Catalog</h2>
@@ -161,13 +265,11 @@
                 </div>
                 <p class="text-muted text-sm detail-section-body" style="margin: 0; padding-top: 0;">
                     Its name, description, keywords, presentation and license go out with each version:
-                    change them on the
-                    <a th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenantId},c=${catalog.id})}">next version</a>,
-                    see what a published version carried on its own page.
+                    change them above, and see what a published version carried on its own page.
                 </p>
             </div>
     
-            <div class="ep-panel detail-section" th:if="${publication != null}"
+            <div th:fragment="exchange-section" class="ep-panel detail-section" th:if="${publication != null}"
                  th:with="canEditMetadata=${catalog.type.name() == 'AUTHORED' and auth.has('CATALOG_MANAGE')}">
                 <div class="detail-section-header catalog-detail-header">
                     <div>
@@ -401,133 +503,5 @@
                     </table>
                 </div>
             </div>
-        </details>
-        <!-- HTMX host for catalog metadata and other URL-addressable dialogs. -->
-        <div id="dialog-mount" data-dialog-mount></div>
-
-        <!--/* Where the release dialog lands, opened on swap by the app-wide behaviour. In this
-               fragment, because the button that targets it is: a mount somewhere that does not
-               render leaves a control that silently does nothing. */-->
-        <div id="release-dialog-container" data-open-dialog-on-swap="release-dialog"></div>
-
-        <!-- Usage detail dialog -->
-        <dialog id="usage-detail-dialog" class="ep-dialog">
-            <div id="usage-detail-body">
-                <div class="ep-dialog-body">
-                    <p class="text-muted">Loading...</p>
-                </div>
-            </div>
-        </dialog>
-
-        <!-- Install preview dialog (subscribed catalogs only) -->
-        <dialog th:if="${catalog.type.name() == 'SUBSCRIBED'}" id="install-preview-dialog" class="ep-dialog">
-            <div id="install-preview-body">
-                <div class="ep-dialog-body">
-                    <p class="text-muted">Loading...</p>
-                </div>
-            </div>
-        </dialog>
-    </th:block>
-
-    <!-- Fragment: install preview content (loaded into dialog via HTMX) -->
-    <th:block th:fragment="install-preview">
-        <div class="ep-dialog-header">
-            <h3>Confirm Installation</h3>
-        </div>
-        <div class="ep-dialog-body">
-            <p>The whole catalog is installed. These resources will be added or updated:</p>
-
-            <table class="ep-table" style="margin-top: var(--ep-space-3);">
-                <thead>
-                    <tr>
-                        <th>Type</th>
-                        <th>Name</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:each="resource : ${allResources}">
-                        <td>
-                            <span th:if="${resource.type == 'template'}" class="badge badge-info">template</span>
-                            <span th:if="${resource.type == 'theme'}" class="badge badge-default">theme</span>
-                            <span th:if="${resource.type == 'stencil'}" class="badge badge-default">stencil</span>
-                            <span th:if="${resource.type == 'attribute'}" class="badge badge-default">attribute</span>
-                            <span th:if="${resource.type == 'image'}" class="badge badge-default">image</span>
-                        </td>
-                        <td th:text="${resource.name}"></td>
-                        <td></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        <form id="install-confirm-form"
-              th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/install(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}"
-              hx-target="#resource-table"
-              hx-swap="outerHTML"
-              data-close-dialog-on-success="install-preview-dialog">
-            <div class="ep-dialog-footer">
-                <button type="button" class="ep-btn ep-btn-ghost"
-                        data-close-dialog="install-preview-dialog">Cancel</button>
-                <button type="submit" class="ep-btn ep-btn-primary">
-                    Install
-                    <span th:text="${#lists.size(allResources)}"></span>
-                    resource(s)
-                </button>
-            </div>
-        </form>
-    </th:block>
-
-    <!-- Fragment: install preview error -->
-    <th:block th:fragment="install-preview-error">
-        <div class="ep-dialog-header">
-            <h3>Cannot Install</h3>
-        </div>
-        <div class="ep-dialog-body">
-            <div class="alert alert-error" th:text="${error}"></div>
-        </div>
-        <div class="ep-dialog-footer">
-            <button type="button" class="ep-btn ep-btn-ghost"
-                    data-close-dialog="install-preview-dialog">Close</button>
-        </div>
-    </th:block>
-
-    <!-- Fragment: usage detail (loaded into dialog via HTMX) -->
-    <th:block th:fragment="usage-detail">
-        <div class="ep-dialog-header">
-            <h3>
-                Used by
-                <span style="opacity: 0.6;" th:text="'(' + ${resourceType} + ': ' + ${resourceSlug} + ')'"></span>
-            </h3>
-        </div>
-        <div class="ep-dialog-body">
-            <table class="ep-table" th:if="${!usages.isEmpty()}">
-                <thead>
-                    <tr>
-                        <th>Template</th>
-                        <th>Catalog</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:each="usage : ${usages}">
-                        <td th:text="${usage.referencedByName}"></td>
-                        <td><code th:text="${usage.referencedByCatalog}"></code></td>
-                    </tr>
-                </tbody>
-            </table>
-            <p th:if="${usages.isEmpty()}" class="text-muted">No external usages found.</p>
-        </div>
-        <div class="ep-dialog-footer">
-            <button type="button" class="ep-btn ep-btn-ghost"
-                    data-close-dialog="usage-detail-dialog">Close</button>
-        </div>
-    </th:block>
-
-    <!-- OOB alert fragment -->
-    <th:block th:fragment="alert">
-        <div id="catalog-alert" hx-swap-oob="true">
-            <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}" data-testid="alert-success"></div>
-            <div th:if="${errorMessage}" class="alert alert-error" th:text="${errorMessage}"></div>
-        </div>
-    </th:block>
 </body>
 </html>

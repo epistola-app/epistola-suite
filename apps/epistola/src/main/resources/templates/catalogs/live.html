@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/* Where a catalog is live (docs/workspace-shell.md): which published version each environment
+           serves, making another live, and fixing what is live. Model: the catalog page's. */-->
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Live',
+            pageDescription='What each environment uses of ' + ${catalog.name} + '. An application gets documents from the version live in its environment.'
+        )}"></div>
+        <div id="catalog-alert"></div>
+        <div th:if="${publicationError != null}" class="alert alert-error" data-testid="catalog-live-error" th:text="${publicationError}"></div>
+        <div th:replace="~{catalogs/browse :: live-section}"></div>
+    </th:block>
+</body>
+</html>

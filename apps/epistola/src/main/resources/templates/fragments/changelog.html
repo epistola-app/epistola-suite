@@ -17,8 +17,9 @@
             <div th:if="${versions == null or versions.isEmpty()}" class="changelog-empty">
                 <p>No changelog entries available.</p>
             </div>
-            <th:block th:if="${versions != null and !versions.isEmpty()}"
-                      th:replace="~{fragments/changelog :: layout-inner(${versions}, ${entries}, ${selectedVersion}, ${selectedView}, ${selectedType}, ${selectedScope}, ${availableTypes}, ${availableScopes})}" />
+            <th:block th:if="${versions != null and !versions.isEmpty()}">
+                <th:block th:replace="~{fragments/changelog :: layout-inner(${versions}, ${entries}, ${selectedVersion}, ${selectedView}, ${selectedType}, ${selectedScope}, ${availableTypes}, ${availableScopes})}" />
+            </th:block>
         </div>
     </th:block>
 

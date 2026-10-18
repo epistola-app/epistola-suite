@@ -18,8 +18,6 @@ class ThemeDialogUiTest : BasePlaywrightTest() {
     // the create dialog's catalog <select> is never empty.
     private fun createTestTenant(): Tenant = createTenant("Theme Dialog Test")
 
-    private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/themes/new$")
-
     @Test
     fun `dialog is not open on initial load of the themes list`() {
         val tenant = createTestTenant()
@@ -58,8 +56,9 @@ class ThemeDialogUiTest : BasePlaywrightTest() {
         )
 
         assertThat(page.locator("dialog[open]#create-theme-dialog")).isVisible()
-        // Opening the dialog pushes the shareable /…/new URL via hx-push-url.
-        assertThat(page).hasURL(newFormUrlPattern)
+        // Opening the dialog pushes the shareable /…/new URL via hx-push-url, carrying the catalog
+        // the list shows, so the theme is made there.
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/[^/]+/themes/new\\?catalog=default$"))
     }
 
     @Test

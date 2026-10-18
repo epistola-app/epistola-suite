@@ -98,13 +98,13 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     private fun drafts(tenant: Tenant) = withMediator { ListCatalogVersions(tenant.id, letters, CatalogVersionStatus.DRAFT).query() }.map { it.version }
 
     @Test
-    fun `the next version's page gives its number under Advanced, and the catalog page offers another draft`() = fixture {
+    fun `the next version's page gives its number under Advanced, and the catalog's Versions page offers another draft`() = fixture {
         lateinit var tenant: Tenant
         given {
             tenant = tenant("Drafts One")
             released(tenant)
         }
-        whenever { get("/tenants/${tenant.id}/catalogs/letters/draft") to get("/tenants/${tenant.id}/catalogs/letters/browse") }
+        whenever { get("/tenants/${tenant.id}/catalogs/letters/draft") to get("/tenants/${tenant.id}/catalogs/letters/versions") }
         then {
             val (draft, catalog) = result<Pair<ResponseEntity<String>, ResponseEntity<String>>>()
             assertThat(draft.body!!).contains("data-testid=\"catalog-draft-version\"").contains("v1.0.1")
@@ -183,9 +183,10 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             one
         }
         then {
-            assertThat(result<String>()).contains("data-testid=\"catalog-version-bar\"").contains(">Next version<")
-                .doesNotContain("data-testid=\"catalog-open-fix\"")
-            assertThat(several).contains("Invoice two").contains("data-testid=\"catalog-open-fix\"").contains("/templates/letters@1.0.1/invoice")
+            // The context bar names the version; its menu offers the other draft, at this same page.
+            assertThat(result<String>()).contains("data-testid=\"ws-crumb-version\"").contains(">Next version<")
+                .doesNotContain("/templates/letters@")
+            assertThat(several).contains("Invoice two").contains("data-testid=\"ws-version-link\"").contains("/templates/letters@1.0.1/invoice")
         }
     }
 

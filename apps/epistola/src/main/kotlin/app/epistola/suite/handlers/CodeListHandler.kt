@@ -69,7 +69,7 @@ class CodeListHandler(
             "tenantId" to tenantId.key
             "catalogs" to catalogs
             "selectedCatalog" to (segment?.value ?: "")
-            "draftSegment" to segment?.takeIf { it.version != null }
+            "draftSegment" to segment
             "draftBar" to segment?.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/code-lists?catalog=${it.value}" } }
             "codeLists" to codeLists
         }

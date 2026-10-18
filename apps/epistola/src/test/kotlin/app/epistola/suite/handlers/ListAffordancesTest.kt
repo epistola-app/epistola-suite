@@ -199,7 +199,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
         val catalogKey = CatalogKey.of("presentation-card")
         withMediator { CreateCatalog(tenant.id, catalogKey, "Presentation card").execute() }
 
-        val body = get("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/draft")
+        val body = get("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/details")
 
         assertThat(body).contains("This catalog has no images yet")
         assertThat(body).doesNotContain("section='presentation'")
@@ -222,7 +222,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
         val base = "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}"
 
         val onPage = Regex("""badge badge-outline"[^>]*>([^<]+)<""")
-            .findAll(get("$base/draft").substringAfter("id=\"catalog-metadata\""))
+            .findAll(get("$base/details").substringAfter("id=\"catalog-metadata\""))
             .map { it.groupValues[1] }
             .toList()
         val inDialog = get("$base/metadata?section=keywords")

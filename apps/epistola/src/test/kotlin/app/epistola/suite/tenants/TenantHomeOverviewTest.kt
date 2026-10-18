@@ -53,7 +53,8 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!
-        val card = body.substringAfter("data-catalog=\"letters\"").substringBefore("data-testid=\"catalog-overview-card\"")
+        // Within the overview: the side nav names the catalogs too.
+        val card = body.substringAfter("data-testid=\"catalog-overview\"").substringAfter("data-catalog=\"letters\"").substringBefore("data-testid=\"catalog-overview-card\"")
         assertThat(card).contains(">Authored<")
         assertThat(card).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/browse\"")
         assertThat(card).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/draft\"").contains(">Next version<")
@@ -63,5 +64,7 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
         assertThat(card).contains("v1.0.0")
         assertThat(card).contains(">production</a>")
         assertThat(body).contains("data-catalog=\"system\"").contains(">Subscribed<")
+        // There is no page to generate a document from here; a link to one led nowhere.
+        assertThat(body).doesNotContain("/tenants/${tenant.id.value}/generate")
     }
 }

@@ -56,7 +56,7 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
             ReleaseCatalogVersion(tenant.id, catalog.key, version = "1.10.0").execute()
         }
 
-        val body = versions(browse(tenant.id.value, "hist-cat"))
+        val body = versions(versionsPage(tenant.id.value, "hist-cat"))
 
         // Newest first, and by version components: v1.10.0 is newer than v1.9.0 or v1.0.0, which
         // sorting the text would get wrong.
@@ -79,7 +79,7 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         }
         forgetRetainedContent(tenant.id.value, "hist-legacy")
 
-        assertThat(versions(browse(tenant.id.value, "hist-legacy"))).contains("contents not kept")
+        assertThat(versions(versionsPage(tenant.id.value, "hist-legacy"))).contains("contents not kept")
         val body = release(tenant.id.value, "hist-legacy", "1.0.0")
         assertThat(body).contains("content not kept")
         // Offering an export that would refuse at download is the failure this guards against.
@@ -91,7 +91,7 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         lateinit var tenant: Tenant
         fixture { given { tenant = tenant("Release History Subscribed") } }
 
-        val body = browse(tenant.id.value, "system")
+        val body = versionsPage(tenant.id.value, "system")
 
         assertThat(versions(body))
             .`as`("installing records the publisher's release, which can be deployed")
@@ -185,7 +185,7 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         assertThat(response.statusCode.is2xxSuccessful).isTrue()
         assertThat(response.body).`as`("lands back on the version's page").contains("<h2>As published</h2>")
 
-        assertThat(versions(browse(tenant.id.value, "hist-forget"))).`as`("the version is still listed").contains(">v1.0.0<").contains("contents not kept")
+        assertThat(versions(versionsPage(tenant.id.value, "hist-forget"))).`as`("the version is still listed").contains(">v1.0.0<").contains("contents not kept")
         val after = release(tenant.id.value, "hist-forget", "1.0.0")
         assertThat(after).`as`("and says its content is gone").contains("content not kept")
         assertThat(after)
@@ -224,7 +224,7 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         )
         assertThat(response.statusCode.is2xxSuccessful).isTrue()
 
-        val after = versions(browse(tenant.id.value, "hist-delete"))
+        val after = versions(versionsPage(tenant.id.value, "hist-delete"))
         assertThat(after).`as`("gone from the list, unlike forgetting its content").doesNotContain(">v1.1.0<")
         assertThat(after).`as`("and the one before it is still there").contains(">v1.0.0<")
     }
@@ -255,8 +255,13 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
             .bind("t", tenantKey).bind("c", catalogKey).execute()
     }
 
-    /** The Versions card of a catalog page. */
-    private fun versions(page: String): String = page.substringAfter("data-testid=\"catalog-versions\"").substringBefore("data-testid=\"catalog-deployments\"")
+    /** The Versions card of a catalog's Versions page. */
+    private fun versions(page: String): String = page.substringAfter("data-testid=\"catalog-versions\"").substringBefore("id=\"dialog-mount\"")
+
+    /** A catalog's Versions page (docs/workspace-shell.md). */
+    private fun versionsPage(tenantKey: String, catalogKey: String): String = restTemplate
+        .getForEntity("/tenants/$tenantKey/catalogs/$catalogKey/versions", String::class.java)
+        .body!!
 
     private fun release(tenantKey: String, catalogKey: String, version: String): String = restTemplate
         .getForEntity("/tenants/$tenantKey/catalogs/$catalogKey/releases/$version", String::class.java)

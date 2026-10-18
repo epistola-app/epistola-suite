@@ -158,9 +158,10 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body).contains("data-testid=\"stencil-not-ready\"")
             assertThat(response.body).contains("data-testid=\"stencil-mark-ready\"")
             assertThat(response.body).contains("cannot be released until it is marked ready")
-            // No versions, no publishing.
-            assertThat(response.body).doesNotContain("Versions")
-            assertThat(response.body).doesNotContain("/publish")
+            // No versions, no publishing on the page itself; the catalog's nav beside it has Versions.
+            val page = response.body!!.substringAfter("id=\"main-content\"")
+            assertThat(page).doesNotContain("Versions")
+            assertThat(page).doesNotContain("/publish")
         }
     }
 

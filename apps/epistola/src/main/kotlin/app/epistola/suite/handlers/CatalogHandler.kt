@@ -566,24 +566,24 @@ class CatalogHandler {
     private fun publicationPolicy(raw: String?): CatalogPublicationPolicy = CatalogPublicationPolicy.entries.firstOrNull { it.name == raw }
         ?: throw ValidationException("publicationPolicy", "Choose a valid publication policy.")
 
-    /** Withdraws a queued publication; rejections stay on the catalog page like the publish action. */
+    /** Withdraws a queued publication; rejections stay on the Details page, where Exchange is, like the publish action. */
     fun cancelPublication(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = request.catalogId()
         return try {
             CancelCatalogPublication(tenantId.key, UUID.fromString(request.pathVariable("publicationId"))).execute()
             ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
+                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/details")
                 .build()
         } catch (failure: ValidationException) {
             logger.warn("Cancelling a publication of '{}' was rejected: {}", catalogKey.value, failure.message)
-            browse(request, error = failure.message)
+            section(request, "catalogs/details", failure.message)
         }
     }
 
     /**
-     * Drops the content a release retained, and lands back on the catalog where the row now says
-     * "not kept". A rejection stays on the page with its reason, like the publish actions beside it.
+     * Drops the content a release retained, and lands back on its page, which now says "not kept". A
+     * rejection lands on Versions with its reason.
      */
     fun forgetReleaseContent(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -594,10 +594,10 @@ class CatalogHandler {
                 .header("Location", CatalogPages.release(tenantId.key, catalogKey, request.pathVariable("version")))
                 .build()
         } catch (failure: ReleaseInUseException) {
-            browse(request, error = failure.message)
+            section(request, "catalogs/versions", failure.message)
         } catch (failure: ValidationException) {
             logger.warn("Forgetting the content of a release of '{}' was rejected: {}", catalogKey.value, failure.message)
-            browse(request, error = failure.message)
+            section(request, "catalogs/versions", failure.message)
         }
     }
 
@@ -605,27 +605,27 @@ class CatalogHandler {
      * Deploys a release of this catalog to an environment, beside what it serves. With
      * `includeDependencies`, the releases of other catalogs it renders with are deployed along.
      * Refusals -- the release kept no content, the environment is gone, a dependency release is not
-     * served -- come back on the catalog page with the reason.
+     * served -- come back on the catalog's Live page with the reason.
      */
     fun deploy(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = request.catalogId()
         val environment = request.param("environmentId").orElse("").trim()
         val version = request.param("version").orElse("").trim()
-        if (environment.isEmpty() || version.isEmpty()) return browse(request, error = "Choose an environment and a release to deploy.")
+        if (environment.isEmpty() || version.isEmpty()) return live(request, error = "Choose an environment and a release to deploy.")
         val includeDependencies = request.param("includeDependencies").orElse("") == "true"
         return try {
             // One live version per catalog per environment in the UI: making one live replaces the others.
             DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, version, includeDependencies, replace = true).execute()
             ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
+                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/live")
                 .build()
         } catch (failure: ReleaseNotDeployableException) {
-            browse(request, error = failure.message)
+            live(request, error = failure.message)
         } catch (failure: EnvironmentNotFoundException) {
-            browse(request, error = failure.message)
+            live(request, error = failure.message)
         } catch (failure: ReleaseDependenciesMissingException) {
-            browse(
+            live(
                 request,
                 error = null,
                 deployRefusal = DeployRefusalView.of(
@@ -642,10 +642,10 @@ class CatalogHandler {
         val tenantId = request.tenantId()
         val catalogKey = request.catalogId()
         val version = request.param("version").orElse("").trim()
-        if (version.isEmpty()) return browse(request, error = "Choose a release to undeploy.")
+        if (version.isEmpty()) return live(request, error = "Choose a release to undeploy.")
         UndeployRelease(EnvironmentId(EnvironmentKey.of(request.pathVariable("environmentId")), tenantId), catalogKey, version).execute()
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
+            .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/live")
             .build()
     }
 
@@ -661,28 +661,28 @@ class CatalogHandler {
         }
     }
 
-    /** Removes a release from the history. Refusals -- a send in flight -- stay on the page. */
+    /** Removes a release from the history, landing on Versions. Refusals -- a send in flight -- land there too, with the reason. */
     fun deleteRelease(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = request.catalogId()
         return try {
             DeleteCatalogRelease(tenantId.key, catalogKey, request.pathVariable("version")).execute()
             ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
+                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/versions")
                 .build()
         } catch (failure: ReleaseInUseException) {
-            browse(request, error = failure.message)
+            section(request, "catalogs/versions", failure.message)
         } catch (failure: ValidationException) {
             logger.warn("Deleting a release of '{}' was rejected: {}", catalogKey.value, failure.message)
-            browse(request, error = failure.message)
+            section(request, "catalogs/versions", failure.message)
         }
     }
 
     /**
      * The button that offered this action was rendered from state that may have moved since — the
      * working copy edited in another tab, a second administrator queueing first. Those races are
-     * exactly what the command validates, so a rejection returns the catalog page with the reason
-     * rather than an error page.
+     * exactly what the command validates, so a rejection returns the Details page, where Exchange is,
+     * with the reason rather than an error page.
      */
     fun publishCurrentRelease(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -697,11 +697,11 @@ class CatalogHandler {
                 version = request.param("version").orElse(null)?.ifBlank { null },
             ).execute()
             ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
+                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/details")
                 .build()
         } catch (failure: ValidationException) {
             logger.warn("Publishing the current release of '{}' was rejected: {}", catalogKey.value, failure.message)
-            browse(request, error = failure.message)
+            section(request, "catalogs/details", failure.message)
         }
     }
 
@@ -830,6 +830,66 @@ class CatalogHandler {
         return catalogPage(request, "catalogs/version", segment, bar, error = null)
     }
 
+    /** `GET /{catalogId}/versions`: every version of the catalog, each to its own page. */
+    fun versionsPage(request: ServerRequest): ServerResponse = catalogSection(request, "catalogs/versions", catalogWide = true)
+
+    /** `GET /{catalogId}/live`: what each environment serves of the catalog, and making another live. */
+    fun livePage(request: ServerRequest): ServerResponse = catalogSection(request, "catalogs/live", catalogWide = true)
+
+    /** `GET /{catalogId}/uses`: the catalogs this version uses, and how it stands with each. */
+    fun usesPage(request: ServerRequest): ServerResponse = catalogSection(request, "catalogs/uses", catalogWide = false)
+
+    /** `GET /{catalogId}/details`: what this version goes out with, its key, and Exchange. */
+    fun detailsPage(request: ServerRequest): ServerResponse = catalogSection(request, "catalogs/details", catalogWide = false)
+
+    /**
+     * One of a catalog's own pages (docs/workspace-shell.md). A [catalogWide] page is the same for
+     * every version, so it is shown at the catalog; the others at the version the segment names.
+     */
+    private fun catalogSection(request: ServerRequest, template: String, catalogWide: Boolean): ServerResponse {
+        val tenantId = request.tenantId()
+        val segment = request.catalogSegment().let { if (catalogWide) it.at(null) else it }
+        val bar = try {
+            draftBar(tenantId, segment)
+        } catch (e: CatalogVersionReleasedException) {
+            return ServerResponse.status(303).header("Location", CatalogPages.release(tenantId.key, segment.key, segment.version!!)).build()
+        }
+        return catalogPage(request, template, segment, bar, error = null)
+    }
+
+    /** The Live page with [error] or a refused deploy shown, for a deploy that did not go through. */
+    private fun live(request: ServerRequest, error: String?, deployRefusal: DeployRefusalView? = null): ServerResponse = section(request, "catalogs/live", error, deployRefusal)
+
+    /**
+     * One of the catalog's own pages ([template]) with [error] shown: where an action taken there
+     * that did not go through lands, with the reason.
+     */
+    private fun section(request: ServerRequest, template: String, error: String?, deployRefusal: DeployRefusalView? = null): ServerResponse {
+        val tenantId = request.tenantId()
+        val segment = request.catalogSegment().at(null)
+        return catalogPage(request, template, segment, draftBar(tenantId, segment), error, deployRefusal)
+    }
+
+    /**
+     * `GET /{catalogId}/bar-status`: the context bar's status for the version the segment names —
+     * what is not published yet, and Publish — loaded after the page, because working it out builds
+     * the catalog.
+     */
+    fun barStatus(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val segment = request.catalogSegment()
+        val bar = draftBar(tenantId, segment)
+        val readiness = if (bar.authored && bar.chosen != null) CatalogReleaseReadiness.of(bar) else null
+        return request.htmx {
+            fragment("catalogs/workspace", "bar-status") {
+                "tenantId" to tenantId.key
+                "bar" to bar
+                "readiness" to readiness
+            }
+            onFullPage { redirect(CatalogPages.browse(tenantId, segment)) }
+        }
+    }
+
     /**
      * The page a draft action refused on, with [message] shown: the draft's own page when [segment]
      * names an open draft, such as discarding one that alone holds the tenant's default theme, else
@@ -922,10 +982,13 @@ class CatalogHandler {
             // Inside the model builder `to` means a model entry, so the map is built out here.
             val changeStates = readiness?.changes?.resources.orEmpty().associateBy({ "${it.type}/${it.slug}" }, { it.state })
             ServerResponse.ok().page(template) {
-                "pageTitle" to if (template == "catalogs/version") {
-                    "${drafts.draftTitle} - ${result.catalog.name} - Epistola"
-                } else {
-                    "${result.catalog.name} - Catalog - Epistola"
+                "pageTitle" to when (template) {
+                    "catalogs/version" -> "${drafts.draftTitle} - ${result.catalog.name} - Epistola"
+                    "catalogs/versions" -> "Versions - ${result.catalog.name} - Epistola"
+                    "catalogs/live" -> "Live - ${result.catalog.name} - Epistola"
+                    "catalogs/uses" -> "Uses - ${result.catalog.name} - Epistola"
+                    "catalogs/details" -> "Details - ${result.catalog.name} - Epistola"
+                    else -> "${result.catalog.name} - Catalog - Epistola"
                 }
                 "tenantId" to tenantId.key
                 "activeNavSection" to "catalogs"

@@ -11,6 +11,7 @@ import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
+import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CreateCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -40,12 +41,16 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
+import org.springframework.http.HttpEntity
+import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 
 /**
- * Every catalog content page says, above its header, what is being changed
- * (docs/catalog-workspace-navigation.md): your work in a catalog, with Publish; a fix of a published
- * version, as a banner naming it and where it is live; or a subscribed catalog that cannot be edited.
+ * Every catalog content page says, in the context bar, what is being changed (docs/workspace-shell.md):
+ * the catalog and the next version, with what is not published yet and Publish; side work, named by
+ * what it fixes and where that is live, with a strip saying the next version is not affected; or a
+ * subscribed catalog that cannot be edited.
  */
 class CatalogVersionBarTest : BaseIntegrationTest() {
 
@@ -80,8 +85,9 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `every content page names its catalog and says it is the next version, with Publish`() {
+    fun `every content page names its catalog and the next version, and loads what is not published yet with Publish`() {
         val tenant = seed("Version Bar Pages")
+        withMediator { CreateTheme(id = ThemeId(ThemeKey.of("extra"), CatalogId(catalogKey, TenantId(tenant.id))), name = "Extra").execute() }
 
         listOf(
             "/templates/bar-cat/invoice",
@@ -90,38 +96,50 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
             "/code-lists/bar-cat/locales",
         ).forEach { path ->
             val body = get(tenant, path)
-            assertThat(body).`as`("$path carries the bar").contains("data-testid=\"catalog-version-bar\"")
-            assertThat(body.indexOf("data-testid=\"catalog-version-bar\""))
-                .`as`("$path puts the bar above the page header")
-                .isLessThan(body.indexOf("class=\"page-header\""))
-            assertThat(body).`as`("$path names the catalog").contains(">Bar cat</a>")
-            assertThat(body).`as`("$path says it is the next version").contains(">Next version</a>")
-            assertThat(body).`as`("$path offers publishing").contains("data-testid=\"catalog-bar-publish\"")
-            assertThat(body).`as`("$path publishes the next version").contains("/catalogs/bar-cat/release")
+            assertThat(body.substringAfter("data-testid=\"ws-crumb-catalog\"").substringBefore("</button>"))
+                .`as`("$path names the catalog in the bar").contains(">Bar cat<")
+            assertThat(body.substringAfter("data-testid=\"ws-crumb-version\"").substringBefore("</button>"))
+                .`as`("$path says it is the next version, without a number").contains(">Next version<").doesNotContain("v1.0.1")
+            assertThat(body).`as`("$path loads the bar's status").contains("hx-get=\"/tenants/${tenant.id.value}/catalogs/bar-cat/bar-status\"")
             assertThat(body).`as`("$path mounts the publish dialog").contains("id=\"release-dialog-container\"")
-            assertThat(body).`as`("$path shows no number for the next version").doesNotContain("Draft v")
+            assertThat(body).`as`("$path shows the catalog's nav").contains("data-testid=\"ws-nav-templates\"").contains("data-testid=\"ws-nav-versions\"")
         }
+
+        val status = barStatus(tenant, "bar-cat")
+        assertThat(status).contains("1 change not published").contains("data-testid=\"catalog-bar-publish\"")
+            .contains("/catalogs/bar-cat/release")
     }
 
     @Test
-    fun `another draft is a banner that says it is not the next version, and where its base is live`() {
+    fun `side work is named by what it fixes and where that is live, with a strip and the way back`() {
         val tenant = seed("Version Bar Fix")
         withMediator {
             CreateCatalogVersion(tenant.id, catalogKey, "2.0.0").execute() // the next version; 1.0.1 is now another draft
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
             DeployRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), catalogKey, "1.0.0", includeDependencies = true).execute()
+            // The fix changes something, so it has something to publish.
+            CreateTheme(
+                id = ThemeId(ThemeKey.of("fixed"), CatalogId(catalogKey, TenantId(tenant.id))),
+                name = "Fixed",
+                catalogVersion = CatalogVersionRef(tenant.id, catalogKey, "1.0.1"),
+            ).execute()
         }
 
         val fix = get(tenant, "/themes/bar-cat@1.0.1/house")
-        assertThat(fix).contains("data-testid=\"catalog-fix-banner\"").doesNotContain("data-testid=\"catalog-version-bar\"")
-        assertThat(fix).contains("You are editing draft v1.0.1 of Bar cat, not the next version")
-        assertThat(fix).contains("It started from v1.0.0, which is live in production")
-        assertThat(fix).contains("Publish…").contains("/catalogs/bar-cat@1.0.1/release")
-        assertThat(fix).contains("href=\"/tenants/${tenant.id.value}/themes/bar-cat/house\"")
+        assertThat(fix).contains("ws-bar-side")
+        assertThat(fix.substringAfter("data-testid=\"ws-crumb-version\"").substringBefore("</button>")).contains(">Fix of v1.0.0 · production<")
+        assertThat(fix).contains("data-testid=\"catalog-fix-banner\"").contains("a fix of v1.0.0, which is live in production")
+        assertThat(fix).contains("hx-get=\"/tenants/${tenant.id.value}/catalogs/bar-cat@1.0.1/bar-status\"")
+        assertThat(fix).contains("href=\"/tenants/${tenant.id.value}/themes/bar-cat/house\" data-testid=\"catalog-fix-back\"")
+        assertThat(barStatus(tenant, "bar-cat@1.0.1")).contains("/catalogs/bar-cat@1.0.1/release")
 
         val work = get(tenant, "/themes/bar-cat/house")
-        assertThat(work).contains(">Next version</a>").contains(">Draft v1.0.1</a>")
+        assertThat(work).doesNotContain("data-testid=\"catalog-fix-banner\"")
+        assertThat(work.substringAfter("data-testid=\"ws-version-menu\"").substringBefore("</div>"))
+            .contains(">Next version<").contains(">Fix of v1.0.0<")
             .contains("href=\"/tenants/${tenant.id.value}/themes/bar-cat@1.0.1/house\"")
+        assertThat(Regex("ws-menu-check").findAll(work.substringAfter("data-testid=\"ws-version-menu\"").substringBefore("ws-menu-sep")).count())
+            .`as`("only the version the page is in is ticked").isEqualTo(1)
     }
 
     @Test
@@ -131,11 +149,18 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
         val theme: String = withMediator { ListThemes(TenantId(tenant.id)).query().first { it.catalogKey == SYSTEM_CATALOG_KEY }.id.value }
 
         val body = get(tenant, "/themes/system/$theme")
-        assertThat(body).contains("data-testid=\"catalog-version-bar\"")
-        assertThat(body).contains(">v$installed<")
-        assertThat(body).contains("can't be edited")
-        assertThat(body).doesNotContain("data-testid=\"catalog-bar-publish\"").doesNotContain(">Next version</a>")
+        assertThat(body.substringAfter("data-testid=\"ws-crumb-version\"").substringBefore("</button>")).contains(">v$installed<")
+        assertThat(body).contains("data-testid=\"catalog-version-bar-read-only\"").contains("it can't be edited here")
+        assertThat(body).doesNotContain("/bar-status").doesNotContain(">Next version<")
     }
+
+    /** The bar's status, as the bar loads it after the page. */
+    private fun barStatus(tenant: Tenant, segment: String): String = restTemplate.exchange(
+        "/tenants/${tenant.id.value}/catalogs/$segment/bar-status",
+        HttpMethod.GET,
+        HttpEntity<Void>(HttpHeaders().apply { set("HX-Request", "true") }),
+        String::class.java,
+    ).body!!
 
     private fun get(tenant: Tenant, path: String): String {
         val response = restTemplate.getForEntity("/tenants/${tenant.id.value}$path", String::class.java)

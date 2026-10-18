@@ -19,6 +19,7 @@ import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.handlers.AuthContext
 import app.epistola.suite.handlers.CatalogDraftBar
+import app.epistola.suite.handlers.WorkspaceBuilder
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogId
@@ -444,6 +445,7 @@ class DocumentTemplateHandler(
         // their auto-hide behavior is deterministically observable instead of
         // raced against a wall clock. Absent in production → attribute omitted.
         val leaderTiming = request.queryParam("leaderTiming")?.ifBlank { null }
+        val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
 
         return ServerResponse.ok().render(
             "templates/editor",
@@ -452,8 +454,8 @@ class DocumentTemplateHandler(
                 "catalogId" to catalogId.value,
                 // The catalog segment the editor's own requests carry, so they stay on the draft.
                 "catalogSegment" to segment.value,
-                // Which draft the editor writes to, said once there is more than one.
-                "editorDraft" to draftBar.chosen?.version?.takeIf { draftBar.severalDrafts },
+                // The editor keeps the context bar, slimmed to one line (docs/workspace-shell.md).
+                "editorScope" to WorkspaceBuilder.scope(draftBar, null, request.path()) { auth.has(it) },
                 "templateId" to templateId.key,
                 "variantId" to variantId.key,
                 "templateName" to context.templateName,

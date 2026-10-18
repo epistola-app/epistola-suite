@@ -2,49 +2,27 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <!--/* A draft's own page (docs/catalog-workspace-navigation.md): the next version, or another
-           draft such as an in-between version. What is not published yet and Publish, what it holds,
-           and the details it goes out with. Reached from the catalog page's Versions, and from the
-           bar above every content page.
+           draft such as an in-between version, whose overview it is. What is not published yet and
+           Publish, and its templates; its parts, what it uses and its details are pages in the
+           catalog nav, at this draft (docs/workspace-shell.md).
 
            Model: the catalog page's, with `draftBar.chosen` set. */-->
     <th:block th:fragment="content" th:with="bar=${draftBar}">
 
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${bar.draftTitle},
-            backLinkHref=@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})},
-            backLinkLabel=${catalog.name},
             pageDescription=${bar.chosen.base != null} ? ${catalog.name} + ' · based on v' + ${bar.chosen.base} : ${catalog.name} + ' · nothing published before it'
         )}"></div>
 
         <div id="catalog-alert"></div>
 
-        <!--/* Another draft than the next version: said plainly, so nobody mistakes it for the next version. */-->
-        <div th:if="${bar.fixing}" class="alert alert-warning" data-testid="catalog-fix-banner">
-            <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
-            <div>
-                <div class="alert-title"
-                     th:text="${bar.fixOfLiveIn.isEmpty()} ? 'This draft is published on its own, next to the next version'
-                              : 'This draft is published on its own, next to the next version. v' + ${bar.fixOf} + ' is live in ' + ${#strings.listJoin(bar.fixOfLiveIn, ', ')} + '.'">This draft is published on its own</div>
-                <p style="margin: var(--ep-space-1) 0 0;">
-                    It started from <span th:text="'v' + ${bar.fixOf}">v1.2.0</span>. Changes here are not in the next version.
-                    <a th:href="${bar.workHref}" data-testid="catalog-fix-back">Go to the next version</a>
-                </p>
-            </div>
-        </div>
-
         <div th:replace="~{catalogs/next-release :: next-release}"></div>
 
         <div th:replace="~{catalogs/content :: templates}"></div>
-        <div th:replace="~{catalogs/content :: parts}"></div>
-        <div th:replace="~{catalogs/content :: borrowed}"></div>
 
-        <div th:replace="~{catalogs/content :: metadata-card}"></div>
 
         <!-- HTMX host for catalog metadata and other URL-addressable dialogs. -->
         <div id="dialog-mount" data-dialog-mount></div>
-
-        <!--/* Where the publish dialog lands, opened on swap by the app-wide behaviour. */-->
-        <div id="release-dialog-container" data-open-dialog-on-swap="release-dialog"></div>
 
         <!-- Usage detail dialog -->
         <dialog id="usage-detail-dialog" class="ep-dialog">
