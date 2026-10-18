@@ -71,11 +71,8 @@ class DocumentGenerationExecutor(
     private val schemaValidator: JsonSchemaValidator,
     private val contentStore: DocumentContentStore,
     private val meterRegistry: MeterRegistry,
-    private val fontSnapshotVerifier: app.epistola.suite.fonts.FontSnapshotVerifier,
-    private val fontByteCache: app.epistola.suite.fonts.FontByteCache,
     private val localeResolver: TenantLocaleResolver,
     private val releaseRenderSource: ReleaseRenderSource,
-    private val stencilResolvers: StencilResolvers,
     @Value("\${epistola.generation.jobs.retention-days:7}")
     private val retentionDays: Int,
     @Value("\${epistola.generation.documents.max-size-mb:50}")

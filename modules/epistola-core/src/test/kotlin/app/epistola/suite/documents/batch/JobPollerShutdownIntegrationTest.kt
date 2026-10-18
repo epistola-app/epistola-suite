@@ -14,7 +14,6 @@ import app.epistola.suite.documents.JobPollingProperties
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.fonts.FontByteCache
-import app.epistola.suite.fonts.FontSnapshotVerifier
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.generation.release.ReleaseRenderSource
 import app.epistola.suite.i18n.TenantLocaleResolver
@@ -70,13 +69,7 @@ class JobPollerShutdownIntegrationTest : IntegrationTestBase() {
 
     @Autowired private lateinit var meterRegistry: MeterRegistry
 
-    @Autowired private lateinit var fontSnapshotVerifier: FontSnapshotVerifier
-
-    @Autowired private lateinit var fontByteCache: FontByteCache
-
     @Autowired private lateinit var releaseRenderSource: ReleaseRenderSource
-
-    @Autowired private lateinit var stencilResolvers: app.epistola.suite.stencils.StencilResolvers
 
     @Autowired private lateinit var localeResolver: TenantLocaleResolver
 
@@ -204,7 +197,7 @@ class JobPollerShutdownIntegrationTest : IntegrationTestBase() {
             jdbi = jdbi,
             jobExecutor = GatedExecutor(
                 gate, executor, jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore,
-                meterRegistry, fontSnapshotVerifier, fontByteCache, localeResolver, releaseRenderSource, stencilResolvers,
+                meterRegistry, localeResolver, releaseRenderSource,
             ),
             properties = pollerProperties,
             batchSizer = AdaptiveBatchSizer(pollerProperties, registry),
@@ -232,14 +225,11 @@ class JobPollerShutdownIntegrationTest : IntegrationTestBase() {
         schemaValidator: JsonSchemaValidator,
         contentStore: DocumentContentStore,
         meterRegistry: MeterRegistry,
-        fontSnapshotVerifier: FontSnapshotVerifier,
-        fontByteCache: FontByteCache,
         localeResolver: TenantLocaleResolver,
         releaseRenderSource: ReleaseRenderSource,
-        stencilResolvers: app.epistola.suite.stencils.StencilResolvers,
     ) : DocumentGenerationExecutor(
         jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore, meterRegistry,
-        fontSnapshotVerifier, fontByteCache, localeResolver, releaseRenderSource, stencilResolvers, retentionDays = 7, maxDocumentSizeMb = 50,
+        localeResolver, releaseRenderSource, retentionDays = 7, maxDocumentSizeMb = 50,
     ) {
         /** [interruptible] false models a CPU-bound render that does not stop on interrupt. */
         class Gate(val interruptible: Boolean) {

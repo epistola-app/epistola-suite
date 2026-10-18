@@ -14,7 +14,6 @@ import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.fonts.FontSnapshotVerifier
 import app.epistola.suite.fonts.fontFamilyResolver
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.stencils.StencilResolvers
@@ -38,8 +37,6 @@ class DocumentPreviewRenderer(
     private val mediator: Mediator,
     private val generationService: GenerationService,
     private val objectMapper: ObjectMapper,
-    private val fontSnapshotVerifier: FontSnapshotVerifier,
-    private val fontByteCache: app.epistola.suite.fonts.FontByteCache,
     private val stencilResolvers: StencilResolvers,
 ) {
 
@@ -79,7 +76,7 @@ class DocumentPreviewRenderer(
         // default theme catalog → the tenant's default catalog).
         val owningCatalogKey =
             template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: CatalogKey.DEFAULT
-        val fontResolver = fontFamilyResolver(tenantId, owningCatalogKey, fontByteCache)
+        val fontResolver = fontFamilyResolver(tenantId, owningCatalogKey)
 
         val metadataWithEngine = metadata.copy(
             engineVersion = RenderingDefaults.CURRENT.engineVersionString(),

@@ -10,6 +10,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.FACES_OF_FAMILY_AT_ADDRESS
+import app.epistola.suite.fonts.FontByteCache
 import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -113,6 +114,7 @@ fun <T> pickNearestFace(faces: List<T>, weightOf: (T) -> Int, italicOf: (T) -> B
 @Component
 class ResolveFontFaceHandler(
     private val jdbi: Jdbi,
+    private val bytes: FontByteCache,
 ) : QueryHandler<ResolveFontFace, ResolvedFontFace?> {
 
     override fun handle(query: ResolveFontFace): ResolvedFontFace? {
@@ -122,7 +124,7 @@ class ResolveFontFaceHandler(
 
         val best = pickBestFace(rows, query.weight, query.italic) ?: return null
 
-        val bytes = when (best.source) {
+        fun load(): ByteArray? = when (best.source) {
             FontVariantSource.CLASSPATH -> best.classpathLocation?.let { location ->
                 this::class.java.classLoader.getResourceAsStream(location)?.readBytes()
             }
@@ -130,8 +132,10 @@ class ResolveFontFaceHandler(
             FontVariantSource.ASSET -> best.assetKey?.let { assetKey ->
                 GetAssetContent(query.tenantId, assetKey).query()?.content
             }
-        } ?: return null
-        return ResolvedFontFace(bytes, best.contentHash)
+        }
+        // Bytes are the same wherever a hash is; a face not yet hashed is read each time.
+        val content = best.contentHash?.let { hash -> bytes.getOrLoad("${query.tenantId.value}|$hash", ::load) } ?: load() ?: return null
+        return ResolvedFontFace(content, best.contentHash)
     }
 }
 

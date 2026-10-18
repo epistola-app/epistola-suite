@@ -35,11 +35,8 @@ class FakeDocumentGenerationExecutor(
     contentStore: DocumentContentStore,
     meterRegistry: io.micrometer.core.instrument.MeterRegistry,
     schemaValidator: app.epistola.suite.templates.validation.JsonSchemaValidator,
-    fontSnapshotVerifier: app.epistola.suite.fonts.FontSnapshotVerifier,
-    fontByteCache: app.epistola.suite.fonts.FontByteCache,
     localeResolver: app.epistola.suite.i18n.TenantLocaleResolver,
     releaseRenderSource: app.epistola.suite.generation.release.ReleaseRenderSource,
-    stencilResolvers: app.epistola.suite.stencils.StencilResolvers,
     @Value("\${epistola.generation.jobs.retention-days:7}")
     retentionDays: Int = 7,
     @Value("\${epistola.generation.documents.max-size-mb:50}")
@@ -52,11 +49,8 @@ class FakeDocumentGenerationExecutor(
     schemaValidator = schemaValidator,
     contentStore = contentStore,
     meterRegistry = meterRegistry,
-    fontSnapshotVerifier = fontSnapshotVerifier,
-    fontByteCache = fontByteCache,
     localeResolver = localeResolver,
     releaseRenderSource = releaseRenderSource,
-    stencilResolvers = stencilResolvers,
     retentionDays = retentionDays,
     maxDocumentSizeMb = maxDocumentSizeMb,
 ) {

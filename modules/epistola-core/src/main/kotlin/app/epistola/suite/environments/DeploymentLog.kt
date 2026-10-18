@@ -68,6 +68,8 @@ internal object DeploymentLog {
         /** For an override naming a draft: the draft's name. */
         draftLabel: String? = null,
     ) {
+        // clock_timestamp(), not NOW(): one command can log several changes (an undeploy and the
+        // override it ends), and the history lists them in the order they happened.
         handle.createUpdate(
             """
             INSERT INTO environment_deployment_log
@@ -76,7 +78,7 @@ internal object DeploymentLog {
                 :t, :e, :c,
                 (SELECT registry FROM catalogs WHERE tenant_key = :t AND catalog_key = :c),
                 (SELECT namespace FROM catalogs WHERE tenant_key = :t AND catalog_key = :c),
-                :action, :v, :previous, :draft, NOW(), :by
+                :action, :v, :previous, :draft, clock_timestamp(), :by
             )
             """,
         )

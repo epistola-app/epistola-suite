@@ -16,7 +16,6 @@ import app.epistola.suite.documents.queries.GetDocument
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.fonts.FontByteCache
-import app.epistola.suite.fonts.FontSnapshotVerifier
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.generation.release.ReleaseRenderSource
 import app.epistola.suite.i18n.TenantLocaleResolver
@@ -59,20 +58,14 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
 
     @Autowired private lateinit var schemaValidator: JsonSchemaValidator
 
-    @Autowired private lateinit var fontSnapshotVerifier: FontSnapshotVerifier
-
-    @Autowired private lateinit var fontByteCache: FontByteCache
-
     @Autowired private lateinit var localeResolver: TenantLocaleResolver
 
     @Autowired private lateinit var releaseRenderSource: ReleaseRenderSource
 
-    @Autowired private lateinit var stencilResolvers: app.epistola.suite.stencils.StencilResolvers
-
     private val realExecutor by lazy {
         DocumentGenerationExecutor(
             jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore,
-            meterRegistry, fontSnapshotVerifier, fontByteCache, localeResolver, releaseRenderSource, stencilResolvers,
+            meterRegistry, localeResolver, releaseRenderSource,
             retentionDays = 7, maxDocumentSizeMb = 50,
         )
     }

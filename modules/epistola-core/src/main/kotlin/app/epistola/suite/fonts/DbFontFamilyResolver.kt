@@ -31,18 +31,16 @@ import app.epistola.suite.mediator.query
 fun fontFamilyResolver(
     tenantKey: TenantKey,
     owningCatalogKey: CatalogKey,
-    cache: FontByteCache,
 ): FontFamilyResolver = FontFamilyResolver { catalogKey, slug, weight, italic ->
     val fontKey = FontKey.validateOrNull(slug) ?: return@FontFamilyResolver null
     val effectiveCatalog = catalogKey?.let(CatalogKey::of) ?: owningCatalogKey
-    val key = "${tenantKey.value}|${effectiveCatalog.value}|${fontKey.value}|$weight|$italic"
-    cache.getOrResolve(key) {
-        ResolveFontFace(
-            tenantId = tenantKey,
-            catalogKey = effectiveCatalog,
-            slug = fontKey,
-            weight = weight,
-            italic = italic,
-        ).query()
-    }?.let { face -> FontFaceBytes(face.content, face.contentHash) }
+    // Which face applies is decided in the version being rendered, every time; only the bytes are
+    // cached, by content hash ([ResolveFontFace]), so two versions never share a face by address.
+    ResolveFontFace(
+        tenantId = tenantKey,
+        catalogKey = effectiveCatalog,
+        slug = fontKey,
+        weight = weight,
+        italic = italic,
+    ).query()?.let { face -> FontFaceBytes(face.content, face.contentHash) }
 }
