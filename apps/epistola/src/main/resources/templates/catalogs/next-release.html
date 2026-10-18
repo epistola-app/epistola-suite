@@ -17,7 +17,7 @@
     <div th:fragment="next-release" id="catalog-next-release" class="ep-panel detail-section" data-testid="catalog-next-release"
          th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
         <div class="detail-section-header">
-            <h2>Not published yet</h2>
+            <h2 th:text="${readiness.publishable or !readiness.hasDraft} ? 'Not published yet' : 'Changed in this work'">Not published yet</h2>
             <button th:if="${readiness.offerPublish}" type="button" class="ep-btn ep-btn-primary ep-btn-sm"
                     th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
                     hx-target="#release-dialog-container" hx-swap="innerHTML"
@@ -88,9 +88,9 @@
                 The previous version was published before Epistola kept track of its contents, so every
                 resource is listed below. From the next version on, only changes are.
             </p>
-            <p th:if="${readiness.nothingToPublish}" class="text-muted" data-testid="catalog-no-changes">
-                Everything is published. What you change from now on shows up here.
-            </p>
+            <p th:if="${readiness.nothingToPublish}" class="text-muted" data-testid="catalog-no-changes"
+               th:text="${readiness.publishable} ? 'Everything is published. What you change from now on shows up here.'
+                        : 'Nothing is changed in this work yet. What you change shows up here.'">Everything is published.</p>
             <th:block th:unless="${readiness.nothingToPublish or readiness.changed.isEmpty()}">
                         <div class="ep-table-scroll" role="region" aria-label="Not published yet" tabindex="0">
                 <table class="ep-table ep-table-compact">

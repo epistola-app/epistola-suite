@@ -16,10 +16,12 @@
         </th:block>
         <th:block th:if="${readiness != null}">
             <a class="ws-status-text" th:href="${overview}" data-testid="ws-pending"
-               th:text="${readiness.nothingToPublish} ? 'Everything is published'
+               th:text="${bar.onLongTermWork}
+                        ? (${readiness.changed.isEmpty()} ? 'No changes yet' : (${readiness.changed.size() == 1} ? '1 change' : ${readiness.changed.size()} + ' changes'))
+                        : (${readiness.nothingToPublish} ? 'Everything is published'
                         : (${bar.latestPublished == null} ? 'Not published yet'
                         : (${readiness.onlyOthersChanged} ? 'Changes from other catalogs'
-                        : (${readiness.changed.size() == 1} ? '1 change not published' : ${readiness.changed.size()} + ' changes not published')))">2 changes not published</a>
+                        : (${readiness.changed.size() == 1} ? '1 change not published' : ${readiness.changed.size()} + ' changes not published'))))">2 changes not published</a>
             <button th:if="${readiness.offerPublish}" type="button" class="ep-btn ep-btn-primary ep-btn-sm"
                     data-testid="catalog-bar-publish"
                     th:hx-get="@{/tenants/{t}/catalogs/{c}/release(t=${tenantId},c=${bar.segmentValue})}"

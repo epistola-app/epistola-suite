@@ -6,7 +6,7 @@
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Versions',
-            pageDescription='Published versions never change. To change one, fix it: that is published as its next patch.'
+            pageDescription='Published versions never change. Change the next version and publish it; keep a large change apart as long-term work until it is ready.'
         )}"></div>
         <div id="catalog-alert"></div>
         <div th:if="${publicationError != null}" class="alert alert-error" data-testid="catalog-versions-error" th:text="${publicationError}"></div>

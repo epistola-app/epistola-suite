@@ -132,6 +132,7 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
         assertThat(page).contains("hx-get=\"/tenants/${tenant.id.value}/catalogs/bar-cat@$work/bar-status\"")
         assertThat(page).contains("href=\"/tenants/${tenant.id.value}/themes/bar-cat/house\" data-testid=\"catalog-long-term-back\"")
         assertThat(barStatus(tenant, "bar-cat@$work")).`as`("only the next version is published").doesNotContain("data-testid=\"catalog-bar-publish\"")
+            .`as`("its changes, not what is published").contains(">1 change<").doesNotContain("not published")
 
         val next = get(tenant, "/themes/bar-cat/house")
         assertThat(next).doesNotContain("data-testid=\"catalog-long-term-banner\"")
