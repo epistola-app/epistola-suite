@@ -6,13 +6,17 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.suite.catalog.CatalogArchiveBuilder
+import app.epistola.suite.catalog.CatalogBundle
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
+import app.epistola.suite.catalog.queries.ListCatalogDependencies
+import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -23,6 +27,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.time.EpistolaClock
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import tools.jackson.databind.ObjectMapper
 
 /**
  * Exports a catalog as a self-contained ZIP archive.
@@ -35,12 +40,19 @@ import org.springframework.stereotype.Component
  * With a [version] it exports **that release, as released**: rebuilt from the content the release
  * retained, carrying the version, timestamp and fingerprint it was cut with, whatever the working
  * copy has done since. Releases cut before content was retained cannot be rebuilt and say so.
+ *
+ * With [includeDependencies] it is a **fat export** ([CatalogBundle]): the archive together with the
+ * releases of the catalogs it uses, as pinned (a release's pins; the working copy's locked
+ * declarations), and theirs in turn, so it installs where none of them is. Refused while a
+ * declaration is not locked to a release yet, and when a pinned release kept no content here.
  */
 data class ExportCatalogZip(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
     /** A released version to export as it was released, or null for the working copy. */
     val version: String? = null,
+    /** Bundle the releases of the catalogs it uses (a fat export). */
+    val includeDependencies: Boolean = false,
 ) : Command<ExportCatalogZipResult>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW
@@ -51,6 +63,10 @@ data class ExportCatalogZip(
  * cut before `V20260923201010`. The working copy is not a substitute: it is whatever the catalog
  * looks like now, which is the thing the caller asked not to be given.
  */
+
+/** A fat export cannot be made: what it would bundle is not there to bundle, or does not agree. */
+class CatalogBundleException(message: String) : RuntimeException(message)
+
 class CatalogReleaseNotRetainedException(catalogKey: CatalogKey, version: String) :
     RuntimeException(
         "Release $version of catalog '${catalogKey.value}' did not retain its content and cannot be exported as released. " +
@@ -68,13 +84,53 @@ class ExportCatalogZipHandler(
     private val fingerprintService: CatalogFingerprintService,
     private val archiveBuilder: CatalogArchiveBuilder,
     private val assembler: ReleaseContentAssembler,
+    private val objectMapper: ObjectMapper,
 ) : CommandHandler<ExportCatalogZip, ExportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: ExportCatalogZip): ExportCatalogZipResult {
-        command.version?.let { return exportRelease(command, it) }
-        return exportWorkingCopy(command)
+        val single = command.version?.let { exportRelease(command, it) } ?: exportWorkingCopy(command)
+        if (!command.includeDependencies) return single
+        return bundle(command, single)
+    }
+
+    /**
+     * [single] with the releases of the catalogs it uses, dependencies first. Each catalog appears
+     * once: a release already refuses two paths needing different releases of one catalog, so the
+     * pins agree; a disagreement here would be a corrupted release and is refused, not guessed at.
+     */
+    private fun bundle(command: ExportCatalogZip, single: ExportCatalogZipResult): ExportCatalogZipResult {
+        val ordered = linkedMapOf<String, CatalogBundle.Entry>()
+        val visiting = mutableSetOf<String>()
+        fun add(pin: CatalogDependencyDeclaration, by: String) {
+            val identity = "${pin.registry}/${pin.namespace}/${pin.catalogKey}"
+            val version = pin.releaseVersion
+                ?: throw CatalogBundleException("$by uses ${pin.catalogKey}, which is not tied to a release yet. Publish, or resolve its dependencies, first.")
+            ordered[identity]?.let { existing ->
+                if (existing.version != version) throw CatalogBundleException("${pin.catalogKey} is needed as v${existing.version} and as v$version; a bundle holds one release of each catalog")
+                return
+            }
+            if (!visiting.add(identity)) return
+            val key = CatalogKey.of(pin.catalogKey)
+            val archive = try {
+                exportRelease(ExportCatalogZip(command.tenantKey, key, version), version)
+            } catch (e: CatalogReleaseNotRetainedException) {
+                throw CatalogBundleException("${pin.catalogKey} v$version kept no content here, so it cannot be bundled.")
+            }
+            ListReleaseDependencies(command.tenantKey, key, version).query().forEach { add(it, "${pin.catalogKey} v$version") }
+            ordered[identity] = CatalogBundle.Entry(pin.registry, pin.namespace, pin.catalogKey, version, pin.releaseFingerprint, archive.zipBytes)
+        }
+        val catalog = GetCatalog(command.tenantKey, command.catalogKey).query() ?: throw CatalogNotFoundException(command.catalogKey)
+        val pins = command.version?.let { ListReleaseDependencies(command.tenantKey, command.catalogKey, it).query() }
+            ?: ListCatalogDependencies(command.tenantKey, command.catalogKey).query()
+        pins.forEach { add(it, command.catalogKey.value) }
+        val label = single.filename.removeSuffix(".zip").removePrefix("${command.catalogKey.value}-")
+        val root = CatalogBundle.Entry(catalog.registry, catalog.namespace, command.catalogKey.value, label, null, single.zipBytes)
+        return ExportCatalogZipResult(
+            zipBytes = CatalogBundle(ordered.values.toList() + root).write(objectMapper),
+            filename = "${command.catalogKey.value}-$label-with-dependencies.zip",
+        )
     }
 
     /**

@@ -454,6 +454,16 @@
                         A release is handed over as it was released, whatever has been edited since.
                     </span>
                 </div>
+                <div class="form-group">
+                    <label style="display: flex; gap: var(--ep-space-2);">
+                        <input type="checkbox" name="includeDependencies" value="true" data-testid="export-include-dependencies">
+                        <span>Include the catalogs it uses</span>
+                    </label>
+                    <span class="form-hint">
+                        One file with the versions of the other catalogs it uses, so it can be installed where
+                        they are not, such as an acceptance or production installation.
+                    </span>
+                </div>
                 <div class="alert alert-info">
                     <th:block th:replace="~{epistola-web/icon :: icon(name='info', class='ep-icon ep-icon-lg')}" />
                     <div>

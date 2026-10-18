@@ -49,12 +49,19 @@ data class LatestCatalogRelease(
  *
  * On the generated version components (V20260923150918): a version sorts by its parts, not as text.
  * Labels that are not MAJOR.MINOR.PATCH have null components — `SemVer.parseOrNull` tolerates them
- * — so they sort last and fall back to when they were released.
+ * — so they sort last and fall back to when they were released. A pre-release (V20261018153258)
+ * sorts below the release of its number, pre-releases of one number newest first.
  */
 internal const val LATEST_RELEASE_ORDER = """
     ORDER BY version_major DESC NULLS LAST, version_minor DESC NULLS LAST,
-             version_patch DESC NULLS LAST, released_at DESC
+             version_patch DESC NULLS LAST, (version_pre_release IS NULL) DESC, released_at DESC
 """
+
+/**
+ * A release, not a pre-release (contract ADR 0002, amendment 2): what "the latest release" of a
+ * catalog means. A pre-release is used only where it is deployed by its number.
+ */
+internal const val NOT_PRE_RELEASE = "version_pre_release IS NULL"
 
 @Component
 class GetLatestCatalogReleaseHandler(
@@ -71,7 +78,7 @@ class GetLatestCatalogReleaseHandler(
                 """
                 SELECT version, fingerprint
                 FROM catalog_releases
-                WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
+                WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND $NOT_PRE_RELEASE
                 $LATEST_RELEASE_ORDER
                 LIMIT 1
                 """,

@@ -14,6 +14,10 @@
             <a th:if="${release.retained}" class="ep-btn ep-btn-outline"
                th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId},version=${release.version})}"
                hx-boost="false" download>Export as ZIP</a>
+            <a th:if="${release.retained}" class="ep-btn ep-btn-ghost" data-testid="release-export-with-dependencies"
+               th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId},version=${release.version},includeDependencies=true)}"
+               title="One file with the versions of the other catalogs it uses, to install where they are not"
+               hx-boost="false" download>Export with what it uses</a>
         </th:block>
 
         <!--/* What a published version is for: where it is live, and what can still be done with it.

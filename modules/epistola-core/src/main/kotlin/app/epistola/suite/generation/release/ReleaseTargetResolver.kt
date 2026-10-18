@@ -70,7 +70,9 @@ class ReleaseTargetResolver(
     /**
      * The release of [catalogKey] a request renders: the highest candidate satisfying
      * [versionSelector], or the highest candidate without one. The candidates are the releases
-     * [environmentKey] serves, or without it every release of the catalog that kept its content.
+     * [environmentKey] serves, or without it every release of the catalog that kept its content. A
+     * pre-release (contract ADR 0002, amendment 2) is a candidate only where it is deployed: it is work
+     * being tried, not something a request without an environment should ever get.
      *
      * A selector that names a candidate exactly picks it, so an exact version keeps working for a
      * release whose number is not SemVer (a label from before 2.0); otherwise the selector is an npm
@@ -106,7 +108,8 @@ class ReleaseTargetResolver(
                 } else {
                     """
                     SELECT r.version FROM catalog_releases r
-                    WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.content_retained $condition
+                    WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.content_retained
+                      AND r.version_pre_release IS NULL $condition
                     $LATEST_RELEASE_ORDER $limit
                     """
                 },

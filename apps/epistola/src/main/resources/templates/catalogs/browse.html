@@ -250,7 +250,7 @@
                                                 th:attr="aria-label='Version to deploy to ' + ${row.environmentName}">
                                             <option th:each="version : ${deployableVersions}"
                                                     th:value="${version}"
-                                                    th:text="'v' + ${version} + (${row.servedVersions.contains(version)} ? ' (deployed)' : '')">v1.0.0</option>
+                                                    th:text="'v' + ${version} + (${version.contains('-')} ? ' (pre-release)' : '') + (${row.servedVersions.contains(version)} ? ' (deployed)' : '')">v1.0.0</option>
                                         </select>
                                         <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Deploy</button>
                                     </form>

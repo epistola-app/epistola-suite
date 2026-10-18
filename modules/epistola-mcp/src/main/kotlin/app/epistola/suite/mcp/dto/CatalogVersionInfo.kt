@@ -4,6 +4,7 @@
 
 package app.epistola.suite.mcp.dto
 
+import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersionResult
 import app.epistola.suite.catalog.versions.CatalogVersion
 import app.epistola.suite.catalog.versions.DraftNumberAssessment
@@ -20,6 +21,8 @@ data class CatalogVersionInfo(
     val status: String,
     val draftId: String?,
     val isNext: Boolean,
+    /** A released pre-release of long-term work, used where it is deployed by its number. */
+    val preRelease: Boolean,
     val name: String?,
     val base: String?,
     val createdFrom: String?,
@@ -37,6 +40,7 @@ data class CatalogVersionInfo(
             status = version.status.name,
             draftId = version.draftId?.toString(),
             isNext = version.isNext,
+            preRelease = version.version?.let { SemVer.parseOrNull(it)?.isPreRelease } == true,
             name = version.name,
             base = version.base,
             createdFrom = version.createdFrom,

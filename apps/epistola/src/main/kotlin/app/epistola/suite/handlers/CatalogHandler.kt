@@ -17,6 +17,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
 import app.epistola.suite.catalog.CatalogPublicationPolicy
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.commands.AuthoredImportMode
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
@@ -1056,7 +1057,9 @@ class CatalogHandler {
                 // Nothing to forget about a release that kept nothing, which is also the state
                 // forgetting one leaves behind -- so the action disappears once it has been used.
                 forgettable = release.retained,
+                // A pre-release is work being tried: never sent to Exchange (ADR 0002, amendment 2).
                 publishable = release.retained &&
+                    SemVer.parseOrNull(release.version)?.isPreRelease != true &&
                     publication != null &&
                     publication.canPublish &&
                     publication.hasPublishableDestination &&
@@ -1553,6 +1556,8 @@ class CatalogHandler {
                 tenantKey = tenantId.key,
                 catalogKey = catalogKey,
                 version = request.param("version").orElse(null)?.ifBlank { null },
+                // A fat export: one file with the releases of the catalogs it uses, to install elsewhere.
+                includeDependencies = request.param("includeDependencies").orElse("") == "true",
             ).execute()
 
             ServerResponse.ok()

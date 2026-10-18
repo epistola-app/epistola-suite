@@ -5,6 +5,7 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.versions.CatalogVersion
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
@@ -147,6 +148,7 @@ data class CatalogDraftBar(
                 offerRemove = authored && mayDeleteReleases,
                 removeWithheld = authored && !mayDeleteReleases,
                 removeAction = "/tenants/${tenantKey.value}/catalogs/${catalogKey.value}/releases/$version/delete",
+                preRelease = SemVer.parseOrNull(version)?.isPreRelease == true,
             )
         }
 
@@ -171,6 +173,8 @@ data class CatalogDraftBar(
         val removeWithheld: Boolean = false,
         /** Where removing it posts: a draft is discarded at its segment, a published version deleted. */
         val removeAction: String = "",
+        /** A pre-release of long-term work: used only where it is deployed by its number. */
+        val preRelease: Boolean = false,
     )
 
     /** Some row's removal is withheld, so the Versions page says what it needs. */
@@ -191,6 +195,12 @@ data class CatalogDraftBar(
      * `CATALOG_RELEASE`.
      */
     val offerRelease: Boolean get() = isNext && mayDiscardDrafts
+
+    /** Whether to offer publishing long-term work as a pre-release, to try it (`CATALOG_RELEASE`). */
+    val offerPreRelease: Boolean get() = onLongTermWork && mayDiscardDrafts
+
+    /** Whether to offer making long-term work the next version (`CATALOG_RELEASE`). */
+    val offerPromote: Boolean get() = onLongTermWork && mayDiscardDrafts
 
     /** Whether to offer discarding the chosen draft. */
     val offerDiscard: Boolean get() = authored && mayDiscardDrafts && chosen != null

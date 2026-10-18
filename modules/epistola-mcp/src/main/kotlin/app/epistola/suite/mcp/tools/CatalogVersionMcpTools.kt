@@ -7,11 +7,13 @@ package app.epistola.suite.mcp.tools
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.versions.AssessDraftNumber
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
+import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionStatus
 import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.catalog.versions.DeleteCatalogDraft
 import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.catalog.versions.ListCatalogVersions
+import app.epistola.suite.catalog.versions.PromoteCatalogDraft
 import app.epistola.suite.catalog.versions.RenameCatalogDraft
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mcp.dto.CatalogReleaseInfo
@@ -130,7 +132,8 @@ class CatalogVersionMcpTools {
             "marked ready (`get_catalog_changes`) and its dependencies resolved. A next version behind releases is " +
             "released only when `acknowledgedBehind` names every one of them. After the release the next version " +
             "continues on it; long-term work is untouched and now behind it (`draftsBehind`). A release is immutable " +
-            "and can be deployed for generation, so release only when the user asks to. Requires the CATALOG_RELEASE permission.",
+            "and can be deployed for generation, so release only when the user asks to. Long-term work is released with " +
+            "`release_long_term_work`. Requires the CATALOG_RELEASE permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
     fun releaseNextVersion(
@@ -148,6 +151,64 @@ class CatalogVersionMcpTools {
             catalogKey = CatalogKey.of(catalogId),
             version = version?.trim()?.takeIf { it.isNotEmpty() },
             notes = notes?.takeIf { it.isNotBlank() },
+            acknowledgedBehind = acknowledgedBehind.orEmpty().map { it.trim() }.toSet(),
+        ).execute(),
+    )
+
+    @McpTool(
+        name = "release_long_term_work",
+        description = "Release long-term work as a pre-release, to try it: numbered as its changes need against the latest " +
+            "release, labelled after its name and counted (e.g. `2.0.0-redesign-2027.1`). A pre-release is never the latest " +
+            "release, no version range matches it, and it is never sent to Epistola Exchange: it is used where it is deployed " +
+            "by its number (e.g. a test environment). The work carries on. Its changed resources must be marked ready. Release " +
+            "only when the user asks to. Requires the CATALOG_RELEASE permission.",
+        annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
+    )
+    fun releaseLongTermWork(
+        @McpToolParam(description = "Catalog key of an AUTHORED catalog. From `list_catalogs`.")
+        catalogId: String,
+        @McpToolParam(description = "The long-term work's `draftId`. From `list_catalog_versions`.")
+        draftId: String,
+        @McpToolParam(description = "A pre-release number to use instead, MAJOR.MINOR.PATCH-LABEL, no lower than its changes need.", required = false)
+        version: String?,
+        @McpToolParam(description = "Release notes.", required = false)
+        notes: String?,
+    ): CatalogReleaseInfo {
+        val catalogKey = CatalogKey.of(catalogId)
+        return CatalogReleaseInfo.from(
+            ReleaseCatalogVersion(
+                tenantKey = mcpTenantKey(),
+                catalogKey = catalogKey,
+                version = version?.trim()?.takeIf { it.isNotEmpty() },
+                notes = notes?.takeIf { it.isNotBlank() },
+                catalogVersion = CatalogVersionRef(mcpTenantKey(), catalogKey, DraftRef.Id(draftIdOf(draftId))),
+            ).execute(),
+        )
+    }
+
+    @McpTool(
+        name = "promote_long_term_work",
+        description = "Make long-term work the catalog's next version, when it is ready to go out with everyday work. It " +
+            "must contain every release published since it started, or `acknowledgedBehind` names those it leaves out " +
+            "(`list_catalog_versions` shows what it is `behind`). The previous next version is discarded with its changes, " +
+            "or kept as long-term work under `keepPreviousAs`. Confirm with the user first. Requires the CATALOG_RELEASE permission.",
+        annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = true, idempotentHint = false),
+    )
+    fun promoteLongTermWork(
+        @McpToolParam(description = "Catalog key of an AUTHORED catalog. From `list_catalogs`.")
+        catalogId: String,
+        @McpToolParam(description = "The long-term work's `draftId`. From `list_catalog_versions`.")
+        draftId: String,
+        @McpToolParam(description = "Keep the previous next version as long-term work under this name. Omit to discard it.", required = false)
+        keepPreviousAs: String?,
+        @McpToolParam(description = "The releases the user confirms the work may leave out.", required = false)
+        acknowledgedBehind: List<String>?,
+    ): CatalogVersionInfo = CatalogVersionInfo.from(
+        PromoteCatalogDraft(
+            tenantKey = mcpTenantKey(),
+            catalogKey = CatalogKey.of(catalogId),
+            draftId = draftIdOf(draftId),
+            keepPreviousAs = keepPreviousAs?.trim()?.takeIf { it.isNotEmpty() },
             acknowledgedBehind = acknowledgedBehind.orEmpty().map { it.trim() }.toSet(),
         ).execute(),
     )

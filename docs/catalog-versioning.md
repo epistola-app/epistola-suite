@@ -62,10 +62,10 @@ releases (and an installed release) are numbered.
 
 - **One next version, and long-term work.** Every authored catalog has exactly one **next version**
   (`catalog_versions.is_next`, one per catalog): the draft everyday work goes into, the one a caller
-  that names no version means, and the only one that is released. Any other draft is **long-term
+  that names no version means, and the only one released as a release. Any other draft is **long-term
   work**: named (`catalog_versions.name`, unique per catalog ignoring case), kept apart from the next
-  version, and not released until it becomes the next version (promotion follows in stage 2 of the
-  amendment). A draft is identified by its `version_id`, its `draftId`.
+  version, released only as a **pre-release** to try it, and made the next version when it is ready
+  (`PromoteCatalogDraft`). A draft is identified by its `version_id`, its `draftId`.
 - **Content belongs to a version.** Every content row (`themes`, `document_templates`,
   `template_variants`, `variant_attribute_definitions`, `code_lists`, `code_list_entries`, `assets`,
   `fonts`, `font_variants`, `stencils`) is keyed `(tenant_key, version_id, resource_id)`; its address
@@ -412,6 +412,30 @@ digests, so the answer stays exact; once it has drifted the query reports
 UNKNOWN and says it has no baseline rather than calling everything new. The
 next release records one.
 
+## Pre-releases and promotion
+
+Long-term work is tried before it goes out (contract ADR 0002, amendment 2):
+
+- **A pre-release.** `ReleaseCatalogVersion` on long-term work releases `MAJOR.MINOR.PATCH-<label>.<n>`:
+  the number its changes need against the latest release, a label from its name (`preReleaseLabel`:
+  `Redesign 2027` → `redesign-2027`), counted (`2.0.0-redesign-2027.1`, then `.2`; `nextPreRelease`,
+  previewed by `PreviewPreRelease`). It is a release in every other way (immutable, pinned, retained,
+  deployable, exportable), but **never the latest release**: `catalog_releases.version_pre_release`
+  (`V20261018153258`) marks it, the latest-release lookups leave it out (`NOT_PRE_RELEASE`), it does
+  not move `catalogs.released_version`, no version range matches it (npm semantics), generation without
+  an environment never picks it, the next version is not behind it, and it is never sent to an
+  exchange. An environment it is deployed to serves it, by its number. It sorts below the release of
+  its number (`SemVer` precedence; `LATEST_RELEASE_ORDER`). The work carries on, on its own base; a
+  pre-release is not held to the releases the work is behind.
+- **Promotion.** `PromoteCatalogDraft` makes long-term work the next version. It must contain every
+  release published since it started, or `acknowledgedBehind` names those it leaves out; it then
+  continues on the latest release (its base moves there), behind nothing. The draft that was the next
+  version is discarded (held resources refuse it, as discarding does) or kept as long-term work under
+  `keepPreviousAs`.
+- **In the UI** the long-term work banner offers _Publish a pre-release…_ (the dialog names the number)
+  and _Make this the next version…_ (published-since releases confirmed one by one; the old next version
+  kept under a suggested name, or discarded). Versions marks pre-releases; Deployments offers them.
+
 ## Exporting a release
 
 `ExportCatalogZip` takes an optional `version`. With one, it hands over **that release as it was
@@ -427,6 +451,23 @@ a published release unexportable. The fingerprint _is_ recomputed and a mismatch
 
 Releases cut before `V20260923201010` retained no content and refuse with
 `CatalogReleaseNotRetainedException` rather than quietly substituting the working copy.
+
+### With what it uses (fat export)
+
+`ExportCatalogZip(includeDependencies = true)` writes a **catalog bundle** (`CatalogBundle`, contract
+`docs/catalog-bundle.md`): one ZIP with `bundle.json` and one ordinary archive per catalog, the
+releases the export is pinned to (a release's pins; the working copy's locked declarations), followed
+transitively, dependencies first and the exported catalog last. It is how a catalog, or a pre-release,
+reaches an installation that receives catalogs as files. Refused (`CatalogBundleException`) while a
+declaration is not tied to a release, or when a pinned release kept no content here. The export dialog
+has _Include the catalogs it uses_; a published version's page has _Export with what it uses_.
+
+Importing one (`ImportCatalogZip` detects `bundle.json`) checks every bundled dependency before writing
+anything: one the tenant has at that release is left alone, one it lacks is installed as subscribed, and
+one it has at another release or under another registry or namespace refuses the whole import (REST
+`CATALOG_BUNDLE_CONFLICT`, 409), naming each, since installing it would move that catalog for what else
+uses it. The bundled catalog is then imported as asked. The result names what was installed and what
+was there (`installedDependencies`, `presentDependencies`).
 
 ## Export drift policy
 

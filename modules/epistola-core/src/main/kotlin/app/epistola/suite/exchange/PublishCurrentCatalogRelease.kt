@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogPublicationPolicy
+import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
@@ -202,6 +203,9 @@ class PublishCurrentCatalogReleaseHandler(
             command.version?.let { "This catalog has no release $it to publish." } ?: "This catalog has no release to publish.",
             ValidationCode.PUBLICATION_NO_RELEASE,
         )
+        validate("version", SemVer.parseOrNull(release.version)?.isPreRelease != true, ValidationCode.PUBLICATION_NO_RELEASE) {
+            "${release.version} is a pre-release: it is work being tried, and is never sent to Epistola Exchange. Export it to move it to another installation."
+        }
         if (command.version != null) {
             validate(
                 "publication",

@@ -21,6 +21,7 @@ import app.epistola.catalog.validation.CatalogValidator
 import app.epistola.catalog.validation.ValidationSeverity
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
+import app.epistola.suite.catalog.CatalogBundle
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogImportContext
@@ -151,6 +152,12 @@ data class ImportCatalogZipResult(
      * never a silent half-upgrade).
      */
     val aborted: Boolean = false,
+    /**
+     * For a fat export ([CatalogBundle]): the catalogs it uses that the import installed, as
+     * `catalogKey vVERSION`, in the order it installed them, and those this installation had already.
+     */
+    val installedDependencies: List<String> = emptyList(),
+    val presentDependencies: List<String> = emptyList(),
 )
 
 @Component
@@ -164,12 +171,20 @@ class ImportCatalogZipHandler(
     private val identity: CatalogIdentityProperties,
     private val dependencyStore: CatalogDependencyStore,
     private val readyMarks: ReadyMarks,
+    private val bundles: CatalogBundleImporter,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
     private val canonicalizer = CatalogCanonicalizer(objectMapper)
 
-    override fun handle(command: ImportCatalogZip): ImportCatalogZipResult = CatalogImportContext.runAsImport {
+    override fun handle(command: ImportCatalogZip): ImportCatalogZipResult {
+        if (!command.intoDraft && CatalogBundle.isBundle(command.zipBytes)) {
+            return bundles.import(command) { importArchive(it) }
+        }
+        return importArchive(command)
+    }
+
+    private fun importArchive(command: ImportCatalogZip): ImportCatalogZipResult = CatalogImportContext.runAsImport {
         // Size checks: compressed ZIP and decompressed total
         val maxZipSize = sizeLimits.maxZipSize.toBytes()
         val maxDecompressedSize = sizeLimits.maxDecompressedSize.toBytes()

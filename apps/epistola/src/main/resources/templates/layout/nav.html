@@ -185,8 +185,16 @@
     <!--/* Long-term work is hard to miss: what is being changed, and that the next version is not. */-->
     <div th:fragment="side-strip" th:with="bar=${workspace.catalog.bar}" class="ws-side-strip" role="status"
          data-testid="catalog-long-term-banner" th:attr="data-catalog=${bar.catalogKey},data-draft=${bar.chosen.draftId}">
-        <span th:text="'You are changing ' + ${bar.chosen.label} + ', long-term work kept apart from the next version. It is not published until it is ready.'">You are changing Redesign 2027.</span>
-        <a class="ep-btn ep-btn-outline ep-btn-sm" th:href="${bar.workHref}" data-testid="catalog-long-term-back">Back to the next version</a>
+        <span th:text="'You are changing ' + ${bar.chosen.label} + ', long-term work kept apart from the next version.'">You are changing Redesign 2027.</span>
+        <span class="ep-row" style="gap: var(--ep-space-2);">
+            <button th:if="${bar.offerPreRelease}" type="button" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-pre-release-open"
+                    th:hx-get="@{/tenants/{t}/catalogs/{c}/pre-release(t=${bar.tenantKey},c=${bar.segmentValue})}"
+                    hx-target="#ws-dialog-mount" hx-swap="innerHTML">Publish a pre-release…</button>
+            <button th:if="${bar.offerPromote}" type="button" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-promote-open"
+                    th:hx-get="@{/tenants/{t}/catalogs/{c}/promote(t=${bar.tenantKey},c=${bar.segmentValue})}"
+                    hx-target="#ws-dialog-mount" hx-swap="innerHTML">Make this the next version…</button>
+            <a class="ep-btn ep-btn-outline ep-btn-sm" th:href="${bar.workHref}" data-testid="catalog-long-term-back">Back to the next version</a>
+        </span>
     </div>
 </body>
 </html>

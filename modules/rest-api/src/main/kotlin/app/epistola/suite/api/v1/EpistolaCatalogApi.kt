@@ -19,6 +19,7 @@ import app.epistola.api.model.CatalogVersionDto
 import app.epistola.api.model.CatalogVersionListResponse
 import app.epistola.api.model.CreateCatalogDraftRequest
 import app.epistola.api.model.ImportCatalogResponse
+import app.epistola.api.model.PromoteCatalogDraftRequest
 import app.epistola.api.model.ReleaseCatalogDraftRequest
 import app.epistola.api.model.ReleaseCatalogDraftResponse
 import app.epistola.api.model.ReleaseDependencyDto
@@ -67,6 +68,7 @@ import app.epistola.suite.catalog.versions.DeleteCatalogDraft
 import app.epistola.suite.catalog.versions.GetCatalogNames
 import app.epistola.suite.catalog.versions.GetCatalogVersion
 import app.epistola.suite.catalog.versions.ListCatalogVersions
+import app.epistola.suite.catalog.versions.PromoteCatalogDraft
 import app.epistola.suite.catalog.versions.RenameCatalogDraft
 import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
 import app.epistola.suite.common.ids.TenantKey
@@ -213,6 +215,8 @@ class EpistolaCatalogApi(
                 total = result.results.size,
                 aborted = result.aborted,
                 catalogVersion = null,
+                installedDependencies = result.installedDependencies,
+                presentDependencies = result.presentDependencies,
             ),
         )
     }
@@ -310,9 +314,32 @@ class EpistolaCatalogApi(
     }
 
     /**
-     * Releases the next version, numbered as asked or as its changes need; it then continues on the
-     * release. A next version behind releases needs `acknowledgedBehind` to name each one (409
-     * otherwise); long-term work is not released (409).
+     * Makes long-term work the next version; the previous one is discarded or kept under a name. Work
+     * behind releases needs `acknowledgedBehind` to name each one (409 otherwise).
+     */
+    override fun promoteCatalogDraft(
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        promoteCatalogDraftRequest: PromoteCatalogDraftRequest,
+    ): ResponseEntity<CatalogVersionDto> {
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val promoted = PromoteCatalogDraft(
+            tenantKey = draft.tenantKey,
+            catalogKey = draft.catalogKey,
+            draftId = draft.version.draftId ?: throw CatalogVersionNotFoundException(draft.catalogKey, catalogVersion),
+            keepPreviousAs = promoteCatalogDraftRequest.keepPreviousAs,
+            acknowledgedBehind = promoteCatalogDraftRequest.acknowledgedBehind.orEmpty().toSet(),
+        ).execute()
+        return ResponseEntity.ok(promoted.toDto(draft.catalog))
+    }
+
+    /**
+     * Releases a draft, numbered as asked or as its changes need: the next version as a release, which
+     * it then continues on, long-term work as a pre-release. A next version behind releases needs
+     * `acknowledgedBehind` to name each one (409 otherwise).
      */
     override fun releaseCatalogDraft(
         tenantKey: String,
@@ -448,6 +475,7 @@ class EpistolaCatalogApi(
             version = version,
             draftId = draftId,
             isNext = isNext,
+            preRelease = version?.let { SemVer.parseOrNull(it)?.isPreRelease } == true,
             name = name,
             status = if (draft) CatalogVersionStatusDto.DRAFT else CatalogVersionStatusDto.RELEASED,
             behind = behind.map { release ->

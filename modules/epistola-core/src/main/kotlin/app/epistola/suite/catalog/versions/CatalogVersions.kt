@@ -181,6 +181,33 @@ class CatalogDrafts {
         check(moved == 1) { "no next version $versionId to advance" }
     }
 
+    /**
+     * Makes long-term work [promoted] the next version, on [base], in place of [previous]: that one is
+     * deleted when [keepAs] is null, else kept as long-term work called [keepAs]. The old next version
+     * stops being next before the new one starts, as the catalog has one next version at a time.
+     */
+    fun promote(handle: Handle, tenantKey: TenantKey, promoted: UUID, previous: UUID?, keepAs: String?, base: String?) {
+        if (previous != null) {
+            if (keepAs == null) {
+                delete(handle, tenantKey, previous)
+            } else {
+                handle.createUpdate("UPDATE catalog_versions SET is_next = FALSE, name = :name WHERE tenant_key = :t AND version_id = :v AND is_next")
+                    .bind("t", tenantKey)
+                    .bind("v", previous)
+                    .bind("name", keepAs)
+                    .execute()
+            }
+        }
+        val moved = handle.createUpdate(
+            "UPDATE catalog_versions SET is_next = TRUE, name = NULL, base_version = :base WHERE tenant_key = :t AND version_id = :v AND kind = 'draft' AND NOT is_next",
+        )
+            .bind("t", tenantKey)
+            .bind("v", promoted)
+            .bind("base", base)
+            .execute()
+        check(moved == 1) { "no long-term work $promoted to promote" }
+    }
+
     /** Renames long-term work [versionId]. */
     fun rename(handle: Handle, tenantKey: TenantKey, versionId: UUID, name: String) {
         handle.createUpdate("UPDATE catalog_versions SET name = :name WHERE tenant_key = :t AND version_id = :v AND kind = 'draft' AND NOT is_next")
@@ -229,19 +256,20 @@ class CatalogDrafts {
         /** The highest of [releases] below [version], by SemVer; null when none is. */
         fun highestBelow(version: String, releases: Collection<String>): String? {
             val own = SemVer.parseOrNull(version) ?: return null
-            return releases.mapNotNull { r -> SemVer.parseOrNull(r)?.let { it to r } }.filter { it.first < own }.maxByOrNull { it.first }?.second
+            return releases.mapNotNull { r -> SemVer.releaseOrNull(r)?.let { it to r } }.filter { it.first < own }.maxByOrNull { it.first }?.second
         }
 
-        /** The highest of [releases] by SemVer; null when there is none. */
-        fun latest(releases: Collection<String>): String? = releases.mapNotNull { r -> SemVer.parseOrNull(r)?.let { it to r } }.maxByOrNull { it.first }?.second
+        /** The highest of [releases] by SemVer, a pre-release never; null when there is none. */
+        fun latest(releases: Collection<String>): String? = releases.mapNotNull { r -> SemVer.releaseOrNull(r)?.let { it to r } }.maxByOrNull { it.first }?.second
 
         /**
          * The released versions a draft on [base] is behind (contract ADR 0002): every release above its
-         * base, lowest first. Without a base, every release.
+         * base, lowest first, pre-releases left out (they are work being tried, not releases to carry
+         * over). Without a base, every release.
          */
         fun behind(base: String?, releases: Collection<String>): List<String> {
             val floor = base?.let(SemVer::parseOrNull)
-            return releases.mapNotNull { r -> SemVer.parseOrNull(r)?.let { it to r } }
+            return releases.mapNotNull { r -> SemVer.releaseOrNull(r)?.let { it to r } }
                 .filter { (semVer, _) -> floor == null || semVer > floor }
                 .sortedBy { it.first }
                 .map { it.second }

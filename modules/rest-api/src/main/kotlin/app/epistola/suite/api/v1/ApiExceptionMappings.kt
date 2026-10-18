@@ -19,6 +19,7 @@ import app.epistola.suite.attributes.commands.AttributeInUseException
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogReadOnlyException
+import app.epistola.suite.catalog.commands.CatalogBundleException
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
@@ -563,6 +564,13 @@ object ApiExceptionMappings {
             defaultDetail = "The catalog version is released and cannot change",
             extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version) },
             logMessage = { "Write to a released catalog version refused: catalog=${it.catalogKey} version=${it.version}" },
+        )
+
+        builder.register<CatalogBundleException>(
+            problemType = ApiProblemTypes.CATALOG_BUNDLE_CONFLICT,
+            defaultDetail = "The catalog bundle cannot be imported here as it is",
+            extensions = { emptyMap() },
+            logMessage = { "Catalog bundle refused: ${it.message}" },
         )
 
         builder.register<CatalogDraftNameInUseException>(

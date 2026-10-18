@@ -5,16 +5,24 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.commands.CatalogReleaseNotRetainedException
+import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
+import app.epistola.suite.catalog.commands.MarkCatalogReady
+import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
 import app.epistola.suite.catalog.versions.CatalogDraftNameInUseException
+import app.epistola.suite.catalog.versions.CatalogVersion
+import app.epistola.suite.catalog.versions.CatalogVersionBehindException
 import app.epistola.suite.catalog.versions.CatalogVersionHeldException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.catalog.versions.DeleteCatalogDraft
 import app.epistola.suite.catalog.versions.OpenNextVersion
+import app.epistola.suite.catalog.versions.PreviewPreRelease
+import app.epistola.suite.catalog.versions.PromoteCatalogDraft
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.FormData
+import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogSegment
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -22,6 +30,7 @@ import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.requirePermission
 import app.epistola.suite.validation.FieldLimits
 import app.epistola.suite.validation.ValidationException
@@ -140,6 +149,127 @@ class CatalogDraftHandler(
         } catch (e: CatalogVersionHeldException) {
             catalogs.browseWithError(request, segment, e.message ?: "The draft cannot be discarded.")
         }
+    }
+
+    /** `GET /{catalogId}/pre-release` at long-term work: the dialog publishing it as a pre-release. */
+    fun preReleaseForm(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.CATALOG_RELEASE)
+        val segment = request.catalogSegment()
+        val bar = bar(tenantId, segment)
+        val work = bar.chosen?.takeIf { bar.onLongTermWork } ?: return ServerResponse.notFound().build()
+        return request.htmx {
+            fragment("catalogs/drafts", "pre-release-dialog") {
+                preReleaseModel(tenantId, segment, bar, work)
+            }
+            onFullPage { redirect(CatalogPages.draft(tenantId, segment)) }
+        }
+    }
+
+    /**
+     * `POST /{catalogId}/pre-release` at long-term work: marks its changes ready (publishing is the
+     * decision that they are) and publishes it as a pre-release, then lands on the work again, which
+     * carries on. A refusal comes back in the dialog.
+     */
+    fun preRelease(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.CATALOG_RELEASE)
+        val segment = request.catalogSegment()
+        val bar = bar(tenantId, segment)
+        val work = bar.chosen?.takeIf { bar.onLongTermWork } ?: return ServerResponse.notFound().build()
+        val notes = request.param("notes").orElse("").trim().ifBlank { null }
+        return try {
+            if (AuthContext.from(SecurityContext.current(), tenantId.key).has(Permission.TEMPLATE_EDIT)) {
+                MarkCatalogReady(tenantId.key, segment.key, catalogVersion = segment.ref(tenantId.key)).execute()
+            }
+            ReleaseCatalogVersion(tenantId.key, segment.key, notes = notes, catalogVersion = segment.ref(tenantId.key)).execute()
+            val target = CatalogPages.draft(tenantId, segment)
+            request.htmx {
+                dialogLocation(target)
+                onFullPage { redirect(target) }
+            }
+        } catch (e: RuntimeException) {
+            if (e !is ValidationException && e !is CatalogReleaseVersionException) throw e
+            request.htmx {
+                fragment("catalogs/drafts", "pre-release-dialog") {
+                    preReleaseModel(tenantId, segment, bar, work)
+                    "error" to (e.message ?: "It could not be published.")
+                }
+                onFullPage { redirect(CatalogPages.draft(tenantId, segment)) }
+            }
+        }
+    }
+
+    private fun ModelBuilder.preReleaseModel(tenantId: TenantId, segment: CatalogSegment, bar: CatalogDraftBar, work: CatalogVersion) {
+        "tenantId" to tenantId.key
+        "bar" to bar
+        "segment" to segment.value
+        "workName" to work.label
+        "preReleaseVersion" to PreviewPreRelease(tenantId.key, segment.key, requireNotNull(work.draftId)).query()
+    }
+
+    /** `GET /{catalogId}/promote` at long-term work: the dialog making it the next version. */
+    fun promoteForm(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.CATALOG_RELEASE)
+        val segment = request.catalogSegment()
+        val bar = bar(tenantId, segment)
+        val work = bar.chosen?.takeIf { bar.onLongTermWork } ?: return ServerResponse.notFound().build()
+        return request.htmx {
+            fragment("catalogs/drafts", "promote-dialog") {
+                promoteModel(tenantId, segment, bar, work)
+            }
+            onFullPage { redirect(CatalogPages.draft(tenantId, segment)) }
+        }
+    }
+
+    /**
+     * `POST /{catalogId}/promote` at long-term work, with `previous` (`keep` with `keepAs`, or
+     * `discard`) and `acknowledgedBehind` per release it is behind: makes it the next version and lands
+     * on the catalog. A refusal comes back in the dialog.
+     */
+    fun promote(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.CATALOG_RELEASE)
+        val segment = request.catalogSegment()
+        val bar = bar(tenantId, segment)
+        val work = bar.chosen?.takeIf { bar.onLongTermWork } ?: return ServerResponse.notFound().build()
+        val keep = request.param("previous").orElse("keep") != "discard"
+        val keepAs = request.param("keepAs").orElse("").trim().ifBlank { null }
+        val acknowledged = request.params()["acknowledgedBehind"].orEmpty().map { it.trim() }.toSet()
+        fun refused(message: String) = request.htmx {
+            fragment("catalogs/drafts", "promote-dialog") {
+                promoteModel(tenantId, segment, bar, work)
+                "error" to message
+            }
+            onFullPage { redirect(CatalogPages.draft(tenantId, segment)) }
+        }
+        if (keep && keepAs == null) return refused("Give the current next version a name to keep it under.")
+        return try {
+            PromoteCatalogDraft(tenantId.key, segment.key, requireNotNull(work.draftId), keepPreviousAs = keepAs.takeIf { keep }, acknowledgedBehind = acknowledged).execute()
+            val target = CatalogPages.browse(tenantId, segment.at(null))
+            request.htmx {
+                dialogLocation(target)
+                onFullPage { redirect(target) }
+            }
+        } catch (e: CatalogVersionBehindException) {
+            refused("Confirm each version published since this work started: " + e.behind.joinToString { "v$it" } + ".")
+        } catch (e: CatalogDraftNameInUseException) {
+            refused("Other work is called that already. Choose another name.")
+        } catch (e: CatalogVersionHeldException) {
+            refused(e.message ?: "The next version cannot be discarded.")
+        } catch (e: ValidationException) {
+            refused(e.message)
+        }
+    }
+
+    private fun ModelBuilder.promoteModel(tenantId: TenantId, segment: CatalogSegment, bar: CatalogDraftBar, work: CatalogVersion) {
+        "tenantId" to tenantId.key
+        "bar" to bar
+        "segment" to segment.value
+        "workName" to work.label
+        "behind" to work.behind
+        "keepAsSuggestion" to "Next version before ${work.label}".take(100)
     }
 
     private fun bar(tenantId: TenantId, segment: CatalogSegment): CatalogDraftBar = CatalogDraftBar.of(tenantId.key, segment) { CatalogPages.draft(tenantId, it) }

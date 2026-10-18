@@ -458,6 +458,75 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         }
     }
 
+    @Test
+    fun `long-term work is published as a pre-release from its banner, which says the number, and carries on`() = fixture {
+        lateinit var tenant: Tenant
+        lateinit var work: UUID
+        given {
+            tenant = tenant("Drafts Pre-release")
+            work = withRedesign(tenant)
+        }
+        whenever {
+            val page = get("/tenants/${tenant.id}/catalogs/letters@$work/draft").body!!
+            assertThat(page).contains("data-testid=\"catalog-pre-release-open\"").contains("data-testid=\"catalog-promote-open\"")
+            assertThat(get("/tenants/${tenant.id}/catalogs/letters/draft").body!!).`as`("not on the next version").doesNotContain("catalog-pre-release-open")
+            val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/pre-release").body!!
+            assertThat(dialog).contains("<strong>v1.0.1-redesign.1</strong>")
+            postForm("/tenants/${tenant.id}/catalogs/letters@$work/pre-release", mapOf("notes" to "Try the new invoice"))
+        }
+        then {
+            assertThat(result<ResponseEntity<String>>().headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters@$work/draft")
+            val versions = get("/tenants/${tenant.id}/catalogs/letters/versions").body!!
+            assertThat(versions.substringAfter("data-version=\"1.0.1-redesign.1\"").substringBefore("</tr>")).contains("data-testid=\"catalog-version-pre-release\"")
+            assertThat(drafts(tenant)).`as`("the work carries on").containsExactly("Next version", "Redesign")
+            assertThat(get("/tenants/${tenant.id}/catalogs/letters/releases/1.0.1-redesign.1").statusCode).isEqualTo(HttpStatus.OK)
+        }
+    }
+
+    @Test
+    fun `making long-term work the next version asks to confirm what was published meanwhile, and keeps the old one by name`() = fixture {
+        lateinit var tenant: Tenant
+        lateinit var work: UUID
+        given {
+            tenant = tenant("Drafts Promote")
+            work = withRedesign(tenant)
+            withMediator {
+                MarkCatalogReady(tenant.id, letters).execute()
+                ReleaseCatalogVersion(tenant.id, letters).execute() // 1.0.1, which the work does not contain
+            }
+        }
+        whenever {
+            val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/promote").body!!
+            assertThat(dialog).contains("data-testid=\"promote-behind\"").contains("name=\"acknowledgedBehind\" value=\"1.0.1\" required")
+                .contains("value=\"Next version before Redesign\"")
+            val refused = postForm("/tenants/${tenant.id}/catalogs/letters@$work/promote", mapOf("previous" to "keep", "keepAs" to "Old"))
+            assertThat(refused.body).contains("Confirm each version published since this work started: v1.0.1")
+            postForm("/tenants/${tenant.id}/catalogs/letters@$work/promote", mapOf("previous" to "keep", "keepAs" to "Old", "acknowledgedBehind" to "1.0.1"))
+        }
+        then {
+            assertThat(result<ResponseEntity<String>>().headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters/browse")
+            assertThat(drafts(tenant)).containsExactly("Next version", "Old")
+            assertThat(withMediator { GetDocumentTemplate(invoice(tenant)).query() }!!.name).isEqualTo("Invoice redesigned")
+        }
+    }
+
+    @Test
+    fun `a release exports with what it uses as one bundle`() = fixture {
+        lateinit var tenant: Tenant
+        given {
+            tenant = tenant("Drafts Fat Export")
+            released(tenant)
+        }
+        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/export?version=1.0.0&includeDependencies=true", ByteArray::class.java) }
+        then {
+            val response = result<ResponseEntity<ByteArray>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.headers.getFirst("Content-Disposition")).contains("letters-1.0.0-with-dependencies.zip")
+            assertThat(app.epistola.suite.catalog.CatalogBundle.isBundle(response.body!!)).isTrue()
+            assertThat(get("/tenants/${tenant.id}/catalogs/letters/releases/1.0.0").body!!).contains("data-testid=\"release-export-with-dependencies\"")
+        }
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────
 
     private fun get(url: String): ResponseEntity<String> = restTemplate.getForEntity(url, String::class.java)

@@ -47,5 +47,92 @@
             <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-draft-submit">Start</button>
         </div>
     </form>
+    <!--/* Publish long-term work as a pre-release, to try it where it is deployed (ADR 0002, amendment 2).
+           Model: `tenantId`, `bar`, `segment`, `workName`, `preReleaseVersion`, optionally `error`. */-->
+    <th:block th:fragment="pre-release-dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='pre-release-dialog',
+            title='Publish a pre-release',
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/draft(tenantId=${tenantId},catalogId=${segment})},
+            content=~{::pre-release-form})}"></div>
+    </th:block>
+
+    <form th:fragment="pre-release-form" id="pre-release-form"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/pre-release(tenantId=${tenantId},catalogId=${segment})}"
+          hx-target="#ws-dialog-mount" hx-swap="innerHTML">
+        <div class="ep-dialog-body">
+            <div th:if="${error != null}" class="alert alert-error" data-testid="pre-release-error" th:text="${error}"></div>
+            <p th:if="${preReleaseVersion != null}" data-testid="pre-release-version">
+                <span th:text="${workName}">Redesign 2027</span> is published as
+                <strong th:text="'v' + ${preReleaseVersion}">v2.0.0-redesign-2027.1</strong>.
+            </p>
+            <p class="form-hint">
+                A pre-release is for trying the work: deploy it to a test environment, or export it to another
+                installation. Applications only get it where it is deployed; it is never the latest version and is
+                not sent to Epistola Exchange. The work carries on, and the next version is not affected.
+            </p>
+            <div class="form-group">
+                <label class="ep-label" for="pre-release-notes">Notes</label>
+                <textarea id="pre-release-notes" name="notes" class="ep-textarea" rows="3" maxlength="4000"
+                          placeholder="What to try in this pre-release"></textarea>
+            </div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="pre-release-dialog">Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="pre-release-submit">Publish pre-release</button>
+        </div>
+    </form>
+
+    <!--/* Make long-term work the next version (ADR 0002, amendment 2). What was published since it started
+           is confirmed one by one; the current next version is kept under a name, or discarded.
+           Model: `tenantId`, `bar`, `segment`, `workName`, `behind`, `keepAsSuggestion`, optionally `error`. */-->
+    <th:block th:fragment="promote-dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='promote-dialog',
+            title='Make this the next version',
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/draft(tenantId=${tenantId},catalogId=${segment})},
+            content=~{::promote-form})}"></div>
+    </th:block>
+
+    <form th:fragment="promote-form" id="promote-form"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/promote(tenantId=${tenantId},catalogId=${segment})}"
+          hx-target="#ws-dialog-mount" hx-swap="innerHTML">
+        <div class="ep-dialog-body">
+            <div th:if="${error != null}" class="alert alert-error" data-testid="promote-error" th:text="${error}"></div>
+            <p>
+                <strong th:text="${workName}">Redesign 2027</strong> becomes where everyday work goes, and what is
+                published next.
+            </p>
+            <div th:unless="${behind.isEmpty()}" class="form-group" data-testid="promote-behind">
+                <span class="ep-label">Published since it started</span>
+                <p class="form-hint" style="margin-top: 0;">These are not in this work unless someone made the same change here. Confirm each.</p>
+                <label th:each="release : ${behind}" style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-1);">
+                    <input type="checkbox" name="acknowledgedBehind" th:value="${release.version}" required>
+                    <span>
+                        <strong th:text="'v' + ${release.version}">v1.0.1</strong><span th:unless="${release.changes.isEmpty()}"
+                            th:text="': changed ' + ${#strings.listJoin(release.changes.![key], ', ')}"></span>
+                    </span>
+                </label>
+            </div>
+            <div class="form-group">
+                <span class="ep-label">The current next version</span>
+                <label style="display: flex; gap: var(--ep-space-2);">
+                    <input type="radio" name="previous" value="keep" checked data-testid="promote-keep">
+                    <span>Keep it as long-term work, named</span>
+                </label>
+                <input type="text" name="keepAs" class="ep-input" maxlength="100" th:value="${keepAsSuggestion}"
+                       style="margin: var(--ep-space-1) 0 var(--ep-space-2) var(--ep-space-6); width: calc(100% - var(--ep-space-6));"
+                       aria-label="Name to keep the current next version under">
+                <label style="display: flex; gap: var(--ep-space-2);">
+                    <input type="radio" name="previous" value="discard" data-testid="promote-discard">
+                    <span>Discard it, with every change not published yet</span>
+                </label>
+            </div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="promote-dialog">Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="promote-submit">Make it the next version</button>
+        </div>
+    </form>
 </body>
 </html>

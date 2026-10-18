@@ -103,6 +103,35 @@ data class OpenNextVersion(
     override val permission get() = Permission.TEMPLATE_EDIT
 }
 
+/**
+ * Makes long-term work the catalog's next version (contract `promoteCatalogDraft`, ADR 0002, amendment
+ * 2), when it is ready to go out with everyday work.
+ *
+ * - It must contain every release published since it started, or the caller acknowledges those it
+ *   leaves out ([acknowledgedBehind] names every release it is behind, as releasing a behind draft
+ *   does): it then continues on the latest release, as the next version always does, and is behind
+ *   nothing.
+ * - The draft that was the next version is discarded with its changes, or, with [keepPreviousAs], kept
+ *   as long-term work under that name.
+ *
+ * Refused for the next version itself, for a name another draft has, and while the next version,
+ * when discarded, alone holds what something outside it uses ([CatalogVersionHeldException]).
+ */
+data class PromoteCatalogDraft(
+    override val tenantKey: TenantKey,
+    val catalogKey: CatalogKey,
+    val draftId: UUID,
+    val keepPreviousAs: String? = null,
+    val acknowledgedBehind: Set<String> = emptySet(),
+) : Command<CatalogVersion>,
+    RequiresPermission {
+    override val permission get() = Permission.CATALOG_RELEASE
+
+    init {
+        keepPreviousAs?.let(::validateDraftName)
+    }
+}
+
 /** A draft has no name the user cannot see, nor one that reads as the next version. */
 private fun validateDraftName(name: String) {
     validate("name", name.isNotBlank(), ValidationCode.GENERIC) { "Give the work a name" }
@@ -143,6 +172,39 @@ class CreateCatalogDraftHandler(
             }
         }
         return jdbi.withHandle<CatalogVersion, Exception> { handle -> versions.all(handle, tenantKey, catalogKey).first { it.draftId == created } }
+    }
+}
+
+@Component
+class PromoteCatalogDraftHandler(
+    private val jdbi: Jdbi,
+    private val drafts: CatalogDrafts,
+    private val versions: CatalogVersionReader,
+    private val holdersCheck: DeleteCatalogDraftHandler,
+) : CommandHandler<PromoteCatalogDraft, CatalogVersion> {
+    override fun handle(command: PromoteCatalogDraft): CatalogVersion {
+        requireCatalogEditable(command.tenantKey, command.catalogKey)
+        val (tenantKey, catalogKey) = command.tenantKey to command.catalogKey
+        return jdbi.inTransaction<CatalogVersion, Exception> { handle ->
+            val open = drafts.drafts(handle, tenantKey, catalogKey)
+            val work = open.firstOrNull { it.versionId == command.draftId } ?: throw CatalogVersionNotFoundException(catalogKey, command.draftId.toString())
+            if (work.isNext) throw CatalogDraftIsNextException(catalogKey, "The next version of catalog '${catalogKey.value}' is the next version already")
+            val previous = open.firstOrNull { it.isNext }
+            val keepAs = command.keepPreviousAs?.trim()
+            if (keepAs != null && open.any { it.versionId != previous?.versionId && it.name.equals(keepAs, ignoreCase = true) }) {
+                throw CatalogDraftNameInUseException(catalogKey, keepAs)
+            }
+            val releases = versions.all(handle, tenantKey, catalogKey).filter { it.status == CatalogVersionStatus.RELEASED }.mapNotNull { it.version }
+            val unacknowledged = CatalogDrafts.behind(work.base, releases).filter { it !in command.acknowledgedBehind }
+            if (unacknowledged.isNotEmpty()) throw CatalogVersionBehindException(catalogKey, work.label, unacknowledged)
+            if (previous != null && keepAs == null) {
+                val holders = holdersCheck.holders(handle, tenantKey, previous.versionId)
+                if (holders.isNotEmpty()) throw CatalogVersionHeldException(catalogKey, previous.label, holders)
+            }
+            // Behind nothing now: it continues on the latest release, as the next version does.
+            drafts.promote(handle, tenantKey, work.versionId, previous?.versionId, keepAs, CatalogDrafts.latest(releases) ?: work.base)
+            versions.all(handle, tenantKey, catalogKey).first { it.draftId == work.versionId }
+        }
     }
 }
 
@@ -280,7 +342,7 @@ class DeleteCatalogDraftHandler(
      * template's theme). A reference from inside the draft goes with it. A font face's image
      * (`font_variants_asset_fkey`) is always in the family's own version, so it is not looked for.
      */
-    private fun holders(handle: Handle, tenantKey: TenantKey, versionId: UUID): List<String> = handle.createQuery(
+    fun holders(handle: Handle, tenantKey: TenantKey, versionId: UUID): List<String> = handle.createQuery(
         $$"""
         WITH own AS (
             SELECT resource_id FROM themes WHERE tenant_key = :t AND version_id = :v

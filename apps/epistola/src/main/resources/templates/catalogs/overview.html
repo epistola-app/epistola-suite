@@ -164,6 +164,8 @@
                             <td style="font-weight: 500;">
                                 <a th:href="${row.href}" data-testid="catalog-version-link" th:text="${row.label}">v1.0.0</a>
                                 <span th:if="${row.draft and !row.next}" class="text-muted" style="font-size: var(--ep-text-xs);">long-term work</span>
+                                <span th:if="${row.preRelease}" class="badge badge-outline" data-testid="catalog-version-pre-release"
+                                      title="Used only where it is deployed: never the latest version">pre-release</span>
                             </td>
                             <!--/* Every version starts from a published one, unless it started from nothing. */-->
                             <td data-testid="catalog-version-base">

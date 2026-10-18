@@ -43,6 +43,11 @@ class CatalogRoutes(
             GET("/{catalogId}/drafts/new", drafts::createForm)
             POST("/{catalogId}/drafts", drafts::create)
             POST("/{catalogId}/drafts/discard", drafts::discard)
+            // Long-term work: tried as a pre-release, then made the next version.
+            GET("/{catalogId}/pre-release", drafts::preReleaseForm)
+            POST("/{catalogId}/pre-release", drafts::preRelease)
+            GET("/{catalogId}/promote", drafts::promoteForm)
+            POST("/{catalogId}/promote", drafts::promote)
             // Preparing the next release: readiness, declared dependencies
             POST("/{catalogId}/ready", nextRelease::markReady)
             GET("/{catalogId}/dependencies/edit", nextRelease::dependenciesForm)

@@ -20,6 +20,7 @@ import app.epistola.suite.attributes.commands.AttributeInUseException
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogReadOnlyException
+import app.epistola.suite.catalog.commands.CatalogBundleException
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
@@ -293,6 +294,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         CatalogVersionNotFoundException::class,
         CatalogVersionReleasedException::class,
         CatalogDraftNameInUseException::class,
+        CatalogBundleException::class,
         CatalogDraftIsNextException::class,
         CatalogVersionBehindException::class,
         CatalogVersionHeldException::class,

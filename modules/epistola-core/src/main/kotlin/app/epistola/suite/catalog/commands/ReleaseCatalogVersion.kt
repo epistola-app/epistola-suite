@@ -28,7 +28,6 @@ import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
 import app.epistola.suite.catalog.versions.AssessDraftNumber
 import app.epistola.suite.catalog.versions.CatalogDraft
-import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
 import app.epistola.suite.catalog.versions.CatalogDrafts
 import app.epistola.suite.catalog.versions.CatalogVersionBehindException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
@@ -62,8 +61,13 @@ import java.util.UUID
  * - A draft is numbered when it is released: [version], or, when that is null, the number its changes
  *   need against the latest release ([AssessDraftNumber]). A given number must be above every release
  *   and no lower than the changes need; the author may raise it, to mark a major on purpose.
- * - Only the next version releases: the catalog's history moves forward. Long-term work
- *   ([catalogVersion] naming another draft) is refused until it becomes the next version.
+ * - The next version is released as a release; the catalog's history moves forward. Long-term work
+ *   ([catalogVersion] naming another draft) is released as a **pre-release**,
+ *   `MAJOR.MINOR.PATCH-<label>.<n>`: the number its changes need, the label from its name, `n`
+ *   counting its pre-releases of that number (`2.0.0-redesign-2027.1`). A pre-release is never the
+ *   latest release, never moves the catalog's released version, matches no version range and is
+ *   never sent to an exchange: it is used where it is deployed by its number, to try the work. It
+ *   is not held to the releases the work is behind; making the work the next version is.
  * - A next version that is behind releases (above its base) is released only when
  *   [acknowledgedBehind] names every one of them.
  * - After the release, the next version continues on it, as a copy of the release. Long-term work is
@@ -148,15 +152,15 @@ class ReleaseCatalogVersionHandler(
         val draft = jdbi.withHandle<CatalogDraft?, Exception> { handle ->
             drafts.find(handle, command.tenantKey, command.catalogKey, command.catalogVersion?.draft ?: DraftRef.Next)
         } ?: throw CatalogVersionNotFoundException(command.catalogKey, command.catalogVersion?.draft?.toString() ?: DraftRef.NEXT)
-        if (!draft.isNext) throw CatalogDraftIsNextException.notNext(command.catalogKey, draft.label)
-
         val existing = loadReleases(command.tenantKey, command.catalogKey)
-        val latest = existing.mapNotNull { SemVer.parseOrNull(it.version) }.maxOrNull()
-        val newVersion = number(command, draft, existing, latest)
+        val latest = existing.mapNotNull { SemVer.releaseOrNull(it.version) }.maxOrNull()
+        val newVersion = if (draft.isNext) number(command, draft, existing, latest) else preReleaseNumber(command, draft, existing)
         val open = jdbi.withHandle<List<CatalogDraft>, Exception> { drafts.drafts(it, command.tenantKey, command.catalogKey) }
-        val behind = CatalogDrafts.behind(draft.base, existing.map { it.version })
-        val unacknowledged = behind.filter { it !in command.acknowledgedBehind }
-        if (unacknowledged.isNotEmpty()) throw CatalogVersionBehindException(command.catalogKey, draft.label, unacknowledged)
+        if (draft.isNext) {
+            val behind = CatalogDrafts.behind(draft.base, existing.map { it.version })
+            val unacknowledged = behind.filter { it !in command.acknowledgedBehind }
+            if (unacknowledged.isNotEmpty()) throw CatalogVersionBehindException(command.catalogKey, draft.label, unacknowledged)
+        }
 
         // Everything below reads and writes the draft being released, whichever one that is.
         return targeting.within(draft.versionId) { release(command, catalog, newVersion, latest, existing, draft, open) }
@@ -178,8 +182,32 @@ class ReleaseCatalogVersionHandler(
         val assessment = AssessDraftNumber(command.tenantKey, command.catalogKey, draft.ref).query()
             ?: throw CatalogVersionNotFoundException(command.catalogKey, draft.label)
         val chosen = asked?.trim() ?: assessment.suggested
+        if (SemVer.parseOrNull(chosen)?.isPreRelease == true) {
+            throw CatalogReleaseVersionException("Version $chosen is a pre-release: the next version is released as a release. Long-term work is released as a pre-release.")
+        }
         assessment.refuses(chosen)?.let { throw CatalogReleaseVersionException(it) }
         return SemVer.parse(chosen)
+    }
+
+    /**
+     * The pre-release long-term work [draft] is released as: the number its changes need against the
+     * latest release, labelled after its name and counted (`2.0.0-redesign-2027.1`, then `.2`). One
+     * asked for must be a pre-release of at least that number, and not taken.
+     */
+    private fun preReleaseNumber(command: ReleaseCatalogVersion, draft: CatalogDraft, existing: List<ReleaseRow>): SemVer {
+        val assessment = AssessDraftNumber(command.tenantKey, command.catalogKey, draft.ref).query()
+            ?: throw CatalogVersionNotFoundException(command.catalogKey, draft.label)
+        val needs = SemVer.parse(assessment.suggested)
+        command.version?.trim()?.let { asked ->
+            val wanted = SemVer.parseOrNull(asked)
+            if (wanted == null || !wanted.isPreRelease) {
+                throw CatalogReleaseVersionException("Long-term work is released as a pre-release, such as $needs-${preReleaseLabel(draft.label)}.1; '$asked' is not one")
+            }
+            if (existing.any { it.version == wanted.toString() }) throw CatalogReleaseVersionException("Version $wanted is released already")
+            assessment.refuses(wanted.core.toString())?.let { throw CatalogReleaseVersionException(it) }
+            return wanted
+        }
+        return nextPreRelease(needs, draft.label, existing.map { it.version })
     }
 
     private fun release(
@@ -226,11 +254,16 @@ class ReleaseCatalogVersionHandler(
         // Building the archive is expensive, so only do it when the release will actually be
         // queued. The bytes are handed to the outbox inside the release transaction below: a crash
         // between committing the release and recording publication intent must not be possible.
-        val port = publicationPort.ifAvailable?.takeIf { shouldPublish(command, catalog, it) }
+        // A pre-release is work being tried: never sent to an exchange (ADR 0002, amendment 2).
+        val port = publicationPort.ifAvailable?.takeIf { !newVersion.isPreRelease && shouldPublish(command, catalog, it) }
         val archive = port?.let { archiveBuilder.build(content, manifest) }
         var publicationId: UUID? = null
-        val draftsBehind = open.filter { other -> !other.isNext && (other.base?.let(SemVer::parseOrNull)?.let { it < newVersion } ?: true) }.map { it.label }
-        val highest = latest == null || newVersion > latest
+        val draftsBehind = if (newVersion.isPreRelease) {
+            emptyList()
+        } else {
+            open.filter { other -> !other.isNext && (other.base?.let(SemVer::parseOrNull)?.let { it < newVersion } ?: true) }.map { it.label }
+        }
+        val highest = !newVersion.isPreRelease && (latest == null || newVersion > latest)
 
         jdbi.useTransaction<Exception> { handle ->
             handle.createUpdate(
@@ -287,8 +320,9 @@ class ReleaseCatalogVersionHandler(
             )
 
             // The next version continues on this release (contract ADR 0002, amendment 2): the same
-            // draft, its content the release's, now measured against it.
-            drafts.advance(handle, command.tenantKey, draft.versionId, base = newVersion.toString())
+            // draft, its content the release's, now measured against it. Long-term work carries on as
+            // it was, on its own base: a pre-release is not a release it builds on.
+            if (draft.isNext) drafts.advance(handle, command.tenantKey, draft.versionId, base = newVersion.toString())
 
             if (port != null && archive != null) {
                 publicationId = port.recordReleasePublication(
@@ -407,4 +441,29 @@ class ReleaseCatalogVersionHandler(
             .map { rs, _ -> ReleaseRow(rs.getString("version"), rs.getString("fingerprint")) }
             .list()
     }
+}
+
+/**
+ * The pre-release label of long-term work called [name]: lowercase letters, digits and hyphens
+ * (`Redesign 2027` → `redesign-2027`), a SemVer identifier that is never numeric.
+ */
+fun preReleaseLabel(name: String): String {
+    val slug = name.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-').take(40).trim('-')
+    return when {
+        slug.isEmpty() -> "work"
+        slug.all { it.isDigit() } -> "work-$slug"
+        else -> slug
+    }
+}
+
+/**
+ * The next pre-release of long-term work called [name] at number [needs]: labelled after the name and
+ * counted past those [released] already (`2.0.0-redesign-2027.1`, then `.2`).
+ */
+fun nextPreRelease(needs: SemVer, name: String, released: Collection<String>): SemVer {
+    val label = preReleaseLabel(name)
+    val count = released.mapNotNull { SemVer.parseOrNull(it) }
+        .filter { it.core == needs.core && it.preRelease?.substringBeforeLast('.') == label }
+        .maxOfOrNull { it.preRelease!!.substringAfterLast('.').toIntOrNull() ?: 0 } ?: 0
+    return SemVer(needs.major, needs.minor, needs.patch, "$label.${count + 1}")
 }
