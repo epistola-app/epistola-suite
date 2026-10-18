@@ -10,8 +10,8 @@
             letters v1.4.0 needs versions of other catalogs that are not deployed to production, so it was not deployed:
         </p>
         <p th:if="${refusal.includedDependencies}"
-           th:text="${refusal.catalogKey} + ' v' + ${refusal.version} + ' was not deployed: these versions it needs cannot be deployed with it, so nothing was.'">
-            letters v1.4.0 was not deployed: these versions it needs cannot be deployed with it, so nothing was.
+           th:text="${refusal.catalogKey} + ' v' + ${refusal.version} + ' was not deployed: it needs these versions, which cannot be used here, so nothing was.'">
+            letters v1.4.0 was not deployed: it needs these versions, which cannot be used here, so nothing was.
         </p>
         <ul data-testid="deploy-refusal-missing">
             <li th:each="dependency : ${refusal.missing}" th:attr="data-reason=${dependency.reason}">

@@ -129,4 +129,22 @@ class CatalogDraftBarVersionsTest {
         assertThat(notKept.offerInBetween).isFalse()
         assertThat(notKept.inBetweenWithheldNoContent).`as`("said why").isTrue()
     }
+
+    @Test
+    fun `a draft can be discarded by a publisher, a published version deleted by a catalog manager, and the page says what is missing`() {
+        val drafts = listOf(draft("1.3.0", "1.2.0"))
+        val releases = listOf(release("1.2.0"))
+
+        val publisher = bar(drafts, releases).copy(mayDeleteReleases = false)
+        assertThat(publisher.versionRows.map { it.version to it.offerRemove }).containsExactly("1.3.0" to true, "1.2.0" to false)
+        assertThat(publisher.removalWithheld).isTrue()
+
+        val manager = bar(drafts, releases).copy(mayDeleteReleases = true)
+        assertThat(manager.versionRows.all { it.offerRemove }).isTrue()
+        assertThat(manager.removalWithheld).isFalse()
+        assertThat(manager.versionRows.map { it.removeAction }).containsExactly(
+            "/tenants/acme/catalogs/letters/drafts/discard",
+            "/tenants/acme/catalogs/letters/releases/1.2.0/delete",
+        )
+    }
 }

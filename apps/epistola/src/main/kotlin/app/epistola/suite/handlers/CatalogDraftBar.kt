@@ -54,6 +54,8 @@ data class CatalogDraftBar(
     val mayDiscardDrafts: Boolean,
     /** A subscribed catalog's installed release: the version its pages show. Null for an authored catalog. */
     val installed: CatalogVersion? = null,
+    /** The viewer holds `CATALOG_MANAGE`, which deleting a published version needs. */
+    val mayDeleteReleases: Boolean = false,
     /** The same page at another segment, for the draft links. */
     private val pageAt: (CatalogSegment) -> String,
 ) {
@@ -190,6 +192,9 @@ data class CatalogDraftBar(
                 liveIn = emptyList(),
                 contentKept = true,
                 href = pageAt(if (next) segment.at(null) else segment.at(draft.version)),
+                offerRemove = mayDiscardDrafts,
+                removeWithheld = !mayDiscardDrafts,
+                removeAction = "/tenants/${tenantKey.value}/catalogs/${catalogKey.value}${if (next) "" else "@${draft.version}"}/drafts/discard",
             )
         } + releases.map { release ->
             VersionRow(
@@ -201,6 +206,10 @@ data class CatalogDraftBar(
                 liveIn = release.deployedTo,
                 contentKept = release.contentRetained == true,
                 href = CatalogPages.release(tenantKey, catalogKey, release.version),
+                // A subscribed catalog's versions are its publisher's: nothing to delete here.
+                offerRemove = authored && mayDeleteReleases,
+                removeWithheld = authored && !mayDeleteReleases,
+                removeAction = "/tenants/${tenantKey.value}/catalogs/${catalogKey.value}/releases/${release.version}/delete",
             )
         }
 
@@ -218,7 +227,16 @@ data class CatalogDraftBar(
         val liveIn: List<String>,
         val contentKept: Boolean,
         val href: String,
+        /** Offer removing it from the row: discarding a draft, deleting a published version. */
+        val offerRemove: Boolean = false,
+        /** Removing it is withheld for want of the role, which the page says once. */
+        val removeWithheld: Boolean = false,
+        /** Where removing it posts: a draft is discarded at its segment, a published version deleted. */
+        val removeAction: String = "",
     )
+
+    /** Some row's removal is withheld, so the Versions page says what it needs. */
+    val removalWithheld: Boolean get() = versionRows.any { it.removeWithheld }
 
     /** Publishing is withheld because the viewer may not publish; the bar says so instead of hiding it. */
     val publishWithheld: Boolean get() = authored && chosen != null && !mayDiscardDrafts
@@ -331,6 +349,7 @@ data class CatalogDraftBar(
                 mayOpenDrafts = auth.has(Permission.TEMPLATE_EDIT),
                 mayDiscardDrafts = auth.has(Permission.CATALOG_RELEASE),
                 installed = installed,
+                mayDeleteReleases = auth.has(Permission.CATALOG_MANAGE),
                 pageAt = pageAt,
             )
         }

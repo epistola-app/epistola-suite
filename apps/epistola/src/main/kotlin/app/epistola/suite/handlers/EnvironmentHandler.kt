@@ -4,6 +4,7 @@
 
 package app.epistola.suite.environments
 
+import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TenantId
@@ -16,6 +17,7 @@ import app.epistola.suite.environments.queries.ListDeployableReleases
 import app.epistola.suite.environments.queries.ListDeploymentHistory
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.environments.queries.ListEnvironments
+import app.epistola.suite.environments.queries.ListImplicitDeployments
 import app.epistola.suite.handlers.DeployRefusalView
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.environmentId
@@ -210,6 +212,16 @@ class EnvironmentHandler {
             )
         }
 
+        val allNames = ListCatalogs(tenantId.key).query().associate { it.id to it.name }
+        val implicit = ListImplicitDeployments(tenantId.key, environmentId.key).query().map { used ->
+            ImplicitReleaseView(
+                catalogKey = used.catalogKey.value,
+                catalogName = allNames[used.catalogKey] ?: used.catalogKey.value,
+                version = used.version,
+                neededBy = used.neededBy.map { allNames[it] ?: it.value },
+            )
+        }
+
         return ServerResponse.ok().page("environments/detail") {
             "pageTitle" to "${environment.name} - Environments - Epistola"
             "tenantId" to tenantId.key
@@ -234,6 +246,8 @@ class EnvironmentHandler {
                 )
             }
             "history" to history
+            // Used here without being deployed: what the deployed versions are pinned to.
+            "implicit" to implicit
         }
     }
 
@@ -254,7 +268,8 @@ class EnvironmentHandler {
         val includeDependencies = request.param("includeDependencies").orElse("") == "true"
         return try {
             // One live version per catalog per environment in the UI: making one live replaces the others.
-            DeployRelease(environmentId, catalogKey, version, includeDependencies, replace = true).execute()
+            // What it is pinned to comes along implicitly: it renders from the tenant's copy.
+            DeployRelease(environmentId, catalogKey, version, includeDependencies, replace = true, implicitDependencies = true).execute()
             redirectTo(environmentId)
         } catch (failure: ReleaseNotDeployableException) {
             detail(request, error = failure.message)
@@ -322,3 +337,6 @@ class EnvironmentHandler {
         "environments" to ListEnvironments(tenantId = tenantId).query()
     }
 }
+
+/** A release an environment uses because [neededBy] (catalog names of what it deploys) are pinned to it. */
+data class ImplicitReleaseView(val catalogKey: String, val catalogName: String, val version: String, val neededBy: List<String>)

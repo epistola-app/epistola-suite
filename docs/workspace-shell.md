@@ -53,7 +53,9 @@ every content page already did for the old catalog bar. `ShellModelInterceptor` 
 | Settings                                                           | Name, description and presentation (published with each version); key; Exchange                                                                            | the version |
 
 **Words.** Environments get a catalog version by _deploying_ it: the page is Deployments, the action
-Deploy, the state "deployed to production". "Live" is not used.
+Deploy, the state "deployed to production". "Live" is not used. Deploying uses the versions of other catalogs a version is pinned to as they are
+(they render from the tenant's copy), so they are never deployed along; the environment page lists
+them under "Comes along".
 
 Side work's overview is its draft page (`/catalogs/letters@1.2.1/draft`); the next version's is the
 catalog page (`/catalogs/letters/browse`).

@@ -51,6 +51,7 @@ import app.epistola.suite.catalog.queries.GetCatalogRelease
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.ListRetainedReleases
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
@@ -69,6 +70,7 @@ import app.epistola.suite.environments.commands.DeployRelease
 import app.epistola.suite.environments.commands.UndeployRelease
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.environments.queries.ListEnvironments
+import app.epistola.suite.environments.queries.ListImplicitDeployments
 import app.epistola.suite.exchange.CancelCatalogPublication
 import app.epistola.suite.exchange.CatalogPublicationState
 import app.epistola.suite.exchange.ExchangeSourceUri
@@ -514,12 +516,12 @@ class CatalogHandler {
             if (liveIn.isNotEmpty()) requirePermission(tenantId.key, Permission.ENVIRONMENT_DEPLOY)
             liveIn.forEach { environment ->
                 try {
-                    DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, result.version, includeDependencies = true, replace = true).execute()
+                    DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, result.version, replace = true, implicitDependencies = true).execute()
                 } catch (e: ValidationException) {
-                    return reRenderWithError("Published v${result.version}, but it could not be deployed to $environment: ${e.message} Make it live under Live on the catalog page.")
+                    return reRenderWithError("Published v${result.version}, but it could not be deployed to $environment: ${e.message} Deploy it under Deployments.")
                 } catch (e: RuntimeException) {
                     logger.warn("Making v{} of '{}' live in {} failed: {}", result.version, catalogKey.value, environment, e.message)
-                    return reRenderWithError("Published v${result.version}, but it could not be deployed to $environment: ${e.message ?: "it was refused."} Make it live under Live on the catalog page.")
+                    return reRenderWithError("Published v${result.version}, but it could not be deployed to $environment: ${e.message ?: "it was refused."} Deploy it under Deployments.")
                 }
             }
 
@@ -617,7 +619,8 @@ class CatalogHandler {
         val includeDependencies = request.param("includeDependencies").orElse("") == "true"
         return try {
             // One live version per catalog per environment in the UI: making one live replaces the others.
-            DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, version, includeDependencies, replace = true).execute()
+            // What it is pinned to comes along implicitly: it renders from the tenant's copy.
+            DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, version, includeDependencies, replace = true, implicitDependencies = true).execute()
             ServerResponse.status(303)
                 .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
                 .build()
@@ -653,11 +656,15 @@ class CatalogHandler {
     /** One row per environment of the tenant, with every release of this catalog it serves, highest first. */
     private fun deploymentRows(tenantKey: TenantKey, catalogKey: CatalogKey): List<DeploymentRowView> {
         val served = ListDeployments(tenantKey, catalogKey).query().groupBy { it.environmentKey }
+        val names by lazy { ListCatalogs(tenantKey).query().associate { it.id to it.name } }
         return ListEnvironments(tenantId = app.epistola.suite.common.ids.TenantId(tenantKey)).query().map { environment ->
             DeploymentRowView(
                 environmentKey = environment.id.value,
                 environmentName = environment.name,
                 served = served[environment.id].orEmpty().map { ServedReleaseView(it.version, it.deployedAt) },
+                // Not deployed itself, but used there because a deployed catalog depends on it.
+                implicit = ListImplicitDeployments(tenantKey, environment.id).query().filter { it.catalogKey == catalogKey }
+                    .map { ImplicitUseView(it.version, it.neededBy.map { key -> names[key] ?: key.value }) },
             )
         }
     }
@@ -1570,9 +1577,13 @@ class CatalogHandler {
         val environmentKey: String,
         val environmentName: String,
         val served: List<ServedReleaseView>,
+        val implicit: List<ImplicitUseView> = emptyList(),
     ) {
         val servedVersions: Set<String> get() = served.mapTo(HashSet()) { it.version }
     }
+
+    /** A version of this catalog an environment uses because [neededBy] (catalog names) depend on it. */
+    data class ImplicitUseView(val version: String, val neededBy: List<String>)
 
     /** One release an environment serves, and since when. */
     data class ServedReleaseView(val version: String, val deployedAt: java.time.OffsetDateTime)

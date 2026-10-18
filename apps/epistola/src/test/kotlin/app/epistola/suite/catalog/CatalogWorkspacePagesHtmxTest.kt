@@ -155,6 +155,28 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
         assertThat(next.substringAfter("data-testid=\"catalog-version-base\"").substringBefore("</td>")).contains(">v1.0.0<")
     }
 
+    @Test
+    fun `every version can be removed from Versions, a draft discarded and a published version deleted, landing back there`() {
+        val tenant = seed("Workspace Remove")
+
+        val versions = get(tenant, "/catalogs/shared/versions")
+        assertThat(versions.substringAfter("data-status=\"draft\"").substringBefore("</tr>"))
+            .contains("action=\"/tenants/${tenant.id}/catalogs/shared/drafts/discard\"").contains(">Discard<")
+        assertThat(versions.substringAfter("data-version=\"1.0.0\"").substringBefore("</tr>"))
+            .contains("action=\"/tenants/${tenant.id}/catalogs/shared/releases/1.0.0/delete\"").contains(">Delete<")
+
+        val discarded = restTemplate.withRedirects(HttpRedirects.DONT_FOLLOW).postForEntity(
+            "/tenants/${tenant.id}/catalogs/shared/drafts/discard",
+            HttpEntity(
+                LinkedMultiValueMap<String, String>().apply { add("from", "versions") },
+                HttpHeaders().apply { contentType = MediaType.APPLICATION_FORM_URLENCODED },
+            ),
+            String::class.java,
+        )
+        assertThat(discarded.headers.location.toString()).isEqualTo("/tenants/${tenant.id}/catalogs/shared/versions")
+        assertThat(get(tenant, "/catalogs/shared/versions")).doesNotContain("data-status=\"draft\"")
+    }
+
     private fun get(tenant: Tenant, path: String): String = restTemplate.withRedirects(HttpRedirects.DONT_FOLLOW)
         .getForEntity("/tenants/${tenant.id}$path", String::class.java).body!!
 

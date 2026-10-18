@@ -128,7 +128,13 @@ class CatalogDraftHandler(
         val draft = bar(tenantId, segment).chosen ?: return ServerResponse.notFound().build()
         return try {
             DeleteCatalogVersion(tenantId.key, segment.key, draft.version).execute()
-            ServerResponse.status(303).header("Location", CatalogPages.browse(tenantId, segment.at(null))).build()
+            // From the Versions page, back there; else to the catalog.
+            val back = if (request.param("from").orElse("") == "versions") {
+                "/tenants/${tenantId.key}/catalogs/${segment.key.value}/versions"
+            } else {
+                CatalogPages.browse(tenantId, segment.at(null))
+            }
+            ServerResponse.status(303).header("Location", back).build()
         } catch (e: CatalogVersionHeldException) {
             catalogs.browseWithError(request, segment, e.message ?: "The draft cannot be discarded.")
         } catch (e: CatalogVersionReleasedException) {

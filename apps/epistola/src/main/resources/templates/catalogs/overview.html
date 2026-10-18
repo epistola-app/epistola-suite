@@ -183,6 +183,7 @@
                             <th>Based on</th>
                             <th>Status</th>
                             <th>Deployed to</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -211,10 +212,31 @@
                                 <span th:if="${row.liveIn.isEmpty()}" class="text-muted">—</span>
                                 <span th:unless="${row.liveIn.isEmpty()}" th:text="${#strings.listJoin(row.liveIn, ', ')}">production</span>
                             </td>
+                            <!--/* Removing a version: a draft is discarded with its changes, a published version
+                                   deleted with its content. Both ask first. */-->
+                            <td class="actions">
+                                <form th:if="${row.offerRemove}" method="post" style="display: inline;"
+                                      th:action="${row.removeAction}">
+                                    <input type="hidden" name="from" value="versions">
+                                    <button type="button" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
+                                            data-testid="catalog-version-remove"
+                                            data-confirm-submit
+                                            th:attr="data-confirm-submit-title=${row.draft} ? 'Discard this draft' : 'Delete this version',
+                                                     data-confirm-submit-message=${row.draft}
+                                                         ? (${row.next} ? 'The next version' : 'Draft v' + ${row.version}) + ' is discarded with every change made in it. Published versions and other drafts are not affected. This cannot be undone.'
+                                                         : 'v' + ${row.version} + ' is removed entirely, with its content, its notes and its fingerprint. Anything already sent to Epistola Exchange stays there. This cannot be undone.',
+                                                     data-confirm-submit-label=${row.draft} ? 'Discard draft' : 'Delete version'"
+                                            data-confirm-submit-class="ep-btn-destructive"
+                                            th:text="${row.draft} ? 'Discard' : 'Delete'">Delete</button>
+                                </form>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
             </div>
+            <p th:if="${bar.removalWithheld}" class="form-hint" style="margin-bottom: 0;" data-testid="catalog-version-remove-withheld">
+                Discarding a draft needs the publisher role; deleting a published version needs the catalog manager role.
+            </p>
         </div>
     </div>
     <!--/* How much of each kind, each a link to its list; what is not published yet said per kind. */-->

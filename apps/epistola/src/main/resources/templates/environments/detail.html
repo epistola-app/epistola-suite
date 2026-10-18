@@ -88,6 +88,27 @@
             </div>
         </div>
 
+        <!--/* What comes along: the versions of other catalogs that what is deployed here is pinned to.
+               They render from the tenant's copy, so nothing has to deploy them. */-->
+        <div th:unless="${implicit.isEmpty()}" class="ep-panel detail-section" data-testid="environment-implicit">
+            <div class="detail-section-header">
+                <h2>Comes along</h2>
+            </div>
+            <div class="detail-section-body">
+                <p class="form-hint" style="margin-top: 0;">Used here because a deployed catalog depends on it. It is not deployed on its own.</p>
+                <table class="ep-table">
+                    <thead><tr><th>Catalog</th><th>Version</th><th>Used by</th></tr></thead>
+                    <tbody>
+                        <tr th:each="used : ${implicit}" th:attr="data-catalog=${used.catalogKey}">
+                            <td><a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${used.catalogKey})}" th:text="${used.catalogName}">Shared</a></td>
+                            <td th:text="'v' + ${used.version}">v1.0.0</td>
+                            <td th:text="${#strings.listJoin(used.neededBy, ', ')}">Letters</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <div class="ep-panel detail-section" data-testid="environment-history"
              th:with="canDeploy=${auth.has('ENVIRONMENT_DEPLOY')}">
             <div class="detail-section-header">

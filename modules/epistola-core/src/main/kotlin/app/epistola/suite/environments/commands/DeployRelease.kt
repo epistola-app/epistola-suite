@@ -47,6 +47,11 @@ import org.springframework.stereotype.Component
  *   one without content stays `CONTENT_NOT_RETAINED`. It is all or nothing: when any remains,
  *   the deployment is refused with those, and nothing is deployed.
  *
+ * With [implicitDependencies], the releases it is pinned to are not deployed at all: a pinned
+ * release renders from the tenant's copy whatever the environment serves ([ReleaseRenderSource][app.epistola.suite.generation.release.ReleaseRenderSource]), so
+ * the environment uses them implicitly — the UI's "deploy". Only a pinned release the tenant does not
+ * have, or one that kept no content, still refuses, as nothing could render from it.
+ *
  * With [replace], the release takes the place of the catalog's other releases in the environment:
  * they stop being served, in the same transaction — the UI's "make live", which shows one live
  * version per catalog per environment. A release another release served there still renders with
@@ -66,6 +71,7 @@ data class DeployRelease(
     val version: String,
     val includeDependencies: Boolean = false,
     val replace: Boolean = false,
+    val implicitDependencies: Boolean = false,
 ) : Command<CatalogDeployment>,
     RequiresPermission {
     override val permission get() = Permission.ENVIRONMENT_DEPLOY
@@ -98,7 +104,14 @@ class DeployReleaseHandler(
         }
 
         val missing = dependencies.missing(handle, tenantKey, environmentKey, command.catalogKey, command.version)
-        if (missing.isNotEmpty()) {
+        if (missing.isNotEmpty() && command.implicitDependencies) {
+            // Used where they are, not deployed: only what cannot be rendered from refuses.
+            val unrenderable = missing.filter { it.reason != MissingDependencyReason.NOT_DEPLOYED }
+                .map { if (it.reason == MissingDependencyReason.NOT_INSTALLED) it.copy(reason = MissingDependencyReason.UNAVAILABLE) else it }
+            if (unrenderable.isNotEmpty()) {
+                throw ReleaseDependenciesMissingException(environmentKey, command.catalogKey, command.version, unrenderable, includedDependencies = true)
+            }
+        } else if (missing.isNotEmpty()) {
             if (!command.includeDependencies) {
                 throw ReleaseDependenciesMissingException(environmentKey, command.catalogKey, command.version, missing, includedDependencies = false)
             }

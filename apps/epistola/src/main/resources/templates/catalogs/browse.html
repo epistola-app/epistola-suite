@@ -236,7 +236,10 @@
                                                     data-confirm-submit-class="ep-btn-destructive">Undeploy</button>
                                         </form>
                                     </div>
-                                    <span th:if="${row.served.isEmpty()}" class="text-muted">not deployed</span>
+                                    <span th:if="${row.served.isEmpty() and row.implicit.isEmpty()}" class="text-muted">not deployed</span>
+                                    <!--/* Used there without being deployed: a deployed catalog depends on it. */-->
+                                    <div th:each="used : ${row.implicit}" class="text-muted text-sm" data-testid="catalog-deployment-implicit"
+                                         th:text="'v' + ${used.version} + ', comes along with ' + ${#strings.listJoin(used.neededBy, ', ')}">v1.0.0, comes along with Letters</div>
                                 </td>
                                 <td class="actions">
                                     <form th:if="${canDeploy and !deployableVersions.isEmpty()}"

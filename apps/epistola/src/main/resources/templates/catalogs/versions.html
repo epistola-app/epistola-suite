@@ -15,6 +15,7 @@
         </div>
         <div th:replace="~{catalogs/overview :: versions}"></div>
         <div id="dialog-mount" data-dialog-mount></div>
+        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
 </body>
 </html>

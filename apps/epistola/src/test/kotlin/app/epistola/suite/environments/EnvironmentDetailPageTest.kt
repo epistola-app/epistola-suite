@@ -100,26 +100,20 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `a deploy refused for a missing dependency lists it, and deploying with its dependencies deploys both`() {
+    fun `deploying a version uses what it depends on without deploying it, and the page lists what comes along`() {
         val (tenant, production) = tenantWithReleases("env-deps")
         val version = releaseDependingOnShared(tenant)
 
-        val refused = post("/tenants/${tenant.id.value}/environments/production/deployments", "release" to "letters@$version")
+        val deployed = post("/tenants/${tenant.id.value}/environments/production/deployments", "release" to "letters@$version")
 
-        assertThat(refused.body).contains("data-testid=\"deploy-refusal\"").contains("data-reason=\"NOT_DEPLOYED\"")
-            .contains("/shared@1.0.0").contains("this environment does not serve it")
-        assertThat(refused.body).contains("data-testid=\"deploy-with-dependencies\"").contains("name=\"includeDependencies\" value=\"true\"")
-            .contains("name=\"release\" value=\"letters@$version\"")
-        assertThat(withMediator { ListDeployments(tenant.id, environmentKey = production.key).query() }).isEmpty()
-
-        post("/tenants/${tenant.id.value}/environments/production/deployments", "release" to "letters@$version", "includeDependencies" to "true")
-
+        assertThat(deployed.body.orEmpty()).doesNotContain("data-testid=\"deploy-refusal\"")
         assertThat(withMediator { ListDeployments(tenant.id, environmentKey = production.key).query() }.map { "${it.catalogKey.value}@${it.version}" })
-            .containsExactly("letters@$version", "shared@1.0.0")
+            .containsExactly("letters@$version")
+        assertThat(page(tenant, "production").substringAfter("data-testid=\"environment-implicit\"")).contains("data-catalog=\"shared\"").contains("v1.0.0")
     }
 
     @Test
-    fun `a missing dependency the tenant does not have withholds deploying along, saying why`() {
+    fun `a dependency the tenant does not have refuses the deploy, saying why`() {
         val (tenant, _) = tenantWithReleases("env-deps-missing")
         val version = releaseDependingOnShared(tenant)
         // A pin on a release this tenant lacks arrives only with an imported release; no command cuts one.
@@ -134,8 +128,9 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
 
         val refused = post("/tenants/${tenant.id.value}/environments/production/deployments", "release" to "letters@$version")
 
-        assertThat(refused.body).contains("data-reason=\"NOT_INSTALLED\"").contains("install it first")
-        assertThat(refused.body).doesNotContain("data-testid=\"deploy-with-dependencies\"").contains("data-testid=\"deploy-with-dependencies-withheld\"")
+        // What it depends on is used implicitly, so only a version nothing could render from refuses.
+        assertThat(refused.body).contains("data-reason=\"UNAVAILABLE\"").contains("install it first")
+        assertThat(refused.body).doesNotContain("data-testid=\"deploy-with-dependencies\"")
     }
 
     @Test

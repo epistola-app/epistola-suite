@@ -127,13 +127,13 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `a deploy refused for a missing dependency shows it on the card, offering to deploy it along`() {
+    fun `deploying a catalog uses what it depends on implicitly, and both pages say it comes along`() {
         val tenant = tenantWithCatalog("dep-deps")
         val key = CatalogKey.of("dep-deps")
         withMediator {
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
             val shared = CatalogKey.of("shared")
-            CreateCatalog(tenantKey = tenant.id, id = shared, name = "shared").execute()
+            CreateCatalog(tenantKey = tenant.id, id = shared, name = "Shared").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant.id))), "Brand").execute()
             MarkCatalogReady(tenant.id, shared).execute()
             ReleaseCatalogVersion(tenant.id, shared, version = "1.0.0").execute()
@@ -144,23 +144,19 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             ReleaseCatalogVersion(tenant.id, key, version = "1.0.0").execute()
         }
 
-        val refused = restTemplate.postForEntity(
+        val deployed = restTemplate.postForEntity(
             "/tenants/${tenant.id.value}/catalogs/dep-deps/deployments",
             form("environmentId" to "production", "version" to "1.0.0"),
             String::class.java,
         )
 
-        assertThat(refused.body).contains("data-testid=\"deploy-refusal\"").contains("data-reason=\"NOT_DEPLOYED\"")
-            .contains("action=\"/tenants/${tenant.id.value}/catalogs/dep-deps/deployments\"")
-            .contains("name=\"environmentId\" value=\"production\"").contains("name=\"includeDependencies\" value=\"true\"")
-
-        restTemplate.postForEntity(
-            "/tenants/${tenant.id.value}/catalogs/dep-deps/deployments",
-            form("environmentId" to "production", "version" to "1.0.0", "includeDependencies" to "true"),
-            String::class.java,
-        )
+        assertThat(deployed.body).doesNotContain("data-testid=\"deploy-refusal\"")
         assertThat(withMediator { ListDeployments(tenant.id).query() }.map { "${it.catalogKey.value}@${it.version}" })
-            .contains("dep-deps@1.0.0", "shared@1.0.0")
+            .`as`("what it depends on is used, not deployed").containsExactly("dep-deps@1.0.0")
+        assertThat(live(tenant, "shared").substringAfter("data-environment=\"production\"").substringBefore("</tr>"))
+            .contains("v1.0.0, comes along with dep-deps")
+        val environment = restTemplate.getForEntity("/tenants/${tenant.id.value}/environments/production", String::class.java).body!!
+        assertThat(environment.substringAfter("data-testid=\"environment-implicit\"")).contains(">Shared<").contains("v1.0.0").contains("dep-deps")
     }
 
     @Test
