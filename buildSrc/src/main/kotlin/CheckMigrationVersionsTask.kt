@@ -119,6 +119,11 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
                 .maxOrNull()
 
         val movedMigrationPaths = movedBetweenModules(baseRef, currentMigrationPaths, targetMigrationPaths)
+        // What a release can have shipped: the migrations on main. A target branch ahead of main (a
+        // release line under development) holds migrations no installation ran; those may be
+        // rewritten, as long as they never reached main.
+        val releasedMigrationPaths = releasedMigrationPaths(baseRef)
+        fun released(path: String) = releasedMigrationPaths?.contains(path) ?: true
 
         val failures = mutableListOf<String>()
         if (targetMaxVersion != null) {
@@ -157,6 +162,8 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
                         "Merged runtime migration was modified as reviewed: $oldPath " +
                             "(${reviewedModifications.getValue(oldPath).reason})",
                     )
+                (status == 'M' || status == 'D' || status == 'R') && oldIsMigration && !released(requireNotNull(oldPath)) ->
+                    logger.lifecycle("Runtime migration that never reached main was rewritten: $line")
                 status == 'M' && oldIsMigration ->
                     failures += "Merged runtime migration was modified: $oldPath"
                 status == 'D' && oldIsMigration ->
@@ -198,6 +205,20 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
                 targetPath !in currentMigrationPaths &&
                     runGit("rev-parse", "$baseRef:$targetPath") == runGit("hash-object", path)
             }.toSet()
+    }
+
+    /**
+     * The migrations on main, which a release can have shipped; null when [baseRef] is main itself
+     * (every migration on it counts as released) or main is not available.
+     */
+    private fun releasedMigrationPaths(baseRef: String): Set<String>? {
+        val main = listOf("origin/main", "main").firstOrNull { runGit("rev-parse", "--verify", "$it^{commit}") != null } ?: return null
+        if (runGit("rev-parse", "$main^{commit}") == runGit("rev-parse", "$baseRef^{commit}")) return null
+        return runGit("ls-tree", "-r", "--name-only", main, "--", "modules")
+            ?.lineSequence()
+            ?.filter { migrationVersion(it) != null }
+            ?.toSet()
+            .orEmpty()
     }
 
     private fun resourcePath(path: String): String = path.substringAfter("/src/main/resources/")

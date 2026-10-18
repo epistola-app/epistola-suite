@@ -46,6 +46,12 @@ Rules:
   a deliberate, gated consolidation/rewrite while the project is pre-1.0 with no
   production deployments (see below) — editing baseline files in place is then
   acceptable because every database is rebuilt from scratch.
+- **Unreleased migrations may be rewritten.** A migration that is on a release
+  line under development (such as `release/2.0`) but not on `main` has run on
+  no installation, so it may be edited, merged with others or removed — the
+  2.0 migrations were consolidated this way. `checkMigrationVersions` allows it
+  for any path absent from `main`, and still refuses for anything on `main`.
+  Rewriting resets local and test databases that ran the old files.
 - **Never reuse a timestamp.** If `./gradlew test` fails with a Flyway
   duplicate-version error, bump your file's seconds by one and retry.
 - **Always append after the target branch.** Before opening or updating a PR,
