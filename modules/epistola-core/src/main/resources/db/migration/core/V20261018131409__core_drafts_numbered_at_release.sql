@@ -9,8 +9,8 @@
 -- - every other draft is long-term work, and has a name people see.
 --
 -- Existing drafts keep their content, base and identity. The highest-numbered one, the one callers
--- meant until now, becomes the next version; any other keeps its old number as its name, so its
--- authors still recognise it.
+-- meant until now, becomes the next version; any other becomes long-term work, named after the
+-- release it started from ("Work started from v1.0.0"): a number would read as a published version.
 
 ALTER TABLE catalog_versions ADD COLUMN is_next BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE catalog_versions ADD COLUMN name VARCHAR(100);
@@ -24,7 +24,23 @@ WHERE v.kind = 'draft'
       LIMIT 1
   );
 
-UPDATE catalog_versions SET name = 'Version ' || version WHERE kind = 'draft' AND NOT is_next;
+-- Long-term work is named after where it started, never after its old number: a draft has no number
+-- until it is published, and "Version 1.0.2" would read as a published version. Two that started from
+-- the same release are told apart by a count.
+UPDATE catalog_versions v
+SET name = named.name
+FROM (
+    SELECT version_id,
+           CASE WHEN base_version IS NULL THEN 'Work started from scratch' ELSE 'Work started from v' || base_version END
+               || CASE WHEN n > 1 THEN ' (' || n || ')' ELSE '' END AS name
+    FROM (
+        SELECT version_id, base_version,
+               row_number() OVER (PARTITION BY tenant_key, catalog_id, base_version ORDER BY created_at, version_id) AS n
+        FROM catalog_versions
+        WHERE kind = 'draft' AND NOT is_next
+    ) numbered
+) named
+WHERE v.version_id = named.version_id;
 
 -- An authored catalog whose every draft was discarded has no next version until one is opened again
 -- (DiscardCatalogDraft reopens it on the latest release; the application never leaves one without).

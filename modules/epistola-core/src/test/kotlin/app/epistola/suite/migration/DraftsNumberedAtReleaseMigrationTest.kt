@@ -73,16 +73,20 @@ class DraftsNumberedAtReleaseMigrationTest {
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             val drafts = connection.rows(
-                "SELECT c.catalog_key, v.version_id, v.is_next, v.name, v.version, v.base_version FROM catalog_versions v " +
-                    "JOIN catalogs c ON c.catalog_id = v.catalog_id WHERE v.kind = 'draft' ORDER BY c.catalog_key, v.is_next DESC, v.name",
+                "SELECT c.catalog_key, v.version_id, v.is_next, v.version, v.base_version FROM catalog_versions v " +
+                    "JOIN catalogs c ON c.catalog_id = v.catalog_id WHERE v.kind = 'draft' ORDER BY c.catalog_key, v.is_next DESC, v.version_id",
             )
-            assertThat(drafts).containsExactly(
+            assertThat(drafts).containsExactlyInAnyOrder(
                 // 1.10.0 is the highest by SemVer, not by text: the next version.
-                listOf("fresh", before.getValue("1.0.0"), "t", null, null, null),
-                listOf("letters", before.getValue("1.10.0"), "t", null, null, "1.0.0"),
-                listOf("letters", before.getValue("1.0.1"), "f", "Version 1.0.1", null, "1.0.0"),
-                listOf("letters", before.getValue("1.9.0"), "f", "Version 1.9.0", null, "1.0.0"),
+                listOf("fresh", before.getValue("1.0.0"), "t", null, null),
+                listOf("letters", before.getValue("1.10.0"), "t", null, "1.0.0"),
+                listOf("letters", before.getValue("1.0.1"), "f", null, "1.0.0"),
+                listOf("letters", before.getValue("1.9.0"), "f", null, "1.0.0"),
             )
+            // The others are long-term work named after where they started, never after a number, told
+            // apart when they started from the same release.
+            assertThat(connection.rows("SELECT name FROM catalog_versions WHERE kind = 'draft' AND NOT is_next").map { it[0] })
+                .containsExactlyInAnyOrder("Work started from v1.0.0", "Work started from v1.0.0 (2)")
             // Each draft keeps its own content.
             assertThat(connection.rows("SELECT version_id, name FROM themes ORDER BY name").map { it[0] to it[1] }).containsExactly(
                 before.getValue("1.0.1") to "Brand 1.0.1",

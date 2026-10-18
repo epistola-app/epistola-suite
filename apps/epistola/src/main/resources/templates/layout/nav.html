@@ -67,7 +67,7 @@
                             <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <div class="app-nav-dropdown-menu ws-menu-panel ws-menu-wide" role="menu" data-testid="ws-version-menu">
-                            <a th:each="v : ${scope.versions}" th:href="${v.href}" class="app-nav-dropdown-item ws-menu-item" role="menuitem"
+                            <a th:each="v : ${scope.versions}" th:href="${v.href}" data-version-switch class="app-nav-dropdown-item ws-menu-item" role="menuitem"
                                th:classappend="${v.current} ? 'active' : ''" data-testid="ws-version-link">
                                 <span class="ws-menu-text">
                                     <span th:text="${v.label}">Next version</span>

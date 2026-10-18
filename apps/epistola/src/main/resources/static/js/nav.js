@@ -55,6 +55,15 @@
       return;
     }
 
+    // Switching catalog versions keeps the page: the menu's links are the same on every page, so the
+    // page someone is on travels with the click (VersionSwitch on the server).
+    var versionLink = e.target.closest('a[data-version-switch]');
+    if (versionLink) {
+      var url = new URL(versionLink.href, window.location.origin);
+      url.searchParams.set('from', window.location.pathname + window.location.search);
+      versionLink.href = url.pathname + url.search;
+    }
+
     if (!e.target.closest('.app-nav-dropdown')) closeAllDropdowns();
   });
 

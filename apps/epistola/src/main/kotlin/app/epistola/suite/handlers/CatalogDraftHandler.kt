@@ -291,6 +291,28 @@ class CatalogDraftHandler(
         }
     }
 
+    /**
+     * `GET /{catalogId}/switch?from=<page>` to a version: the page someone was on, in that version
+     * ([VersionSwitch]); `from` is set by nav.js when the version menu is used, the referrer stands in
+     * without it, and the version's overview when neither names a page of this catalog.
+     */
+    fun switchVersion(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val segment = request.catalogSegment()
+        val from = request.param("from").orElse(null)
+            ?: request.headers().firstHeader("Referer")?.let { runCatching { java.net.URI(it) }.getOrNull() }
+                ?.takeIf { it.host == null || it.host == request.uri().host }
+                ?.let { uri -> uri.rawPath + (uri.rawQuery?.let { "?$it" } ?: "") }
+        val target = from?.let { VersionSwitch.samePage(it, tenantId.key.value, segment) }
+            ?: if (segment.draft == null) CatalogPages.browse(tenantId, segment) else CatalogPages.draft(tenantId, segment)
+        // A version switch changes the whole workspace: a boosted click loads the page, not a fragment.
+        return if (request.headers().firstHeader("HX-Request") == "true") {
+            ServerResponse.ok().header("HX-Redirect", target).build()
+        } else {
+            ServerResponse.seeOther(java.net.URI.create(target)).build()
+        }
+    }
+
     private fun bar(tenantId: TenantId, segment: CatalogSegment): CatalogDraftBar = CatalogDraftBar.of(tenantId.key, segment) { CatalogPages.draft(tenantId, it) }
 }
 

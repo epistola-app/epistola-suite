@@ -94,9 +94,9 @@ class WorkspaceBuilder {
                             link.next -> link.base?.let { "Based on v$it" }
                             else -> "Long-term work" + (link.base?.let { ", started from v$it" } ?: "")
                         },
-                        // Each version's overview, the same from every page: the bar stays the same
-                        // within a catalog version, so a navigation there need not send it again.
-                        href = if (link.next) CatalogPages.browse(TenantId(bar.tenantKey), bar.segment.at(null)) else CatalogPages.draft(TenantId(bar.tenantKey), bar.segment.at(link.draftId)),
+                        // The same page in that version (VersionSwitch). The link is the same on every
+                        // page, so the bar is not sent again while moving around in a version.
+                        href = "$tenant/catalogs/${bar.segment.at(link.draftId.takeUnless { link.next }).value}/switch",
                         current = link.active && publishedVersion == null,
                     )
                 }

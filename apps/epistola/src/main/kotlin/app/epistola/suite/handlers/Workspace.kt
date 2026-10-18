@@ -152,6 +152,28 @@ object CatalogNav {
         return listOf(first, parts, catalog).filter { it.isNotEmpty() }
     }
 
+    /** A catalog section in one version: where a page missing from that version leads. */
+    data class SectionInVersion(val label: String, val href: String, val overviewHref: String)
+
+    /**
+     * The section and catalog version of a page about one resource
+     * (`/tenants/{t}/{area}/{catalog}/{key}…`), so a page missing from that version (switching to a
+     * version without that template) leads to the section's list there instead of a dead end; null
+     * for anything else.
+     */
+    fun sectionOf(path: String): SectionInVersion? {
+        val parts = path.substringBefore('?').trim('/').split('/')
+        if (parts.size < 5 || parts[0] != "tenants") return null
+        val (tenant, area, segment) = Triple(parts[1], parts[2], parts[3])
+        val label = when (area) {
+            "templates" -> "Templates"
+            in PARTS.map { it.area } -> PARTS.first { it.area == area }.label
+            else -> return null
+        }
+        val overview = if ('@' in segment) "/tenants/$tenant/catalogs/$segment/draft" else "/tenants/$tenant/catalogs/$segment/browse"
+        return SectionInVersion(label, "/tenants/$tenant/$area?catalog=$segment", overview)
+    }
+
     /** Which catalog nav item [path] belongs to; null when none does. */
     fun activeKey(path: String, catalogKey: String): String? {
         val parts = path.substringBefore('?').trim('/').split('/')

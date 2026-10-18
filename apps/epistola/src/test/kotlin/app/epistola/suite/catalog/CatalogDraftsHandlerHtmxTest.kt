@@ -182,6 +182,45 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `switching versions lands on the same page in the other version`() {
+        lateinit var tenant: Tenant
+        lateinit var work: UUID
+        fixture {
+            given {
+                tenant = tenant("Drafts Switch")
+                work = withRedesign(tenant)
+            }
+        }
+        fun switch(to: String, from: String?, htmx: Boolean = false): ResponseEntity<String> = restTemplate.exchange(
+            // A URI, so the encoded `from` is not encoded twice.
+            java.net.URI.create(restTemplate.rootUri + "/tenants/${tenant.id}/catalogs/$to/switch" + (from?.let { "?from=" + java.net.URLEncoder.encode(it, Charsets.UTF_8) } ?: "")),
+            HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { if (htmx) set("HX-Request", "true") }),
+            String::class.java,
+        )
+
+        val boosted = switch("letters@$work", "/tenants/${tenant.id}/templates/letters/invoice", htmx = true)
+        assertThat(boosted.headers.getFirst("HX-Redirect")).isEqualTo("/tenants/${tenant.id}/templates/letters@$work/invoice")
+        assertThat(switch("letters", "/tenants/${tenant.id}/templates?catalog=letters@$work", htmx = true).headers.getFirst("HX-Redirect"))
+            .isEqualTo("/tenants/${tenant.id}/templates?catalog=letters")
+        assertThat(switch("letters@$work", "https://evil.example/", htmx = true).headers.getFirst("HX-Redirect"))
+            .`as`("never anywhere else: the version's overview").isEqualTo("/tenants/${tenant.id}/catalogs/letters@$work/draft")
+        assertThat(switch("letters@$work", "/tenants/${tenant.id}/templates/letters/invoice").statusCode.is2xxSuccessful)
+            .`as`("without htmx, a redirect the browser follows").isTrue()
+
+        // A page the other version does not have leads to that section of it, not a dead end.
+        val missing = restTemplate.exchange(
+            "/tenants/${tenant.id}/templates/letters@$work/no-such-template",
+            HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { accept = listOf(MediaType.TEXT_HTML) }),
+            String::class.java,
+        )
+        assertThat(missing.statusCode.value()).isEqualTo(404)
+        assertThat(missing.body).contains("Not in this version").contains("Templates in this version")
+            .contains("/tenants/${tenant.id}/templates?catalog=letters@$work")
+    }
+
+    @Test
     fun `the plain template page is the next version, and offers long-term work once there is some`() = fixture {
         lateinit var tenant: Tenant
         lateinit var several: String
@@ -201,7 +240,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             // The context bar names the version; its menu offers the long-term work.
             assertThat(result<String>()).contains("data-testid=\"ws-crumb-version\"").contains(">Next version<")
                 .doesNotContain("/templates/letters@")
-            assertThat(several).doesNotContain("Invoice redesigned").contains("data-testid=\"ws-version-link\"").contains("/catalogs/letters@$work/draft")
+            assertThat(several).doesNotContain("Invoice redesigned").contains("data-testid=\"ws-version-link\"").contains("/catalogs/letters@$work/switch")
         }
     }
 

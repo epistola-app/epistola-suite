@@ -43,6 +43,8 @@ class CatalogRoutes(
             GET("/{catalogId}/drafts/new", drafts::createForm)
             POST("/{catalogId}/drafts", drafts::create)
             POST("/{catalogId}/drafts/discard", drafts::discard)
+            // Another version, at the page someone was on.
+            GET("/{catalogId}/switch", drafts::switchVersion)
             // A draft tried on an environment, which follows it live.
             GET("/{catalogId}/follow", drafts::followForm)
             POST("/{catalogId}/follow", drafts::follow)
