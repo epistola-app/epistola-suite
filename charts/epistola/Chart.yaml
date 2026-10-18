@@ -8,7 +8,9 @@ type: application
 version: 1.1.1-SNAPSHOT
 # The released application image used by default. CI verifies/synchronizes this
 # to the latest app tag when publishing the chart.
-appVersion: "1.0.0"
+# The Epistola release this chart deploys, chosen when the chart is released; publishing checks that
+# it is a released app version. Moving it to a new app major is a chart major.
+appVersion: "1.5.0"
 maintainers:
   - name: epistola-app
     url: https://github.com/epistola-app

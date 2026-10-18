@@ -4,6 +4,11 @@
 
 ### Changed
 
+- **`appVersion` is pinned in the chart, `1.5.0`.** Publishing a chart used to set it to the newest
+  app release, so a chart patch could move an installation to a new app major. It is now chosen when
+  the chart is released and publishing checks that it names a released app version; the chart that
+  deploys Epistola 2.0 will be a new chart major with its own upgrade notes.
+
 - **The Prometheus scrape port defaults to `4040` in every profile.** From Epistola 2.0 the actuator
   (`/actuator/health`, `/actuator/info`, `/actuator/prometheus`) serves on the management port
   `4040` whatever `config.profiles` is, and no longer on the application port, so an ingress in
