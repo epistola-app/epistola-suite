@@ -137,7 +137,7 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
         assertThat(work).doesNotContain("data-testid=\"catalog-fix-banner\"")
         assertThat(work.substringAfter("data-testid=\"ws-version-menu\"").substringBefore("</div>"))
             .contains(">Next version<").contains(">Fix of v1.0.0<")
-            .contains("href=\"/tenants/${tenant.id.value}/themes/bar-cat@1.0.1/house\"")
+            .contains("href=\"/tenants/${tenant.id.value}/catalogs/bar-cat@1.0.1/draft\"")
         assertThat(Regex("ws-menu-check").findAll(work.substringAfter("data-testid=\"ws-version-menu\"").substringBefore("ws-menu-sep")).count())
             .`as`("only the version the page is in is ticked").isEqualTo(1)
     }

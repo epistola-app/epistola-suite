@@ -113,14 +113,14 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `with two drafts the catalog page lists both, and a draft's page works on the one its segment names`() = fixture {
+    fun `with two drafts the catalog's Versions page lists both, and a draft's page works on the one its segment names`() = fixture {
         lateinit var tenant: Tenant
         given {
             tenant = tenant("Drafts Picker")
             twoDrafts(tenant)
         }
         whenever {
-            val catalog = get("/tenants/${tenant.id}/catalogs/letters/browse").body!!
+            val catalog = get("/tenants/${tenant.id}/catalogs/letters/versions").body!!
             // The next version is linked plainly, the other draft by its number.
             assertThat(catalog).contains("href=\"/tenants/${tenant.id}/catalogs/letters/draft\"")
             assertThat(catalog).contains("href=\"/tenants/${tenant.id}/catalogs/letters@1.0.1/draft\"")
@@ -186,7 +186,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             // The context bar names the version; its menu offers the other draft, at this same page.
             assertThat(result<String>()).contains("data-testid=\"ws-crumb-version\"").contains(">Next version<")
                 .doesNotContain("/templates/letters@")
-            assertThat(several).contains("Invoice two").contains("data-testid=\"ws-version-link\"").contains("/templates/letters@1.0.1/invoice")
+            assertThat(several).contains("Invoice two").contains("data-testid=\"ws-version-link\"").contains("/catalogs/letters@1.0.1/draft")
         }
     }
 

@@ -82,7 +82,9 @@ class WorkspaceBuilder {
                     VersionLink(
                         label = if (next) "Next version" else link.base?.let { "Fix of v$it" } ?: "Draft v${link.version}",
                         detail = if (next) link.base?.let { "Based on v$it" } else "Published as v${link.version}",
-                        href = link.href,
+                        // Each version's overview, the same from every page: the bar stays the same
+                        // within a catalog version, so a navigation there need not send it again.
+                        href = if (next) CatalogPages.browse(TenantId(bar.tenantKey), bar.segment.at(null)) else CatalogPages.draft(TenantId(bar.tenantKey), bar.segment.at(link.version)),
                         current = link.active && publishedVersion == null,
                     )
                 }

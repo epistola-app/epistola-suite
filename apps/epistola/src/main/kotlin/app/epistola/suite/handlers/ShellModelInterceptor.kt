@@ -69,9 +69,33 @@ class ShellModelInterceptor(
         modelAndView.addObject("navGroups", nav.groups)
         modelAndView.addObject("activeNavSection", nav.activeNavSection)
         val tenantName = modelAndView.model["tenantName"]?.toString() ?: tenantId
-        modelAndView.addObject(
-            "workspace",
-            workspaceBuilder.build(TenantKey.of(tenantId), tenantName, auth, modelAndView.model, request, requestPath, nav),
-        )
+        val workspace = workspaceBuilder.build(TenantKey.of(tenantId), tenantName, auth, modelAndView.model, request, requestPath, nav)
+        modelAndView.addObject("workspace", workspace)
+        boostInsideWorkspace(request, response, modelAndView, workspace)
+    }
+
+    /**
+     * A boosted navigation from one workspace page to another replaces only the page
+     * (docs/workspace-shell.md): the response is `layout/boosted`, retargeted at `#ws-page`, with the
+     * side nav out of band and the context bar too only when it changed. When it did not, the bar's
+     * status is told to refresh in place. The page the click came from says which bar it shows in
+     * the `X-Epistola-Shell` header; from a page without the workspace the whole body is swapped.
+     */
+    private fun boostInsideWorkspace(request: HttpServletRequest, response: HttpServletResponse, modelAndView: ModelAndView, workspace: Workspace) {
+        if (request.getHeader("HX-Boosted") != "true") return
+        val shown = request.getHeader(SHELL_HEADER) ?: return
+        if (!shown.startsWith("nav:")) return
+        val barChanged = shown != "nav:${workspace.barKey}"
+        modelAndView.viewName = "layout/boosted"
+        modelAndView.addObject("boosted", true)
+        modelAndView.addObject("barChanged", barChanged)
+        response.setHeader("HX-Retarget", "#ws-page")
+        response.setHeader("HX-Reswap", "outerHTML")
+        if (!barChanged) response.setHeader("HX-Trigger", "ws-status-refresh")
+    }
+
+    private companion object {
+        /** The bar the page shows, as `Workspace.barKey`; sent by nav.js on a boosted navigation. */
+        const val SHELL_HEADER = "X-Epistola-Shell"
     }
 }

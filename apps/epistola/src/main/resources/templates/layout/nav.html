@@ -9,6 +9,7 @@
            behaviour in nav.js. */-->
     <nav th:fragment="nav" id="app-nav" class="app-nav ws-bar"
          th:classappend="${workspace?.catalog?.sideWork} ? 'ws-bar-side' : ''"
+         th:attr="hx-swap-oob=${boosted} ? 'true' : null"
          th:with="ws=${workspace}, scope=${workspace?.catalog}">
         <div class="ws-bar-left">
             <button th:if="${ws != null}" sec:authorize="isAuthenticated()" type="button"
@@ -18,7 +19,7 @@
             <a th:href="${ws != null} ? ${ws.homeHref} : @{/}" class="app-nav-logo"
                th:title="${ws != null} ? 'Home of ' + ${ws.tenantName} : 'Epistola home'"
                th:aria-label="${ws != null} ? 'Epistola — home of ' + ${ws.tenantName} : 'Epistola home'">
-                <img class="ep-icon ep-icon-lg" th:src="@{/design-system/epistola-logo.svg}" alt="Epistola" />
+                <img id="ws-logo" hx-preserve="true" class="ep-icon ep-icon-lg" th:src="@{/design-system/epistola-logo.svg}" alt="Epistola" />
                 <span th:if="${ws == null}">Epistola</span>
             </a>
 
@@ -112,8 +113,9 @@
             <!--/* What is not published yet, and Publish: loaded after the page, since working it out
                    builds the catalog. */-->
             <span th:if="${scope?.readOnly}" class="ws-status-text" data-testid="catalog-version-bar-read-only">Subscribed: it can't be edited here</span>
-            <div th:if="${scope?.statusHref != null}" class="ws-status" data-testid="ws-status"
-                 th:hx-get="${scope.statusHref}" hx-trigger="load" hx-swap="innerHTML"></div>
+            <!--/* Refreshed in place after a navigation that keeps the bar (HX-Trigger), so it never empties. */-->
+            <div th:if="${scope?.statusHref != null}" id="ws-status" class="ws-status" data-testid="ws-status"
+                 th:hx-get="${scope.statusHref}" hx-trigger="load, ws-status-refresh from:body" hx-swap="innerHTML"></div>
             <a th:if="${scope == null and ws?.back != null}" th:href="${ws.back.href}" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="ws-back">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='arrow-left', class='ep-icon ep-icon-sm')}" />
                 <span th:text="${ws.back.label}">Back to Letters</span>
@@ -141,7 +143,7 @@
 
     <!--/* The side nav: the catalog's own inside a catalog, the tenant's outside one. */-->
     <aside th:fragment="side" id="ws-nav" class="ws-nav" th:with="ws=${workspace}, scope=${workspace.catalog}"
-           th:attr="aria-label=${scope != null} ? ${scope.name} : ${ws.tenantName}">
+           th:attr="aria-label=${scope != null} ? ${scope.name} : ${ws.tenantName},hx-swap-oob=${boosted} ? 'true' : null">
         <th:block th:if="${scope != null}">
             <div class="ws-nav-title">
                 <strong th:text="${scope.name}">Letters</strong>

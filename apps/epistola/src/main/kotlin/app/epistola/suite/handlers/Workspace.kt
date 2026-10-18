@@ -38,6 +38,21 @@ data class Workspace(
     /** The page is the tenant's home. */
     val atHome: Boolean = false,
 ) {
+    /**
+     * What the context bar shows, as a short key: a boosted navigation that keeps it gets the bar
+     * sent again only when this changes (docs/workspace-shell.md). Everything the bar renders goes
+     * in, the catalog's nav does not: that is sent with every page.
+     */
+    val barKey: String
+        get() = listOf(
+            tenantKey.value,
+            tenantName,
+            catalogs,
+            catalog?.let { listOf(it.bar.segmentValue, it.name, it.versionLabel, it.sideWork, it.readOnly, it.versions, it.fixLive, it.statusHref, it.versionsHref) },
+            back,
+            section,
+        ).hashCode().toUInt().toString(36)
+
     /** The tenant's home page, which the logo and the tenant crumb lead to. */
     val homeHref: String get() = "/tenants/${tenantKey.value}"
 

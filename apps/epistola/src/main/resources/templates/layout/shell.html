@@ -10,7 +10,9 @@
     <th:block th:replace="~{fragments/htmx :: htmx}" />
 </head>
 <!--/* The workspace shell (docs/workspace-shell.md): the context bar on top, the side nav for the
-       place someone is in, the page beside it. Pages without a tenant have no side nav. */-->
+       place someone is in, the page beside it. Pages without a tenant have no side nav. A boosted
+       navigation inside the workspace replaces only #ws-page, with the nav and, when it changed, the
+       bar out of band (layout/boosted, ShellModelInterceptor). */-->
 <body class="app-shell" hx-boost="true">
 
     <th:block th:replace="~{layout/nav :: nav}" />
@@ -24,17 +26,22 @@
             <th:block th:replace="~{layout/nav :: side}" />
         </th:block>
         <div class="ws-main">
-            <th:block th:if="${workspace?.catalog?.sideWork}">
-                <th:block th:replace="~{layout/nav :: side-strip}" />
-            </th:block>
-            <main id="main-content" class="main-content">
-                <div th:replace="~{__${contentView}__ :: content}">Page content</div>
-            </main>
+            <!--/* What a boosted navigation replaces (layout/boosted): the page, and what belongs to it. */-->
+            <div id="ws-page" class="ws-page" th:fragment="page">
+                <th:block th:if="${workspace?.catalog?.sideWork}">
+                    <th:block th:replace="~{layout/nav :: side-strip}" />
+                </th:block>
+                <main id="main-content" class="main-content">
+                    <div th:replace="~{__${contentView}__ :: content}">Page content</div>
+                </main>
+                <!--/* The publish dialog, opened from the bar's Publish… and from the catalog's own pages. */-->
+                <div th:if="${workspace?.catalog != null}" id="release-dialog-container" data-open-dialog-on-swap="release-dialog"></div>
+                <!--/* Which bar and nav this page was rendered with, sent back on the next boosted
+                       navigation so the server sends them again only when they change. */-->
+                <span id="ws-shell-key" hidden th:attr="data-key=${workspace != null} ? 'nav:' + ${workspace.barKey} : 'plain'"></span>
+            </div>
             <th:block th:replace="~{fragments/footer :: footer}" />
         </div>
     </div>
-
-    <!--/* The publish dialog, opened from the bar's Publish… and from the catalog's own pages. */-->
-    <div th:if="${workspace?.catalog != null}" id="release-dialog-container" data-open-dialog-on-swap="release-dialog"></div>
 </body>
 </html>

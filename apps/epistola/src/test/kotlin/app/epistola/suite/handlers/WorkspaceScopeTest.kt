@@ -81,13 +81,14 @@ class WorkspaceScopeTest {
     }
 
     @Test
-    fun `the version menu lists the next version first, then side work by what it fixes, at the same page`() {
+    fun `the version menu lists the next version first, then side work by what it fixes, each to its overview`() {
         val versions = WorkspaceBuilder.scope(bar(work, published), null, "/tenants/acme/templates", everything).versions
 
         assertThat(versions.map { it.label }).containsExactly("Next version", "Fix of v1.2.0")
+        // The same from every page, so the bar does not change while moving around in a version.
         assertThat(versions.map { it.href }).containsExactly(
-            "/tenants/acme/templates?catalog=letters",
-            "/tenants/acme/templates?catalog=letters@1.2.1",
+            "/tenants/acme/catalogs/letters/browse",
+            "/tenants/acme/catalogs/letters@1.2.1/draft",
         )
         assertThat(versions.first().current).isTrue()
     }

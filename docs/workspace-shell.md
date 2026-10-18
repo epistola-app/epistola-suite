@@ -41,6 +41,17 @@ every content page already did for the old catalog bar. `ShellModelInterceptor` 
 - **Outside a catalog:** the page's name, and the way back to the catalog someone was last in, kept
   in their session.
 
+## Moving around
+
+Inside the workspace a link or form is boosted, and replaces only the page (`#ws-page`): the server
+answers with `layout/boosted` and `HX-Retarget: #ws-page`. The side nav comes along out of band,
+since what it highlights follows the page. The context bar comes along only when it changed: the
+page says which bar it shows (`#ws-shell-key`, sent back as `X-Epistola-Shell`, the bar's
+`Workspace.barKey`), and the server compares. When it did not change, `HX-Trigger:
+ws-status-refresh` refreshes the bar's status in place, so it never empties. The version menu links
+to each version's overview, so the bar is the same on every page of a catalog version. From a page
+without the workspace (a tenant list, a profile) the whole body is swapped, as before.
+
 ## The catalog's pages
 
 | Page                                                               | Shows                                                                                                                                                      | Segment     |

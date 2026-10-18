@@ -421,9 +421,10 @@
 
   /* ── HTMX swap indicator ─────────────────────────────────────────────── */
 
+  /* Dimmed only when a request takes a while: a quick navigation should not blink. */
   .htmx-request .main-content {
     opacity: 0.6;
-    transition: opacity 200ms;
+    transition: opacity 200ms 300ms;
   }
 
   /* ── Top bar wrapper ─────────────────────────────────────────────────── */
@@ -700,6 +701,14 @@
   }
 
   .ws-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  /* What a boosted navigation replaces; it takes the room above the footer. */
+  .ws-page {
+    flex: 1;
     display: flex;
     flex-direction: column;
     min-width: 0;

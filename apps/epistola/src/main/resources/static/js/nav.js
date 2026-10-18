@@ -58,6 +58,35 @@
     if (!e.target.closest('.app-nav-dropdown')) closeAllDropdowns();
   });
 
+  // A boosted navigation inside the workspace replaces only the page (docs/workspace-shell.md):
+  // say which bar this page shows, so the server sends the bar again only when it changes.
+  document.addEventListener('htmx:configRequest', function (e) {
+    if (e.detail.headers['HX-Boosted'] !== 'true') return;
+    var key = document.getElementById('ws-shell-key');
+    if (key) e.detail.headers['X-Epistola-Shell'] = key.getAttribute('data-key');
+  });
+
+  // When the bar is replaced for the same catalog version, show its status as it was until the
+  // fresh one arrives, instead of an empty space.
+  var keptStatus = null;
+  document.addEventListener('htmx:beforeSwap', function () {
+    var status = document.getElementById('ws-status');
+    keptStatus = status ? { href: status.getAttribute('hx-get'), html: status.innerHTML } : null;
+  });
+  document.addEventListener('htmx:afterSwap', function () {
+    var status = document.getElementById('ws-status');
+    if (
+      keptStatus &&
+      status &&
+      status.getAttribute('hx-get') === keptStatus.href &&
+      !status.innerHTML.trim()
+    ) {
+      status.innerHTML = keptStatus.html;
+      if (window.htmx) window.htmx.process(status);
+    }
+    keptStatus = null;
+  });
+
   document.addEventListener('keydown', function (e) {
     if (!e.target.closest) return;
 
