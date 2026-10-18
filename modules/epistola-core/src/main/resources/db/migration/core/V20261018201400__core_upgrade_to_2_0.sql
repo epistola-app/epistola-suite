@@ -52,6 +52,12 @@ WHERE c.type = 'AUTHORED' OR (c.type = 'SUBSCRIBED' AND c.installed_release_vers
 -- table is one: 2.0 has written none yet.
 DELETE FROM catalog_releases;
 
+-- And with them the catalog's pointer at its current release, which named one of them. The first 2.0
+-- release sets it again.
+UPDATE catalogs
+SET released_version = NULL, released_fingerprint = NULL, released_at = NULL
+WHERE released_version IS NOT NULL OR released_fingerprint IS NOT NULL OR released_at IS NOT NULL;
+
 -- The `catalog-context` feature toggle is retired: in 2.0 every catalog page states the catalog
 -- version it shows, always (docs/catalog-workspace-navigation.md). Delete any tenant override rows
 -- so no dangling state remains.

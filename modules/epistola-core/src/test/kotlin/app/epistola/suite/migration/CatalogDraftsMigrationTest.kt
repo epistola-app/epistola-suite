@@ -55,6 +55,7 @@ class CatalogDraftsMigrationTest {
                     ('waiting', 'acme', 'Waiting', 'SUBSCRIBED', 'classpath:epistola/catalogs/system/catalog.json', NULL);
                 INSERT INTO catalog_releases (tenant_key, catalog_key, version, fingerprint, manifest_snapshot)
                 SELECT 'acme', 'released', v, repeat('0', 64), '{}' FROM unnest(ARRAY['1.0.0', '1.10.0', '1.9.3']) v;
+                UPDATE catalogs SET released_version = '1.10.0', released_fingerprint = repeat('0', 64), released_at = NOW() WHERE id = 'released';
                 INSERT INTO themes (id, tenant_key, catalog_key, name) VALUES ('brand', 'acme', 'released', 'Brand');
                 """.trimIndent(),
             )
@@ -71,6 +72,8 @@ class CatalogDraftsMigrationTest {
                 listOf("released", "t", null, null, null),
             )
             assertThat(connection.rows("SELECT count(*) FROM catalog_releases")).`as`("1.x releases kept no content").containsExactly(listOf("0"))
+            assertThat(connection.rows("SELECT catalog_key, released_version, released_fingerprint, released_at FROM catalogs WHERE released_version IS NOT NULL OR released_fingerprint IS NOT NULL OR released_at IS NOT NULL"))
+                .`as`("no catalog points at a removed release").isEmpty()
             assertThat(
                 connection.rows(
                     "SELECT c.catalog_key, q.continues_after FROM catalog_upgrade_queue q JOIN catalogs c ON c.catalog_id = q.catalog_id WHERE c.type = 'AUTHORED' ORDER BY 1",
