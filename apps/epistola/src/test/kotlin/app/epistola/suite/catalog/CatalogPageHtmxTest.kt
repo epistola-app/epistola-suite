@@ -108,7 +108,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `the overview lists the templates with what is not published yet, and the nav each kind of part`() {
+    fun `the overview counts each kind with what is not published yet, each a link to its list`() {
         val tenant = catalog("Page Contents") { _, catalog ->
             invoice(catalog)
             mediator.releaseNext(catalog)
@@ -117,14 +117,13 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
 
         val page = get(tenant, "/catalogs/letters/browse").body!!
 
-        val templates = page.substringAfter("data-testid=\"catalog-templates\"").substringBefore("id=\"dialog-mount\"")
-        assertThat(templates).contains("href=\"/tenants/${tenant.id}/templates/letters/invoice\"")
-        assertThat(templates.substringAfter("data-slug=\"reminder\"")).contains(">New<")
-        assertThat(templates.substringAfter("data-slug=\"invoice\"").substringBefore("data-slug=\"reminder\"")).doesNotContain(">New<").doesNotContain(">Changed<")
-        assertThat(templates).contains("hx-get=\"/tenants/${tenant.id}/templates/new?catalog=letters\"")
-        // The parts templates are built from each have a page in the catalog's nav.
-        assertThat(page).contains("href=\"/tenants/${tenant.id}/stencils?catalog=letters\" class=\"ws-nav-item\"")
-            .contains("href=\"/tenants/${tenant.id}/themes?catalog=letters\" class=\"ws-nav-item\"")
+        // What the catalog is comes first.
+        assertThat(page.indexOf("data-testid=\"catalog-about\"")).isLessThan(page.indexOf("data-testid=\"catalog-status\""))
+        val templates = page.substringAfter("data-testid=\"catalog-count\" data-type=\"template\"").substringBefore("</a>")
+        assertThat(templates).contains(">2<").contains(">Templates<").contains("1 not published yet")
+        assertThat(page).contains("href=\"/tenants/${tenant.id}/templates?catalog=letters\" class=\"ep-panel stat-card\"")
+        assertThat(page.substringAfter("data-type=\"stencil\"").substringBefore("</a>")).contains(">0<").doesNotContain("not published")
+        assertThat(page).`as`("templates are counted, not listed").doesNotContain("data-testid=\"catalog-templates\"")
     }
 
     @Test
@@ -188,7 +187,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
         }
     }
 
-    private fun status(page: String): String = page.substringAfter("data-testid=\"catalog-status\"").substringBefore("data-testid=\"catalog-templates\"")
+    private fun status(page: String): String = page.substringAfter("data-testid=\"catalog-status\"").substringBefore("data-testid=\"catalog-counts\"")
 
     private fun get(tenant: Tenant, path: String) = restTemplate.withRedirects(HttpRedirects.DONT_FOLLOW)
         .getForEntity("/tenants/${tenant.id}$path", String::class.java)

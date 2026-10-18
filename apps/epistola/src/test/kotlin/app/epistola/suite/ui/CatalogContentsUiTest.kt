@@ -24,7 +24,7 @@ class CatalogContentsUiTest : BasePlaywrightTest() {
         val catalogPage = "/tenants/${tenant.id}/catalogs/letters/browse"
 
         gotoAndReady(catalogPage)
-        page.locator("[data-testid='catalog-contents-new'][data-type='template']").click()
+        page.locator("[data-testid='catalog-status-new-template']").click()
         page.htmxSettle()
 
         val dialog = page.locator("dialog[open]#create-template-dialog")

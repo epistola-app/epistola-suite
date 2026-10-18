@@ -30,7 +30,15 @@ data class CatalogContents(val groups: List<Group>) {
         val newHref: String,
         val mayCreate: Boolean,
         val items: List<Item>,
+        /** The list of this kind, inside the catalog at this version. */
+        val listHref: String = "",
     ) {
+        /** How many of this kind there are. */
+        val count: Int get() = items.size
+
+        /** How many of them are new or changed since the last published version. */
+        val changedCount: Int get() = items.count { it.change != null }
+
         /** The create control is withheld because the viewer may not create this kind; the group says so. */
         val createWithheld: Boolean get() = !mayCreate
     }
@@ -102,6 +110,7 @@ data class CatalogContents(val groups: List<Group>) {
                         label = kind.label,
                         newLabel = kind.newLabel,
                         newHref = "$base/${kind.area}/new?catalog=$catalog",
+                        listHref = "$base/${kind.area}?catalog=$catalog",
                         mayCreate = may(kind.permission),
                         items = resources.filter { it.type == kind.type }.sortedBy { it.name.lowercase() }.map { resource ->
                             Item(

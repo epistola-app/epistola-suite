@@ -1005,15 +1005,14 @@ class CatalogHandler {
                 "dependents" to dependents
                 "mayEditDependencies" to (editsDependencies && auth.has(Permission.TEMPLATE_EDIT))
                 "dependenciesWithheld" to (editsDependencies && !auth.has(Permission.TEMPLATE_EDIT))
-                // What the version holds, by kind, with a way to add each kind there.
-                if (authored) {
-                    "contents" to CatalogContents.of(
-                        tenantId.key,
-                        segment,
-                        result.resources,
-                        changeStates,
-                    ) { auth.has(it) }
-                }
+                // What the version holds, by kind, with a way to add each kind there; nothing is
+                // added to a subscribed catalog, whose content is its publisher's.
+                "contents" to CatalogContents.of(
+                    tenantId.key,
+                    segment,
+                    result.resources,
+                    changeStates,
+                ) { authored && auth.has(it) }
                 if (draftError != null) "nextReleaseError" to draftError
                 "exchangeCatalogUrl" to exchangeCatalogUrl
                 "publication" to publication

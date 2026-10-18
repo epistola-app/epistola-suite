@@ -3,7 +3,7 @@
 <body>
     <!--/* A draft's own page (docs/catalog-workspace-navigation.md): the next version, or another
            draft such as an in-between version, whose overview it is. What is not published yet and
-           Publish, and its templates; its parts, what it uses and its details are pages in the
+           Publish, and how much of each kind it holds; its parts, what it uses and its details are pages in the
            catalog nav, at this draft (docs/workspace-shell.md).
 
            Model: the catalog page's, with `draftBar.chosen` set. */-->
@@ -18,7 +18,7 @@
 
         <div th:replace="~{catalogs/next-release :: next-release}"></div>
 
-        <div th:replace="~{catalogs/content :: templates}"></div>
+        <div th:replace="~{catalogs/overview :: counts}"></div>
 
 
         <!-- HTMX host for catalog metadata and other URL-addressable dialogs. -->

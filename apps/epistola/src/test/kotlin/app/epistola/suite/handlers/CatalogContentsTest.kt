@@ -50,4 +50,19 @@ class CatalogContentsTest {
         assertThat(contents.addable.map { it.type }).doesNotContain("attribute", "codeList")
         assertThat(contents.groups.first { it.type == "template" }.mayCreate).isTrue()
     }
+
+    @Test
+    fun `each kind counts what there is and what is not published yet, and links to its list in the version`() {
+        val contents = CatalogContents.of(
+            acme,
+            CatalogSegment(CatalogKey.of("letters"), "1.2.1"),
+            listOf(resource("template", "invoice", "Invoice"), resource("template", "reminder", "Reminder")),
+            mapOf("template/reminder" to app.epistola.suite.catalog.queries.CatalogResourceState.NEW),
+        ) { true }
+
+        val templates = contents.templates
+        assertThat(templates.count to templates.changedCount).isEqualTo(2 to 1)
+        assertThat(templates.listHref).isEqualTo("/tenants/acme/templates?catalog=letters@1.2.1")
+        assertThat(contents.groups.first { it.type == "codeList" }.listHref).isEqualTo("/tenants/acme/code-lists?catalog=letters@1.2.1")
+    }
 }

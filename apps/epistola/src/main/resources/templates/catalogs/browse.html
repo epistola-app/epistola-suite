@@ -10,21 +10,11 @@
 
         <div id="catalog-alert"></div>
 
-        <!--/* A catalog's overview (docs/workspace-shell.md): what is not published yet and the action
-               that moves it on, then its templates. Its parts, versions, deployments,
-               dependencies and settings each have a page in the catalog's nav. */-->
-        <th:block th:if="${readiness != null}">
-            <div th:replace="~{catalogs/overview :: status}"></div>
-            <th:block th:if="${readiness.drafts.current != null}">
-                <div th:replace="~{catalogs/content :: templates}"></div>
-            </th:block>
-        </th:block>
+        <!--/* A catalog's overview (docs/workspace-shell.md), short on purpose: what the catalog is, what
+               is not published yet with the action that moves it on, and how much of each kind it
+               holds, each a link to its list. Everything else is a page in the catalog's nav. */-->
 
-        <th:block th:if="${catalog.type.name() == 'SUBSCRIBED'}">
-            <th:block th:replace="~{catalogs/content :: contents}"></th:block>
-        </th:block>
-
-        <!--/* The catalog's settings at a glance; they are changed on its Settings page. */-->
+        <!--/* What it is: its settings at a glance, changed on its Settings page. */-->
         <div class="ep-panel detail-section" data-testid="catalog-about">
             <div class="detail-section-header">
                 <h2>About</h2>
@@ -33,8 +23,6 @@
                    th:text="${catalog.type.name() == 'AUTHORED' and auth.has('CATALOG_MANAGE')} ? 'Change in Settings' : 'All settings'">Change in Settings</a>
             </div>
             <dl class="description-list detail-section-body">
-                <dt>Name</dt>
-                <dd th:text="${catalog.name}">Letters</dd>
                 <dt>Description</dt>
                 <dd>
                     <span th:if="${catalog.description != null and !#strings.isEmpty(catalog.description)}" th:text="${catalog.description}">Letters to customers</span>
@@ -52,6 +40,19 @@
                 </th:block>
             </dl>
         </div>
+
+        <th:block th:if="${readiness != null}">
+            <div th:replace="~{catalogs/overview :: status}"></div>
+        </th:block>
+
+        <div th:replace="~{catalogs/overview :: counts}"></div>
+
+        <!--/* A subscribed catalog: what its publisher put in it, each linked to Exchange where it came
+               from there, and Install when something is not installed yet. */-->
+        <th:block th:if="${catalog.type.name() == 'SUBSCRIBED'}">
+            <th:block th:replace="~{catalogs/content :: contents}"></th:block>
+        </th:block>
+
         <!-- HTMX host for catalog metadata and other URL-addressable dialogs. -->
         <div id="dialog-mount" data-dialog-mount></div>
 

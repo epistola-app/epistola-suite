@@ -217,5 +217,20 @@
             </div>
         </div>
     </div>
+    <!--/* How much of each kind, each a link to its list; what is not published yet said per kind. */-->
+    <div th:fragment="counts" class="ep-panel detail-section" data-testid="catalog-counts">
+        <div class="detail-section-header"><h2>Contents</h2></div>
+        <div class="detail-section-body">
+            <div class="ep-auto-grid catalog-counts">
+                <a th:each="group : ${contents.groups}" th:href="${group.listHref}" class="ep-panel stat-card"
+                   data-testid="catalog-count" th:attr="data-type=${group.type}">
+                    <div class="stat-card-value" th:text="${group.count}">5</div>
+                    <div class="stat-card-label" th:text="${group.label}">Templates</div>
+                    <div th:if="${group.changedCount > 0}" class="stat-card-label catalog-count-changed"
+                         th:text="${group.changedCount} + ' not published yet'">2 not published yet</div>
+                </a>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

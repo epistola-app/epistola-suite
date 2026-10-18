@@ -105,3 +105,15 @@ a.stat-card:hover {
 .catalog-tile-body dd > div + div {
   margin-top: var(--ep-space-1);
 }
+
+/* ── Catalog contents counts (catalog overview) ──────────────────────── */
+
+/* Tile width for .ep-auto-grid; the tiles reuse the stat-card look. */
+.catalog-counts {
+  --ep-grid-min: 9rem;
+}
+
+.catalog-count-changed {
+  color: var(--ep-primary-strong);
+  margin-top: var(--ep-space-1);
+}
