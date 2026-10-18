@@ -265,10 +265,19 @@
                                 Publishing Shared also publishes its other changes.</p>
                             <label th:if="${other.retieTo != null}" style="display: flex; gap: var(--ep-space-2);">
                                 <input type="checkbox" name="retie" th:value="${other.catalogKey}" checked data-testid="publish-retie-checkbox">
-                                <span th:text="'Use ' + ${other.name} + ' v' + ${other.retieTo} + ', the latest published, as in your preview. It used v' + ${other.release} + '.'">
+                                <span th:text="'Use ' + ${other.name} + ' v' + ${other.retieTo} + ', the latest published, as in your preview: it fits what this uses. It used v' + ${other.release} + '.'">
                                     Use Shared v1.0.1, the latest published, as in your preview.</span>
                             </label>
                         </div>
+                    </div>
+
+                    <!--/* A newer version that would break something used here: this stays on what it uses, and says why. */-->
+                    <div th:each="other : ${readiness.borrowing.catalogs}" th:if="${other.newerDoesNotFit != null}" class="form-group"
+                         data-testid="publish-newer-breaks" th:attr="data-catalog=${other.catalogKey}">
+                        <p style="margin: 0;" th:text="${other.name} + ' v' + ${other.newerDoesNotFit} + ' is published, but does not fit what this uses, so it stays on v' + ${other.release} + ':'">Shared v2.0.0 does not fit:</p>
+                        <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
+                            <li th:each="b : ${other.newerBreaks}" th:text="${b.name ?: b.key} + ': ' + ${b.reason}">Footer: placeholder 'body' removed</li>
+                        </ul>
                     </div>
 
                     <!--/* What it takes from other catalogs that it does not declare yet: publishing records each, at the version it renders from. */-->

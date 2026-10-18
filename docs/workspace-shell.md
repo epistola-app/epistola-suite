@@ -42,6 +42,15 @@ build one — the catalog's segment as `workspaceCatalog` (the quality report do
 - **Outside a catalog:** the page's name, and the way back to the catalog someone was last in, kept
   in their session.
 
+## Dependencies
+
+A published version pins exact versions of the catalogs it uses; nobody picks a version range. When
+a newer version of one is published, the catalog's Dependencies page and the publish dialog say
+whether it **fits what this catalog uses**: Epistola compares the two versions resource by resource
+and counts only breaking changes to resources used here (`GetCatalogBorrowing.newerBreaks`). One that
+fits is moved to at the next publish; one that does not is listed with what breaks, and the catalog
+stays where it is. See contract ADR 0002, amendment 2.
+
 ## Moving around
 
 Inside the workspace a link or form is boosted, and replaces only the page (`#ws-page`): the server

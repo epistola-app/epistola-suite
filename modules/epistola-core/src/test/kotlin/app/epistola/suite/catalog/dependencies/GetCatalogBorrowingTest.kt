@@ -20,11 +20,17 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
+import app.epistola.suite.stencils.commands.DeleteStencil
+import app.epistola.suite.stencils.commands.UpdateStencil
+import app.epistola.suite.stencils.stencilDocument
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
@@ -126,5 +132,78 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
 
         assertThat(withMediator { ListCatalogDependencies(tenant, letters, draft).query() }.map { it.catalogKey }).containsExactly("shared")
         assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }).`as`("the next version declares nothing").isEmpty()
+    }
+
+    /** Letters' Invoice uses Shared's Brand, declared and tied to Shared 1.0.0. */
+    private fun tiedToShared(name: String): TenantKey {
+        val tenant = setUp(name)
+        invoiceOnSharedTheme(tenant)
+        withMediator { DeclareUsedCatalogs(tenant, letters).execute() }
+        return tenant
+    }
+
+    private fun releaseShared(tenant: TenantKey, version: String, change: () -> Unit) = withMediator {
+        change()
+        MarkCatalogReady(tenant, shared).execute()
+        ReleaseCatalogVersion(tenant, shared, version).execute()
+    }
+
+    @Test
+    fun `a newer version that breaks nothing used here is offered, even when it breaks what is not used`() {
+        val tenant = tiedToShared("borrow-newer-fits")
+        // Removing Footer is breaking for Shared as a whole, but Letters does not use it.
+        releaseShared(tenant, "2.0.0") { DeleteStencil(StencilId(StencilKey.of("footer"), CatalogId(shared, TenantId(tenant)))).execute() }
+
+        val used = withMediator { GetCatalogBorrowing(tenant, letters).query() }.catalogs.single()
+
+        assertThat(used.release).isEqualTo("1.0.0")
+        assertThat(used.newerBreaks).isEmpty()
+        assertThat(used.retieTo).`as`("judged by what Letters uses, not by the major number").isEqualTo("2.0.0")
+        assertThat(used.newerDoesNotFit).isNull()
+    }
+
+    @Test
+    fun `a newer version that breaks something used here is not offered, and says what and why`() {
+        val tenant = setUp("borrow-newer-breaks")
+        val footer = StencilId(StencilKey.of("footer"), CatalogId(shared, TenantId(tenant)))
+        withMediator {
+            // Shared 1.1.0: Footer gets a placeholder `body`, which Letters' Invoice fills.
+            releaseSharedNow(tenant, "1.1.0") { UpdateStencil(footer, content = footerWith("body")).execute() }
+            val invoice = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant)))
+            CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
+            UpdateVariantContent(
+                VariantId(VariantKey.INITIAL, invoice),
+                stencilDocument {
+                    text("signed", "Signed")
+                    placeholder("fill", "body", fill = listOf("signed"))
+                    stencil("footer-1", "footer", fills = listOf("fill"), catalogKey = "shared")
+                    build("footer-1")
+                },
+            ).execute()
+            DeclareUsedCatalogs(tenant, letters).execute()
+        }
+        // Shared 2.0.0 renames the placeholder: an interface change of something Letters uses.
+        releaseShared(tenant, "2.0.0") { UpdateStencil(footer, content = footerWith("content")).execute() }
+
+        val used = withMediator { GetCatalogBorrowing(tenant, letters).query() }.catalogs.single()
+
+        assertThat(used.release).isEqualTo("1.1.0")
+        assertThat(used.retieTo).`as`("stays on 1.1.0").isNull()
+        assertThat(used.newerDoesNotFit).isEqualTo("2.0.0")
+        assertThat(used.newerBreaks.map { Triple(it.type, it.key, it.reason) })
+            .containsExactly(Triple("stencil", "footer", "placeholder 'body' removed"))
+        assertThat(used.newerBreaks.single().name).isEqualTo("Footer")
+    }
+
+    private fun footerWith(placeholder: String) = stencilDocument {
+        text("line", "Acme")
+        placeholder("slot", placeholder)
+        build("line", "slot")
+    }
+
+    private fun releaseSharedNow(tenant: TenantKey, version: String, change: () -> Unit) {
+        change()
+        MarkCatalogReady(tenant, shared).execute()
+        ReleaseCatalogVersion(tenant, shared, version).execute()
     }
 }

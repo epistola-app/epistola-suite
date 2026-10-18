@@ -120,8 +120,15 @@
                             <span th:if="${borrowed.release == null}" class="badge badge-warning">no published version</span>
                             <div th:if="${borrowed.publishAlong}" class="form-hint" data-testid="catalog-borrowed-along"
                                  th:text="'Changed in ' + ${borrowed.name} + ', not published yet: publishing here publishes it too.'">Changed in Shared, not published yet.</div>
-                            <div th:if="${borrowed.retieTo != null}" class="form-hint"
-                                 th:text="'v' + ${borrowed.retieTo} + ' is published: publishing here uses it.'">v1.0.1 is published.</div>
+                            <!--/* A newer version is judged by what is used here, not by its number. */-->
+                            <div th:if="${borrowed.retieTo != null}" class="form-hint" data-testid="catalog-borrowed-newer-fits"
+                                 th:text="'v' + ${borrowed.retieTo} + ' is published and fits what is used here: publishing here moves to it.'">v1.0.1 is published and fits.</div>
+                            <div th:if="${borrowed.newerDoesNotFit != null}" class="form-hint" data-testid="catalog-borrowed-newer-breaks">
+                                <span th:text="'v' + ${borrowed.newerDoesNotFit} + ' is published, but does not fit what is used here, so this stays on v' + ${borrowed.release} + ':'">v2.0.0 does not fit:</span>
+                                <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
+                                    <li th:each="b : ${borrowed.newerBreaks}" th:text="${b.name ?: b.key} + ': ' + ${b.reason}">Footer: placeholder 'body' removed</li>
+                                </ul>
+                            </div>
                         </td>
                     </tr>
                 </tbody>

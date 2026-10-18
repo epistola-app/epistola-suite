@@ -189,6 +189,25 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
         assertThat(back("/catalogs/shared/releases/1.0.0")).isEqualTo("/tenants/${tenant.id}/catalogs/shared/versions")
     }
 
+    @Test
+    fun `a newer published version that fits what is used is said so, and no version range is asked for`() {
+        val tenant = seed("Workspace Newer Fits")
+        withMediator {
+            // Shared 1.1.0 only adds something: everything Letters uses still fits.
+            CreateTheme(ThemeId(ThemeKey.of("seasonal"), CatalogId(shared, TenantId(tenant.id))), "Seasonal").execute()
+            MarkCatalogReady(tenant.id, shared).execute()
+            ReleaseCatalogVersion(tenant.id, shared, "1.1.0").execute()
+        }
+
+        val page = get(tenant, "/catalogs/letters/dependencies")
+        assertThat(page.substringAfter("data-testid=\"catalog-borrowed-newer-fits\"").substringBefore("</div>"))
+            .contains("v1.1.0 is published and fits what is used here")
+        assertThat(page).doesNotContain("data-testid=\"catalog-borrowed-newer-breaks\"")
+
+        val dialog = htmx(tenant, "/catalogs/letters/dependencies/edit")
+        assertThat(dialog).`as`("no range to choose").doesNotContain("dependency-version-").contains("type=\"hidden\" name=\"version\"")
+    }
+
     private fun get(tenant: Tenant, path: String): String = restTemplate.withRedirects(HttpRedirects.DONT_FOLLOW)
         .getForEntity("/tenants/${tenant.id}$path", String::class.java).body!!
 

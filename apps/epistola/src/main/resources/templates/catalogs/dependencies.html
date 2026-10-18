@@ -25,11 +25,10 @@
                 <p th:if="${dependents.isEmpty()}" class="text-muted" style="margin: 0;"
                    th:text="'No other catalog depends on ' + ${catalog.name} + '.'">No other catalog depends on Shared.</p>
                 <table th:unless="${dependents.isEmpty()}" class="ep-table">
-                    <thead><tr><th>Catalog</th><th>Accepts</th><th>Uses</th></tr></thead>
+                    <thead><tr><th>Catalog</th><th>Uses</th></tr></thead>
                     <tbody>
                         <tr th:each="d : ${dependents}" th:attr="data-catalog=${d.catalogKey}">
                             <td><a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${d.catalogKey})}" th:text="${d.name}">Letters</a></td>
-                            <td><code th:text="${d.range}">^1.0.0</code></td>
                             <td>
                                 <span th:if="${d.lockedTo != null}" th:text="'v' + ${d.lockedTo}">v1.0.0</span>
                                 <span th:if="${d.lockedTo == null}" class="text-muted">nothing published yet</span>

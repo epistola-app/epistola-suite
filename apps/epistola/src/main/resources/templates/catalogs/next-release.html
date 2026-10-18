@@ -317,8 +317,8 @@
             </p>
             <th:block th:unless="${dependencyOptions.isEmpty()}">
                 <p class="form-hint">
-                    Choose a catalog and an npm version range (for example <code>^1.2.0</code> or <code>*</code>).
-                    Each declaration is locked to the highest release that matches. Leave the catalog empty to remove a row.
+                    Choose the catalogs this one uses. Each is tied to its latest published version; a newer one is
+                    used once it fits what this catalog uses. Leave the catalog empty to remove a row.
                 </p>
                 <div th:each="row, stat : ${rows}" class="ep-row" style="gap: var(--ep-space-2); align-items: flex-start;"
                      data-testid="catalog-dependency-input-row">
@@ -332,11 +332,9 @@
                         <span class="form-error" th:if="${errors?.containsKey('dependencies[' + stat.index + ']')}"
                               th:text="${errors.get('dependencies[' + stat.index + ']')}" data-testid="catalog-dependency-error"></span>
                     </div>
-                    <div class="form-group" style="flex: 1;">
-                        <label class="ep-label" th:for="'dependency-version-' + ${stat.index}">Range</label>
-                        <input type="text" th:id="'dependency-version-' + ${stat.index}" name="version" class="ep-input"
-                               maxlength="100" placeholder="^1.0.0" th:value="${row.version}">
-                    </div>
+                    <!--/* No version range to choose: compatibility is checked per use (docs/workspace-shell.md).
+                           A range set over the API is kept as it is. */-->
+                    <input type="hidden" name="version" th:value="${#strings.isEmpty(row.version)} ? '*' : ${row.version}">
                 </div>
             </th:block>
         </div>

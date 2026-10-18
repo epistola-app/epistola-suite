@@ -7,16 +7,20 @@ package app.epistola.suite.catalog.dependencies
 import app.epistola.catalog.protocol.DependencyRef
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.CatalogResourceState
 import app.epistola.suite.catalog.queries.GetCatalogRelease
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.catalog.versions.AssessDraftNumber
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.catalog.versions.CatalogVersionStatus
+import app.epistola.suite.catalog.versions.ChangeKind
+import app.epistola.suite.catalog.versions.ChangeKindEvaluator
 import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -27,6 +31,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
+import tools.jackson.databind.ObjectMapper
 
 /**
  * What a catalog version takes from other catalogs, made explicit (docs/catalog-workspace-navigation.md).
@@ -87,6 +92,12 @@ data class BorrowedCatalog(
     val nextNumber: String? = null,
     /** Its latest published version that kept its content, which an editor's preview shows when nothing is unpublished. */
     val latest: String? = null,
+    /**
+     * What [latest] changed, against [release], in a way that breaks something used here: compared
+     * per use, not by version number (docs/workspace-shell.md). A newer version that removes or
+     * changes the interface of something nobody here uses still fits.
+     */
+    val newerBreaks: List<UseBreak> = emptyList(),
 ) {
     val used: Boolean get() = uses.isNotEmpty()
 
@@ -103,8 +114,16 @@ data class BorrowedCatalog(
      * Nothing to publish along, but a newer published version than the one this is tied to, which the
      * preview shows: publishing here would tie to the older one unless it is re-tied.
      */
-    val retieTo: String? get() = latest?.takeIf { used && declared && !publishAlong && it != release }
+    val retieTo: String? get() = newer?.takeIf { newerBreaks.isEmpty() }
+
+    /** A newer published version that does not fit what is used here: this stays on [release], and says why. */
+    val newerDoesNotFit: String? get() = newer?.takeIf { newerBreaks.isNotEmpty() }
+
+    private val newer: String? get() = latest?.takeIf { used && declared && !publishAlong && it != release }
 }
+
+/** Something used here that a newer version of its catalog breaks, and how, in that catalog's terms. */
+data class UseBreak(val type: String, val key: String, val name: String?, val reason: String)
 
 /** A resource of another catalog: its kind (`theme`, `stencil`, `image`, `codeList`, `font`), key and name. */
 data class BorrowedResource(val type: String, val key: String, val name: String?)
@@ -117,7 +136,11 @@ class GetCatalogBorrowingHandler(
     private val jdbi: Jdbi,
     private val contentBuilder: CatalogContentBuilder,
     private val store: CatalogDependencyStore,
+    private val releases: ReleaseContentAssembler,
+    objectMapper: ObjectMapper,
 ) : QueryHandler<GetCatalogBorrowing, CatalogBorrowing> {
+
+    private val changes = ChangeKindEvaluator(objectMapper)
 
     override fun handle(query: GetCatalogBorrowing): CatalogBorrowing {
         val content = contentBuilder.build(query.tenantKey, query.catalogKey)
@@ -156,13 +179,40 @@ class GetCatalogBorrowingHandler(
             val nextNumber = authoredWork?.takeIf { unpublished.isNotEmpty() }?.let { work ->
                 AssessDraftNumber(query.tenantKey, catalog.id, work.version).query()?.takeIf { it.tooLow }?.suggested ?: work.version
             }
-            BorrowedCatalog(key, catalog.name, declaration != null, release, uses, offers, unpublished, nextNumber, latestRetained(query.tenantKey, catalog.id))
+            val latest = latestRetained(query.tenantKey, catalog.id)
+            val newerBreaks = if (release != null && latest != null && isAbove(latest, release) && uses.isNotEmpty()) {
+                breaks(query.tenantKey, catalog.id, release, latest, uses)
+            } else {
+                emptyList()
+            }
+            BorrowedCatalog(key, catalog.name, declaration != null, release, uses, offers, unpublished, nextNumber, latest, newerBreaks)
         }.sortedWith(compareBy({ !it.used }, { it.name.lowercase() }))
 
         val others = catalogs.filter { c -> borrowed.none { it.catalogKey == c.id.value } }
             .map { OtherCatalog(it.id.value, it.name, latestRetained(query.tenantKey, it.id)) }
             .sortedBy { it.name.lowercase() }
         return CatalogBorrowing(borrowed, others)
+    }
+
+    /**
+     * What [to] breaks, against [from], of what is [used]: the breaking changes [ChangeKindEvaluator]
+     * finds between the two published versions (a resource removed, a stencil placeholder removed or
+     * a parameter now required, a code removed, …), kept only for resources used here.
+     */
+    private fun breaks(tenantKey: TenantKey, catalogKey: CatalogKey, from: String, to: String, used: List<BorrowedResource>): List<UseBreak> {
+        val before = releases.assemble(tenantKey, catalogKey, from)?.content ?: return emptyList()
+        val after = releases.assemble(tenantKey, catalogKey, to)?.content ?: return emptyList()
+        return changes.evaluate(before, after).reasons
+            .filter { it.kind == ChangeKind.BREAKING }
+            .mapNotNull { reason ->
+                used.firstOrNull { it.type == reason.type && it.key == reason.key }?.let { UseBreak(it.type, it.key, it.name, reason.reason) }
+            }
+    }
+
+    private fun isAbove(version: String, than: String): Boolean {
+        val a = SemVer.parseOrNull(version) ?: return false
+        val b = SemVer.parseOrNull(than) ?: return false
+        return a > b
     }
 
     private fun latestRetained(tenantKey: TenantKey, catalogKey: CatalogKey): String? = ListCatalogReleases(tenantKey, catalogKey).query().firstOrNull { it.retained }?.version
