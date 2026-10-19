@@ -39,7 +39,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
     private lateinit var objectMapper: ObjectMapper
 
     /**
-     * Inserts a draft contract version with the given data examples into contract_versions.
+     * Sets the template's data contract with the given data examples.
      */
     private fun insertDraftContractWithExamples(tenantKey: String, templateKey: String, dataExamplesJson: String) {
         val examples = objectMapper.readValue(dataExamplesJson, Array<DataExample>::class.java).toList()

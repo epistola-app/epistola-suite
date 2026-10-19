@@ -40,7 +40,7 @@ class DataExampleKeysMigrationTest {
 
         flyway(BEFORE).migrate()
         DriverManager.getConnection(url, postgres.username, postgres.password).use(::seed)
-        flyway(null).migrate()
+        flyway(BEFORE_VERSIONS_DROPPED).migrate()
 
         val examples = DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             connection.createStatement().use { st ->
@@ -83,5 +83,8 @@ class DataExampleKeysMigrationTest {
     private companion object {
         /** The last migration before `core_data_example_keys`. */
         const val BEFORE = "20261018200200"
+
+        /** The last migration that still has the 1.x version tables this migration rewrote; the upgrade drops them. */
+        const val BEFORE_VERSIONS_DROPPED = "20261018201300"
     }
 }

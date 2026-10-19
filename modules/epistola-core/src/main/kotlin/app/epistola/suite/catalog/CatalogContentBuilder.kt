@@ -76,8 +76,8 @@ enum class ContentSource {
     WORKING_COPY,
 
     /**
-     * What each was last published as before 2.0, kept in `template_versions`, `contract_versions`
-     * and `stencil_versions`: the content of the 2.0 upgrade's first release. A variant or stencil
+     * What each was last published as before 2.0, which the upgrade migration kept in
+     * `catalog_upgrade_published`: the content of the 2.0 upgrade's first release. A variant or stencil
      * that was never published is left out, and so is a template whose default variant was not; a
      * template that never published a data contract keeps its working one.
      */
@@ -244,7 +244,7 @@ class CatalogContentBuilder(
                 handle.createQuery(
                     """
                     SELECT v.id, v.title, v.attributes::text, v.is_default,
-                           ${if (published) "pv.template_model::text" else "v.template_model::text"} AS template_model
+                           ${if (published) "(pv.payload -> 'templateModel')::text" else "v.template_model::text"} AS template_model
                     FROM template_variants v
                     ${if (published) PUBLISHED_VARIANT_JOIN else ""}
                     WHERE v.tenant_key = :tenantKey AND v.version_id = ${versionAt("tenantKey", "catalogKey")}
@@ -320,11 +320,11 @@ class CatalogContentBuilder(
     private fun publishedStencils(tenantKey: TenantKey, catalogKey: CatalogKey): Map<String, Pair<TemplateDocument, Map<String, Any?>?>> = jdbi.withHandle<Map<String, Pair<TemplateDocument, Map<String, Any?>?>>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT DISTINCT ON (s.id) s.id, sv.content::text AS content, sv.parameter_schema::text AS parameter_schema
+            SELECT s.id, (p.payload -> 'content')::text AS content,
+                   NULLIF(p.payload -> 'parameterSchema', 'null'::jsonb)::text AS parameter_schema
             FROM stencils s
-            JOIN stencil_versions sv ON sv.tenant_key = s.tenant_key AND sv.stencil_resource_id = s.resource_id AND sv.status = 'published'
+            JOIN catalog_upgrade_published p ON p.tenant_key = s.tenant_key AND p.resource_id = s.resource_id AND p.kind = 'stencil'
             WHERE s.tenant_key = :t AND s.version_id = ${versionAt("t", "c")}
-            ORDER BY s.id, sv.id DESC
             """,
         )
             .bind("t", tenantKey)
@@ -460,16 +460,13 @@ class CatalogContentBuilder(
 
 /** The template's latest published data contract before 2.0, or its working one when it published none. */
 private const val PUBLISHED_CONTRACT_COLUMNS =
-    "CASE WHEN pc.id IS NULL THEN dt.data_model ELSE pc.data_model END::text AS data_model, " +
-        "CASE WHEN pc.id IS NULL THEN dt.data_examples ELSE COALESCE(pc.data_examples, '[]'::jsonb) END::text AS data_examples"
+    "CASE WHEN pc.payload IS NULL THEN dt.data_model ELSE NULLIF(pc.payload -> 'dataModel', 'null'::jsonb) END::text AS data_model, " +
+        "CASE WHEN pc.payload IS NULL THEN dt.data_examples ELSE pc.payload -> 'dataExamples' END::text AS data_examples"
 
 private const val PUBLISHED_CONTRACT_JOIN =
-    "LEFT JOIN LATERAL (SELECT cv.id, cv.data_model, cv.data_examples FROM contract_versions cv " +
-        "WHERE cv.tenant_key = dt.tenant_key AND cv.template_resource_id = dt.resource_id AND cv.status = 'published' " +
-        "ORDER BY cv.id DESC LIMIT 1) pc ON TRUE"
+    "LEFT JOIN catalog_upgrade_published pc ON pc.tenant_key = dt.tenant_key AND pc.resource_id = dt.resource_id AND pc.kind = 'contract'"
 
 /** A variant's latest published model before 2.0; a variant that never published one is left out. */
 private const val PUBLISHED_VARIANT_JOIN =
-    "JOIN LATERAL (SELECT tv.template_model FROM template_versions tv " +
-        "WHERE tv.tenant_key = v.tenant_key AND tv.template_resource_id = v.template_resource_id AND tv.variant_key = v.id " +
-        "AND tv.status = 'published' ORDER BY tv.id DESC LIMIT 1) pv ON TRUE"
+    "JOIN catalog_upgrade_published pv ON pv.tenant_key = v.tenant_key AND pv.resource_id = v.template_resource_id " +
+        "AND pv.kind = 'variant' AND pv.part = v.id"

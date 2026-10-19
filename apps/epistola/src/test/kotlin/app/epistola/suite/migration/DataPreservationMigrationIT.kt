@@ -312,20 +312,29 @@ class DataPreservationMigrationIT {
             )
                 .describedAs("a CLASSPATH face has no binary, and the backfill must not invent one")
                 .isEqualTo("epistola/fonts/brand/brand-Bold.ttf")
-            assertThat(one("SELECT status FROM contract_versions WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 1"))
-                .isEqualTo("published")
+            // 2.0 drops the 1.x versions (V20261018201400), keeping what the first release is cut from
+            // and a summary of the rest.
+            fun history(list: String, filter: String) = one(
+                "SELECT jsonb_agg(v ORDER BY v->>'version')::text FROM app_metadata, jsonb_array_elements(value->'$list') v " +
+                    "WHERE key = 'upgrade-1x-history' AND v->>'tenant' = '$TENANT' AND $filter",
+            )
+            assertThat(history("contractVersions", "v->>'template' = 'invoice'")).contains("\"status\": \"published\"")
+            assertThat(history("stencilVersions", "v->>'stencil' = 'header'"))
+                .describedAs("both versions of a stencil are in the summary, under the stencil's key")
+                .contains("\"version\": 1").contains("\"version\": 2")
             assertThat(
                 one(
                     """
-                    SELECT count(*)::text FROM stencil_versions versions
-                    JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
-                                         AND stencil.resource_id = versions.stencil_resource_id
-                    WHERE stencil.tenant_key = '$TENANT' AND stencil.id = 'header'
+                    SELECT count(*)::text FROM catalog_upgrade_published p
+                    JOIN stencils stencil ON stencil.tenant_key = p.tenant_key AND stencil.resource_id = p.resource_id
+                    WHERE stencil.tenant_key = '$TENANT' AND stencil.id IN ('header', 'draft-only') AND p.kind = 'stencil'
                     """,
                 ),
             )
-                .describedAs("both versions of a stencil must have followed it onto its identity")
-                .isEqualTo("2")
+                .describedAs("the published stencil is kept for the first release; the draft-only one has nothing published")
+                .isEqualTo("1")
+            assertThat(one("SELECT count(*)::text FROM information_schema.tables WHERE table_name IN ('template_versions', 'contract_versions', 'stencil_versions', 'environment_activations')"))
+                .isEqualTo("0")
             assertThat(
                 one(
                     "SELECT status FROM document_generation_requests " +
@@ -342,15 +351,19 @@ class DataPreservationMigrationIT {
             assertThat(one("SELECT title FROM template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'blanktitle'"))
                 .describedAs("blank-title variant must be backfilled with its own slug")
                 .isEqualTo("blanktitle")
-            assertThat(one("SELECT template_model::text FROM template_versions WHERE tenant_key = '$TENANT' AND $ofInvoice AND variant_key = 'main' AND id = 1"))
+            assertThat(
+                one(
+                    """
+                    SELECT (p.payload->'templateModel')::text FROM catalog_upgrade_published p
+                    JOIN document_templates dt ON dt.tenant_key = p.tenant_key AND dt.resource_id = p.resource_id
+                    WHERE dt.tenant_key = '$TENANT' AND dt.id = 'invoice' AND p.kind = 'variant' AND p.part = 'main'
+                    """,
+                ),
+            )
+                .describedAs("the variant's last published model is what its first release is cut from")
                 .isEqualTo(one("SELECT '$TEMPLATE_MODEL'::jsonb::text"))
-            assertThat(one("SELECT status FROM template_versions WHERE tenant_key = '$TENANT' AND $ofInvoice AND variant_key = 'main' AND id = 1"))
-                .isEqualTo("published")
-            assertThat(one("SELECT referenced_paths::text FROM template_versions WHERE tenant_key = '$TENANT' AND $ofInvoice AND variant_key = 'main' AND id = 1"))
-                .isEqualTo(one("""SELECT '["customer.name","total"]'::jsonb::text"""))
-            assertThat(one("SELECT template_model::text FROM template_versions WHERE tenant_key = '$TENANT' AND $ofInvoice AND variant_key = 'main' AND id = 2"))
-                .describedAs("a draft's stencil instances must become references by key, keeping the rest of the model")
-                .isEqualTo(one("SELECT '$MIGRATED_DRAFT_TEMPLATE_MODEL'::jsonb::text"))
+            assertThat(history("templateVersions", "v->>'template' = 'invoice' AND v->>'variant' = 'main'"))
+                .contains("\"status\": \"published\"").contains("\"status\": \"draft\"")
 
             // Relocation re-keyed attributes onto their identity (V20260905090100) and dropped the
             // generation-history foreign keys into the template hierarchy (V20260905090200).

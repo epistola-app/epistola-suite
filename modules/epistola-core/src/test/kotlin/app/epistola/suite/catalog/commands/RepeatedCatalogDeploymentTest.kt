@@ -223,8 +223,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
         val dataModel = schema("""{"type":"object","properties":{"name":{"type":"string"}}}""")
 
         withMediator {
-            // Simulate pre-migration state: template exists but without any contract_versions
-            // (this is what happens after V23 migration drops schema/data_model columns)
+            // A template without a data contract, as an import of an old one leaves it.
             ImportTemplates(
                 tenantId = tenantId,
                 templates = listOf(

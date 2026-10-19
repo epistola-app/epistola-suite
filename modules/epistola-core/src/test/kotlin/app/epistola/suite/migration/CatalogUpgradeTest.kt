@@ -118,14 +118,33 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         build("t")
     }
 
-    /** A version as 1.x stored it: `published`, the latest of its variant or stencil. */
-    private fun published1x(table: String, owner: String, ownerId: java.util.UUID, extra: Map<String, String>, model: TemplateDocument) = jdbi.useHandle<Exception> { handle ->
-        val columns = (listOf("id", "tenant_key", owner) + extra.keys + listOf(if (table == "template_versions") "template_model" else "content", "status", "published_at"))
-        val values = (listOf("1", "(SELECT tenant_key FROM catalog_resources WHERE resource_id = :owner)", ":owner") + extra.values.map { "'$it'" } + listOf("CAST(:model AS JSONB)", "'published'", "NOW()"))
-        handle.createUpdate("INSERT INTO $table (${columns.joinToString()}) VALUES (${values.joinToString()})")
+    /**
+     * What a 1.x variant or stencil last published, as the upgrade migration keeps it for the first
+     * release (`catalog_upgrade_published`): a variant's model under its key, a stencil's content.
+     */
+    private fun published1x(kind: String, ownerId: java.util.UUID, part: String, model: TemplateDocument) = jdbi.useHandle<Exception> { handle ->
+        val payload = mapOf((if (kind == "variant") "templateModel" else "content") to model)
+        handle.createUpdate(
+            """
+            INSERT INTO catalog_upgrade_published (tenant_key, resource_id, kind, part, payload)
+            SELECT tenant_key, resource_id, :kind, :part, CAST(:payload AS JSONB) FROM catalog_resources WHERE resource_id = :owner
+            """,
+        )
             .bind("owner", ownerId)
-            .bind("model", objectMapper.writeValueAsString(model))
+            .bind("kind", kind)
+            .bind("part", part)
+            .bind("payload", objectMapper.writeValueAsString(payload))
             .execute()
+    }
+
+    private fun publishedRows(catalog: CatalogId): Int = jdbi.withHandle<Int, Exception> { handle ->
+        handle.createQuery(
+            "SELECT count(*) FROM catalog_upgrade_published p JOIN catalog_resources r ON r.tenant_key = p.tenant_key AND r.resource_id = p.resource_id WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")}",
+        )
+            .bind("t", catalog.tenantKey)
+            .bind("c", catalog.key)
+            .mapTo(Int::class.java)
+            .one()
     }
 
     private fun resourceId(catalog: CatalogId, type: String, key: String): java.util.UUID = jdbi.withHandle<java.util.UUID, Exception> { handle ->
@@ -177,7 +196,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         val catalog = catalog(tenant("upgrade-continues"), letters)
         val invoice = TemplateId(TemplateKey.of("invoice"), catalog)
         withMediator { CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample() }
-        published1x("template_versions", "template_resource_id", resourceId(catalog, "template", "invoice"), mapOf("variant_key" to VariantKey.INITIAL.value), document("published"))
+        published1x("variant", resourceId(catalog, "template", "invoice"), VariantKey.INITIAL.value, document("published"))
         queue(catalog, continuesAfter = "1.3.0")
 
         runUpgrade()
@@ -195,7 +214,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
             UpdateVariantContent(invoice, document("draft work")).execute()
             CreateDocumentTemplate(unpublished, "Never published").execute().withRequiredDataExample()
         }
-        published1x("template_versions", "template_resource_id", resourceId(catalog, "template", "invoice"), mapOf("variant_key" to VariantKey.INITIAL.value), document("published"))
+        published1x("variant", resourceId(catalog, "template", "invoice"), VariantKey.INITIAL.value, document("published"))
         queue(catalog)
 
         runUpgrade()
@@ -205,6 +224,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         assertThat(withMediator { GetReleasedResource(catalog.tenantKey, catalog.key, "1.0.0", "template", "never-published").query() })
             .`as`("a template never published is not released").isNull()
         assertThat(withMediator { GetVariantContent(invoice).query()!! }.texts()).`as`("the draft").containsExactly("draft work")
+        assertThat(publishedRows(catalog)).`as`("what 1.x published goes once the first release holds it").isZero()
     }
 
     @Test
@@ -212,7 +232,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         val catalog = catalog(tenant("upgrade-stencil"), letters)
         val stencil = StencilId(StencilKey.of("letterhead"), catalog)
         withMediator { CreateStencil(stencil, "Letterhead", content = document("stencil draft")).execute() }
-        published1x("stencil_versions", "stencil_resource_id", resourceId(catalog, "stencil", "letterhead"), emptyMap(), document("stencil published"))
+        published1x("stencil", resourceId(catalog, "stencil", "letterhead"), "", document("stencil published"))
         queue(catalog)
 
         runUpgrade()
@@ -275,7 +295,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
             CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
             UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("corporate"), themeCatalogKey = subscribed.key).execute()
         }
-        published1x("template_versions", "template_resource_id", resourceId(letters, "template", "invoice"), mapOf("variant_key" to VariantKey.INITIAL.value), document("published"))
+        published1x("variant", resourceId(letters, "template", "invoice"), VariantKey.INITIAL.value, document("published"))
         // 'epistola-demo' sorts first, but queue the dependent first to be sure the order comes from the rounds.
         queue(letters)
         queue(subscribed)

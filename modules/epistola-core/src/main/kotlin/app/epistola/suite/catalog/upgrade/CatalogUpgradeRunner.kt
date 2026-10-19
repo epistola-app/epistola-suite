@@ -185,7 +185,19 @@ class CatalogUpgradeRunner(
             .one()
     }
 
-    private fun dequeue(catalog: Queued) = jdbi.useHandle<Exception> { handle ->
+    /** Takes the catalog off the queue, with what 1.x published for it, which its first release now holds. */
+    private fun dequeue(catalog: Queued) = jdbi.useTransaction<Exception> { handle ->
+        handle.createUpdate(
+            """
+            DELETE FROM catalog_upgrade_published p
+            USING catalog_resources r
+            WHERE r.tenant_key = p.tenant_key AND r.resource_id = p.resource_id
+              AND r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")}
+            """,
+        )
+            .bind("t", catalog.tenantKey)
+            .bind("c", catalog.catalogKey)
+            .execute()
         handle.createUpdate("DELETE FROM catalog_upgrade_queue WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", catalog.tenantKey)
             .bind("c", catalog.catalogKey)

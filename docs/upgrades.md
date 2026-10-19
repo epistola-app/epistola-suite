@@ -85,8 +85,13 @@ anything substantial.
 ## From 1.x to 2.0
 
 2.0 renders catalog releases deployed to environments, where 1.x rendered template versions
-activated per environment. Nothing of 1.x is lost (template, contract and stencil versions stay as
-history), but no 1.x release kept its content, so the upgrade cannot deploy anything for you:
+activated per environment. What each author was working on becomes the working copy, and what was
+last published becomes each catalog's first 2.0 release. The 1.x template, data contract and stencil
+versions and the environment activations are then removed; a summary of them (every version's
+number, status and dates, and what each environment had activated) is kept as the `app_metadata`
+record `upgrade-1x-history`, so a document or load-test run that names a 1.x version number can still
+be traced. The content of older published versions is not kept. No 1.x release kept its content
+either, so the upgrade cannot deploy anything for you:
 
 **Generation stops at the upgrade and resumes per environment as you deploy.** Plan the upgrade as
 that outage, and tell the teams whose applications request documents.

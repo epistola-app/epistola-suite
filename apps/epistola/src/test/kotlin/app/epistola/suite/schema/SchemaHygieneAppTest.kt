@@ -226,10 +226,6 @@ class SchemaHygieneAppTest : BaseIntegrationTest() {
     fun `owned rows name their parent's identity and no longer copy its address`() {
         val ownership = mapOf(
             "template_variants" to "template_resource_id",
-            "template_versions" to "template_resource_id",
-            "contract_versions" to "template_resource_id",
-            "environment_activations" to "template_resource_id",
-            "stencil_versions" to "stencil_resource_id",
             "code_list_entries" to "code_list_resource_id",
             "font_variants" to "font_resource_id",
             "quality_findings" to "template_resource_id",
@@ -247,8 +243,8 @@ class SchemaHygieneAppTest : BaseIntegrationTest() {
                 .describedAs("$table must not keep a copy of its parent's address")
                 .doesNotContain("catalog_key")
 
-            // The three whose parent's address was also in their key.
-            if (table in setOf("template_variants", "template_versions", "contract_versions")) {
+            // The one whose parent's address was also in its key.
+            if (table == "template_variants") {
                 assertThat(keys[table])
                     .describedAs("$table primary key")
                     .contains(identity)

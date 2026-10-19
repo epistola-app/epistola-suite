@@ -41,3 +41,7 @@ $$;
 
 CREATE TRIGGER trg_template_variants_load_test_runs AFTER DELETE ON template_variants
     FOR EACH ROW EXECUTE FUNCTION load_test_runs_follow_variant();
+
+-- 2.0 drops the 1.x template versions (V20261018201400). A run kept the number of the version it
+-- rendered; it stays as that number, without a reference to a version that is gone.
+ALTER TABLE load_test_runs DROP CONSTRAINT load_test_runs_version_fkey;

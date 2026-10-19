@@ -52,11 +52,15 @@ Rules:
   2.0 migrations were consolidated this way. `checkMigrationVersions` allows it
   for any path absent from `main`, and still refuses for anything on `main`.
   Rewriting resets local and test databases that ran the old files.
-- **One destructive exception: the 1.x releases.** The 2.0 upgrade
+- **One destructive exception: 1.x versioning.** The 2.0 upgrade
   (`V20261018201400`) deletes every `catalog_releases` row 1.x wrote. They held
   no content, only a number, a fingerprint and notes, and Exchange was not in
   use; each catalog gets a first 2.0 release numbered after the highest of them.
-  Decided for 2.0; it is not a precedent.
+  It also drops `template_versions`, `contract_versions`, `stencil_versions`
+  and `environment_activations`, after keeping what the first release is cut
+  from (`catalog_upgrade_published`) and a summary of the rest (the
+  `upgrade-1x-history` record in `app_metadata`). Decided for 2.0; it is not a
+  precedent.
 - **Never reuse a timestamp.** If `./gradlew test` fails with a Flyway
   duplicate-version error, bump your file's seconds by one and retry.
 - **Always append after the target branch.** Before opening or updating a PR,

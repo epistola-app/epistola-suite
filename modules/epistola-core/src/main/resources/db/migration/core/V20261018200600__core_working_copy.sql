@@ -1,8 +1,8 @@
 -- The catalog release is the only version (contract ADR 0002): a template variant holds one working
 -- model and a template one data contract, as stencils already do. What was published becomes ready.
 --
--- template_versions and contract_versions are left in place, unread by the working copy: they are
--- history, and a generation request queued before 2.0 still renders the version it named.
+-- template_versions and contract_versions stay until the upgrade migration has taken what the first
+-- release needs from them and summarised the rest (V20261018201400).
 
 ALTER TABLE template_variants
     ADD COLUMN template_model JSONB,

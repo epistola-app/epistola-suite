@@ -53,7 +53,7 @@ class TemplateContentV8MigrationTest {
 
         flyway(BEFORE).migrate()
         connect().use(::seed)
-        flyway(null).migrate()
+        flyway(BEFORE_VERSIONS_DROPPED).migrate()
         model = connect().use { mapper.readTree(single(it, "SELECT template_model::text FROM template_versions")) }
     }
 
@@ -222,5 +222,8 @@ class TemplateContentV8MigrationTest {
     private companion object {
         /** The last migration before the stencil working copy. */
         const val BEFORE = "20261018200300"
+
+        /** The last migration that still has the 1.x version tables this migration rewrote; the upgrade drops them. */
+        const val BEFORE_VERSIONS_DROPPED = "20261018201300"
     }
 }
