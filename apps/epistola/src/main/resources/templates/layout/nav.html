@@ -136,6 +136,7 @@
                     <a th:href="@{/}" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Switch tenant</a>
                     <a th:href="@{/api-docs}" class="app-nav-dropdown-item ws-menu-item" role="menuitem" hx-boost="false" target="_blank" rel="noopener">API docs</a>
                     <div class="ws-menu-sep"></div>
+                    <!--/* Not boosted: logging out may end at the identity provider, which HTMX cannot follow (LogoutNotBoostedTest). */-->
                     <form th:action="@{/logout}" method="post" class="ws-menu-form" hx-boost="false">
                         <button type="submit" class="app-nav-dropdown-item ws-menu-item" role="menuitem">Log out</button>
                     </form>
