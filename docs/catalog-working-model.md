@@ -16,7 +16,8 @@ SPDX-License-Identifier: AGPL-3.0-only
 > described below is not built: hotfixes follow ADR 0001, fitted to this model later. Dependencies are
 > exact pins checked per use. The current behaviour is in [catalog-versioning.md](catalog-versioning.md).
 > **Since 19 October 2026** (ADR 0002, rewritten as one decision): every draft is the same and any draft is
-> released on its own; _next version_ is only the default mark, and promotion only moves it.
+> released on its own; _next version_ is only the default mark, which parallel work takes over by being
+> published for everyday work to continue from (no separate promotion since 19 October 2026).
 
 ## The balance
 
@@ -132,7 +133,7 @@ and must be above every published one) or made the next version (scenario 5).
 - **Side work:** listed under the next version when there is any (_Fix of v1.2.0 (Production) — Continue_);
   a banner on every page while in it.
 - **Actions where they are needed:** _Fix what is live in X_ on the Live rows; _Set aside…_ on the next
-  version; _Make this the next version_ and _Discard_ on side work; _Take it over_ when something was
+  version; _Discard_ on side work, and publishing it asks where everyday work continues; _Take it over_ when something was
   published that the next version lacks.
 
 ## What it changes, technically

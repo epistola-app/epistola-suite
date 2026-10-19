@@ -4,6 +4,7 @@
 
 package app.epistola.suite.mcp.tools
 
+import app.epistola.suite.catalog.commands.ContinueEverydayWork
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.versions.AssessDraftNumber
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
@@ -13,7 +14,6 @@ import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.catalog.versions.DeleteCatalogDraft
 import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.catalog.versions.ListCatalogVersions
-import app.epistola.suite.catalog.versions.MakeNextVersion
 import app.epistola.suite.catalog.versions.RenameCatalogDraft
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mcp.dto.CatalogReleaseInfo
@@ -136,7 +136,9 @@ class CatalogVersionMcpTools {
             "number. Its changed resources must be marked ready (`get_catalog_changes`). A draft behind releases is " +
             "released only when `acknowledgedBehind` names every one. One that builds on drafts of other catalogs is " +
             "refused unless `releaseDependencies` releases those first. The draft becomes the release, keeping its " +
-            "`versionId`; the next version then continues on it. A release is immutable and can be deployed for " +
+            "`versionId`; the next version then continues on it. Parallel work released with `continueEverydayWork` " +
+            "becomes the next version on its release instead, and the previous next version is discarded with its " +
+            "changes, or kept as parallel work under `keepPreviousAs`; nothing is merged, so confirm with the user. A release is immutable and can be deployed for " +
             "generation, so release only when the user asks to. Requires the CATALOG_RELEASE permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
@@ -153,6 +155,10 @@ class CatalogVersionMcpTools {
         acknowledgedBehind: List<String>?,
         @McpToolParam(description = "Also release the drafts of other catalogs this draft builds on, first.", required = false)
         releaseDependencies: Boolean?,
+        @McpToolParam(description = "Releasing parallel work: everyday work continues from this release, which becomes the next version.", required = false)
+        continueEverydayWork: Boolean? = null,
+        @McpToolParam(description = "With `continueEverydayWork`: keep the previous next version as parallel work under this name. Omit to discard it.", required = false)
+        keepPreviousAs: String? = null,
     ): CatalogReleaseInfo {
         val catalogKey = CatalogKey.of(catalogId)
         val ref = draft?.takeIf { it.isNotBlank() }?.let(::draftRefOf)
@@ -165,33 +171,10 @@ class CatalogVersionMcpTools {
                 acknowledgedBehind = acknowledgedBehind.orEmpty().map { it.trim() }.toSet(),
                 catalogVersion = ref?.let { CatalogVersionRef(mcpTenantKey(), catalogKey, it) },
                 releaseDependencies = releaseDependencies == true,
+                continueEverydayWork = if (continueEverydayWork == true) ContinueEverydayWork(keepPreviousAs?.trim()?.takeIf { it.isNotEmpty() }) else null,
             ).execute(),
         )
     }
-
-    @McpTool(
-        name = "make_next_version",
-        description = "Make a draft the catalog's next version, where everyday work goes and what the content tools use " +
-            "by default. Neither draft's content or base changes. The previous next version is discarded with its " +
-            "changes, or kept as another draft under `keepPreviousAs`. Confirm with the user first. Requires the " +
-            "CATALOG_RELEASE permission.",
-        annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = true, idempotentHint = false),
-    )
-    fun makeNextVersion(
-        @McpToolParam(description = "Catalog key of an AUTHORED catalog. From `list_catalogs`.")
-        catalogId: String,
-        @McpToolParam(description = "The draft's `versionId`. From `list_catalog_versions`.")
-        draft: String,
-        @McpToolParam(description = "Keep the previous next version as a draft under this name. Omit to discard it.", required = false)
-        keepPreviousAs: String?,
-    ): CatalogVersionInfo = CatalogVersionInfo.from(
-        MakeNextVersion(
-            tenantKey = mcpTenantKey(),
-            catalogKey = CatalogKey.of(catalogId),
-            draft = draftRefOf(draft),
-            keepPreviousAs = keepPreviousAs?.trim()?.takeIf { it.isNotEmpty() },
-        ).execute(),
-    )
 
     private fun draftRefOf(raw: String): DraftRef = DraftRef.parse(raw.trim())
         ?: throw ValidationException("draft", "`draft` is `next` or a draft's `versionId` from `list_catalog_versions`")

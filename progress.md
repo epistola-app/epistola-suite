@@ -425,6 +425,14 @@ Noticed, not touched:
   can disagree. Unifying them is the remaining item of this follow-up.
 - Contract `a99594e` (subscribed catalogs list and install their source's releases) not adapted.
 
+### Promotion folded into publishing (19 October)
+
+`MakeNextVersion`, its UI dialog and route, and MCP `make_next_version` are gone. Publishing parallel
+work asks _After publishing_: everyday work carries on in the next version, or continues from the
+release (`ReleaseCatalogVersion.continueEverydayWork`, `NextVersionHandOver`), keeping the old next
+version by name or discarding it. Nothing is merged. Covered by `PromotionTest` (both new cases),
+`DraftDeploymentTest`, `CatalogDraftsHandlerHtmxTest`, `CatalogVersionMcpToolsIntegrationTest`.
+
 ### Contract catch-up 3: `a99594e`, `576d46a`, `3e3b00e` (19 October)
 
 | Change                                                                                                                                                                                                                                                                                                                                                                                                            | Where                                                                                                                 | Coverage                                                                                         |

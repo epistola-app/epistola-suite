@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.versions
 
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
+import app.epistola.suite.catalog.commands.ContinueEverydayWork
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
@@ -28,6 +29,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.withRequiredDataExample
@@ -40,8 +42,8 @@ import org.junit.jupiter.api.Test
 
 /**
  * Any draft is released on its own (contract ADR 0002, "Releasing any draft"), and the release keeps
- * the draft's id; which draft is the next version is this suite's convention, moved without touching
- * either draft's content or base.
+ * the draft's id. Which draft is the next version is this suite's convention: parallel work takes it
+ * over only by being released for everyday work to continue from, and nothing is merged.
  */
 class PromotionTest : IntegrationTestBase() {
 
@@ -120,38 +122,45 @@ class PromotionTest : IntegrationTestBase() {
         assertThat(releaseWork(tenant, redesign, version = "2.0.0", acknowledged = setOf("1.0.1")).version).isEqualTo("2.0.0")
     }
 
-    @Test
-    fun `a draft becomes the next version, the old one discarded, and neither base moves`() {
-        val (tenant, work) = withWork("promote-discard")
-        withMediator {
-            UpdateTheme(brand(tenant), name = "Brand redesigned", catalogVersion = at(tenant, work)).execute()
-            UpdateDocumentTemplate(invoice(tenant), name = "Invoice, fixed").execute()
-            mediator.releaseNext(catalogId(tenant)) // 1.0.1, which the work does not contain
-        }
-
-        val promoted = withMediator { MakeNextVersion(tenant, letters, DraftRef.Id(work)).execute() }
-
-        assertThat(promoted.isNext).isTrue()
-        assertThat(promoted.versionId).`as`("the same draft").isEqualTo(work)
-        assertThat(promoted.base).`as`("a base is fixed").isEqualTo("1.0.0")
-        assertThat(drafts(tenant).map { it.label }).containsExactly("Next version")
-        assertThat(withMediator { GetTheme(brand(tenant)).query()!! }.name).`as`("what callers mean now").isEqualTo("Brand redesigned")
+    private fun releaseForEverydayWork(tenant: TenantKey, work: String, keepPreviousAs: String? = null) = withMediator {
+        MarkCatalogReady(tenant, letters, catalogVersion = at(tenant, work)).execute()
+        ReleaseCatalogVersion(tenant, letters, catalogVersion = at(tenant, work), continueEverydayWork = ContinueEverydayWork(keepPreviousAs)).execute()
     }
 
     @Test
-    fun `the old next version can be kept as another draft under a name`() {
-        val (tenant, work) = withWork("promote-keep")
+    fun `parallel work released for everyday work to continue from becomes the next version on its release, and the old one's changes are not merged`() {
+        val (tenant, work) = withWork("continue-discard")
+        withMediator {
+            UpdateTheme(brand(tenant), name = "Brand redesigned", catalogVersion = at(tenant, work)).execute()
+            UpdateDocumentTemplate(invoice(tenant), name = "Invoice, fixed").execute() // in the next version, never published
+        }
+
+        val released = releaseForEverydayWork(tenant, work)
+
+        assertThat(released.versionId).`as`("the release keeps the draft's id").isEqualTo(work)
+        val next = drafts(tenant).single()
+        assertThat(next.isNext).isTrue()
+        assertThat(next.versionId).`as`("it continues under a new id").isNotEqualTo(work)
+        assertThat(next.base).`as`("measured against the release").isEqualTo(released.version)
+        assertThat(withMediator { GetTheme(brand(tenant)).query()!! }.name).isEqualTo("Brand redesigned")
+        assertThat(withMediator { GetDocumentTemplate(invoice(tenant)).query()!! }.name)
+            .`as`("the old next version was discarded, not merged").isEqualTo("Invoice")
+    }
+
+    @Test
+    fun `the old next version can be kept as parallel work under a name, and a name in use refuses the release`() {
+        val (tenant, work) = withWork("continue-keep")
         withMediator { UpdateTheme(brand(tenant), name = "Brand, small fix").execute() }
 
-        assertThatThrownBy { withMediator { MakeNextVersion(tenant, letters, DraftRef.Id(work), keepPreviousAs = "redesign 2027").execute() } }
+        assertThatThrownBy { releaseForEverydayWork(tenant, work, keepPreviousAs = "redesign 2027") }
             .`as`("a name another draft has").isInstanceOf(CatalogDraftNameInUseException::class.java)
-        withMediator { MakeNextVersion(tenant, letters, DraftRef.Id(work), keepPreviousAs = "Small fixes").execute() }
+        assertThat(drafts(tenant).map { it.versionId }).`as`("nothing was released").contains(work)
+
+        releaseForEverydayWork(tenant, work, keepPreviousAs = "Small fixes")
 
         val drafts = drafts(tenant)
-        assertThat(drafts.map { it.label to it.isNext }).containsExactly("Next version" to true, "Small fixes" to false)
+        assertThat(drafts.map { it.label to it.isNext }).containsExactlyInAnyOrder("Next version" to true, "Small fixes" to false)
         val kept = drafts.single { !it.isNext }
         assertThat(withMediator { GetTheme(brand(tenant), catalogVersion = CatalogVersionRef(tenant, letters, kept.draftRef!!)).query()!! }.name).isEqualTo("Brand, small fix")
-        assertThatThrownBy { withMediator { MakeNextVersion(tenant, letters, DraftRef.Next).execute() } }
-            .isInstanceOf(CatalogDraftIsNextException::class.java)
     }
 }

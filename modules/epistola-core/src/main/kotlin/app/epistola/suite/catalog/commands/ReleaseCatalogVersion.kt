@@ -44,7 +44,9 @@ import app.epistola.suite.catalog.versions.ChangeKind
 import app.epistola.suite.catalog.versions.DraftNumberAssessment
 import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.catalog.versions.GetCatalogDraft
+import app.epistola.suite.catalog.versions.NextVersionHandOver
 import app.epistola.suite.catalog.versions.UnreleasedDependency
+import app.epistola.suite.catalog.versions.validateDraftName
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.config.bindJsonb
 import app.epistola.suite.environments.DraftDeploymentStore
@@ -80,9 +82,11 @@ import java.util.UUID
  *   ([CatalogDependenciesUnreleasedException]) unless [releaseDependencies] releases those drafts
  *   first, each numbered by its own changes, in the same transaction; the release then pins the
  *   releases they became.
- * - The draft becomes the release, which keeps its id. Environment overrides that followed it end.
+ * - The draft becomes the release, which keeps its id; environments serving it serve the release.
  *   The next version, a convention of this suite, then continues on the release under a new id;
- *   another draft is gone. Declarations in other drafts that named it now pin the release.
+ *   parallel work is gone, unless [continueEverydayWork] makes it the next version, which then
+ *   continues on its release the same way. Declarations in other drafts that named it now pin the
+ *   release.
  *
  * See [`docs/catalog-versioning.md`](../../../../../../../../../docs/catalog-versioning.md).
  */
@@ -112,11 +116,28 @@ data class ReleaseCatalogVersion(
      * so no API can set it.
      */
     internal val imported: ImportedRelease? = null,
+    /**
+     * Releasing parallel work only: everyday work continues from this release, as the next version
+     * does from its own ([app.epistola.suite.catalog.versions.NextVersionHandOver]). Null leaves the
+     * next version as it is. A convention of this suite; the contract does not know it.
+     */
+    val continueEverydayWork: ContinueEverydayWork? = null,
 ) : CatalogVersionScoped,
     Command<ReleaseCatalogVersionResult>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_RELEASE
+
+    init {
+        continueEverydayWork?.keepPreviousAs?.let(::validateDraftName)
+    }
 }
+
+/**
+ * Everyday work continues from the release of parallel work: the draft that was the next version is
+ * kept as parallel work called [keepPreviousAs], or discarded with its changes when that is null.
+ * Its changes are not merged into the release.
+ */
+data class ContinueEverydayWork(val keepPreviousAs: String? = null)
 
 /**
  * What the caller wants to happen to publication for this one release.
@@ -175,6 +196,7 @@ class ReleaseCatalogVersionHandler(
     private val dependencyStore: CatalogDependencyStore,
     private val drafts: CatalogDrafts,
     private val targeting: CatalogVersionTargeting,
+    private val handOver: NextVersionHandOver,
 ) : CommandHandler<ReleaseCatalogVersion, ReleaseCatalogVersionResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -189,6 +211,9 @@ class ReleaseCatalogVersionHandler(
         val draft = jdbi.withHandle<CatalogDraft?, Exception> { handle ->
             drafts.find(handle, command.tenantKey, command.catalogKey, command.catalogVersion?.draft ?: DraftRef.Next)
         } ?: throw CatalogVersionNotFoundException(command.catalogKey, command.catalogVersion?.draft?.toString() ?: DraftRef.NEXT)
+        val keepAs = command.continueEverydayWork?.keepPreviousAs?.trim()
+        val handsOver = command.continueEverydayWork != null && !draft.isNext
+        if (handsOver) jdbi.useHandle<Exception> { handOver.check(it, command.tenantKey, command.catalogKey, draft, keepAs) }
 
         // Drafts of other catalogs this one builds on are released first, or the release is refused.
         val releasedDependencies = targeting.within(draft.versionId) { releaseDependencies(command, draft) }
@@ -448,7 +473,10 @@ class ReleaseCatalogVersionHandler(
             // The draft became the release, keeping its id: environments serving it serve the release
             // (contract ADR 0003), logged as released.
             DraftDeploymentStore.releaseFor(handle, command.tenantKey, draft.versionId, newVersion.toString())
-            if (draft.isNext) {
+            // Parallel work released for everyday work to continue from becomes the next version first.
+            val handsOver = command.continueEverydayWork != null && !draft.isNext
+            if (handsOver) handOver.apply(handle, command.tenantKey, command.catalogKey, draft, command.continueEverydayWork.keepPreviousAs?.trim())
+            if (draft.isNext || handsOver) {
                 // The next version, a convention of this suite, continues on this release: the same
                 // row, its content the release's, under a new id, now measured against it.
                 drafts.advance(handle, command.tenantKey, draft.versionId, base = newVersion.toString())

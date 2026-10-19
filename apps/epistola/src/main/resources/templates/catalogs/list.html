@@ -210,6 +210,29 @@
                         It will be published as <strong th:text="'v' + ${releaseVersion}">v1.1.0</strong>.
                     </p>
 
+                    <!--/* Parallel work: whether everyday work carries on in the next version, or from this
+                           version once it is published. Nothing is merged either way, so it says what
+                           happens to the next version's own changes. */-->
+                    <div th:if="${readiness.drafts.onParallelWork}" class="form-group" data-testid="publish-afterwards">
+                        <span class="ep-label">After publishing</span>
+                        <label style="display: flex; gap: var(--ep-space-2);">
+                            <input type="radio" name="afterwards" value="stay" th:checked="${afterwards == 'stay'}" data-testid="publish-afterwards-stay">
+                            <span>Everyday work carries on in the next version, as now</span>
+                        </label>
+                        <label style="display: flex; gap: var(--ep-space-2);">
+                            <input type="radio" name="afterwards" value="keep" th:checked="${afterwards == 'keep'}" data-testid="publish-afterwards-keep">
+                            <span>Everyday work continues from this version; keep the current next version as parallel work, named</span>
+                        </label>
+                        <input type="text" name="keepAs" class="ep-input" maxlength="100" th:value="${keepAs}"
+                               style="margin: var(--ep-space-1) 0 var(--ep-space-2) var(--ep-space-6); width: calc(100% - var(--ep-space-6));"
+                               aria-label="Name to keep the current next version under">
+                        <label style="display: flex; gap: var(--ep-space-2);">
+                            <input type="radio" name="afterwards" value="discard" th:checked="${afterwards == 'discard'}" data-testid="publish-afterwards-discard">
+                            <span>Everyday work continues from this version; discard the current next version, with every change in it that is not published</span>
+                        </label>
+                        <p class="form-hint">Changes are never merged: the next version's own changes stay in it, or go with it.</p>
+                    </div>
+
                     <!--/* What blocks publishing that publishing cannot do itself, in a sentence each. */-->
                     <div th:if="${readiness.publishBlocked}" class="alert alert-warning" data-testid="release-blocked">
                         <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />

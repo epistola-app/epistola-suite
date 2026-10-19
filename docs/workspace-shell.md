@@ -34,7 +34,7 @@ build one — the catalog's segment as `workspaceCatalog` (the quality report do
 - **Version (Next version ▾):** the next version nearly always. The menu holds the advanced cases out
   of the way: parallel work, each by its name and what it started from, _Start parallel work…_,
   and _Published versions_. Parallel work turns the bar amber, with a strip under it saying it is
-  kept apart from the next version, offering _Make this the next version…_, and a way back. Hotfixes of
+  kept apart from the next version, and a way back; publishing it asks whether everyday work continues from it. Hotfixes of
   what is deployed come later (contract ADR 0001), fitted to the next-version model.
 - **Status:** what the version has not published yet and **Publish…**, or, with nothing in progress,
   **Start the next version**. Loaded after the page (`/catalogs/{segment}/bar-status`), because

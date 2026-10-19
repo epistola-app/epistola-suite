@@ -203,9 +203,6 @@
             <strong th:if="${bar.followedByText != null}" data-testid="catalog-parallel-followed" th:text="${bar.followedByText} + '.'">Test follows it.</strong>
         </span>
         <span class="ep-row" style="gap: var(--ep-space-2);">
-            <button th:if="${bar.offerPromote}" type="button" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-promote-open"
-                    th:hx-get="@{/tenants/{t}/catalogs/{c}/promote(t=${bar.tenantKey},c=${bar.segmentValue})}"
-                    hx-target="#ws-dialog-mount" hx-swap="innerHTML">Make this the next version…</button>
             <a class="ep-btn ep-btn-outline ep-btn-sm" th:href="${bar.workHref}" data-testid="catalog-parallel-back">Back to the next version</a>
         </span>
     </div>

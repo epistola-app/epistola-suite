@@ -4,6 +4,7 @@
 
 package app.epistola.suite.environments
 
+import app.epistola.suite.catalog.commands.ContinueEverydayWork
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
@@ -13,7 +14,6 @@ import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.catalog.versions.DeleteCatalogDraft
 import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.catalog.versions.GetCatalogDraft
-import app.epistola.suite.catalog.versions.MakeNextVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -278,12 +278,16 @@ class DraftDeploymentTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a deployment names a draft by its id, so making another draft the next version does not move it`() {
+    fun `a deployment names a draft by its id, so another draft taking over the next version does not move it`() {
         val setup = setup("override-promote")
         val next = deployDraft(setup, test)
         val work = withMediator { CreateCatalogDraft(setup.tenant, default, name = "Redesign").execute() }
 
-        withMediator { MakeNextVersion(setup.tenant, default, DraftRef.Id(work.versionId), keepPreviousAs = "Old next").execute() }
+        withMediator {
+            val at = CatalogVersionRef(setup.tenant, default, DraftRef.Id(work.versionId))
+            MarkCatalogReady(setup.tenant, default, catalogVersion = at).execute()
+            ReleaseCatalogVersion(setup.tenant, default, catalogVersion = at, continueEverydayWork = ContinueEverydayWork(keepPreviousAs = "Old next")).execute()
+        }
 
         val deployed = withMediator { ListDeployments(setup.tenant, default, test).query() }.single { it.isDraft }
         assertThat(deployed.versionId).isEqualTo(next.versionId)

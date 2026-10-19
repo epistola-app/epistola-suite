@@ -206,9 +206,6 @@ data class CatalogDraftBar(
      */
     val offerRelease: Boolean get() = isNext && mayDiscardDrafts
 
-    /** Whether to offer making parallel work the next version (`CATALOG_RELEASE`). */
-    val offerPromote: Boolean get() = onParallelWork && mayDiscardDrafts
-
     /** Whether to offer discarding the chosen draft. */
     val offerDiscard: Boolean get() = authored && mayDiscardDrafts && chosen != null
 

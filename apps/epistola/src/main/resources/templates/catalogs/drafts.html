@@ -51,43 +51,6 @@
     <!--/* Make a draft the next version, where everyday work goes (a convention of this suite). Neither
            draft's content changes; the current next version is kept under a name, or discarded.
            Model: `tenantId`, `bar`, `segment`, `workName`, `keepAsSuggestion`, optionally `error`. */-->
-    <th:block th:fragment="promote-dialog">
-        <div th:replace="~{epistola-web/dialog :: dialog-shell(
-            dialogId='promote-dialog',
-            title='Make this the next version',
-            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/draft(tenantId=${tenantId},catalogId=${segment})},
-            content=~{::promote-form})}"></div>
-    </th:block>
-
-    <form th:fragment="promote-form" id="promote-form"
-          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/promote(tenantId=${tenantId},catalogId=${segment})}"
-          hx-target="#ws-dialog-mount" hx-swap="innerHTML">
-        <div class="ep-dialog-body">
-            <div th:if="${error != null}" class="alert alert-error" data-testid="promote-error" th:text="${error}"></div>
-            <p>
-                <strong th:text="${workName}">Redesign 2027</strong> becomes where everyday work goes, and what is
-                published next.
-            </p>
-            <div class="form-group">
-                <span class="ep-label">The current next version</span>
-                <label style="display: flex; gap: var(--ep-space-2);">
-                    <input type="radio" name="previous" value="keep" checked data-testid="promote-keep">
-                    <span>Keep it as parallel work, named</span>
-                </label>
-                <input type="text" name="keepAs" class="ep-input" maxlength="100" th:value="${keepAsSuggestion}"
-                       style="margin: var(--ep-space-1) 0 var(--ep-space-2) var(--ep-space-6); width: calc(100% - var(--ep-space-6));"
-                       aria-label="Name to keep the current next version under">
-                <label style="display: flex; gap: var(--ep-space-2);">
-                    <input type="radio" name="previous" value="discard" data-testid="promote-discard">
-                    <span>Discard it, with every change not published yet</span>
-                </label>
-            </div>
-        </div>
-        <div class="ep-dialog-footer">
-            <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="promote-dialog">Cancel</button>
-            <button type="submit" class="ep-btn ep-btn-primary" data-testid="promote-submit">Make it the next version</button>
-        </div>
-    </form>
     <!--/* Trying a draft on an environment: it then uses the draft, live, as its latest version of the
            catalog. Production uses only published versions, so it is listed but not offered. */-->
     <th:block th:fragment="follow-dialog">

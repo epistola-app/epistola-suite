@@ -498,13 +498,20 @@ it per catalog.
 - **Over MCP** nothing deploys; `preview_document` and `analyze_template_data` with an
   `environmentId` render what the environment serves.
 
-## Making a draft the next version
+## Everyday work continuing from parallel work
 
-Which draft is the next version is only a default: any draft is released as it is.
-`MakeNextVersion` moves the mark to another draft. Neither draft's base moves and nothing is
-acknowledged; the draft that was the next version is discarded (held resources refuse it, as
-discarding does) or kept under `keepPreviousAs`. REST has no promote operation; MCP has
-`make_next_version`, the UI _Make this the next version…_ on the draft's banner.
+Which draft is the next version is only a default: any draft is released as it is. There is no
+separate operation to move the mark. Parallel work takes it over when it is published for everyday
+work to continue from (`ReleaseCatalogVersion.continueEverydayWork`, `NextVersionHandOver`): the
+release is made, and the draft continues on it as the next version, as the next version does on its
+own release. The draft that was the next version is discarded with its changes (held resources and
+other catalogs' drafts naming it refuse that, as discarding does) or kept as parallel work under
+`keepPreviousAs`. Nothing is merged. A name in use, or a refused discard, refuses the release too.
+
+In the UI the publish dialog of parallel work asks _After publishing_: everyday work carries on in the
+next version (the default), or continues from this version, keeping or discarding the next version.
+MCP `release_draft` takes `continueEverydayWork` and `keepPreviousAs`. REST has neither: the next
+version is this suite's convention, not the contract's.
 
 ## Exporting a release
 
@@ -616,12 +623,12 @@ To regenerate after an intentional change: run the test, paste the reported
 
 ## Surfaces
 
-| Surface  | Exposure                                                                                                                                                                       |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Web UI   | Version column (`v<version>` / `unreleased`); drafts (start, discard, make the next version, publish any with `acknowledgedBehind`)                                            |
-| REST     | Catalog versions: list, create a draft, rename, discard, preview a draft's release number, release a draft (`…/versions/{next, version id or number}/…`)                       |
-| MCP      | `list_catalog_versions`, `start_draft`, `rename_draft`, `discard_draft`, `preview_release_number`, `release_draft`, `make_next_version`; `catalogVersion` on the content tools |
-| Exchange | `ReleaseInfo.fingerprint` in the manifest; `schemaVersion` 4                                                                                                                   |
+| Surface  | Exposure                                                                                                                                                                                |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web UI   | Version column (`v<version>` / `unreleased`); drafts (start, discard, make the next version, publish any with `acknowledgedBehind`)                                                     |
+| REST     | Catalog versions: list, create a draft, rename, discard, preview a draft's release number, release a draft (`…/versions/{next, version id or number}/…`)                                |
+| MCP      | `list_catalog_versions`, `start_draft`, `rename_draft`, `discard_draft`, `preview_release_number`, `release_draft` (with `continueEverydayWork`); `catalogVersion` on the content tools |
+| Exchange | `ReleaseInfo.fingerprint` in the manifest; `schemaVersion` 4                                                                                                                            |
 
 ## Roadmap
 

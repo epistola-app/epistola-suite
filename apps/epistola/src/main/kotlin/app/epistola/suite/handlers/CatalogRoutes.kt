@@ -51,8 +51,6 @@ class CatalogRoutes(
             POST("/{catalogId}/follow", drafts::follow)
             POST("/{catalogId}/unfollow", drafts::unfollow)
             // Parallel work becomes the next version when it is ready.
-            GET("/{catalogId}/promote", drafts::promoteForm)
-            POST("/{catalogId}/promote", drafts::promote)
             // Preparing the next release: readiness, declared dependencies
             POST("/{catalogId}/ready", nextRelease::markReady)
             GET("/{catalogId}/dependencies/edit", nextRelease::dependenciesForm)

@@ -440,11 +440,11 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `making parallel work the next version keeps the old one by name, and neither base moves`() = fixture {
+    fun `publishing parallel work can let everyday work continue from it, keeping the old next version by name`() = fixture {
         lateinit var tenant: Tenant
         lateinit var work: String
         given {
-            tenant = tenant("Drafts Promote")
+            tenant = tenant("Drafts Continue")
             work = withRedesign(tenant)
             withMediator {
                 MarkCatalogReady(tenant.id, letters).execute()
@@ -452,17 +452,18 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             }
         }
         whenever {
-            val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/promote").body!!
-            assertThat(dialog).doesNotContain("acknowledgedBehind").contains("value=\"Next version before Redesign\"")
-            val refused = postForm("/tenants/${tenant.id}/catalogs/letters@$work/promote", mapOf("previous" to "keep", "keepAs" to ""))
+            val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/release").body!!
+            assertThat(dialog).contains("data-testid=\"publish-afterwards\"").contains("value=\"Next version before Redesign\"")
+            val publish = mapOf("version" to "1.0.2", "acknowledgedBehind" to "1.0.1", "afterwards" to "keep")
+            val refused = postForm("/tenants/${tenant.id}/catalogs/letters@$work/release", publish + ("keepAs" to ""))
             assertThat(refused.statusCode.value()).`as`("a refusal is not a success").isEqualTo(422)
-            assertThat(refused.headers.getFirst("HX-Reswap")).isEqualTo("innerHTML")
-            postForm("/tenants/${tenant.id}/catalogs/letters@$work/promote", mapOf("previous" to "keep", "keepAs" to "Old"))
+            assertThat(refused.body).contains("Give the current next version a name")
+            postForm("/tenants/${tenant.id}/catalogs/letters@$work/release", publish + ("keepAs" to "Old"))
         }
         then {
             assertThat(result<ResponseEntity<String>>().headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters/browse")
-            assertThat(drafts(tenant)).containsExactly("Next version", "Old")
-            assertThat(withMediator { GetDocumentTemplate(invoice(tenant)).query() }!!.name).isEqualTo("Invoice redesigned")
+            assertThat(drafts(tenant)).containsExactlyInAnyOrder("Next version", "Old")
+            assertThat(withMediator { GetDocumentTemplate(invoice(tenant)).query() }!!.name).`as`("everyday work continues from the redesign").isEqualTo("Invoice redesigned")
         }
     }
 

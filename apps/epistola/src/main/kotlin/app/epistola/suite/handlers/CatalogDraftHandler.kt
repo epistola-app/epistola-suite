@@ -13,7 +13,6 @@ import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.catalog.versions.DeleteCatalogDraft
 import app.epistola.suite.catalog.versions.DraftRef
-import app.epistola.suite.catalog.versions.MakeNextVersion
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
@@ -135,72 +134,6 @@ class CatalogDraftHandler(
         } catch (e: CatalogVersionHeldException) {
             catalogs.browseWithError(request, segment, e.message ?: "The draft cannot be discarded.")
         }
-    }
-
-    /** `GET /{catalogId}/promote` at parallel work: the dialog making it the next version. */
-    fun promoteForm(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.CATALOG_RELEASE)
-        val segment = request.catalogSegment()
-        val bar = bar(tenantId, segment)
-        val work = bar.chosen?.takeIf { bar.onParallelWork } ?: return ServerResponse.notFound().build()
-        return request.htmx {
-            fragment("catalogs/drafts", "promote-dialog") {
-                promoteModel(tenantId, segment, bar, work)
-            }
-            onFullPage { redirect(CatalogPages.draft(tenantId, segment)) }
-        }
-    }
-
-    /**
-     * `POST /{catalogId}/promote` at parallel work, with `previous` (`keep` with `keepAs`, or
-     * `discard`) and `acknowledgedBehind` per release it is behind: makes it the next version and lands
-     * on the catalog. A refusal comes back in the dialog.
-     */
-    fun promote(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.CATALOG_RELEASE)
-        val segment = request.catalogSegment()
-        val bar = bar(tenantId, segment)
-        val work = bar.chosen?.takeIf { bar.onParallelWork } ?: return ServerResponse.notFound().build()
-        val keep = request.param("previous").orElse("keep") != "discard"
-        val keepAs = request.param("keepAs").orElse("").trim().ifBlank { null }
-
-        // Refused: the dialog again with why, a 422 so nothing takes it for done.
-        fun refused(message: String) = request.htmx {
-            fragment("catalogs/drafts", "promote-dialog") {
-                promoteModel(tenantId, segment, bar, work)
-                "error" to message
-            }
-            reswap(HxSwap.INNER_HTML)
-            status(422)
-            onFullPage { redirect(CatalogPages.draft(tenantId, segment)) }
-        }
-        if (keep && keepAs == null) return refused("Give the current next version a name to keep it under.")
-        return try {
-            MakeNextVersion(tenantId.key, segment.key, DraftRef.Id(work.versionId), keepPreviousAs = keepAs.takeIf { keep }).execute()
-            val target = CatalogPages.browse(tenantId, segment.at(null))
-            request.htmx {
-                dialogLocation(target)
-                onFullPage { redirect(target) }
-            }
-        } catch (e: CatalogDraftNameInUseException) {
-            refused("Other work is called that already. Choose another name.")
-        } catch (e: CatalogDraftInUseException) {
-            refused(e.message ?: "Another catalog builds on the current next version.")
-        } catch (e: CatalogVersionHeldException) {
-            refused(e.message ?: "The next version cannot be discarded.")
-        } catch (e: ValidationException) {
-            refused(e.message)
-        }
-    }
-
-    private fun ModelBuilder.promoteModel(tenantId: TenantId, segment: CatalogSegment, bar: CatalogDraftBar, work: CatalogVersion) {
-        "tenantId" to tenantId.key
-        "bar" to bar
-        "segment" to segment.value
-        "workName" to work.label
-        "keepAsSuggestion" to "Next version before ${work.label}".take(100)
     }
 
     /**

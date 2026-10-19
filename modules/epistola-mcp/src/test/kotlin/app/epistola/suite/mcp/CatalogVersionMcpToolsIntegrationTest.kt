@@ -212,16 +212,20 @@ class CatalogVersionMcpToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a draft is made the next version, keeping the old one by name`() {
+    fun `parallel work released for everyday work becomes the next version, keeping the old one by name`() {
         val tenantId = newTenant()
         released(tenantId)
         val redesign = work(tenantId, "Redesign")
         runAsApiKey(tenantId) { themeTools.updateTheme("default", "brand", "Brand redesigned", null, null, null, null, null, null, null, catalogVersion = redesign) }
 
-        val promoted = runAsApiKey(tenantId) { versionTools.makeNextVersion("default", redesign, "Old next") }
+        val release = runAsApiKey(tenantId) {
+            readyTools.markCatalogReady("default", catalogVersion = redesign)
+            versionTools.releaseDraft("default", redesign, null, null, null, null, continueEverydayWork = true, keepPreviousAs = "Old next")
+        }
 
-        assertThat(promoted.isNext).isTrue()
-        assertThat(runAsApiKey(tenantId) { versionTools.listCatalogVersions("default", "DRAFT") }.map { it.name }).containsExactly("Next version", "Old next")
+        assertThat(release.versionId).isEqualTo(redesign)
+        assertThat(runAsApiKey(tenantId) { versionTools.listCatalogVersions("default", "DRAFT") }.map { it.name to it.isNext })
+            .containsExactlyInAnyOrder("Next version" to true, "Old next" to false)
         assertThat(runAsApiKey(tenantId) { themeTools.getTheme("default", "brand")!!.name }).isEqualTo("Brand redesigned")
     }
 }

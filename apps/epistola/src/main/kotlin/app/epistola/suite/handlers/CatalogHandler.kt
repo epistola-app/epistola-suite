@@ -22,6 +22,7 @@ import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.commands.CheckCatalogUpstream
+import app.epistola.suite.catalog.commands.ContinueEverydayWork
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeleteCatalog
 import app.epistola.suite.catalog.commands.DeleteCatalogRelease
@@ -423,6 +424,8 @@ class CatalogHandler {
         acknowledged: Set<String> = emptySet(),
         liveChosen: Set<String>? = null,
         replaceChosen: Boolean = false,
+        afterwards: String = "stay",
+        keepAs: String? = null,
     ): Map<String, Any?> {
         val readiness = CatalogReleaseReadiness.of(draftBar(tenantId, segment))
         val status = GetLatestCatalogRelease(tenantId.key, segment.key).query()
@@ -450,6 +453,9 @@ class CatalogHandler {
             "releaseVersion" to (version ?: readiness.publishVersion ?: status.suggestedNext.patch),
             "publication" to publication,
             "error" to error,
+            // Publishing parallel work: where everyday work continues (`stay`, `keep`, `discard`).
+            "afterwards" to afterwards,
+            "keepAs" to (keepAs ?: readiness.drafts.chosen?.let { "Next version before ${it.label}".take(100) }),
         )
     }
 
@@ -477,6 +483,9 @@ class CatalogHandler {
         val liveIn = request.params()["liveIn"].orEmpty().map { it.trim() }.filter { it.isNotEmpty() }.toCollection(LinkedHashSet())
         // Deployed beside what each environment uses, unless the publisher chose to stop using those.
         val replaceLive = request.param("replaceLive").orElse("") == "true"
+        // Publishing parallel work: whether everyday work continues from it, and what becomes of the next version.
+        val afterwards = request.param("afterwards").orElse("stay").takeIf { it in setOf("stay", "keep", "discard") } ?: "stay"
+        val keepAs = request.param("keepAs").orElse("").trim().ifEmpty { null }
 
         fun reRenderWithError(message: String): ServerResponse = refusedDialog(
             request,
@@ -490,12 +499,15 @@ class CatalogHandler {
                 acknowledged = acknowledged,
                 liveChosen = liveIn,
                 replaceChosen = replaceLive,
+                afterwards = afterwards,
+                keepAs = keepAs,
             ),
         )
 
         if (form.hasErrors()) {
             return reRenderWithError("Version must be SemVer — MAJOR.MINOR.PATCH (e.g. 1.4.0).")
         }
+        if (afterwards == "keep" && keepAs == null) return reRenderWithError("Give the current next version a name to keep it under.")
 
         val notes = form.formData["notes"]?.ifBlank { null }
         val publicationChoice = when {
@@ -529,6 +541,11 @@ class CatalogHandler {
                 catalogVersion = segment.ref(tenantId.key),
                 // The drafts of other catalogs it builds on, which the dialog lists, are released with it.
                 releaseDependencies = true,
+                continueEverydayWork = when (afterwards) {
+                    "keep" -> ContinueEverydayWork(keepPreviousAs = keepAs)
+                    "discard" -> ContinueEverydayWork()
+                    else -> null
+                },
             ).execute()
 
             // Then live where it was ticked. Published already, so a refusal says that it is, and

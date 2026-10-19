@@ -94,33 +94,8 @@ data class DeleteCatalogDraft(
     override val permission get() = Permission.CATALOG_RELEASE
 }
 
-/**
- * Makes a draft the catalog's next version: the draft everyday work goes into, a convention of this
- * suite that the contract does not know. Nothing about either draft's content or base changes.
- *
- * The draft that was the next version is discarded with its changes, or, with [keepPreviousAs], kept
- * as another draft under that name.
- *
- * Refused for the next version itself, for a name another draft has, and while the next version,
- * when discarded, alone holds what something outside it uses ([CatalogVersionHeldException]) or is
- * named by another catalog's draft ([CatalogDraftInUseException]).
- */
-data class MakeNextVersion(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
-    val draft: DraftRef,
-    val keepPreviousAs: String? = null,
-) : Command<CatalogVersion>,
-    RequiresPermission {
-    override val permission get() = Permission.CATALOG_RELEASE
-
-    init {
-        keepPreviousAs?.let(::validateDraftName)
-    }
-}
-
 /** A draft has no name the user cannot see, nor one that reads as the next version. */
-private fun validateDraftName(name: String) {
+internal fun validateDraftName(name: String) {
     validate("name", name.isNotBlank(), ValidationCode.GENERIC) { "Give the work a name" }
     validate("name", name.length <= FieldLimits.MAX_NAME_LENGTH, ValidationCode.GENERIC) { "A name is at most ${FieldLimits.MAX_NAME_LENGTH} characters" }
     validate("name", !name.trim().equals(CatalogDraft.NEXT_LABEL, ignoreCase = true) && !name.trim().equals(DraftRef.NEXT, ignoreCase = true), ValidationCode.GENERIC) {
@@ -170,37 +145,44 @@ class CreateCatalogDraftHandler(
     }
 }
 
+/**
+ * The next version, a convention of this suite, handed to parallel work as it is released
+ * ([app.epistola.suite.catalog.commands.ReleaseCatalogVersion.continueEverydayWork]): everyday work
+ * then continues from that release. The draft that was the next version is discarded with its
+ * changes, or, with `keepAs`, kept as parallel work under that name. Nothing is merged.
+ */
 @Component
-class MakeNextVersionHandler(
-    private val jdbi: Jdbi,
+class NextVersionHandOver(
     private val drafts: CatalogDrafts,
-    private val versions: CatalogVersionReader,
     private val holdersCheck: DeleteCatalogDraftHandler,
     private val dependencyStore: CatalogDependencyStore,
-) : CommandHandler<MakeNextVersion, CatalogVersion> {
-    override fun handle(command: MakeNextVersion): CatalogVersion {
-        requireCatalogEditable(command.tenantKey, command.catalogKey)
-        val (tenantKey, catalogKey) = command.tenantKey to command.catalogKey
-        return jdbi.inTransaction<CatalogVersion, Exception> { handle ->
-            val open = drafts.drafts(handle, tenantKey, catalogKey)
-            val work = drafts.find(handle, tenantKey, catalogKey, command.draft) ?: throw CatalogVersionNotFoundException(catalogKey, command.draft.toString())
-            if (work.isNext) throw CatalogDraftIsNextException(catalogKey, "The next version of catalog '${catalogKey.value}' is the next version already")
-            val previous = open.firstOrNull { it.isNext }
-            val keepAs = command.keepPreviousAs?.trim()
-            if (keepAs != null && open.any { it.versionId != previous?.versionId && it.name.equals(keepAs, ignoreCase = true) }) {
-                throw CatalogDraftNameInUseException(catalogKey, keepAs)
-            }
-            if (previous != null && keepAs == null) {
-                val holders = holdersCheck.holders(handle, tenantKey, previous.versionId)
-                if (holders.isNotEmpty()) throw CatalogVersionHeldException(catalogKey, previous.label, holders)
-                val namedBy = dependencyStore.namedBy(handle, tenantKey, previous.versionId)
-                if (namedBy.isNotEmpty()) throw CatalogDraftInUseException(catalogKey, previous.label, namedBy)
-                // The previous next version is discarded: environments serving it stop, in their history.
-                DraftDeploymentStore.endFor(handle, tenantKey, previous.versionId)
-            }
-            drafts.promote(handle, tenantKey, work.versionId, previous?.versionId, keepAs)
-            versions.all(handle, tenantKey, catalogKey).first { it.status == CatalogVersionStatus.DRAFT && it.versionId == work.key }
+) {
+    /**
+     * Refuses the hand-over before anything is released: for a name another draft has, and while the
+     * next version, when discarded, alone holds what something outside it uses
+     * ([CatalogVersionHeldException]) or is named by another catalog's draft ([CatalogDraftInUseException]).
+     */
+    fun check(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, work: CatalogDraft, keepAs: String?) {
+        val open = drafts.drafts(handle, tenantKey, catalogKey)
+        val previous = open.firstOrNull { it.isNext } ?: return
+        if (keepAs != null && open.any { it.versionId != previous.versionId && it.name.equals(keepAs, ignoreCase = true) }) {
+            throw CatalogDraftNameInUseException(catalogKey, keepAs)
         }
+        if (keepAs == null) {
+            val holders = holdersCheck.holders(handle, tenantKey, previous.versionId)
+            if (holders.isNotEmpty()) throw CatalogVersionHeldException(catalogKey, previous.label, holders)
+            val namedBy = dependencyStore.namedBy(handle, tenantKey, previous.versionId)
+            if (namedBy.isNotEmpty()) throw CatalogDraftInUseException(catalogKey, previous.label, namedBy)
+        }
+        check(work.versionId != previous.versionId) { "the next version is the next version already" }
+    }
+
+    /** Makes [work] the next version, after [check]; the caller then advances it onto its release. */
+    fun apply(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, work: CatalogDraft, keepAs: String?) {
+        val previous = drafts.drafts(handle, tenantKey, catalogKey).firstOrNull { it.isNext }
+        // A discarded next version stops being served where it was deployed, in the history.
+        if (previous != null && keepAs == null) DraftDeploymentStore.endFor(handle, tenantKey, previous.versionId)
+        drafts.promote(handle, tenantKey, work.versionId, previous?.versionId, keepAs)
     }
 }
 
