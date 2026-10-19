@@ -144,6 +144,24 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
 
     private fun get(url: String): ResponseEntity<String> = restTemplate.getForEntity(url, String::class.java)
 
+    @Test
+    fun `the deployments page lets an environment follow a draft, not production, and stop again`() {
+        val tenant = setup("deploy-follow")
+        val work: UUID = withMediator { requireNotNull(CreateCatalogDraft(tenant.id, letters, "Redesign").execute().draftId) }
+        val deployments = "/tenants/${tenant.id.value}/catalogs/letters/deployments"
+        fun envRow(page: String, key: String) = page.substringAfter("data-environment=\"$key\"").substringBefore("</tr>")
+
+        val before = get(deployments).body!!
+        assertThat(envRow(before, "test")).contains("value=\"draft:$work\"").contains("Redesign (follows its changes)")
+        assertThat(envRow(before, "production")).`as`("production uses only published versions").doesNotContain("draft:")
+
+        post(deployments, "environmentId" to "test", "version" to "draft:$work")
+        assertThat(envRow(get(deployments).body!!, "test")).contains("data-testid=\"catalog-deployment-follows\"").contains("Uses Redesign")
+
+        post("$deployments/test/unfollow")
+        assertThat(envRow(get(deployments).body!!, "test")).doesNotContain("catalog-deployment-follows")
+    }
+
     private fun getHtmx(url: String): ResponseEntity<String> = restTemplate.exchange(url, HttpMethod.GET, HttpEntity<Void>(HttpHeaders().apply { set("HX-Request", "true") }), String::class.java)
 
     private fun page(tenant: Tenant, environment: String): String = get("/tenants/${tenant.id.value}/environments/$environment").body!!

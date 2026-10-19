@@ -196,8 +196,8 @@
                 </p>
                 <th:block th:if="${!deployments.isEmpty()}">
                     <p th:if="${deployableVersions.isEmpty()}" class="text-muted">
-                        Nothing can be deployed yet: only a published version can.
-                        <th:block th:if="${catalog.type.name() == 'AUTHORED'}">Publish it first.</th:block>
+                        Nothing is published yet, so nothing can be deployed.
+                        <th:block th:if="${catalog.type.name() == 'AUTHORED'}">Publish it first; until then an environment that is not production can follow a draft.</th:block>
                     </p>
                     <p th:if="${!canDeploy and !deployableVersions.isEmpty()}" class="text-muted">
                         Deploying a version needs the permission to deploy.
@@ -236,21 +236,39 @@
                                                     data-confirm-submit-class="ep-btn-destructive">Undeploy</button>
                                         </form>
                                     </div>
-                                    <span th:if="${row.served.isEmpty() and row.implicit.isEmpty()}" class="text-muted">not deployed</span>
+                                    <!--/* Following a draft (or pinned to a version): what the environment really uses. */-->
+                                    <div th:if="${row.uses != null}" data-testid="catalog-deployment-follows"
+                                         style="display: flex; gap: var(--ep-space-2); align-items: center;">
+                                        <span class="badge badge-warning" th:text="'Uses ' + ${row.uses}">Uses Redesign</span>
+                                        <span class="text-muted" style="font-size: var(--ep-text-xs);">instead of what is deployed, as it is edited</span>
+                                        <form th:if="${canDeploy}" method="post" style="display: inline;"
+                                              th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments/{environmentId}/unfollow(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},environmentId=${row.environmentKey})}">
+                                            <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-deployment-unfollow">Stop following</button>
+                                        </form>
+                                    </div>
+                                    <span th:if="${row.served.isEmpty() and row.implicit.isEmpty() and row.uses == null}" class="text-muted">not deployed</span>
                                     <!--/* Used there without being deployed: a deployed catalog depends on it. */-->
                                     <div th:each="used : ${row.implicit}" class="text-muted text-sm" data-testid="catalog-deployment-implicit"
                                          th:text="'v' + ${used.version} + ', comes along with ' + ${#strings.listJoin(used.neededBy, ', ')}">v1.0.0, comes along with Letters</div>
                                 </td>
                                 <td class="actions">
-                                    <form th:if="${canDeploy and !deployableVersions.isEmpty()}"
+                                    <form th:if="${canDeploy and (!deployableVersions.isEmpty() or (!row.production and !followableDrafts.isEmpty()))}"
                                           method="post" style="display: inline-flex; gap: var(--ep-space-2);"
                                           th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}">
                                         <input type="hidden" name="environmentId" th:value="${row.environmentKey}">
-                                        <select name="version" class="ep-select ep-select-sm" required
+                                        <select name="version" class="ep-select ep-select-sm" required data-testid="catalog-deploy-version"
                                                 th:attr="aria-label='Version to deploy to ' + ${row.environmentName}">
-                                            <option th:each="version : ${deployableVersions}"
-                                                    th:value="${version}"
-                                                    th:text="'v' + ${version} + (${row.servedVersions.contains(version)} ? ' (deployed)' : '')">v1.0.0</option>
+                                            <optgroup th:if="${!deployableVersions.isEmpty()}" label="Published versions">
+                                                <option th:each="version : ${deployableVersions}"
+                                                        th:value="${version}"
+                                                        th:text="'v' + ${version} + (${row.servedVersions.contains(version)} ? ' (deployed)' : '')">v1.0.0</option>
+                                            </optgroup>
+                                            <!--/* Not for production: a draft changes as it is edited. */-->
+                                            <optgroup th:if="${!row.production and !followableDrafts.isEmpty()}" label="Follow a draft">
+                                                <option th:each="draft : ${followableDrafts}"
+                                                        th:value="'draft:' + ${draft.draftId}"
+                                                        th:text="${draft.label} + ' (follows its changes)'">Next version (follows its changes)</option>
+                                            </optgroup>
                                         </select>
                                         <label th:unless="${row.served.isEmpty()}" class="text-sm" style="display: flex; gap: var(--ep-space-1); align-items: center;">
                                             <input type="checkbox" name="replace" value="true" data-testid="catalog-deploy-replace">

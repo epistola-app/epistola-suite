@@ -59,13 +59,20 @@ import app.epistola.suite.catalog.queries.ResourceStatus
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.catalog.versions.CatalogVersionBehindException
 import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
+import app.epistola.suite.catalog.versions.CatalogVersionStatus
+import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.EnvironmentNotFoundException
+import app.epistola.suite.environments.ClearEnvironmentOverride
+import app.epistola.suite.environments.EnvironmentOverrideRefusedException
+import app.epistola.suite.environments.ListEnvironmentOverrides
 import app.epistola.suite.environments.ReleaseDependenciesMissingException
 import app.epistola.suite.environments.ReleaseNotDeployableException
+import app.epistola.suite.environments.SetEnvironmentOverride
 import app.epistola.suite.environments.commands.DeployRelease
 import app.epistola.suite.environments.commands.UndeployRelease
 import app.epistola.suite.environments.queries.ListDeployments
@@ -627,6 +634,17 @@ class CatalogHandler {
         val includeDependencies = request.param("includeDependencies").orElse("") == "true"
         // Beside what the environment serves, unless the deployer chose to stop using the others.
         val replace = request.param("replace").orElse("") == "true"
+        // A draft (`draft:<id>`) is followed rather than deployed: the environment uses it as it is edited.
+        version.removePrefix("draft:").takeIf { it != version }?.let { draft ->
+            val draftId = runCatching { java.util.UUID.fromString(draft) }.getOrNull()
+                ?: return deployments(request, error = "Choose a draft of this catalog to follow.")
+            return try {
+                SetEnvironmentOverride(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, draft = DraftRef.Id(draftId)).execute()
+                redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
+            } catch (failure: EnvironmentOverrideRefusedException) {
+                deployments(request, error = failure.message)
+            }
+        }
         return try {
             DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, version, includeDependencies, replace = replace).execute()
             redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
@@ -657,9 +675,20 @@ class CatalogHandler {
         return redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
     }
 
+    /** Stops an environment following a draft of this catalog: it uses what is deployed there again. */
+    fun unfollow(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.ENVIRONMENT_DEPLOY)
+        val catalogKey = request.catalogId()
+        ClearEnvironmentOverride(EnvironmentId(EnvironmentKey.of(request.pathVariable("environmentId")), tenantId), catalogKey).execute()
+        return redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
+    }
+
     /** One row per environment of the tenant, with every release of this catalog it serves, highest first. */
     private fun deploymentRows(tenantKey: TenantKey, catalogKey: CatalogKey): List<DeploymentRowView> {
         val served = ListDeployments(tenantKey, catalogKey).query().groupBy { it.environmentKey }
+        // An environment may use something else than what is deployed: a draft it follows, or a pinned version.
+        val overrides = ListEnvironmentOverrides(tenantKey, catalogKey = catalogKey).query().associateBy { it.environmentKey }
         val names by lazy { ListCatalogs(tenantKey).query().associate { it.id to it.name } }
         return ListEnvironments(tenantId = app.epistola.suite.common.ids.TenantId(tenantKey)).query().map { environment ->
             DeploymentRowView(
@@ -670,6 +699,7 @@ class CatalogHandler {
                 // Not deployed itself, but used there because a deployed catalog depends on it.
                 implicit = ListImplicitDeployments(tenantKey, environment.id).query().filter { it.catalogKey == catalogKey }
                     .map { ImplicitUseView(it.version, it.neededBy.map { key -> names[key] ?: key.value }) },
+                uses = overrides[environment.id]?.label,
             )
         }
     }
@@ -961,6 +991,12 @@ class CatalogHandler {
             val deployments = deploymentRows(tenantId.key, catalogKey)
             // Every release can be deployed. Newest first, as the list is.
             val deployableVersions = releases.map { it.version }
+            // The open drafts an environment can follow (not production): the next version and long-term work.
+            val followableDrafts = if (result.catalog.type == CatalogType.AUTHORED) {
+                ListCatalogVersions(tenantId.key, catalogKey).query().filter { it.status == CatalogVersionStatus.DRAFT && it.draftId != null }
+            } else {
+                emptyList()
+            }
             val releaseViews = releaseViews(releases, publication)
             // The catalog's page on Exchange, when it came from there. Null for a plain URL
             // subscription, a ZIP import, or an authored catalog — the view falls back to the text
@@ -1031,6 +1067,7 @@ class CatalogHandler {
                 "releases" to releaseViews
                 "deployments" to deployments
                 "deployableVersions" to deployableVersions
+                "followableDrafts" to followableDrafts
                 "publicationError" to error
                 "deployRefusal" to deployRefusal
                 "resources" to result.resources
@@ -1589,6 +1626,8 @@ class CatalogHandler {
         val production: Boolean = false,
         val served: List<ServedReleaseView>,
         val implicit: List<ImplicitUseView> = emptyList(),
+        /** What it uses instead of what is deployed (a followed draft, a pinned version); null when nothing. */
+        val uses: String? = null,
     ) {
         val servedVersions: Set<String> get() = served.mapTo(HashSet()) { it.version }
     }

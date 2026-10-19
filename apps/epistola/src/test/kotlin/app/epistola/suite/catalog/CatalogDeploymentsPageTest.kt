@@ -188,8 +188,9 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
 
         val body = live(tenant, "dep-norelease")
 
-        assertThat(body).contains("Nothing can be deployed yet")
-        assertThat(body).`as`("no deploy form with an empty select").doesNotContain("name=\"version\"")
+        assertThat(body).contains("Nothing is published yet")
+        assertThat(body).`as`("no published version to offer").doesNotContain("label=\"Published versions\"")
+        assertThat(body).`as`("an environment that is not production can follow the next version").contains("label=\"Follow a draft\"")
     }
 
     @Test
