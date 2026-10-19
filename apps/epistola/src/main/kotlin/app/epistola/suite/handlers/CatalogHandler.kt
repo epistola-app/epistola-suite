@@ -636,7 +636,7 @@ class CatalogHandler {
         val replace = request.param("replace").orElse("") == "true"
         // A draft (`draft:<id>`) is followed rather than deployed: the environment uses it as it is edited.
         version.removePrefix("draft:").takeIf { it != version }?.let { draft ->
-            val draftId = runCatching { java.util.UUID.fromString(draft) }.getOrNull()
+            val draftId = draft.takeIf { DraftRef.isKey(it) }
                 ?: return deployments(request, error = "Choose a draft of this catalog to follow.")
             return try {
                 SetEnvironmentOverride(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, draft = DraftRef.Id(draftId)).execute()
@@ -994,7 +994,7 @@ class CatalogHandler {
             val deployableVersions = releases.map { it.version }
             // The open drafts an environment can follow (not production): the next version and long-term work.
             val followableDrafts = if (result.catalog.type == CatalogType.AUTHORED) {
-                ListCatalogVersions(tenantId.key, catalogKey).query().filter { it.status == CatalogVersionStatus.DRAFT && it.draftId != null }
+                ListCatalogVersions(tenantId.key, catalogKey).query().filter { it.status == CatalogVersionStatus.DRAFT }
             } else {
                 emptyList()
             }
@@ -1630,7 +1630,7 @@ class CatalogHandler {
         /** What it uses instead of what is deployed (a followed draft, a pinned version); null when nothing. */
         val uses: String? = null,
         /** The draft it follows, when [uses] is one. */
-        val followsDraft: java.util.UUID? = null,
+        val followsDraft: String? = null,
     ) {
         val servedVersions: Set<String> get() = served.mapTo(HashSet()) { it.version }
 
@@ -1638,7 +1638,7 @@ class CatalogHandler {
         val inUse: String? get() = served.firstOrNull()?.version
 
         /** The environments following the draft [draftId]. */
-        fun follows(draftId: java.util.UUID?): Boolean = draftId != null && followsDraft == draftId
+        fun follows(draftId: String?): Boolean = draftId != null && followsDraft == draftId
     }
 
     /** A version of this catalog an environment uses because [neededBy] (catalog names) depend on it. */

@@ -24,6 +24,7 @@ import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.template.model.ThemeRefOverride
 import org.assertj.core.api.Assertions.assertThat
@@ -61,7 +62,7 @@ class StencilCrossCatalogDependencyTest : IntegrationTestBase() {
             CreateStencil(header, "Header").execute()
             UpdateStencil(header, content = bindsSystemFont()).execute()
 
-            ExportCatalogZip(tenantKey = tenant.id, catalogKey = source).execute()
+            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(source, app.epistola.suite.common.ids.TenantId(tenant.id)))
         }
 
         val dependencies = manifestOf(zip.zipBytes).dependencies.orEmpty()
@@ -80,7 +81,7 @@ class StencilCrossCatalogDependencyTest : IntegrationTestBase() {
             CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(source, tenantId)), "Brand").execute()
             CreateStencil(header, "Header").execute()
             UpdateStencil(header, content = usesOwnCatalogTheme()).execute()
-            ExportCatalogZip(tenantKey = tenant.id, catalogKey = source).execute()
+            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(source, app.epistola.suite.common.ids.TenantId(tenant.id)))
         }
 
         // Storage is absolute so relocation is safe; the wire form must stay relative, otherwise

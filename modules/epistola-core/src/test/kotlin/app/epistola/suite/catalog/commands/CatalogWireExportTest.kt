@@ -46,6 +46,7 @@ import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -142,7 +143,7 @@ class CatalogWireExportTest : IntegrationTestBase() {
             ).execute()
             MarkVariantReady(VariantId(VariantKey.INITIAL, templateId)).execute()
 
-            val zip = ExportCatalogZip(tenantKey, catalogKey).execute()
+            val zip = mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey)))
             val entries = ZipInputStream(ByteArrayInputStream(zip.zipBytes)).use { z ->
                 generateSequence { z.nextEntry }.map { it.name }.toList()
             }

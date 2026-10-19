@@ -14,6 +14,7 @@ import app.epistola.suite.catalog.commands.ImportTemplateInput
 import app.epistola.suite.catalog.commands.ImportTemplates
 import app.epistola.suite.catalog.commands.ImportVariantInput
 import app.epistola.suite.catalog.commands.InstallStatus
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
@@ -34,6 +35,7 @@ import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
@@ -42,6 +44,7 @@ import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -164,7 +167,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
             val variantId = VariantId(VariantKey.INITIAL, templateId)
             UpdateVariantContent(variantId = variantId, templateModel = documentWithCondition("jsonata")).execute()
             MarkVariantReady(variantId).execute()
-            ExportCatalogZip(tenantKey = source.id, catalogKey = catalogKey).execute().zipBytes
+            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(source.id))).zipBytes
         }
 
         // A hand-edited archive: the publisher switched the expression to JavaScript.
@@ -177,13 +180,11 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
             entries[name] = json.replace("\"language\":\"jsonata\"", "\"language\":\"javascript\"").toByteArray()
         }
 
-        val result = withMediator {
-            ImportCatalogZip(tenantKey = target.id, zipBytes = rezip(entries), catalogType = CatalogType.AUTHORED).execute()
-        }
-
-        val templateResult = result.results.single { it.type == "template" }
-        assertThat(templateResult.status).isEqualTo(InstallStatus.FAILED)
-        assertThat(templateResult.errorMessage).contains("JavaScript expressions are no longer supported")
+        // Installing a release is all or nothing: the template is refused, and so is the release.
+        assertThatThrownBy {
+            withMediator { ImportCatalogZip(tenantKey = target.id, zipBytes = rezip(entries), catalogType = CatalogType.AUTHORED).execute() }
+        }.hasMessageContaining("JavaScript expressions are no longer supported")
+        assertThat(withMediator { GetCatalog(target.id, catalogKey).query() }).isNull()
     }
 
     @Test

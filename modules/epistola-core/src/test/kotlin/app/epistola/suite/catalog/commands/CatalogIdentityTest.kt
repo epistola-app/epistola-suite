@@ -12,6 +12,7 @@ import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -71,7 +72,7 @@ class CatalogIdentityTest : IntegrationTestBase() {
 
             assertThat(changed.namespace).isEqualTo("gemeente-x")
             assertThat(GetCatalog(tenant.id, key).query()!!.namespace).isEqualTo("gemeente-x")
-            val manifest = objectMapper.readTree(catalogJson(ExportCatalogZip(tenant.id, key).execute().zipBytes))
+            val manifest = objectMapper.readTree(catalogJson(mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(key, app.epistola.suite.common.ids.TenantId(tenant.id))).zipBytes))
             assertThat(manifest["catalog"]["namespace"].asString()).isEqualTo("gemeente-x")
             assertThat(manifest["catalog"]["registry"].asString()).isEqualTo("exchange.epistola.app")
         }

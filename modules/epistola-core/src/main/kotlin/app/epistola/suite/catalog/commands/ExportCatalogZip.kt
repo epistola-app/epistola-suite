@@ -5,8 +5,8 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.catalog.protocol.ReleaseInfo
+import app.epistola.suite.catalog.CarriedRelease
 import app.epistola.suite.catalog.CatalogArchiveBuilder
-import app.epistola.suite.catalog.CatalogBundle
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
@@ -18,6 +18,8 @@ import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
+import app.epistola.suite.catalog.revisions.RetainedRelease
+import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -33,10 +35,8 @@ import tools.jackson.databind.ObjectMapper
 /**
  * Exports a catalog as a self-contained ZIP archive.
  *
- * Two sources, and the difference matters. With no [version] this exports the **working copy**:
- * content assembled by [CatalogContentBuilder], the same builder fingerprinting uses, so the
- * exported bytes are exactly the fingerprinted bytes — labelled `-dev` when it has drifted from the
- * last release, because it is not any released version.
+ * Only released versions are exported (contract 2.0): [version], or the catalog's highest release.
+ * A tenant snapshot alone exports the current version's content ([workingCopy]).
  *
  * With a [version] it exports **that release, as released**: rebuilt from the content the release
  * retained, carrying the version, timestamp and fingerprint it was cut with, whatever the working
@@ -50,10 +50,16 @@ import tools.jackson.databind.ObjectMapper
 data class ExportCatalogZip(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
-    /** A released version to export as it was released, or null for the working copy. */
+    /** A released version to export as it was released, or null for the catalog's highest release. */
     val version: String? = null,
     /** Bundle the releases of the catalogs it uses (a fat export). */
     val includeDependencies: Boolean = false,
+    /**
+     * Export the current version's content rather than a release: what a tenant snapshot carries
+     * to restore drafts as they are. Not a release, so not something an import installs (contract
+     * 2.0: only released versions are exported). Internal so no API can set it.
+     */
+    internal val workingCopy: Boolean = false,
 ) : Command<ExportCatalogZipResult>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW
@@ -79,46 +85,49 @@ class ExportCatalogZipHandler(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: ExportCatalogZip): ExportCatalogZipResult {
-        val single = command.version?.let { exportRelease(command, it) } ?: exportWorkingCopy(command)
-        if (!command.includeDependencies) return single
-        return bundle(command, single)
+        if (command.workingCopy) return exportWorkingCopy(command)
+        val version = command.version ?: highestRelease(command)
+        if (!command.includeDependencies) return exportRelease(command, version)
+        return withDependencies(command, version)
     }
 
     /**
-     * [single] with the releases of the catalogs it uses, dependencies first. Each catalog appears
-     * once: a release already refuses two paths needing different releases of one catalog, so the
-     * pins agree; a disagreement here would be a corrupted release and is refused, not guessed at.
+     * Release [version] carrying the releases it pins, transitively, at `dependencies/…` (contract
+     * `importCatalog`, wire v8), each before every release that pins it, each once. Its manifest and
+     * fingerprint are the same as without them.
+     *
+     * The bundled system catalog is not carried: every installation has it, and a pin the archive
+     * does not carry is resolved from what the installation has.
      */
-    private fun bundle(command: ExportCatalogZip, single: ExportCatalogZipResult): ExportCatalogZipResult {
-        val ordered = linkedMapOf<String, CatalogBundle.Entry>()
+    private fun withDependencies(command: ExportCatalogZip, version: String): ExportCatalogZipResult {
+        val ordered = linkedMapOf<String, CarriedRelease>()
+        val pinnedAt = mutableMapOf<String, String>()
         val visiting = mutableSetOf<String>()
         fun add(pin: CatalogDependencyDeclaration, by: String) {
+            if (pin.catalogKey == SYSTEM_CATALOG_KEY.value) return
             val identity = "${pin.registry}/${pin.namespace}/${pin.catalogKey}"
-            val version = pin.releaseVersion
-                ?: throw CatalogBundleException("$by uses ${pin.catalogKey}, which is not tied to a release yet. Publish, or resolve its dependencies, first.")
-            ordered[identity]?.let { existing ->
-                if (existing.version != version) throw CatalogBundleException("${pin.catalogKey} is needed as v${existing.version} and as v$version; a bundle holds one release of each catalog")
+            val pinned = pin.releaseVersion
+                ?: throw CatalogBundleException("$by uses ${pin.catalogKey}, which it does not pin to a release yet.")
+            pinnedAt[identity]?.let { existing ->
+                if (existing != pinned) throw CatalogBundleException("${pin.catalogKey} is pinned as v$existing and as v$pinned; an archive carries one release of each catalog")
                 return
             }
             if (!visiting.add(identity)) return
+            pinnedAt[identity] = pinned
             val key = CatalogKey.of(pin.catalogKey)
-            val archive = try {
-                exportRelease(ExportCatalogZip(command.tenantKey, key, version), version)
+            val retained = try {
+                retainedRelease(command.tenantKey, key, pinned)
             } catch (e: CatalogVersionNotFoundException) {
-                throw CatalogBundleException("${pin.catalogKey} v$version is not here, so it cannot be bundled.")
+                throw CatalogBundleException("${pin.catalogKey} v$pinned is not here, so it cannot be carried.")
             }
-            ListReleaseDependencies(command.tenantKey, key, version).query().forEach { add(it, "${pin.catalogKey} v$version") }
-            ordered[identity] = CatalogBundle.Entry(pin.registry, pin.namespace, pin.catalogKey, version, pin.releaseFingerprint, archive.zipBytes)
+            ListReleaseDependencies(command.tenantKey, key, pinned).query().forEach { add(it, "${pin.catalogKey} v$pinned") }
+            ordered[identity] = CarriedRelease(pin.registry, pin.namespace, pin.catalogKey, retained.content, retained.release)
         }
-        val catalog = GetCatalog(command.tenantKey, command.catalogKey).query() ?: throw CatalogNotFoundException(command.catalogKey)
-        val pins = command.version?.let { ListReleaseDependencies(command.tenantKey, command.catalogKey, it).query() }
-            ?: ListCatalogDependencies(command.tenantKey, command.catalogKey).query()
-        pins.forEach { add(it, command.catalogKey.value) }
-        val label = single.filename.removeSuffix(".zip").removePrefix("${command.catalogKey.value}-")
-        val root = CatalogBundle.Entry(catalog.registry, catalog.namespace, command.catalogKey.value, label, null, single.zipBytes)
+        ListReleaseDependencies(command.tenantKey, command.catalogKey, version).query().forEach { add(it, command.catalogKey.value) }
+        val root = retainedRelease(command.tenantKey, command.catalogKey, version)
         return ExportCatalogZipResult(
-            zipBytes = CatalogBundle(ordered.values.toList() + root).write(objectMapper),
-            filename = "${command.catalogKey.value}-$label-with-dependencies.zip",
+            zipBytes = archiveBuilder.build(root.content, root.release, ordered.values.toList()),
+            filename = "${command.catalogKey.value}-$version-with-dependencies.zip",
         )
     }
 
@@ -136,84 +145,48 @@ class ExportCatalogZipHandler(
      * the fingerprint it advertises would spread that rather than stop it.
      */
     private fun exportRelease(command: ExportCatalogZip, version: String): ExportCatalogZipResult {
-        val retained = assembler.assemble(command.tenantKey, command.catalogKey, version)
-            ?: throw CatalogVersionNotFoundException(command.catalogKey, version)
-
-        val rebuilt = fingerprintService.fingerprint(retained.content)
-        val released = retained.release.fingerprint
-        // A release recorded before 2.0 names no algorithm; match it rather than compare strings.
-        if (released != null && !fingerprintService.matchesFingerprint(retained.content, released)) {
-            throw IllegalStateException(
-                "Release $version of catalog '${command.catalogKey.value}' rebuilds to fingerprint $rebuilt " +
-                    "but was released as $released; its retained content has been altered.",
-            )
-        }
-
+        val retained = retainedRelease(command.tenantKey, command.catalogKey, version)
         return ExportCatalogZipResult(
             zipBytes = archiveBuilder.build(retained.content, retained.release),
             filename = "${command.catalogKey.value}-$version.zip",
         )
     }
 
+    /** Release [version] of [catalogKey] as it retained it, its fingerprint checked. */
+    private fun retainedRelease(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): RetainedRelease {
+        val retained = assembler.assemble(tenantKey, catalogKey, version)
+            ?: throw CatalogVersionNotFoundException(catalogKey, version)
+
+        val rebuilt = fingerprintService.fingerprint(retained.content)
+        val released = retained.release.fingerprint
+        // A release recorded before 2.0 names no algorithm; match it rather than compare strings.
+        if (released != null && !fingerprintService.matchesFingerprint(retained.content, released)) {
+            throw IllegalStateException(
+                "Release $version of catalog '${catalogKey.value}' rebuilds to fingerprint $rebuilt " +
+                    "but was released as $released; its retained content has been altered.",
+            )
+        }
+        return retained
+    }
+
+    /**
+     * The current version's content, for a tenant snapshot. Wire v8 numbers every archive's release
+     * `MAJOR.MINOR.PATCH`, so it is labelled by the release it is on (the installed one, for a
+     * subscribed catalog), or `0.0.0` without one; the fingerprint describes exactly what it holds,
+     * which is not necessarily that release.
+     */
     private fun exportWorkingCopy(command: ExportCatalogZip): ExportCatalogZipResult {
         val content = contentBuilder.build(command.tenantKey, command.catalogKey)
         fingerprintService.requirePublishable(content)
-
-        // The emitted fingerprint always describes the actual exported bytes.
-        // The version label encodes release state: a clean released version
-        // when the working copy matches the latest release, a `-dev`-suffixed
-        // label when it drifted (unreleased edits) or was never released.
-        // Export is never hard-blocked — `-dev` makes drift unmistakable.
         val fingerprint = fingerprintService.fingerprint(content)
         val catalog = GetCatalog(command.tenantKey, command.catalogKey).query()
             ?: throw CatalogNotFoundException(command.catalogKey)
-
-        // A subscribed catalog has no release of its own to be at: releases belong to whoever
-        // authored it, and this installation records which one it installed on the catalog row.
-        // Labelling it from `catalog_releases` — which is empty for a subscribed catalog — called a
-        // catalog installed at 1.2.0 `0.0.0-dev`.
-        //
-        // No drift suffix, and deliberately no comparison against `installed_fingerprint`: that is
-        // the source's fingerprint over the source's bytes, and installing round-trips content, so
-        // comparing a locally built archive against it would report drift that is an artefact of
-        // the round trip rather than an edit. Subscribed content cannot be edited anyway —
-        // `requireCatalogEditable` refuses.
-        if (catalog.type != CatalogType.AUTHORED) {
-            val installed = catalog.installedReleaseVersion
-            if (installed == null) {
-                logger.warn("Exporting subscribed catalog '{}' with no installed version as 0.0.0-dev", command.catalogKey.value)
-            }
-            val label = installed ?: "0.0.0-dev"
-            return ExportCatalogZipResult(
-                zipBytes = archiveBuilder.build(
-                    content,
-                    ReleaseInfo(version = label, releasedAt = catalog.installedAt?.toString(), fingerprint = fingerprint),
-                ),
-                filename = "${command.catalogKey.value}-$label.zip",
-            )
-        }
-
-        // Cheap release-pointer read — no second O(catalog-size) content build
-        // (the working-copy fingerprint we need is already `fingerprint`).
-        val release = GetLatestCatalogRelease(command.tenantKey, command.catalogKey).query()
-        val version = when {
-            release.latestVersion == null -> {
-                logger.warn("Exporting never-released catalog '{}' as 0.0.0-dev", command.catalogKey.value)
-                "0.0.0-dev"
-            }
-
-            release.latestFingerprint != null && !fingerprintService.matchesFingerprint(content, release.latestFingerprint) -> {
-                logger.warn(
-                    "Exporting catalog '{}' with unreleased changes — labelling {}-dev",
-                    command.catalogKey.value,
-                    release.latestVersion,
-                )
-                "${release.latestVersion}-dev"
-            }
-
-            else -> release.latestVersion
-        }
-        val releasedAt = if (version.endsWith("-dev")) null else EpistolaClock.offsetDateTime().toString()
+        val version = if (catalog.type == CatalogType.AUTHORED) {
+            GetLatestCatalogRelease(command.tenantKey, command.catalogKey).query().latestVersion
+        } else {
+            catalog.installedReleaseVersion
+        } ?: UNRELEASED
+        val releasedAt = (if (catalog.type == CatalogType.AUTHORED) null else catalog.installedAt?.toString())
         val zipBytes = archiveBuilder.build(
             content,
             ReleaseInfo(version = version, releasedAt = releasedAt, fingerprint = fingerprint),
@@ -221,5 +194,17 @@ class ExportCatalogZipHandler(
 
         val filename = "${command.catalogKey.value}-$version.zip"
         return ExportCatalogZipResult(zipBytes = zipBytes, filename = filename)
+    }
+
+    private companion object {
+        /** The label of a working copy with no release to be on. */
+        const val UNRELEASED = "0.0.0"
+    }
+
+    /** The catalog's highest release: a subscribed catalog's installed one, an authored one's latest. */
+    private fun highestRelease(command: ExportCatalogZip): String {
+        val catalog = GetCatalog(command.tenantKey, command.catalogKey).query() ?: throw CatalogNotFoundException(command.catalogKey)
+        return (if (catalog.type == CatalogType.AUTHORED) catalog.releasedVersion else catalog.installedReleaseVersion)
+            ?: throw CatalogVersionNotFoundException(command.catalogKey, "release")
     }
 }

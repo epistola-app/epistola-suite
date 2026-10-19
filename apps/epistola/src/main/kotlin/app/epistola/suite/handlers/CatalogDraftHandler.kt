@@ -4,10 +4,10 @@
 
 package app.epistola.suite.handlers
 
+import app.epistola.suite.catalog.versions.CatalogDraftInUseException
 import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
 import app.epistola.suite.catalog.versions.CatalogDraftNameInUseException
 import app.epistola.suite.catalog.versions.CatalogVersion
-import app.epistola.suite.catalog.versions.CatalogVersionBehindException
 import app.epistola.suite.catalog.versions.CatalogVersionHeldException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CreateCatalogDraft
@@ -112,7 +112,7 @@ class CatalogDraftHandler(
         } catch (e: ValidationException) {
             return refused(if (e.field == "from") "from" else "name", e.message)
         }
-        val target = CatalogPages.draft(tenantId, segment.at(created.draftId))
+        val target = CatalogPages.draft(tenantId, segment.at(created.versionId))
         return request.htmx {
             dialogLocation(target)
             onFullPage { redirect(target) }
@@ -180,7 +180,6 @@ class CatalogDraftHandler(
         val work = bar.chosen?.takeIf { bar.onLongTermWork } ?: return ServerResponse.notFound().build()
         val keep = request.param("previous").orElse("keep") != "discard"
         val keepAs = request.param("keepAs").orElse("").trim().ifBlank { null }
-        val acknowledged = request.params()["acknowledgedBehind"].orEmpty().map { it.trim() }.toSet()
 
         // Refused: the dialog again with why, a 422 so nothing takes it for done.
         fun refused(message: String) = request.htmx {
@@ -194,16 +193,16 @@ class CatalogDraftHandler(
         }
         if (keep && keepAs == null) return refused("Give the current next version a name to keep it under.")
         return try {
-            PromoteCatalogDraft(tenantId.key, segment.key, requireNotNull(work.draftId), keepPreviousAs = keepAs.takeIf { keep }, acknowledgedBehind = acknowledged).execute()
+            PromoteCatalogDraft(tenantId.key, segment.key, DraftRef.Id(work.versionId), keepPreviousAs = keepAs.takeIf { keep }).execute()
             val target = CatalogPages.browse(tenantId, segment.at(null))
             request.htmx {
                 dialogLocation(target)
                 onFullPage { redirect(target) }
             }
-        } catch (e: CatalogVersionBehindException) {
-            refused("Confirm each version published since this work started: " + e.behind.joinToString { "v$it" } + ".")
         } catch (e: CatalogDraftNameInUseException) {
             refused("Other work is called that already. Choose another name.")
+        } catch (e: CatalogDraftInUseException) {
+            refused(e.message ?: "Another catalog builds on the current next version.")
         } catch (e: CatalogVersionHeldException) {
             refused(e.message ?: "The next version cannot be discarded.")
         } catch (e: ValidationException) {
@@ -216,7 +215,6 @@ class CatalogDraftHandler(
         "bar" to bar
         "segment" to segment.value
         "workName" to work.label
-        "behind" to work.behind
         "keepAsSuggestion" to "Next version before ${work.label}".take(100)
     }
 
@@ -250,7 +248,7 @@ class CatalogDraftHandler(
         requirePermission(tenantId.key, Permission.ENVIRONMENT_DEPLOY)
         val segment = request.catalogSegment()
         val bar = bar(tenantId, segment)
-        val draftId = bar.chosen?.draftId?.takeIf { bar.offerFollow } ?: return ServerResponse.notFound().build()
+        val draftId = bar.chosen?.versionId?.takeIf { bar.offerFollow } ?: return ServerResponse.notFound().build()
         val environment = request.param("environment").orElse(null)?.let { runCatching { EnvironmentKey.of(it) }.getOrNull() }
             ?: return ServerResponse.badRequest().build()
         val environmentId = EnvironmentId(environment, tenantId)
@@ -289,7 +287,7 @@ class CatalogDraftHandler(
                 key = environment.id.value,
                 name = environment.name,
                 production = environment.production,
-                following = override?.draftId != null && override.draftId == bar.chosen?.draftId,
+                following = override?.draftId != null && override.draftId == bar.chosen?.versionId,
                 usesNow = override?.label,
             )
         }

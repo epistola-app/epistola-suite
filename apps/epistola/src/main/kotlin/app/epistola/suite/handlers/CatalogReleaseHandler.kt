@@ -8,10 +8,13 @@ import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ResolveCatalogDependencies
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
+import app.epistola.suite.catalog.versions.GetCatalogDraft
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.FormData
@@ -62,7 +65,7 @@ class CatalogReleaseHandler {
         requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
         val segment = request.catalogSegment()
         val rows = ListCatalogDependencies(tenantId.key, segment.key, catalogVersion = segment.ref(tenantId.key)).query()
-            .map { DependencyRowView("${it.registry}~${it.namespace}/${it.catalogKey}", it.version) }
+            .map { DependencyRowView("${it.registry}~${it.namespace}/${it.catalogKey}", it.releaseVersion.orEmpty()) }
         return request.htmx {
             fragment("catalogs/next-release", "dependencies-dialog") {
                 dependenciesModel(tenantId, segment, rows)
@@ -73,8 +76,9 @@ class CatalogReleaseHandler {
 
     /**
      * `POST /{catalogId}/dependencies` with repeated `catalog` (`registry~namespace/key`) and
-     * `version` (npm range) fields, in order. A row without a catalog is dropped; a row without a
-     * range depends on any release (`*`).
+     * `version` (an exact release) fields, in order. A row without a catalog is dropped; a row
+     * without a release pins the catalog's highest release, or builds on its next version when it has
+     * none yet.
      */
     fun updateDependencies(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -100,7 +104,7 @@ class CatalogReleaseHandler {
         }
 
         val dependencies = declared.map { (index, row) ->
-            parseDependency(row) ?: return reRender(mapOf("dependencies[$index]" to "Choose a catalog from the list."))
+            parseDependency(tenantId, row) ?: return reRender(mapOf("dependencies[$index]" to "Choose a catalog from the list."))
         }
 
         try {
@@ -127,7 +131,7 @@ class CatalogReleaseHandler {
         }
     }
 
-    /** `POST /{catalogId}/dependencies/resolve`: moves every lock to the highest matching release. */
+    /** `POST /{catalogId}/dependencies/resolve`: moves every pin to the highest release. */
     fun resolveDependencies(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val segment = request.catalogSegment()
@@ -140,12 +144,18 @@ class CatalogReleaseHandler {
         return nextRelease(request, tenantId, segment, error)
     }
 
-    private fun parseDependency(row: DependencyRowView): DeclaredCatalogDependency? {
+    private fun parseDependency(tenantId: TenantId, row: DependencyRowView): DeclaredCatalogDependency? {
         val registry = row.catalog.substringBefore('~', "").ifEmpty { return null }
         val rest = row.catalog.substringAfter('~', "")
         val namespace = rest.substringBefore('/', "").ifEmpty { return null }
         val key = rest.substringAfter('/', "").ifEmpty { return null }
-        return DeclaredCatalogDependency(registry, namespace, key, row.version.ifEmpty { "*" })
+        row.version.takeIf { it.isNotEmpty() }?.let { return DeclaredCatalogDependency(registry, namespace, key, releaseVersion = it) }
+        // No release named: its highest, or its next version while it has none (contract ADR 0002).
+        val target = runCatching { CatalogKey.of(key) }.getOrNull()?.let { GetCatalog(tenantId.key, it).query() } ?: return DeclaredCatalogDependency(registry, namespace, key, releaseVersion = "")
+        val highest = target.releasedVersion ?: target.installedReleaseVersion
+        if (highest != null) return DeclaredCatalogDependency(registry, namespace, key, releaseVersion = highest)
+        val next = GetCatalogDraft(tenantId.key, target.id).query()
+        return DeclaredCatalogDependency(registry, namespace, key, releaseVersion = if (next == null) "" else null, versionId = next?.versionId)
     }
 
     private fun app.epistola.suite.htmx.ModelBuilder.dependenciesModel(

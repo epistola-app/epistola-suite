@@ -23,6 +23,7 @@ import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.relocation.MoveCatalogResources
 import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
 import app.epistola.suite.catalog.relocation.movedTo
+import app.epistola.suite.catalog.versions.CatalogDependenciesUnreleasedException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
@@ -220,19 +221,23 @@ class CatalogDependenciesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a release with a declaration that pins no release is refused, until one is pinned`() {
+    fun `a catalog used before it has a release is declared on its draft, which its release then pins`() {
         val tenant = setUp("deps-late")
         invoiceOnSharedTheme(tenant)
-        // shared has no release yet, so the declaration this adds pins none.
+        // shared has no release yet, so the declaration this adds names its next version.
         withMediator { DeclareUsedCatalogs(tenant, letters).execute() }
-        assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }.single().releaseVersion).isNull()
+        val declared = withMediator { ListCatalogDependencies(tenant, letters).query() }.single()
+        assertThat(declared.releaseVersion).isNull()
+        assertThat(declared.draftName).isEqualTo("Next version")
 
         withMediator { MarkCatalogReady(tenant, letters).execute() }
         assertThatThrownBy { withMediator { ReleaseCatalogVersion(tenant, letters, "1.0.0").execute() } }
-            .hasMessageContaining("pins no release")
+            .isInstanceOf(CatalogDependenciesUnreleasedException::class.java)
+            .hasMessageContaining("shared (Next version)")
 
         releaseShared(tenant, "1.0.0", "#111111")
-        update(tenant, declared(tenant, "1.0.0"))
+        assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }.single().releaseVersion)
+            .`as`("releasing the draft it named pins its release").isEqualTo("1.0.0")
         withMediator { ReleaseCatalogVersion(tenant, letters, "1.0.0").execute() }
         assertThat(withMediator { ListReleaseDependencies(tenant, letters, "1.0.0").query() }.single().releaseVersion).isEqualTo("1.0.0")
     }

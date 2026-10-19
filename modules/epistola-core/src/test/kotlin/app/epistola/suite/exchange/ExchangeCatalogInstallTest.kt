@@ -26,6 +26,7 @@ import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.FakeExchangeServer
+import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
@@ -144,7 +145,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     fun `a second catalog with the same key from another namespace is refused, not merged`() {
         val consumer = connectedTenant("install-collision")
         exchange.publish("acme", "invoices", releaseArchive("invoices", "1.0.0"), version = "1.0.0")
-        exchange.publish("globex", "invoices", releaseArchive("invoices", "9.0.0"), version = "9.0.0")
+        exchange.publish("globex", "invoices", releaseArchive("invoices", "9.0.0", namespace = "globex"), version = "9.0.0")
 
         withMediator {
             InstallExchangeCatalog(consumer, "acme", "invoices").execute()
@@ -335,19 +336,21 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
      * Built in a throwaway tenant of its own so the publisher's copy can never be mistaken for the
      * consumer's, and so a second call for a later version starts from a clean catalog.
      */
-    private fun releaseArchive(slug: String, version: String): ByteArray {
+
+    /** Release [version] of catalog [slug] in exchange namespace [namespace], as its publisher exports it. */
+    private fun releaseArchive(slug: String, version: String, namespace: String = "acme"): ByteArray {
         val publisher = createTenant("publisher-$slug-$version").id
         lastPublisher = publisher
         val catalogKey = CatalogKey.of(slug)
         return withMediator {
-            CreateCatalog(publisher, catalogKey, "Invoices").execute()
+            CreateCatalog(publisher, catalogKey, "Invoices", namespace = namespace).execute()
             CreateTheme(
                 id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher))),
                 name = "Theme $version",
             ).execute()
             MarkCatalogReady(publisher, catalogKey).execute()
             ReleaseCatalogVersion(tenantKey = publisher, catalogKey = catalogKey, version = version).execute()
-            ExportCatalogZip(tenantKey = publisher, catalogKey = catalogKey).execute().zipBytes
+            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(publisher))).zipBytes
         }
     }
 
@@ -400,13 +403,10 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     fun `a catalog ZIP whose SVG references an external resource does not install it`() {
         val tenant = connectedTenant("zip-unsafe-svg")
 
-        val result = withMediator {
-            ImportCatalogZip(tenantKey = tenant, zipBytes = readableImageSlugArchive(svg = UNSAFE_SVG), catalogType = CatalogType.AUTHORED).execute()
-        }
-
-        val image = result.results.single { it.type == "image" }
-        assertThat(image.status).isEqualTo(InstallStatus.FAILED)
-        assertThat(image.errorMessage).contains("SVG not accepted")
+        // Installing a release is all or nothing: the image is refused, and so is the release.
+        assertThatThrownBy {
+            withMediator { ImportCatalogZip(tenantKey = tenant, zipBytes = readableImageSlugArchive(svg = UNSAFE_SVG), catalogType = CatalogType.AUTHORED).execute() }
+        }.hasMessageContaining("SVG not accepted")
         withMediator {
             assertThat(ListAssets(tenant, catalogKey = CatalogKey.of("broken")).query()).isEmpty()
         }

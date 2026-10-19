@@ -123,7 +123,15 @@ class CatalogMcpTools(
         val declared = dependencies.map { dependency ->
             val key = CatalogKey.of(dependency.catalogId)
             val target = mediator.query(GetCatalog(tenant, key)) ?: throw CatalogNotFoundException(key)
-            DeclaredCatalogDependency(target.registry, target.namespace, key.value, dependency.version)
+            val release = dependency.release?.trim()?.takeIf { it.isNotEmpty() }
+            val draft = dependency.draftId?.trim()?.takeIf { it.isNotEmpty() }
+            DeclaredCatalogDependency(
+                target.registry,
+                target.namespace,
+                key.value,
+                releaseVersion = release ?: if (draft == null) target.releasedVersion ?: target.installedReleaseVersion else null,
+                versionId = draft,
+            )
         }
         return UpdateCatalogDependencies(tenant, CatalogKey.of(catalogId), declared, catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute().map(CatalogDependencyInfo::from)
     }

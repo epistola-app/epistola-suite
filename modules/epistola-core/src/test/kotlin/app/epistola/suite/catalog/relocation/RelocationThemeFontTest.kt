@@ -19,6 +19,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.variants.MarkVariantReady
 import app.epistola.suite.templates.queries.variants.GetVariantContent
+import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -39,7 +40,7 @@ class RelocationThemeFontTest : RelocationTestSupport() {
         move(tenant, address(CatalogResourceType.FONT, letters, "acme").movedTo(shared))
 
         withMediator { BuildTenantSnapshot(tenant).execute() }
-        val theme = withMediator { ExportCatalogZip(tenant, archive).execute() }.zipBytes.let(::unzipText).getValue("resources/theme/brand.json")
+        val theme = withMediator { mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(archive, app.epistola.suite.common.ids.TenantId(tenant))) }.zipBytes.let(::unzipText).getValue("resources/theme/brand.json")
         assertThat(theme).contains("\"catalogKey\":\"shared\"")
     }
 

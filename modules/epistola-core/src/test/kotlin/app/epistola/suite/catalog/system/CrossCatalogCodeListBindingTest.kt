@@ -25,6 +25,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.exportReleased
 import com.sun.net.httpserver.HttpServer
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -90,7 +91,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
                 codeListId = CodeListId(CodeListKey.of("bcp-47"), systemCatalog),
             ).execute()
 
-            ExportCatalogZip(tenantKey = tenant.id, catalogKey = source).execute()
+            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(source, app.epistola.suite.common.ids.TenantId(tenant.id)))
         }
 
         // Inspect the manifest + the attribute detail before re-import. The

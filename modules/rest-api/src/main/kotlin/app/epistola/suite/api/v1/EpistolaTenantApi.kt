@@ -53,8 +53,11 @@ import app.epistola.suite.catalog.CatalogName
 import app.epistola.suite.catalog.catalogName
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
+import app.epistola.suite.catalog.versions.CatalogVersionStatus
 import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.catalog.versions.GetCatalogNames
+import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
@@ -488,12 +491,20 @@ class EpistolaTenantApi(
         val environment = existingEnvironment(tenantKey, environmentKey)
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
         val release = setEnvironmentOverrideRequest.releaseVersion
-        val draft = setEnvironmentOverrideRequest.catalogVersion
-        if ((release == null) == (draft == null)) {
-            throw ValidationException(field = "releaseVersion", message = "Give either releaseVersion or catalogVersion, not both")
+        val versionId = setEnvironmentOverrideRequest.versionId
+        if ((release == null) == (versionId == null)) {
+            throw ValidationException(field = "releaseVersion", message = "Give either releaseVersion or versionId, not both")
         }
-        val draftRef = draft?.let { DraftRef.parse(it) ?: throw ValidationException(field = "catalogVersion", message = "catalogVersion is 'next' or a draft id") }
-        val override = SetEnvironmentOverride(environment, catalog.id, version = release, draft = draftRef).execute()
+        // The versionId of a released version names that release, exactly as its number would.
+        val named = versionId?.let { id ->
+            ListCatalogVersions(catalog.tenantKey, catalog.id).query().firstOrNull { it.versionId == id }
+                ?: throw CatalogVersionNotFoundException(catalog.id, id)
+        }
+        val override = when {
+            named == null -> SetEnvironmentOverride(environment, catalog.id, version = release).execute()
+            named.status == CatalogVersionStatus.RELEASED -> SetEnvironmentOverride(environment, catalog.id, version = named.version).execute()
+            else -> SetEnvironmentOverride(environment, catalog.id, draft = DraftRef.Id(named.versionId)).execute()
+        }
         return ResponseEntity.ok(override.toDto(CatalogName(catalog.registry, catalog.namespace, catalog.id)))
     }
 
@@ -517,7 +528,7 @@ class EpistolaTenantApi(
         catalogKey = catalogKey.value,
         setAt = setAt,
         releaseVersion = version,
-        draftId = draftId,
+        versionId = draftId,
         draftLabel = draftLabel,
     )
 

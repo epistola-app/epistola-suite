@@ -233,6 +233,24 @@ class CatalogDependencyStore {
         .findOne()
         .orElse(null)
 
+    /** The key and label of the next version of the catalog [declaration] names, or null when it has none. */
+    fun nextVersionOf(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): Pair<String, String>? = handle
+        .createQuery(
+            """
+            SELECT dv.version_key, $DRAFT_LABEL AS label FROM catalog_versions dv
+            JOIN catalogs dc ON dc.tenant_key = dv.tenant_key AND dc.catalog_id = dv.catalog_id
+            WHERE dv.tenant_key = :t AND dv.kind = 'draft' AND dv.is_next
+              AND dc.registry = :registry AND dc.namespace = :namespace AND dc.catalog_key = :key
+            """,
+        )
+        .bind("t", tenantKey)
+        .bind("registry", declaration.registry)
+        .bind("namespace", declaration.namespace)
+        .bind("key", declaration.catalogKey)
+        .map { rs, _ -> rs.getString("version_key") to rs.getString("label") }
+        .findOne()
+        .orElse(null)
+
     /**
      * Every declaration, in any draft of the tenant, that names draft [versionId] now pins
      * [release] instead: what releasing the named draft does (contract ADR 0002).

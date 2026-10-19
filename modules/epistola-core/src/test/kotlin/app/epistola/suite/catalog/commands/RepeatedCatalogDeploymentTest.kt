@@ -27,6 +27,7 @@ import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -278,7 +279,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
             CreateDocumentTemplate(id = templateId, name = "No Contract Template").execute()
 
             // Export the catalog — should succeed even without contract
-            val exportResult = ExportCatalogZip(tenantKey = tenantKey, catalogKey = catalogKey).execute()
+            val exportResult = mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey)))
             assertThat(exportResult.zipBytes).isNotEmpty()
 
             // Re-import the exported ZIP multiple times
@@ -337,7 +338,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
             ).execute()
 
             // Export as ZIP
-            val exportResult = ExportCatalogZip(tenantKey = tenantKey, catalogKey = catalogKey).execute()
+            val exportResult = mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey)))
             val zipBytes = exportResult.zipBytes
 
             // Verify contract before re-imports

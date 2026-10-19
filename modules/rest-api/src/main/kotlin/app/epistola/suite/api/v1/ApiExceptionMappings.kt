@@ -20,12 +20,16 @@ import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.commands.CatalogBundleException
+import app.epistola.suite.catalog.commands.CatalogImportConflictException
+import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingException
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
+import app.epistola.suite.catalog.versions.CatalogDependenciesUnreleasedException
+import app.epistola.suite.catalog.versions.CatalogDraftInUseException
 import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
 import app.epistola.suite.catalog.versions.CatalogDraftNameInUseException
 import app.epistola.suite.catalog.versions.CatalogVersionBehindException
@@ -456,12 +460,63 @@ object ApiExceptionMappings {
                             "namespace" to dependency.namespace,
                             "catalogKey" to dependency.catalogKey,
                             "releaseVersion" to dependency.releaseVersion,
-                            "reason" to dependency.reason.name,
+                            // Contract 2.0 knows one reason: the release cannot be had.
+                            "reason" to "UNAVAILABLE",
                         )
                     },
                 )
             },
             logMessage = { "Release dependencies missing: ${it.message}" },
+        )
+
+        builder.register<CatalogImportDependenciesMissingException>(
+            problemType = ApiProblemTypes.RELEASE_DEPENDENCIES_MISSING,
+            defaultDetail = "The release pins releases that cannot be had",
+            extensions = {
+                mapOf(
+                    "missingDependencies" to it.missing.map { dependency ->
+                        mapOf(
+                            "registry" to dependency.registry,
+                            "namespace" to dependency.namespace,
+                            "catalogKey" to dependency.catalogKey,
+                            "releaseVersion" to dependency.releaseVersion,
+                            "reason" to "UNAVAILABLE",
+                        )
+                    },
+                )
+            },
+            logMessage = { "Import refused, dependency releases missing: ${it.message}" },
+        )
+
+        builder.register<CatalogImportConflictException>(
+            problemType = ApiProblemTypes.CONFLICT,
+            defaultDetail = "The import conflicts with what the tenant has",
+            logMessage = { "Import refused: ${it.message}" },
+        )
+
+        builder.register<CatalogDraftInUseException>(
+            problemType = ApiProblemTypes.CONFLICT,
+            defaultDetail = "Another catalog's draft builds on this draft",
+            logMessage = { "Discarding a draft refused: ${it.message}" },
+        )
+
+        builder.register<CatalogDependenciesUnreleasedException>(
+            problemType = ApiProblemTypes.RELEASE_DEPENDENCIES_UNRELEASED,
+            defaultDetail = "The draft uses drafts of other catalogs",
+            extensions = {
+                mapOf(
+                    "unreleasedDependencies" to it.unreleased.map { dependency ->
+                        mapOf(
+                            "registry" to dependency.registry,
+                            "namespace" to dependency.namespace,
+                            "catalogKey" to dependency.catalogKey,
+                            "versionId" to dependency.versionId,
+                            "draftName" to dependency.draftName,
+                        )
+                    },
+                )
+            },
+            logMessage = { "Release refused, dependency drafts not released along: ${it.message}" },
         )
 
         builder.register<ReleaseInUseException>(
@@ -569,7 +624,7 @@ object ApiExceptionMappings {
         )
 
         builder.register<CatalogBundleException>(
-            problemType = ApiProblemTypes.CATALOG_BUNDLE_CONFLICT,
+            problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "The catalog bundle cannot be imported here as it is",
             extensions = { emptyMap() },
             logMessage = { "Catalog bundle refused: ${it.message}" },
@@ -583,8 +638,8 @@ object ApiExceptionMappings {
         )
 
         builder.register<CatalogDraftIsNextException>(
-            problemType = ApiProblemTypes.CATALOG_DRAFT_KIND,
-            defaultDetail = "Only the next version is released, and only long-term work has a name",
+            problemType = ApiProblemTypes.CONFLICT,
+            defaultDetail = "The next version has no name of its own",
             extensions = { mapOf("catalogKey" to it.catalogKey.value) },
             logMessage = { "Draft operation refused for its kind: ${it.message}" },
         )

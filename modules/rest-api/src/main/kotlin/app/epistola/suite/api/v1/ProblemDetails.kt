@@ -78,7 +78,7 @@ object ApiProblemTypes {
     val RELEASE_NOT_FOUND = problem("RELEASE_NOT_FOUND", "Release Not Found", HttpStatus.NOT_FOUND, "The catalog has no such release.", listOf("catalogId", "releaseVersion"))
     val NO_RELEASE_DEPLOYED = problem("NO_RELEASE_DEPLOYED", "No Release Deployed", HttpStatus.NOT_FOUND, "The environment serves no release of the template's catalog; deploy one first.", listOf("environmentId", "catalogId"))
     val RELEASE_NOT_DEPLOYABLE = problem("RELEASE_NOT_DEPLOYABLE", "Release Not Deployable", HttpStatus.CONFLICT, "The release does not exist.", listOf("catalogId", "releaseVersion"))
-    val RELEASE_DEPENDENCIES_MISSING = problem("RELEASE_DEPENDENCIES_MISSING", "Release Dependencies Missing", HttpStatus.CONFLICT, "A release cannot be deployed because the environment does not serve the releases of other catalogs it renders with, and the request did not ask to deploy them along (or they could not be); `missingDependencies` lists each one and why.", listOf("missingDependencies"))
+    val RELEASE_DEPENDENCIES_MISSING = problem("RELEASE_DEPENDENCIES_MISSING", "Release Dependencies Missing", HttpStatus.CONFLICT, "A release cannot be deployed or imported because releases of other catalogs it pins cannot be had; `missingDependencies` lists each one and why.", listOf("missingDependencies"))
     val RELEASE_IN_USE = problem("RELEASE_IN_USE", "Release In Use", HttpStatus.CONFLICT, "The release is deployed to an environment, or another catalog's release renders with it.", listOf("catalogId", "releaseVersion", "environments", "pinnedBy"))
     val CATALOG_NOT_RELEASED = problem("CATALOG_NOT_RELEASED", "Catalog Not Released", HttpStatus.NOT_FOUND, "The catalog has no release to generate from; release it first.", listOf("tenantId", "catalogId"))
     val TEMPLATE_NOT_IN_RELEASE = problem("TEMPLATE_NOT_IN_RELEASE", "Template Not In Release", HttpStatus.NOT_FOUND, "The release being generated from does not contain the requested template or variant.", listOf("tenantId", "catalogId", "releaseVersion", "templateId", "variantId"))
@@ -93,10 +93,10 @@ object ApiProblemTypes {
     val CATALOG_VERSION_NOT_FOUND = problem("CATALOG_VERSION_NOT_FOUND", "Catalog Version Not Found", HttpStatus.NOT_FOUND, "The catalog has no such version: no release with this number, or no such draft.", listOf("catalogKey", "version"))
     val CATALOG_VERSION_RELEASED = problem("CATALOG_VERSION_RELEASED", "Catalog Version Released", HttpStatus.CONFLICT, "The catalog version is released and cannot change; change a draft.", listOf("catalogKey", "version"))
     val CATALOG_DRAFT_NAME_IN_USE = problem("CATALOG_DRAFT_NAME_IN_USE", "Catalog Draft Name In Use", HttpStatus.CONFLICT, "Another draft of the catalog has this name; names tell drafts apart.", listOf("catalogKey", "name"))
-    val CATALOG_BUNDLE_CONFLICT = problem("CATALOG_BUNDLE_CONFLICT", "Catalog Bundle Conflict", HttpStatus.CONFLICT, "The catalog bundle needs a catalog this tenant has at another release, or names one that is not there to bundle.", emptyList())
     val RESOURCE_MODIFIED = problem("RESOURCE_MODIFIED", "Resource Modified", HttpStatus.PRECONDITION_FAILED, "The resource changed since the ETag sent in If-Match was read. Read it again and reapply your change.", listOf("expectedRevision", "currentRevision"))
     val ENVIRONMENT_OVERRIDE_REFUSED = problem("ENVIRONMENT_OVERRIDE_REFUSED", "Environment Override Refused", HttpStatus.CONFLICT, "The environment cannot use that: a production environment uses only published versions, and an override names a release the environment serves.", emptyList())
-    val CATALOG_DRAFT_KIND = problem("CATALOG_DRAFT_KIND", "Catalog Draft Kind", HttpStatus.CONFLICT, "Only the next version is released, and only long-term work has a name of its own.", listOf("catalogKey"))
+    val CONFLICT = problem("CONFLICT", "Conflict", HttpStatus.CONFLICT, "The request conflicts with the current state of the resource.", emptyList())
+    val RELEASE_DEPENDENCIES_UNRELEASED = problem("RELEASE_DEPENDENCIES_UNRELEASED", "Release Dependencies Unreleased", HttpStatus.CONFLICT, "The draft's dependency declarations name drafts of other catalogs and the request does not release them along (`releaseDependencies`); `unreleasedDependencies` lists each.", listOf("unreleasedDependencies"))
     val CATALOG_VERSION_HELD = problem("CATALOG_VERSION_HELD", "Catalog Version Held", HttpStatus.CONFLICT, "The draft alone holds resources something outside it still uses; change those first.", listOf("catalogKey", "version", "heldBy"))
     val CATALOG_VERSION_BEHIND = problem("CATALOG_VERSION_BEHIND", "Catalog Version Behind", HttpStatus.CONFLICT, "The draft is behind releases it does not contain; name every one in acknowledgedBehind to release it.", listOf("catalogKey", "version", "behind"))
     val CATALOG_NOT_UPGRADEABLE = problem("CATALOG_NOT_UPGRADEABLE", "Catalog Not Upgradeable", HttpStatus.CONFLICT, "The requested catalog is not in a state that supports upgrade operations.", listOf("catalogId"))
@@ -169,10 +169,10 @@ object ApiProblemTypes {
         CATALOG_VERSION_NOT_FOUND,
         CATALOG_VERSION_RELEASED,
         CATALOG_DRAFT_NAME_IN_USE,
-        CATALOG_DRAFT_KIND,
+        CONFLICT,
+        RELEASE_DEPENDENCIES_UNRELEASED,
         ENVIRONMENT_OVERRIDE_REFUSED,
         RESOURCE_MODIFIED,
-        CATALOG_BUNDLE_CONFLICT,
         CATALOG_VERSION_BEHIND,
         CATALOG_VERSION_HELD,
         CATALOG_NOT_UPGRADEABLE,

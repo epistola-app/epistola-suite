@@ -15,7 +15,9 @@ import org.springframework.stereotype.Component
 
 /**
  * Declares, for an authored catalog, every catalog its content references but does not declare:
- * pinned to the highest release there is, or unpinned when there is none.
+ * pinned to the highest release there is, or, when there is none, naming that catalog's next
+ * version (contract ADR 0002: a draft may build on another catalog's draft; releasing that catalog
+ * turns the declaration into a pin of its release). A catalog with neither stays unpinned.
  *
  * For where references into another catalog arise without an author declaring them: a resource
  * moved into another catalog, and catalogs upgraded from 1.x, which had no declarations. A
@@ -56,6 +58,7 @@ class MissingDependencyDeclarer(
             val declaration = CatalogDependencyDeclaration(registry, namespace, key)
             store.highest(handle, tenantKey, declaration)
                 ?.let { declaration.copy(releaseVersion = it.version, releaseFingerprint = it.fingerprint) }
+                ?: store.nextVersionOf(handle, tenantKey, declaration)?.let { (key, label) -> declaration.copy(draftId = key, draftName = label) }
                 ?: declaration
         }
     }

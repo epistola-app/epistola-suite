@@ -51,3 +51,42 @@ fun Mediator.deployLatestRelease(environmentId: app.epistola.suite.common.ids.En
     send(app.epistola.suite.environments.commands.DeployRelease(environmentId, catalogId.key, version))
     return version
 }
+
+/**
+ * Exports [catalogId] as a catalog archive, as an author handing it over would: its next version is
+ * released first when it holds anything not released yet, along with the drafts of other catalogs it
+ * builds on, since only releases are exported (contract 2.0).
+ */
+fun Mediator.exportReleased(catalogId: CatalogId, includeDependencies: Boolean = false): app.epistola.suite.catalog.commands.ExportCatalogZipResult {
+    val catalog = requireNotNull(query(app.epistola.suite.catalog.queries.GetCatalog(catalogId.tenantKey, catalogId.key))) { "No catalog ${catalogId.key.value}" }
+    if (catalog.type == app.epistola.suite.catalog.CatalogType.SUBSCRIBED) {
+        // A subscribed catalog's releases are its publisher's: it exports the one it installed.
+        return send(app.epistola.suite.catalog.commands.ExportCatalogZip(catalogId.tenantKey, catalogId.key, includeDependencies = includeDependencies))
+    }
+    val unreleased = query(app.epistola.suite.catalog.queries.GetCatalogResourceChanges(catalogId.tenantKey, catalogId.key)).resources
+        .any { it.state != app.epistola.suite.catalog.queries.CatalogResourceState.RELEASED }
+    val version = query(GetLatestCatalogRelease(catalogId.tenantKey, catalogId.key)).latestVersion?.takeUnless { unreleased } ?: run {
+        // Releasing along the drafts of other catalogs it builds on, as the author would be offered,
+        // each marked ready first, as their authors would have.
+        markDraftDependenciesReady(catalogId.tenantKey, catalogId.key, null, mutableSetOf())
+        send(MarkCatalogReady(catalogId.tenantKey, catalogId.key))
+        send(ReleaseCatalogVersion(tenantKey = catalogId.tenantKey, catalogKey = catalogId.key, releaseDependencies = true)).version
+    }
+    return send(app.epistola.suite.catalog.commands.ExportCatalogZip(catalogId.tenantKey, catalogId.key, version, includeDependencies = includeDependencies))
+}
+
+/** Marks ready every draft of another catalog that [catalogKey]'s declarations name, transitively. */
+private fun Mediator.markDraftDependenciesReady(
+    tenantKey: app.epistola.suite.common.ids.TenantKey,
+    catalogKey: app.epistola.suite.common.ids.CatalogKey,
+    at: app.epistola.suite.catalog.versions.CatalogVersionRef?,
+    seen: MutableSet<String>,
+) {
+    query(app.epistola.suite.catalog.queries.ListCatalogDependencies(tenantKey, catalogKey, at)).filter { it.namesDraft }.forEach { declaration ->
+        val key = app.epistola.suite.common.ids.CatalogKey.of(declaration.catalogKey)
+        val ref = app.epistola.suite.catalog.versions.CatalogVersionRef(tenantKey, key, app.epistola.suite.catalog.versions.DraftRef.Id(requireNotNull(declaration.draftId)))
+        if (!seen.add("${declaration.catalogKey}/${declaration.draftId}")) return@forEach
+        markDraftDependenciesReady(tenantKey, key, ref, seen)
+        send(MarkCatalogReady(tenantKey, key, catalogVersion = ref))
+    }
+}

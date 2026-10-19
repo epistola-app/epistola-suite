@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.versions.CatalogVersion
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionStatus
+import app.epistola.suite.catalog.versions.GetCatalogDraft
 import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -133,7 +134,7 @@ data class CatalogDraftBar(
      */
     val versionRows: List<VersionRow>
         get() = (if (authored) drafts else emptyList()).map { draft ->
-            val at = if (draft.isNext) segment.at(null) else segment.at(draft.draftId)
+            val at = if (draft.isNext) segment.at(null) else segment.at(draft.versionId)
             VersionRow(
                 label = draft.label,
                 version = null,
@@ -193,8 +194,13 @@ data class CatalogDraftBar(
     /** Publishing is withheld because the viewer may not publish; the bar says so instead of hiding it. */
     val publishWithheld: Boolean get() = isNext && !mayDiscardDrafts
 
-    /** The releases the chosen draft is behind, lowest first, each with what it changed. */
-    val behind get() = chosen?.behind.orEmpty()
+    /**
+     * The releases the chosen draft is behind for the number it would be released as, lowest first,
+     * each with what it changed. Measured when a page shows it: it compares the draft with its base.
+     */
+    val behind: List<app.epistola.suite.catalog.versions.BehindRelease> by lazy {
+        chosen?.draftRef?.let { ref -> GetCatalogDraft(tenantKey, catalogKey, ref, withBehind = true).query()?.behind }.orEmpty()
+    }
 
     /** Whether to offer starting long-term work. */
     val offerCreateDraft: Boolean get() = authored && mayOpenDrafts && current != null
@@ -231,8 +237,8 @@ data class CatalogDraftBar(
     val draftLinks: List<DraftLink>
         get() = drafts.map { draft ->
             // The next version is linked plainly, long-term work by its id.
-            val target = if (draft.isNext) segment.at(null) else segment.at(draft.draftId)
-            DraftLink(draft.label, draft.isNext, draft.draftId, draft.base, pageAt(target), active = draft.draftId == chosen?.draftId, behind = draft.behind.isNotEmpty())
+            val target = if (draft.isNext) segment.at(null) else segment.at(draft.versionId)
+            DraftLink(draft.label, draft.isNext, draft.versionId, draft.base, pageAt(target), active = draft.versionId == chosen?.versionId)
         }
 
     /** What long-term work can start from: the next version (null), or a release. */
@@ -241,7 +247,7 @@ data class CatalogDraftBar(
     private val latestRelease: CatalogVersion? get() = releases.firstOrNull()
 
     /** A draft to switch to: the [next] version, or long-term work by [label] and [draftId]. */
-    data class DraftLink(val label: String, val next: Boolean, val draftId: java.util.UUID?, val base: String?, val href: String, val active: Boolean, val behind: Boolean)
+    data class DraftLink(val label: String, val next: Boolean, val draftId: String, val base: String?, val href: String, val active: Boolean)
 
     companion object {
         /**
@@ -256,14 +262,14 @@ data class CatalogDraftBar(
             val authored = catalog?.type == CatalogType.AUTHORED
             // A subscribed catalog shows its installed release, the only version whose content it has.
             val installed = catalog?.installedReleaseVersion?.takeUnless { authored }?.let { number ->
-                versions.firstOrNull { it.version == number } ?: CatalogVersion(number, CatalogVersionStatus.RELEASED)
+                versions.firstOrNull { it.version == number } ?: CatalogVersion(number, CatalogVersionStatus.RELEASED, versionId = "")
             }
             val chosen = when (val draft = segment.draft) {
                 null -> drafts.firstOrNull { it.isNext }
-                else -> drafts.firstOrNull { it.draftId == draft } ?: throw CatalogVersionNotFoundException(segment.key, draft.toString())
+                else -> drafts.firstOrNull { it.versionId == draft } ?: throw CatalogVersionNotFoundException(segment.key, draft)
             }
             val auth = AuthContext.from(SecurityContext.current(), tenantKey)
-            val followedBy = chosen?.draftId?.takeIf { authored }?.let { draftId ->
+            val followedBy = chosen?.versionId?.takeIf { authored && chosen.status == CatalogVersionStatus.DRAFT }?.let { draftId ->
                 val following = ListEnvironmentOverrides(tenantKey, catalogKey = segment.key).query().filter { it.draftId == draftId }.map { it.environmentKey }
                 if (following.isEmpty()) {
                     emptyList()

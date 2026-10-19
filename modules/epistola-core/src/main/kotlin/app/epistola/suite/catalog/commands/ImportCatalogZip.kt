@@ -21,7 +21,6 @@ import app.epistola.catalog.validation.CatalogValidator
 import app.epistola.catalog.validation.ValidationSeverity
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
-import app.epistola.suite.catalog.CatalogBundle
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogImportContext
@@ -41,6 +40,7 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -55,40 +55,39 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.DataExample
+import app.epistola.suite.validation.ValidationCode
+import app.epistola.suite.validation.ValidationException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
 
 /**
- * Imports a catalog from a ZIP archive into a catalog of [catalogType].
+ * Installs the release a catalog archive carries (contract `importCatalog`, ADR 0003): at its number,
+ * as an immutable release of the catalog the archive names, beside the releases of it the tenant has.
+ * Nothing is merged and no draft is created or changed.
  *
- * A slug that already exists with a *different* type is rejected (it would flip
- * ownership semantics). Otherwise:
+ * - The same number with the same fingerprint is the release the tenant has: nothing changes.
+ * - The same number with another fingerprint is refused ([CatalogImportConflictException]).
+ * - A new catalog is created with [catalogType], which it then must name, holding that release and
+ *   no draft. A catalog the tenant has keeps its type: naming the other one is refused.
+ * - The releases it pins must be present, with the fingerprints they were pinned with
+ *   ([CatalogImportDependenciesMissingException]).
  *
- * - **AUTHORED** — your editable copy. When the import *creates* the catalog
- *   and the manifest carries a clean released SemVer + fingerprint, that
- *   becomes the initial release. Importing into an **existing** AUTHORED
- *   catalog is an *edit* (release state is never touched — drift shows and the
- *   owner re-releases deliberately); [authoredMode] decides what happens to
- *   your local-only resources:
- *     - `MERGE` (default) — upsert the ZIP's resources over your copy, **keep**
- *       resources you have locally that the ZIP doesn't (overlay);
- *     - `REPLACE` — make the catalog *exactly* the ZIP: also **delete**
- *       local-only resources, conflict-checked before mutating (a pruned
- *       resource still referenced from another catalog blocks the import,
- *       same as the SUBSCRIBED path); release state still untouched.
- *   (Ignored when the import creates the catalog, or for SUBSCRIBED.)
- * - **SUBSCRIBED** — a managed mirror. The ZIP *is* the upgrade transport
- *   (instead of a source URL): full `UpgradeCatalog` parity — conflict-checked
- *   before mutating, resources replaced, stale pruned, abort-on-failed-install
- *   (no silent half-upgrade), and `installed_*` advanced from the manifest.
+ * A SUBSCRIBED catalog also mirrors the release it installs, when it is above the one installed, as
+ * its browsable content. An AUTHORED one installs it through a short-lived draft holding the
+ * archive's content, released under the archive's number and fingerprint.
+ *
+ * Internally the same archive reader fills a draft ([intoDraft], copying a release into a draft) or
+ * restores a tenant snapshot ([restore]); those keep the per-resource merge they always had.
  */
 data class ImportCatalogZip(
     override val tenantKey: TenantKey,
     val zipBytes: ByteArray,
-    val catalogType: CatalogType,
-    val authoredMode: AuthoredImportMode = AuthoredImportMode.MERGE,
+    /** The type of the catalog the import creates; null for a catalog the tenant has. */
+    val catalogType: CatalogType? = null,
+    /** How a [restore] treats local-only resources of an authored catalog. Internal. */
+    internal val authoredMode: AuthoredImportMode = AuthoredImportMode.MERGE,
     /**
      * Whether to pre-validate that cross-catalog dependencies (a theme / code list /
      * font / stencil this catalog references in *another* catalog) already exist.
@@ -127,10 +126,27 @@ data class ImportCatalogZip(
      * the archive is the catalog's own past, not a new arrival. Internal so no API can set it.
      */
     internal val intoDraft: Boolean = false,
+    /**
+     * A tenant snapshot's catalog, restored as it was: an authored one fills its next version, as
+     * imports did before contract 2.0. Internal so no API can set it.
+     */
+    internal val restore: Boolean = false,
 ) : Command<ImportCatalogZipResult>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_EDIT
+    // Installing a release is managing catalogs (contract `importCatalog`); copying a release into a
+    // draft, which starting a draft does, is editing it.
+    override val permission get() = if (intoDraft) Permission.TEMPLATE_EDIT else Permission.CATALOG_MANAGE
 }
+
+/** The import conflicts with what the tenant has: another type, or the release under other content. */
+class CatalogImportConflictException(message: String) : RuntimeException(message)
+
+/** The archive's release pins releases the tenant does not have ([missing]), and the archive does not carry them. */
+class CatalogImportDependenciesMissingException(
+    val catalogKey: CatalogKey,
+    val version: String,
+    val missing: List<app.epistola.suite.environments.MissingReleaseDependency>,
+) : RuntimeException("${catalogKey.value} $version renders with releases that cannot be had: " + missing.joinToString())
 
 /** What an AUTHORED ZIP import does with resources you have locally but the ZIP doesn't. */
 enum class AuthoredImportMode {
@@ -158,6 +174,10 @@ data class ImportCatalogZipResult(
      */
     val installedDependencies: List<String> = emptyList(),
     val presentDependencies: List<String> = emptyList(),
+    /** The release the archive carries, which the tenant now has. */
+    val releaseVersion: String? = null,
+    /** False when the tenant had that release already, with the same fingerprint, and nothing changed. */
+    val newlyInstalled: Boolean = true,
 )
 
 @Component
@@ -171,20 +191,165 @@ class ImportCatalogZipHandler(
     private val identity: CatalogIdentityProperties,
     private val dependencyStore: CatalogDependencyStore,
     private val readyMarks: ReadyMarks,
-    private val bundles: CatalogBundleImporter,
+    private val drafts: app.epistola.suite.catalog.versions.CatalogDrafts,
+    private val targeting: app.epistola.suite.catalog.versions.CatalogVersionTargeting,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
     private val canonicalizer = CatalogCanonicalizer(objectMapper)
 
     override fun handle(command: ImportCatalogZip): ImportCatalogZipResult {
-        if (!command.intoDraft && CatalogBundle.isBundle(command.zipBytes)) {
-            return bundles.import(command) { importArchive(it) }
-        }
-        return importArchive(command)
+        if (command.intoDraft || command.restore) return importArchive(command, requireNotNull(command.catalogType) { "an internal import names its type" })
+        return install(command)
     }
 
-    private fun importArchive(command: ImportCatalogZip): ImportCatalogZipResult = CatalogImportContext.runAsImport {
+    /** What [handle] does for an archive: installs its release (see [ImportCatalogZip]). */
+    private fun install(command: ImportCatalogZip): ImportCatalogZipResult {
+        val parsed = parse(command, command.catalogType)
+        val manifest = parsed.manifest
+        val catalogKey = CatalogKey.of(manifest.catalog.key)
+        val registry = manifest.catalog.registry ?: identity.defaultRegistry
+        val namespace = manifest.catalog.namespace ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey)
+        val existing = GetCatalog(command.tenantKey, catalogKey).query()
+        if (existing != null && (existing.registry != registry || existing.namespace != namespace)) {
+            throw CatalogImportConflictException(
+                "This tenant has a catalog '${catalogKey.value}' in ${existing.registry}/${existing.namespace}; the archive names $registry/$namespace/${catalogKey.value}, another catalog.",
+            )
+        }
+        if (existing != null && command.catalogType != null && command.catalogType != existing.type) {
+            throw CatalogImportConflictException("Catalog '${catalogKey.value}' is ${existing.type}; an import never changes a catalog's type.")
+        }
+        val type = existing?.type ?: command.catalogType
+            ?: throw ValidationException("catalogType", "Name the type of the catalog this import creates: AUTHORED or SUBSCRIBED", ValidationCode.GENERIC)
+        val version = manifest.release.version
+        val published = manifest.release.fingerprint
+
+        // The releases it carries, before it: each one this tenant lacks is installed, in a
+        // subscribed catalog when the tenant does not have that catalog; one it has is left alone.
+        val installedDependencies = mutableListOf<String>()
+        val presentDependencies = mutableListOf<String>()
+        for ((release, bytes) in parsed.carried) {
+            val label = "${release.catalogKey} v${release.releaseVersion}"
+            val dependencyCatalog = GetCatalog(command.tenantKey, CatalogKey.of(release.catalogKey)).query()
+            val dependency = install(
+                ImportCatalogZip(
+                    tenantKey = command.tenantKey,
+                    zipBytes = bytes,
+                    catalogType = if (dependencyCatalog == null) CatalogType.SUBSCRIBED else null,
+                    confirmMigration = true,
+                ),
+            )
+            if (dependency.newlyInstalled) installedDependencies += label else presentDependencies += label
+        }
+
+        fun result(newly: Boolean) = ImportCatalogZipResult(
+            catalogKey = catalogKey,
+            catalogName = manifest.catalog.name,
+            results = manifest.resources.map { InstallResult(it.type, it.key, if (newly) InstallStatus.INSTALLED else InstallStatus.SKIPPED) },
+            releaseVersion = version,
+            newlyInstalled = newly,
+            installedDependencies = installedDependencies,
+            presentDependencies = presentDependencies,
+        )
+
+        val present = existing?.let { ListCatalogReleases(command.tenantKey, catalogKey).query().firstOrNull { it.version == version } }
+        if (present != null) {
+            if (published == null || present.fingerprint == published) return result(newly = false)
+            throw CatalogImportConflictException(
+                "This tenant has ${catalogKey.value} $version with other content (fingerprint ${present.fingerprint}, the archive's $published); one number names one release.",
+            )
+        }
+
+        val missing = jdbi.withHandle<List<app.epistola.suite.environments.MissingReleaseDependency>, Exception> { handle ->
+            manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of)
+                .filter { it.pinned && !dependencyStore.pinHolds(handle, command.tenantKey, it) }
+                .map { app.epistola.suite.environments.MissingReleaseDependency(it.registry, it.namespace, it.catalogKey, it.releaseVersion!!, app.epistola.suite.environments.MissingDependencyReason.UNAVAILABLE) }
+        }
+        if (missing.isNotEmpty()) throw CatalogImportDependenciesMissingException(catalogKey, version, missing)
+
+        when (type) {
+            CatalogType.SUBSCRIBED -> {
+                val installed = existing?.installedReleaseVersion?.let(SemVer::parseOrNull)
+                val incoming = SemVer.parseOrNull(version)
+                if (installed != null && incoming != null && incoming < installed) {
+                    // Its mirror is the highest release installed; recording an older one beside it
+                    // is not supported here yet.
+                    throw CatalogImportConflictException("${catalogKey.value} $version is below the installed release $installed; this installation installs a subscribed catalog's releases in order.")
+                }
+                val imported = importArchive(command, CatalogType.SUBSCRIBED)
+                // Nothing was advanced: the catalog stays on the release it had, and the caller
+                // decides what to do with what the failed install left (an exchange install
+                // removes a catalog it created).
+                if (imported.aborted) return imported.copy(releaseVersion = version, newlyInstalled = false, installedDependencies = installedDependencies, presentDependencies = presentDependencies)
+            }
+
+            CatalogType.AUTHORED -> installAuthored(command, manifest, catalogKey, existing == null)
+        }
+        return result(newly = true)
+    }
+
+    /**
+     * Installs the archive's release in an authored catalog: its content into a draft, released at
+     * the archive's number with the archive's fingerprint, which the draft then becomes.
+     *
+     * A catalog the import creates gets its next version, as every authored catalog of this suite
+     * has one: the archive fills it, and after the release it continues on it, as a copy of what was
+     * installed. That is where references from other catalogs resolve, and where the author edits.
+     * (The contract has a new catalog hold no draft; the next version is this suite's convention.)
+     * An existing catalog gets the release through a draft of its own, which then is gone, so its
+     * drafts are untouched.
+     */
+    private fun installAuthored(command: ImportCatalogZip, manifest: app.epistola.catalog.protocol.CatalogManifest, catalogKey: CatalogKey, creates: Boolean) {
+        if (creates) {
+            CreateCatalog(
+                tenantKey = command.tenantKey,
+                id = catalogKey,
+                name = manifest.catalog.name,
+                description = manifest.catalog.description,
+                namespace = manifest.catalog.namespace,
+                registry = manifest.catalog.registry,
+            ).execute()
+            updateAuthoredMetadata(
+                command.tenantKey,
+                catalogKey,
+                manifest.catalog.name,
+                manifest.catalog.description,
+                objectMapper.writeValueAsString(CatalogMetadata.from(manifest.catalog)),
+            )
+        }
+        val version = manifest.release.version
+        val holder = jdbi.withHandle<app.epistola.suite.catalog.versions.CatalogDraft, Exception> { handle ->
+            if (creates) {
+                requireNotNull(drafts.next(handle, command.tenantKey, catalogKey)) { "a new authored catalog has its next version" }
+            } else {
+                val id = drafts.open(handle, command.tenantKey, catalogKey, base = null, name = "Installing $version (${java.util.UUID.randomUUID().toString().take(8)})")
+                drafts.drafts(handle, command.tenantKey, catalogKey).first { it.versionId == id }
+            }
+        }
+        val filled = targeting.within(holder.versionId) { importArchive(command.copy(intoDraft = true), CatalogType.AUTHORED) }
+        val failed = filled.results.filter { it.status == InstallStatus.FAILED }
+        check(failed.isEmpty()) { "Installing ${catalogKey.value} $version failed for " + failed.joinToString { "${it.type} '${it.slug}': ${it.errorMessage}" } }
+        ReleaseCatalogVersion(
+            tenantKey = command.tenantKey,
+            catalogKey = catalogKey,
+            version = version,
+            notes = "Installed from a catalog archive (publisher: ${manifest.publisher.name})",
+            publication = ReleasePublication.SUPPRESS,
+            catalogVersion = app.epistola.suite.catalog.versions.CatalogVersionRef(command.tenantKey, catalogKey, holder.ref),
+            imported = ImportedRelease(manifest.release.fingerprint, manifest.release.releasedAt?.let { runCatching { java.time.OffsetDateTime.parse(it) }.getOrNull() }),
+        ).execute()
+        touchImportedAt(command.tenantKey, catalogKey)
+    }
+
+    private data class Parsed(
+        val entries: Map<String, ByteArray>,
+        val manifest: app.epistola.catalog.protocol.CatalogManifest,
+        val catalogCtx: app.epistola.suite.catalog.migrations.CatalogMigrationContext,
+        /** The releases the archive carries for its pins, each as an archive of its own, in install order. */
+        val carried: List<Pair<app.epistola.catalog.archive.EmbeddedCatalogRelease, ByteArray>> = emptyList(),
+    )
+
+    private fun parse(command: ImportCatalogZip, catalogType: CatalogType?): Parsed {
         // Size checks: compressed ZIP and decompressed total
         val maxZipSize = sizeLimits.maxZipSize.toBytes()
         val maxDecompressedSize = sizeLimits.maxDecompressedSize.toBytes()
@@ -227,6 +392,7 @@ class ImportCatalogZipHandler(
                 CatalogImportValidationFinding(it.code, ValidationSeverity.ERROR, it.path, it.message)
             },
         )
+        var carried: List<Pair<app.epistola.catalog.archive.EmbeddedCatalogRelease, ByteArray>> = emptyList()
         val entries = archive.use { safeArchive ->
             val validation = CatalogValidator.validate(
                 safeArchive,
@@ -239,6 +405,15 @@ class ImportCatalogZipHandler(
             }
             if (read.findings.isNotEmpty() || !validation.valid) {
                 throw CatalogImportValidationException(validationFindings)
+            }
+            carried = safeArchive.dependencies.map { release ->
+                release to java.io.ByteArrayOutputStream().also {
+                    app.epistola.catalog.archive.CatalogArchiveWriter.write(
+                        release.archive,
+                        it,
+                        CatalogArchivePolicy(maxCompressedBytes = maxZipSize, maxExpandedBytes = maxDecompressedSize),
+                    )
+                }.toByteArray()
             }
             safeArchive.paths.associateWith { path ->
                 safeArchive.content.open(path).use { it.readAllBytes() }
@@ -265,7 +440,7 @@ class ImportCatalogZipHandler(
         // is current iff a chain upgraded it. Covers the UI and REST import paths.
         when (
             CatalogImportSchemaAction.decide(
-                catalogType = command.catalogType,
+                catalogType = catalogType ?: CatalogType.AUTHORED,
                 sourceVersion = catalogCtx.sourceVersion,
                 migratedVersion = manifest.schemaVersion,
                 current = CATALOG_SCHEMA_VERSION,
@@ -284,6 +459,11 @@ class ImportCatalogZipHandler(
 
             CatalogImportSchemaAction.IMPORT -> {} // proceed
         }
+        return Parsed(entries, manifest, catalogCtx, carried)
+    }
+
+    private fun importArchive(command: ImportCatalogZip, catalogType: CatalogType): ImportCatalogZipResult = CatalogImportContext.runAsImport {
+        val (entries, manifest, catalogCtx) = parse(command, catalogType)
         val catalogKey = CatalogKey.of(manifest.catalog.key)
         // #692: bound the manifest name to catalogs.name VARCHAR(255). SUBSCRIBED writes
         // it directly (insert/update); AUTHORED goes through CreateCatalog (tighter cap),
@@ -296,10 +476,10 @@ class ImportCatalogZipHandler(
         // semantics. Same type is fine: AUTHORED ⇒ in-place edit; SUBSCRIBED ⇒
         // an upgrade (the ZIP is the transport instead of a source URL).
         val existingCatalog = GetCatalog(command.tenantKey, catalogKey).query()
-        if (existingCatalog != null && existingCatalog.type != command.catalogType) {
+        if (existingCatalog != null && existingCatalog.type != catalogType) {
             throw IllegalArgumentException(
                 "Catalog '${catalogKey.value}' already exists as ${existingCatalog.type} — " +
-                    "cannot import it as ${command.catalogType}.",
+                    "cannot import it as $catalogType.",
             )
         }
 
@@ -347,9 +527,9 @@ class ImportCatalogZipHandler(
         // resource still referenced from another catalog blocks the whole
         // import. (New catalog ⇒ nothing installed ⇒ no stale ⇒ no conflicts;
         // AUTHORED MERGE keeps local-only resources, so never prunes.)
-        val prunesStale = command.catalogType == CatalogType.SUBSCRIBED ||
+        val prunesStale = catalogType == CatalogType.SUBSCRIBED ||
             (
-                command.catalogType == CatalogType.AUTHORED &&
+                catalogType == CatalogType.AUTHORED &&
                     existingCatalog != null &&
                     command.authoredMode == AuthoredImportMode.REPLACE
                 )
@@ -367,7 +547,7 @@ class ImportCatalogZipHandler(
 
         // Ensure the catalog row exists with the requested type before install.
         if (existingCatalog == null) {
-            when (command.catalogType) {
+            when (catalogType) {
                 // A catalog keeps the name its archive gives it (contract ADR 0003).
                 CatalogType.AUTHORED -> CreateCatalog(
                     tenantKey = command.tenantKey,
@@ -454,7 +634,7 @@ class ImportCatalogZipHandler(
         val catalogMetadataJson = objectMapper.writeValueAsString(CatalogMetadata.from(manifest.catalog))
         val declared = manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of)
 
-        if (command.catalogType == CatalogType.SUBSCRIBED) {
+        if (catalogType == CatalogType.SUBSCRIBED) {
             // A ZIP import of a SUBSCRIBED catalog IS its upgrade — same
             // contract as a URL `UpgradeCatalog`, the ZIP just being the
             // transport instead of a source URL.
@@ -513,7 +693,7 @@ class ImportCatalogZipHandler(
             }
         }
 
-        if (command.catalogType == CatalogType.AUTHORED &&
+        if (catalogType == CatalogType.AUTHORED &&
             existingCatalog == null &&
             manifest.release.fingerprint != null &&
             SemVer.parseOrNull(manifest.release.version) != null &&
@@ -548,7 +728,7 @@ class ImportCatalogZipHandler(
                     e.message,
                 )
             }
-        } else if (command.catalogType == CatalogType.AUTHORED &&
+        } else if (catalogType == CatalogType.AUTHORED &&
             existingCatalog != null &&
             command.authoredMode == AuthoredImportMode.REPLACE
         ) {

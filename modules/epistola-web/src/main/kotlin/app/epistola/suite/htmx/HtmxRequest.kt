@@ -117,23 +117,23 @@ fun ServerRequest.tenantId(): TenantId = TenantId(TenantKey.of(pathVariable("ten
 
 /**
  * A catalog in a UI route, optionally one of its drafts: `letters` for its next version, or
- * `letters@<draft id>` for long-term work of `letters` (contract ADR 0002, amendment 2). A draft has no
- * number until it is released, so its id names it.
+ * `letters@<version id>` for another draft of `letters` (contract ADR 0002). A draft has no number
+ * until it is released, so its id (contract `CatalogVersionId`) names it.
  *
  * The draft travels in the catalog's own path segment (or `catalog` parameter) rather than in the
  * session, so a link to a draft is shareable, and every link, HTMX request and editor call built from
  * the segment stays on that draft. Without one the route works on the catalog's current version: its
  * next version. `@` cannot occur in a catalog key, so the two never collide.
  */
-data class CatalogSegment(val key: CatalogKey, val draft: UUID? = null) {
+data class CatalogSegment(val key: CatalogKey, val draft: String? = null) {
     /** The segment as it appears in a URL. */
     val value: String get() = draft?.let { "${key.value}@$it" } ?: key.value
 
     /** The draft this names, for a message's `catalogVersion`; null for the catalog's current version. */
     fun ref(tenantKey: TenantKey): CatalogVersionRef? = draft?.let { CatalogVersionRef(tenantKey, key, DraftRef.Id(it)) }
 
-    /** The same catalog at long-term work [draft], or at its current version when that is null. */
-    fun at(draft: UUID?): CatalogSegment = copy(draft = draft)
+    /** The same catalog at draft [draft], or at its current version when that is null. */
+    fun at(draft: String?): CatalogSegment = copy(draft = draft)
 
     /**
      * The segment to link a resource of catalog [catalogKey] with: this one when it is the same
@@ -145,18 +145,17 @@ data class CatalogSegment(val key: CatalogKey, val draft: UUID? = null) {
 
     companion object {
         /**
-         * Parses `key` or `key@<draft id>`. Throws [IllegalArgumentException] for an invalid key, and
-         * [CatalogVersionNotFoundException] for a draft part that names no draft: a link from before
-         * drafts lost their numbers (`letters@1.0.1`) is a draft that is not there, not a bad request.
+         * Parses `key` or `key@<version id>`. Throws [IllegalArgumentException] for an invalid key, and
+         * [CatalogVersionNotFoundException] for a draft part that is not a version id: a link naming a
+         * release number (`letters@1.0.1`) is a draft that is not there, not a bad request.
          */
         fun parse(raw: String): CatalogSegment {
             val at = raw.indexOf('@')
             if (at < 0) return CatalogSegment(CatalogKey.of(raw))
             val key = CatalogKey.of(raw.substring(0, at))
             val draft = raw.substring(at + 1).trim()
-            val id = runCatching { UUID.fromString(draft) }.getOrNull()?.takeIf { it.toString() == draft.lowercase() }
-                ?: throw CatalogVersionNotFoundException(key, draft)
-            return CatalogSegment(key, id)
+            if (!DraftRef.isKey(draft) || draft == DraftRef.NEXT) throw CatalogVersionNotFoundException(key, draft)
+            return CatalogSegment(key, draft)
         }
 
         fun parseOrNull(raw: String?): CatalogSegment? = raw?.takeIf { it.isNotBlank() }?.let { runCatching { parse(it.trim()) }.getOrNull() }

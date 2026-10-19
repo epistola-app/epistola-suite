@@ -17,7 +17,11 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.CheckCatalogUpgrade
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
+import app.epistola.suite.catalog.versions.CatalogVersionStatus
+import app.epistola.suite.catalog.versions.GetReleasedResource
+import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
@@ -32,7 +36,10 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.commands.UpdateTheme
+import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
@@ -49,21 +56,11 @@ import java.util.zip.ZipOutputStream
 import app.epistola.catalog.canonical.CatalogCanonicalizer as PortableCatalogCanonicalizer
 
 /**
- * Versioning semantics of catalog **ZIP exchange** — distinct from
- * `ExportUsesReleasedVersionTest` (export version *label* by release state) and
- * `RepeatedCatalogDeploymentTest` (schema preservation across re-imports). Pins:
- *
- *  - re-import is an in-place **merge**, NOT a stale-pruning upgrade
- *    (contrast with `UpgradeCatalog`);
- *  - the content fingerprint is stable across a full ZIP round-trip;
- *  - a ZIP-imported catalog carries no SUBSCRIBED upgrade state and is not an
- *    upgrade target (`UpgradeCatalog`/preview don't apply — re-import is the
- *    only "upgrade from a ZIP");
- *  - release identity: a ZIP import that **creates** an AUTHORED catalog
- *    adopts the manifest's clean released SemVer as the *initial* release;
- *    a `-dev`/never-released manifest stays unreleased; and importing into an
- *    **existing** AUTHORED catalog never fabricates or changes release state
- *    (it's an edit — the owner releases deliberately).
+ * Versioning semantics of catalog **ZIP exchange** (contract `importCatalog`): an import installs
+ * the release the archive carries, at its number, beside the tenant's releases, and never fills or
+ * creates a draft. The same release again changes nothing, the same number with other content is
+ * refused, a new catalog must be given its type and an existing one keeps it. A SUBSCRIBED catalog
+ * also mirrors the release it installs, as `UpgradeCatalog` does.
  */
 class CatalogZipVersioningTest : IntegrationTestBase() {
 
@@ -124,55 +121,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `re-importing a ZIP that dropped a resource updates in place but does NOT prune the dropped resource`() {
-        val tenant = createTenant("Zip Merge Semantics")
-        val tenantKey = tenant.id
-        val catalogKey = CatalogKey.of("zipver-merge")
-        val catalogId = CatalogId(catalogKey, TenantId(tenantKey))
-
-        withMediator {
-            CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Zip Merge").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("keep"), catalogId), name = "Keep V1").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("drop"), catalogId), name = "Drop Me").execute()
-
-            val zip1 = ExportCatalogZip(tenantKey = tenantKey, catalogKey = catalogKey).execute().zipBytes
-
-            // Build the "next release" ZIP: drop the `drop` theme entirely and
-            // rename `keep` (a publisher edit).
-            val entries = unzip(zip1)
-            val manifest = objectMapper.readTree(entries["catalog.json"]!!) as ObjectNode
-            val kept = objectMapper.createArrayNode()
-            (manifest.get("resources") as ArrayNode).forEach { r ->
-                if (r.get("key").asString() != "drop") {
-                    if (r.get("key").asString() == "keep") (r as ObjectNode).put("name", "Keep V2")
-                    kept.add(r)
-                }
-            }
-            manifest.set("resources", kept)
-            entries.remove("resources/theme/drop.json")
-            entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
-            val keepDetail = objectMapper.readTree(entries["resources/theme/keep.json"]!!) as ObjectNode
-            (keepDetail.get("resource") as ObjectNode).put("name", "Keep V2")
-            entries["resources/theme/keep.json"] = objectMapper.writeValueAsBytes(keepDetail)
-
-            val result = ImportCatalogZip(
-                tenantKey = tenantKey,
-                zipBytes = rezip(entries),
-                catalogType = CatalogType.AUTHORED,
-            ).execute()
-            assertThat(result.results).noneMatch { it.status == InstallStatus.FAILED }
-
-            // `keep` was updated in place…
-            assertThat(themeName(tenantKey, catalogKey, "keep")).isEqualTo("Keep V2")
-            // …but `drop`, absent from the new ZIP, is NOT pruned. ZIP re-import
-            // is a best-effort in-place merge — only the SUBSCRIBED
-            // `UpgradeCatalog` path removes stale resources.
-            assertThat(themeName(tenantKey, catalogKey, "drop")).isEqualTo("Drop Me")
-        }
-    }
-
-    @Test
-    fun `content fingerprint is stable across a full ZIP export-import-export round-trip`() {
+    fun `an installed release exports with the fingerprint it was installed with`() {
         val src = createTenant("Zip FP Src")
         val dst = createTenant("Zip FP Dst")
         val catalogKey = CatalogKey.of("zipver-fp")
@@ -181,30 +130,19 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = src.id, id = catalogKey, name = "Zip FP").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalogKey, TenantId(src.id))), name = "Brand").execute()
 
-            val zip1 = ExportCatalogZip(tenantKey = src.id, catalogKey = catalogKey).execute().zipBytes
-            val fpExport = fingerprintService.fingerprint(src.id, catalogKey)
-            // The manifest stamps the fingerprint of the exact exported bytes.
-            assertThat(manifestOf(zip1).release.fingerprint).isEqualTo(fpExport)
+            val zip1 = mediator.exportReleased(CatalogId(catalogKey, TenantId(src.id))).zipBytes
+            val published = manifestOf(zip1).release
 
-            // Import into a *different* tenant, then re-export.
-            val imported = ImportCatalogZip(
-                tenantKey = dst.id,
-                zipBytes = zip1,
-                catalogType = CatalogType.AUTHORED,
-            ).execute()
-            assertThat(imported.results).noneMatch { it.status == InstallStatus.FAILED }
+            ImportCatalogZip(tenantKey = dst.id, zipBytes = zip1, catalogType = CatalogType.AUTHORED).execute()
+            val zip2 = ExportCatalogZip(tenantKey = dst.id, catalogKey = catalogKey, version = published.version).execute().zipBytes
 
-            val fpReimport = fingerprintService.fingerprint(dst.id, catalogKey)
-            val zip2 = ExportCatalogZip(tenantKey = dst.id, catalogKey = catalogKey).execute().zipBytes
-
-            // Same content ⇒ identical fingerprint, end to end and tenant-independent.
-            assertThat(fpReimport).isEqualTo(fpExport)
-            assertThat(manifestOf(zip2).release.fingerprint).isEqualTo(fpExport)
+            // Same release ⇒ the same fingerprint, end to end and tenant-independent.
+            assertThat(manifestOf(zip2).release.fingerprint).isEqualTo(published.fingerprint)
         }
     }
 
     @Test
-    fun `a ZIP-imported catalog has no installed version state and is not a subscriber upgrade target`() {
+    fun `an AUTHORED import holds the release and its next version on it, and is not a subscriber upgrade target`() {
         val tenant = createTenant("Zip No Installed State")
         val catalogKey = CatalogKey.of("zipver-authored")
 
@@ -212,19 +150,19 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             val src = createTenant("Zip Source")
             CreateCatalog(tenantKey = src.id, id = catalogKey, name = "Zip Authored").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("tee"), CatalogId(catalogKey, TenantId(src.id))), name = "T").execute()
-            val zip = ExportCatalogZip(tenantKey = src.id, catalogKey = catalogKey).execute().zipBytes
+            val zip = mediator.exportReleased(CatalogId(catalogKey, TenantId(src.id))).zipBytes
 
-            ImportCatalogZip(tenantKey = tenant.id, zipBytes = zip, catalogType = CatalogType.AUTHORED).execute()
+            val imported = ImportCatalogZip(tenantKey = tenant.id, zipBytes = zip, catalogType = CatalogType.AUTHORED).execute()
 
+            assertThat(imported.releaseVersion to imported.newlyInstalled).isEqualTo("1.0.0" to true)
             val catalog = GetCatalog(tenant.id, catalogKey).query()!!
-            // ZIP import creates an AUTHORED catalog: no SUBSCRIBED install state,
-            // no source URL. "Upgrade from a ZIP" = re-import, never the
-            // SUBSCRIBED UpgradeCatalog/preview path.
             assertThat(catalog.type).isEqualTo(CatalogType.AUTHORED)
+            assertThat(catalog.releasedVersion).isEqualTo("1.0.0")
             assertThat(catalog.sourceUrl).isNull()
             assertThat(catalog.installedReleaseVersion).isNull()
-            assertThat(catalog.installedFingerprint).isNull()
-            assertThat(catalog.installedResourceFingerprints).isNull()
+            assertThat(ListCatalogVersions(tenant.id, catalogKey, CatalogVersionStatus.DRAFT).query().map { it.isNext to it.base })
+                .`as`("its next version, a convention of this suite, continues on the release")
+                .containsExactly(true to "1.0.0")
 
             assertThatThrownBy { PreviewCatalogUpgrade(tenant.id, catalogKey).query() }
                 .hasMessageContaining("only subscribed catalogs can be upgraded")
@@ -242,7 +180,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = pub.id, id = catalogKey, name = "Zip Old Schema").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(pub.id))), name = "Th").execute()
-            val zip = ExportCatalogZip(tenantKey = pub.id, catalogKey = catalogKey).execute().zipBytes
+            val zip = mediator.exportReleased(CatalogId(catalogKey, TenantId(pub.id))).zipBytes
 
             // Rewrite the manifest to an older catalog schema version (a publisher
             // on an older Epistola). A source-less ZIP can't be re-fetched and we
@@ -272,7 +210,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = pub.id, id = catalogKey, name = "Zip Old Sub").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(pub.id))), name = "Th").execute()
-            val zip = ExportCatalogZip(tenantKey = pub.id, catalogKey = catalogKey).execute().zipBytes
+            val zip = mediator.exportReleased(CatalogId(catalogKey, TenantId(pub.id))).zipBytes
             val entries = unzip(zip)
             val manifest = objectMapper.readTree(entries["catalog.json"]!!) as ObjectNode
             manifest.put("schemaVersion", 2)
@@ -289,77 +227,68 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `importing a released ZIP that creates a new AUTHORED catalog adopts it as the initial release`() {
+    fun `the same release again changes nothing, and the same number with other content is refused`() {
         val publisher = createTenant("Zip Rel Publisher")
         val consumer = createTenant("Zip Rel Consumer")
         val catalogKey = CatalogKey.of("zipver-adopt")
 
         withMediator {
-            CreateCatalog(tenantKey = publisher.id, id = catalogKey, name = "Zip Rel").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher.id))), name = "Th").execute()
-            MarkCatalogReady(publisher.id, catalogKey).execute()
-            ReleaseCatalogVersion(tenantKey = publisher.id, catalogKey = catalogKey, version = "1.0.0").execute()
-            val publishedZip = ExportCatalogZip(tenantKey = publisher.id, catalogKey = catalogKey).execute().zipBytes
-            assertThat(manifestOf(publishedZip).release.version).isEqualTo("1.0.0")
+            val zip = publishZip(publisher.id, "zipver-adopt", "1.0.0", mapOf("thm" to "Th"))
+            // The same catalog and number, with other content: the theme renamed, fingerprinted anew.
+            val entries = unzip(zip)
+            val detail = objectMapper.readTree(entries["resources/theme/thm.json"]!!) as ObjectNode
+            (detail.get("resource") as ObjectNode).put("name", "Another theme")
+            entries["resources/theme/thm.json"] = objectMapper.writeValueAsBytes(detail)
+            val manifest = objectMapper.readTree(entries["catalog.json"]!!) as ObjectNode
+            (manifest.get("resources") as ArrayNode).forEach { (it as ObjectNode).put("name", "Another theme") }
+            entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
+            val conflicting = rezip(entries)
 
-            // Consumer has no such catalog → the import *creates* it, so the
-            // published 1.0.0 becomes its initial release (no authorship
-            // history to protect; round-trip fingerprint is deterministic, so
-            // the release row is real and consistent — not fabricated).
-            ImportCatalogZip(tenantKey = consumer.id, zipBytes = publishedZip, catalogType = CatalogType.AUTHORED).execute()
+            assertThat(ImportCatalogZip(consumer.id, zip, CatalogType.AUTHORED).execute().newlyInstalled).isTrue()
+            assertThat(ImportCatalogZip(consumer.id, zip).execute().newlyInstalled).`as`("already present; the type may be left out").isFalse()
 
-            assertThat(GetCatalog(consumer.id, catalogKey).query()!!.releasedVersion).isEqualTo("1.0.0")
-            val reexport = ExportCatalogZip(tenantKey = consumer.id, catalogKey = catalogKey).execute().zipBytes
-            // Clean version (no `-dev`): the working copy matches the adopted release.
-            assertThat(manifestOf(reexport).release.version).isEqualTo("1.0.0")
+            assertThatThrownBy { ImportCatalogZip(consumer.id, conflicting).execute() }
+                .isInstanceOf(CatalogImportConflictException::class.java)
+                .hasMessageContaining("one number names one release")
+            assertThat(ListCatalogReleases(consumer.id, catalogKey).query().map { it.version }).containsExactly("1.0.0")
         }
     }
 
     @Test
-    fun `importing a never-released ZIP creates an unreleased catalog`() {
+    fun `the import that creates a catalog must name its type`() {
         val publisher = createTenant("Zip Unrel Publisher")
         val consumer = createTenant("Zip Unrel Consumer")
         val catalogKey = CatalogKey.of("zipver-unrel")
 
         withMediator {
-            CreateCatalog(tenantKey = publisher.id, id = catalogKey, name = "Zip Unrel").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher.id))), name = "Th").execute()
-            // Publisher never cut a release → manifest carries 0.0.0-dev.
-            val devZip = ExportCatalogZip(tenantKey = publisher.id, catalogKey = catalogKey).execute().zipBytes
-            assertThat(manifestOf(devZip).release.version).isEqualTo("0.0.0-dev")
+            val zip = publishZip(publisher.id, "zipver-unrel", "1.0.0", mapOf("thm" to "Th"))
 
-            // A `-dev` label is not a real release: nothing to adopt.
-            ImportCatalogZip(tenantKey = consumer.id, zipBytes = devZip, catalogType = CatalogType.AUTHORED).execute()
-            assertThat(GetCatalog(consumer.id, catalogKey).query()!!.releasedVersion).isNull()
+            assertThatThrownBy { ImportCatalogZip(tenantKey = consumer.id, zipBytes = zip).execute() }
+                .isInstanceOf(ValidationException::class.java)
+                .hasMessageContaining("Name the type")
+            assertThat(GetCatalog(consumer.id, catalogKey).query()).isNull()
         }
     }
 
     @Test
-    fun `importing into an existing AUTHORED catalog does not fabricate or change release state`() {
+    fun `a release imported into an AUTHORED catalog is added beside its releases, and its drafts are untouched`() {
         val publisher = createTenant("Zip Exist Publisher")
         val consumer = createTenant("Zip Exist Consumer")
         val catalogKey = CatalogKey.of("zipver-exist")
 
         withMediator {
-            // Publisher publishes 2.0.0.
-            CreateCatalog(tenantKey = publisher.id, id = catalogKey, name = "Zip Exist").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher.id))), name = "Pub Th").execute()
-            MarkCatalogReady(publisher.id, catalogKey).execute()
-            ReleaseCatalogVersion(tenantKey = publisher.id, catalogKey = catalogKey, version = "2.0.0").execute()
-            val publishedZip = ExportCatalogZip(tenantKey = publisher.id, catalogKey = catalogKey).execute().zipBytes
+            val v1 = publishZip(publisher.id, "zipver-exist", "1.0.0", mapOf("thm" to "Pub Th"))
+            UpdateTheme(ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher.id))), name = "Pub Th 2").execute()
+            val v2 = mediator.exportReleased(CatalogId(catalogKey, TenantId(publisher.id))).zipBytes
 
-            // Consumer already AUTHORS a catalog with the same slug, never released.
-            CreateCatalog(tenantKey = consumer.id, id = catalogKey, name = "Consumer's Own").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("own"), CatalogId(catalogKey, TenantId(consumer.id))), name = "Own Th").execute()
+            ImportCatalogZip(tenantKey = consumer.id, zipBytes = v1, catalogType = CatalogType.AUTHORED).execute()
+            UpdateTheme(ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(consumer.id))), name = "Our edit").execute()
 
-            // Importing into the *existing* catalog is an edit, not a release
-            // act — the publisher's 2.0.0 is NOT adopted; the owner's release
-            // history (here: none) is untouched. It shows as drift, correctly.
-            ImportCatalogZip(tenantKey = consumer.id, zipBytes = publishedZip, catalogType = CatalogType.AUTHORED).execute()
+            ImportCatalogZip(tenantKey = consumer.id, zipBytes = v2).execute()
 
-            assertThat(GetCatalog(consumer.id, catalogKey).query()!!.releasedVersion).isNull()
-            val reexport = ExportCatalogZip(tenantKey = consumer.id, catalogKey = catalogKey).execute().zipBytes
-            assertThat(manifestOf(reexport).release.version).isEqualTo("0.0.0-dev")
+            assertThat(ListCatalogReleases(consumer.id, catalogKey).query().map { it.version }).containsExactly("1.0.1", "1.0.0")
+            assertThat(themeName(consumer.id, catalogKey, "thm")).`as`("the draft is not filled").isEqualTo("Our edit")
+            assertThat(GetReleasedResource(consumer.id, catalogKey, "1.0.1", "theme", "thm").query()?.name).isEqualTo("Pub Th 2")
         }
     }
 
@@ -372,7 +301,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
         themes.forEach { (s, n) -> CreateTheme(id = ThemeId(ThemeKey.of(s), CatalogId(catalogKey, TenantId(publisherTenant))), name = n).execute() }
         MarkCatalogReady(publisherTenant, catalogKey).execute()
         ReleaseCatalogVersion(tenantKey = publisherTenant, catalogKey = catalogKey, version = version).execute()
-        return ExportCatalogZip(tenantKey = publisherTenant, catalogKey = catalogKey).execute().zipBytes
+        return ExportCatalogZip(tenantKey = publisherTenant, catalogKey = catalogKey, version = version).execute().zipBytes
     }
 
     @Test
@@ -512,7 +441,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             ImportCatalogZip(tenantKey = sub.id, zipBytes = zip, catalogType = CatalogType.SUBSCRIBED).execute()
             assertThatThrownBy {
                 ImportCatalogZip(tenantKey = sub.id, zipBytes = zip, catalogType = CatalogType.AUTHORED).execute()
-            }.isInstanceOf(IllegalArgumentException::class.java).hasMessageContaining("already exists as SUBSCRIBED")
+            }.isInstanceOf(CatalogImportConflictException::class.java).hasMessageContaining("never changes a catalog's type")
 
             // And the reverse: an AUTHORED catalog can't be imported as SUBSCRIBED.
             val pub2 = createTenant("Sub Mismatch Pub2")
@@ -520,7 +449,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             ImportCatalogZip(tenantKey = sub.id, zipBytes = zip2, catalogType = CatalogType.AUTHORED).execute()
             assertThatThrownBy {
                 ImportCatalogZip(tenantKey = sub.id, zipBytes = zip2, catalogType = CatalogType.SUBSCRIBED).execute()
-            }.isInstanceOf(IllegalArgumentException::class.java).hasMessageContaining("already exists as AUTHORED")
+            }.isInstanceOf(CatalogImportConflictException::class.java).hasMessageContaining("never changes a catalog's type")
         }
     }
 
@@ -563,7 +492,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             ).execute()
             MarkCatalogReady(pub.id, catalogKey).execute()
             ReleaseCatalogVersion(tenantKey = pub.id, catalogKey = catalogKey, version = "1.0.0").execute()
-            val zip = ExportCatalogZip(tenantKey = pub.id, catalogKey = catalogKey).execute().zipBytes
+            val zip = ExportCatalogZip(tenantKey = pub.id, catalogKey = catalogKey, version = "1.0.0").execute().zipBytes
 
             ImportCatalogZip(tenantKey = sub.id, zipBytes = zip, catalogType = CatalogType.SUBSCRIBED).execute()
 
@@ -574,80 +503,6 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
                 .single { it.type == "codeList" && it.slug == "bcp-47" }
             assertThat(codeList.status.name).isEqualTo("INSTALLED")
             assertThat(codeList.name).isEqualTo("BCP-47 Language Tags")
-        }
-    }
-
-    // ── AUTHORED re-import: MERGE (default) vs REPLACE ────────────────────────
-
-    @Test
-    fun `AUTHORED re-import with REPLACE prunes local-only resources (release untouched)`() {
-        val tenant = createTenant("Authored Replace")
-        val catalogKey = CatalogKey.of("authored-replace")
-        val catalogId = CatalogId(catalogKey, TenantId(tenant.id))
-
-        withMediator {
-            CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Authored Replace").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("keep"), catalogId), name = "Keep").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("local-only"), catalogId), name = "Local Only").execute()
-
-            // Build a "next" ZIP without `local-only`.
-            val entries = unzip(ExportCatalogZip(tenantKey = tenant.id, catalogKey = catalogKey).execute().zipBytes)
-            val manifest = objectMapper.readTree(entries["catalog.json"]!!) as ObjectNode
-            val kept = objectMapper.createArrayNode()
-            (manifest.get("resources") as ArrayNode).forEach { if (it.get("key").asString() != "local-only") kept.add(it) }
-            manifest.set("resources", kept)
-            entries.remove("resources/theme/local-only.json")
-            entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
-
-            ImportCatalogZip(
-                tenantKey = tenant.id,
-                zipBytes = rezip(entries),
-                catalogType = CatalogType.AUTHORED,
-                authoredMode = AuthoredImportMode.REPLACE,
-            ).execute()
-
-            // REPLACE mirrors the ZIP: local-only theme is pruned, kept theme stays.
-            // (Contrast `MERGE` which keeps local-only — covered separately.)
-            assertThat(themeName(tenant.id, catalogKey, "local-only")).isNull()
-            assertThat(themeName(tenant.id, catalogKey, "keep")).isEqualTo("Keep")
-            // Release state untouched — an edit, never an authorship act.
-            assertThat(GetCatalog(tenant.id, catalogKey).query()!!.releasedVersion).isNull()
-        }
-    }
-
-    @Test
-    fun `AUTHORED REPLACE blocks on a cross-catalog conflict and changes nothing`() {
-        val tenant = createTenant("Authored Replace Conflict")
-        val catalogKey = CatalogKey.of("authored-replace-conflict")
-        val catalogId = CatalogId(catalogKey, TenantId(tenant.id))
-
-        withMediator {
-            CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Authored Replace Conflict").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("pinned"), catalogId), name = "Pinned").execute()
-
-            // A template in another catalog pins the theme REPLACE would prune.
-            val tplId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId(CatalogKey.DEFAULT, TenantId(tenant.id)))
-            CreateDocumentTemplate(id = tplId, name = "Cross-Ref Template").execute()
-            UpdateDocumentTemplate(id = tplId, themeId = ThemeKey.of("pinned"), themeCatalogKey = catalogKey).execute()
-
-            // Next ZIP drops the still-referenced theme.
-            val entries = unzip(ExportCatalogZip(tenantKey = tenant.id, catalogKey = catalogKey).execute().zipBytes)
-            val manifest = objectMapper.readTree(entries["catalog.json"]!!) as ObjectNode
-            manifest.set("resources", objectMapper.createArrayNode())
-            entries.remove("resources/theme/pinned.json")
-            entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
-
-            assertThatThrownBy {
-                ImportCatalogZip(
-                    tenantKey = tenant.id,
-                    zipBytes = rezip(entries),
-                    catalogType = CatalogType.AUTHORED,
-                    authoredMode = AuthoredImportMode.REPLACE,
-                ).execute()
-            }.isInstanceOf(CatalogUpgradeConflictException::class.java).hasMessageContaining("pinned")
-
-            // Conflict thrown before any mutation — theme still there.
-            assertThat(themeName(tenant.id, catalogKey, "pinned")).isEqualTo("Pinned")
         }
     }
 }

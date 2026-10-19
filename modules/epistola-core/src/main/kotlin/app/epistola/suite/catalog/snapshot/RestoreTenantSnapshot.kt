@@ -113,6 +113,7 @@ class RestoreTenantSnapshotHandler(
                 catalogType = CatalogType.valueOf(entry.type),
                 authoredMode = AuthoredImportMode.REPLACE,
                 validateCrossCatalogDeps = false,
+                restore = true,
             ).execute()
         }
 

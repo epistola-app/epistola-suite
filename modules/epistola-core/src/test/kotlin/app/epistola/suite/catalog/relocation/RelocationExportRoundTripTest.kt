@@ -45,6 +45,7 @@ import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.queries.variants.ListVariants
+import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -145,7 +146,7 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
         publishTemplate(tenant, letters, textModel())
         move(tenant, address(CatalogResourceType.TEMPLATE, letters, "invoice").movedTo(shared))
 
-        assertThat(unzipText(withMediator { ExportCatalogZip(tenant, letters).execute() }.zipBytes)).doesNotContainKey("resources/template/invoice.json")
+        assertThat(unzipText(withMediator { mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(letters, app.epistola.suite.common.ids.TenantId(tenant))) }.zipBytes)).doesNotContainKey("resources/template/invoice.json")
         val fresh = installBoth(tenant, "template")
 
         assertThat(withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId(fresh, shared))).query() }).isNotNull()
@@ -153,8 +154,8 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
 
     /** Exports `shared` and `letters` from [tenant] and installs them, in that order, in a fresh tenant. */
     private fun installBoth(tenant: TenantKey, what: String): TenantKey {
-        val sharedZip = withMediator { ExportCatalogZip(tenant, shared).execute() }.zipBytes
-        val lettersZip = withMediator { ExportCatalogZip(tenant, letters).execute() }.zipBytes
+        val sharedZip = withMediator { mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(shared, app.epistola.suite.common.ids.TenantId(tenant))) }.zipBytes
+        val lettersZip = withMediator { mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(letters, app.epistola.suite.common.ids.TenantId(tenant))) }.zipBytes
         val fresh = createTenant("Installs $what move").id
         withMediator {
             ImportCatalogZip(fresh, sharedZip, CatalogType.AUTHORED).execute()
@@ -187,8 +188,8 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
             MarkVariantReady(variant).execute()
         }
 
-        val sharedZip = withMediator { ExportCatalogZip(tenant, shared).execute() }.zipBytes
-        val lettersZip = withMediator { ExportCatalogZip(tenant, letters).execute() }.zipBytes
+        val sharedZip = withMediator { mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(shared, app.epistola.suite.common.ids.TenantId(tenant))) }.zipBytes
+        val lettersZip = withMediator { mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(letters, app.epistola.suite.common.ids.TenantId(tenant))) }.zipBytes
         val lettersEntries = unzipText(lettersZip)
         assertThat(lettersEntries.getValue("resources/template/invoice.json"))
             .describedAs("the invoice names the %s where it lives now", moved.type.wireName)

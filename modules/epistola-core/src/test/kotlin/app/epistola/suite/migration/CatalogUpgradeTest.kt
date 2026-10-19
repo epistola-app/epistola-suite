@@ -341,7 +341,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
         runUpgrade()
 
-        assertThat(queueRow(lettersCatalog)).contains("pins no release")
+        assertThat(queueRow(lettersCatalog)).contains("uses drafts of other catalogs")
         assertThat(versions(lettersCatalog)).containsExactly("Next version" to CatalogVersionStatus.DRAFT)
 
         queue(sharedCatalog)

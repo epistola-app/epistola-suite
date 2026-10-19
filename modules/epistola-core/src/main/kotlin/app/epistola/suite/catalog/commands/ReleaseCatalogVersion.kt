@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.catalog.canonical.QualifiedCatalogFingerprint
 import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.catalog.Catalog
@@ -102,6 +103,13 @@ data class ReleaseCatalogVersion(
     override val catalogVersion: CatalogVersionRef? = null,
     /** Release the drafts of other catalogs this draft's declarations name, first. */
     val releaseDependencies: Boolean = false,
+    /**
+     * Set when an import installs a release through a draft holding the archive's content: the
+     * release is the publisher's, so it takes exactly [version] and the archive's fingerprint, and
+     * none of the authoring checks (readiness, the number its changes need, behind) apply. Internal
+     * so no API can set it.
+     */
+    internal val imported: ImportedRelease? = null,
 ) : CatalogVersionScoped,
     Command<ReleaseCatalogVersionResult>,
     RequiresPermission {
@@ -134,6 +142,9 @@ data class ReleaseCatalogVersionResult(
     /** The release's id (contract `CatalogVersionId`): the id the draft had. */
     val versionId: String = "",
 )
+
+/** The archive release an import installs: its fingerprint and when its publisher released it. */
+data class ImportedRelease(val fingerprint: String?, val releasedAt: OffsetDateTime?)
 
 /** A draft of another catalog released along with a release, and the release it became. */
 data class ReleasedDependency(val registry: String, val namespace: String, val catalogKey: String, val versionId: String, val releaseVersion: String)
@@ -177,7 +188,7 @@ class ReleaseCatalogVersionHandler(
         val latest = existing.mapNotNull { SemVer.parseOrNull(it.version) }.maxOrNull()
         val newVersion = number(command, draft, existing, latest)
         val others = jdbi.withHandle<List<CatalogDraft>, Exception> { drafts.drafts(it, command.tenantKey, command.catalogKey) }.filter { it.versionId != draft.versionId }
-        if (command.source == ContentSource.WORKING_COPY) {
+        if (command.source == ContentSource.WORKING_COPY && command.imported == null) {
             val behind = CatalogDrafts.behind(draft.base, draft.createdAt, newVersion.toString(), existing.map { it.version to it.releasedAt })
             val unacknowledged = behind.filter { it !in command.acknowledgedBehind }
             if (unacknowledged.isNotEmpty()) throw CatalogVersionBehindException(command.catalogKey, draft.label, unacknowledged)
@@ -240,6 +251,10 @@ class ReleaseCatalogVersionHandler(
     private fun number(command: ReleaseCatalogVersion, draft: CatalogDraft, existing: List<ReleaseRow>, latest: SemVer?): SemVer {
         val asked = command.version
         if (asked != null && existing.any { it.version == asked.trim() }) throw CatalogReleaseVersionException("Version ${asked.trim()} is released already")
+        if (command.imported != null) {
+            // The publisher's number, beside the releases the catalog has (contract `importCatalog`).
+            return asked?.let(SemVer::parseOrNull) ?: throw CatalogReleaseVersionException("Version '$asked' must be MAJOR.MINOR.PATCH")
+        }
         if (command.source != ContentSource.WORKING_COPY) {
             val wanted = asked?.let(SemVer::parseOrNull) ?: throw CatalogReleaseVersionException("Version '$asked' must be MAJOR.MINOR.PATCH")
             if (latest != null && wanted <= latest) throw CatalogReleaseVersionException("Version $wanted must be greater than the last release $latest")
@@ -261,12 +276,31 @@ class ReleaseCatalogVersionHandler(
         draft: CatalogDraft,
         draftsBehind: List<String>,
     ): ReleaseCatalogVersionResult {
-        if (command.source == ContentSource.WORKING_COPY) requireChangesReady(command.tenantKey, command.catalogKey)
-        val pins = pinDependencies(command.tenantKey, command.catalogKey)
+        if (command.source == ContentSource.WORKING_COPY && command.imported == null) requireChangesReady(command.tenantKey, command.catalogKey)
+        // An installed release keeps its publisher's pins as they are; the import checked those that pin.
+        val pins = if (command.imported != null) {
+            jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { dependencyStore.declarations(it, command.tenantKey, command.catalogKey) }
+        } else {
+            pinDependencies(command.tenantKey, command.catalogKey)
+        }
         val content = contentBuilder.build(command.tenantKey, command.catalogKey, command.source)
         fingerprintService.requirePublishable(content)
         stencilCheck.requireInstancesFit(command.tenantKey, command.catalogKey, content)
-        val fingerprint = fingerprintService.fingerprint(content)
+        val rebuilt = fingerprintService.fingerprint(content)
+        // An installed release keeps its publisher's fingerprint, which dependents pin; a legacy
+        // one, naming no algorithm, cannot be pinned and is replaced by what the content holds.
+        val fingerprint = command.imported?.fingerprint?.takeIf { QualifiedCatalogFingerprint.parse(it) != null }
+            ?.also { published ->
+                if (published != rebuilt) {
+                    logger.warn(
+                        "Installed release {} of '{}' is recorded as published ({}), but its content as stored rebuilds to {}; exporting it will be refused",
+                        newVersion,
+                        command.catalogKey.value,
+                        published,
+                        rebuilt,
+                    )
+                }
+            } ?: rebuilt
         // What this release contains, resource by resource. Recorded here because it cannot be
         // recovered afterwards: `manifest_snapshot` holds the manifest entries, not the payloads
         // they were built from. It is what lets the next release say which resources changed.
@@ -288,7 +322,7 @@ class ReleaseCatalogVersionHandler(
         // GREATEST(released_at, imported_at)) is exact. A JVM
         // OffsetDateTime.now() here drifts vs the DB clock and can make a
         // freshly released, unedited catalog look "pending".
-        val releasedAt = jdbi.withHandle<OffsetDateTime, Exception> { handle ->
+        val releasedAt = command.imported?.releasedAt ?: jdbi.withHandle<OffsetDateTime, Exception> { handle ->
             handle.createQuery("SELECT NOW()").mapTo(OffsetDateTime::class.java).one()
         }
         val releaseInfo = ReleaseInfo(version = newVersion.toString(), releasedAt = releasedAt.toString(), fingerprint = fingerprint)
@@ -317,8 +351,9 @@ class ReleaseCatalogVersionHandler(
                 .bind("version", newVersion.toString())
                 // The release keeps the draft's id (contract ADR 0002).
                 .bind("key", draft.key)
-                // The release keeps the draft's base (ADR 0002), which is gone once the draft is.
-                .bind("base", draft.base)
+                // The release keeps the draft's base (ADR 0002), which is gone once the draft is. An
+                // installed release's base is its publisher's, which the archive does not carry.
+                .bind("base", if (command.imported != null) null else draft.base)
                 .bind("fingerprint", fingerprint)
                 .bind("notes", command.notes)
                 .bindJsonb("snapshot", manifest, objectMapper)

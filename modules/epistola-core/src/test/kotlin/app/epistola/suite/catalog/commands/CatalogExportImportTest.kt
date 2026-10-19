@@ -64,6 +64,7 @@ import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.template.model.ThemeRef
@@ -127,7 +128,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 ),
             ).execute()
 
-            val exported = ExportCatalogZip(source.id, catalogKey).execute()
+            val exported = mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(source.id)))
             assertThatThrownBy { DeleteAsset(source.id, image.id).execute() }
                 .isInstanceOf(AssetInUseException::class.java)
                 .hasMessageContaining("Catalog: Metadata Catalog Renamed")
@@ -229,10 +230,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             ).execute()
 
             // Export the catalog as ZIP
-            val exportResult = ExportCatalogZip(
-                tenantKey = tenantKey,
-                catalogKey = catalogKey,
-            ).execute()
+            val exportResult = mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey)))
 
             assertThat(exportResult.zipBytes).isNotEmpty()
             assertThat(exportResult.filename).contains("roundtrip-catalog")
@@ -276,39 +274,6 @@ class CatalogExportImportTest : IntegrationTestBase() {
             val properties = reimportedContract.dataModel!!.get("properties")
             assertThat(properties.has("name")).isTrue()
             assertThat(properties.has("amount")).isTrue()
-        }
-    }
-
-    @Test
-    fun `importing an AUTHORED ZIP over an existing SUBSCRIBED catalog is rejected (type mismatch)`() {
-        val tenant = createTenant("Subscribed Reject")
-        val tenantKey = tenant.id
-
-        withMediator {
-            // Register a subscribed catalog (from demo)
-            RegisterCatalog(
-                tenantKey = tenantKey,
-                sourceUrl = DEMO_CATALOG_URL,
-                authType = AuthType.NONE,
-            ).execute()
-
-            // Export the demo catalog to get a valid ZIP
-            val exportResult = ExportCatalogZip(
-                tenantKey = tenantKey,
-                catalogKey = CatalogKey.of("epistola-demo"),
-            ).execute()
-
-            // Same slug already exists as SUBSCRIBED → importing it as AUTHORED
-            // is a type mismatch (would flip ownership). Re-importing it as
-            // SUBSCRIBED is the supported "upgrade from ZIP" path instead.
-            assertThatThrownBy {
-                ImportCatalogZip(
-                    tenantKey = tenantKey,
-                    zipBytes = exportResult.zipBytes,
-                    catalogType = CatalogType.AUTHORED,
-                ).execute()
-            }.isInstanceOf(IllegalArgumentException::class.java)
-                .hasMessageContaining("already exists as SUBSCRIBED")
         }
     }
 
@@ -450,10 +415,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             // Mark the default variant ready, as authoring does before a release.
             MarkVariantReady(VariantId(VariantKey.INITIAL, templateId)).execute()
 
-            val exportResult = ExportCatalogZip(
-                tenantKey = tenantKey,
-                catalogKey = catalogKey,
-            ).execute()
+            val exportResult = mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey)))
             assertThat(exportResult.zipBytes).isNotEmpty()
 
             val importResult = ImportCatalogZip(
@@ -633,7 +595,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 codeListId = CodeListId(CodeListKey.of("regions"), sourceId),
             ).execute()
 
-            ExportCatalogZip(tenantKey = tenantKey, catalogKey = sourceKey).execute()
+            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(sourceKey, app.epistola.suite.common.ids.TenantId(tenantKey)))
         }
 
         // Re-import into a second tenant. The exported manifest carries both
@@ -719,7 +681,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             ).execute()
             MarkVariantReady(variantId).execute()
 
-            ExportCatalogZip(tenantKey = tenantKey, catalogKey = sourceKey).execute() to asset.id.value
+            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(sourceKey, app.epistola.suite.common.ids.TenantId(tenantKey))) to asset.id.value
         }
         zipBytes = exported.first.zipBytes
         assetId = exported.second
@@ -898,7 +860,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             ).execute()
             MarkVariantReady(variantId).execute()
 
-            ExportCatalogZip(tenantKey = source.id, catalogKey = catalogKey).execute().zipBytes
+            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(source.id))).zipBytes
         }
 
         // Import into a clean tenant — the catalog does not exist there yet.

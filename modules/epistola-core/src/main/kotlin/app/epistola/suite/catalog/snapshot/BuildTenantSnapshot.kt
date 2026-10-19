@@ -74,7 +74,7 @@ class BuildTenantSnapshotHandler(
             // ExportCatalogZip embeds in catalog.json — read directly so dedup is deterministic.
             val content = contentBuilder.build(command.tenantKey, catalog.id)
             val fingerprint = fingerprintService.fingerprint(content)
-            val export = ExportCatalogZip(command.tenantKey, catalog.id).execute()
+            val export = ExportCatalogZip(command.tenantKey, catalog.id, workingCopy = true).execute()
             val zipPath = "catalogs/${catalog.id.value}.zip"
             innerZips[zipPath] = export.zipBytes
             entries.add(

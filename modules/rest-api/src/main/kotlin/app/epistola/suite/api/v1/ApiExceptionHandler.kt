@@ -21,12 +21,16 @@ import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.commands.CatalogBundleException
+import app.epistola.suite.catalog.commands.CatalogImportConflictException
+import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingException
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
+import app.epistola.suite.catalog.versions.CatalogDependenciesUnreleasedException
+import app.epistola.suite.catalog.versions.CatalogDraftInUseException
 import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
 import app.epistola.suite.catalog.versions.CatalogDraftNameInUseException
 import app.epistola.suite.catalog.versions.CatalogVersionBehindException
@@ -298,6 +302,10 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         CatalogDraftNameInUseException::class,
         CatalogBundleException::class,
         CatalogDraftIsNextException::class,
+        CatalogImportConflictException::class,
+        CatalogImportDependenciesMissingException::class,
+        CatalogDraftInUseException::class,
+        CatalogDependenciesUnreleasedException::class,
         EnvironmentOverrideRefusedException::class,
         ResourceModifiedException::class,
         CatalogVersionBehindException::class,

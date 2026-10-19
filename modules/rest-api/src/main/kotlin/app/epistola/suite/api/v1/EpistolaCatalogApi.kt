@@ -5,6 +5,7 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.api.CatalogsApi
+import app.epistola.api.model.AvailableReleaseDto
 import app.epistola.api.model.BehindReleaseDto
 import app.epistola.api.model.CatalogChangesDto
 import app.epistola.api.model.CatalogDependencyDto
@@ -12,19 +13,17 @@ import app.epistola.api.model.CatalogDependencyListResponse
 import app.epistola.api.model.CatalogDraftReleasePreview
 import app.epistola.api.model.CatalogDraftSummary
 import app.epistola.api.model.CatalogDto
-import app.epistola.api.model.CatalogInstallResultDto
 import app.epistola.api.model.CatalogListResponse
-import app.epistola.api.model.CatalogUpgradeDiff
+import app.epistola.api.model.CatalogUpgradePreview
 import app.epistola.api.model.CatalogVersionDto
 import app.epistola.api.model.CatalogVersionListResponse
 import app.epistola.api.model.CreateCatalogDraftRequest
 import app.epistola.api.model.ImportCatalogResponse
-import app.epistola.api.model.PromoteCatalogDraftRequest
 import app.epistola.api.model.ReleaseCatalogDraftRequest
 import app.epistola.api.model.ReleaseCatalogDraftResponse
 import app.epistola.api.model.ReleaseDependencyDto
 import app.epistola.api.model.ReleasedChangeDto
-import app.epistola.api.model.RemovedCatalogResourceDto
+import app.epistola.api.model.ReleasedDependencyDto
 import app.epistola.api.model.RenameCatalogDraftRequest
 import app.epistola.api.model.ResourceChangeDto
 import app.epistola.api.model.UpdateCatalogDependenciesRequest
@@ -41,10 +40,8 @@ import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.SemVer
-import app.epistola.suite.catalog.commands.AuthoredImportMode
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.ImportCatalogZip
-import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
@@ -57,7 +54,6 @@ import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
-import app.epistola.suite.catalog.queries.UpgradeResourceChange
 import app.epistola.suite.catalog.versions.AssessDraftNumber
 import app.epistola.suite.catalog.versions.CatalogVersion
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
@@ -65,10 +61,10 @@ import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionStatus
 import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.catalog.versions.DeleteCatalogDraft
+import app.epistola.suite.catalog.versions.GetCatalogDraft
 import app.epistola.suite.catalog.versions.GetCatalogNames
 import app.epistola.suite.catalog.versions.GetCatalogVersion
 import app.epistola.suite.catalog.versions.ListCatalogVersions
-import app.epistola.suite.catalog.versions.PromoteCatalogDraft
 import app.epistola.suite.catalog.versions.RenameCatalogDraft
 import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
 import app.epistola.suite.common.ids.TenantKey
@@ -108,100 +104,98 @@ class EpistolaCatalogApi(
         return ResponseEntity.ok(CatalogListResponse(page = slice.page, items = slice.items.map { it.toDto() }))
     }
 
+    /**
+     * What the catalog's source offers above the highest installed release. The source offers its
+     * latest release only, so that is the one listed when it is higher; its changes are against the
+     * installed release. Which releases it pins is not read from the source yet: none are listed.
+     */
     override fun previewCatalogUpgrade(
         tenantKey: String,
         registry: String,
         namespace: String,
         catalogKey: String,
-    ): ResponseEntity<CatalogUpgradeDiff> {
+    ): ResponseEntity<CatalogUpgradePreview> {
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
         val diff = PreviewCatalogUpgrade(tenantKey = catalog.tenantKey, catalogKey = catalog.id).query()
-
-        fun keys(changes: List<UpgradeResourceChange>) = changes.map { "${it.type}/${it.slug}" }
-
+        val installed = catalog.installedReleaseVersion ?: diff.previousVersion.orEmpty()
+        val higher = SemVer.parseOrNull(diff.newVersion)?.let { offered -> SemVer.parseOrNull(installed)?.let { offered > it } ?: true } == true
+        fun changes(kind: ReleasedChangeDto.Change, of: List<app.epistola.suite.catalog.queries.UpgradeResourceChange>) = of.map { ReleasedChangeDto(type = it.type, key = it.slug, change = kind) }
+        val available = if (higher) {
+            listOf(
+                AvailableReleaseDto(
+                    version = diff.newVersion,
+                    changes = changes(ReleasedChangeDto.Change.ADDED, diff.added) + changes(ReleasedChangeDto.Change.MODIFIED, diff.changed) + changes(ReleasedChangeDto.Change.REMOVED, diff.removed),
+                    dependencies = emptyList(),
+                ),
+            )
+        } else {
+            emptyList()
+        }
         return ResponseEntity.ok(
-            CatalogUpgradeDiff(
+            CatalogUpgradePreview(
                 registry = catalog.registry,
                 namespace = catalog.namespace,
                 catalogKey = catalog.id.value,
-                newVersion = diff.newVersion,
-                upgradeAvailable = diff.hasChanges,
-                added = keys(diff.added),
-                removed = keys(diff.removed),
-                changed = keys(diff.changed),
-                unchanged = keys(diff.unchanged),
-                conflicts = diff.conflicts,
-                blockedByConflicts = diff.hasConflicts,
-                previousVersion = diff.previousVersion,
-            ),
-        )
-    }
-
-    /** An upgrade reconciles the whole manifest (issue #850): there is nothing to choose. */
-    override fun upgradeCatalog(
-        tenantKey: String,
-        registry: String,
-        namespace: String,
-        catalogKey: String,
-    ): ResponseEntity<UpgradeCatalogResponse> {
-        val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        val result = UpgradeCatalog(tenantKey = catalog.tenantKey, catalogKey = catalog.id).execute()
-
-        return ResponseEntity.ok(
-            UpgradeCatalogResponse(
-                newVersion = result.newVersion,
-                installResults = result.installResults.map {
-                    CatalogInstallResultDto(
-                        type = it.type,
-                        key = it.slug,
-                        status = CatalogInstallResultDto.Status.valueOf(it.status.name),
-                        errorMessage = it.errorMessage,
-                    )
-                },
-                removedResources = result.removedResources.map {
-                    RemovedCatalogResourceDto(type = it.type, key = it.slug)
-                },
-                aborted = result.aborted,
-                previousVersion = result.previousVersion,
+                installedVersion = installed,
+                available = available,
             ),
         )
     }
 
     /**
-     * Imports a catalog archive under the name the archive gives it, into the catalog's current draft
-     * (its highest). Naming another registry, namespace or draft is not supported yet: the archive
-     * names the catalog, so a draft number cannot be resolved before the archive is read.
+     * Installs a newer release of a subscribed catalog from its source, which offers its latest
+     * release only: a `releaseVersion` other than that one is not offered (404).
+     */
+    override fun upgradeCatalog(
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        releaseVersion: String?,
+    ): ResponseEntity<UpgradeCatalogResponse> {
+        val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
+        if (releaseVersion != null) {
+            val offered = PreviewCatalogUpgrade(tenantKey = catalog.tenantKey, catalogKey = catalog.id).query().newVersion
+            if (offered != releaseVersion) throw CatalogVersionNotFoundException(catalog.id, releaseVersion)
+        }
+        val result = UpgradeCatalog(tenantKey = catalog.tenantKey, catalogKey = catalog.id).execute()
+        if (result.aborted) throw IllegalStateException("Upgrading ${catalog.id.value} to ${result.newVersion} failed; nothing changed")
+        return ResponseEntity.ok(
+            UpgradeCatalogResponse(
+                registry = catalog.registry,
+                namespace = catalog.namespace,
+                catalogKey = catalog.id.value,
+                releaseVersion = result.newVersion,
+                newlyInstalled = result.previousVersion != result.newVersion,
+                total = result.installResults.size,
+                installedDependencies = emptyList(),
+                presentDependencies = emptyList(),
+            ),
+        )
+    }
+
+    /**
+     * Installs the release the archive carries, in the catalog it names; naming another registry or
+     * namespace is not supported yet.
      */
     override fun importCatalog(
         tenantKey: String,
         file: MultipartFile,
         registry: String?,
         namespace: String?,
-        catalogVersion: String?,
-        catalogType: String,
-        authoredMode: String,
+        catalogType: String?,
     ): ResponseEntity<ImportCatalogResponse> {
-        // The import names the catalog as the archive does, and fills its current draft; it cannot
-        // take another name or a draft number from the caller yet.
         if (registry != null) throw ApiOperationNotImplementedException("importCatalog.registry")
         if (namespace != null) throw ApiOperationNotImplementedException("importCatalog.namespace")
-        if (catalogVersion != null) throw ApiOperationNotImplementedException("importCatalog.catalogVersion")
         val tenant = TenantKey.of(tenantKey)
-        val type = CatalogType.valueOf(catalogType.ifBlank { "AUTHORED" })
-        val mode = AuthoredImportMode.valueOf(authoredMode.ifBlank { "MERGE" })
-
         val result = ImportCatalogZip(
             tenantKey = tenant,
             zipBytes = file.bytes,
-            catalogType = type,
-            authoredMode = mode,
-            // REST is non-interactive: an AUTHORED migratable-old import migrates
-            // without a confirmation round-trip (the UI prompts; REST does not).
+            catalogType = catalogType?.takeIf { it.isNotBlank() }?.let(CatalogType::valueOf),
+            // REST is non-interactive: an archive of an older wire version migrates without a prompt.
             confirmMigration = true,
         ).execute()
 
-        // Named for any importer: viewing catalogs is not what an import asks for. For the same reason
-        // the response leaves out the version imported into, which takes viewing the catalog's versions.
         val name = GetCatalogNames(tenant, listOf(result.catalogKey)).query()[result.catalogKey]
         return ResponseEntity.ok(
             ImportCatalogResponse(
@@ -209,12 +203,9 @@ class EpistolaCatalogApi(
                 namespace = name?.namespace ?: CatalogIdentityProperties.defaultNamespace(tenant),
                 catalogKey = result.catalogKey.value,
                 catalogName = result.catalogName,
-                installed = result.results.count { it.status == InstallStatus.INSTALLED },
-                updated = result.results.count { it.status == InstallStatus.UPDATED },
-                failed = result.results.count { it.status == InstallStatus.FAILED },
+                releaseVersion = requireNotNull(result.releaseVersion),
+                newlyInstalled = result.newlyInstalled,
                 total = result.results.size,
-                aborted = result.aborted,
-                catalogVersion = null,
                 installedDependencies = result.installedDependencies,
                 presentDependencies = result.presentDependencies,
             ),
@@ -251,7 +242,7 @@ class EpistolaCatalogApi(
         return ResponseEntity.ok(at.version.toDto(at.catalog))
     }
 
-    /** Starts long-term work, as a copy of the next version or of the release `from` names. */
+    /** Starts a draft, as a copy of the version `from` names, or of the highest release. */
     override fun createCatalogDraft(
         tenantKey: String,
         registry: String,
@@ -262,11 +253,11 @@ class EpistolaCatalogApi(
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
         val draft = CreateCatalogDraft(catalog.tenantKey, catalog.id, createCatalogDraftRequest.name, createCatalogDraftRequest.from).execute()
         return ResponseEntity.status(HttpStatus.CREATED)
-            .location(versionLocation(requireNotNull(draft.draftId).toString()))
+            .location(versionLocation(draft.versionId))
             .body(draft.toDto(catalog))
     }
 
-    /** Discards a draft; the next version starts again on the latest release. */
+    /** Discards a draft. The next version, a convention of this suite, starts again on the latest release. */
     override fun deleteCatalogDraft(
         tenantKey: String,
         registry: String,
@@ -288,11 +279,11 @@ class EpistolaCatalogApi(
         renameCatalogDraftRequest: RenameCatalogDraftRequest,
     ): ResponseEntity<CatalogVersionDto> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
-        val renamed = RenameCatalogDraft(draft.tenantKey, draft.catalogKey, requireNotNull(draft.version.draftId), renameCatalogDraftRequest.name).execute()
+        val renamed = RenameCatalogDraft(draft.tenantKey, draft.catalogKey, draft.draftRef, renameCatalogDraftRequest.name).execute()
         return ResponseEntity.ok(renamed.toDto(draft.catalog))
     }
 
-    /** The number releasing the draft would give it, from the kind of change against the latest release. */
+    /** The number releasing the draft would give it, from the kind of change against its base. */
     override fun previewCatalogDraftRelease(
         tenantKey: String,
         registry: String,
@@ -305,41 +296,19 @@ class EpistolaCatalogApi(
             ?: throw CatalogVersionNotFoundException(draft.catalogKey, catalogVersion)
         return ResponseEntity.ok(
             CatalogDraftReleasePreview(
-                latest = assessment.latest,
+                base = assessment.base,
                 changeKind = assessment.needs?.let { CatalogDraftReleasePreview.ChangeKind.forValue(it.name.lowercase()) },
                 reasons = assessment.reasons,
+                needed = assessment.needed,
                 suggested = assessment.suggested,
             ),
         )
     }
 
     /**
-     * Makes long-term work the next version; the previous one is discarded or kept under a name. Work
-     * behind releases needs `acknowledgedBehind` to name each one (409 otherwise).
-     */
-    override fun promoteCatalogDraft(
-        tenantKey: String,
-        registry: String,
-        namespace: String,
-        catalogKey: String,
-        catalogVersion: String,
-        promoteCatalogDraftRequest: PromoteCatalogDraftRequest,
-    ): ResponseEntity<CatalogVersionDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
-        val promoted = PromoteCatalogDraft(
-            tenantKey = draft.tenantKey,
-            catalogKey = draft.catalogKey,
-            draftId = draft.version.draftId ?: throw CatalogVersionNotFoundException(draft.catalogKey, catalogVersion),
-            keepPreviousAs = promoteCatalogDraftRequest.keepPreviousAs,
-            acknowledgedBehind = promoteCatalogDraftRequest.acknowledgedBehind.orEmpty().toSet(),
-        ).execute()
-        return ResponseEntity.ok(promoted.toDto(draft.catalog))
-    }
-
-    /**
-     * Releases a draft, numbered as asked or as its changes need: the next version as a release, which
-     * it then continues on, long-term work as a pre-release. A next version behind releases needs
-     * `acknowledgedBehind` to name each one (409 otherwise).
+     * Releases a draft, numbered as asked or as its changes need against its base. A draft behind
+     * releases needs `acknowledgedBehind` to name each one (409 otherwise); one whose declarations
+     * name drafts of other catalogs needs `releaseDependencies` (409 `release-dependencies-unreleased`).
      */
     override fun releaseCatalogDraft(
         tenantKey: String,
@@ -357,6 +326,7 @@ class EpistolaCatalogApi(
             notes = releaseCatalogDraftRequest.notes,
             acknowledgedBehind = releaseCatalogDraftRequest.acknowledgedBehind.orEmpty().toSet(),
             catalogVersion = draft.ref,
+            releaseDependencies = releaseCatalogDraftRequest.releaseDependencies == true,
         ).execute()
         val released = GetCatalogVersion(draft.tenantKey, draft.catalogKey, result.version).query()
             ?: throw CatalogVersionNotFoundException(draft.catalogKey, result.version)
@@ -365,6 +335,9 @@ class EpistolaCatalogApi(
                 catalogVersion = released.toDto(draft.catalog),
                 unchangedContent = result.unchangedContent,
                 draftsBehind = result.draftsBehind,
+                releasedDependencies = result.releasedDependencies.map {
+                    ReleasedDependencyDto(registry = it.registry, namespace = it.namespace, catalogKey = it.catalogKey, versionId = it.versionId, releaseVersion = it.releaseVersion)
+                },
             ),
         )
     }
@@ -428,7 +401,8 @@ class EpistolaCatalogApi(
                     registry = it.registry ?: identity.defaultRegistry,
                     namespace = it.namespace,
                     catalogKey = it.catalogKey,
-                    version = it.version,
+                    releaseVersion = it.releaseVersion,
+                    versionId = it.versionId,
                 )
             },
             catalogVersion = draft.ref,
@@ -449,7 +423,7 @@ class EpistolaCatalogApi(
             type = CatalogDto.Type.valueOf(type.name),
             drafts = if (authored) {
                 ListCatalogVersions(tenantKey, id, CatalogVersionStatus.DRAFT).query()
-                    .map { CatalogDraftSummary(draftId = requireNotNull(it.draftId), isNext = it.isNext, name = it.name) }
+                    .map { CatalogDraftSummary(versionId = it.versionId, name = it.label, base = it.base) }
             } else {
                 emptyList()
             },
@@ -466,6 +440,8 @@ class EpistolaCatalogApi(
      */
     private fun CatalogVersion.toDto(catalog: Catalog): CatalogVersionDto {
         val draft = status == CatalogVersionStatus.DRAFT
+        // What a draft is behind depends on the number it would be released as, measured on request.
+        val behindNow = if (draft) GetCatalogDraft(catalog.tenantKey, catalog.id, requireNotNull(draftRef), withBehind = true).query()?.behind.orEmpty() else behind
         val dependencies = if (draft) {
             ListCatalogDependencies(catalog.tenantKey, catalog.id, catalogVersion = CatalogVersionRef(catalog.tenantKey, catalog.id, requireNotNull(draftRef))).query()
         } else {
@@ -473,11 +449,10 @@ class EpistolaCatalogApi(
         }
         return CatalogVersionDto(
             version = version,
-            draftId = draftId,
-            isNext = isNext,
-            name = name,
+            versionId = versionId,
+            name = if (draft) label else null,
             status = if (draft) CatalogVersionStatusDto.DRAFT else CatalogVersionStatusDto.RELEASED,
-            behind = behind.map { release ->
+            behind = behindNow.map { release ->
                 BehindReleaseDto(
                     version = release.version,
                     changes = release.changes.map { ReleasedChangeDto(type = it.type, key = it.key, change = ReleasedChangeDto.Change.forValue(it.change)) },
@@ -508,8 +483,8 @@ class EpistolaCatalogApi(
         registry = registry,
         namespace = namespace,
         catalogKey = catalogKey,
-        version = version,
-        resolvedVersion = releaseVersion,
+        releaseVersion = releaseVersion,
+        versionId = draftId,
     )
 
     /** For a draft, the dependencies declared now, with their locks; for a release, its pins. */
@@ -549,7 +524,7 @@ class EpistolaCatalogApi(
         )
     }
 
-    private val CatalogDependencyDeclaration.requirement get() = listOf(registry, namespace, catalogKey, version)
+    private val CatalogDependencyDeclaration.requirement get() = listOf(registry, namespace, catalogKey, releaseVersion, draftId)
 
     /**
      * A released version's base: the one it recorded, else (a release cut before releases recorded

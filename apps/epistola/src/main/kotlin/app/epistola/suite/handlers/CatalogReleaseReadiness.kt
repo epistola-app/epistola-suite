@@ -81,10 +81,11 @@ data class CatalogReleaseReadiness(
     val changed: List<CatalogResourceChange> get() = changes.resources.filter { it.state != CatalogResourceState.RELEASED }
 
     /**
-     * The declarations that match no release yet, which releasing refuses
-     * (`CATALOG_DEPENDENCY_UNRESOLVED`). A lock that stopped holding is caught by the release itself.
+     * The declarations that pin no release and name no draft, which releasing refuses
+     * (`CATALOG_DEPENDENCY_UNRESOLVED`). A pin that stopped holding is caught by the release itself;
+     * a declaration naming a draft is released along with it, when the author asks.
      */
-    val unresolvedDependencies: List<CatalogDependencyDeclaration> get() = dependencies.filter { !it.locked }
+    val unresolvedDependencies: List<CatalogDependencyDeclaration> get() = dependencies.filter { !it.pinned && !it.namesDraft }
 
     /**
      * Whether to offer Release: the viewer may release, and nothing blocks it. When the viewer may

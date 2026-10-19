@@ -29,6 +29,7 @@ import app.epistola.suite.fonts.queries.ResolveFontFace
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -85,7 +86,7 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
                 ),
             ).execute()
 
-            ExportCatalogZip(tenantKey = tenant.id, catalogKey = source).execute()
+            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(source, app.epistola.suite.common.ids.TenantId(tenant.id)))
         }
 
         // The cross-catalog font binding is declared on the manifest as a
@@ -161,7 +162,7 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
                 ),
             ).execute()
 
-            ExportCatalogZip(tenantKey = tenant.id, catalogKey = authored).execute()
+            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(authored, app.epistola.suite.common.ids.TenantId(tenant.id)))
         }
 
         val manifest = manifestOf(zip.zipBytes)

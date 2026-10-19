@@ -4,7 +4,7 @@
 
 package app.epistola.suite.catalog
 
-import app.epistola.suite.catalog.commands.CatalogBundleException
+import app.epistola.suite.catalog.commands.CatalogImportConflictException
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -32,12 +32,13 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
+import java.util.zip.ZipInputStream
 
 /**
- * A fat export (`ExportCatalogZip` with `includeDependencies`): a release with the releases of the
- * catalogs it uses, followed transitively, so it installs where none of them is; and its import,
- * which installs what is missing, keeps what is there, and refuses rather than move a catalog
- * something else uses.
+ * An export with dependencies (`ExportCatalogZip` with `includeDependencies`, contract wire v8): a
+ * release carrying the releases it pins, followed transitively, under `dependencies/`, so it
+ * installs where none of them is; and its import, which installs what is missing first, keeps what
+ * is there, and refuses rather than install into another catalog of the same key.
  */
 class CatalogBundleTest : IntegrationTestBase() {
 
@@ -75,18 +76,18 @@ class CatalogBundleTest : IntegrationTestBase() {
     private fun fat(tenant: TenantKey) = withMediator { ExportCatalogZip(tenant, letters, "1.0.0", includeDependencies = true).execute() }
 
     @Test
-    fun `a fat export holds the release and what it uses, transitively, each before what uses it`() {
+    fun `an export with dependencies carries the releases it pins, transitively, under dependencies, and the same manifest`() {
         val tenant = chain("bundle-export")
 
         val export = fat(tenant)
+        val thin = withMediator { ExportCatalogZip(tenant, letters, "1.0.0").execute() }
 
         assertThat(export.filename).isEqualTo("letters-1.0.0-with-dependencies.zip")
-        assertThat(CatalogBundle.isBundle(export.zipBytes)).isTrue()
-        val bundle = CatalogBundle.read(export.zipBytes, objectMapper, 50_000_000)
-        assertThat(bundle.entries.map { "${it.catalogKey}@${it.version}" }).containsExactly("base@1.0.0", "shared@1.0.0", "letters@1.0.0")
-        // Each is the archive a single export writes.
-        assertThat(bundle.dependencies.first().archive).isEqualTo(withMediator { ExportCatalogZip(tenant, base, "1.0.0").execute() }.zipBytes)
-        assertThat(CatalogBundle.isBundle(withMediator { ExportCatalogZip(tenant, letters, "1.0.0").execute() }.zipBytes)).`as`("without it, one archive").isFalse()
+        val namespace = withMediator { GetCatalog(tenant, base).query()!! }.let { "${it.registry}/${it.namespace}" }
+        assertThat(names(export.zipBytes).filter { it.startsWith("dependencies/") })
+            .containsExactlyInAnyOrder("dependencies/$namespace/base/1.0.0.zip", "dependencies/$namespace/shared/1.0.0.zip")
+        assertThat(names(thin.zipBytes).filter { it.startsWith("dependencies/") }).`as`("a thin export carries none").isEmpty()
+        assertThat(String(entry(export.zipBytes, "catalog.json"))).`as`("the manifest does not change").isEqualTo(String(entry(thin.zipBytes, "catalog.json")))
     }
 
     @Test
@@ -109,37 +110,26 @@ class CatalogBundleTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a fat export that would move a catalog the installation has otherwise is refused, and nothing changes`() {
+    fun `an export with dependencies that would install a catalog the installation has under another name is refused, and nothing changes`() {
         val bundle = fat(chain("bundle-conflict-source")).zipBytes
         val target = withMediator {
             val target = createTenant("bundle-conflict-target").id
-            // Its own Shared, which is not the one the bundle carries.
+            // Its own Shared, in its own namespace: another catalog than the one the archive carries.
             CreateCatalog(target, shared, "Our shared").execute()
             target
         }
 
         assertThatThrownBy { withMediator { ImportCatalogZip(target, bundle, CatalogType.SUBSCRIBED).execute() } }
-            .isInstanceOf(CatalogBundleException::class.java)
-            .hasMessageContaining("shared here is")
+            .isInstanceOf(CatalogImportConflictException::class.java)
+            .hasMessageContaining("another catalog")
         assertThat(withMediator { GetCatalog(target, base).query() }).`as`("not even what did not conflict").isNull()
         assertThat(withMediator { GetCatalog(target, letters).query() }).isNull()
     }
 
-    @Test
-    fun `the working copy is bundled with what it is tied to, and refused while something is not tied yet`() {
-        val tenant = chain("bundle-working-copy")
-        val workingCopy = withMediator { ExportCatalogZip(tenant, letters, includeDependencies = true).execute() }
-        assertThat(CatalogBundle.read(workingCopy.zipBytes, objectMapper, 50_000_000).dependencies.map { it.catalogKey }).containsExactly("base", "shared")
+    private fun names(zip: ByteArray): List<String> = ZipInputStream(zip.inputStream()).use { stream -> generateSequence { stream.nextEntry }.map { it.name }.toList() }
 
-        val unpublished = CatalogKey.of("unpublished")
-        withMediator {
-            CreateCatalog(tenant, unpublished, "Unpublished").execute()
-            CreateTheme(ThemeId(ThemeKey.of("draft"), CatalogId(unpublished, TenantId(tenant))), "Draft").execute()
-            template(tenant, letters, "reminder", unpublished, "draft")
-            DeclareUsedCatalogs(tenant, letters).execute()
-        }
-        assertThatThrownBy { withMediator { ExportCatalogZip(tenant, letters, includeDependencies = true).execute() } }
-            .isInstanceOf(CatalogBundleException::class.java)
-            .hasMessageContaining("unpublished, which is not tied to a release yet")
+    private fun entry(zip: ByteArray, name: String): ByteArray = ZipInputStream(zip.inputStream()).use { stream ->
+        generateSequence { stream.nextEntry }.first { it.name == name }
+        stream.readAllBytes()
     }
 }
