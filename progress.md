@@ -425,6 +425,33 @@ Noticed, not touched:
   can disagree. Unifying them is the remaining item of this follow-up.
 - Contract `a99594e` (subscribed catalogs list and install their source's releases) not adapted.
 
+### User test as a newcomer (19 October)
+
+Walked the demo as a first-time user: login → tenant → catalog → template → data contract →
+designer → preview → publish and deploy → API key → generate over REST → parallel work → subscribed
+catalog → every nav page (no page errored). Fixed in `a259db3b4` (each with a test): create buttons
+in subscribed catalogs, parallel-work publish number (wrong suggestion for an older line), namespace
+in the application hint, Generation empty state and statuses, API key role text, small copy.
+
+Open, for discussion:
+
+- No "start here": home offers only New Environment; templates live inside catalogs; the demo
+  login gives no credentials hint.
+- No way to generate a test document from a published version in the UI; the API needs the vendor
+  media type and a namespace, both first-call failures.
+- Icon-only actions (variants, catalog rows); editor shows internal node ids; editor tab strip cuts
+  labels off ("DOCUMEN", "INSPECTOI") and hides the Quality tab; "sp" unit unexplained there.
+- Readiness ("Not ready", "Mark all variants ready") reads as a required step though publishing
+  marks ready; data contract shows a red error on entering edit mode; its "Save draft" clashes with
+  catalog drafts.
+- Times: some pages server-format UTC unlabelled (tenant list, generation), others local.
+- Raw enum names in Quality badges and filters, Feedback filters, profile roles.
+- Template settings: inline save gives no confirmation and the bar keeps saying "No changes yet".
+- Unsaved editor work is restored from the browser silently.
+- Editor walkthrough (alpha) is off by default, though made for this user.
+- `versionId` on documents from a release is null by contract; filling it always would give one
+  stable id (contract wording change).
+
 ### Promotion folded into publishing (19 October)
 
 `MakeNextVersion`, its UI dialog and route, and MCP `make_next_version` are gone. Publishing parallel
