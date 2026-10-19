@@ -5,6 +5,7 @@
 package app.epistola.suite.feedback
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.common.ids.FeedbackKey
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -46,5 +47,26 @@ class FeedbackSubmitHtmxTest : BaseIntegrationTest() {
         assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("innerHTML")
         assertThat(response.body).`as`("the form, not a whole page").doesNotContain("<html").contains("data-feedback-form")
         assertThat(response.body).contains("class=\"form-error\"").contains("Something is off")
+    }
+
+    @Test
+    fun `a blank comment is refused in its form`() {
+        val tenant = createTenant("Feedback Comment")
+
+        val response = restTemplate.postForEntity(
+            "/tenants/${tenant.id.value}/feedback/${FeedbackKey.generate().value}/comments",
+            HttpEntity(
+                LinkedMultiValueMap<String, String>().apply { add("body", "   ") },
+                HttpHeaders().apply {
+                    contentType = MediaType.APPLICATION_FORM_URLENCODED
+                    set("HX-Request", "true")
+                },
+            ),
+            String::class.java,
+        )
+
+        assertThat(response.statusCode.value()).isEqualTo(422)
+        assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
+        assertThat(response.body).contains("id=\"add-comment-error\"").contains("Write a comment first.")
     }
 }

@@ -264,7 +264,7 @@ class FeedbackHandler(
             field("body") { required() }
         }
 
-        if (form.hasErrors()) return ServerResponse.badRequest().build()
+        if (form.hasErrors()) return request.htmx { globalFormError("add-comment-error", "Write a comment first.") }
 
         val feedback = GetFeedback(feedbackId).query() ?: return ServerResponse.notFound().build()
 

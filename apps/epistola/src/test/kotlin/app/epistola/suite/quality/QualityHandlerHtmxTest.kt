@@ -457,4 +457,35 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
     }
+
+    /** Only spaces passes the browser's `required`; the refusal is said in the form, shaped for HTMX. */
+    @Test
+    fun `a blank comment is refused in its form`() {
+        val subject = scenario()
+        submit(subject, finding())
+        val key = onlyFinding(subject).key
+
+        val response = post("/tenants/${subject.tenantKey.value}/quality/${key.value}/comments", "body" to "   ")
+
+        assertThat(response.statusCode.value()).isEqualTo(422)
+        assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
+        assertThat(response.body!!).contains("id=\"quality-comment-error\"").contains("Write a comment first.")
+    }
+
+    @Test
+    fun `a finding raised with a blank message is refused in its form`() {
+        val subject = scenario()
+
+        val response = post(
+            "/tenants/${subject.tenantKey.value}/quality",
+            "template" to "${subject.catalogKey.value}/${subject.templateKey.value}",
+            "variantKey" to subject.variantKey!!,
+            "severity" to "ERROR",
+            "message" to "   ",
+        )
+
+        assertThat(response.statusCode.value()).isEqualTo(422)
+        assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
+        assertThat(response.body!!).contains("id=\"quality-manual-error\"")
+    }
 }

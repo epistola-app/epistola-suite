@@ -198,7 +198,8 @@ class QualityHandler(
         val findingKey = request.findingKey() ?: return ServerResponse.badRequest().build()
 
         val form = request.form { field("body") { required() } }
-        if (form.hasErrors()) return ServerResponse.badRequest().build()
+        // Only spaces passes the browser's `required`: say so by the box.
+        if (form.hasErrors()) return request.htmx { globalFormError("quality-comment-error", "Write a comment first.") }
 
         AddFindingComment(tenantId.key, findingKey, form["body"]).execute()
         val finding = GetQualityFinding(tenantId.key, findingKey).query() ?: return ServerResponse.notFound().build()
@@ -274,7 +275,8 @@ class QualityHandler(
             field("message") { required() }
             field("severity") { required() }
         }
-        if (form.hasErrors()) return ServerResponse.badRequest().build()
+        // A message of only spaces passes the browser's `required`; the other fields are pickers.
+        if (form.hasErrors()) return request.htmx { globalFormError("quality-manual-error", "Fill in the template, variant, severity and message.") }
 
         // `template` carries catalogKey/templateKey as one value; a malformed pair is a crafted
         // request, not something the form can produce.

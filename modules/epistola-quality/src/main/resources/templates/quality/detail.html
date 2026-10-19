@@ -196,6 +196,7 @@
                                       hx-target="#quality-comments"
                                       hx-swap="innerHTML"
                                       data-reset-on-success>
+                                    <div th:replace="~{epistola-web/form-error :: form-error(id='quality-comment-error')}"></div>
                                     <div class="form-group">
                                         <textarea name="body" class="ep-textarea" rows="3"
                                                   data-testid="quality-comment-body"
