@@ -15,6 +15,7 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.htmx.CatalogSegment
+import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -22,6 +23,7 @@ import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.pathId
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.queryParamInt
+import app.epistola.suite.htmx.redirect
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
@@ -164,6 +166,8 @@ class QualityHandler(
                     "errors" to form.errors
                 }
                 retarget("#quality-ignore-dialog-body")
+                reswap(HxSwap.INNER_HTML)
+                status(422)
                 onFullPage { redirect(detailPath(tenantId.key, finding)) }
             }
         }
@@ -303,7 +307,10 @@ class QualityHandler(
         // filters admit it, and re-running the query is the one way to know. Navigating also
         // disposes of the dialog. A 303 would be followed transparently by the XHR and the header
         // lost — the reason BackupsHandler does the same.
-        return ServerResponse.ok().header("HX-Redirect", listPath(tenantId.key, parts[0])).build()
+        return request.htmx {
+            dialogRedirect(listPath(tenantId.key, parts[0]))
+            onFullPage { redirect(listPath(tenantId.key, parts[0])) }
+        }
     }
 
     /**

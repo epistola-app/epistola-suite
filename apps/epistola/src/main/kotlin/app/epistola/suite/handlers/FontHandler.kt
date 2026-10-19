@@ -98,7 +98,7 @@ class FontHandler(
                 "draftSegment" to request.catalogParam()
                 "authoredCatalogs" to authoredCatalogs
             }
-            onNonHtmx {
+            onFullPage {
                 page("fonts/list") {
                     fontPageModel(request)
                     "openDialog" to true
@@ -310,7 +310,7 @@ class FontHandler(
                     // Boosted full-page submit: re-render the host page with the
                     // dialog open and the messages shown (files can't survive a
                     // full navigation regardless).
-                    onNonHtmx {
+                    onFullPage {
                         page(422, "fonts/list") {
                             fontPageModel(request)
                             "openDialog" to true
@@ -337,7 +337,7 @@ class FontHandler(
                     "fonts" to fonts
                     "draftSegment" to draft
                 }
-                onNonHtmx { redirect(CatalogPages.list(request, tenantKey, "fonts")) }
+                onFullPage { redirect(CatalogPages.list(request, tenantKey, "fonts")) }
             }
         }
         // Editor / non-HTMX JSON contract (unchanged).
@@ -386,7 +386,7 @@ class FontHandler(
                 "fonts" to fonts.map { toFontView(tenantId, it, version) }
                 "draftSegment" to draft
             }
-            onNonHtmx { redirect(CatalogPages.list(request, tenantKey, "fonts")) }
+            onFullPage { redirect(CatalogPages.list(request, tenantKey, "fonts")) }
         }
     }
 

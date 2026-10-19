@@ -35,6 +35,7 @@
                 <h2>Tenant connection</h2>
                 <div class="ep-row ep-gap-4">
                     <span th:class="${'badge ' + settings.status.badgeClass}" th:text="${settings.status.label}">Connected</span>
+                    <!--/* Not boosted: connecting ends at Exchange's authorization page, another origin HTMX cannot follow. */-->
                     <form th:if="${settings.connected && settings.featureEnabled}"
                           th:action="@{/tenants/{tenantId}/exchange/connect(tenantId=${tenantId})}" method="post" hx-boost="false">
                         <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Reauthorize</button>
@@ -102,6 +103,7 @@
                         catalog policy says so.
                     </p>
                     <div class="form-actions" th:if="${settings.featureEnabled}">
+                        <!--/* Not boosted: connecting ends at Exchange's authorization page, another origin HTMX cannot follow. */-->
                         <form th:action="@{/tenants/{tenantId}/exchange/connect(tenantId=${tenantId})}" method="post" hx-boost="false">
                             <button type="submit" class="ep-btn ep-btn-primary"
                                     th:text="${settings.needsReauthorization} ? 'Recover Exchange connection' : 'Connect to Exchange'">

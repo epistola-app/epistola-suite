@@ -86,7 +86,7 @@ class AssetHandler(
                     // this fragment, so the distinction has to reach it.
                     "searchTerm" to searchTerm.orEmpty()
                 }
-                onNonHtmx { redirect(CatalogPages.list(request, tenantId, "images")) }
+                onFullPage { redirect(CatalogPages.list(request, tenantId, "images")) }
             }
         }
 
@@ -149,7 +149,7 @@ class AssetHandler(
                 "draftSegment" to request.catalogParam()
                 "authoredCatalogs" to authoredCatalogs
             }
-            onNonHtmx {
+            onFullPage {
                 page("images/list") {
                     imagePageModel(request)
                     "openDialog" to true
@@ -261,7 +261,7 @@ class AssetHandler(
                 }
                 return request.htmx {
                     dialogFieldErrorsOob("images/new", "field-errors", errors)
-                    onNonHtmx {
+                    onFullPage {
                         page(422, "images/list") {
                             imagePageModel(request)
                             "openDialog" to true
@@ -291,7 +291,7 @@ class AssetHandler(
                     "selectedCatalog" to (draft?.value ?: "")
                     "draftSegment" to draft
                 }
-                onNonHtmx { redirect(CatalogPages.list(request, tenantId, "images")) }
+                onFullPage { redirect(CatalogPages.list(request, tenantId, "images")) }
             }
         }
 
@@ -370,7 +370,7 @@ class AssetHandler(
                 "selectedCatalog" to (segment?.value ?: "")
                 "draftSegment" to segment
             }
-            onNonHtmx { redirect(CatalogPages.list(request, tenantId, "images")) }
+            onFullPage { redirect(CatalogPages.list(request, tenantId, "images")) }
         }
     }
 }

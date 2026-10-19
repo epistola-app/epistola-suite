@@ -106,7 +106,7 @@ class FeedbackHandler(
                     "tenantId" to tenantId.key
                     "feedbackItems" to feedbackItems
                 }
-                onNonHtmx { redirect("/tenants/${tenantId.key}/feedback") }
+                onFullPage { redirect("/tenants/${tenantId.key}/feedback") }
             }
         }
 
@@ -115,7 +115,7 @@ class FeedbackHandler(
                 "tenantId" to tenantId.key
                 "feedbackItems" to feedbackItems
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/feedback") }
+            onFullPage { redirect("/tenants/${tenantId.key}/feedback") }
         }
     }
 
@@ -212,7 +212,7 @@ class FeedbackHandler(
 
         return request.htmx {
             fragment("feedback/submit-success") {}
-            onNonHtmx { redirect("/tenants/${tenantId.key}/feedback") }
+            onFullPage { redirect("/tenants/${tenantId.key}/feedback") }
         }
     }
 
@@ -252,7 +252,7 @@ class FeedbackHandler(
                 "statuses" to FeedbackStatus.entries
                 "isManager" to principal.isManager(tenantId.key)
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/feedback/${feedbackId.key}") }
+            onFullPage { redirect("/tenants/${tenantId.key}/feedback/${feedbackId.key}") }
         }
     }
 
@@ -292,7 +292,7 @@ class FeedbackHandler(
                 "comments" to comments
                 "isManager" to principal.isManager(tenantId.key)
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/feedback/${feedbackId.key}") }
+            onFullPage { redirect("/tenants/${tenantId.key}/feedback/${feedbackId.key}") }
         }
     }
 
@@ -306,7 +306,7 @@ class FeedbackHandler(
                 "priorities" to FeedbackPriority.entries
                 "appVersion" to (buildProperties?.version ?: "dev")
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/feedback") }
+            onFullPage { redirect("/tenants/${tenantId.key}/feedback") }
         }
     }
 

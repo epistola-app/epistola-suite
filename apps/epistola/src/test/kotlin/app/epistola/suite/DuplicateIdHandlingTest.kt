@@ -63,7 +63,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
             assertThat(response.body).contains("A tenant with this ID already exists")
         }
     }

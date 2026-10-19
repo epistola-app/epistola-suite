@@ -37,6 +37,7 @@ import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
+import app.epistola.suite.htmx.redirect
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -75,7 +76,7 @@ class EnvironmentHandler {
                 // this fragment, so the distinction has to reach it.
                 "searchTerm" to searchTerm.orEmpty()
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/environments") }
+            onFullPage { redirect("/tenants/${tenantId.key}/environments") }
         }
     }
 
@@ -89,7 +90,7 @@ class EnvironmentHandler {
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
-            onNonHtmx {
+            onFullPage {
                 page("environments/list") {
                     listModel(tenantId)
                     "openDialog" to true
@@ -141,7 +142,7 @@ class EnvironmentHandler {
                 ) {
                     "tenantId" to tenantId.key
                 }
-                onNonHtmx {
+                onFullPage {
                     page(422, "environments/list") {
                         listModel(tenantId)
                         "openDialog" to true
@@ -161,7 +162,7 @@ class EnvironmentHandler {
                 "tenantId" to tenantId.key
                 "environments" to environments
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/environments") }
+            onFullPage { redirect("/tenants/${tenantId.key}/environments") }
         }
     }
 
@@ -188,7 +189,7 @@ class EnvironmentHandler {
                 "tenantId" to tenantId.key
                 "environments" to environments
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/environments") }
+            onFullPage { redirect("/tenants/${tenantId.key}/environments") }
         }
     }
 
@@ -386,9 +387,7 @@ class EnvironmentHandler {
         return redirectTo(environmentId)
     }
 
-    private fun redirectTo(environmentId: EnvironmentId): ServerResponse = ServerResponse.status(303)
-        .header("Location", "/tenants/${environmentId.tenantKey.value}/environments/${environmentId.key.value}")
-        .build()
+    private fun redirectTo(environmentId: EnvironmentId): ServerResponse = redirect("/tenants/${environmentId.tenantKey.value}/environments/${environmentId.key.value}")
 
     /** One release of a catalog the environment serves. */
     data class ServedReleaseView(

@@ -11,6 +11,7 @@ import app.epistola.suite.changelog.GetChangelogAcknowledgment
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.handlers.AuthContext
 import app.epistola.suite.handlers.ChangelogRenderer
+import app.epistola.suite.htmx.FormData
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.UiRequestContext
 import app.epistola.suite.htmx.executeOrFormError
@@ -94,7 +95,7 @@ class TenantHandler(
                 "tenants" to tenants
                 "auth" to auth
             }
-            onNonHtmx { redirect("/") }
+            onFullPage { redirect("/") }
         }
     }
 
@@ -113,33 +114,18 @@ class TenantHandler(
             }
         }
 
-        if (form.hasErrors()) {
-            return request.htmx {
-                fragment("tenants/list", "create-form") {
-                    "auth" to auth
-                    "formData" to form.formData
-                    "errors" to form.errors
-                }
-                retarget("#create-form")
-                reswap(HxSwap.OUTER_HTML)
-                onNonHtmx { redirect("/") }
+        // A refusal re-renders the form in place with the errors by their fields (422).
+        fun refused(formData: FormData): ServerResponse = request.htmx {
+            dialogFieldErrors(template = "tenants/list", fragmentName = "create-form", formTarget = "#create-form", formData = formData) {
+                "auth" to auth
             }
+            onFullPage { redirect("/") }
         }
 
+        if (form.hasErrors()) return refused(form)
+
         val tenantId = TenantKey.validateOrNull(form["slug"])
-        if (tenantId == null) {
-            val errors = mapOf("slug" to "Invalid tenant ID format")
-            return request.htmx {
-                fragment("tenants/list", "create-form") {
-                    "auth" to auth
-                    "formData" to form.formData
-                    "errors" to errors
-                }
-                retarget("#create-form")
-                reswap(HxSwap.OUTER_HTML)
-                onNonHtmx { redirect("/") }
-            }
-        }
+        if (tenantId == null) return refused(FormData(form.formData, mapOf("slug" to "Invalid tenant ID format")))
 
         val name = form["name"]
 
@@ -147,18 +133,7 @@ class TenantHandler(
             CreateTenant(id = tenantId, name = name).execute()
         }
 
-        if (result.hasErrors()) {
-            return request.htmx {
-                fragment("tenants/list", "create-form") {
-                    "auth" to auth
-                    "formData" to result.formData
-                    "errors" to result.errors
-                }
-                retarget("#create-form")
-                reswap(HxSwap.OUTER_HTML)
-                onNonHtmx { redirect("/") }
-            }
-        }
+        if (result.hasErrors()) return refused(result)
 
         val tenants = ListTenants().query()
         return request.htmx {
@@ -167,7 +142,7 @@ class TenantHandler(
                 "auth" to auth
             }
             trigger("tenantCreated")
-            onNonHtmx { redirect("/") }
+            onFullPage { redirect("/") }
         }
     }
 
@@ -183,7 +158,7 @@ class TenantHandler(
                 "tenants" to tenants
                 "auth" to auth
             }
-            onNonHtmx { redirect("/") }
+            onFullPage { redirect("/") }
         }
     }
 }

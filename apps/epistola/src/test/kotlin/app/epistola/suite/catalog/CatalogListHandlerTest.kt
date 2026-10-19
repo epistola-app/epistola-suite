@@ -770,7 +770,8 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                 HttpEntity(details, htmxForm()),
                 String::class.java,
             )
-            assertThat(detailsResponse.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+            assertThat(detailsResponse.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(detailsResponse.headers.getFirst("HX-Redirect")).isNotNull()
 
             val attributesFormResponse = restTemplate.exchange(
                 "/tenants/${t.id}/catalogs/metadata/metadata?section=attributes",
@@ -804,7 +805,8 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                 HttpEntity(locale, htmxForm()),
                 String::class.java,
             )
-            assertThat(localeResponse.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+            assertThat(localeResponse.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(localeResponse.headers.getFirst("HX-Redirect")).isNotNull()
 
             val duplicateKeywords = LinkedMultiValueMap<String, String>()
             duplicateKeywords.add("section", "keywords")
@@ -827,7 +829,8 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                 HttpEntity(keywords, htmxForm()),
                 String::class.java,
             )
-            assertThat(keywordsResponse.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+            assertThat(keywordsResponse.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(keywordsResponse.headers.getFirst("HX-Redirect")).isNotNull()
 
             val presentationFormResponse = restTemplate.exchange(
                 "/tenants/${t.id}/catalogs/metadata/metadata?section=presentation",
@@ -877,7 +880,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             // Details go out with a version, so editing them goes back to the next version's page.
             assertThat(response.headers.getFirst("HX-Redirect"))
                 .isEqualTo("/tenants/${t.id}/catalogs/metadata/draft")

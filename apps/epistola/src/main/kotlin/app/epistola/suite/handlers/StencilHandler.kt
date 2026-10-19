@@ -26,6 +26,7 @@ import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.stencilId
@@ -77,7 +78,6 @@ data class StencilReadiness(
 class StencilHandler(
     private val objectMapper: ObjectMapper,
 ) {
-    private fun ServerRequest.isHtmx(): Boolean = headers().firstHeader("HX-Request") != null
 
     // ── List & Search ──────────────────────────────────────────────────────
 
@@ -92,7 +92,7 @@ class StencilHandler(
         // catalog's stencils are then the draft's, every other catalog's its current version's.
         val version = segment?.ref(tenantId.key) ?: request.catalogParam("in")?.ref(tenantId.key)
 
-        if (!request.isHtmx()) {
+        if (!request.isHtmx) {
             val stencils = ListStencils(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter, catalogVersion = version).query()
             val items = stencils.map { s ->
                 mapOf(
@@ -118,7 +118,7 @@ class StencilHandler(
                 // this fragment, so the distinction has to reach it.
                 "searchTerm" to searchTerm.orEmpty()
             }
-            onNonHtmx { redirect(CatalogPages.list(request, tenantId.key, "stencils")) }
+            onFullPage { redirect(CatalogPages.list(request, tenantId.key, "stencils")) }
         }
     }
 
@@ -168,7 +168,7 @@ class StencilHandler(
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
-            onNonHtmx {
+            onFullPage {
                 page("stencils/list") {
                     stencilPageModel(request)
                     "openDialog" to true
@@ -187,7 +187,7 @@ class StencilHandler(
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
 
-        if (!request.isHtmx()) {
+        if (!request.isHtmx) {
             return createJson(request, tenantId)
         }
 
@@ -200,12 +200,12 @@ class StencilHandler(
      * which is why this dialog drops the plain no-JS form-POST fallback the other
      * create dialogs keep — that fallback would collide with the JSON API.
      *
-     * The `onNonHtmx { }` branches below therefore never serve the JSON API: within
+     * The `onFullPage { }` branches below therefore never serve the JSON API: within
      * [build] they fire only for **boosted** (HX-Boosted) or **history-restore**
      * (HX-History-Restore-Request) requests, which still carry `HX-Request: true` and
      * so land here rather than in [createJson]. Both are full-page browser
      * navigations that must NOT get a bare fragment — a stale tab left open across a
-     * deploy submits this form as a boosted POST, and without an onNonHtmx fallback
+     * deploy submits this form as a boosted POST, and without an onFullPage fallback
      * [build] would throw (HTTP 500) even for a valid create. Mirrors
      * DocumentTemplateHandler.create.
      */
@@ -265,7 +265,7 @@ class StencilHandler(
             val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
             val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
             // Re-render the form inside the dialog (retargeted to the form, not the
-            // list) with inline errors + preserved values. The onNonHtmx fallback
+            // list) with inline errors + preserved values. The onFullPage fallback
             // (boosted / history-restore only — see the function KDoc) re-renders the
             // list page with the dialog embedded and its errors, so a stale-tab boosted
             // POST never throws.
@@ -280,7 +280,7 @@ class StencilHandler(
                     "draftSegment" to request.catalogParam()
                     "authoredCatalogs" to authoredCatalogs
                 }
-                onNonHtmx {
+                onFullPage {
                     page(422, "stencils/list") {
                         stencilPageModel(request)
                         "openDialog" to true
@@ -294,7 +294,7 @@ class StencilHandler(
 
         // Success: soft-navigate to the newly created stencil's page via a boosted
         // body-swap (HX-Location) — no full-page reload. The dialog goes with the
-        // swapped-out body; the list is not refreshed. onNonHtmx (boosted /
+        // swapped-out body; the list is not refreshed. onFullPage (boosted /
         // history-restore only) redirects to the same page.
         // Safe !!/of(): both fields were validated above and the create succeeded.
         val stencilKey = StencilKey.validateOrNull(form["slug"])!!
@@ -302,7 +302,7 @@ class StencilHandler(
         val destination = "/tenants/${tenantId.key}/catalogs/$catalogKey/stencils/$stencilKey"
         return request.htmx {
             dialogLocation(destination)
-            onNonHtmx { redirect(destination) }
+            onFullPage { redirect(destination) }
         }
     }
 
@@ -456,7 +456,7 @@ class StencilHandler(
         } catch (e: ValidationException) {
             e.message
         }
-        if (!request.isHtmx()) {
+        if (!request.isHtmx) {
             // The template editor marks the stencil it edits ready (JSON).
             val status = if (error == null) 200 else 400
             return ServerResponse.status(status)
@@ -502,7 +502,7 @@ class StencilHandler(
                 "draftSegment" to segment
                 "stencils" to ListStencils(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
             }
-            onNonHtmx { redirect(CatalogPages.list(request, tenantId.key, "stencils")) }
+            onFullPage { redirect(CatalogPages.list(request, tenantId.key, "stencils")) }
         }
     }
 
@@ -521,7 +521,7 @@ class StencilHandler(
         val page = request.param("page").map { it.toIntOrNull() ?: 1 }.orElse(1)
         val usagePage = GetStencilUsagePage(stencilId = stencilId, page = page, catalogVersion = version).query()
 
-        if (!request.isHtmx()) {
+        if (!request.isHtmx) {
             return ServerResponse.ok()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(
@@ -554,7 +554,7 @@ class StencilHandler(
                 "usage" to usagePage.items
                 "usagePage" to usagePage
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs/${stencilId.catalogKey}/stencils/${stencilId.key}") }
+            onFullPage { redirect("/tenants/${tenantId.key}/catalogs/${stencilId.catalogKey}/stencils/${stencilId.key}") }
         }
     }
 

@@ -26,8 +26,8 @@ a `ServerRequest`; routes are a functional router. A strict CSP and several mark
   `requirePermission(tenantId.key, Permission.X)`, and reach the domain through `.execute()` /
   `.query()`. Don't touch JDBI from a handler.
 - **Responses**: `ServerResponse.ok().page("domain/list") { … }` for a full page;
-  `request.htmx { fragment("domain/list", "rows") { … } }` for a swap. Prefer `onFullPage {}` over
-  the older `onNonHtmx {}` in new code.
+  `request.htmx { fragment("domain/list", "rows") { … } }` for a swap, with `onFullPage {}` for the
+  same URL opened directly or boosted.
 - **Forms**: build with `request.form { field("name") { required(); maxLength(100) } }`, run the
   command through `form.executeOrFormError { … }`, then render errors with `dialogFieldErrors(...)`
   and success with `dialogSuccess(...)`. Field errors and command failures share one error path.

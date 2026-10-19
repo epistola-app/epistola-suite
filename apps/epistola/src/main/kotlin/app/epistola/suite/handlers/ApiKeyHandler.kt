@@ -49,7 +49,7 @@ class ApiKeyHandler {
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
-            onNonHtmx {
+            onFullPage {
                 page("api-keys/list") {
                     apiKeyPageModel(tenantId)
                     "openDialog" to true
@@ -92,7 +92,7 @@ class ApiKeyHandler {
                     "roleOptions" to ROLE_OPTIONS
                     "selectedRoles" to selectedRoleNames
                 }
-                onNonHtmx {
+                onFullPage {
                     page(422, "api-keys/list") {
                         apiKeyPageModel(tenantId)
                         "openDialog" to true
@@ -142,7 +142,7 @@ class ApiKeyHandler {
                 "roleLabels" to ROLE_LABELS
                 "oob" to true
             }
-            onNonHtmx {
+            onFullPage {
                 page("api-keys/created") {
                     "pageTitle" to "API key created - Epistola"
                     "tenantId" to tenantId.key
@@ -172,7 +172,7 @@ class ApiKeyHandler {
                 "apiKeys" to apiKeys
                 "roleLabels" to ROLE_LABELS
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/api-keys") }
+            onFullPage { redirect("/tenants/${tenantId.key}/api-keys") }
         }
     }
 

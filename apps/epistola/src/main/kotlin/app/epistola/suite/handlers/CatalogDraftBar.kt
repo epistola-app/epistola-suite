@@ -17,6 +17,8 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.ListEnvironmentOverrides
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.CatalogSegment
+import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.SecurityContext
@@ -324,4 +326,16 @@ object CatalogPages {
 
     /** A published version's own page. */
     fun release(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): String = "/tenants/${tenantKey.value}/catalogs/${catalogKey.value}/releases/$version"
+}
+
+/**
+ * A fragment of a catalog page (a dialog's body, a status cell) for an HTMX request; opened directly,
+ * the page it belongs to instead of a bare fragment: the catalog's, or the catalog list outside one.
+ */
+internal fun fragmentOrPage(request: org.springframework.web.servlet.function.ServerRequest, view: String, fragment: String, model: Map<String, Any?>): org.springframework.web.servlet.function.ServerResponse = request.htmx {
+    fragment(view, fragment) { putAll(model) }
+    onFullPage {
+        val tenantId = request.tenantId()
+        redirect(request.pathVariables()["catalogId"]?.let { CatalogPages.browse(tenantId, CatalogSegment.parse(it).at(null)) } ?: "/tenants/${tenantId.key.value}/catalogs")
+    }
 }

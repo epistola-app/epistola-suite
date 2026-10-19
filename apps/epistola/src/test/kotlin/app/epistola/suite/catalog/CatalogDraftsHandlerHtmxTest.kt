@@ -515,6 +515,8 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
                 .contains("value=\"Next version before Redesign\"")
             val refused = postForm("/tenants/${tenant.id}/catalogs/letters@$work/promote", mapOf("previous" to "keep", "keepAs" to "Old"))
             assertThat(refused.body).contains("Confirm each version published since this work started: v1.0.1")
+            assertThat(refused.statusCode.value()).`as`("a refusal is not a success").isEqualTo(422)
+            assertThat(refused.headers.getFirst("HX-Reswap")).isEqualTo("innerHTML")
             postForm("/tenants/${tenant.id}/catalogs/letters@$work/promote", mapOf("previous" to "keep", "keepAs" to "Old", "acknowledgedBehind" to "1.0.1"))
         }
         then {

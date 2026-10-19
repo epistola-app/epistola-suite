@@ -12,10 +12,13 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
+import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
@@ -367,6 +370,26 @@ class VariantCardUiTest : BasePlaywrightTest() {
     /**
      * Helper to create a tenant + template. Creating a template auto-creates a default variant.
      */
+
+    /** Making a variant the default asks in the app's dialog (`hx-confirm`, routed there by app-shell.js), then does it. */
+    @Test
+    fun `making a variant the default asks in the app's dialog`() {
+        lateinit var extra: VariantId
+        val (tenant, template) = withMediator {
+            val (tenant, template) = createTenantAndTemplate()
+            extra = VariantId(VariantKey.of("extra"), TemplateId(template.id, CatalogId.default(TenantId(tenant.id))))
+            CreateVariant(id = extra, title = "Extra Variant", description = null, attributes = emptyMap()).execute()
+            tenant to template
+        }
+
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}")
+        page.getByTestId("variant-set-default").click()
+        page.getByTestId("confirm-dialog-confirm").click()
+        page.htmxSettle()
+
+        org.assertj.core.api.Assertions.assertThat(withMediator { GetVariant(extra).query() }!!.isDefault).isTrue()
+    }
+
     private fun createTenantAndTemplate(): Pair<Tenant, DocumentTemplate> {
         val tenantKey = TenantKey.of("test-ui-tenant-${System.nanoTime()}")
         val tenant = CreateTenant(id = tenantKey, name = "UI Test Tenant").execute()

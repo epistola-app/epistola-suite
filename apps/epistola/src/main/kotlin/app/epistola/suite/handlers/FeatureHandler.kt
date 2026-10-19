@@ -8,6 +8,7 @@ import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.features.queries.GetFeatureToggles
 import app.epistola.suite.htmx.page
+import app.epistola.suite.htmx.redirect
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -53,8 +54,6 @@ class FeatureHandler {
             ).execute()
         }
 
-        return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/features?saved=true")
-            .build()
+        return redirect("/tenants/${tenantId.key}/features?saved=true")
     }
 }

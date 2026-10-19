@@ -81,6 +81,7 @@ import app.epistola.suite.exchange.SetCatalogPublicationNamespace
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.htmx.CatalogSegment
+import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.catalogSegment
@@ -89,6 +90,7 @@ import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
+import app.epistola.suite.htmx.redirect
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -149,7 +151,7 @@ class CatalogHandler {
             }
             // Direct navigation / boost: the host list page with the create
             // dialog embedded in its mount (openDialog=true), opened on load by JS.
-            onNonHtmx {
+            onFullPage {
                 page("catalogs/list") {
                     catalogPageModel(request)
                     "openDialog" to true
@@ -203,7 +205,7 @@ class CatalogHandler {
                 ) {
                     "tenantId" to tenantId.key
                 }
-                onNonHtmx {
+                onFullPage {
                     page(422, "catalogs/list") {
                         catalogPageModel(request)
                         "openDialog" to true
@@ -220,7 +222,7 @@ class CatalogHandler {
         val created = CatalogPages.browse(tenantId, CatalogSegment(CatalogKey.of(form["slug"])))
         return request.htmx {
             dialogLocation(created)
-            onNonHtmx { redirect(created) }
+            onFullPage { redirect(created) }
         }
     }
 
@@ -234,7 +236,7 @@ class CatalogHandler {
             }
             // Direct navigation / boost: the host list page with the subscribe
             // dialog embedded in its mount (openDialog=true), opened on load by JS.
-            onNonHtmx {
+            onFullPage {
                 page("catalogs/list") {
                     catalogPageModel(request)
                     "openDialog" to true
@@ -281,7 +283,7 @@ class CatalogHandler {
                 dialogSuccess("catalogs/list", "catalog-list", "/tenants/${tenantId.key}/catalogs") {
                     catalogListModel(request)
                 }
-                onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs?saved=true") }
+                onFullPage { redirect("/tenants/${tenantId.key}/catalogs?saved=true") }
             }
         } catch (e: ValidationException) {
             // The URL itself was refused (scheme, file roots, address): say why, it is the user's input.
@@ -306,7 +308,7 @@ class CatalogHandler {
         // form-error slot renders the message from the standardized `error` key
         // (see epistola-web/form-error), so it shows INSIDE the reopened dialog
         // instead of only in the list banner behind the modal backdrop.
-        onNonHtmx {
+        onFullPage {
             page(422, "catalogs/list") {
                 catalogPageModel(request)
                 "openDialog" to true
@@ -328,10 +330,8 @@ class CatalogHandler {
                 fragment("catalogs/list", "catalog-list") {
                     catalogListModel(request)
                 }
-                onNonHtmx {
-                    ServerResponse.status(303)
-                        .header("Location", "/tenants/${tenantId.key}/catalogs")
-                        .build()
+                onFullPage {
+                    redirect("/tenants/${tenantId.key}/catalogs")
                 }
             }
         } catch (e: app.epistola.suite.catalog.CatalogInUseException) {
@@ -390,8 +390,10 @@ class CatalogHandler {
     fun releaseDialog(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val segment = request.catalogSegment()
-        return ServerResponse.ok().render(
-            "catalogs/list :: release-dialog",
+        return fragmentOrPage(
+            request,
+            "catalogs/list",
+            "release-dialog",
             releaseDialogModel(
                 tenantId,
                 segment,
@@ -473,8 +475,9 @@ class CatalogHandler {
         // What was published along before this catalog's own publish, so a refusal of that says it.
         var publishedAlong: Map<String, String> = emptyMap()
 
-        fun reRenderWithError(message: String): ServerResponse = ServerResponse.ok().render(
-            "catalogs/list :: release-dialog",
+        fun reRenderWithError(message: String): ServerResponse = refusedDialog(
+            request,
+            "release-dialog",
             releaseDialogModel(
                 tenantId,
                 segment,
@@ -560,7 +563,7 @@ class CatalogHandler {
             val landing = segment.at(null)
             request.htmx {
                 dialogLocation(CatalogPages.browse(tenantId, landing))
-                onNonHtmx {
+                onFullPage {
                     redirect(CatalogPages.browse(tenantId, landing))
                 }
             }
@@ -602,9 +605,7 @@ class CatalogHandler {
         val catalogKey = request.catalogId()
         return try {
             CancelCatalogPublication(tenantId.key, UUID.fromString(request.pathVariable("publicationId"))).execute()
-            ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/settings")
-                .build()
+            redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/settings")
         } catch (failure: ValidationException) {
             logger.warn("Cancelling a publication of '{}' was rejected: {}", catalogKey.value, failure.message)
             section(request, "catalogs/settings", failure.message)
@@ -628,9 +629,7 @@ class CatalogHandler {
         val replace = request.param("replace").orElse("") == "true"
         return try {
             DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, version, includeDependencies, replace = replace).execute()
-            ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
-                .build()
+            redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
         } catch (failure: ReleaseNotDeployableException) {
             deployments(request, error = failure.message)
         } catch (failure: EnvironmentNotFoundException) {
@@ -655,9 +654,7 @@ class CatalogHandler {
         val version = request.param("version").orElse("").trim()
         if (version.isEmpty()) return deployments(request, error = "Choose a release to undeploy.")
         UndeployRelease(EnvironmentId(EnvironmentKey.of(request.pathVariable("environmentId")), tenantId), catalogKey, version).execute()
-        return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
-            .build()
+        return redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
     }
 
     /** One row per environment of the tenant, with every release of this catalog it serves, highest first. */
@@ -683,9 +680,7 @@ class CatalogHandler {
         val catalogKey = request.catalogId()
         return try {
             DeleteCatalogRelease(tenantId.key, catalogKey, request.pathVariable("version")).execute()
-            ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/versions")
-                .build()
+            redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/versions")
         } catch (failure: ReleaseInUseException) {
             section(request, "catalogs/versions", failure.message)
         } catch (failure: ValidationException) {
@@ -712,9 +707,7 @@ class CatalogHandler {
                 catalogKey,
                 version = request.param("version").orElse(null)?.ifBlank { null },
             ).execute()
-            ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/settings")
-                .build()
+            redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/settings")
         } catch (failure: ValidationException) {
             logger.warn("Publishing the current release of '{}' was rejected: {}", catalogKey.value, failure.message)
             section(request, "catalogs/settings", failure.message)
@@ -732,10 +725,7 @@ class CatalogHandler {
         val tenantId = request.tenantId()
         val catalogKey = request.catalogId()
         val catalog = GetCatalog(tenantId.key, catalogKey).query()
-            ?: return ServerResponse.ok().render(
-                "catalogs/list :: version-status",
-                mapOf("tenantId" to tenantId.key, "catalogId" to catalogKey.value, "status" to null),
-            )
+            ?: return fragmentOrPage(request, "catalogs/list", "version-status", mapOf("tenantId" to tenantId.key, "catalogId" to catalogKey.value, "status" to null))
 
         val check = try {
             CheckCatalogUpstream(tenantId.key, catalogKey).execute()
@@ -749,8 +739,10 @@ class CatalogHandler {
             CATALOG_SCHEMA_VERSION,
             fromExchange = ExchangeSourceUri.matches(catalog.sourceUrl),
         )
-        return ServerResponse.ok().render(
-            "catalogs/list :: version-status",
+        return fragmentOrPage(
+            request,
+            "catalogs/list",
+            "version-status",
             mapOf(
                 "tenantId" to tenantId.key,
                 "catalogId" to catalogKey.value,
@@ -759,7 +751,18 @@ class CatalogHandler {
         )
     }
 
-    private fun upgradeDialog(tenantId: app.epistola.suite.common.ids.TenantId, catalogKey: CatalogKey, error: String? = null): ServerResponse {
+    /**
+     * A catalog dialog shown again with why its action was refused: a 422 (so nothing treats the
+     * refusal as done), swapped into its container as the dialog's form asks.
+     */
+    private fun refusedDialog(request: ServerRequest, fragment: String, model: Map<String, Any?>): ServerResponse = request.htmx {
+        fragment("catalogs/list", fragment) { putAll(model) }
+        reswap(HxSwap.INNER_HTML)
+        status(422)
+        onFullPage { redirect(CatalogPages.browse(request.tenantId(), request.catalogSegment())) }
+    }
+
+    private fun upgradeDialog(request: ServerRequest, tenantId: app.epistola.suite.common.ids.TenantId, catalogKey: CatalogKey, error: String? = null, refused: Boolean = false): ServerResponse {
         val model = HashMap<String, Any?>()
         model["tenantId"] = tenantId.key
         model["catalogId"] = catalogKey.value
@@ -771,13 +774,15 @@ class CatalogHandler {
             model["diff"] = null
             if (error == null) model["error"] = e.message ?: "Failed to preview upgrade. The remote catalog may be unavailable."
         }
-        return ServerResponse.ok().render("catalogs/list :: upgrade-dialog", model)
+        // A refused upgrade says so with a 422; the preview is a plain 200.
+        if (refused) return refusedDialog(request, "upgrade-dialog", model)
+        return fragmentOrPage(request, "catalogs/list", "upgrade-dialog", model)
     }
 
     fun upgradePreview(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = request.catalogId()
-        return upgradeDialog(tenantId, catalogKey)
+        return upgradeDialog(request, tenantId, catalogKey)
     }
 
     fun upgrade(request: ServerRequest): ServerResponse {
@@ -794,7 +799,7 @@ class CatalogHandler {
                 val failed = result.installResults
                     .filter { it.status == InstallStatus.FAILED }
                     .joinToString(", ") { "${it.type}/${it.slug}" }
-                return upgradeDialog(tenantId, catalogKey, "Upgrade aborted — these resources failed to install (nothing was changed, the version was not advanced): $failed")
+                return upgradeDialog(request, tenantId, catalogKey, "Upgrade aborted — these resources failed to install (nothing was changed, the version was not advanced): $failed", refused = true)
             }
 
             request.htmx {
@@ -803,15 +808,15 @@ class CatalogHandler {
                     catalogListModel(request)
                     "oob" to true
                 }
-                onNonHtmx {
+                onFullPage {
                     redirect("/tenants/${tenantId.key}/catalogs?saved=true")
                 }
             }
         } catch (e: CatalogUpgradeConflictException) {
-            upgradeDialog(tenantId, catalogKey, e.message ?: "Upgrade blocked — resources are still in use.")
+            upgradeDialog(request, tenantId, catalogKey, e.message ?: "Upgrade blocked — resources are still in use.", refused = true)
         } catch (e: Exception) {
             logger.warn("Failed to upgrade catalog: ${e.message}", e)
-            upgradeDialog(tenantId, catalogKey, e.message ?: "Failed to upgrade catalog.")
+            upgradeDialog(request, tenantId, catalogKey, e.message ?: "Failed to upgrade catalog.", refused = true)
         }
     }
 
@@ -823,7 +828,7 @@ class CatalogHandler {
     fun browse(request: ServerRequest): ServerResponse {
         val segment = request.catalogSegment()
         if (segment.draft != null) {
-            return ServerResponse.status(303).header("Location", CatalogPages.draft(request.tenantId(), segment)).build()
+            return redirect(CatalogPages.draft(request.tenantId(), segment))
         }
         return browse(request, error = null)
     }
@@ -838,7 +843,7 @@ class CatalogHandler {
         val tenantId = request.tenantId()
         val segment = request.catalogSegment()
         val bar = draftBar(tenantId, segment)
-        if (bar.chosen == null) return ServerResponse.status(303).header("Location", CatalogPages.browse(tenantId, segment)).build()
+        if (bar.chosen == null) return redirect(CatalogPages.browse(tenantId, segment))
         return catalogPage(request, "catalogs/version", segment, bar, error = null)
     }
 
@@ -1071,7 +1076,7 @@ class CatalogHandler {
         val catalogKey = request.catalogId()
         requirePermission(tenantId.key, Permission.CATALOG_MANAGE)
         val section = CatalogMetadataSection.from(request.param("section").orElse(CatalogMetadataSection.DETAILS.value))
-        return ServerResponse.ok().render("catalogs/metadata :: dialog", catalogMetadataModel(tenantId.key, catalogKey, section))
+        return fragmentOrPage(request, "catalogs/metadata", "dialog", catalogMetadataModel(tenantId.key, catalogKey, section))
     }
 
     fun updateMetadata(request: ServerRequest): ServerResponse {
@@ -1095,9 +1100,10 @@ class CatalogHandler {
                 // permission — so it travels as its own command and is simply absent for anyone who
                 // may not set it.
                 chooseNamespaceIfOffered(request, tenantId.key, catalogKey)
-                return ServerResponse.noContent()
-                    .header("HX-Redirect", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
-                    .build()
+                return request.htmx {
+                    dialogRedirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse")
+                    onFullPage { redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse") }
+                }
             }
 
             UpdateCatalogMetadata(
@@ -1129,9 +1135,10 @@ class CatalogHandler {
             } else {
                 CatalogPages.browse(tenantId, request.catalogSegment())
             }
-            ServerResponse.noContent()
-                .header("HX-Redirect", back)
-                .build()
+            request.htmx {
+                dialogRedirect(back)
+                onFullPage { redirect(back) }
+            }
         } catch (e: Exception) {
             logger.warn("Failed to update catalog metadata: {}", e.message)
             // Into the dialog's error slot; what was typed stays.
@@ -1268,8 +1275,10 @@ class CatalogHandler {
         val usages = FindResourceUsages(tenantKey = tenantId.key, catalogKey = catalogKey).query()
         val resourceUsages = usages[key] ?: emptyList()
 
-        return ServerResponse.ok().render(
-            "catalogs/browse :: usage-detail",
+        return fragmentOrPage(
+            request,
+            "catalogs/browse",
+            "usage-detail",
             mapOf(
                 "resourceType" to resourceType,
                 "resourceSlug" to resourceSlug,
@@ -1288,8 +1297,10 @@ class CatalogHandler {
                 catalogKey = catalogKey,
             ).query()
 
-            ServerResponse.ok().render(
-                "catalogs/browse :: install-preview",
+            fragmentOrPage(
+                request,
+                "catalogs/browse",
+                "install-preview",
                 mapOf(
                     "tenantId" to tenantId.key,
                     "catalog" to mapOf("id" to catalogKey.value),
@@ -1298,10 +1309,7 @@ class CatalogHandler {
             )
         } catch (e: Exception) {
             logger.warn("Failed to preview install: ${e.message}", e)
-            ServerResponse.ok().render(
-                "catalogs/browse :: install-preview-error",
-                mapOf("error" to (e.message ?: "Failed to resolve dependencies.")),
-            )
+            fragmentOrPage(request, "catalogs/browse", "install-preview-error", mapOf("error" to (e.message ?: "Failed to resolve dependencies.")))
         }
     }
 
@@ -1369,7 +1377,7 @@ class CatalogHandler {
                 }
             }
             trigger("installComplete")
-            onNonHtmx {
+            onFullPage {
                 page("catalogs/browse") {
                     "pageTitle" to "${result.catalog.name} - Catalog - Epistola"
                     "tenantId" to tenantId.key
@@ -1403,7 +1411,7 @@ class CatalogHandler {
         requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
         return request.htmx {
             fragment("catalogs/import", "dialog") { "tenantId" to tenantId.key }
-            onNonHtmx {
+            onFullPage {
                 page("catalogs/list") {
                     catalogPageModel(request)
                     "openDialog" to true
@@ -1457,13 +1465,12 @@ class CatalogHandler {
             ).execute()
 
             if (request.isHtmx) {
-                ServerResponse.ok()
-                    .header("HX-Redirect", "/tenants/${tenantId.key}/catalogs/${result.catalogKey}/browse")
-                    .build()
+                request.htmx {
+                    dialogRedirect("/tenants/${tenantId.key}/catalogs/${result.catalogKey}/browse")
+                    onFullPage { redirect("/tenants/${tenantId.key}/catalogs/${result.catalogKey}/browse") }
+                }
             } else {
-                ServerResponse.status(303)
-                    .header("Location", "/tenants/${tenantId.key}/catalogs/${result.catalogKey}/browse")
-                    .build()
+                redirect("/tenants/${tenantId.key}/catalogs/${result.catalogKey}/browse")
             }
         } catch (e: CatalogSchemaException) {
             // The uploaded catalog's wire format is too new, too old, or
@@ -1476,8 +1483,10 @@ class CatalogHandler {
                 is CatalogSchemaTooOldException -> "Import blocked: catalog format is too old"
                 is CatalogSchemaUnknownException -> "Import blocked: unrecognised catalog format"
             }
-            ServerResponse.ok().render(
-                "catalogs/import :: import-schema-error",
+            fragmentOrPage(
+                request,
+                "catalogs/import",
+                "import-schema-error",
                 mapOf(
                     "schemaErrorTitle" to title,
                     "schemaErrorDetail" to (e.message ?: "Incompatible catalog wire format."),
@@ -1487,8 +1496,10 @@ class CatalogHandler {
             // AUTHORED ZIP below the current catalog schema version but migratable:
             // updating mutates the imported content, so prompt before importing. The
             // "Update" button re-submits the same form with confirmMigration=true.
-            ServerResponse.ok().render(
-                "catalogs/import :: import-migration-confirm",
+            fragmentOrPage(
+                request,
+                "catalogs/import",
+                "import-migration-confirm",
                 mapOf(
                     "tenantId" to tenantId.key,
                     "fromSchemaVersion" to e.fromVersion,
@@ -1519,7 +1530,7 @@ class CatalogHandler {
         // restore on a re-render anyway), so a genuine non-HTMX POST cannot reach
         // this. Kept consistent with registerError so the branch stays correct if a
         // fallback is ever added; `error` renders in the dialog's form-error slot.
-        onNonHtmx {
+        onFullPage {
             page(422, "catalogs/list") {
                 catalogPageModel(request)
                 "openDialog" to true
@@ -1533,8 +1544,10 @@ class CatalogHandler {
     fun exportCheck(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = request.catalogId()
-        return ServerResponse.ok().render(
-            "catalogs/list :: export-confirmation-dialog",
+        return fragmentOrPage(
+            request,
+            "catalogs/list",
+            "export-confirmation-dialog",
             mapOf(
                 "tenantId" to tenantId.key,
                 "catalogId" to catalogKey.value,

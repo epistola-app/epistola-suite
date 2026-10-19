@@ -63,8 +63,10 @@ class ExchangeCatalogHandler {
         val tenantKey = request.tenantId().key
         requirePermission(tenantKey, Permission.CATALOG_VIEW)
         val query = request.param("q").orElse(null)
-        return ServerResponse.ok().render(
-            "catalogs/exchange-browse :: results",
+        return fragmentOrPage(
+            request,
+            "catalogs/exchange-browse",
+            "results",
             mapOf(
                 "tenantId" to tenantKey,
                 "q" to query,
@@ -85,8 +87,10 @@ class ExchangeCatalogHandler {
                 request,
                 "Epistola Exchange does not offer $namespace/$catalogKey, or this tenant may not see it.",
             )
-        return ServerResponse.ok().render(
-            "catalogs/exchange-browse :: detail-dialog",
+        return fragmentOrPage(
+            request,
+            "catalogs/exchange-browse",
+            "detail-dialog",
             mapOf(
                 "tenantId" to tenantKey,
                 "detail" to detail,
@@ -130,7 +134,7 @@ class ExchangeCatalogHandler {
                 dialogSuccess("catalogs/list", "catalog-list", "/tenants/${tenantId.key}/catalogs") {
                     catalogListModel(tenantId.key)
                 }
-                onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs?saved=true") }
+                onFullPage { redirect("/tenants/${tenantId.key}/catalogs?saved=true") }
             }
         } catch (e: ValidationException) {
             installError(request, e.message)
@@ -164,8 +168,10 @@ class ExchangeCatalogHandler {
         val detail = GetExchangeCatalogDetail(tenantKey, coordinates.namespace, coordinates.catalogKey).query()
             ?: return installError(request, "Epistola Exchange no longer offers $coordinates.")
 
-        return ServerResponse.ok().render(
-            "catalogs/exchange-browse :: upgrade-dialog",
+        return fragmentOrPage(
+            request,
+            "catalogs/exchange-browse",
+            "upgrade-dialog",
             mapOf(
                 "tenantId" to tenantKey,
                 "catalogId" to catalogKey.value,
@@ -199,7 +205,7 @@ class ExchangeCatalogHandler {
                 dialogSuccess("catalogs/list", "catalog-list", "/tenants/${tenantId.key}/catalogs") {
                     catalogListModel(tenantId.key)
                 }
-                onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs?saved=true") }
+                onFullPage { redirect("/tenants/${tenantId.key}/catalogs?saved=true") }
             }
         } catch (e: ValidationException) {
             installError(request, e.message)
@@ -221,7 +227,7 @@ class ExchangeCatalogHandler {
      */
     private fun installError(request: ServerRequest, message: String): ServerResponse = request.htmx {
         dialogFormError("exchange-install-error", message)
-        onNonHtmx { redirect("/tenants/${request.tenantId().key}/catalogs") }
+        onFullPage { redirect("/tenants/${request.tenantId().key}/catalogs") }
     }
 
     private fun canInstall(tenantKey: TenantKey): Boolean = SecurityContext.current().let { principal ->

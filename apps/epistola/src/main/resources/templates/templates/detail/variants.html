@@ -137,6 +137,7 @@
                         </div>
                     </div>
                     <div class="variant-card-footer">
+                        <!--/* Not boosted: the editor is a full page with its own layout and scripts, outside the shell. */-->
                         <a th:if="${auth.has('TEMPLATE_EDIT') and editable}"
                            th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},variantId=${variant.id})}"
                            class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" hx-boost="false" title="Open editor">
@@ -167,7 +168,8 @@
                         <form th:if="${auth.has('TEMPLATE_EDIT') and editable}" th:unless="${variant.isDefault}"
                               th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/set-default(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},variantId=${variant.id})}"
                               hx-target="#variants-section" hx-swap="outerHTML" hx-confirm="Make this the default variant?">
-                            <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Set as default">
+                            <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Set as default"
+                                    data-testid="variant-set-default">
                                 <th:block th:replace="~{epistola-web/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
                             </button>
                         </form>

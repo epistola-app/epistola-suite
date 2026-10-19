@@ -189,6 +189,8 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         val response = post("/tenants/${subject.tenantKey.value}/quality/${key.value}/ignore", "reason" to "")
 
         assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#quality-ignore-dialog-body")
+        assertThat(response.statusCode.value()).`as`("a refusal is not a success").isEqualTo(422)
+        assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("innerHTML")
         assertThat(response.body!!).contains("quality-ignore-error")
         assertThat(withMediator { GetQualityFinding(subject.tenantKey, key).query() }!!.effectiveStatus)
             .isEqualTo(EffectiveQualityStatus.OPEN)

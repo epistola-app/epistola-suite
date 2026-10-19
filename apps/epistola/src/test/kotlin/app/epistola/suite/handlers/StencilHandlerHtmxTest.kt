@@ -433,7 +433,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
             // A tab left open from before this branch converted the stencil form
             // submits the old plain method=post form as an hx-boosted POST
             // (HX-Request + HX-Boosted). build() routes boosted requests to the
-            // non-HTMX branch; without an onNonHtmx fallback that branch threw
+            // non-HTMX branch; without an onFullPage fallback that branch threw
             // IllegalStateException → 500 even for a valid create.
             val form: MultiValueMap<String, String> = LinkedMultiValueMap()
             form.add("catalog", "default")
@@ -453,7 +453,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            // Pre-fix: 500 (IllegalStateException). The onNonHtmx { redirect(...) }
+            // Pre-fix: 500 (IllegalStateException). The onFullPage { redirect(...) }
             // fallback now keeps a valid boosted create out of the 5xx range.
             assertThat(response.statusCode.value()).isLessThan(500)
         }

@@ -95,7 +95,7 @@ class ThemeHandler(
                 // this fragment, so the distinction has to reach it.
                 "searchTerm" to searchTerm.orEmpty()
             }
-            onNonHtmx { redirect(CatalogPages.list(request, tenantId.key, "themes")) }
+            onFullPage { redirect(CatalogPages.list(request, tenantId.key, "themes")) }
         }
     }
 
@@ -140,7 +140,7 @@ class ThemeHandler(
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
-            onNonHtmx {
+            onFullPage {
                 page("themes/list") {
                     themePageModel(request)
                     "openDialog" to true
@@ -215,7 +215,7 @@ class ThemeHandler(
                     "draftSegment" to request.catalogParam()
                     "authoredCatalogs" to authoredCatalogs
                 }
-                onNonHtmx {
+                onFullPage {
                     page(422, "themes/list") {
                         themePageModel(request)
                         "openDialog" to true
@@ -238,7 +238,7 @@ class ThemeHandler(
         val destination = "/tenants/${tenantId.key}/catalogs/$catalogKey/themes/$themeKey"
         return request.htmx {
             dialogLocation(destination)
-            onNonHtmx { redirect(destination) }
+            onFullPage { redirect(destination) }
         }
     }
 
@@ -305,7 +305,7 @@ class ThemeHandler(
                 "theme" to theme
                 themeUsageModel(usagePage, page)
             }
-            onNonHtmx {
+            onFullPage {
                 redirect(
                     "/tenants/${tenantId.key}/catalogs/${themeId.catalogKey}/themes/${themeId.key}",
                 )
@@ -404,7 +404,7 @@ class ThemeHandler(
                 "draftSegment" to segment
                 "themes" to ListThemes(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
             }
-            onNonHtmx { redirect(CatalogPages.list(request, tenantId.key, "themes")) }
+            onFullPage { redirect(CatalogPages.list(request, tenantId.key, "themes")) }
         }
     }
 
@@ -440,7 +440,7 @@ class ThemeHandler(
                 "draftSegment" to segment
                 "themes" to ListThemes(tenantId = tenantId, catalogKey = segment?.key, catalogVersion = segment?.ref(tenantId.key)).query()
             }
-            onNonHtmx { redirect(CatalogPages.list(request, tenantId.key, "themes")) }
+            onFullPage { redirect(CatalogPages.list(request, tenantId.key, "themes")) }
         }
     }
 }

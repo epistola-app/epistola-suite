@@ -37,6 +37,7 @@ import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.queryParamInt
+import app.epistola.suite.htmx.redirect
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
@@ -185,7 +186,7 @@ class DocumentTemplateHandler(
             fragment("templates/list", "table") {
                 putAll(model)
             }
-            onNonHtmx { redirect(CatalogPages.list(request, tenantId.key, "templates")) }
+            onFullPage { redirect(CatalogPages.list(request, tenantId.key, "templates")) }
         }
     }
 
@@ -306,7 +307,7 @@ class DocumentTemplateHandler(
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
-            onNonHtmx {
+            onFullPage {
                 page("templates/list") {
                     templatePageModel(request, tenantId, allCatalogs)
                     // The embedded dialog creates in this catalog, draft or not.
@@ -379,7 +380,7 @@ class DocumentTemplateHandler(
                     "draftSegment" to request.catalogParam()
                     "authoredCatalogs" to authoredCatalogs
                 }
-                onNonHtmx {
+                onFullPage {
                     page(422, "templates/list") {
                         templatePageModel(request, tenantId, allCatalogs)
                         // The embedded dialog creates in this catalog, draft or not.
@@ -405,7 +406,7 @@ class DocumentTemplateHandler(
         val destination = "/tenants/${tenantId.key}/catalogs/${catalogId.value}/templates/$templateKey"
         return request.htmx {
             dialogLocation(destination)
-            onNonHtmx { redirect(destination) }
+            onFullPage { redirect(destination) }
         }
     }
 
@@ -661,7 +662,7 @@ class DocumentTemplateHandler(
                 "themeCatalogs" to themeCatalogs
                 "editable" to (updated.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
             }
-            onNonHtmx {
+            onFullPage {
                 redirect("/tenants/${tenantId.key}/catalogs/$catalogId/templates/${templateId.key}")
             }
         }
@@ -802,11 +803,6 @@ class DocumentTemplateHandler(
         // followed redirect, so the resource-changed signal rides a one-shot
         // flash query param instead, consumed once by embed-bridge.js
         // (docs/embedding.md).
-        return ServerResponse.status(303)
-            .header(
-                "Location",
-                "/tenants/${tenantId.key}/catalogs/${catalogId.value}/templates?resourceDeleted=template:${catalogId.value}:${templateId.key.value}",
-            )
-            .build()
+        return redirect("/tenants/${tenantId.key}/catalogs/${catalogId.value}/templates?resourceDeleted=template:${catalogId.value}:${templateId.key.value}")
     }
 }

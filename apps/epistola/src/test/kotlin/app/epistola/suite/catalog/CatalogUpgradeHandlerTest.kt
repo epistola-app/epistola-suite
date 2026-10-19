@@ -500,7 +500,13 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             )
             restTemplate.postForEntity(
                 "/tenants/${testTenant.id}/catalogs/import",
-                HttpEntity(payload, HttpHeaders().apply { contentType = MediaType.MULTIPART_FORM_DATA }),
+                HttpEntity(
+                    payload,
+                    HttpHeaders().apply {
+                        contentType = MediaType.MULTIPART_FORM_DATA
+                        set("HX-Request", "true")
+                    },
+                ),
                 String::class.java,
             )
         }

@@ -84,7 +84,7 @@ class LoadTestHandler(
         // If no template selected, return empty fragment for HTMX or full page for non-HTMX
         if (templateKey == null) {
             return request.htmx {
-                onNonHtmx {
+                onFullPage {
                     page("loadtest/new") {
                         "pageTitle" to "Start Load Test - Epistola"
                         "tenantId" to tenantKey
@@ -132,7 +132,7 @@ class LoadTestHandler(
         }
 
         return request.htmx {
-            onNonHtmx {
+            onFullPage {
                 page("loadtest/new") {
                     "pageTitle" to "Start Load Test - Epistola"
                     "tenantId" to tenantKey
@@ -175,7 +175,7 @@ class LoadTestHandler(
             val errorMessage = form.errors.values.firstOrNull() ?: "Form validation failed"
             return request.htmx {
                 globalFormError("start-load-test-error", errorMessage)
-                onNonHtmx {
+                onFullPage {
                     val templates = ListDocumentTemplates(tenantId = tenantId).query()
                     val environments = ListEnvironments(tenantId = tenantId).query()
                     page(422, "loadtest/new") {
@@ -222,7 +222,10 @@ class LoadTestHandler(
 
             val url = "/tenants/$tenantKey/load-tests/${run.id}"
             return if (request.isHtmx) {
-                ServerResponse.ok().header("HX-Redirect", url).build()
+                request.htmx {
+                    dialogRedirect(url)
+                    onFullPage { redirect(url) }
+                }
             } else {
                 redirect(url)
             }
@@ -231,7 +234,7 @@ class LoadTestHandler(
 
             return request.htmx {
                 globalFormError("start-load-test-error", errorMessage)
-                onNonHtmx {
+                onFullPage {
                     val templates = ListDocumentTemplates(tenantId = tenantId).query()
                     val environments = ListEnvironments(tenantId = tenantId).query()
                     page(422, "loadtest/new") {
@@ -283,7 +286,7 @@ class LoadTestHandler(
             fragment("loadtest/detail", "metrics-section") {
                 "run" to run
             }
-            onNonHtmx { redirect("/tenants/$tenantKey/load-tests/$runId") }
+            onFullPage { redirect("/tenants/$tenantKey/load-tests/$runId") }
         }
     }
 

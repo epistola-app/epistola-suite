@@ -25,10 +25,13 @@ import app.epistola.suite.environments.SetEnvironmentOverride
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.FormData
+import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogSegment
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.htmxTarget
+import app.epistola.suite.htmx.redirect
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -82,7 +85,7 @@ class CatalogDraftHandler(
         val form = request.form {
             field("name") { maxLength(FieldLimits.MAX_NAME_LENGTH) }
         }
-        val fromDialog = request.headers().firstHeader("HX-Target") == "create-draft-form"
+        val fromDialog = request.htmxTarget == "create-draft-form"
         if (!fromDialog) return openNext(request, tenantId, segment)
 
         fun refused(field: String, message: String): ServerResponse = request.htmx {
@@ -119,9 +122,9 @@ class CatalogDraftHandler(
     /** Opens the next version where there is none, and lands on it. */
     private fun openNext(request: ServerRequest, tenantId: TenantId, segment: CatalogSegment): ServerResponse = try {
         OpenNextVersion(tenantId.key, segment.key).execute()
-        ServerResponse.status(303).header("Location", CatalogPages.draft(tenantId, segment)).build()
+        redirect(CatalogPages.draft(tenantId, segment))
     } catch (e: CatalogDraftIsNextException) {
-        ServerResponse.status(303).header("Location", CatalogPages.draft(tenantId, segment)).build()
+        redirect(CatalogPages.draft(tenantId, segment))
     }
 
     /**
@@ -143,7 +146,7 @@ class CatalogDraftHandler(
             } else {
                 CatalogPages.browse(tenantId, segment.at(null))
             }
-            ServerResponse.status(303).header("Location", back).build()
+            redirect(back)
         } catch (e: CatalogVersionHeldException) {
             catalogs.browseWithError(request, segment, e.message ?: "The draft cannot be discarded.")
         }
@@ -178,11 +181,15 @@ class CatalogDraftHandler(
         val keep = request.param("previous").orElse("keep") != "discard"
         val keepAs = request.param("keepAs").orElse("").trim().ifBlank { null }
         val acknowledged = request.params()["acknowledgedBehind"].orEmpty().map { it.trim() }.toSet()
+
+        // Refused: the dialog again with why, a 422 so nothing takes it for done.
         fun refused(message: String) = request.htmx {
             fragment("catalogs/drafts", "promote-dialog") {
                 promoteModel(tenantId, segment, bar, work)
                 "error" to message
             }
+            reswap(HxSwap.INNER_HTML)
+            status(422)
             onFullPage { redirect(CatalogPages.draft(tenantId, segment)) }
         }
         if (keep && keepAs == null) return refused("Give the current next version a name to keep it under.")
@@ -264,6 +271,8 @@ class CatalogDraftHandler(
                     followModel(tenantId, segment, bar)
                     "error" to e.message
                 }
+                reswap(HxSwap.INNER_HTML)
+                status(422)
                 onFullPage { redirect(CatalogPages.draft(tenantId, segment)) }
             }
         }
@@ -301,10 +310,9 @@ class CatalogDraftHandler(
         val target = from?.let { VersionSwitch.samePage(it, tenantId.key.value, segment) }
             ?: if (segment.draft == null) CatalogPages.browse(tenantId, segment) else CatalogPages.draft(tenantId, segment)
         // A version switch changes the whole workspace: a boosted click loads the page, not a fragment.
-        return if (request.headers().firstHeader("HX-Request") == "true") {
-            ServerResponse.ok().header("HX-Redirect", target).build()
-        } else {
-            ServerResponse.seeOther(java.net.URI.create(target)).build()
+        return request.htmx {
+            dialogRedirect(target)
+            onFullPage { redirect(target) }
         }
     }
 

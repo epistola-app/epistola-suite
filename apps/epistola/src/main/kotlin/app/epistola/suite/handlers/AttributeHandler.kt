@@ -75,7 +75,7 @@ class AttributeHandler {
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
-            onNonHtmx {
+            onFullPage {
                 page("attributes/list") {
                     attributePageModel(request)
                     "openDialog" to true
@@ -162,7 +162,7 @@ class AttributeHandler {
                     "authoredCatalogs" to authored
                     "codeLists" to codeLists
                 }
-                onNonHtmx {
+                onFullPage {
                     page(422, "attributes/list") {
                         attributePageModel(request)
                         "openDialog" to true
@@ -180,13 +180,13 @@ class AttributeHandler {
         // their own, so we return to the list; a full boosted GET re-renders the
         // whole list fresh (not an OOB partial), which keeps the visible rows in
         // step with the URL and sidesteps the catalog-filter desync an OOB
-        // stay-on-list refresh would cause. onNonHtmx 303-redirects for the
+        // stay-on-list refresh would cause. onFullPage 303-redirects for the
         // non-HTMX fallback.
         // The list of the catalog (or draft) the attribute was created in, which is where it is.
         val destination = "/tenants/${tenantId.key}/catalogs/${catalogSegment.value}/attributes"
         return request.htmx {
             dialogLocation(destination)
-            onNonHtmx { redirect(destination) }
+            onFullPage { redirect(destination) }
         }
     }
 
@@ -277,7 +277,7 @@ class AttributeHandler {
                 "draftSegment" to draftSegment
             }
             trigger("closeDialog")
-            onNonHtmx { redirect(CatalogPages.list(request, tenantId.key, "attributes")) }
+            onFullPage { redirect(CatalogPages.list(request, tenantId.key, "attributes")) }
         }
     }
 
@@ -304,7 +304,7 @@ class AttributeHandler {
                 "attributes" to attributes
                 "draftSegment" to draftSegment
             }
-            onNonHtmx { redirect(CatalogPages.list(request, tenantId.key, "attributes")) }
+            onFullPage { redirect(CatalogPages.list(request, tenantId.key, "attributes")) }
         }
     }
 

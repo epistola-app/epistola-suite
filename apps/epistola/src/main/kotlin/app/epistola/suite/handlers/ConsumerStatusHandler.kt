@@ -43,7 +43,7 @@ class ConsumerStatusHandler {
                 "tenantId" to tenantId.key
                 "report" to report
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/consumers") }
+            onFullPage { redirect("/tenants/${tenantId.key}/consumers") }
         }
     }
 }

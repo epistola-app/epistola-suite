@@ -134,6 +134,8 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
         // Production refuses it even when asked directly.
         val refused = postHtmx("$at/follow", "environment" to "production")
         assertThat(refused.body).contains("data-testid=\"follow-error\"").contains("production environment")
+        assertThat(refused.statusCode.value()).`as`("a refusal is not a success").isEqualTo(422)
+        assertThat(refused.headers.getFirst("HX-Reswap")).isEqualTo("innerHTML")
 
         postHtmx("$at/unfollow", "environment" to "test")
         assertThat(withMediator { ListEnvironmentOverrides(tenant.id, EnvironmentKey.of("test")).query() }).isEmpty()

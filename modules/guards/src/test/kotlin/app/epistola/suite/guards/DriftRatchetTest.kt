@@ -35,10 +35,7 @@ class DriftRatchetTest {
     private val handlerClass = Regex("""class\s+[A-Za-z0-9]*Handler\b""")
 
     private val counters = listOf(
-        Counter("onNonHtmx {} call sites outside epistola-web", 94, "onFullPage {}") {
-            mainLines(Regex("""\bonNonHtmx\b""")) { !it.startsWith("modules/epistola-web/") }
-        },
-        Counter("raw ServerResponse.ok().render(", 35, "page() or htmx { fragment() }") {
+        Counter("raw ServerResponse.ok().render(", 20, "page() or htmx { fragment() }") {
             mainLines(Regex("""ServerResponse\.ok\(\)\.render\("""))
         },
         Counter("val tenantId: TenantKey", 62, "val tenantKey: TenantKey") {

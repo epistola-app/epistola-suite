@@ -63,7 +63,7 @@ class ClusterStatusHandler(
                 "tenantId" to tenantId.key
                 "report" to report
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/cluster") }
+            onFullPage { redirect("/tenants/${tenantId.key}/cluster") }
         }
     }
 
@@ -101,7 +101,7 @@ class ClusterStatusHandler(
                 "tenantId" to tenantId.key
                 "report" to report
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/cluster") }
+            onFullPage { redirect("/tenants/${tenantId.key}/cluster") }
         }
     }
 

@@ -27,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
@@ -505,8 +506,10 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         enablePublishing(tenant)
         withMediator { CreateCatalog(tenant.id, catalogKey, "Publication dialog").execute() }
 
-        val response = restTemplate.getForEntity(
+        val response = restTemplate.exchange(
             "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/metadata?section=publication",
+            HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { set("HX-Request", "true") }),
             String::class.java,
         )
 
@@ -567,8 +570,10 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
     }
 
     private fun releaseDialog(tenant: Tenant, catalogKey: CatalogKey): String {
-        val response = restTemplate.getForEntity(
+        val response = restTemplate.exchange(
             "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/release",
+            HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { set("HX-Request", "true") }),
             String::class.java,
         )
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)

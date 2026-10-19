@@ -58,7 +58,7 @@ class GenerationHistoryHandler {
                 "tenantId" to tenantId.key
                 "recentJobs" to jobs
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/generation-history") }
+            onFullPage { redirect("/tenants/${tenantId.key}/generation-history") }
         }
     }
 }

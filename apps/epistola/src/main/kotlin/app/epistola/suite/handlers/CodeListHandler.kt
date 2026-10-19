@@ -38,6 +38,7 @@ import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
+import app.epistola.suite.htmx.redirect
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -100,7 +101,7 @@ class CodeListHandler(
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
-            onNonHtmx {
+            onFullPage {
                 page("code-lists/list") {
                     listModel(request, GetTenant(tenantId.key).query())
                     "openDialog" to true
@@ -178,7 +179,7 @@ class CodeListHandler(
         val destination = "/tenants/${tenantId.key}/catalogs/${catalogSegment.value}/code-lists/${slug.value}"
         return request.htmx {
             dialogLocation(destination)
-            onNonHtmx { redirect(destination) }
+            onFullPage { redirect(destination) }
         }
     }
 
@@ -208,7 +209,7 @@ class CodeListHandler(
                 "draftSegment" to request.catalogParam()
                 "authoredCatalogs" to authoredCatalogs
             }
-            onNonHtmx {
+            onFullPage {
                 page(422, "code-lists/list") {
                     listModel(request, GetTenant(tenantId.key).query())
                     "openDialog" to true
@@ -248,12 +249,7 @@ class CodeListHandler(
         val tenantId = request.tenantId()
         val codeListId = request.codeListId(tenantId) ?: return ServerResponse.badRequest().build()
         RefreshCodeList(codeListId, catalogVersion = request.catalogVersion()).execute()
-        return ServerResponse.status(303)
-            .header(
-                "Location",
-                "/tenants/${tenantId.key}/catalogs/${request.catalogSegment().value}/code-lists/${codeListId.key.value}",
-            )
-            .build()
+        return redirect("/tenants/${tenantId.key}/catalogs/${request.catalogSegment().value}/code-lists/${codeListId.key.value}")
     }
 
     fun delete(request: ServerRequest): ServerResponse {
@@ -265,7 +261,7 @@ class CodeListHandler(
             request.htmx {
                 fragment("code-lists/list", "content") { listModel(request, tenant) }
                 pushUrl(CatalogPages.list(request, tenantId.key, "code-lists"))
-                onNonHtmx { redirect(CatalogPages.list(request, tenantId.key, "code-lists")) }
+                onFullPage { redirect(CatalogPages.list(request, tenantId.key, "code-lists")) }
             }
         } catch (e: CodeListInUseException) {
             if (request.isHtmx) {

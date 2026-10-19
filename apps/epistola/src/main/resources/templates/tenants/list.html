@@ -26,7 +26,7 @@
             <section class="ep-panel form-section">
                 <h2>Create New Tenant</h2>
                 <form id="create-tenant-form" th:action="@{/tenants}" method="post"
-                      hx-post="/tenants"
+                      th:hx-post="@{/tenants}"
                       hx-target="#tenant-rows"
                       hx-swap="innerHTML"
                       data-reset-on-success>

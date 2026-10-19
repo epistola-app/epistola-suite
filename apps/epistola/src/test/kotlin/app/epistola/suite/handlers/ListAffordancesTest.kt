@@ -37,6 +37,13 @@ class ListAffordancesTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
+    /** A dialog body, fetched the way its trigger does (`hx-get`). */
+    private fun dialog(path: String): String {
+        val response = restTemplate.exchange(path, HttpMethod.GET, HttpEntity<Void>(HttpHeaders().apply { set("HX-Request", "true") }), String::class.java)
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        return requireNotNull(response.body)
+    }
+
     private fun get(path: String): String {
         val response = restTemplate.getForEntity(path, String::class.java)
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
@@ -137,7 +144,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
         val catalogKey = CatalogKey.of("presentation-empty")
         withMediator { CreateCatalog(tenant.id, catalogKey, "Presentation empty").execute() }
 
-        val body = get("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/metadata?section=presentation")
+        val body = dialog("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/metadata?section=presentation")
 
         assertThat(body).contains("This catalog has no images yet")
         assertThat(body).doesNotContain("""name="imageAssetSlugs"""")
@@ -161,7 +168,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
             ).execute()
         }
 
-        val body = get("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/metadata?section=presentation")
+        val body = dialog("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/metadata?section=presentation")
 
         assertThat(body).doesNotContain("This catalog has no images yet")
         assertThat(body).contains("""name="imageAssetSlugs"""")
@@ -201,7 +208,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
             .findAll(get("$base/settings").substringAfter("id=\"catalog-metadata\""))
             .map { it.groupValues[1] }
             .toList()
-        val inDialog = get("$base/metadata?section=keywords")
+        val inDialog = dialog("$base/metadata?section=keywords")
             .substringAfter("name=\"keywords\"")
             .substringAfter(">")
             .substringBefore("</textarea>")

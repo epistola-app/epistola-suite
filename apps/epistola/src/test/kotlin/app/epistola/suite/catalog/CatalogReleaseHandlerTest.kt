@@ -102,7 +102,8 @@ class CatalogReleaseHandlerTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Reswap")).`as`("a refusal names its swap, so HTMX shows it").isEqualTo("innerHTML")
             assertThat(response.body).contains("release-dialog")
             assertThat(response.body).containsIgnoringCase("SemVer")
             val catalog = withMediator { GetCatalog(testTenant.id, CatalogKey.of("bad-cat")).query() }

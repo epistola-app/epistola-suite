@@ -161,11 +161,14 @@ to. When the dialog closes (Cancel / ESC / a handler's
 
 ## Submit lifecycle (the seven helpers)
 
-The dialog's `<form>` submits with the **list** as its `hx-target`
-(`hx-target="#the-list" hx-swap="outerHTML"`), the same shape catalog/variant
-use. The happy path is then a plain list swap, and every error path is explicit
-about not letting the swap land in the list (which would destroy the open dialog
-and the user's input). The form always includes the shared error slot **inside**
+The dialog's `<form>` targets what its success replaces. A form whose success
+refreshes the list (`dialogSuccess`) submits with the **list** as its
+`hx-target` (`hx-target="#the-list" hx-swap="outerHTML"`), and every error path
+is explicit about not letting the swap land in the list (which would destroy the
+open dialog and the user's input). A form whose success navigates to the created
+resource (`dialogLocation` / `dialogRedirect`: templates, themes, stencils, code
+lists, catalogs, API keys) targets **itself** (`hx-target="#create-theme-form"
+hx-swap="outerHTML"`), since nothing is swapped on success. The form always includes the shared error slot **inside**
 the dialog: `~{epistola-web/form-error :: form-error(id='…')}`, and carries a
 **stable id** (e.g. `<form id="create-environment-form" …>`) so field errors can
 retarget it (see below).
