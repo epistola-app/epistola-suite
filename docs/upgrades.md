@@ -93,6 +93,18 @@ record `upgrade-1x-history`, so a document or load-test run that names a 1.x ver
 be traced. The content of older published versions is not kept. No 1.x release kept its content
 either, so the upgrade cannot deploy anything for you:
 
+**Documents can look different after the upgrade.** Two 1.x choices are not carried over, so check
+the documents of each environment before deploying to it:
+
+- **An environment that ran an older version** gets what was last published once the first release
+  is deployed: production on a template's version 1 while version 2 went to test serves version 2.
+  The older content is not kept, so it cannot be deployed instead. Which version each environment
+  had activated is in `upgrade-1x-history`.
+- **A stencil instance pinned to an older stencil version** renders the stencil as it is now. An
+  instance whose copy differed from the version it pinned keeps that copy as plain content and stops
+  following the stencil. Each case is listed in the `app_metadata` record
+  `upgrade-2.0-template-content` and in the log, prefixed `2.0 upgrade:`.
+
 **Generation stops at the upgrade and resumes per environment as you deploy.** Plan the upgrade as
 that outage, and tell the teams whose applications request documents.
 
@@ -127,7 +139,7 @@ that outage, and tell the teams whose applications request documents.
      report with the message.
 
 4. **Deploy those releases** to each environment, from its page (Environments) or with
-   `deployRelease`. Until an environment has a release deployed, a generation request for it is
+   `deployCatalogVersion`. Until an environment has a release deployed, a generation request for it is
    refused, and the tenant home names it. A release that renders with releases of other catalogs
    (the system catalog, a shared catalog) uses them implicitly; they need not be deployed.
 5. **Resubmit** what failed in the queue:

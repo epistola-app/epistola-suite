@@ -163,7 +163,7 @@ class DocumentGenerationExecutor(
             logger.info("Request {} completed successfully: document {}", request.id.value, document.id.value)
         } catch (e: Exception) {
             outcome = "failure"
-            logger.error("Failed to process request {}: {}", request.id.value, e.message, e)
+            GenerationFailureLog.log(logger, request.id.value, e)
             val transitioned = markRequestFailed(request.id, e.message ?: "Unknown error")
 
             if (transitioned) {
@@ -238,7 +238,7 @@ class DocumentGenerationExecutor(
         // Accepted before 2.0, against a template version or an environment activation. The catalog
         // release is the only version now, and neither is carried over, so there is nothing to
         // render it from as it was asked.
-        throw IllegalStateException(
+        throw RequestPredatesReleasesException(
             "Request ${request.id.value} was accepted before documents were generated from catalog releases " +
                 "(${request.versionKey?.let { "template version ${it.value}" } ?: request.environmentKey?.let { "environment '${it.value}'" } ?: "no release"}); resubmit it",
         )
