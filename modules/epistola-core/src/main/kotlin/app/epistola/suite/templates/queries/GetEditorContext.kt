@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.catalog.dependencies.DraftDependencyViews
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.versions.CatalogVersionRef
@@ -64,6 +65,7 @@ class GetEditorContextHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val stencilResolvers: StencilResolvers,
+    private val dependencyViews: DraftDependencyViews,
 ) : QueryHandler<GetEditorContext, EditorContext?> {
     override fun handle(query: GetEditorContext): EditorContext? = jdbi.withHandle<EditorContext?, Exception> { handle ->
         val row = handle.createQuery(
@@ -142,7 +144,7 @@ class GetEditorContextHandler(
             templateThemeCatalogKey = (row["theme_catalog_key"] as String?)?.let(CatalogKey::of),
             variantAttributes = variantAttributes,
             variantRevision = (row["variant_revision"] as Number).toLong(),
-            templateModel = stencilResolvers.expandWithWorkingCopies(query.variantId.tenantKey, query.variantId.catalogKey, templateModel),
+            templateModel = stencilResolvers.expandWithWorkingCopies(query.variantId.tenantKey, query.variantId.catalogKey, templateModel, dependencyViews.of(query.variantId.tenantKey, query.variantId.catalogKey)),
             dataExamples = dataExamples,
             dataModel = row["data_model"]?.let { raw ->
                 val json = raw.toString()

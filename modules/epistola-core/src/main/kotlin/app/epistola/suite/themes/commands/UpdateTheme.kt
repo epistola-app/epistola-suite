@@ -5,6 +5,7 @@
 package app.epistola.suite.themes.commands
 
 import app.epistola.suite.catalog.contentRevision
+import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.versions.CatalogVersionRef
@@ -21,6 +22,7 @@ import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.themes.BlockStylePresets
 import app.epistola.suite.themes.Theme
+import app.epistola.suite.themes.crossCatalogRefs
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -78,8 +80,16 @@ data class UpdateTheme(
 class UpdateThemeHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val usedCatalogs: UsedCatalogDeclarer,
 ) : CommandHandler<UpdateTheme, Theme?> {
     override fun handle(command: UpdateTheme): Theme? {
+        val saved = save(command)
+        // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
+        saved?.let { usedCatalogs.declare(command.id.tenantKey, command.id.catalogKey, it.crossCatalogRefs(objectMapper)) }
+        return saved
+    }
+
+    private fun save(command: UpdateTheme): Theme? {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
 
         val updates = mutableListOf<String>()

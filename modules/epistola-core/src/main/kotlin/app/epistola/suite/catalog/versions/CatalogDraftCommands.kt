@@ -293,10 +293,12 @@ class DeleteCatalogDraftHandler(
         val (tenantKey, catalogKey) = command.tenantKey to command.catalogKey
         val draft = jdbi.withHandle<CatalogDraft, Exception> { handle ->
             val draft = drafts.find(handle, tenantKey, catalogKey, command.draft) ?: throw CatalogVersionNotFoundException(catalogKey, command.draft.toString())
-            val namedBy = dependencyStore.namedBy(handle, tenantKey, draft.versionId)
-            if (namedBy.isNotEmpty()) throw CatalogDraftInUseException(catalogKey, draft.label, namedBy)
+            // What it alone holds is named first: that is the more specific reason, and using a held
+            // resource from another catalog also names this draft there.
             val holders = holders(handle, tenantKey, draft.versionId)
             if (holders.isNotEmpty()) throw CatalogVersionHeldException(catalogKey, draft.label, holders)
+            val namedBy = dependencyStore.namedBy(handle, tenantKey, draft.versionId)
+            if (namedBy.isNotEmpty()) throw CatalogDraftInUseException(catalogKey, draft.label, namedBy)
             // Environments following it stop: recorded in their history.
             val ended = EnvironmentOverrideStore.list(handle, tenantKey, null, catalogKey).filter { it.draftId == draft.key }
             drafts.delete(handle, tenantKey, draft.versionId)

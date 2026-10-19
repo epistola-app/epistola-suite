@@ -13,7 +13,6 @@ import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.commands.UpgradeCatalogDependencies
-import app.epistola.suite.catalog.dependencies.DeclareUsedCatalogs
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -225,7 +224,6 @@ class CatalogDependenciesTest : IntegrationTestBase() {
         val tenant = setUp("deps-late")
         invoiceOnSharedTheme(tenant)
         // shared has no release yet, so the declaration this adds names its next version.
-        withMediator { DeclareUsedCatalogs(tenant, letters).execute() }
         val declared = withMediator { ListCatalogDependencies(tenant, letters).query() }.single()
         assertThat(declared.releaseVersion).isNull()
         assertThat(declared.draftName).isEqualTo("Next version")
@@ -246,6 +244,8 @@ class CatalogDependenciesTest : IntegrationTestBase() {
     fun `a release using a catalog it does not declare is refused`() {
         val tenant = setUp("deps-undeclared", "1.0.0")
         invoiceOnSharedTheme(tenant)
+        // Using Shared declared it; an author then removed the declaration.
+        update(tenant)
 
         withMediator { MarkCatalogReady(tenant, letters).execute() }
         assertThatThrownBy { withMediator { ReleaseCatalogVersion(tenant, letters, "1.0.0").execute() } }

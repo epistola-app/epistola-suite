@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.versions.CatalogVersionRef
@@ -62,9 +63,17 @@ data class UpdateDocumentTemplate(
 @Component
 class UpdateDocumentTemplateHandler(
     private val jdbi: Jdbi,
+    private val usedCatalogs: UsedCatalogDeclarer,
 ) : CommandHandler<UpdateDocumentTemplate, DocumentTemplate?> {
     @Transactional
     override fun handle(command: UpdateDocumentTemplate): DocumentTemplate? {
+        val saved = save(command)
+        // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
+        if (saved != null && command.themeId != null) usedCatalogs.declare(command.id.tenantKey, command.id.catalogKey, command.themeCatalogKey)
+        return saved
+    }
+
+    private fun save(command: UpdateDocumentTemplate): DocumentTemplate? {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
 
         // Build dynamic UPDATE query

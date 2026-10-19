@@ -4,6 +4,8 @@
 
 package app.epistola.suite.templates.commands.variants
 
+import app.epistola.suite.catalog.DependencyScanner
+import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.versions.CatalogVersionRef
@@ -54,8 +56,16 @@ class UpdateVariantContentHandler(
     private val jdbi: Jdbi,
     private val templateDocumentPreparation: TemplateDocumentPreparation,
     private val objectMapper: ObjectMapper,
+    private val usedCatalogs: UsedCatalogDeclarer,
 ) : CommandHandler<UpdateVariantContent, SavedVariantContent> {
     override fun handle(command: UpdateVariantContent): SavedVariantContent {
+        val saved = save(command)
+        // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
+        usedCatalogs.declare(command.variantId.tenantKey, command.variantId.catalogKey, DependencyScanner.crossCatalogRefs(command.templateModel, command.variantId.catalogKey.value))
+        return saved
+    }
+
+    private fun save(command: UpdateVariantContent): SavedVariantContent {
         requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
         val prepared = templateDocumentPreparation.prepareDraft(command.templateModel, command.variantId.catalogKey)
         val revision = jdbi.withHandle<Long?, Exception> { handle ->

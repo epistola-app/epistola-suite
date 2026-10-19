@@ -4,7 +4,9 @@
 
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.DependencyScanner
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
@@ -84,8 +86,16 @@ class CreateStencilHandler(
     private val objectMapper: ObjectMapper,
     private val templateDocumentValidator: TemplateDocumentValidator,
     private val parameterSchemaValidator: ParameterSchemaValidator,
+    private val usedCatalogs: UsedCatalogDeclarer,
 ) : CommandHandler<CreateStencil, Stencil> {
     override fun handle(command: CreateStencil): Stencil {
+        val saved = save(command)
+        // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
+        command.content?.let { usedCatalogs.declare(command.id.tenantKey, command.id.catalogKey, DependencyScanner.crossCatalogRefs(it, command.id.catalogKey.value)) }
+        return saved
+    }
+
+    private fun save(command: CreateStencil): Stencil {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         if (command.content != null) {
             templateDocumentValidator.validateStencil(command.content, command.id.key.value, command.id.catalogKey.value)

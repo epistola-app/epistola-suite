@@ -131,8 +131,8 @@ class CatalogReleaseHandler {
         }
     }
 
-    /** `POST /{catalogId}/dependencies/resolve`: moves every pin to the highest release. */
-    fun resolveDependencies(request: ServerRequest): ServerResponse {
+    /** `POST /{catalogId}/dependencies/upgrade`: moves every pin to the highest release. */
+    fun upgradeDependencies(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val segment = request.catalogSegment()
         val error = try {

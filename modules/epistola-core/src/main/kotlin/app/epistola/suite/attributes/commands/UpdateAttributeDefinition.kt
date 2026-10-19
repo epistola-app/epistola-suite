@@ -8,6 +8,7 @@ import app.epistola.suite.attributes.AttributeReferences
 import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.contentRevision
+import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
@@ -75,8 +76,16 @@ class AllowedValuesInUseException(
 class UpdateAttributeDefinitionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val usedCatalogs: UsedCatalogDeclarer,
 ) : CommandHandler<UpdateAttributeDefinition, VariantAttributeDefinition?> {
     override fun handle(command: UpdateAttributeDefinition): VariantAttributeDefinition? {
+        val saved = save(command)
+        // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
+        if (saved != null) usedCatalogs.declare(command.id.tenantKey, command.id.catalogKey, command.codeListId?.catalogId?.key)
+        return saved
+    }
+
+    private fun save(command: UpdateAttributeDefinition): VariantAttributeDefinition? {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         return jdbi.withHandle<VariantAttributeDefinition?, Exception> { handle ->
             // If allowed values are being narrowed, check for existing variants using removed values

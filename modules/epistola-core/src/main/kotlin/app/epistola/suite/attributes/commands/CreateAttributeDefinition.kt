@@ -7,6 +7,7 @@ package app.epistola.suite.attributes.commands
 import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
@@ -75,8 +76,16 @@ data class CreateAttributeDefinition(
 class CreateAttributeDefinitionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val usedCatalogs: UsedCatalogDeclarer,
 ) : CommandHandler<CreateAttributeDefinition, VariantAttributeDefinition> {
     override fun handle(command: CreateAttributeDefinition): VariantAttributeDefinition {
+        val saved = save(command)
+        // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
+        usedCatalogs.declare(command.id.tenantKey, command.id.catalogKey, command.codeListId?.catalogId?.key)
+        return saved
+    }
+
+    private fun save(command: CreateAttributeDefinition): VariantAttributeDefinition {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         return executeOrThrowDuplicate("attribute", command.id.key.value) {
             jdbi.withHandle<VariantAttributeDefinition, Exception> { handle ->

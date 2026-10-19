@@ -63,9 +63,7 @@
                     </p>
                     <p th:each="borrowed : ${readiness.blockingBorrowed}" style="margin: var(--ep-space-1) 0 0;"
                        data-testid="catalog-release-blocked-borrowed"
-                       th:text="'It uses ' + ${#strings.listJoin(borrowed.uses.![name ?: key], ', ')} + ' from ' + ${borrowed.name} + ', which has no published version yet. Publish ' + ${borrowed.name} + ' first.'"></p>
-                    <p th:if="${!readiness.borrowing.undeclared.isEmpty() and !readiness.mayEditDraft}" style="margin: var(--ep-space-1) 0 0;"
-                       th:text="'It uses ' + ${#strings.listJoin(readiness.borrowing.undeclared.![name], ', ')} + ', which a content author has to record as a catalog it uses.'"></p>
+                       th:text="'It uses ' + ${#strings.listJoin(borrowed.uses.![name ?: key], ', ')} + ' from ' + ${borrowed.name} + ', which is not among its dependencies. Add ' + ${borrowed.name} + ' under Dependencies.'"></p>
                 </div>
             </div>
 
@@ -155,10 +153,10 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--ep-space-2);">
                 <h3 style="margin: 0;">Dependencies</h3>
                 <div class="ep-row" style="gap: var(--ep-space-2);">
-                    <form th:if="${readiness.offerResolveDependencies}" style="display: inline;"
-                          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/dependencies/resolve(tenantId=${tenantId},catalogId=${catalogId})}"
+                    <form th:if="${readiness.offerUpgradeDependencies}" style="display: inline;"
+                          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/dependencies/upgrade(tenantId=${tenantId},catalogId=${catalogId})}"
                           hx-target="#catalog-next-release" hx-swap="outerHTML">
-                        <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-dependencies-resolve">Resolve to latest</button>
+                        <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-dependencies-upgrade">Use the latest versions</button>
                     </form>
                     <button th:if="${readiness.offerEditDependencies}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                             th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/dependencies/edit(tenantId=${tenantId},catalogId=${catalogId})}"

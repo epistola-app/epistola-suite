@@ -12,6 +12,7 @@ import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.generation.pdf.RenderMode
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.generation.pdf.ResolvedTheme
+import app.epistola.suite.catalog.dependencies.DraftDependencyView
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -129,6 +130,7 @@ class GenerationService(
         tenantDefaultThemeId: ThemeKey?,
         templateCatalogKey: CatalogKey?,
         tenantDefaultThemeCatalogKey: CatalogKey?,
+        dependencies: DraftDependencyView? = null,
     ): ResolvedTheme = themeStyleResolver.resolveStyles(
         tenantId,
         templateDefaultThemeId,
@@ -136,6 +138,7 @@ class GenerationService(
         templateModel,
         templateCatalogKey = templateCatalogKey,
         tenantDefaultThemeCatalogKey = tenantDefaultThemeCatalogKey,
+        dependencies = dependencies,
     ).let { resolvedStyles ->
         ResolvedTheme(
             documentStyles = resolvedStyles.documentStyles,

@@ -4,6 +4,8 @@
 
 package app.epistola.suite.stencils
 
+import app.epistola.suite.catalog.dependencies.DraftDependencyViews
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.stencils.model.StencilInstances
 import app.epistola.suite.stencils.model.describe
@@ -20,10 +22,11 @@ import org.springframework.stereotype.Component
 @Component
 class StencilFitCheck(
     private val stencilResolvers: StencilResolvers,
+    private val dependencyViews: DraftDependencyViews,
 ) {
     /** @throws ValidationException naming every instance of [document] that does not fit. */
     fun requireInstancesFit(tenantKey: TenantKey, catalogKey: String, document: TemplateDocument, what: String) {
-        val problems = StencilInstances.expand(document, catalogKey, stencilResolvers.workingCopies(tenantKey)).findings.filter { it.blocking }
+        val problems = StencilInstances.expand(document, catalogKey, stencilResolvers.workingCopies(tenantKey, dependencyViews.of(tenantKey, CatalogKey.of(catalogKey)))).findings.filter { it.blocking }
         if (problems.isEmpty()) return
         throw ValidationException(
             field = "templateModel",

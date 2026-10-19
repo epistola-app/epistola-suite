@@ -8,7 +8,6 @@ import app.epistola.suite.catalog.commands.CatalogImportConflictException
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
-import app.epistola.suite.catalog.dependencies.DeclareUsedCatalogs
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.CatalogId
@@ -64,11 +63,9 @@ class CatalogBundleTest : IntegrationTestBase() {
         CreateCatalog(tenant, shared, "Shared").execute()
         CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant))), "Brand").execute()
         template(tenant, shared, "letterhead", base, "house")
-        DeclareUsedCatalogs(tenant, shared).execute()
         mediator.releaseNext(CatalogId(shared, TenantId(tenant)))
         CreateCatalog(tenant, letters, "Letters").execute()
         template(tenant, letters, "invoice", shared, "brand")
-        DeclareUsedCatalogs(tenant, letters).execute()
         mediator.releaseNext(CatalogId(letters, TenantId(tenant)))
         tenant
     }

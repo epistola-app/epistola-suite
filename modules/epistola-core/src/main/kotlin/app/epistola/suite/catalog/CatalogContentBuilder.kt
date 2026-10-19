@@ -393,71 +393,26 @@ class CatalogContentBuilder(
         catalogKey: String,
     ): List<DependencyRef>? {
         val ownResources = manifestResources.map { "${it.type}:${it.key}" }.toSet()
+        val isOwn = { type: String, key: String -> "$type:$key" in ownResources }
         val dependencies = mutableSetOf<DependencyRef>()
-
-        fun addFontRef(ref: FontRef) {
-            val target = ref.catalogKey ?: return
-            if (target == catalogKey) return
-            if ("font:${ref.key}" in ownResources) return
-            dependencies.add(DependencyRef.Font(catalogKey = target, key = ref.key))
-        }
         for (theme in themes) {
-            DependencyScanner.themeFontRefs(theme.documentStyles, theme.blockStylePresets).forEach(::addFontRef)
+            dependencies += DependencyScanner.themeCrossCatalogRefs(theme.documentStyles, theme.blockStylePresets, catalogKey, isOwn)
         }
-
         for (attribute in attributes) {
             val binding = attribute.codeListBinding ?: continue
             val target = binding.catalogKey ?: continue
             if (target == catalogKey) continue
             dependencies.add(DependencyRef.CodeList(catalogKey = target, key = binding.key))
         }
-
-        fun scanDocument(doc: TemplateDocument) {
-            DependencyScanner.documentFontRefs(doc).forEach(::addFontRef)
-
-            val themeRef = doc.themeRef
-            if (themeRef is app.epistola.template.model.ThemeRefOverride) {
-                val refCatalog = themeRef.catalogKey
-                if (refCatalog != null && refCatalog != catalogKey && "theme:${themeRef.themeKey}" !in ownResources) {
-                    dependencies.add(DependencyRef.Theme(catalogKey = refCatalog, key = themeRef.themeKey))
-                }
-            }
-
-            for (node in doc.nodes.values) {
-                when (node.type) {
-                    "stencil" -> {
-                        val refCatalog = node.props?.get("catalogKey") as? String
-                        val stencilId = node.props?.get("stencilKey") as? String
-                        if (refCatalog != null && stencilId != null && refCatalog != catalogKey && "stencil:$stencilId" !in ownResources) {
-                            dependencies.add(DependencyRef.Stencil(catalogKey = refCatalog, key = stencilId))
-                        }
-                    }
-
-                    "image" -> {
-                        // Mirrors the stencil case above: only a reference that names its catalog
-                        // can be declared as a dependency, because catalog v7 requires one. An
-                        // unqualified image reference resolves tenant-wide at render time, so it
-                        // never identified a particular catalog's asset and could not be declared
-                        // honestly -- it used to be emitted with no catalog at all.
-                        val refCatalog = node.props?.get("catalogKey") as? String
-                        val assetId = node.props?.get("imageKey") as? String
-                        if (refCatalog != null && assetId != null && refCatalog != catalogKey && "image:$assetId" !in ownResources) {
-                            dependencies.add(DependencyRef.Image(catalogKey = refCatalog, key = assetId))
-                        }
-                    }
-                }
-            }
-        }
-
         for (template in templates) {
             val themeCatalog = template.themeCatalogKey
-            if (template.themeKey != null && "theme:${template.themeKey}" !in ownResources && themeCatalog != null && themeCatalog != catalogKey) {
+            if (template.themeKey != null && !isOwn("theme", template.themeKey!!) && themeCatalog != null && themeCatalog != catalogKey) {
                 dependencies.add(DependencyRef.Theme(catalogKey = themeCatalog, key = template.themeKey!!))
             }
-            scanDocument(template.templateModel)
-            template.variants.mapNotNull { it.templateModel }.forEach(::scanDocument)
+            dependencies += DependencyScanner.crossCatalogRefs(template.templateModel, catalogKey, isOwn)
+            template.variants.mapNotNull { it.templateModel }.forEach { dependencies += DependencyScanner.crossCatalogRefs(it, catalogKey, isOwn) }
         }
-        stencils.forEach { scanDocument(it.content) }
+        stencils.forEach { dependencies += DependencyScanner.crossCatalogRefs(it.content, catalogKey, isOwn) }
 
         return dependencies.toList().ifEmpty { null }
     }

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.environments
 
+import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.catalog.versions.DeleteCatalogDraft
@@ -339,6 +340,9 @@ class EnvironmentOverridesTest : IntegrationTestBase() {
             val theme = ThemeId(ThemeKey.of("house"), CatalogId(default, TenantId(setup.tenant)))
             CreateTheme(theme, "House", documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to SYSTEM_CATALOG_KEY.value))).execute()
             UpdateDocumentTemplate(setup.variant.templateId, themeId = theme.key, themeCatalogKey = default).execute()
+            // Using the system font pinned the system release, whose font the draft reads from that
+            // release. Undeclared, the system catalog is read live, through the font query this watches.
+            UpdateCatalogDependencies(setup.tenant, default, emptyList()).execute()
             SetEnvironmentOverride(env(setup, test), default, draft = DraftRef.Next).execute()
         }
         val accepted = generate(setup, test)

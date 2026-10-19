@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component
 /**
  * Moves every dependency pin of an authored catalog to the highest release of that catalog the
  * tenant has, as upgrading a library does. A declaration of a catalog with no release keeps its pin,
- * and stays unpinned when it had none. The next release is cut with the pins this leaves.
+ * and stays unpinned when it had none; one naming a draft is left as it is. The next release is cut with the pins this leaves.
  */
 data class UpgradeCatalogDependencies(
     override val tenantKey: TenantKey,
@@ -49,6 +49,8 @@ class UpgradeCatalogDependenciesHandler(
             ?: throw CatalogNotFoundException(command.catalogKey)
         if (catalog.type == CatalogType.SUBSCRIBED) throw CatalogReadOnlyException(command.catalogKey)
         val resolved = store.declarations(handle, command.tenantKey, command.catalogKey).map { declaration ->
+            // A declaration naming a draft builds on that draft, live; there is no pin to move.
+            if (declaration.namesDraft) return@map declaration
             store.highest(handle, command.tenantKey, declaration)
                 ?.let { declaration.copy(releaseVersion = it.version, releaseFingerprint = it.fingerprint) }
                 ?: declaration

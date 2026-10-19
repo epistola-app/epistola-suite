@@ -292,12 +292,31 @@ draft. `UpdateCatalogDependencies` (`TEMPLATE_EDIT`) replaces the declarations o
 each must name a catalog the tenant has, not itself, not twice, and a release it has with a `v5:`
 fingerprint (a release cut before 2.0 has none) or a draft it has. The pin stays when the dependency
 releases again; `UpgradeCatalogDependencies` moves every pin to the highest release, the way a
-library upgrade does. Renaming the dependency's namespace carries the declarations that name it.
+library upgrade does, and leaves a declaration naming a draft as it is (the UI's _Use the latest
+versions_). Renaming the dependency's namespace carries the declarations that name it.
 
-**Releasing** is cut with the pins. A declaration that names a draft must have that draft released
-first: `releaseDependencies` releases each such draft first, recursively, each numbered as its
-changes need; without it the release is refused (`CatalogDependenciesUnreleasedException`, REST
-`release-dependencies-unreleased`, naming each). A pinned release that is gone refuses the release
+**Declared as it is used.** A write that starts using another catalog declares it
+(`UsedCatalogDeclarer`), on every surface: a variant's stencils, images and fonts, a template's theme,
+a theme's fonts, a stencil's content, an attribute's code list. An authored catalog is declared by
+naming its **next version**, which is what the draft then renders it from; a subscribed one by pinning
+its installed release. A declaration already there is left as the author set it.
+
+**A draft renders as it is declared** (`DraftDependencyView`): another catalog's resources come from
+the release its declaration pins, or live from the draft it names; a catalog only a pinned release
+depends on comes from the release that one pinned, nearest first. Stencil expansion, theme, fonts and
+images all follow it, in the editor, previews and documents generated from a draft alike, so what a
+draft shows is what its release is cut with. A catalog nothing declares (one the tenant lacks, or
+left undeclared by hand) is read live from its current version.
+
+**Releasing** is cut with the pins. A declaration that names a draft with nothing of its own to
+release (no resource changed against its base, no draft named, the same pins as its base) pins that
+base instead, with or without asking. Any other named draft must be released first:
+`releaseDependencies` releases each such draft first, recursively, each numbered as its changes need;
+without it the release is refused (`CatalogDependenciesUnreleasedException`, REST
+`release-dependencies-unreleased`, naming each). Two catalogs naming each other's drafts are refused
+(`CATALOG_DEPENDENCY_INVALID`): release one and pin it. The web UI's _Publish_ always releases with
+`releaseDependencies`, lists the catalogs it publishes along with their numbers, and marks their
+changes ready as it marks its own. A pinned release that is gone refuses the release
 (`CATALOG_DEPENDENCY_UNRESOLVED`), and so does a resource reference into a catalog the catalog does
 not declare. The release records each declaration with its pin (`releaseVersion` and
 `releaseFingerprint`) in its manifest and in `catalog_release_dependencies`

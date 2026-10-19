@@ -18,9 +18,9 @@ import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.commands.UpgradeCatalogDependencies
-import app.epistola.suite.catalog.dependencies.DeclareUsedCatalogs
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
+import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -252,7 +252,6 @@ class ReleaseNumberTest : IntegrationTestBase() {
                 },
             ).execute()
         }
-        DeclareUsedCatalogs(tenant, letters).execute()
         mediator.releaseNext(catalogId(tenant))
         change(tenant)
         MarkCatalogReady(tenant, shared).execute()
@@ -308,8 +307,8 @@ class ReleaseNumberTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a catalog used but not declared counts as declared, since publishing declares it first`() {
-        val tenant = released("change-kind-undeclared")
+    fun `using a catalog declares it, which counts as a dependency added`() {
+        val tenant = released("change-kind-declared-on-use")
         withMediator {
             val shared = CatalogKey.of("shared")
             CreateCatalog(tenant, shared, "Shared").execute()
@@ -317,20 +316,18 @@ class ReleaseNumberTest : IntegrationTestBase() {
             mediator.releaseNext(CatalogId(shared, TenantId(tenant)))
             UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalogKey = shared).execute()
         }
-        assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }).`as`("not declared yet").isEmpty()
+        assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }.map { it.catalogKey to it.draftName })
+            .`as`("declared as it was used, naming Shared's next version").containsExactly("shared" to "Next version")
 
         val assessment = assess(tenant)
 
-        // The number offered is the one publishing then accepts, after it declares Shared: a dependency
-        // added is an addition, not a break.
         assertThat(assessment.reasons.single { it.contains("shared") }).contains("added")
         assertThat(assessment.needs).isEqualTo(ChangeKind.ADDITIVE)
         assertThat(assessment.suggested).isEqualTo("1.1.0")
-        withMediator {
-            DeclareUsedCatalogs(tenant, letters).execute()
-            MarkCatalogReady(tenant, letters).execute()
-        }
+        withMediator { MarkCatalogReady(tenant, letters).execute() }
+        // Shared's next version holds nothing it has not released, so the release pins Shared's release.
         assertThat(withMediator { ReleaseCatalogVersion(tenant, letters, assessment.suggested).execute() }.version).isEqualTo("1.1.0")
+        assertThat(withMediator { ListReleaseDependencies(tenant, letters, "1.1.0").query() }.map { it.catalogKey to it.releaseVersion }).containsExactly("shared" to "1.0.0")
     }
 
     @Test

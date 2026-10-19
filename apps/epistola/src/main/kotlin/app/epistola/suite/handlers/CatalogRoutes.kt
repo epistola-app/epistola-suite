@@ -57,7 +57,7 @@ class CatalogRoutes(
             POST("/{catalogId}/ready", nextRelease::markReady)
             GET("/{catalogId}/dependencies/edit", nextRelease::dependenciesForm)
             POST("/{catalogId}/dependencies", nextRelease::updateDependencies)
-            POST("/{catalogId}/dependencies/resolve", nextRelease::resolveDependencies)
+            POST("/{catalogId}/dependencies/upgrade", nextRelease::upgradeDependencies)
             POST("/{catalogId}/publish-current", handler::publishCurrentRelease)
             POST("/{catalogId}/publications/{publicationId}/cancel", handler::cancelPublication)
             GET("/{catalogId}/browse", handler::browse)

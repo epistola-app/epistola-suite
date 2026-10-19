@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CreateCatalogDraft
@@ -35,6 +36,7 @@ import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -70,37 +72,39 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a catalog used but not declared is said so, with what it uses and the release declaring it would lock to`() {
-        val tenant = setUp("borrow-undeclared")
+    fun `using another catalog's theme declares that catalog, naming its next version, which this renders from`() {
+        val tenant = setUp("borrow-declared-on-use")
         invoiceOnSharedTheme(tenant)
 
         val borrowing = withMediator { GetCatalogBorrowing(tenant, letters).query() }
 
         val used = borrowing.catalogs.single()
         assertThat(used.catalogKey).isEqualTo("shared")
-        assertThat(used.declared).isFalse()
-        assertThat(used.release).isEqualTo("1.0.0")
+        assertThat(used.declared).isTrue()
+        assertThat(used.release).`as`("no pin: it names a draft").isNull()
+        assertThat(used.draftName).isEqualTo("Next version")
         assertThat(used.uses.map { Triple(it.type, it.key, it.name) }).containsExactly(Triple("theme", "brand", "Brand"))
-        assertThat(used.offers.map { it.type to it.key }).containsExactly("stencil" to "footer", "theme" to "brand")
-        assertThat(borrowing.undeclared).containsExactly(used)
-        assertThat(borrowing.unavailable).isEmpty()
+        assertThat(used.publishAlong).`as`("its next version has nothing unpublished").isFalse()
+        assertThat(borrowing.undeclared).isEmpty()
         assertThat(borrowing.others.map { it.catalogKey }).`as`("the tenant's other catalogs, which it could use").contains("forms")
     }
 
     @Test
-    fun `declaring what is used locks it to the highest release, and then it is declared`() {
-        val tenant = setUp("borrow-declare")
+    fun `a used catalog's next version with unpublished changes is published along, numbered from them`() {
+        val tenant = setUp("borrow-along")
         invoiceOnSharedTheme(tenant)
+        withMediator { UpdateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant))), documentStyles = mapOf("color" to "#ff0000")).execute() }
 
-        val added = withMediator { DeclareUsedCatalogs(tenant, letters).execute() }
+        val used = withMediator { GetCatalogBorrowing(tenant, letters).query() }.catalogs.single()
 
-        assertThat(added.map { it.catalogKey to it.releaseVersion }).containsExactly("shared" to "1.0.0")
-        assertThat(withMediator { GetCatalogBorrowing(tenant, letters).query() }.undeclared).isEmpty()
+        assertThat(used.publishAlong).isTrue()
+        assertThat(used.nextNumber).isEqualTo("1.0.1")
+        assertThat(used.unpublishedUsed.map { it.key }).containsExactly("brand")
     }
 
     @Test
-    fun `a catalog used without any published version cannot be declared to render from, and is said so`() {
-        val tenant = setUp("borrow-unavailable")
+    fun `a catalog used that was never published is published along as its first version`() {
+        val tenant = setUp("borrow-never-published")
         withMediator { CreateTheme(ThemeId(ThemeKey.of("plain"), CatalogId(forms, TenantId(tenant))), "Plain").execute() }
         withMediator {
             val templateId = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant)))
@@ -108,10 +112,12 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
             UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("plain"), themeCatalogKey = forms).execute()
         }
 
-        val borrowing = withMediator { GetCatalogBorrowing(tenant, letters).query() }
+        val used = withMediator { GetCatalogBorrowing(tenant, letters).query() }.catalogs.single()
 
-        assertThat(borrowing.unavailable.map { it.catalogKey }).containsExactly("forms")
-        assertThat(borrowing.unavailable.single().uses.single().name).`as`("named as the catalog has it now").isEqualTo("Plain")
+        assertThat(used.catalogKey).isEqualTo("forms")
+        assertThat(used.publishAlong).isTrue()
+        assertThat(used.nextNumber).isEqualTo("1.0.0")
+        assertThat(used.uses.single().name).`as`("named as the catalog has it now").isEqualTo("Plain")
     }
 
     @Test
@@ -127,19 +133,17 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
         invoiceOnSharedTheme(tenant, draft)
 
         assertThat(withMediator { GetCatalogBorrowing(tenant, letters).query() }.catalogs).`as`("the next version uses nothing").isEmpty()
-        assertThat(withMediator { GetCatalogBorrowing(tenant, letters, draft).query() }.undeclared.map { it.catalogKey }).containsExactly("shared")
-
-        withMediator { DeclareUsedCatalogs(tenant, letters, draft).execute() }
+        assertThat(withMediator { GetCatalogBorrowing(tenant, letters, draft).query() }.catalogs.map { it.catalogKey to it.declared }).containsExactly("shared" to true)
 
         assertThat(withMediator { ListCatalogDependencies(tenant, letters, draft).query() }.map { it.catalogKey }).containsExactly("shared")
         assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }).`as`("the next version declares nothing").isEmpty()
     }
 
-    /** Letters' Invoice uses Shared's Brand, declared and tied to Shared 1.0.0. */
+    /** Letters' Invoice uses Shared's Brand, declared and pinned to Shared 1.0.0. */
     private fun tiedToShared(name: String): TenantKey {
         val tenant = setUp(name)
         invoiceOnSharedTheme(tenant)
-        withMediator { DeclareUsedCatalogs(tenant, letters).execute() }
+        withMediator { declareDependency(tenant, letters, on = shared, release = "1.0.0") }
         return tenant
     }
 
@@ -159,7 +163,7 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
 
         assertThat(used.release).isEqualTo("1.0.0")
         assertThat(used.newerBreaks).isEmpty()
-        assertThat(used.retieTo).`as`("judged by what Letters uses, not by the major number").isEqualTo("2.0.0")
+        assertThat(used.newerFits).`as`("judged by what Letters uses, not by the major number").isEqualTo("2.0.0")
         assertThat(used.newerDoesNotFit).isNull()
     }
 
@@ -181,7 +185,7 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
                     build("footer-1")
                 },
             ).execute()
-            DeclareUsedCatalogs(tenant, letters).execute()
+            declareDependency(tenant, letters, on = shared)
         }
         // Shared 2.0.0 renames the placeholder: an interface change of something Letters uses.
         releaseShared(tenant, "2.0.0") { UpdateStencil(footer, content = footerWith("content")).execute() }
@@ -189,7 +193,7 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
         val used = withMediator { GetCatalogBorrowing(tenant, letters).query() }.catalogs.single()
 
         assertThat(used.release).isEqualTo("1.1.0")
-        assertThat(used.retieTo).`as`("stays on 1.1.0").isNull()
+        assertThat(used.newerFits).`as`("stays on 1.1.0").isNull()
         assertThat(used.newerDoesNotFit).isEqualTo("2.0.0")
         assertThat(used.newerBreaks.map { Triple(it.type, it.key, it.reason) })
             .containsExactly(Triple("stencil", "footer", "placeholder 'body' removed"))

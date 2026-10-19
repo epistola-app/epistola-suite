@@ -53,20 +53,13 @@ data class CatalogReleaseReadiness(
     val borrowing: CatalogBorrowing = CatalogBorrowing(emptyList(), emptyList()),
 ) {
     /**
-     * Publishing declares the catalogs the draft uses but does not declare, locked to their highest
-     * release: someone who picked another catalog's theme in the editor need not know a release
-     * declares it. For a viewer who may declare them, and only when each has a release to lock to.
+     * Catalogs used here but not declared, which releasing refuses: using a resource declares its
+     * catalog, so only a catalog the tenant lacks, or one left undeclared by an upgrade, is here.
      */
-    val declaresOnPublish: Boolean get() = mayEditDraft && borrowing.undeclared.isNotEmpty() && blockingBorrowed.isEmpty()
+    val blockingBorrowed: List<app.epistola.suite.catalog.dependencies.BorrowedCatalog> get() = borrowing.undeclared
 
-    /**
-     * Catalogs used here that have no published version and nothing to publish along either, so
-     * publishing cannot go ahead. One whose work can be published along does not block.
-     */
-    val blockingBorrowed: List<app.epistola.suite.catalog.dependencies.BorrowedCatalog> get() = borrowing.unavailable.filter { !it.publishAlong }
-
-    /** Catalogs used here that publishing should publish along or re-tie, so the result is what was previewed. */
-    val outOfStep: List<app.epistola.suite.catalog.dependencies.BorrowedCatalog> get() = borrowing.outOfStep
+    /** Catalogs whose drafts this one builds on and publishing publishes first. */
+    val publishedAlong: List<app.epistola.suite.catalog.dependencies.BorrowedCatalog> get() = borrowing.publishedAlong
 
     /** There is a draft to show changes for and declare dependencies in. */
     val hasDraft: Boolean get() = draft != null
@@ -104,13 +97,13 @@ data class CatalogReleaseReadiness(
      * never published always has something: its first version.
      */
     val nothingToPublish: Boolean
-        get() = hasDraft && drafts.releases.isNotEmpty() && !changes.hasUnreleasedChanges && outOfStep.isEmpty()
+        get() = hasDraft && drafts.releases.isNotEmpty() && !changes.hasUnreleasedChanges && publishedAlong.isEmpty()
 
     /**
      * Nothing in this catalog itself changed, but a catalog it uses did, in a way publishing would
-     * take over (published along or re-tied): publishing is how that change reaches what is live.
+     * take over (published along): publishing is how that change reaches what is live.
      */
-    val onlyOthersChanged: Boolean get() = !nothingToPublish && changed.isEmpty() && outOfStep.isNotEmpty()
+    val onlyOthersChanged: Boolean get() = !nothingToPublish && changed.isEmpty() && publishedAlong.isNotEmpty()
 
     /**
      * The number this is published as, picked for the person from what changed since the latest
@@ -147,8 +140,7 @@ data class CatalogReleaseReadiness(
             !nothingToPublish &&
             unresolvedDependencies.isEmpty() &&
             (notReady.isEmpty() || mayMarkReady) &&
-            blockingBorrowed.isEmpty() &&
-            (borrowing.undeclared.isEmpty() || mayEditDraft)
+            blockingBorrowed.isEmpty()
 
     /** The viewer may publish and there is something to, but a dependency (or an unready change they may not mark) stops it. */
     val publishBlocked: Boolean get() = mayRelease && publishable && !nothingToPublish && !offerPublish
@@ -167,7 +159,7 @@ data class CatalogReleaseReadiness(
     val offerMarkAllReady: Boolean get() = mayMarkReady && hasDraft && notReady.isNotEmpty()
 
     /** Whether to offer "Resolve to latest": the viewer may, and there is a declaration to move. */
-    val offerResolveDependencies: Boolean get() = mayEditDraft && hasDraft && dependencies.isNotEmpty()
+    val offerUpgradeDependencies: Boolean get() = mayEditDraft && hasDraft && dependencies.isNotEmpty()
 
     /** Whether to offer editing the declared dependencies: the viewer may, and there is a draft to declare them in. */
     val offerEditDependencies: Boolean get() = mayEditDraft && hasDraft

@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.CatalogInUseException
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.FindCatalogCrossReferences
 import app.epistola.suite.catalog.revisions.ReleaseInUse
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
@@ -49,6 +50,18 @@ class DeleteCatalogHandler(
             // Its releases go with it, so none of them may still be served or depended on. Not
             // bypassed by force: force overrides references from authoring content, not rendering.
             ReleaseInUse.requireCatalogUnused(handle, command.tenantKey, command.catalogKey)
+            // Declarations in other catalogs' drafts that build on one of its drafts go with those
+            // drafts: such a draft names the catalog's content, so forcing past it drops them.
+            handle.createUpdate(
+                """
+                DELETE FROM catalog_dependencies
+                WHERE tenant_key = :tenantKey
+                  AND dependency_version_id IN (SELECT version_id FROM catalog_versions WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "id")})
+                """,
+            )
+                .bind("tenantKey", command.tenantKey)
+                .bind("id", command.catalogKey)
+                .execute()
             val deleted = handle.createUpdate(
                 """
                 DELETE FROM catalogs

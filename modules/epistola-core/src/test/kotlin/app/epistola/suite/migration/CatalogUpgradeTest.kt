@@ -362,7 +362,8 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
         runUpgrade()
 
-        assertThat(withMediator { ListCatalogDependencies(catalog.tenantKey, catalog.key).query() }).isEmpty()
+        // Only what its author's own write declared, as it used the system catalog's font: nothing added behind it.
+        assertThat(withMediator { ListCatalogDependencies(catalog.tenantKey, catalog.key).query() }.map { it.catalogKey }).containsExactly(SYSTEM_CATALOG_KEY.value)
         assertThat(versions(catalog)).containsExactly("Next version" to CatalogVersionStatus.DRAFT)
     }
 }

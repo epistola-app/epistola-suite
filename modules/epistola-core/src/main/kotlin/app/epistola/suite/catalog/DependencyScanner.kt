@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog
 
+import app.epistola.catalog.protocol.DependencyRef
 import app.epistola.catalog.protocol.FontRef
 import app.epistola.generation.pdf.FontRefs
 import app.epistola.template.model.TemplateDocument
@@ -54,6 +55,40 @@ object DependencyScanner {
     fun documentFontRefs(document: TemplateDocument): Set<FontRef> = buildSet {
         fontRefIn(document.documentStylesOverride)?.let { add(it) }
         for (node in document.nodes.values) fontRefIn(node.styles)?.let { add(it) }
+    }
+
+    /**
+     * The references in [document] into a catalog other than [ownCatalog]: its fonts, a theme it
+     * overrides with, its stencil instances and images. Only a reference that names its catalog is
+     * one; [isOwn] (`type`, `key`) skips a resource the catalog holds itself under that key.
+     */
+    fun crossCatalogRefs(document: TemplateDocument, ownCatalog: String, isOwn: (String, String) -> Boolean = { _, _ -> false }): Set<DependencyRef> = buildSet {
+        documentFontRefs(document).forEach { ref -> fontDependency(ref, ownCatalog, isOwn)?.let(::add) }
+        val themeRef = document.themeRef
+        if (themeRef is ThemeRefOverride) {
+            val catalog = themeRef.catalogKey
+            if (catalog != null && catalog != ownCatalog && !isOwn("theme", themeRef.themeKey)) add(DependencyRef.Theme(catalogKey = catalog, key = themeRef.themeKey))
+        }
+        for (node in document.nodes.values) {
+            val catalog = node.props?.get("catalogKey") as? String ?: continue
+            if (catalog == ownCatalog) continue
+            when (node.type) {
+                "stencil" -> (node.props?.get("stencilKey") as? String)
+                    ?.takeUnless { isOwn("stencil", it) }?.let { add(DependencyRef.Stencil(catalogKey = catalog, key = it)) }
+
+                "image" -> (node.props?.get("imageKey") as? String)
+                    ?.takeUnless { isOwn("image", it) }?.let { add(DependencyRef.Image(catalogKey = catalog, key = it)) }
+            }
+        }
+    }
+
+    /** The font references of a theme into a catalog other than [ownCatalog]; [isOwn] as [crossCatalogRefs]. */
+    fun themeCrossCatalogRefs(documentStyles: Map<String, Any?>?, blockStylePresets: Map<String, Any?>?, ownCatalog: String, isOwn: (String, String) -> Boolean = { _, _ -> false }): Set<DependencyRef> = themeFontRefs(documentStyles, blockStylePresets).mapNotNull { fontDependency(it, ownCatalog, isOwn) }.toSet()
+
+    private fun fontDependency(ref: FontRef, ownCatalog: String, isOwn: (String, String) -> Boolean): DependencyRef? {
+        val target = ref.catalogKey ?: return null
+        if (target == ownCatalog || isOwn("font", ref.key)) return null
+        return DependencyRef.Font(catalogKey = target, key = ref.key)
     }
 
     fun scan(document: TemplateDocument, variantAttributes: Set<String> = emptySet()): Dependencies {

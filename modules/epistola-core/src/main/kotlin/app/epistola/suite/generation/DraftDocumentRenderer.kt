@@ -10,7 +10,10 @@ import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.generation.pdf.ResolvedTheme
+import app.epistola.suite.assets.draftAssetResolver
 import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.catalog.dependencies.DraftDependencyView
+import app.epistola.suite.catalog.dependencies.DraftDependencyViews
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
@@ -61,6 +64,8 @@ data class PreparedDraftRender(
     val tenantName: String,
     /** The template's identity, for the document row. */
     val templateResourceId: UUID?,
+    /** Where the draft reads other catalogs' images and fonts, read after this transaction. */
+    val dependencies: DraftDependencyView,
 )
 
 /**
@@ -89,6 +94,7 @@ class PrepareDraftRenderHandler(
     private val localeResolver: TenantLocaleResolver,
     private val stencilResolvers: StencilResolvers,
     private val generationService: GenerationService,
+    private val dependencyViews: DraftDependencyViews,
 ) : QueryHandler<PrepareDraftRender, PreparedDraftRender> {
 
     override fun handle(query: PrepareDraftRender): PreparedDraftRender {
@@ -111,7 +117,8 @@ class PrepareDraftRenderHandler(
             }
         }
 
-        val expanded = stencilResolvers.expandWithWorkingCopies(query.tenantKey, template.catalogKey, model)
+        val dependencies = dependencyViews.of(query.tenantKey, query.catalogKey)
+        val expanded = stencilResolvers.expandWithWorkingCopies(query.tenantKey, template.catalogKey, model, dependencies)
         val theme = generationService.resolveTheme(
             query.tenantKey,
             expanded,
@@ -119,6 +126,7 @@ class PrepareDraftRenderHandler(
             tenant.defaultThemeKey,
             templateCatalogKey = template.themeCatalogKey,
             tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
+            dependencies = dependencies,
         )
         val templateResourceId = jdbi.withHandle<UUID?, Exception> { handle ->
             handle.createQuery(
@@ -142,6 +150,7 @@ class PrepareDraftRenderHandler(
             culture = localeResolver.resolveCulture(tenant, variantId),
             tenantName = tenant.name,
             templateResourceId = templateResourceId,
+            dependencies = dependencies,
         )
     }
 }
@@ -167,10 +176,7 @@ class DraftDocumentRenderer(
         val draft = CatalogVersionRef(tenantKey, catalogKey, DraftRef.Id(draftId))
         val prepared = mediator.query(PrepareDraftRender(tenantKey, catalogKey, templateKey, variantKey, data, draft))
 
-        val assets = AssetResolver { assetId, assetCatalog ->
-            mediator.query(GetAssetContent(tenantKey, AssetKey.of(assetId), assetCatalog?.let { CatalogKey.of(it) }, catalogVersion = draft))
-                ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
-        }
+        val assets = draftAssetResolver(tenantKey, draft, prepared.dependencies)
 
         @Suppress("UNCHECKED_CAST")
         val dataMap = objectMapper.convertValue(prepared.data, Map::class.java) as Map<String, Any?>
@@ -183,7 +189,7 @@ class DraftDocumentRenderer(
             metadata = PdfMetadata(title = prepared.templateName, author = prepared.tenantName, engineVersion = RenderingDefaults.CURRENT.engineVersionString()),
             pdfaCompliant = prepared.pdfaEnabled,
             assetResolver = assets,
-            fontFamilyResolver = fontFamilyResolver(tenantKey, prepared.owningCatalogKey, catalogVersion = draft),
+            fontFamilyResolver = fontFamilyResolver(tenantKey, prepared.owningCatalogKey, catalogVersion = draft, dependencies = prepared.dependencies),
             culture = prepared.culture,
             watermarkText = DocumentPreviewRenderer.PREVIEW_WATERMARK,
             resolvedThemeOverride = prepared.theme,

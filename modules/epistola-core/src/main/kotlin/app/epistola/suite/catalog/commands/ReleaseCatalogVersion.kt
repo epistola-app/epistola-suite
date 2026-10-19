@@ -28,6 +28,7 @@ import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
+import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
 import app.epistola.suite.catalog.versions.AssessDraftNumber
@@ -42,6 +43,7 @@ import app.epistola.suite.catalog.versions.CatalogVersionTargeting
 import app.epistola.suite.catalog.versions.ChangeKind
 import app.epistola.suite.catalog.versions.DraftNumberAssessment
 import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.versions.GetCatalogDraft
 import app.epistola.suite.catalog.versions.UnreleasedDependency
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.config.bindJsonb
@@ -157,6 +159,9 @@ data class ReleasedDependency(val registry: String, val namespace: String, val c
 /** Thrown when the requested release version is not a strictly increasing SemVer. */
 class CatalogReleaseVersionException(message: String) : RuntimeException(message)
 
+/** The drafts a release is releasing its dependencies for, as `catalog/draft`: to refuse a cycle. */
+private val RELEASING: ScopedValue<Set<String>> = ScopedValue.newInstance()
+
 @Component
 class ReleaseCatalogVersionHandler(
     private val jdbi: Jdbi,
@@ -212,30 +217,72 @@ class ReleaseCatalogVersionHandler(
 
     /**
      * Releases, recursively and first, the drafts of other catalogs [draft]'s declarations name, when
-     * [ReleaseCatalogVersion.releaseDependencies] asks; refuses the release when it does not. Each is
-     * released by its own rules (behind, readiness), so one refusal refuses all. Runs targeting
-     * [draft], whose declarations it reads.
+     * [ReleaseCatalogVersion.releaseDependencies] asks; refuses the release when it does not. A named
+     * draft with nothing of its own to release is not released: the declaration pins the release it
+     * is based on, with or without the flag. Each other one is released by its own rules (behind,
+     * readiness), so one refusal refuses all, and two catalogs naming each other's drafts are refused.
+     * Runs targeting [draft], whose declarations it reads.
      */
     private fun releaseDependencies(command: ReleaseCatalogVersion, draft: CatalogDraft): List<ReleasedDependency> {
         val named = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { dependencyStore.declarations(it, command.tenantKey, command.catalogKey) }
             .filter { it.namesDraft }
-        if (named.isEmpty()) return emptyList()
-        if (!command.releaseDependencies) {
-            throw CatalogDependenciesUnreleasedException(command.catalogKey, unreleased(command.tenantKey, named, mutableSetOf()))
-        }
-        val released = mutableListOf<ReleasedDependency>()
+        val changed = mutableListOf<CatalogDependencyDeclaration>()
         for (declaration in named) {
-            val other = CatalogKey.of(declaration.catalogKey)
-            val result = ReleaseCatalogVersion(
-                tenantKey = command.tenantKey,
-                catalogKey = other,
-                catalogVersion = CatalogVersionRef(command.tenantKey, other, DraftRef.Id(requireNotNull(declaration.draftId))),
-                releaseDependencies = true,
-            ).execute()
+            val base = unchangedBase(command.tenantKey, CatalogKey.of(declaration.catalogKey), refOf(command.tenantKey, declaration))
+            if (base != null) pinDeclaration(command, declaration, base) else changed += declaration
+        }
+        if (changed.isEmpty()) return emptyList()
+        if (!command.releaseDependencies) {
+            throw CatalogDependenciesUnreleasedException(command.catalogKey, unreleased(command.tenantKey, changed, mutableSetOf()))
+        }
+        val releasing = (if (RELEASING.isBound) RELEASING.get() else emptySet()) + "${command.catalogKey.value}/${draft.key}"
+        val released = mutableListOf<ReleasedDependency>()
+        for (declaration in changed) {
+            if ("${declaration.catalogKey}/${declaration.draftId}" in releasing) {
+                throw ValidationException(
+                    "releaseDependencies",
+                    "${command.catalogKey.value} and ${declaration.catalogKey} build on each other's drafts; release one of them first and pin it",
+                    ValidationCode.CATALOG_DEPENDENCY_INVALID,
+                )
+            }
+            val result = ScopedValue.where(RELEASING, releasing).call<ReleaseCatalogVersionResult, RuntimeException> {
+                ReleaseCatalogVersion(
+                    tenantKey = command.tenantKey,
+                    catalogKey = CatalogKey.of(declaration.catalogKey),
+                    catalogVersion = refOf(command.tenantKey, declaration),
+                    releaseDependencies = true,
+                ).execute()
+            }
             released += result.releasedDependencies
             released += ReleasedDependency(declaration.registry, declaration.namespace, declaration.catalogKey, result.versionId, result.version)
         }
         return released.distinctBy { it.registry to it.namespace to it.catalogKey }
+    }
+
+    private fun refOf(tenantKey: TenantKey, declaration: CatalogDependencyDeclaration) = CatalogVersionRef(tenantKey, CatalogKey.of(declaration.catalogKey), DraftRef.Id(requireNotNull(declaration.draftId)))
+
+    /**
+     * The release [ref] is based on, when that draft holds nothing a release of it would add: no
+     * resource changed against its base, no draft named, and the same pins as its base. Null when it
+     * has something to release.
+     */
+    private fun unchangedBase(tenantKey: TenantKey, catalogKey: CatalogKey, ref: CatalogVersionRef): String? {
+        val base = GetCatalogDraft(tenantKey, catalogKey, ref.draft).query()?.base ?: return null
+        if (GetCatalogResourceChanges(tenantKey, catalogKey, ref).query().hasUnreleasedChanges) return null
+        val declared = ListCatalogDependencies(tenantKey, catalogKey, ref).query()
+        if (declared.any { it.namesDraft }) return null
+        val pins = { list: List<CatalogDependencyDeclaration> -> list.map { it.identity to it.releaseVersion }.toSet() }
+        return base.takeIf { pins(declared) == pins(ListReleaseDependencies(tenantKey, catalogKey, base).query()) }
+    }
+
+    /** [declaration] of the draft being released now pins [version] of the catalog it names. */
+    private fun pinDeclaration(command: ReleaseCatalogVersion, declaration: CatalogDependencyDeclaration, version: String) = jdbi.useHandle<Exception> { handle ->
+        val pin = dependencyStore.release(handle, command.tenantKey, declaration, version)
+            ?: throw CatalogReleaseVersionException("Release $version of ${declaration.catalogKey} cannot be pinned")
+        val declarations = dependencyStore.declarations(handle, command.tenantKey, command.catalogKey).map {
+            if (it.identity != declaration.identity) it else it.copy(releaseVersion = pin.version, releaseFingerprint = pin.fingerprint, draftId = null, draftName = null)
+        }
+        dependencyStore.replace(handle, command.tenantKey, command.catalogKey, declarations)
     }
 
     /** [named], each followed by the drafts it names in turn, once each. */

@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
@@ -32,7 +33,7 @@ class ListCatalogDependentsTest : IntegrationTestBase() {
     private val forms = CatalogKey.of("forms")
 
     @Test
-    fun `a catalog lists the catalogs that declare a dependency on it, with the range and the release they use`() {
+    fun `a catalog lists the catalogs that declare a dependency on it, with the release they pin`() {
         val tenant = withMediator {
             val tenant = createTenant("dependents").id
             CreateCatalog(tenant, shared, "Shared").execute()
@@ -44,7 +45,7 @@ class ListCatalogDependentsTest : IntegrationTestBase() {
             val invoice = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant)))
             CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
             UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalogKey = shared).execute()
-            DeclareUsedCatalogs(tenant, letters).execute()
+            declareDependency(tenant, letters, on = shared)
             tenant
         }
 

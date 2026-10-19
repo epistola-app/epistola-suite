@@ -12,7 +12,6 @@ import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.SemVer
-import app.epistola.suite.catalog.dependencies.MissingDependencyDeclarer
 import app.epistola.suite.catalog.dependencies.UseCompatibility
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.ids.CatalogKey
@@ -259,26 +258,24 @@ class ChangeKindEvaluator(
 class DraftChangeKinds(
     private val contentBuilder: CatalogContentBuilder,
     private val releases: ReleaseContentAssembler,
-    private val declarer: MissingDependencyDeclarer,
     private val compatibility: UseCompatibility,
     private val objectMapper: ObjectMapper,
 ) {
 
     /**
-     * Null when the catalog has no release [base], so there is nothing to compare. The draft counts the catalogs it uses but does not declare as declared: publishing
-     * declares them before it releases, so the number it is released as has to account for them.
+     * Null when the catalog has no release [base], so there is nothing to compare. The catalogs the
+     * draft uses are declared as it starts using them ([app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer]),
+     * so its declarations are what it is released with.
      */
     fun against(tenantKey: TenantKey, catalogKey: CatalogKey, base: String): ChangeAssessment? {
         val released = releases.assemble(tenantKey, catalogKey, base)?.content ?: return null
         val draft = contentBuilder.build(tenantKey, catalogKey)
-        val undeclared = declarer.wouldDeclare(tenantKey, catalogKey, draft)
-        val asPublished = if (undeclared.isEmpty()) draft else draft.copy(catalogDependencies = draft.catalogDependencies.orEmpty() + undeclared.map { it.toWire() })
         // A dependency's newer version counts only for what the draft uses of it.
         val evaluator = ChangeKindEvaluator(objectMapper) { dependency, from, to ->
             compatibility.breaks(tenantKey, CatalogKey.of(dependency), from, to, UseCompatibility.usedOf(draft.dependencies.orEmpty(), dependency))
                 .map { "${typeName(it.type)} '${it.key}': ${it.reason}" }
         }
-        return evaluator.evaluate(released, asPublished)
+        return evaluator.evaluate(released, draft)
     }
 }
 

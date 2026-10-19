@@ -6,10 +6,12 @@ package app.epistola.suite.catalog
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
-import app.epistola.suite.catalog.dependencies.DeclareUsedCatalogs
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
@@ -20,6 +22,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
@@ -67,7 +70,9 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
                     val invoice = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant.id)))
                     CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
                     UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalogKey = shared).execute()
-                    DeclareUsedCatalogs(tenant.id, letters).execute()
+                    // Using Shared named its next version; Letters pins Shared's release instead.
+                    val target = GetCatalog(tenant.id, shared).query()!!
+                    UpdateCatalogDependencies(tenant.id, letters, listOf(DeclaredCatalogDependency(target.registry, target.namespace, shared.value, releaseVersion = "1.0.0"))).execute()
                 }
             }
         }

@@ -35,9 +35,7 @@ import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.commands.SetCatalogPublicationSettings
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.catalog.commands.UpgradeCatalog
-import app.epistola.suite.catalog.dependencies.DeclareUsedCatalogs
 import app.epistola.suite.catalog.dependencies.ListCatalogDependents
-import app.epistola.suite.catalog.dependencies.PublishUsedCatalogs
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
@@ -57,6 +55,7 @@ import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.catalog.queries.ResourceStatus
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.catalog.versions.CatalogVersionBehindException
+import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
 import app.epistola.suite.catalog.versions.CatalogVersionStatus
 import app.epistola.suite.catalog.versions.DraftRef
@@ -478,9 +477,6 @@ class CatalogHandler {
         // Deployed beside what each environment uses, unless the publisher chose to stop using those.
         val replaceLive = request.param("replaceLive").orElse("") == "true"
 
-        // What was published along before this catalog's own publish, so a refusal of that says it.
-        var publishedAlong: Map<String, String> = emptyMap()
-
         fun reRenderWithError(message: String): ServerResponse = refusedDialog(
             request,
             "release-dialog",
@@ -488,11 +484,7 @@ class CatalogHandler {
                 tenantId,
                 segment,
                 publication,
-                error = if (publishedAlong.isEmpty()) {
-                    message
-                } else {
-                    "Published " + publishedAlong.entries.joinToString { "${it.key} v${it.value}" } + ", but not this catalog: $message"
-                },
+                error = message,
                 version = form.formData["version"]?.ifBlank { null },
                 acknowledged = acknowledged,
                 liveChosen = liveIn,
@@ -515,23 +507,16 @@ class CatalogHandler {
             if (publicationChoice == ReleasePublication.PUBLISH) {
                 chooseNamespaceIfOffered(request, tenantId.key, catalogKey)
             }
-            // First the catalogs it uses, as ticked: published along or re-tied, in one transaction,
-            // so what is published is what the preview showed (docs/catalog-working-model.md).
-            val alsoPublish = request.params()["alsoPublish"].orEmpty().map { it.trim() }.filter { it.isNotEmpty() }.toSet()
-            val retie = request.params()["retie"].orEmpty().map { it.trim() }.filter { it.isNotEmpty() }.toSet()
-            if (alsoPublish.isNotEmpty() || retie.isNotEmpty()) {
-                publishedAlong = PublishUsedCatalogs(tenantId.key, catalogKey, alsoPublish, retie, segment.ref(tenantId.key)).execute()
-                    .filterKeys { it in alsoPublish }
-            }
             // Publishing marks the changes ready itself (docs/catalog-workspace-navigation.md): to the
             // person, publishing is the decision that they are ready. Only for someone who may mark.
             val readiness = CatalogReleaseReadiness.of(draftBar(tenantId, segment))
             if (readiness.marksReadyOnPublish) {
                 MarkCatalogReady(tenantId.key, catalogKey, catalogVersion = segment.ref(tenantId.key)).execute()
-            }
-            // And declares the catalogs it uses but does not declare, so the release can render them.
-            if (readiness.declaresOnPublish) {
-                DeclareUsedCatalogs(tenantId.key, catalogKey, catalogVersion = segment.ref(tenantId.key)).execute()
+                // So are the drafts of other catalogs it builds on, which publishing publishes first.
+                readiness.publishedAlong.forEach { other ->
+                    val otherKey = CatalogKey.of(other.catalogKey)
+                    MarkCatalogReady(tenantId.key, otherKey, catalogVersion = CatalogVersionRef(tenantId.key, otherKey, DraftRef.Id(requireNotNull(other.draftId)))).execute()
+                }
             }
             val result = ReleaseCatalogVersion(
                 tenantKey = tenantId.key,
@@ -541,6 +526,8 @@ class CatalogHandler {
                 publication = publicationChoice,
                 acknowledgedBehind = acknowledged,
                 catalogVersion = segment.ref(tenantId.key),
+                // The drafts of other catalogs it builds on, which the dialog lists, are released with it.
+                releaseDependencies = true,
             ).execute()
 
             // Then live where it was ticked. Published already, so a refusal says that it is, and

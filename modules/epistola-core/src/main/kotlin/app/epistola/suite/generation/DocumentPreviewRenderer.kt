@@ -10,7 +10,9 @@ import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.generation.pdf.ResolvedTheme
+import app.epistola.suite.assets.draftAssetResolver
 import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.catalog.dependencies.DraftDependencyViews
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -38,6 +40,7 @@ class DocumentPreviewRenderer(
     private val generationService: GenerationService,
     private val objectMapper: ObjectMapper,
     private val stencilResolvers: StencilResolvers,
+    private val dependencyViews: DraftDependencyViews,
 ) {
 
     /**
@@ -59,7 +62,9 @@ class DocumentPreviewRenderer(
         resolvedThemeOverride: ResolvedTheme? = null,
     ): ByteArray {
         val outputStream = ByteArrayOutputStream()
-        val expandedModel = stencilResolvers.expandWithWorkingCopies(tenantId, template.catalogKey, templateModel)
+        // The draft's declarations say where other catalogs come from, as its release would render.
+        val dependencies = dependencyViews.of(tenantId, template.catalogKey)
+        val expandedModel = stencilResolvers.expandWithWorkingCopies(tenantId, template.catalogKey, templateModel, dependencies)
 
         @Suppress("UNCHECKED_CAST")
         val dataMap = objectMapper.convertValue(data, Map::class.java) as Map<String, Any?>
@@ -67,16 +72,22 @@ class DocumentPreviewRenderer(
             title = template.name,
             author = tenant.name,
         )
-        val assetResolver = AssetResolver { assetId, catalogKey ->
-            mediator.query(GetAssetContent(tenantId, AssetKey.of(assetId), catalogKey?.let { CatalogKey.of(it) }))
-                ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
-        }
+        val assetResolver = draftAssetResolver(tenantId, null, dependencies)
         // Owning catalog for unqualified font refs: same cascade the theme
         // resolution + asset binding use (template theme catalog → tenant
         // default theme catalog → the tenant's default catalog).
         val owningCatalogKey =
             template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: CatalogKey.DEFAULT
-        val fontResolver = fontFamilyResolver(tenantId, owningCatalogKey)
+        val fontResolver = fontFamilyResolver(tenantId, owningCatalogKey, dependencies = dependencies)
+        val theme = resolvedThemeOverride ?: generationService.resolveTheme(
+            tenantId,
+            expandedModel,
+            template.themeKey,
+            tenant.defaultThemeKey,
+            templateCatalogKey = template.themeCatalogKey,
+            tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
+            dependencies = dependencies,
+        )
 
         val metadataWithEngine = metadata.copy(
             engineVersion = RenderingDefaults.CURRENT.engineVersionString(),
@@ -96,7 +107,7 @@ class DocumentPreviewRenderer(
             tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
             culture = culture,
             watermarkText = PREVIEW_WATERMARK,
-            resolvedThemeOverride = resolvedThemeOverride,
+            resolvedThemeOverride = theme,
         )
 
         return outputStream.toByteArray()

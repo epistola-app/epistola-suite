@@ -107,7 +107,8 @@ class CatalogMcpTools(
         description = "Replace the catalogs an AUTHORED catalog depends on, in the order given. Each names " +
             "another catalog of this tenant by key and pins the exact `release` of it to render with (not a " +
             "range), or, to build on work not released yet, one of its drafts by `draftId`. Neither: its highest " +
-            "release. Releasing a catalog that builds on a draft needs that draft released first, or along " +
+            "release. Using another catalog's resource declares that catalog by itself, naming its next version. " +
+            "Releasing a catalog that builds on a draft needs that draft released first, or along " +
             "(`release_draft` with `releaseDependencies`). Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
@@ -138,9 +139,9 @@ class CatalogMcpTools(
 
     @McpTool(
         name = "upgrade_catalog_dependencies",
-        description = "Move every dependency of an AUTHORED catalog to the highest release of it, as " +
-            "upgrading a library does. The catalog's next release is cut with the result. " +
-            "Requires the TEMPLATE_EDIT permission.",
+        description = "Move every dependency pin of an AUTHORED catalog to the highest release of it, as " +
+            "upgrading a library does; a dependency naming a draft stays on that draft. The catalog's next " +
+            "release is cut with the result, and its drafts render with it. Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
     fun upgradeCatalogDependencies(

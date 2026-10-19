@@ -442,6 +442,7 @@ class DocumentTemplateHandler(
             templateModel = context.templateModel,
             templateCatalogKey = context.templateThemeCatalogKey,
             tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
+            catalogKey = segment.key,
             catalogVersion = version,
         ).query()?.let {
             EditorThemeConfig(

@@ -10,9 +10,12 @@ import app.epistola.suite.attributes.codelists.commands.UpdateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.commands.CreateCatalog
-import app.epistola.suite.catalog.dependencies.DeclareUsedCatalogs
+import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
+import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.versions.CatalogVersionStatus
+import app.epistola.suite.catalog.versions.GetCatalogDraft
 import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -221,12 +224,12 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
     private fun offered(dialog: String): String = Regex("""id="release-version" name="version"[^>]*value="([^"]+)"""").find(dialog)!!.groupValues[1]
 
     @Test
-    fun `a theme picked from another catalog is recorded by publishing instead of refusing it`() {
+    fun `a theme picked from another catalog is declared as it is used, and publishing pins the release it holds`() {
         val tenant = published("Publish Borrowed")
         usingSharedTheme(tenant)
 
         val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
-        assertThat(dialog).contains("data-testid=\"publish-borrowed\"").contains("It uses Brand from Shared: Shared v1.0.0 is recorded with it")
+        assertThat(dialog).`as`("Shared's next version has nothing to publish").doesNotContain("data-testid=\"publish-along\"")
         assertThat(dialog).contains("data-testid=\"release-submit\"")
         assertThat(offered(dialog)).`as`("a dependency added is an addition").isEqualTo("1.1.0")
 
@@ -245,10 +248,10 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
         val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
 
         assertThat(dialog).doesNotContain("data-testid=\"release-blocked-borrowed\"")
-        assertThat(dialog).contains("It uses Brand from Shared, which is not published yet, so Shared is published too, as v1.0.0.")
+        assertThat(dialog).contains("Shared is published too, as v1.0.0: this uses its Next version, with Brand not published yet.")
         assertThat(dialog).contains("data-testid=\"release-submit\"")
 
-        postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to offered(dialog), "alsoPublish" to "shared"))
+        postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to offered(dialog)))
 
         assertThat(withMediator { ListReleaseDependencies(tenant.id, letters, offered(dialog)).query() }.map { it.catalogKey to it.releaseVersion })
             .containsExactly("shared" to "1.0.0")
@@ -263,64 +266,43 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
         val borrowed = page.substringAfter("data-testid=\"catalog-borrowed\"")
 
         assertThat(borrowed.substringAfter("data-catalog=\"shared\"").substringBefore("</tr>"))
-            .contains("not recorded yet").contains("Brand").contains("(Theme)")
+            .contains("Next version, as it is now").contains("Brand").contains("(Theme)")
         assertThat(borrowed).contains("data-testid=\"catalog-borrowed-others\"")
     }
 
     @Test
-    fun `a theme changed in the catalog it comes from is published along, ticked, so the result is what was previewed`() {
+    fun `a theme changed in the catalog it comes from is published along, so the result is what was previewed`() {
         val tenant = published("Publish Along")
         usingSharedTheme(tenant)
         withMediator {
-            DeclareUsedCatalogs(tenant.id, letters).execute()
             UpdateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(CatalogKey.of("shared"), TenantId(tenant.id))), documentStyles = mapOf("color" to "#ff0000")).execute()
         }
 
         val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
         val along = dialog.substringAfter("data-testid=\"publish-along\"").substringBefore("data-testid=\"publish-advanced\"")
-        assertThat(along).contains("Also publish Shared, as v1.0.1, so it uses Brand as in your preview.")
-        assertThat(along).contains("name=\"alsoPublish\" value=\"shared\" checked")
-        assertThat(along).contains("Unticked, it uses them as published in Shared v1.0.0.")
+        assertThat(along).contains("Shared is published too, as v1.0.1: this uses its Next version, with Brand not published yet.")
 
-        postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to offered(dialog), "alsoPublish" to "shared"))
+        postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to offered(dialog)))
 
         assertThat(withMediator { ListReleaseDependencies(tenant.id, letters, offered(dialog)).query() }.map { it.catalogKey to it.releaseVersion })
             .containsExactly("shared" to "1.0.1")
     }
 
     @Test
-    fun `a theme that exists only in the other catalog's work has that catalog published too, without a choice`() {
-        val tenant = published("Publish Along Required")
-        usingSharedTheme(tenant, publishShared = false)
-        withMediator {
-            // Shared has a published version, without the theme Letters uses.
-            CreateTheme(ThemeId(ThemeKey.of("plain"), CatalogId(CatalogKey.of("shared"), TenantId(tenant.id))), "Plain").execute()
-        }
-        withMediator { mediator.releaseNext(CatalogId(CatalogKey.of("shared"), TenantId(tenant.id))) }
-        withMediator { CreateTheme(ThemeId(ThemeKey.of("brand2"), CatalogId(CatalogKey.of("shared"), TenantId(tenant.id))), "Brand two").execute() }
-        withMediator {
-            UpdateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant.id))), themeId = ThemeKey.of("brand2"), themeCatalogKey = CatalogKey.of("shared")).execute()
-        }
-
-        val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
-
-        assertThat(dialog).contains("name=\"alsoPublish\" value=\"shared\"").doesNotContain("data-testid=\"publish-along-checkbox\"")
-        assertThat(dialog).contains("It uses Brand two from Shared, which is not published yet, so Shared is published too")
-        assertThat(dialog).contains("data-testid=\"release-submit\"")
-    }
-
-    @Test
-    fun `a change only in the catalog it uses still offers Publish here, which takes it over`() {
+    fun `a change only in the catalog it uses still offers Publish here, which publishes it along`() {
         val tenant = published("Publish Only Others")
         usingSharedTheme(tenant)
         withMediator {
-            DeclareUsedCatalogs(tenant.id, letters).execute()
             mediator.releaseNext(CatalogId(letters, TenantId(tenant.id)))
+            // Letters' next version now pins Shared 1.0.0; building on Shared's next version again is a choice.
+            val target = GetCatalog(tenant.id, CatalogKey.of("shared")).query()!!
+            val sharedNext = GetCatalogDraft(tenant.id, CatalogKey.of("shared")).query()!!.versionId
+            UpdateCatalogDependencies(tenant.id, letters, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", versionId = sharedNext))).execute()
             UpdateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(CatalogKey.of("shared"), TenantId(tenant.id))), documentStyles = mapOf("color" to "#ff0000")).execute()
         }
 
         val page = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/browse", String::class.java).body!!
-        assertThat(page).contains("Changes from other catalogs are not published here yet.").contains("From Shared: Brand, changed there and not published yet")
+        assertThat(page).contains("Changes from other catalogs are not published here yet.").contains("From Shared: Brand, not published there yet")
         assertThat(page).contains("data-testid=\"catalog-release-open\"")
 
         val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!

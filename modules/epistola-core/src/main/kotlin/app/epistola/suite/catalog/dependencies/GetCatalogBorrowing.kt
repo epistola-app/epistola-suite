@@ -18,6 +18,7 @@ import app.epistola.suite.catalog.versions.AssessDraftNumber
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.catalog.versions.CatalogVersionStatus
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -32,11 +33,11 @@ import org.springframework.stereotype.Component
 /**
  * What a catalog version takes from other catalogs, made explicit (docs/catalog-workspace-navigation.md).
  *
- * A template can use themes, stencils, images, code lists and fonts of another catalog. The editor
- * offers every catalog's, but a release renders them from the release of that catalog its declaration
- * is locked to, and releasing refuses a reference to a catalog that is not declared. So this answers,
- * per other catalog: whether it is used and by what, whether it is declared, which release it renders
- * from (or would, once declared: the highest), and what that release offers.
+ * A template can use themes, stencils, images, code lists and fonts of another catalog. Using one
+ * declares that catalog ([UsedCatalogDeclarer]), and a draft renders it as the declaration says
+ * ([DraftDependencyView]): from the release it pins, or from the draft it names, which releasing
+ * releases first. So this answers, per other catalog: whether it is used and by what, what the
+ * declaration says, what a pinned release offers, and what a named draft would be released as.
  */
 data class GetCatalogBorrowing(
     override val tenantKey: TenantKey,
@@ -54,24 +55,23 @@ data class GetCatalogBorrowing(
  * @property others the tenant's other catalogs, which it could use.
  */
 data class CatalogBorrowing(val catalogs: List<BorrowedCatalog>, val others: List<OtherCatalog>) {
+    /** The catalogs whose named draft publishing here publishes first. */
+    val publishedAlong: List<BorrowedCatalog> get() = catalogs.filter { it.publishAlong }
+
     /**
-     * The catalogs whose use here differs from what publishing would tie to: what the preview shows
-     * is not what would be published (docs/catalog-working-model.md, rule 7).
+     * Used but not declared: a catalog upgraded from 1.x, or one the tenant does not have. Releasing
+     * refuses it until it is declared on the Dependencies page.
      */
-    val outOfStep: List<BorrowedCatalog> get() = catalogs.filter { it.publishAlong || it.retieTo != null }
-
-    /** Used but not declared: publishing has to declare them first. */
     val undeclared: List<BorrowedCatalog> get() = catalogs.filter { it.used && !it.declared }
-
-    /** Used, not declared, and without a published version to declare: publishing cannot go ahead. */
-    val unavailable: List<BorrowedCatalog> get() = undeclared.filter { it.release == null }
 }
 
 /**
  * Another catalog as this version sees it.
  *
- * @property release the release its resources render from: the declaration's lock, or for an
- *   undeclared catalog the highest release, which declaring it locks to. Null when there is none.
+ * @property release the release its resources render from: the release the declaration pins. Null
+ *   when it names a draft instead, or is not declared.
+ * @property draftName the draft of it the declaration names, which this version renders live and
+ *   releasing releases first; null when it pins a release.
  * @property uses what this version uses of it, in the order found.
  * @property offers what [release] holds of the kinds a template can use.
  */
@@ -82,10 +82,13 @@ data class BorrowedCatalog(
     val release: String?,
     val uses: List<BorrowedResource>,
     val offers: List<BorrowedResource>,
-    /** Everything its next version has not published yet, of any kind; empty for a subscribed catalog. */
+    /** What the named draft has not published yet, of any kind; empty when it pins a release. */
     val unpublished: List<BorrowedResource> = emptyList(),
-    /** The number its next version would be published as, picked from its changes; null without one. */
+    /** The number the named draft would be published as, picked from its changes; null when it has none. */
     val nextNumber: String? = null,
+    /** The public id of the named draft, with its name; both null when it pins a release. */
+    val draftId: String? = null,
+    val draftName: String? = null,
     /** Its latest published version that kept its content, which an editor's preview shows when nothing is unpublished. */
     val latest: String? = null,
     /**
@@ -97,25 +100,19 @@ data class BorrowedCatalog(
 ) {
     val used: Boolean get() = uses.isNotEmpty()
 
-    /** What this version uses of it that its next version changed and has not published: the preview shows it, a publish would not. */
+    /** What this version uses of it that the named draft changed and has not published. */
     val unpublishedUsed: List<BorrowedResource> get() = uses.filter { used -> unpublished.any { it.type == used.type && it.key == used.key } }
 
-    /** Used here, but in no published version of it: a publish here needs it published first. */
-    val onlyInWork: Boolean get() = uses.any { used -> offers.none { it.type == used.type && it.key == used.key } } && nextNumber != null
+    /** The declaration names a draft with something to publish: publishing here publishes it first. */
+    val publishAlong: Boolean get() = draftName != null && nextNumber != null
 
-    /** Publishing here should publish its next version along, so what is published is what was previewed. */
-    val publishAlong: Boolean get() = used && nextNumber != null && (unpublishedUsed.isNotEmpty() || onlyInWork)
-
-    /**
-     * Nothing to publish along, but a newer published version than the one this is tied to, which the
-     * preview shows: publishing here would tie to the older one unless it is re-tied.
-     */
-    val retieTo: String? get() = newer?.takeIf { newerBreaks.isEmpty() }
+    /** A newer published version than the pinned one, which fits what is used here: upgrading to it is offered. */
+    val newerFits: String? get() = newer?.takeIf { newerBreaks.isEmpty() }
 
     /** A newer published version that does not fit what is used here: this stays on [release], and says why. */
     val newerDoesNotFit: String? get() = newer?.takeIf { newerBreaks.isNotEmpty() }
 
-    private val newer: String? get() = latest?.takeIf { used && declared && !publishAlong && it != release }
+    private val newer: String? get() = latest?.takeIf { used && release != null && it != release }
 }
 
 /** Something used here that a newer version of its catalog breaks, and how, in that catalog's terms. */
@@ -146,7 +143,7 @@ class GetCatalogBorrowingHandler(
         val borrowed = involved.mapNotNull { key ->
             val catalog = catalogs.firstOrNull { it.id.value == key } ?: return@mapNotNull null
             val declaration = declared.firstOrNull { it.catalogKey == key }
-            val release = declaration?.releaseVersion ?: latestRelease(query.tenantKey, catalog.id).takeIf { declaration == null }
+            val release = declaration?.releaseVersion
             val offers = release?.let { GetCatalogRelease(query.tenantKey, catalog.id, it).query() }?.resources.orEmpty()
                 .filter { it.resourceType in BORROWABLE }
                 .map { BorrowedResource(it.resourceType, it.resourceKey, it.name) }
@@ -159,27 +156,21 @@ class GetCatalogBorrowingHandler(
                     ?: current.firstOrNull { it.type == used.type && it.slug == used.key }?.name
                 used.copy(name = name)
             }
-            val authoredWork = if (catalog.type == CatalogType.AUTHORED) {
-                ListCatalogVersions(query.tenantKey, catalog.id, CatalogVersionStatus.DRAFT).query().firstOrNull { it.isNext }
-            } else {
-                null
-            }
-            val unpublished = authoredWork?.let {
-                GetCatalogResourceChanges(query.tenantKey, catalog.id).query().resources
+            // A named draft: what it has not published, and the number publishing it along gives it.
+            val namedDraft = declaration?.draftId?.let { CatalogVersionRef(query.tenantKey, catalog.id, DraftRef.Id(it)) }
+            val unpublished = namedDraft?.let { ref ->
+                GetCatalogResourceChanges(query.tenantKey, catalog.id, ref).query().resources
                     .filter { it.state != CatalogResourceState.RELEASED }
                     .map { change -> BorrowedResource(change.type, change.slug, change.name) }
             }.orEmpty()
-            // The number its next version would be released as now, were it published along.
-            val nextNumber = authoredWork?.takeIf { unpublished.isNotEmpty() }?.let {
-                AssessDraftNumber(query.tenantKey, catalog.id).query()?.suggested
-            }
+            val nextNumber = namedDraft?.takeIf { unpublished.isNotEmpty() }?.let { AssessDraftNumber(query.tenantKey, catalog.id, it.draft).query()?.suggested }
             val latest = latestRelease(query.tenantKey, catalog.id)
             val newerBreaks = if (release != null && latest != null && isAbove(latest, release) && uses.isNotEmpty()) {
                 compatibility.breaks(query.tenantKey, catalog.id, release, latest, uses)
             } else {
                 emptyList()
             }
-            BorrowedCatalog(key, catalog.name, declaration != null, release, uses, offers, unpublished, nextNumber, latest, newerBreaks)
+            BorrowedCatalog(key, catalog.name, declaration != null, release, uses, offers, unpublished, nextNumber, declaration?.draftId, declaration?.draftName, latest, newerBreaks)
         }.sortedWith(compareBy({ !it.used }, { it.name.lowercase() }))
 
         val others = catalogs.filter { c -> borrowed.none { it.catalogKey == c.id.value } }

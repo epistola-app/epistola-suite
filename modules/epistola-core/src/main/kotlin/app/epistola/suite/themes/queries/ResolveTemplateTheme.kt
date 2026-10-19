@@ -4,6 +4,7 @@
 
 package app.epistola.suite.themes.queries
 
+import app.epistola.suite.catalog.dependencies.DraftDependencyViews
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogKey
@@ -30,6 +31,8 @@ data class ResolveTemplateTheme(
     val templateModel: TemplateDocument,
     val templateCatalogKey: CatalogKey? = null,
     val tenantDefaultThemeCatalogKey: CatalogKey? = null,
+    /** The template's catalog, whose draft's declarations say where another catalog's theme comes from. */
+    val catalogKey: CatalogKey? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogVersionRef? = null,
 ) : CatalogVersionScoped,
@@ -41,6 +44,7 @@ data class ResolveTemplateTheme(
 @Component
 class ResolveTemplateThemeHandler(
     private val resolver: ThemeStyleResolver,
+    private val dependencyViews: DraftDependencyViews,
 ) : QueryHandler<ResolveTemplateTheme, Theme?> {
     override fun handle(query: ResolveTemplateTheme): Theme? = resolver.resolveTheme(
         tenantId = query.tenantKey,
@@ -49,5 +53,6 @@ class ResolveTemplateThemeHandler(
         templateModel = query.templateModel,
         templateCatalogKey = query.templateCatalogKey,
         tenantDefaultThemeCatalogKey = query.tenantDefaultThemeCatalogKey,
+        dependencies = (query.catalogKey ?: query.catalogVersion?.catalogKey)?.let { dependencyViews.of(query.tenantKey, it) },
     )
 }
