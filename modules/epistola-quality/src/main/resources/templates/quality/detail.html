@@ -198,7 +198,7 @@
                                       data-reset-on-success>
                                     <div th:replace="~{epistola-web/form-error :: form-error(id='quality-comment-error')}"></div>
                                     <div class="form-group">
-                                        <textarea name="body" class="ep-textarea" rows="3"
+                                        <textarea maxlength="4000" name="body" class="ep-textarea" rows="3"
                                                   data-testid="quality-comment-body"
                                                   placeholder="Add a comment..." required></textarea>
                                     </div>
@@ -265,7 +265,7 @@
 
                 <div class="form-group" th:classappend="${errors != null && errors['reason'] != null} ? 'error' : ''">
                     <label class="ep-label" for="ignore-reason">Reason</label>
-                    <textarea id="ignore-reason" name="reason" class="ep-textarea" rows="3"
+                    <textarea maxlength="1000" id="ignore-reason" name="reason" class="ep-textarea" rows="3"
                               data-testid="quality-ignore-reason-input"
                               placeholder="Why does this not apply?" required
                               th:text="${formData != null} ? ${formData['reason']} : ''"></textarea>

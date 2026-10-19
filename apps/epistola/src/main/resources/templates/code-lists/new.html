@@ -54,7 +54,7 @@
 
             <div class="form-group">
                 <label class="ep-label" for="description">Description (optional)</label>
-                <textarea id="description" name="description" class="ep-textarea" rows="2"
+                <textarea maxlength="2000" id="description" name="description" class="ep-textarea" rows="2"
                           th:text="${formData?.description}"></textarea>
             </div>
 
@@ -103,7 +103,7 @@
             <div class="form-group source-pane" data-source-pane="URL" hidden
                  th:classappend="${errors?.containsKey('sourceUrl')} ? 'error' : ''">
                 <label class="ep-label" for="sourceUrl">Source URL</label>
-                <input type="url" id="sourceUrl" name="sourceUrl" class="ep-input"
+                <input maxlength="2000" type="url" id="sourceUrl" name="sourceUrl" class="ep-input"
                        placeholder="https://example.com/regions.json"
                        th:value="${formData?.sourceUrl}">
                 <span class="form-hint">Expected payload: JSON array of {code, label, sortOrder?, hidden?} objects.</span>
