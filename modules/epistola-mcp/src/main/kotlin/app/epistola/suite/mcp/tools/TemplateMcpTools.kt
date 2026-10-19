@@ -16,6 +16,7 @@ import app.epistola.suite.mcp.dto.TemplateInfo
 import app.epistola.suite.mcp.dto.TemplateSummaryInfo
 import app.epistola.suite.mcp.dto.VariantInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpTenantId
@@ -230,6 +231,8 @@ class TemplateMcpTools(
         pdfaEnabled: Boolean?,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
+        @McpToolParam(description = EXPECTED_REVISION_DESCRIPTION, required = false)
+        expectedRevision: Long? = null,
     ): TemplateInfo {
         if (clearTheme == true && !themeId.isNullOrBlank()) {
             throw ValidationException("clearTheme", "`clearTheme` cannot be combined with `themeId`")
@@ -243,6 +246,7 @@ class TemplateMcpTools(
             clearThemeId = clearTheme == true,
             pdfaEnabled = pdfaEnabled,
             catalogVersion = catalogVersionRef(catalogId, catalogVersion),
+            expectedRevision = expectedRevision,
         ).execute()?.let { TemplateInfo.from(it) } ?: throw notFound("Template", catalogId, templateId)
     }
 
@@ -304,6 +308,8 @@ class TemplateMcpTools(
         attributes: String?,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
+        @McpToolParam(description = EXPECTED_REVISION_DESCRIPTION, required = false)
+        expectedRevision: Long? = null,
     ): VariantInfo {
         val id = variantId(catalogId, templateId, variantId)
         val version = catalogVersionRef(catalogId, catalogVersion)
@@ -313,6 +319,7 @@ class TemplateMcpTools(
             title = title?.takeIf { it.isNotBlank() } ?: current.title,
             attributes = parseAttributes(attributes) ?: current.attributes,
             catalogVersion = version,
+            expectedRevision = expectedRevision,
         ).execute()?.let { VariantInfo.from(it) } ?: throw notFound("Variant", catalogId, "$templateId/$variantId")
     }
 

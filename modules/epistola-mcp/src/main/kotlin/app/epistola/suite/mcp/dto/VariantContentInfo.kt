@@ -10,4 +10,6 @@ import app.epistola.suite.templates.model.TemplateDocument
 data class VariantContentInfo(
     val variantId: String,
     val templateModel: TemplateDocument? = null,
+    /** The variant's revision after the update: pass it as `expectedRevision` to the next one. */
+    val revision: Long? = null,
 )

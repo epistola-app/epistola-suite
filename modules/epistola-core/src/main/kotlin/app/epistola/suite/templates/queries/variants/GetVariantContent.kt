@@ -56,3 +56,43 @@ class GetVariantContentHandler(
             .orElse(null)
     }
 }
+
+/** A variant's working model as stored, with the variant's revision read in the same statement. */
+data class VariantContentAtRevision(val templateModel: TemplateDocument, val revision: Long)
+
+/**
+ * [GetVariantContent] for a caller that may write it back: the model and the revision it was read
+ * at, together, so the revision cannot belong to a later write than the model.
+ */
+data class GetVariantContentAtRevision(
+    val variantId: VariantId,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<VariantContentAtRevision?>,
+    RequiresPermission {
+    override val permission = Permission.TEMPLATE_VIEW
+    override val tenantKey: TenantKey get() = variantId.tenantKey
+}
+
+@Component
+class GetVariantContentAtRevisionHandler(
+    private val jdbi: Jdbi,
+    private val objectMapper: ObjectMapper,
+) : QueryHandler<GetVariantContentAtRevision, VariantContentAtRevision?> {
+    override fun handle(query: GetVariantContentAtRevision): VariantContentAtRevision? = jdbi.withHandle<VariantContentAtRevision?, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT template_model::text AS template_model, revision FROM template_variants
+            WHERE tenant_key = :t AND id = :v AND version_id = ${versionAt("t", "c")} AND template_resource_id = ${templateAtAddress("t", "c", "k")}
+            """,
+        )
+            .bind("t", query.variantId.tenantKey)
+            .bind("c", query.variantId.catalogKey)
+            .bind("k", query.variantId.templateKey)
+            .bind("v", query.variantId.key)
+            .map { rs, _ -> VariantContentAtRevision(objectMapper.readValue(rs.getString("template_model"), TemplateDocument::class.java), rs.getLong("revision")) }
+            .findOne()
+            .orElse(null)
+    }
+}

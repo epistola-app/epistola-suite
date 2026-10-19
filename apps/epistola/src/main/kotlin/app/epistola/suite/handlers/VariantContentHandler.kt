@@ -8,6 +8,7 @@ import app.epistola.suite.api.v1.ApiProblemType
 import app.epistola.suite.api.v1.ApiProblemTypes
 import app.epistola.suite.api.v1.problemBody
 import app.epistola.suite.api.v1.toValidationProblemBody
+import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
@@ -31,7 +32,11 @@ class VariantContentHandler(
     private val objectMapper: ObjectMapper,
 ) {
 
-    /** `PUT …/variants/{variantId}/content` with `{ "templateModel": … }`. */
+    /**
+     * `PUT …/variants/{variantId}/content` with `{ "templateModel": …, "expectedRevision": … }`. Answers
+     * `{ "success": true, "revision": … }`: the revision the editor names on its next save. A save
+     * against a revision someone else has moved on from is refused with `resource-modified` (412).
+     */
     fun updateContent(request: ServerRequest): ServerResponse {
         val servletRequest = request.servletRequest()
         val tenantId = request.tenantId()
@@ -41,8 +46,9 @@ class VariantContentHandler(
             ?: return uiProblem(servletRequest, ApiProblemTypes.BAD_REQUEST, "Unknown or invalid variant in the request path.")
 
         // A missing/blank templateModel is a client error, not a 500.
-        val body = request.body(String::class.java)
-        val templateModelJson = objectMapper.readTree(body).get("templateModel")
+        val body = objectMapper.readTree(request.body(String::class.java))
+        val templateModelJson = body.get("templateModel")
+        val expectedRevision = body.get("expectedRevision")?.takeIf { it.isIntegralNumber }?.asLong()
         if (templateModelJson == null || templateModelJson.isNull) {
             return uiProblem(servletRequest, ApiProblemTypes.BAD_REQUEST, "Request body must include a 'templateModel' object.")
         }
@@ -51,9 +57,11 @@ class VariantContentHandler(
             app.epistola.suite.templates.model.TemplateDocument::class.java,
         )
 
-        try {
+        val saved = try {
             // On the draft the editor's route names (`letters@2.0.0`), or the current one.
-            UpdateVariantContent(variantId = variantId, templateModel = templateModel, catalogVersion = request.catalogVersion()).execute()
+            UpdateVariantContent(variantId = variantId, templateModel = templateModel, catalogVersion = request.catalogVersion(), expectedRevision = expectedRevision).execute()
+        } catch (e: ResourceModifiedException) {
+            return uiProblem(servletRequest, ApiProblemTypes.RESOURCE_MODIFIED, "Someone else saved this variant after you opened it.")
         } catch (e: ValidationException) {
             // RFC 9457 problem+json (ValidationProblemDetail) — same shape as the REST surface, so the
             // editor switches on the problem `type` and renders the field-level `errors`.
@@ -64,7 +72,7 @@ class VariantContentHandler(
 
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("success" to true))
+            .body(mapOf("success" to true, "revision" to saved.revision))
     }
 
     /** Builds an `application/problem+json` [ServerResponse] for a functional UI route. */

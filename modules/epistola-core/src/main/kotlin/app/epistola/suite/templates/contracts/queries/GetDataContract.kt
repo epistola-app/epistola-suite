@@ -49,7 +49,7 @@ class GetDataContractHandler(
 internal fun readDataContract(handle: Handle, objectMapper: ObjectMapper, template: TemplateId, forUpdate: Boolean = false): DataContract? = handle
     .createQuery(
         """
-        SELECT data_model::text AS data_model, data_examples::text AS data_examples FROM document_templates
+        SELECT data_model::text AS data_model, data_examples::text AS data_examples, revision FROM document_templates
         WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND resource_id = ${templateAtAddress("t", "c", "k")}
         ${if (forUpdate) "FOR UPDATE" else ""}
         """,
@@ -61,6 +61,7 @@ internal fun readDataContract(handle: Handle, objectMapper: ObjectMapper, templa
         DataContract(
             dataModel = rs.getString("data_model")?.let { objectMapper.readValue(it, ObjectNode::class.java) },
             dataExamples = objectMapper.readValue<List<DataExample>>(rs.getString("data_examples")),
+            revision = rs.getLong("revision"),
         )
     }
     .findOne()

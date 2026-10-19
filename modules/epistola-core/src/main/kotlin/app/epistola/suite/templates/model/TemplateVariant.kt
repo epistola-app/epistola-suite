@@ -28,6 +28,8 @@ data class TemplateVariant(
     val updatedAt: OffsetDateTime,
     val createdBy: UserKey? = null,
     val updatedBy: UserKey? = null,
+    /** Raised by every change; a write naming the revision it read is refused when it moved on. */
+    val revision: Long = 1,
 )
 
 /**

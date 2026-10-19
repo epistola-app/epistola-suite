@@ -72,7 +72,7 @@
             <!-- data-contract-editor: template-detail.js mounts the editor on
                  htmx:load (idempotent via data-editor-mounted). -->
             <div id="data-contract-container" data-contract-editor
-                 th:attr="data-tenant-id=${tenantId},data-catalog-id=${catalogSegment ?: catalogId},data-template-id=${template.id},data-readonly=${!editable}"></div>
+                 th:attr="data-tenant-id=${tenantId},data-catalog-id=${catalogSegment ?: catalogId},data-template-id=${template.id},data-readonly=${!editable},data-revision=${contractRevision}"></div>
             <script id="data-contract-schema" type="application/json" th:inline="javascript">/*[[${contractDataModel}]]*/ null</script>
             <script id="data-contract-examples" type="application/json" th:inline="javascript">/*[[${contractDataExamples}]]*/ []</script>
         </th:block>

@@ -51,7 +51,7 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
         return VariantId(VariantKey.INITIAL, templateId)
     }
 
-    private fun publish(variantId: VariantId, model: TemplateDocument) = UpdateVariantContent(variantId, model).execute().also { MarkVariantReady(variantId).execute() }
+    private fun publish(variantId: VariantId, model: TemplateDocument) = UpdateVariantContent(variantId, model).execute().templateModel.also { MarkVariantReady(variantId).execute() }
 
     private fun using(key: String) = stencilDocument {
         stencil("inst", key)

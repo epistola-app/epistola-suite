@@ -40,6 +40,8 @@ data class EditorContext(
     val templateModel: TemplateDocument,
     val dataExamples: List<DataExample>,
     val dataModel: ObjectNode?,
+    /** The variant's revision as read with [templateModel]: what saving the model names, so a save over someone else's is refused. */
+    val variantRevision: Long = 1,
 )
 
 /**
@@ -73,7 +75,8 @@ class GetEditorContextHandler(
                 dt.data_model,
                 dt.data_examples,
                 tv.attributes as variant_attributes,
-                tv.template_model as draft_template_model
+                tv.template_model as draft_template_model,
+                tv.revision AS variant_revision
             FROM template_variants tv
             JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id AND dt.resource_id = tv.template_resource_id
             -- The theme is in the template's own version, or the current version of another catalog.
@@ -138,6 +141,7 @@ class GetEditorContextHandler(
             templateThemeKey = (row["theme_key"] as String?)?.let(ThemeKey::of),
             templateThemeCatalogKey = (row["theme_catalog_key"] as String?)?.let(CatalogKey::of),
             variantAttributes = variantAttributes,
+            variantRevision = (row["variant_revision"] as Number).toLong(),
             templateModel = stencilResolvers.expandWithWorkingCopies(query.variantId.tenantKey, query.variantId.catalogKey, templateModel),
             dataExamples = dataExamples,
             dataModel = row["data_model"]?.let { raw ->

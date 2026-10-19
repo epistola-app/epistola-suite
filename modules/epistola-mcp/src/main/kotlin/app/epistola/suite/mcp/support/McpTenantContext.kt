@@ -55,3 +55,12 @@ internal fun catalogVersionRef(catalogId: String?, catalogVersion: String?): Cat
         ?: throw ValidationException("catalogVersion", "`catalogVersion` is `next` or a `draftId` from `list_catalog_versions`; a draft has no number until it is released")
     return CatalogVersionRef(mcpTenantKey(), CatalogKey.of(catalog), draft)
 }
+
+/**
+ * The description of every update tool's `expectedRevision`: the optimistic lock
+ * ([app.epistola.suite.common.Revisions]).
+ */
+internal const val EXPECTED_REVISION_DESCRIPTION =
+    "The `revision` the content had when you read it (from the matching get tool). When given, the update is " +
+        "refused if someone changed it since, and nothing is written: read it again and reapply your change. " +
+        "Omit to overwrite whatever is there."

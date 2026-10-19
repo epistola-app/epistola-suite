@@ -10,11 +10,13 @@ import app.epistola.api.model.ThemeDto
 import app.epistola.api.model.ThemeListResponse
 import app.epistola.api.model.UpdateThemeRequest
 import app.epistola.catalog.protocol.ThemeResource
+import app.epistola.suite.api.v1.shared.ETags
 import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogId
 import app.epistola.suite.api.v1.shared.catalogVersionAt
 import app.epistola.suite.api.v1.shared.draftAt
+import app.epistola.suite.api.v1.shared.okWithETag
 import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.releasedResource
 import app.epistola.suite.api.v1.shared.releasedResources
@@ -102,13 +104,11 @@ class EpistolaThemeApi : ThemesApi {
     ): ResponseEntity<ThemeDto> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val key = ThemeKey.of(themeKey)
-        val theme = if (at.isDraft) {
-            GetTheme(id = ThemeId(key, at.catalogId), catalogVersion = at.ref).query()?.toDto()
-        } else {
-            at.releasedResource<ThemeResource>("theme", themeKey)?.toDto(at)
-        } ?: throw ThemeNotFoundException(key)
-
-        return ResponseEntity.ok(theme)
+        if (!at.isDraft) {
+            return ResponseEntity.ok(at.releasedResource<ThemeResource>("theme", themeKey)?.toDto(at) ?: throw ThemeNotFoundException(key))
+        }
+        val theme = GetTheme(id = ThemeId(key, at.catalogId), catalogVersion = at.ref).query() ?: throw ThemeNotFoundException(key)
+        return okWithETag(theme.revision, theme.toDto())
     }
 
     override fun updateTheme(
@@ -119,6 +119,7 @@ class EpistolaThemeApi : ThemesApi {
         catalogVersion: String,
         themeKey: String,
         updateThemeRequest: UpdateThemeRequest,
+        ifMatch: String?,
     ): ResponseEntity<ThemeDto> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val key = ThemeKey.of(themeKey)
@@ -131,9 +132,10 @@ class EpistolaThemeApi : ThemesApi {
             blockStylePresets = updateThemeRequest.blockStylePresets.toDomainPresets(),
             spacingUnit = updateThemeRequest.spacingUnit?.toFloat(),
             catalogVersion = draft.ref,
+            expectedRevision = ETags.expected(ifMatch),
         ).execute() ?: throw ThemeNotFoundException(key)
 
-        return ResponseEntity.ok(theme.toDto())
+        return okWithETag(theme.revision, theme.toDto())
     }
 
     override fun deleteTheme(

@@ -27,12 +27,14 @@ import app.epistola.api.model.UpdateAttributeRequest
 import app.epistola.api.model.UpdateEnvironmentRequest
 import app.epistola.api.model.UpdateTenantRequest
 import app.epistola.catalog.protocol.AttributeResource
+import app.epistola.suite.api.v1.shared.ETags
 import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogAt
 import app.epistola.suite.api.v1.shared.catalogId
 import app.epistola.suite.api.v1.shared.catalogVersionAt
 import app.epistola.suite.api.v1.shared.draftAt
+import app.epistola.suite.api.v1.shared.okWithETag
 import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.releasedResource
 import app.epistola.suite.api.v1.shared.releasedResources
@@ -236,12 +238,11 @@ class EpistolaTenantApi(
         attributeKey: String,
     ): ResponseEntity<AttributeDto> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
-        val attribute = if (at.isDraft) {
-            GetAttributeDefinition(id = at.attributeId(attributeKey), catalogVersion = at.ref).query()?.toDto(at)
-        } else {
-            at.releasedResource<AttributeResource>(ATTRIBUTE, attributeKey)?.toDto(at)
-        } ?: throw at.attributeNotFound(attributeKey)
-        return ResponseEntity.ok(attribute)
+        if (!at.isDraft) {
+            return ResponseEntity.ok(at.releasedResource<AttributeResource>(ATTRIBUTE, attributeKey)?.toDto(at) ?: throw at.attributeNotFound(attributeKey))
+        }
+        val attribute = GetAttributeDefinition(id = at.attributeId(attributeKey), catalogVersion = at.ref).query() ?: throw at.attributeNotFound(attributeKey)
+        return okWithETag(attribute.revision, attribute.toDto(at))
     }
 
     override fun updateAttribute(
@@ -252,6 +253,7 @@ class EpistolaTenantApi(
         catalogVersion: String,
         attributeKey: String,
         updateAttributeRequest: UpdateAttributeRequest,
+        ifMatch: String?,
     ): ResponseEntity<AttributeDto> {
         // An attribute keeps no description; refuse it rather than drop it.
         if (updateAttributeRequest.description != null) throw ApiOperationNotImplementedException("updateAttribute.description")
@@ -270,8 +272,10 @@ class EpistolaTenantApi(
             allowedValues = updateAttributeRequest.allowedValues ?: current.allowedValues,
             codeListId = codeListId,
             catalogVersion = draft.ref,
+            // The merge above read the attribute at `current`; a write in between must not be lost.
+            expectedRevision = ETags.expected(ifMatch) ?: current.revision,
         ).execute() ?: throw draft.attributeNotFound(attributeKey)
-        return ResponseEntity.ok(attribute.toDto(draft))
+        return okWithETag(attribute.revision, attribute.toDto(draft))
     }
 
     override fun deleteAttribute(

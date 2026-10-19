@@ -138,6 +138,14 @@
 
     // The template's one data contract, edited in place (PATCH).
     const contractUrl = `/tenants/${tenantId}/templates/${catalogId}/${templateId}/contract`;
+    // The template's revision as last read or saved here. Every save names it, so a save over
+    // someone else's is refused (412) instead of replacing their work; every answer moves it on.
+    let revision = container.dataset.revision ? Number(container.dataset.revision) : null;
+    const STALE =
+      'Someone else saved this data contract after you opened it. Reload the page to see their version.';
+    const track = (result) => {
+      if (result && typeof result.revision === 'number') revision = result.revision;
+    };
     const jsonHeaders = { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken() };
 
     mountDataContractEditor({
@@ -153,13 +161,14 @@
         : {
             onSaveSchema: async (schema, forceUpdate, dataExamples) => {
               try {
-                const body = { dataModel: schema, forceUpdate };
+                const body = { dataModel: schema, forceUpdate, expectedRevision: revision };
                 if (dataExamples) body.dataExamples = dataExamples;
                 const response = await fetch(contractUrl, {
                   method: 'PATCH',
                   headers: jsonHeaders,
                   body: JSON.stringify(body),
                 });
+                if (response.status === 412) return { success: false, error: STALE };
                 if (!response.ok) {
                   const err = await response.json();
                   return {
@@ -170,6 +179,7 @@
                   };
                 }
                 const result = await response.json();
+                track(result);
                 return { success: true, warnings: result.warnings };
               } catch (e) {
                 return { success: false, error: e.message };
@@ -180,8 +190,9 @@
                 const response = await fetch(contractUrl, {
                   method: 'PATCH',
                   headers: jsonHeaders,
-                  body: JSON.stringify({ dataExamples: examples }),
+                  body: JSON.stringify({ dataExamples: examples, expectedRevision: revision }),
                 });
+                if (response.status === 412) return { success: false, error: STALE };
                 if (!response.ok) {
                   const err = await response.json();
                   return {
@@ -192,6 +203,7 @@
                   };
                 }
                 const result = await response.json();
+                track(result);
                 return { success: true, warnings: result.warnings };
               } catch (e) {
                 return { success: false };
@@ -204,14 +216,17 @@
                   {
                     method: 'PATCH',
                     headers: jsonHeaders,
-                    body: JSON.stringify({ ...updates, forceUpdate }),
+                    body: JSON.stringify({ ...updates, forceUpdate, expectedRevision: revision }),
                   },
                 );
+                if (response.status === 412)
+                  return { success: false, errors: { _: [{ message: STALE }] } };
                 if (!response.ok) {
                   const err = await response.json();
                   return { success: false, errors: err.errors, warnings: err.warnings };
                 }
                 const result = await response.json();
+                track(result);
                 return { success: true, example: result, warnings: result.warnings };
               } catch (e) {
                 return { success: false };
@@ -220,12 +235,15 @@
             onDeleteDataExample: async (exampleId) => {
               try {
                 const response = await fetch(
-                  `/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}`,
+                  `/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}` +
+                    (revision === null ? '' : `?expectedRevision=${revision}`),
                   {
                     method: 'DELETE',
                     headers: { 'X-XSRF-TOKEN': csrfToken() },
                   },
                 );
+                const moved = response.headers.get('X-Revision');
+                if (moved !== null) revision = Number(moved);
                 return { success: response.ok };
               } catch (e) {
                 return { success: false };

@@ -44,6 +44,8 @@ data class VariantAttributeDefinition(
     val codeListSlug: CodeListKey? = null,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
+    /** Raised by every change; see [app.epistola.suite.common.Revisions]. */
+    val revision: Long = 1,
 ) {
     /**
      * The bound code list as a typed `CodeListId`, or `null` when this

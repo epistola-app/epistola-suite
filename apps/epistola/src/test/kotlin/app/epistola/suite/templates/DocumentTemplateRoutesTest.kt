@@ -14,6 +14,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
@@ -26,6 +27,7 @@ import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.ListDocumentTemplatesHandler
+import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -2090,6 +2092,50 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
     @Nested
     inner class DraftSaveEndpointTest {
+
+        /** The editor names the revision it last read or saved; a save over someone else's is refused. */
+        @Test
+        fun `PUT content against a stale revision is refused with resource-modified, and answers the new revision otherwise`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            var variantId: VariantKey? = null
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+                variantId = variant(testTenant, template, "Default").id
+            }
+
+            then {
+                val url = "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/content"
+                val opened = withMediator {
+                    GetVariant(VariantId(variantId!!, TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))))).query()!!.revision
+                }
+                fun save(text: String, revision: Long?) = restTemplate.exchange(
+                    url,
+                    HttpMethod.PUT,
+                    HttpEntity(
+                        """{"expectedRevision": ${revision ?: "null"}, "templateModel": {"modelVersion": 1, "root": "root-1",
+                            "nodes": {"root-1": {"id": "root-1", "type": "root", "slots": ["slot-1"]},
+                                      "t-1": {"id": "t-1", "type": "text", "slots": [], "props": {"content": {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "$text"}]}]}}}},
+                            "slots": {"slot-1": {"id": "slot-1", "nodeId": "root-1", "name": "children", "children": ["t-1"]}},
+                            "themeRef": {"type": "inherit"}}}""",
+                        HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON },
+                    ),
+                    String::class.java,
+                )
+
+                val mine = save("mine", opened)
+                assertThat(mine.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(mine.body).contains("\"revision\":${opened + 1}")
+
+                val theirs = save("theirs", opened)
+                assertThat(theirs.statusCode).isEqualTo(HttpStatus.PRECONDITION_FAILED)
+                assertThat(theirs.body).contains("resource-modified")
+
+                assertThat(save("overwrite", null).statusCode).`as`("without a revision the save goes through").isEqualTo(HttpStatus.OK)
+            }
+        }
 
         @Test
         fun `PUT content returns validation error message for invalid stencil parameter binding`() = fixture {

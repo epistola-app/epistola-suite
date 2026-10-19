@@ -109,4 +109,6 @@ data class Theme(
     val updatedAt: OffsetDateTime,
     val createdBy: UserKey? = null,
     val updatedBy: UserKey? = null,
+    /** Raised by every change; see [app.epistola.suite.common.Revisions]. */
+    val revision: Long = 1,
 )

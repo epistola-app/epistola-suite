@@ -33,6 +33,7 @@ import app.epistola.suite.catalog.versions.CatalogVersionBehindException
 import app.epistola.suite.catalog.versions.CatalogVersionHeldException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
+import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.DocumentNotFoundException
@@ -298,6 +299,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         CatalogBundleException::class,
         CatalogDraftIsNextException::class,
         EnvironmentOverrideRefusedException::class,
+        ResourceModifiedException::class,
         CatalogVersionBehindException::class,
         CatalogVersionHeldException::class,
     )

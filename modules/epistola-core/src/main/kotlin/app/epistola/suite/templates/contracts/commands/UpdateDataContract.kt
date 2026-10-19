@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -15,6 +16,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.TemplateNotFoundException
+import app.epistola.suite.templates.commands.templateRevision
 import app.epistola.suite.templates.contracts.queries.readDataContract
 import app.epistola.suite.templates.model.DataContract
 import app.epistola.suite.templates.model.DataExample
@@ -42,6 +44,8 @@ data class UpdateDataContract(
     val forceUpdate: Boolean = false,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogVersionRef? = null,
+    /** The template's revision the change was made against; null to write whatever it is at now. */
+    val expectedRevision: Long? = null,
 ) : CatalogVersionScoped,
     Command<UpdateDataContractResult>,
     RequiresPermission {
@@ -53,6 +57,8 @@ data class UpdateDataContractResult(
     val contract: DataContract,
     /** Example name -> what the schema says is wrong with it; set only with `forceUpdate`. */
     val warnings: Map<String, List<String>> = emptyMap(),
+    /** The template's revision after the write. */
+    val revision: Long = 1,
 )
 
 @Component
@@ -67,6 +73,8 @@ class UpdateDataContractHandler(
         return jdbi.inTransaction<UpdateDataContractResult, Exception> { handle ->
             val current = readDataContract(handle, objectMapper, template, forUpdate = true)
                 ?: throw TemplateNotFoundException(template.tenantKey, template.key)
+            // The row is locked now, so its revision holds until this transaction ends.
+            Revisions.refuse("Template '${template.key.value}'", command.expectedRevision, templateRevision(handle, template))
 
             command.dataModel?.let { model ->
                 jsonSchemaValidator.requireValidDataContractSchema(model)
@@ -86,11 +94,12 @@ class UpdateDataContractHandler(
                 }
             }
 
-            handle.createUpdate(
+            val revision = handle.createQuery(
                 """
                 UPDATE document_templates
                 SET data_model = CAST(:dataModel AS JSONB), data_examples = CAST(:dataExamples AS JSONB), updated_at = NOW()
                 WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND resource_id = ${templateAtAddress("t", "c", "k")}
+                RETURNING revision
                 """,
             )
                 .bind("t", template.tenantKey)
@@ -98,9 +107,10 @@ class UpdateDataContractHandler(
                 .bind("k", template.key)
                 .bind("dataModel", dataModel?.let(objectMapper::writeValueAsString))
                 .bind("dataExamples", objectMapper.writeValueAsString(examples))
-                .execute()
+                .mapTo(Long::class.java)
+                .one()
 
-            UpdateDataContractResult(DataContract(dataModel, examples), warnings)
+            UpdateDataContractResult(DataContract(dataModel, examples, revision), warnings, revision)
         }
     }
 }

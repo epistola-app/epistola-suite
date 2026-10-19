@@ -10,6 +10,7 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.mcp.dto.DataContractInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
@@ -81,6 +82,8 @@ class DataContractMcpTools(
         dataExamples: String?,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
+        @McpToolParam(description = EXPECTED_REVISION_DESCRIPTION, required = false)
+        expectedRevision: Long? = null,
     ): DataContractInfo {
         val id = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
         val command = UpdateDataContract(
@@ -89,6 +92,7 @@ class DataContractMcpTools(
             dataExamples = objectMapper.parseOptionalArgument("dataExamples", dataExamples, ArrayNode::class.java)
                 ?.let(::toExamples),
             catalogVersion = catalogVersionRef(catalogId, catalogVersion),
+            expectedRevision = expectedRevision,
         )
         return DataContractInfo.from(templateId, catalogId, sendUpdate(command).contract)
     }

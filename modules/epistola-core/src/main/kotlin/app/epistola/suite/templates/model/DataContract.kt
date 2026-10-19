@@ -13,4 +13,6 @@ import tools.jackson.databind.node.ObjectNode
 data class DataContract(
     val dataModel: ObjectNode?,
     val dataExamples: List<DataExample>,
+    /** The template's revision as read with the contract; see [app.epistola.suite.common.Revisions]. */
+    val revision: Long = 1,
 )

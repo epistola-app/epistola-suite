@@ -14,12 +14,14 @@ import app.epistola.api.model.StencilUsageListResponse
 import app.epistola.api.model.UpdateStencilContentRequest
 import app.epistola.api.model.UpdateStencilRequest
 import app.epistola.catalog.protocol.StencilResource
+import app.epistola.suite.api.v1.shared.ETags
 import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.ResourceStatuses
 import app.epistola.suite.api.v1.shared.catalogId
 import app.epistola.suite.api.v1.shared.catalogVersionAt
 import app.epistola.suite.api.v1.shared.draftAt
+import app.epistola.suite.api.v1.shared.okWithETag
 import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.releasedResource
 import app.epistola.suite.api.v1.shared.releasedResources
@@ -141,12 +143,9 @@ class EpistolaStencilApi(
         stencilKey: String,
     ): ResponseEntity<StencilDto> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
-        val stencil = if (at.isDraft) {
-            workingCopy(at, stencilKey).let { it.toDto(ResourceStatuses.of(at).of(STENCIL, it.id.value)) }
-        } else {
-            released(at, stencilKey).toDto(at)
-        }
-        return ResponseEntity.ok(stencil)
+        if (!at.isDraft) return ResponseEntity.ok(released(at, stencilKey).toDto(at))
+        val stencil = workingCopy(at, stencilKey)
+        return okWithETag(stencil.revision, stencil.toDto(ResourceStatuses.of(at).of(STENCIL, stencil.id.value)))
     }
 
     override fun updateStencil(
@@ -157,6 +156,7 @@ class EpistolaStencilApi(
         catalogVersion: String,
         stencilKey: String,
         updateStencilRequest: UpdateStencilRequest,
+        ifMatch: String?,
     ): ResponseEntity<StencilDto> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val id = draft.stencilId(stencilKey)
@@ -166,9 +166,10 @@ class EpistolaStencilApi(
             description = updateStencilRequest.description,
             tags = updateStencilRequest.tags,
             catalogVersion = draft.ref,
+            expectedRevision = ETags.expected(ifMatch),
         ).execute() ?: throw StencilNotFoundException(id.tenantKey, id.key)
 
-        return ResponseEntity.ok(stencil.toDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)))
+        return okWithETag(stencil.revision, stencil.toDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)))
     }
 
     override fun deleteStencil(
@@ -196,12 +197,9 @@ class EpistolaStencilApi(
         stencilKey: String,
     ): ResponseEntity<StencilContentDto> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
-        val content = if (at.isDraft) {
-            workingCopy(at, stencilKey).let { it.toContentDto(ResourceStatuses.of(at).of(STENCIL, it.id.value)) }
-        } else {
-            released(at, stencilKey).toContentDto(at, objectMapper)
-        }
-        return ResponseEntity.ok(content)
+        if (!at.isDraft) return ResponseEntity.ok(released(at, stencilKey).toContentDto(at, objectMapper))
+        val stencil = workingCopy(at, stencilKey)
+        return okWithETag(stencil.revision, stencil.toContentDto(ResourceStatuses.of(at).of(STENCIL, stencil.id.value)))
     }
 
     /** A full replacement: a parameter schema left out is cleared, as the contract says. */
@@ -213,6 +211,7 @@ class EpistolaStencilApi(
         catalogVersion: String,
         stencilKey: String,
         updateStencilContentRequest: UpdateStencilContentRequest,
+        ifMatch: String?,
     ): ResponseEntity<StencilContentDto> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val id = draft.stencilId(stencilKey)
@@ -225,8 +224,9 @@ class EpistolaStencilApi(
             parameterSchema = parameterSchema,
             clearParameterSchema = parameterSchema == null,
             catalogVersion = draft.ref,
+            expectedRevision = ETags.expected(ifMatch),
         ).execute() ?: throw StencilNotFoundException(id.tenantKey, id.key)
-        return ResponseEntity.ok(stencil.toContentDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)))
+        return okWithETag(stencil.revision, stencil.toContentDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)))
     }
 
     /**

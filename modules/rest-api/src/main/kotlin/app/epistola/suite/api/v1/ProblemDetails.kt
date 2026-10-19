@@ -94,6 +94,7 @@ object ApiProblemTypes {
     val CATALOG_VERSION_RELEASED = problem("CATALOG_VERSION_RELEASED", "Catalog Version Released", HttpStatus.CONFLICT, "The catalog version is released and cannot change; change a draft.", listOf("catalogKey", "version"))
     val CATALOG_DRAFT_NAME_IN_USE = problem("CATALOG_DRAFT_NAME_IN_USE", "Catalog Draft Name In Use", HttpStatus.CONFLICT, "Another draft of the catalog has this name; names tell drafts apart.", listOf("catalogKey", "name"))
     val CATALOG_BUNDLE_CONFLICT = problem("CATALOG_BUNDLE_CONFLICT", "Catalog Bundle Conflict", HttpStatus.CONFLICT, "The catalog bundle needs a catalog this tenant has at another release, or names one that is not there to bundle.", emptyList())
+    val RESOURCE_MODIFIED = problem("RESOURCE_MODIFIED", "Resource Modified", HttpStatus.PRECONDITION_FAILED, "The resource changed since the ETag sent in If-Match was read. Read it again and reapply your change.", listOf("expectedRevision", "currentRevision"))
     val ENVIRONMENT_OVERRIDE_REFUSED = problem("ENVIRONMENT_OVERRIDE_REFUSED", "Environment Override Refused", HttpStatus.CONFLICT, "The environment cannot use that: a production environment uses only published versions, and an override names a release the environment serves.", emptyList())
     val CATALOG_DRAFT_KIND = problem("CATALOG_DRAFT_KIND", "Catalog Draft Kind", HttpStatus.CONFLICT, "Only the next version is released, and only long-term work has a name of its own.", listOf("catalogKey"))
     val CATALOG_VERSION_HELD = problem("CATALOG_VERSION_HELD", "Catalog Version Held", HttpStatus.CONFLICT, "The draft alone holds resources something outside it still uses; change those first.", listOf("catalogKey", "version", "heldBy"))
@@ -170,6 +171,7 @@ object ApiProblemTypes {
         CATALOG_DRAFT_NAME_IN_USE,
         CATALOG_DRAFT_KIND,
         ENVIRONMENT_OVERRIDE_REFUSED,
+        RESOURCE_MODIFIED,
         CATALOG_BUNDLE_CONFLICT,
         CATALOG_VERSION_BEHIND,
         CATALOG_VERSION_HELD,

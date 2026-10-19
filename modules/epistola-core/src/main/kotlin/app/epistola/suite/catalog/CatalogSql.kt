@@ -74,3 +74,18 @@ fun Handle.findCatalog(tenantKey: TenantKey, catalogKey: CatalogKey): Catalog? =
     .mapTo<Catalog>()
     .findOne()
     .orElse(null)
+
+/**
+ * The revision of the content row of [table] at [key] (its [keyColumn]) in the version a caller means
+ * of [catalogKey], or null when there is none: what a guarded write that changed nothing compares
+ * against ([app.epistola.suite.common.Revisions.refuse]).
+ */
+fun Handle.contentRevision(table: String, keyColumn: String, tenantKey: TenantKey, catalogKey: CatalogKey, key: Any): Long? = createQuery(
+    "SELECT revision FROM $table WHERE tenant_key = :t AND $keyColumn = :k AND version_id = ${versionAt("t", "c")}",
+)
+    .bind("t", tenantKey)
+    .bind("c", catalogKey)
+    .bind("k", key)
+    .mapTo(Long::class.java)
+    .findOne()
+    .orElse(null)

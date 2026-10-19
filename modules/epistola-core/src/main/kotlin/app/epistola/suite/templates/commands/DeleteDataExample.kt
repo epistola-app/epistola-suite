@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -29,6 +30,8 @@ data class DeleteDataExample(
     val exampleId: String,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogVersionRef? = null,
+    /** The template's revision the change was made against; null to write whatever it is at now. */
+    val expectedRevision: Long? = null,
 ) : CatalogVersionScoped,
     Command<DeleteDataExampleResult?>,
     RequiresPermission {
@@ -38,6 +41,8 @@ data class DeleteDataExample(
 
 data class DeleteDataExampleResult(
     val deleted: Boolean,
+    /** The template's revision after the write; null when nothing was deleted. */
+    val revision: Long? = null,
 )
 
 @Component
@@ -51,6 +56,8 @@ class DeleteDataExampleHandler(
         return jdbi.inTransaction<DeleteDataExampleResult?, Exception> { handle ->
             // Load and lock the draft contract version
             val draftContract = readDataContract(handle, objectMapper, command.templateId, forUpdate = true) ?: return@inTransaction null
+            // The row is locked now, so its revision holds until this transaction ends.
+            Revisions.refuse("Template '${command.templateId.key.value}'", command.expectedRevision, templateRevision(handle, command.templateId))
 
             val exampleExists = draftContract.dataExamples.any { it.id == command.exampleId }
             if (!exampleExists) {
@@ -60,21 +67,23 @@ class DeleteDataExampleHandler(
             val updatedExamples = draftContract.dataExamples.filter { it.id != command.exampleId }
             requireAtLeastOneDataExample(updatedExamples)
 
-            handle.createUpdate(
+            val revision = handle.createQuery(
                 """
                 UPDATE document_templates
                 SET data_examples = :dataExamples::jsonb, updated_at = NOW()
                 WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                   AND resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
+                RETURNING revision
                 """,
             )
                 .bind("tenantKey", command.templateId.tenantKey)
                 .bind("catalogKey", command.templateId.catalogKey)
                 .bind("templateKey", command.templateId.key)
                 .bind("dataExamples", objectMapper.writeValueAsString(updatedExamples))
-                .execute()
+                .mapTo(Long::class.java)
+                .one()
 
-            DeleteDataExampleResult(deleted = true)
+            DeleteDataExampleResult(deleted = true, revision = revision)
         }
     }
 }

@@ -5,6 +5,7 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.api.v1.toValidationProblemBody
+import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
@@ -16,6 +17,7 @@ import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.RefTypeRegistry
 import app.epistola.suite.validation.ValidationException
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -48,6 +50,7 @@ class DataContractTabHandler(
                 "editMode" to editMode,
                 "contractDataModel" to contract?.dataModel,
                 "contractDataExamples" to contract?.dataExamples,
+                "contractRevision" to contract?.revision,
                 "schemaFields" to schemaFields,
             ),
         )
@@ -73,7 +76,12 @@ class DataContractTabHandler(
                 clearDataModel = update.clearDataModel ?: false,
                 forceUpdate = update.forceUpdate ?: false,
                 catalogVersion = request.catalogVersion(),
+                expectedRevision = update.expectedRevision,
             ).execute()
+        } catch (e: ResourceModifiedException) {
+            return ServerResponse.status(HttpStatus.PRECONDITION_FAILED)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("detail" to "Someone else saved this data contract after you opened it. Reload the page to see their version."))
         } catch (e: ValidationException) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
@@ -95,7 +103,7 @@ class DataContractTabHandler(
                 )
         }
 
-        val response = mutableMapOf<String, Any?>("success" to true)
+        val response = mutableMapOf<String, Any?>("success" to true, "revision" to result.revision)
         if (result.warnings.isNotEmpty()) {
             response["warnings"] = result.warnings
         }
@@ -153,4 +161,6 @@ private data class ContractUpdateRequest(
     val dataExamples: List<DataExample>? = null,
     val clearDataModel: Boolean? = null,
     val forceUpdate: Boolean? = null,
+    /** The template's revision as the editor last read or saved it; a save over someone else's is refused (412). */
+    val expectedRevision: Long? = null,
 )

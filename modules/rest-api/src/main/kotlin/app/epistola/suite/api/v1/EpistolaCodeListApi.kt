@@ -13,12 +13,14 @@ import app.epistola.api.model.CreateCodeListRequest
 import app.epistola.api.model.UpdateCodeListEntryHiddenRequest
 import app.epistola.api.model.UpdateCodeListRequest
 import app.epistola.catalog.protocol.CodeListResource
+import app.epistola.suite.api.v1.shared.ETags
 import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogId
 import app.epistola.suite.api.v1.shared.catalogVersionAt
 import app.epistola.suite.api.v1.shared.draftAt
 import app.epistola.suite.api.v1.shared.entryDtos
+import app.epistola.suite.api.v1.shared.okWithETag
 import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.releasedResource
 import app.epistola.suite.api.v1.shared.releasedResources
@@ -111,12 +113,11 @@ class EpistolaCodeListApi : CodeListsApi {
         codeListKey: String,
     ): ResponseEntity<CodeListDto> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
-        val codeList = if (at.isDraft) {
-            GetCodeList(id = at.codeListId(codeListKey), catalogVersion = at.ref).query()?.toDto(at.catalog)
-        } else {
-            at.releasedResource<CodeListResource>("codeList", codeListKey)?.toDto(at)
-        } ?: throw at.codeListNotFound(codeListKey)
-        return ResponseEntity.ok(codeList)
+        if (!at.isDraft) {
+            return ResponseEntity.ok(at.releasedResource<CodeListResource>("codeList", codeListKey)?.toDto(at) ?: throw at.codeListNotFound(codeListKey))
+        }
+        val codeList = GetCodeList(id = at.codeListId(codeListKey), catalogVersion = at.ref).query() ?: throw at.codeListNotFound(codeListKey)
+        return okWithETag(codeList.revision, codeList.toDto(at.catalog))
     }
 
     override fun updateCodeList(
@@ -127,6 +128,7 @@ class EpistolaCodeListApi : CodeListsApi {
         catalogVersion: String,
         codeListKey: String,
         updateCodeListRequest: UpdateCodeListRequest,
+        ifMatch: String?,
     ): ResponseEntity<CodeListDto> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val id = draft.codeListId(codeListKey)
@@ -142,8 +144,10 @@ class EpistolaCodeListApi : CodeListsApi {
             credential = updateCodeListRequest.credential ?: current.credential?.value,
             entries = updateCodeListRequest.propertyEntries?.map { it.toModel() },
             catalogVersion = draft.ref,
+            // The merge above read the list at `current`; a write in between must not be lost.
+            expectedRevision = ETags.expected(ifMatch) ?: current.revision,
         ).execute() ?: throw draft.codeListNotFound(codeListKey)
-        return ResponseEntity.ok(updated.toDto(draft.catalog))
+        return okWithETag(updated.revision, updated.toDto(draft.catalog))
     }
 
     override fun deleteCodeList(

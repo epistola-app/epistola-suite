@@ -175,6 +175,16 @@ catalog release is the only one, and an edit makes a mark stale.
 
 Not available over MCP: deploying releases to environments, and deleting resources or releases.
 
+## Concurrent edits
+
+Read tools (`get_template`, `get_variant`, `get_template_content`, `get_data_contract`, `get_theme`,
+`get_stencil`) return the content's `revision`. Pass it back as `expectedRevision` to the matching
+update tool (`update_template`, `update_variant`, `update_variant_content`, `update_data_contract`,
+`update_theme`, `update_stencil`): when someone changed the content since, the update is refused
+with "changed by someone else" and nothing is written; read it again and reapply the change. An
+update without `expectedRevision` overwrites whatever is there, as before. Each successful update
+returns the new `revision`, for the next one.
+
 ## Limitations and notes
 
 - **PDF preview is binary.** `preview_document` returns the rendered PDF as base64 in the `data` field along with `mediaType: "application/pdf"`. AI assistants generally cannot read PDF text directly; the field is most useful for users who want to view the rendered output. A future iteration may add a textual or HTML-rendered preview path.

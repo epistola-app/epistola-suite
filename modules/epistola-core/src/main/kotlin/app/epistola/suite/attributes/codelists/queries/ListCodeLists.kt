@@ -49,7 +49,7 @@ class ListCodeListsHandler(
                 SELECT cl.slug, cl.tenant_key, c.catalog_key AS catalog_key, cl.display_name, cl.description,
                        cl.source_type, cl.source_url, cl.auth_type, cl.credential,
                        cl.last_refreshed_at, cl.last_refresh_error,
-                       cl.created_at, cl.updated_at,
+                       cl.created_at, cl.updated_at, cl.revision,
                        c.type AS catalog_type
                 FROM code_lists cl
                 JOIN catalogs c ON c.tenant_key = cl.tenant_key AND c.catalog_id = cl.catalog_id

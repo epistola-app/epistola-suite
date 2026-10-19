@@ -31,6 +31,8 @@ data class DocumentTemplate(
     val updatedAt: OffsetDateTime,
     val createdBy: UserKey? = null,
     val updatedBy: UserKey? = null,
+    /** Raised by every change to the template (its name, theme, PDF/A or data contract); see [app.epistola.suite.common.Revisions]. */
+    val revision: Long = 1,
 )
 
 /**

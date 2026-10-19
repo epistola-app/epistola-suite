@@ -7,11 +7,13 @@ package app.epistola.suite.attributes.commands
 import app.epistola.suite.attributes.AttributeReferences
 import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
+import app.epistola.suite.catalog.contentRevision
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Command
@@ -34,6 +36,8 @@ data class UpdateAttributeDefinition(
     val codeListId: CodeListId? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogVersionRef? = null,
+    /** The attribute's revision the change was made against; null to write whatever it is at now. */
+    val expectedRevision: Long? = null,
 ) : CatalogVersionScoped,
     Command<VariantAttributeDefinition?>,
     RequiresPermission {
@@ -132,7 +136,8 @@ class UpdateAttributeDefinitionHandler(
                     code_list_resource_id  = ${boundCodeListAtAddress("tenantId")},
                     updated_at          = NOW()
                 WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
-                RETURNING id, tenant_key, display_name, allowed_values, created_at, updated_at,
+                  AND ${Revisions.MATCHES}
+                RETURNING id, tenant_key, display_name, allowed_values, created_at, updated_at, revision,
                           (SELECT cat.catalog_key FROM catalogs cat
                             WHERE cat.tenant_key = variant_attribute_definitions.tenant_key
                               AND cat.catalog_id = variant_attribute_definitions.catalog_id) AS catalog_key,
@@ -154,9 +159,14 @@ class UpdateAttributeDefinitionHandler(
                 .bind("allowedValues", allowedValuesJson)
                 .bind("codeListCatalogKey", command.codeListId?.catalogKey)
                 .bind("codeListSlug", command.codeListId?.key)
+                .bind("expectedRevision", command.expectedRevision)
                 .mapTo<VariantAttributeDefinition>()
                 .findOne()
                 .orElse(null)
+                ?: run {
+                    Revisions.refuse("Attribute '${command.id.key.value}'", command.expectedRevision, handle.contentRevision("variant_attribute_definitions", "id", command.id.tenantKey, command.id.catalogKey, command.id.key))
+                    null
+                }
         }
     }
 }

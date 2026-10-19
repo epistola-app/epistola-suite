@@ -33,6 +33,9 @@ async function mount(container) {
   // Cross-catalog requests (searches, image content) name the draft as `in=` so the server reads
   // this catalog's rows from it and every other catalog's from its current version.
   const inParam = inDraft ? 'in=' + encodeURIComponent(catalogSegment) : '';
+  // The variant's revision as last read or saved. Each save names it, so a save over someone else's
+  // is refused (`resource-modified`) instead of silently replacing their work.
+  let variantRevision = config.variantRevision ?? null;
 
   const plugins = await loadEditorPlugins(config.plugins, {
     features,
@@ -114,6 +117,8 @@ async function mount(container) {
         encodeURIComponent(segmentOf(ref.catalogKey)) +
         '/' +
         encodeURIComponent(ref.stencilKey);
+      // Each stencil's revision as last read or saved here, by its URL; a save names it.
+      const stencilRevisions = new Map();
       const errorMessage = async (resp, fallback) => {
         const err = await resp.json().catch(() => ({}));
         return err.detail || err.message || err.error || fallback;
@@ -142,6 +147,8 @@ async function mount(container) {
           if (resp.status === 404) return null;
           if (!resp.ok) throw new Error(await errorMessage(resp, 'Failed to load the stencil'));
           const data = await resp.json();
+          if (typeof data.revision === 'number')
+            stencilRevisions.set(stencilUrl(ref), data.revision);
           return {
             ref: { stencilKey: data.stencilId, catalogKey: data.catalogKey },
             name: data.name ?? data.stencilId,
@@ -163,17 +170,33 @@ async function mount(container) {
           const data = await resp.json();
           return { stencilKey: data.stencilId, catalogKey: data.catalogKey };
         },
-        saveStencil: async (ref, update) => {
+        saveStencil: async function saveStencil(ref, update, overwrite = false) {
+          const url = stencilUrl(ref);
           const body =
             update.parameterSchema === null
               ? { content: update.content, clearParameterSchema: true }
               : { content: update.content, parameterSchema: update.parameterSchema };
-          const resp = await fetch(stencilUrl(ref) + '/content', {
+          body.expectedRevision = overwrite ? null : (stencilRevisions.get(url) ?? null);
+          const resp = await fetch(url + '/content', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', ...jsonHeaders() },
             body: JSON.stringify(body),
           });
+          if (resp.status === 412) {
+            const overwriteTheirs = window.confirm(
+              'Someone else saved this stencil after you opened it.\n\n' +
+                'OK: replace their version with yours.\n' +
+                'Cancel: keep theirs; open the stencil again to see it.',
+            );
+            if (overwriteTheirs) return saveStencil(ref, update, true);
+            throw new Error(
+              'Not saved: someone else saved this stencil. Open it again to see their version.',
+            );
+          }
           if (!resp.ok) throw new Error(await errorMessage(resp, 'Failed to save the stencil'));
+          const saved = await resp.json().catch(() => null);
+          if (saved && typeof saved.revision === 'number')
+            stencilRevisions.set(url, saved.revision);
         },
         markStencilReady: async (ref) => {
           const resp = await fetch(stencilUrl(ref) + '/ready', {
@@ -186,7 +209,7 @@ async function mount(container) {
         },
       };
     })(),
-    onSave: async (template) => {
+    onSave: async function save(template, overwrite = false) {
       const response = await fetch(
         '/tenants/' +
           tenantId +
@@ -204,9 +227,26 @@ async function mount(container) {
             Accept: 'application/problem+json',
             'X-XSRF-TOKEN': window.getCsrfToken(),
           },
-          body: JSON.stringify({ templateModel: template }),
+          body: JSON.stringify({
+            templateModel: template,
+            expectedRevision: overwrite ? null : variantRevision,
+          }),
         },
       );
+
+      if (response.status === 412) {
+        // Someone else saved this variant since it was opened here. Ask rather than guess: keeping
+        // their version means reloading (and losing what was changed here); keeping this one
+        // overwrites theirs.
+        const overwriteTheirs = window.confirm(
+          'Someone else saved this variant after you opened it.\n\n' +
+            'OK: replace their version with yours.\n' +
+            'Cancel: reload to see their version (your changes here are lost).',
+        );
+        if (overwriteTheirs) return save(template, true);
+        window.location.reload();
+        return;
+      }
 
       if (!response.ok) {
         let message = response.statusText || 'Failed to save';
@@ -232,6 +272,8 @@ async function mount(container) {
         err.field = field;
         throw err;
       }
+      const saved = await response.json().catch(() => null);
+      if (saved && typeof saved.revision === 'number') variantRevision = saved.revision;
     },
     onFetchPreview: async (doc, data, signal) => {
       const response = await fetch(

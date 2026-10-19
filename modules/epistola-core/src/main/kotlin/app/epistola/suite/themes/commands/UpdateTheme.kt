@@ -4,10 +4,12 @@
 
 package app.epistola.suite.themes.commands
 
+import app.epistola.suite.catalog.contentRevision
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
@@ -49,6 +51,8 @@ data class UpdateTheme(
     val clearSpacingUnit: Boolean = false,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogVersionRef? = null,
+    /** The theme's revision the change was made against; null to write whatever it is at now. */
+    val expectedRevision: Long? = null,
 ) : CatalogVersionScoped,
     Command<Theme?>,
     RequiresPermission {
@@ -128,7 +132,7 @@ class UpdateThemeHandler(
 
         if (updates.isEmpty()) {
             // No updates to apply, return existing theme
-            return getExisting(command.id)
+            return getExisting(command.id)?.also { Revisions.refuse("Theme '${command.id.key.value}'", command.expectedRevision, it.revision) }
         }
 
         updates.add("updated_at = NOW()")
@@ -141,6 +145,7 @@ class UpdateThemeHandler(
             WHERE id = :id
               AND tenant_key = :tenantId
               AND version_id = ${versionAt("tenantId", "catalogKey")}
+              AND ${Revisions.MATCHES}
             RETURNING *, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = themes.tenant_key AND cat.catalog_id = themes.catalog_id) AS catalog_key
         """
 
@@ -151,10 +156,14 @@ class UpdateThemeHandler(
                 .bind("catalogKey", command.id.catalogKey)
 
             bindings.forEach { (key, value) -> query.bind(key, value) }
+            query.bind("expectedRevision", command.expectedRevision)
 
             query.mapTo<Theme>()
                 .findOne()
                 .orElse(null)
+                ?: null.also {
+                    Revisions.refuse("Theme '${command.id.key.value}'", command.expectedRevision, handle.contentRevision("themes", "id", command.id.tenantKey, command.id.catalogKey, command.id.key))
+                }
         }
     }
 

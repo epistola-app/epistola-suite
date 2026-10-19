@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.queries.CatalogResourceState
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
@@ -43,6 +44,7 @@ import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.stencils.queries.GetStencilUsagePage
 import app.epistola.suite.stencils.queries.ListStencils
 import app.epistola.suite.validation.ValidationException
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -590,14 +592,17 @@ class StencilHandler(
                     "content" to stencil.content,
                     "parameterSchema" to stencil.parameterSchema,
                     "readsTemplateData" to stencil.readsTemplateData,
+                    "revision" to stencil.revision,
                 ),
             )
     }
 
     /**
-     * `PUT …/content` (JSON `{ content, parameterSchema?, clearParameterSchema? }`): saves the working
-     * copy from the template editor. An absent `parameterSchema` keeps the stored one;
-     * `clearParameterSchema` removes it, for a stencil whose author removed every parameter.
+     * `PUT …/content` (JSON `{ content, parameterSchema?, clearParameterSchema?, expectedRevision? }`):
+     * saves the working copy from the template editor. An absent `parameterSchema` keeps the stored
+     * one; `clearParameterSchema` removes it, for a stencil whose author removed every parameter. A
+     * save against a revision someone else has moved on from is refused (412); the answer carries the
+     * new `revision` otherwise.
      */
     fun updateContent(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -608,21 +613,29 @@ class StencilHandler(
             val content: app.epistola.template.model.TemplateDocument,
             val parameterSchema: tools.jackson.databind.JsonNode? = null,
             val clearParameterSchema: Boolean = false,
+            val expectedRevision: Long? = null,
         )
 
         val body = request.body(String::class.java)
         val req = objectMapper.readValue(body, ContentRequest::class.java)
 
-        UpdateStencil(
-            id = stencilId,
-            content = req.content,
-            parameterSchema = req.parameterSchema.takeUnless { req.clearParameterSchema },
-            clearParameterSchema = req.clearParameterSchema,
-            catalogVersion = request.catalogVersion(),
-        ).execute() ?: return ServerResponse.notFound().build()
+        val saved = try {
+            UpdateStencil(
+                id = stencilId,
+                content = req.content,
+                parameterSchema = req.parameterSchema.takeUnless { req.clearParameterSchema },
+                clearParameterSchema = req.clearParameterSchema,
+                catalogVersion = request.catalogVersion(),
+                expectedRevision = req.expectedRevision,
+            ).execute()
+        } catch (e: ResourceModifiedException) {
+            return ServerResponse.status(HttpStatus.PRECONDITION_FAILED)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("error" to "Someone else saved this stencil after you opened it."))
+        } ?: return ServerResponse.notFound().build()
 
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("success" to true))
+            .body(mapOf("success" to true, "revision" to saved.revision))
     }
 }

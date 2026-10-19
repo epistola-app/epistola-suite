@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
@@ -30,6 +31,8 @@ data class UpdateVariant(
     val attributes: Map<String, String>,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogVersionRef? = null,
+    /** The variant's revision the change was made against; null to write whatever it is at now. */
+    val expectedRevision: Long? = null,
 ) : CatalogVersionScoped,
     Command<TemplateVariant?>,
     RequiresPermission {
@@ -64,6 +67,7 @@ class UpdateVariantHandler(
                 UPDATE template_variants
                 SET title = :title, attributes = :attributes::jsonb, updated_at = NOW(), updated_by = :updatedBy
                 WHERE tenant_key = :tenantId AND id = :variantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+                  AND ${Revisions.MATCHES}
                 RETURNING *, CAST(:templateId AS TEXT) AS template_key
                 """,
             )
@@ -74,9 +78,13 @@ class UpdateVariantHandler(
                 .bind("title", command.title)
                 .bind("attributes", attributesJson)
                 .bind("createdBy", auditUser).bind("updatedBy", auditUser)
+                .bind("expectedRevision", command.expectedRevision)
                 .mapTo<TemplateVariant>()
                 .findOne()
                 .orElse(null)
+                ?.also { return@inTransaction it }
+            Revisions.refuse("Variant '${command.variantId.key.value}'", command.expectedRevision, variantRevision(handle, command.variantId))
+            null
         }
     }
 }

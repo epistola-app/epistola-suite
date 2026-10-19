@@ -7,6 +7,7 @@ package app.epistola.suite.themes
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -43,6 +44,7 @@ import app.epistola.suite.themes.queries.GetTheme
 import app.epistola.suite.themes.queries.GetThemeUsagePage
 import app.epistola.suite.themes.queries.ListThemes
 import app.epistola.suite.themes.queries.ThemeUsagePage
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -65,6 +67,8 @@ data class UpdateThemeRequest(
     val clearBlockStylePresets: Boolean = false,
     val spacingUnit: Float? = null,
     val clearSpacingUnit: Boolean = false,
+    /** The theme's revision as the editor last read or saved it; a save over someone else's is refused. */
+    val expectedRevision: Long? = null,
 )
 
 @Component
@@ -280,6 +284,7 @@ class ThemeHandler(
             "pageSettings" to theme.pageSettings,
             "blockStylePresets" to (theme.blockStylePresets ?: emptyMap()),
             "spacingUnit" to theme.spacingUnit,
+            "revision" to theme.revision,
         )
 
         val editable = theme.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED
@@ -345,21 +350,27 @@ class ThemeHandler(
         val body = request.body(String::class.java)
         val updateRequest = objectMapper.readValue(body, UpdateThemeRequest::class.java)
 
-        val theme = UpdateTheme(
-            id = themeId,
-            name = updateRequest.name,
-            description = updateRequest.description,
-            clearDescription = updateRequest.clearDescription,
-            documentStyles = updateRequest.documentStyles,
-            pageSettings = updateRequest.pageSettings,
-            clearPageSettings = updateRequest.clearPageSettings,
-            blockStylePresets = updateRequest.blockStylePresets,
-            clearBlockStylePresets = updateRequest.clearBlockStylePresets,
-            spacingUnit = updateRequest.spacingUnit,
-            clearSpacingUnit = updateRequest.clearSpacingUnit,
-            catalogVersion = request.catalogVersion(),
-        ).execute()
-            ?: return ServerResponse.notFound().build()
+        val theme = try {
+            UpdateTheme(
+                id = themeId,
+                name = updateRequest.name,
+                description = updateRequest.description,
+                clearDescription = updateRequest.clearDescription,
+                documentStyles = updateRequest.documentStyles,
+                pageSettings = updateRequest.pageSettings,
+                clearPageSettings = updateRequest.clearPageSettings,
+                blockStylePresets = updateRequest.blockStylePresets,
+                clearBlockStylePresets = updateRequest.clearBlockStylePresets,
+                spacingUnit = updateRequest.spacingUnit,
+                clearSpacingUnit = updateRequest.clearSpacingUnit,
+                catalogVersion = request.catalogVersion(),
+                expectedRevision = updateRequest.expectedRevision,
+            ).execute()
+        } catch (e: ResourceModifiedException) {
+            return ServerResponse.status(HttpStatus.PRECONDITION_FAILED)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("error" to "Someone else saved this theme after you opened it."))
+        } ?: return ServerResponse.notFound().build()
 
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
@@ -373,6 +384,7 @@ class ThemeHandler(
                     "blockStylePresets" to theme.blockStylePresets,
                     "spacingUnit" to theme.spacingUnit,
                     "updatedAt" to theme.updatedAt,
+                    "revision" to theme.revision,
                 ),
             )
     }

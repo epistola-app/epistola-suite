@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
@@ -24,6 +25,7 @@ import app.epistola.suite.themes.themeAtAddress
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.ValidationException
 import app.epistola.suite.validation.validate
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -41,6 +43,8 @@ data class UpdateDocumentTemplate(
     val pdfaEnabled: Boolean? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogVersionRef? = null,
+    /** The template's revision the change was made against; null to write whatever it is at now. */
+    val expectedRevision: Long? = null,
 ) : CatalogVersionScoped,
     Command<DocumentTemplate?>,
     RequiresPermission {
@@ -84,7 +88,7 @@ class UpdateDocumentTemplateHandler(
         }
 
         if (updates.isEmpty()) {
-            return getExisting(command.id)
+            return getExisting(command.id)?.also { Revisions.refuse("Template '${command.id.key.value}'", command.expectedRevision, it.revision) }
         }
 
         updates.add("updated_at = NOW()")
@@ -95,6 +99,7 @@ class UpdateDocumentTemplateHandler(
             UPDATE document_templates
             SET ${updates.joinToString(", ")}
             WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
+              AND ${Revisions.MATCHES}
         """
 
         val rowsUpdated = jdbi.withHandle<Int, Exception> { handle ->
@@ -128,10 +133,13 @@ class UpdateDocumentTemplateHandler(
                 .bind("id", command.id.key)
                 .bind("tenantId", command.id.tenantKey)
                 .bind("catalogKey", command.id.catalogKey)
+                .bind("expectedRevision", command.expectedRevision)
 
             bindings.forEach { (key, value) -> update.bind(key, value) }
 
-            update.execute()
+            update.execute().also { updated ->
+                if (updated == 0) Revisions.refuse("Template '${command.id.key.value}'", command.expectedRevision, templateRevision(handle, command.id))
+            }
         }
 
         if (rowsUpdated == 0) return null
@@ -142,3 +150,14 @@ class UpdateDocumentTemplateHandler(
 
     private fun getExisting(id: TemplateId): DocumentTemplate? = GetDocumentTemplate(id = id).query()
 }
+
+/** The revision of template [id] in the version the caller means, or null when there is no such template. */
+internal fun templateRevision(handle: Handle, id: TemplateId): Long? = handle.createQuery(
+    "SELECT revision FROM document_templates WHERE tenant_key = :t AND id = :k AND version_id = ${versionAt("t", "c")}",
+)
+    .bind("t", id.tenantKey)
+    .bind("c", id.catalogKey)
+    .bind("k", id.key)
+    .mapTo(Long::class.java)
+    .findOne()
+    .orElse(null)

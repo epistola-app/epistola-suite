@@ -11,6 +11,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mcp.dto.ThemeInfo
 import app.epistola.suite.mcp.dto.ThemeSummaryInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpTenantId
@@ -168,6 +169,8 @@ class ThemeMcpTools(
         spacingUnit: Float?,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
+        @McpToolParam(description = EXPECTED_REVISION_DESCRIPTION, required = false)
+        expectedRevision: Long? = null,
     ): ThemeInfo = UpdateTheme(
         id = themeId(catalogId, themeId),
         name = name?.takeIf { it.isNotBlank() },
@@ -191,6 +194,7 @@ class ThemeMcpTools(
         )?.toSet().orEmpty(),
         spacingUnit = spacingUnit,
         catalogVersion = catalogVersionRef(catalogId, catalogVersion),
+        expectedRevision = expectedRevision,
     ).execute()?.let { ThemeInfo.from(it) } ?: throw notFound("Theme", catalogId, themeId)
 
     @Suppress("UNCHECKED_CAST")

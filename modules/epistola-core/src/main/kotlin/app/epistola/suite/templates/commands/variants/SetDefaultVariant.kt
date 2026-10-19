@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
@@ -29,6 +30,8 @@ data class SetDefaultVariant(
     val variantId: VariantId,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogVersionRef? = null,
+    /** The revision of the variant made the default, as read; null to make it the default whatever it is at. */
+    val expectedRevision: Long? = null,
 ) : CatalogVersionScoped,
     Command<TemplateVariant?>,
     RequiresPermission {
@@ -46,23 +49,9 @@ class SetDefaultVariantHandler(
     }
 
     private fun setDefault(command: SetDefaultVariant): TemplateVariant? = jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
-        // Verify variant belongs to the template and tenant
-        val exists = handle.createQuery(
-            """
-                SELECT EXISTS (
-                    SELECT 1 FROM template_variants
-                    WHERE tenant_key = :tenantId AND id = :variantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
-                )
-                """,
-        )
-            .bind("tenantId", command.variantId.tenantKey)
-            .bind("catalogKey", command.variantId.catalogKey)
-            .bind("variantId", command.variantId.key)
-            .bind("templateId", command.variantId.templateKey)
-            .mapTo<Boolean>()
-            .one()
-
-        if (!exists) return@inTransaction null
+        // Verify variant belongs to the template and tenant, at the revision the caller read.
+        val current = variantRevision(handle, command.variantId) ?: return@inTransaction null
+        Revisions.refuse("Variant '${command.variantId.key.value}'", command.expectedRevision, current)
 
         // Clear default on current default variant for this template
         handle.createUpdate(

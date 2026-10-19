@@ -12,6 +12,7 @@ import app.epistola.suite.mcp.dto.StencilDetailInfo
 import app.epistola.suite.mcp.dto.StencilInfo
 import app.epistola.suite.mcp.dto.StencilUsageInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpTenantId
@@ -196,6 +197,8 @@ class StencilMcpTools(
         readsTemplateData: Boolean?,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
+        @McpToolParam(description = EXPECTED_REVISION_DESCRIPTION, required = false)
+        expectedRevision: Long? = null,
     ): StencilInfo = UpdateStencil(
         id = stencilId(catalogId, stencilId),
         name = name?.takeIf { it.isNotBlank() },
@@ -206,6 +209,7 @@ class StencilMcpTools(
         clearParameterSchema = parameterSchema == null && clearParameterSchema == true,
         readsTemplateData = readsTemplateData,
         catalogVersion = catalogVersionRef(catalogId, catalogVersion),
+        expectedRevision = expectedRevision,
     ).execute()?.let { StencilInfo.from(it) } ?: throw notFound("Stencil", catalogId, stencilId)
 
     private fun stencilId(catalogId: String, stencilId: String) = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))

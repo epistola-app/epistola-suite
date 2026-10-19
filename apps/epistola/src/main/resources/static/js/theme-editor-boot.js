@@ -24,6 +24,8 @@ async function mount(container) {
   const catalogSegment = config.catalogSegment || catalogId;
   const themeId = config.themeId;
   const themeData = config.theme;
+  // The theme's revision as last read or saved; each save names it (see editor-boot.js).
+  let themeRevision = themeData?.revision ?? null;
 
   const editable = config.editable;
 
@@ -43,7 +45,7 @@ async function mount(container) {
         return await resp.json();
       },
     },
-    onSave: async (payload) => {
+    onSave: async function save(payload, overwrite = false) {
       const response = await fetch(
         '/tenants/' + tenantId + '/themes/' + encodeURIComponent(catalogSegment) + '/' + themeId,
         {
@@ -52,9 +54,20 @@ async function mount(container) {
             'Content-Type': 'application/json',
             'X-XSRF-TOKEN': window.getCsrfToken(),
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ ...payload, expectedRevision: overwrite ? null : themeRevision }),
         },
       );
+
+      if (response.status === 412) {
+        const overwriteTheirs = window.confirm(
+          'Someone else saved this theme after you opened it.\n\n' +
+            'OK: replace their version with yours.\n' +
+            'Cancel: reload to see their version (your changes here are lost).',
+        );
+        if (overwriteTheirs) return save(payload, true);
+        window.location.reload();
+        return;
+      }
 
       if (!response.ok) {
         const text = await response.text().catch(() => response.statusText);
@@ -63,6 +76,7 @@ async function mount(container) {
 
       // Update page title if name changed
       const result = await response.json();
+      if (typeof result.revision === 'number') themeRevision = result.revision;
       if (result.name) {
         document.title = result.name + ' - Epistola';
         const titleEl = document.getElementById('page-title-text');

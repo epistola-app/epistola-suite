@@ -21,6 +21,8 @@ data class DataContractInfo(
      */
     val dataModel: Any?,
     val dataExamples: List<DataExampleInfo>,
+    /** Pass back as `expectedRevision` when updating: the update is refused if someone changed it since. */
+    val revision: Long? = null,
 ) {
     companion object {
         fun from(templateId: String, catalogId: String, contract: DataContract): DataContractInfo = DataContractInfo(
@@ -28,6 +30,7 @@ data class DataContractInfo(
             catalogId = catalogId,
             dataModel = contract.dataModel,
             dataExamples = contract.dataExamples.map { DataExampleInfo.from(it) },
+            revision = contract.revision,
         )
     }
 }

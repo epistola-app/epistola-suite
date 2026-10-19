@@ -4,11 +4,13 @@
 
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.contentRevision
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -48,6 +50,8 @@ data class UpdateStencil(
     val readsTemplateData: Boolean? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogVersionRef? = null,
+    /** The stencil's revision the change was made against; null to write whatever it is at now. */
+    val expectedRevision: Long? = null,
 ) : CatalogVersionScoped,
     Command<Stencil?>,
     RequiresPermission {
@@ -143,6 +147,7 @@ class UpdateStencilHandler(
                     .map(Stencil::withAbsentSchemaAsNull)
                     .findOne()
                     .orElse(null)
+                    ?.also { Revisions.refuse("Stencil '${command.id.key.value}'", command.expectedRevision, it.revision) }
             }
 
             setClauses.add("updated_at = NOW()")
@@ -153,13 +158,18 @@ class UpdateStencilHandler(
                 """
                 UPDATE stencils SET ${setClauses.joinToString(", ")}
                 WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND id = :id
+                  AND ${Revisions.MATCHES}
                 """,
             )
                 .bind("tenantId", command.id.tenantKey)
                 .bind("catalogKey", command.id.catalogKey)
                 .bind("id", command.id.key)
+                .bind("expectedRevision", command.expectedRevision)
             bindings.forEach { (key, value) -> update.bind(key, value) }
-            if (update.execute() == 0) return@inTransaction null
+            if (update.execute() == 0) {
+                Revisions.refuse("Stencil '${command.id.key.value}'", command.expectedRevision, handle.contentRevision("stencils", "id", command.id.tenantKey, command.id.catalogKey, command.id.key))
+                return@inTransaction null
+            }
 
             handle.createQuery("SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :tenantId AND s.version_id = ${versionAt("tenantId", "catalogKey")} AND s.id = :id")
                 .bind("tenantId", command.id.tenantKey)

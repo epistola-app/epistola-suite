@@ -32,6 +32,7 @@ import app.epistola.suite.catalog.versions.CatalogVersionBehindException
 import app.epistola.suite.catalog.versions.CatalogVersionHeldException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
+import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.DocumentNotFoundException
@@ -586,6 +587,13 @@ object ApiExceptionMappings {
             defaultDetail = "Only the next version is released, and only long-term work has a name",
             extensions = { mapOf("catalogKey" to it.catalogKey.value) },
             logMessage = { "Draft operation refused for its kind: ${it.message}" },
+        )
+
+        builder.register<ResourceModifiedException>(
+            problemType = ApiProblemTypes.RESOURCE_MODIFIED,
+            defaultDetail = "The resource changed since it was read",
+            extensions = { mapOf("expectedRevision" to it.expected, "currentRevision" to it.current) },
+            logMessage = { "Stale write refused: ${it.message}" },
         )
 
         builder.register<EnvironmentOverrideRefusedException>(

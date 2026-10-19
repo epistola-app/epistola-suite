@@ -8,6 +8,7 @@ import app.epistola.suite.api.v1.toValidationProblemBody
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FeatureKey
@@ -67,6 +68,7 @@ import app.epistola.suite.themes.queries.ResolveTemplateTheme
 import app.epistola.suite.validation.ValidationException
 import app.epistola.template.model.DocumentStyles
 import app.epistola.template.model.PageSettings
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -91,6 +93,8 @@ data class UpdateDataExampleRequest(
     val name: String? = null,
     val data: ObjectNode? = null,
     val forceUpdate: Boolean = false,
+    /** The template's revision as the editor last read or saved it; a save over someone else's is refused (412). */
+    val expectedRevision: Long? = null,
 )
 
 /**
@@ -467,6 +471,7 @@ class DocumentTemplateHandler(
                 "templateName" to context.templateName,
                 "variantAttributes" to context.variantAttributes,
                 "templateModel" to context.templateModel,
+                "variantRevision" to context.variantRevision,
                 "editorTheme" to editorTheme,
                 "dataExamples" to context.dataExamples,
                 "dataModel" to context.dataModel,
@@ -714,9 +719,11 @@ class DocumentTemplateHandler(
                 data = updateRequest.data,
                 forceUpdate = updateRequest.forceUpdate,
                 catalogVersion = request.catalogVersion(),
+                expectedRevision = updateRequest.expectedRevision,
             ).execute() ?: return ServerResponse.notFound().build()
 
             val responseBody = mutableMapOf<String, Any?>(
+                "revision" to result.revision,
                 "id" to result.example.id,
                 "name" to result.example.name,
                 "data" to result.example.data,
@@ -729,6 +736,10 @@ class DocumentTemplateHandler(
             ServerResponse.ok()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(responseBody)
+        } catch (e: ResourceModifiedException) {
+            ServerResponse.status(HttpStatus.PRECONDITION_FAILED)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("detail" to "Someone else saved this data contract after you opened it. Reload the page to see their version."))
         } catch (e: DataModelValidationException) {
             ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
@@ -750,7 +761,12 @@ class DocumentTemplateHandler(
                 templateId = templateId,
                 exampleId = exampleId,
                 catalogVersion = request.catalogVersion(),
+                expectedRevision = request.param("expectedRevision").orElse(null)?.toLongOrNull(),
             ).execute() ?: return ServerResponse.notFound().build()
+        } catch (e: ResourceModifiedException) {
+            return ServerResponse.status(HttpStatus.PRECONDITION_FAILED)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("detail" to "Someone else saved this data contract after you opened it. Reload the page to see their version."))
         } catch (e: ValidationException) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
@@ -758,7 +774,8 @@ class DocumentTemplateHandler(
         }
 
         return if (result.deleted) {
-            ServerResponse.noContent().build()
+            // The template's new revision, for the editor's next save.
+            ServerResponse.noContent().header("X-Revision", result.revision.toString()).build()
         } else {
             ServerResponse.notFound().build()
         }

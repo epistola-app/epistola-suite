@@ -6,6 +6,7 @@ package app.epistola.suite.mcp
 
 import app.epistola.suite.assets.AssetMediaCategory
 import app.epistola.suite.assets.queries.ListAssets
+import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -129,6 +130,22 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
         assertThat(echoedTree).isEqualTo(mapper.valueToTree<tools.jackson.databind.JsonNode>(content.templateModel))
         // What the server stores differs from what was sent, which is why a client needs it back.
         assertThat(echoedTree).isNotEqualTo(mapper.readTree(sent))
+    }
+
+    /** An agent passes back the revision it read; an update over someone else's is refused and changes nothing. */
+    @Test
+    fun `update_variant_content refuses an expectedRevision someone else has moved on from`() {
+        val tenantId = newTenant()
+        runAsApiKey(tenantId) { templateTools.createTemplate("default", "locked", "Locked", null, null, null) }
+        val variant = runAsApiKey(tenantId) { templateTools.listVariants("default", "locked") }.single()
+        val read = runAsApiKey(tenantId) { templateTools.getTemplateContent("default", "locked", variant.id) }!!.revision!!
+
+        val mine = runAsApiKey(tenantId) { contentTools.updateVariantContent("default", "locked", variant.id, documentJson("Mine"), null, expectedRevision = read) }
+        assertThat(mine.revision).isEqualTo(read + 1)
+        assertThatThrownBy {
+            runAsApiKey(tenantId) { contentTools.updateVariantContent("default", "locked", variant.id, documentJson("Theirs"), null, expectedRevision = read) }
+        }.isInstanceOf(ResourceModifiedException::class.java).hasMessageContaining("changed by someone else")
+        assertThat(runAsApiKey(tenantId) { templateTools.getTemplateContent("default", "locked", variant.id) }!!.revision).isEqualTo(mine.revision)
     }
 
     @Test

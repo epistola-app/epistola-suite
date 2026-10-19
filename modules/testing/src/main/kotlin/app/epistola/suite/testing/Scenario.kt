@@ -210,7 +210,7 @@ class ScenarioBuilder(private val namespace: String) {
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )
+        ).templateModel
 
         /**
          * Saves [templateModel] as the variant's model, marks its catalog ready and releases it, so

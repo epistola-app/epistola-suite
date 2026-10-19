@@ -12,6 +12,7 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mcp.dto.VariantContentInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.parseArgument
@@ -55,13 +56,20 @@ class VariantContentMcpTools(
         returnContent: Boolean? = null,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
+        @McpToolParam(description = EXPECTED_REVISION_DESCRIPTION, required = false)
+        expectedRevision: Long? = null,
     ): VariantContentInfo {
         val variant = VariantId(
             VariantKey.of(variantId),
             TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), mcpTenantId())),
         )
         val document = objectMapper.parseArgument("content", content, TemplateDocument::class.java)
-        val stored = UpdateVariantContent(variantId = variant, templateModel = document, catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute()
-        return VariantContentInfo(variantId = variantId, templateModel = stored.takeIf { returnContent == true })
+        val stored = UpdateVariantContent(
+            variantId = variant,
+            templateModel = document,
+            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
+            expectedRevision = expectedRevision,
+        ).execute()
+        return VariantContentInfo(variantId = variantId, templateModel = stored.templateModel.takeIf { returnContent == true }, revision = stored.revision)
     }
 }

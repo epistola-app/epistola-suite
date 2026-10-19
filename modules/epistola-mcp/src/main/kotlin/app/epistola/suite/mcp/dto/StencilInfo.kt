@@ -26,6 +26,8 @@ data class StencilInfo(
     val readsTemplateData: Boolean,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
+    /** Pass back as `expectedRevision` when updating: the update is refused if someone changed it since. */
+    val revision: Long? = null,
 ) {
     companion object {
         fun from(stencil: Stencil): StencilInfo = StencilInfo(
@@ -38,6 +40,7 @@ data class StencilInfo(
             readsTemplateData = stencil.readsTemplateData,
             createdAt = stencil.createdAt,
             updatedAt = stencil.updatedAt,
+            revision = stencil.revision,
         )
     }
 }

@@ -45,4 +45,6 @@ data class CodeList(
      */
     @get:ColumnName("catalog_type")
     val catalogType: CatalogType? = null,
+    /** Raised by every change; see [app.epistola.suite.common.Revisions]. */
+    val revision: Long = 1,
 )
