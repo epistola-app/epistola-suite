@@ -14,8 +14,9 @@ import org.springframework.web.servlet.function.router
 class FontRoutes(private val handler: FontHandler) {
     @Bean
     fun fontRouterFunction(): RouterFunction<ServerResponse> = router {
+        // A list belongs to a catalog; there is none across the tenant.
+        GET("/tenants/{tenantId}/catalogs/{catalogId}/fonts", handler::list)
         "/tenants/{tenantId}/fonts".nest {
-            GET("", handler::list)
             GET("/new", handler::newForm)
             POST("", handler::upload)
             GET("/search", handler::search)

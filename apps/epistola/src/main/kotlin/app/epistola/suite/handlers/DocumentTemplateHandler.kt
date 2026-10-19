@@ -20,6 +20,7 @@ import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.handlers.AuthContext
 import app.epistola.suite.handlers.CatalogDraftBar
+import app.epistola.suite.handlers.CatalogPages
 import app.epistola.suite.handlers.FromOtherCatalog
 import app.epistola.suite.handlers.FromOtherCatalogs
 import app.epistola.suite.handlers.WorkspaceBuilder
@@ -161,9 +162,9 @@ class DocumentTemplateHandler(
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogs = ListCatalogs(tenantId.key).query()
-        val model = templateListModel(request, tenantId)
-        val segment = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogSegment.parse(it) }
-        val bar = segment?.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/templates?catalog=${it.value}" } }
+        val segment = request.catalogSegment()
+        val model = templateListModel(request, tenantId, segment)
+        val bar = segment.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/catalogs/${it.value}/templates" } }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
         val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListTemplateSummaries(tenantId = tenantId, catalogKey = it, limit = 200).query().items }) { t, c, n -> FromOtherCatalog(t.name, "/tenants/${tenantId.key}/templates/${c.value}/${t.id.value}", n) }
         return ServerResponse.ok().page("templates/list") {
@@ -177,12 +178,13 @@ class DocumentTemplateHandler(
 
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val model = templateListModel(request, tenantId)
+        // The list's live search names its catalog as a parameter.
+        val model = templateListModel(request, tenantId, request.queryParam("catalog")?.ifBlank { null }?.let { CatalogSegment.parse(it) })
         return request.htmx {
             fragment("templates/list", "table") {
                 putAll(model)
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/templates") }
+            onNonHtmx { redirect(CatalogPages.list(request, tenantId.key, "templates")) }
         }
     }
 
@@ -194,10 +196,10 @@ class DocumentTemplateHandler(
     private fun templateListModel(
         request: ServerRequest,
         tenantId: TenantId,
+        // May name a draft (`letters@<draft>`): that catalog's rows are then the draft's.
+        catalogSegment: CatalogSegment?,
     ): Map<String, Any?> {
         val searchTerm = request.queryParam("q")?.ifBlank { null }
-        // The filter may name a draft (`letters@2.0.0`): that catalog's rows are then the draft's.
-        val catalogSegment = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogSegment.parse(it) }
         val catalogFilter = catalogSegment?.key
 
         val sort = TemplateSort.fromParam(request.queryParam("sort"))
@@ -276,7 +278,8 @@ class DocumentTemplateHandler(
     ) {
         "pageTitle" to "Document Templates - Epistola"
         "catalogs" to catalogs
-        putAll(templateListModel(request, tenantId))
+        // Behind the create dialog (no HTMX): the list of the catalog the dialog names.
+        putAll(templateListModel(request, tenantId, request.catalogParam()))
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
@@ -804,7 +807,7 @@ class DocumentTemplateHandler(
         return ServerResponse.status(303)
             .header(
                 "Location",
-                "/tenants/${tenantId.key}/templates?resourceDeleted=template:${catalogId.value}:${templateId.key.value}",
+                "/tenants/${tenantId.key}/catalogs/${catalogId.value}/templates?resourceDeleted=template:${catalogId.value}:${templateId.key.value}",
             )
             .build()
     }

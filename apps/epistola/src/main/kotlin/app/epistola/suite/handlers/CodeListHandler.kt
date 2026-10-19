@@ -59,11 +59,11 @@ class CodeListHandler(
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         // The filter may name a draft (`letters@2.0.0`); its rows are then the draft's.
-        val segment = request.catalogParam()
+        val segment = request.catalogSegment()
         val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
         val catalogs = ListCatalogs(tenantId.key).query()
-        val codeLists = ListCodeLists(tenantId = tenantId, catalogKey = segment?.key, catalogVersion = segment?.ref(tenantId.key)).query()
-        val bar = segment?.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/code-lists?catalog=${it.value}" } }
+        val codeLists = ListCodeLists(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
+        val bar = segment.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/catalogs/${it.value}/code-lists" } }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
         val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListCodeLists(tenantId = tenantId, catalogKey = it).query() }) { l, c, n -> FromOtherCatalog(l.displayName, "/tenants/${tenantId.key}/code-lists/${c.value}/${l.slug.value}", n) }
         return ServerResponse.ok().page("code-lists/list") {
@@ -71,7 +71,7 @@ class CodeListHandler(
             "tenant" to tenant
             "tenantId" to tenantId.key
             "catalogs" to catalogs
-            "selectedCatalog" to (segment?.value ?: "")
+            "selectedCatalog" to segment.value
             "draftSegment" to segment
             "draftBar" to bar
             "fromOtherCatalogs" to fromOtherCatalogs
@@ -272,8 +272,8 @@ class CodeListHandler(
                     "selectedCatalog" to ""
                     "codeLists" to codeLists
                 }
-                pushUrl("/tenants/${tenantId.key}/code-lists")
-                onNonHtmx { redirect("/tenants/${tenantId.key}/code-lists") }
+                pushUrl(CatalogPages.list(request, tenantId.key, "code-lists"))
+                onNonHtmx { redirect(CatalogPages.list(request, tenantId.key, "code-lists")) }
             }
         } catch (e: CodeListInUseException) {
             if (request.isHtmx) {

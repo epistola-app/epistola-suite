@@ -39,7 +39,7 @@ class WorkspaceNavigationUiTest : BasePlaywrightTest() {
         )
 
         page.locator("[data-testid='ws-nav-stencils']").click()
-        assertThat(page).hasURL(Pattern.compile(".*/stencils\\?catalog=letters$"))
+        assertThat(page).hasURL(Pattern.compile(".*/catalogs/letters/stencils$"))
         page.htmxSettle()
 
         Assertions.assertThat(page.evaluate("() => document.getElementById('app-nav') === window.__bar") as Boolean)

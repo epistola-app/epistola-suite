@@ -254,7 +254,7 @@ class TemplateHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/templates",
+                "/tenants/${testTenant.id}/catalogs/default/templates",
                 String::class.java,
             )
         }

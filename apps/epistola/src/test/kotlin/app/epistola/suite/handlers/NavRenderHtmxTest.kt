@@ -81,7 +81,7 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
     fun `shared chrome renders the application display name`() {
         val tenant = createTenant("Nav Display Name")
 
-        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/templates", String::class.java).body!!
+        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
         val navUser = body.substringAfter("""class="ws-account-name"""").substringBefore("</span>")
         val footerUser = body.substringAfter("""class="user-info"""").substringBefore("</footer>")
 
@@ -99,7 +99,7 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
             SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_COMPATIBILITY_CHECK, enabled = false).execute()
         }
 
-        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/templates", String::class.java).body!!
+        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
 
         assertThat(body).doesNotContain("nav-dropdown-support")
         // The feedback footer FAB is also contributed via the footer SPI, so it disappears too.
@@ -113,7 +113,7 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
             SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK, enabled = true).execute()
         }
 
-        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/templates", String::class.java).body!!
+        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
 
         assertThat(body).contains("nav-dropdown-support")
         assertThat(body).contains("/tenants/${tenant.id.value}/support") // Overview
@@ -164,7 +164,7 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
 
         // Render a page whose header is NOT the resource graph, so the badge in the markup is the one
         // the nav item emits — this isolates the nav-template rendering from the feature page header.
-        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/templates", String::class.java).body!!
+        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
 
         assertThat(body).contains("/tenants/${tenant.id.value}/resource-graph")
         assertThat(body).contains("badge badge-alpha")

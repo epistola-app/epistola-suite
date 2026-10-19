@@ -468,7 +468,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/stencils",
+                "/tenants/${testTenant.id}/catalogs/default/stencils",
                 String::class.java,
             )
         }

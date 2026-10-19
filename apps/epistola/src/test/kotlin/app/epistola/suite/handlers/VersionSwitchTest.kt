@@ -30,7 +30,7 @@ class VersionSwitchTest {
 
     @Test
     fun `a list stays the same list`() {
-        assertThat(switch("/tenants/acme/templates?catalog=letters", redesign)).isEqualTo("/tenants/acme/templates?catalog=letters@$work")
+        assertThat(switch("/tenants/acme/catalogs/letters/templates", redesign)).isEqualTo("/tenants/acme/catalogs/letters@$work/templates")
         assertThat(switch("/tenants/acme/themes?q=brand&catalog=letters%40$work", next)).isEqualTo("/tenants/acme/themes?q=brand&catalog=letters")
     }
 

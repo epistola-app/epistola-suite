@@ -104,7 +104,7 @@ class ImageDialogHandlerHtmxTest : BaseIntegrationTest() {
         given { testTenant = tenant("Image Plain List") }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/images", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/images", String::class.java)
         }
 
         then {
@@ -201,7 +201,7 @@ class ImageDialogHandlerHtmxTest : BaseIntegrationTest() {
                 .isEqualTo("""{"closeDialog": null, "dialogSuccess": null}""")
             assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
             assertThat(response.headers.getFirst("HX-Replace-Url"))
-                .isEqualTo("/tenants/${testTenant.id}/images")
+                .isEqualTo("/tenants/${testTenant.id}/catalogs/default/images")
             // The OOB grid region carries its id + hx-swap-oob and the new image.
             assertThat(response.body).contains("""id="asset-list"""")
             assertThat(response.body).contains("hx-swap-oob=\"outerHTML\"")

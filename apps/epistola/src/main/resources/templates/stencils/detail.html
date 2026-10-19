@@ -9,7 +9,7 @@
 
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${stencil.name},
-            backLinkHref=${draftBar != null} ? @{/tenants/{tenantId}/stencils(tenantId=${tenantId},catalog=${draftBar.segmentValue})} : @{/tenants/{tenantId}/stencils(tenantId=${tenantId})},
+            backLinkHref=${draftBar != null} ? @{/tenants/{tenantId}/catalogs/{catalogSeg}/stencils(tenantId=${tenantId},catalogSeg=${draftBar.segmentValue})} : @{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
             backLinkLabel='Stencils'
         )}"></div>
 

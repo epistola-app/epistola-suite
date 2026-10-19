@@ -201,8 +201,8 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
 
         val boosted = switch("letters@$work", "/tenants/${tenant.id}/templates/letters/invoice", htmx = true)
         assertThat(boosted.headers.getFirst("HX-Redirect")).isEqualTo("/tenants/${tenant.id}/templates/letters@$work/invoice")
-        assertThat(switch("letters", "/tenants/${tenant.id}/templates?catalog=letters@$work", htmx = true).headers.getFirst("HX-Redirect"))
-            .isEqualTo("/tenants/${tenant.id}/templates?catalog=letters")
+        assertThat(switch("letters", "/tenants/${tenant.id}/catalogs/letters@$work/templates", htmx = true).headers.getFirst("HX-Redirect"))
+            .isEqualTo("/tenants/${tenant.id}/catalogs/letters/templates")
         assertThat(switch("letters@$work", "https://evil.example/", htmx = true).headers.getFirst("HX-Redirect"))
             .`as`("never anywhere else: the version's overview").isEqualTo("/tenants/${tenant.id}/catalogs/letters@$work/draft")
         assertThat(switch("letters@$work", "/tenants/${tenant.id}/templates/letters/invoice").statusCode.is2xxSuccessful)
@@ -217,7 +217,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         )
         assertThat(missing.statusCode.value()).isEqualTo(404)
         assertThat(missing.body).contains("Not in this version").contains("Templates in this version")
-            .contains("/tenants/${tenant.id}/templates?catalog=letters@$work")
+            .contains("/tenants/${tenant.id}/catalogs/letters@$work/templates")
     }
 
     @Test
@@ -318,16 +318,16 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             withMediator { CreateAttributeDefinition(AttributeId(AttributeKey.of("tone"), catalogId(tenant)), "Tone", catalogVersion = at(tenant, DraftRef.Id(work))).execute() }
         }
         whenever {
-            val list = get("/tenants/${tenant.id}/attributes?catalog=letters@$work").body!!
+            val list = get("/tenants/${tenant.id}/catalogs/letters@$work/attributes").body!!
             assertThat(list).contains("Tone")
-            assertThat(get("/tenants/${tenant.id}/attributes?catalog=letters").body!!).doesNotContain(">Tone<")
+            assertThat(get("/tenants/${tenant.id}/catalogs/letters/attributes").body!!).doesNotContain(">Tone<")
             val dialog = getHtmx("/tenants/${tenant.id}/attributes/new?catalog=letters@$work").body!!
             assertThat(dialog).contains("value=\"letters@$work\"")
             postForm("/tenants/${tenant.id}/attributes", mapOf("catalog" to "letters@$work", "slug" to "mood", "displayName" to "Mood"))
         }
         then {
             val response = result<ResponseEntity<String>>()
-            assertThat(response.headers["HX-Location"].orEmpty().joinToString()).contains("catalog=letters@$work")
+            assertThat(response.headers["HX-Location"].orEmpty().joinToString()).contains("/catalogs/letters@$work/attributes")
             val inWork = withMediator { ListAttributeDefinitions(TenantId(tenant.id), catalogKey = letters, catalogVersion = at(tenant, DraftRef.Id(work))).query() }.map { it.id.value }
             val current = withMediator { ListAttributeDefinitions(TenantId(tenant.id), catalogKey = letters).query() }.map { it.id.value }
             assertThat(inWork).contains("mood", "tone")

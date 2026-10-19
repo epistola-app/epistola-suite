@@ -18,7 +18,7 @@
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='create-stencil-dialog',
             title='New Stencil',
-            closeUrl=@{/tenants/{tenantId}/stencils(tenantId=${tenantId})},
+            closeUrl=${draftSegment != null} ? @{/tenants/{tenantId}/catalogs/{catalogSeg}/stencils(tenantId=${tenantId},catalogSeg=${draftSegment.value})} : @{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
             content=~{::stencil-form})}"></div>
     </th:block>
 

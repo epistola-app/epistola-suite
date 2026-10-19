@@ -84,17 +84,17 @@ class StencilHandler(
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         // The filter may name a draft (`letters@2.0.0`); its rows are then the draft's.
-        val segment = request.catalogParam()
+        val segment = request.catalogSegment()
         val catalogs = ListCatalogs(tenantId.key).query()
-        val stencils = ListStencils(tenantId = tenantId, catalogKey = segment?.key, catalogVersion = segment?.ref(tenantId.key)).query()
-        val bar = segment?.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/stencils?catalog=${it.value}" } }
+        val stencils = ListStencils(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
+        val bar = segment.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/catalogs/${it.value}/stencils" } }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
         val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListStencils(tenantId = tenantId, catalogKey = it).query() }) { s, c, n -> FromOtherCatalog(s.name, "/tenants/${tenantId.key}/stencils/${c.value}/${s.id.value}", n) }
         return ServerResponse.ok().page("stencils/list") {
             "pageTitle" to "Stencils - Epistola"
             "tenantId" to tenantId.key
             "catalogs" to catalogs
-            "selectedCatalog" to (segment?.value ?: "")
+            "selectedCatalog" to segment.value
             "draftSegment" to segment
             "draftBar" to bar
             "fromOtherCatalogs" to fromOtherCatalogs
@@ -137,7 +137,7 @@ class StencilHandler(
                 // this fragment, so the distinction has to reach it.
                 "searchTerm" to searchTerm.orEmpty()
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils") }
+            onNonHtmx { redirect(CatalogPages.list(request, tenantId.key, "stencils")) }
         }
     }
 
@@ -516,7 +516,7 @@ class StencilHandler(
                 "tenantId" to tenantId.key
                 "stencils" to stencils
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils") }
+            onNonHtmx { redirect(CatalogPages.list(request, tenantId.key, "stencils")) }
         }
     }
 

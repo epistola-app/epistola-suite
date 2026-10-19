@@ -18,13 +18,13 @@ class StencilDialogUiTest : BasePlaywrightTest() {
     // the create dialog's catalog <select> is never empty.
     private fun createTestTenant(): Tenant = createTenant("Stencil Dialog Test")
 
-    private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/stencils/new$")
+    private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/stencils/new\\?catalog=default$")
 
     @Test
     fun `dialog is not open on initial load of the stencils list`() {
         val tenant = createTestTenant()
 
-        gotoAndReady("/tenants/${tenant.id}/stencils")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/stencils")
         page.htmxSettle()
 
         // On the plain list route the mount is empty, so the create dialog must
@@ -44,7 +44,7 @@ class StencilDialogUiTest : BasePlaywrightTest() {
         // intercept the pointer on the top-of-page header action. Both triggers
         // issue the same hx-get into #dialog-mount, so this exercises the identical
         // open path (and the pushed /…/new URL).
-        gotoAndReady("/tenants/${tenant.id}/stencils")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/stencils")
         page.htmxSettle()
 
         // The always-present page-header action is the canonical trigger.

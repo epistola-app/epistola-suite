@@ -18,7 +18,7 @@
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='create-attribute-dialog',
             title='New Attribute',
-            closeUrl=@{/tenants/{tenantId}/attributes(tenantId=${tenantId})},
+            closeUrl=${draftSegment != null} ? @{/tenants/{tenantId}/catalogs/{catalogSeg}/attributes(tenantId=${tenantId},catalogSeg=${draftSegment.value})} : @{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
             content=~{::attribute-form})}"></div>
     </th:block>
 

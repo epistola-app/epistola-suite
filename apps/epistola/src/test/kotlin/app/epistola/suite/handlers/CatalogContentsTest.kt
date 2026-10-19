@@ -45,7 +45,7 @@ class CatalogContentsTest {
             it != Permission.TENANT_SETTINGS
         }
 
-        assertThat(contents.groups.first { it.type == "image" }.items.single().href).isEqualTo("/tenants/acme/images?catalog=letters")
+        assertThat(contents.groups.first { it.type == "image" }.items.single().href).isEqualTo("/tenants/acme/catalogs/letters/images")
         assertThat(contents.groups.first { it.type == "codeList" }.createWithheld).isTrue()
         assertThat(contents.withheldLabels).containsExactly("attributes", "code lists")
         assertThat(contents.addable.map { it.type }).doesNotContain("attribute", "codeList")
@@ -63,7 +63,7 @@ class CatalogContentsTest {
 
         val templates = contents.templates
         assertThat(templates.count to templates.changedCount).isEqualTo(2 to 1)
-        assertThat(templates.listHref).isEqualTo("/tenants/acme/templates?catalog=letters@$work")
-        assertThat(contents.groups.first { it.type == "codeList" }.listHref).isEqualTo("/tenants/acme/code-lists?catalog=letters@$work")
+        assertThat(templates.listHref).isEqualTo("/tenants/acme/catalogs/letters@$work/templates")
+        assertThat(contents.groups.first { it.type == "codeList" }.listHref).isEqualTo("/tenants/acme/catalogs/letters@$work/code-lists")
     }
 }

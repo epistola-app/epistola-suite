@@ -122,7 +122,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
         assertThat(page.indexOf("data-testid=\"catalog-about\"")).isLessThan(page.indexOf("data-testid=\"catalog-status\""))
         val templates = page.substringAfter("data-testid=\"catalog-count\" data-type=\"template\"").substringBefore("</a>")
         assertThat(templates).contains(">2<").contains(">Templates<").contains("1 not published yet")
-        assertThat(page).contains("href=\"/tenants/${tenant.id}/templates?catalog=letters\" class=\"ep-panel stat-card\"")
+        assertThat(page).contains("href=\"/tenants/${tenant.id}/catalogs/letters/templates\" class=\"ep-panel stat-card\"")
         assertThat(page.substringAfter("data-type=\"stencil\"").substringBefore("</a>")).contains(">0<").doesNotContain("not published")
         assertThat(page).`as`("templates are counted, not listed").doesNotContain("data-testid=\"catalog-templates\"")
     }
@@ -183,7 +183,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
         }
 
         listOf("stencils", "themes", "images", "fonts", "code-lists").forEach { area ->
-            val list = get(tenant, "/$area?catalog=letters").body!!
+            val list = get(tenant, "/catalogs/letters/$area").body!!
             assertThat(list).`as`("$area New carries the catalog").contains("hx-get=\"/tenants/${tenant.id}/$area/new?catalog=letters\"")
         }
     }

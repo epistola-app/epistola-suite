@@ -166,7 +166,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/themes",
+                "/tenants/${testTenant.id}/catalogs/default/themes",
                 String::class.java,
             )
         }

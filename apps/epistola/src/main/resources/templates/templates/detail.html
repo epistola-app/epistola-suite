@@ -11,7 +11,7 @@
 
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${template.name},
-            backLinkHref=${draftBar != null} ? @{/tenants/{tenantId}/templates(tenantId=${tenantId},catalog=${draftBar.segmentValue})} : @{/tenants/{tenantId}/templates(tenantId=${tenantId})},
+            backLinkHref=${draftBar != null} ? @{/tenants/{tenantId}/catalogs/{catalogSeg}/templates(tenantId=${tenantId},catalogSeg=${draftBar.segmentValue})} : @{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
             backLinkLabel='Templates'
         )}"></div>
 

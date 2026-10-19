@@ -306,6 +306,16 @@ data class CatalogDraftBar(
 
 /** URLs of the catalog page, at a catalog segment (a draft, or the current version). */
 object CatalogPages {
+    /**
+     * A catalog's list of one resource type (`themes`, `templates`, …), for the catalog [request]
+     * names, by its `catalog` parameter or its `{catalogId}` path segment. There is no list across the
+     * tenant: without a catalog, the catalog list.
+     */
+    fun list(request: org.springframework.web.servlet.function.ServerRequest, tenantKey: TenantKey, type: String): String {
+        val catalog = request.param("catalog").orElse(null)?.takeIf { it.isNotBlank() } ?: request.pathVariables()["catalogId"]
+        return catalog?.let { "/tenants/${tenantKey.value}/catalogs/$it/$type" } ?: "/tenants/${tenantKey.value}/catalogs"
+    }
+
     /** The catalog page: the next version, every version, where each is live. */
     fun browse(tenantId: TenantId, segment: CatalogSegment): String = "/tenants/${tenantId.key}/catalogs/${segment.key.value}/browse"
 

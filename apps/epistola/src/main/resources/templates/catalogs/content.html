@@ -207,10 +207,10 @@
                                        th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},slug=${resource.slug})}"
                                        th:text="${resource.name}"></a>
                                     <a th:if="${resource.type == 'attribute'}"
-                                       th:href="@{/tenants/{tenantId}/attributes(tenantId=${tenantId},catalog=${catalogId ?: catalog.id})}"
+                                       th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/attributes(tenantId=${tenantId},catalogSeg=${catalogId ?: catalog.id})}"
                                        th:text="${resource.name}"></a>
                                     <a th:if="${resource.type == 'image'}"
-                                       th:href="@{/tenants/{tenantId}/images(tenantId=${tenantId},catalog=${catalogId ?: catalog.id})}"
+                                       th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/images(tenantId=${tenantId},catalogSeg=${catalogId ?: catalog.id})}"
                                        th:text="${resource.name}"></a>
                                 </th:block>
                                 <!--/* Subscribed: the resource has no local page (it is a read-only
@@ -359,7 +359,7 @@
                     <p th:if="${presentationIcon == null and presentationImages.isEmpty() and !hasImages}"
                        class="text-muted text-sm" style="margin: 0;">
                         This catalog has no images yet. Add one under
-                        <a th:href="@{/tenants/{tenantId}/images(tenantId=${tenantId})}">Images</a>
+                        <a th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/images(tenantId=${tenantId},catalogSeg=${catalogId ?: catalog.id})}">Images</a>
                         to choose an icon or build a gallery.
                     </p>
                     <div th:if="${presentationIcon != null}" style="margin-bottom: var(--ep-space-3);">

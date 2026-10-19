@@ -110,7 +110,7 @@ data class CatalogContents(val groups: List<Group>) {
                         label = kind.label,
                         newLabel = kind.newLabel,
                         newHref = "$base/${kind.area}/new?catalog=$catalog",
-                        listHref = "$base/${kind.area}?catalog=$catalog",
+                        listHref = "$base/catalogs/$catalog/${kind.area}",
                         mayCreate = may(kind.permission),
                         items = resources.filter { it.type == kind.type }.sortedBy { it.name.lowercase() }.map { resource ->
                             Item(
@@ -118,7 +118,7 @@ data class CatalogContents(val groups: List<Group>) {
                                 slug = resource.slug,
                                 name = resource.name,
                                 description = resource.description,
-                                href = if (kind.ownPage) "$base/${kind.area}/$catalog/${resource.slug}" else "$base/${kind.area}?catalog=$catalog",
+                                href = if (kind.ownPage) "$base/${kind.area}/$catalog/${resource.slug}" else "$base/catalogs/$catalog/${kind.area}",
                                 change = when (changes["${resource.type}/${resource.slug}"]) {
                                     CatalogResourceState.NEW -> "New"
                                     CatalogResourceState.MODIFIED -> "Changed"

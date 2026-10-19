@@ -30,6 +30,7 @@ import app.epistola.suite.fonts.queries.GetFontVariantContent
 import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
 import app.epistola.suite.handlers.CatalogDraftBar
+import app.epistola.suite.handlers.CatalogPages
 import app.epistola.suite.handlers.FromOtherCatalog
 import app.epistola.suite.handlers.FromOtherCatalogs
 import app.epistola.suite.htmx.CatalogSegment
@@ -75,14 +76,14 @@ class FontHandler(
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
         val tenantId = TenantId(tenantKey)
         // The filter may name a draft (`letters@2.0.0`); its families are then the draft's.
-        val segment = request.catalogParam()
-        val version = segment?.ref(tenantKey)
+        val segment = request.catalogSegment()
+        val version = segment.ref(tenantKey)
         val tenant = GetTenant(id = tenantKey).query()
         val catalogs = ListCatalogs(tenantKey).query()
-        val fonts = ListFonts(tenantId = tenantId, catalogKey = segment?.key, catalogVersion = version).query()
-        val bar = segment?.let { s -> CatalogDraftBar.of(tenantKey, s) { "/tenants/${tenantKey.value}/fonts?catalog=${it.value}" } }
+        val fonts = ListFonts(tenantId = tenantId, catalogKey = segment.key, catalogVersion = version).query()
+        val bar = segment.let { s -> CatalogDraftBar.of(tenantKey, s) { "/tenants/${tenantKey.value}/catalogs/${it.value}/fonts" } }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListFonts(tenantId = tenantId, catalogKey = it).query() }) { f, c, n -> FromOtherCatalog(f.name, "/tenants/${tenantKey.value}/fonts?catalog=${c.value}", n) }
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListFonts(tenantId = tenantId, catalogKey = it).query() }) { f, c, n -> FromOtherCatalog(f.name, "/tenants/${tenantKey.value}/catalogs/${c.value}/fonts", n) }
         return ServerResponse.ok().render(
             "layout/shell",
             mapOf(
@@ -91,7 +92,7 @@ class FontHandler(
                 "tenantId" to tenantKey.value,
                 "tenant" to tenant,
                 "catalogs" to catalogs,
-                "selectedCatalog" to (segment?.value ?: ""),
+                "selectedCatalog" to segment.value,
                 "draftSegment" to segment,
                 "draftBar" to bar,
                 "fromOtherCatalogs" to fromOtherCatalogs,
@@ -350,13 +351,13 @@ class FontHandler(
             val draft = catalogSegment?.takeIf { it.draft != null }
             val fonts = ListFonts(tenantId = tenantId, catalogKey = draft?.key, catalogVersion = version).query().map { toFontView(tenantId, it, version) }
             return request.htmx {
-                dialogSuccess("fonts/list", "font-grid-items", "/tenants/${tenantKey.value}/fonts") {
+                dialogSuccess("fonts/list", "font-grid-items", CatalogPages.list(request, tenantKey, "fonts")) {
                     "tenantId" to tenantKey.value
                     "tenant" to GetTenant(id = tenantKey).query()
                     "fonts" to fonts
                     "draftSegment" to draft
                 }
-                onNonHtmx { redirect("/tenants/${tenantKey.value}/fonts") }
+                onNonHtmx { redirect(CatalogPages.list(request, tenantKey, "fonts")) }
             }
         }
         // Editor / non-HTMX JSON contract (unchanged).
@@ -405,7 +406,7 @@ class FontHandler(
                 "fonts" to fonts.map { toFontView(tenantId, it, version) }
                 "draftSegment" to draft
             }
-            onNonHtmx { redirect("/tenants/${tenantKey.value}/fonts") }
+            onNonHtmx { redirect(CatalogPages.list(request, tenantKey, "fonts")) }
         }
     }
 

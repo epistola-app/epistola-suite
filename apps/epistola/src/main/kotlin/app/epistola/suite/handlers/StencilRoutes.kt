@@ -14,8 +14,9 @@ import org.springframework.web.servlet.function.router
 class StencilRoutes(private val handler: StencilHandler) {
     @Bean
     fun stencilRouterFunction(): RouterFunction<ServerResponse> = router {
+        // A list belongs to a catalog; there is none across the tenant.
+        GET("/tenants/{tenantId}/catalogs/{catalogId}/stencils", handler::list)
         "/tenants/{tenantId}/stencils".nest {
-            GET("", handler::list)
             GET("/search", handler::search)
             GET("/new", handler::newForm)
             POST("", handler::create)

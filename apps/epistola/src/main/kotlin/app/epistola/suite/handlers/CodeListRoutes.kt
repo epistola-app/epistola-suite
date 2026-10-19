@@ -14,8 +14,9 @@ import org.springframework.web.servlet.function.router
 class CodeListRoutes(private val handler: CodeListHandler) {
     @Bean
     fun codeListRouterFunction(): RouterFunction<ServerResponse> = router {
+        // A list belongs to a catalog; there is none across the tenant.
+        GET("/tenants/{tenantId}/catalogs/{catalogId}/code-lists", handler::list)
         "/tenants/{tenantId}/code-lists".nest {
-            GET("", handler::list)
             GET("/new", handler::newForm)
             POST("", handler::create)
             GET("/{catalogId}/{codeListId}", handler::detail)

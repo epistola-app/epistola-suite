@@ -83,7 +83,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("Code lists")
             assertThat(response.headers.getFirst("HX-Push-Url"))
-                .isEqualTo("/tenants/${seeded.tenantKey}/code-lists")
+                .isEqualTo("/tenants/${seeded.tenantKey}/catalogs/default/code-lists")
         }
     }
 
@@ -303,7 +303,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/code-lists",
+                "/tenants/${testTenant.id}/catalogs/default/code-lists",
                 String::class.java,
             )
         }

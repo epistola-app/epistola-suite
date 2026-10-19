@@ -108,7 +108,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates", String::class.java)
         }
 
         then {
@@ -130,7 +130,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates", String::class.java)
         }
 
         then {
@@ -153,7 +153,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?catalog=marketing", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/marketing/templates", String::class.java)
         }
 
         then {
@@ -208,7 +208,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=name&dir=asc", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates?sort=name&dir=asc", String::class.java)
         }
 
         then {
@@ -271,7 +271,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates", String::class.java)
         }
 
         then {
@@ -297,7 +297,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?page=3", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates?page=3", String::class.java)
         }
 
         then {
@@ -320,7 +320,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         whenever {
             // (page - 1) * PAGE_SIZE would overflow Int to a negative OFFSET if
             // the page were not capped; must clamp to the last page, not 500.
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?page=2147483647", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates?page=2147483647", String::class.java)
         }
 
         then {
@@ -341,7 +341,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?page=99", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates?page=99", String::class.java)
         }
 
         then {
@@ -385,7 +385,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(body.indexOf("Banana")).isLessThan(body.indexOf("Cherry"))
             // All 4 sortable columns always carry exactly one chevron (no layout
             // shift); the active column (name, asc) is the only up-chevron.
-            assertThat(body.split("ep-sort-icon").size - 1).isEqualTo(4)
+            assertThat(body.split("ep-sort-icon").size - 1).isEqualTo(3)
             assertThat(body.split("icon-chevron-up").size - 1).isEqualTo(1)
         }
     }
@@ -421,7 +421,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(body.indexOf("Banana")).isLessThan(body.indexOf("Apple"))
             // All 4 sortable columns always carry exactly one chevron (no layout
             // shift); sorting descending means none point up.
-            assertThat(body.split("ep-sort-icon").size - 1).isEqualTo(4)
+            assertThat(body.split("ep-sort-icon").size - 1).isEqualTo(3)
             assertThat(body).doesNotContain("icon-chevron-up")
         }
     }
@@ -436,7 +436,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates", String::class.java)
         }
 
         then {
@@ -447,7 +447,6 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             // Variants/Last Modified are naturally descending, Name/Catalog ascending.
             assertThat(body).contains("sort=variants&amp;dir=desc")
             assertThat(body).contains("sort=name&amp;dir=asc")
-            assertThat(body).contains("sort=catalog&amp;dir=asc")
         }
     }
 
@@ -461,7 +460,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=not-a-column", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates?sort=not-a-column", String::class.java)
         }
 
         then {
@@ -489,7 +488,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=variants&dir=desc", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates?sort=variants&dir=desc", String::class.java)
         }
 
         then {
@@ -498,39 +497,6 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(body.indexOf("ManyVariants")).isLessThan(body.indexOf("SomeVariants"))
             assertThat(body.indexOf("SomeVariants")).isLessThan(body.indexOf("FewVariants"))
-        }
-    }
-
-    @Test
-    fun `GET templates sorts by catalog ascending`() = fixture {
-        lateinit var testTenant: Tenant
-
-        given {
-            testTenant = tenant("Test Tenant")
-            val tenantId = TenantId(testTenant.id)
-            // Default catalog template created first (older); marketing second.
-            // Under sort=updated the marketing row would lead, so an asserted
-            // default-before-marketing order proves the catalog sort is applied.
-            template(testTenant, "DefaultCatalogTemplate")
-            withMediator {
-                CreateCatalog(tenantKey = testTenant.id, id = CatalogKey.of("marketing"), name = "Marketing").execute()
-                CreateDocumentTemplate(
-                    id = TemplateId(TemplateKey.of("mkt-tpl"), CatalogId(CatalogKey.of("marketing"), tenantId)),
-                    name = "MarketingCatalogTemplate",
-                ).execute()
-            }
-        }
-
-        whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=catalog&dir=asc", String::class.java)
-        }
-
-        then {
-            val response = result<org.springframework.http.ResponseEntity<String>>()
-            val body = response.body!!
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            // catalog asc: "default" precedes "marketing".
-            assertThat(body.indexOf("DefaultCatalogTemplate")).isLessThan(body.indexOf("MarketingCatalogTemplate"))
         }
     }
 
@@ -554,7 +520,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=updated&dir=desc", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates?sort=updated&dir=desc", String::class.java)
         }
 
         then {
@@ -586,7 +552,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?catalog=marketing&page=2", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/marketing/templates?page=2", String::class.java)
         }
 
         then {
@@ -598,7 +564,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(body).contains("Page 2 of 2")
             assertThat(rowCount(body)).isEqualTo(2)
             assertThat(body).doesNotContain("Default Catalog Only")
-            assertThat(body).contains("catalog=marketing")
+            assertThat(body).contains("/catalogs/marketing/templates")
         }
     }
 

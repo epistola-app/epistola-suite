@@ -48,7 +48,7 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/$tenantKey/images", String::class.java)
+            restTemplate.getForEntity("/tenants/$tenantKey/catalogs/default/images", String::class.java)
         }
 
         then {
@@ -118,7 +118,7 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/$tenantKey/images", String::class.java)
+            restTemplate.getForEntity("/tenants/$tenantKey/catalogs/default/images", String::class.java)
         }
 
         then {
@@ -140,7 +140,7 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/$tenantKey/images?catalog=default", String::class.java)
+            restTemplate.getForEntity("/tenants/$tenantKey/catalogs/default/images", String::class.java)
         }
 
         then {

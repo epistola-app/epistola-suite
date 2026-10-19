@@ -24,7 +24,7 @@
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='upload-font-dialog',
             title='Upload Font',
-            closeUrl=@{/tenants/{tenantId}/fonts(tenantId=${tenantId})},
+            closeUrl=${draftSegment != null} ? @{/tenants/{tenantId}/catalogs/{catalogSeg}/fonts(tenantId=${tenantId},catalogSeg=${draftSegment.value})} : @{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
             content=~{::font-upload-form})}"></div>
     </th:block>
 

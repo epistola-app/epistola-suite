@@ -43,7 +43,7 @@ class CatalogUpdateNotificationTest : BaseIntegrationTest() {
         recordAvailable(tenant, "99.0.0")
 
         // Deliberately a page that has nothing to do with catalogs.
-        val response = restTemplate.getForEntity("/tenants/$tenant/templates", String::class.java)
+        val response = restTemplate.getForEntity("/tenants/$tenant/catalogs", String::class.java)
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.body).contains("nav-indicator-catalogs")
@@ -54,7 +54,7 @@ class CatalogUpdateNotificationTest : BaseIntegrationTest() {
     fun `no count is shown when nothing is waiting`() {
         val tenant = subscribedTenant("nav-quiet")
 
-        val response = restTemplate.getForEntity("/tenants/$tenant/templates", String::class.java)
+        val response = restTemplate.getForEntity("/tenants/$tenant/catalogs", String::class.java)
 
         assertThat(response.body).doesNotContain("nav-indicator-catalogs")
     }

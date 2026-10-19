@@ -78,15 +78,15 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
     fun `a list inside a catalog has no catalog to choose, and shows what the catalogs it depends on hold`() {
         val tenant = seed("Workspace Lists")
 
-        val stencils = get(tenant, "/stencils?catalog=letters")
+        val stencils = get(tenant, "/catalogs/letters/stencils")
         assertThat(stencils).doesNotContain("id=\"catalog-filter\"")
         val others = stencils.substringAfter("data-testid=\"from-other-catalogs\"")
         assertThat(others).contains(">Footer<").contains("In Shared").contains("href=\"/tenants/${tenant.id}/stencils/shared/footer\"")
 
-        assertThat(get(tenant, "/themes?catalog=letters").substringAfter("data-testid=\"from-other-catalogs\"")).contains(">Brand<")
-        assertThat(get(tenant, "/stencils")).`as`("outside a catalog the filter stays").contains("id=\"catalog-filter\"")
-            .doesNotContain("data-testid=\"from-other-catalogs\"")
-        assertThat(get(tenant, "/stencils?catalog=shared")).`as`("Shared depends on nothing").doesNotContain("data-testid=\"from-other-catalogs\"")
+        assertThat(get(tenant, "/catalogs/letters/themes").substringAfter("data-testid=\"from-other-catalogs\"")).contains(">Brand<")
+        assertThat(restTemplate.getForEntity("/tenants/${tenant.id}/stencils", String::class.java).statusCode.value())
+            .`as`("there is no list across catalogs").isEqualTo(404)
+        assertThat(get(tenant, "/catalogs/shared/stencils")).`as`("Shared depends on nothing").doesNotContain("data-testid=\"from-other-catalogs\"")
     }
 
     @Test
@@ -186,9 +186,9 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
 
         fun back(path: String) = Regex("""href="([^"]+)"\s+class="back-link"""").find(get(tenant, path))!!.groupValues[1]
 
-        assertThat(back("/templates/letters/invoice")).isEqualTo("/tenants/${tenant.id}/templates?catalog=letters")
-        assertThat(back("/stencils/shared/footer")).isEqualTo("/tenants/${tenant.id}/stencils?catalog=shared")
-        assertThat(back("/themes/shared/brand")).isEqualTo("/tenants/${tenant.id}/themes?catalog=shared")
+        assertThat(back("/templates/letters/invoice")).isEqualTo("/tenants/${tenant.id}/catalogs/letters/templates")
+        assertThat(back("/stencils/shared/footer")).isEqualTo("/tenants/${tenant.id}/catalogs/shared/stencils")
+        assertThat(back("/themes/shared/brand")).isEqualTo("/tenants/${tenant.id}/catalogs/shared/themes")
         assertThat(back("/catalogs/shared/releases/1.0.0")).isEqualTo("/tenants/${tenant.id}/catalogs/shared/versions")
     }
 

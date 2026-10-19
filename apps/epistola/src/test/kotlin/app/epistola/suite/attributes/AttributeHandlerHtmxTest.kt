@@ -179,7 +179,7 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             // Soft boosted navigation to the list re-renders the whole list page —
             // HX-Location, no OOB refresh, no closeDialog (the page navigates away).
-            assertThat(response.headers.getFirst("HX-Location")).isEqualTo("/tenants/${testTenant.id}/attributes")
+            assertThat(response.headers.getFirst("HX-Location")).isEqualTo("/tenants/${testTenant.id}/catalogs/default/attributes")
             assertThat(response.headers.getFirst("HX-Redirect")).isNull()
             assertThat(response.headers.getFirst("HX-Trigger")).isNull()
             // Persistence verified through the mediator, not the (absent) list body.
@@ -219,7 +219,7 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.headers.getFirst("HX-Location")).isEqualTo("/tenants/${testTenant.id}/attributes")
+            assertThat(response.headers.getFirst("HX-Location")).isEqualTo("/tenants/${testTenant.id}/catalogs/default/attributes")
             assertThat(response.headers.getFirst("HX-Redirect")).isNull()
             // The inline constraint was parsed and persisted — verified through the
             // mediator (the redirect returns no list body to inspect).
@@ -321,7 +321,7 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/attributes",
+                "/tenants/${testTenant.id}/catalogs/default/attributes",
                 String::class.java,
             )
         }

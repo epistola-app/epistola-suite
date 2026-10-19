@@ -14,8 +14,9 @@ import org.springframework.web.servlet.function.router
 class AssetRoutes(private val handler: AssetHandler) {
     @Bean
     fun assetRouterFunction(): RouterFunction<ServerResponse> = router {
+        // A list belongs to a catalog; there is none across the tenant.
+        GET("/tenants/{tenantId}/catalogs/{catalogId}/images", handler::list)
         "/tenants/{tenantId}/images".nest {
-            GET("", handler::list)
             GET("/new", handler::newForm)
             POST("", handler::upload)
             GET("/search", handler::search)

@@ -17,8 +17,9 @@ class ThemeRoutes(private val handler: ThemeHandler) {
         "/tenants/{tenantId}".nest {
             POST("/default-theme", handler::setDefault)
 
+            // A list belongs to a catalog; there is none across the tenant.
+            GET("/catalogs/{catalogId}/themes", handler::list)
             "/themes".nest {
-                GET("", handler::list)
                 GET("/search", handler::search)
                 GET("/new", handler::newForm)
                 POST("", handler::create)

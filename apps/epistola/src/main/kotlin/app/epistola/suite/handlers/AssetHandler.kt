@@ -18,6 +18,7 @@ import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.handlers.CatalogDraftBar
+import app.epistola.suite.handlers.CatalogPages
 import app.epistola.suite.handlers.FromOtherCatalog
 import app.epistola.suite.handlers.FromOtherCatalogs
 import app.epistola.suite.htmx.CatalogSegment
@@ -63,13 +64,13 @@ class AssetHandler(
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         // The filter may name a draft (`letters@2.0.0`); its images are then the draft's.
-        val segment = request.catalogParam()
+        val segment = request.catalogSegment()
         val tenant = GetTenant(id = tenantId).query()
         val catalogs = ListCatalogs(tenantId).query()
-        val assets = listImages(tenantId = tenantId, catalogKey = segment?.key, version = segment?.ref(tenantId))
-        val bar = segment?.let { s -> CatalogDraftBar.of(tenantId, s) { "/tenants/${tenantId.value}/images?catalog=${it.value}" } }
+        val assets = listImages(tenantId = tenantId, catalogKey = segment.key, version = segment.ref(tenantId))
+        val bar = segment.let { s -> CatalogDraftBar.of(tenantId, s) { "/tenants/${tenantId.value}/catalogs/${it.value}/images" } }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { listImages(tenantId = tenantId, catalogKey = it) }) { a, c, n -> FromOtherCatalog(a.name, "/tenants/${tenantId.value}/images?catalog=${c.value}", n) }
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { listImages(tenantId = tenantId, catalogKey = it) }) { a, c, n -> FromOtherCatalog(a.name, "/tenants/${tenantId.value}/catalogs/${c.value}/images", n) }
         return ServerResponse.ok().render(
             "layout/shell",
             mapOf(
@@ -78,7 +79,7 @@ class AssetHandler(
                 "tenantId" to tenantId.value,
                 "tenant" to tenant,
                 "catalogs" to catalogs,
-                "selectedCatalog" to (segment?.value ?: ""),
+                "selectedCatalog" to segment.value,
                 "draftSegment" to segment,
                 "draftBar" to bar,
                 "fromOtherCatalogs" to fromOtherCatalogs,
@@ -110,7 +111,7 @@ class AssetHandler(
                     // this fragment, so the distinction has to reach it.
                     "searchTerm" to searchTerm.orEmpty()
                 }
-                onNonHtmx { redirect("/tenants/${tenantId.value}/images") }
+                onNonHtmx { redirect(CatalogPages.list(request, tenantId, "images")) }
             }
         }
 
@@ -304,14 +305,14 @@ class AssetHandler(
             val draft = catalogSegment?.takeIf { it.draft != null }
             val assets = listImages(tenantId = tenantId, catalogKey = draft?.key, version = draft?.ref(tenantId))
             return request.htmx {
-                dialogSuccess("images/list", "asset-list", "/tenants/${tenantId.value}/images") {
+                dialogSuccess("images/list", "asset-list", CatalogPages.list(request, tenantId, "images")) {
                     "tenantId" to tenantId.value
                     "tenant" to GetTenant(id = tenantId).query()
                     "assets" to assets
                     "selectedCatalog" to (draft?.value ?: "")
                     "draftSegment" to draft
                 }
-                onNonHtmx { redirect("/tenants/${tenantId.value}/images") }
+                onNonHtmx { redirect(CatalogPages.list(request, tenantId, "images")) }
             }
         }
 
@@ -390,7 +391,7 @@ class AssetHandler(
                 "selectedCatalog" to (segment?.value ?: "")
                 "draftSegment" to segment
             }
-            onNonHtmx { redirect("/tenants/${tenantId.value}/images") }
+            onNonHtmx { redirect(CatalogPages.list(request, tenantId, "images")) }
         }
     }
 }

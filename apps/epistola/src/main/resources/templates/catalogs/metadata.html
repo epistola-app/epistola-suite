@@ -66,7 +66,7 @@
                 -->
                 <p th:if="${images.isEmpty()}" class="text-muted">
                     This catalog has no images yet. Add one under
-                    <a th:href="@{/tenants/{tenantId}/images(tenantId=${tenantId})}">Images</a>,
+                    <a th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/images(tenantId=${tenantId},catalogSeg=${catalogId})}">Images</a>,
                     then choose an icon or build a gallery here.
                 </p>
             </div>

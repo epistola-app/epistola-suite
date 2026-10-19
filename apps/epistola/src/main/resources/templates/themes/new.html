@@ -18,7 +18,7 @@
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='create-theme-dialog',
             title='New Theme',
-            closeUrl=@{/tenants/{tenantId}/themes(tenantId=${tenantId})},
+            closeUrl=${draftSegment != null} ? @{/tenants/{tenantId}/catalogs/{catalogSeg}/themes(tenantId=${tenantId},catalogSeg=${draftSegment.value})} : @{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
             content=~{::theme-form})}"></div>
     </th:block>
 

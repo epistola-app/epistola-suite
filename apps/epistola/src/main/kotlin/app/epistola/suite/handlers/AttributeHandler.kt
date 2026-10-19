@@ -21,6 +21,7 @@ import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.handlers.CatalogDraftBar
+import app.epistola.suite.handlers.CatalogPages
 import app.epistola.suite.handlers.FromOtherCatalog
 import app.epistola.suite.handlers.FromOtherCatalogs
 import app.epistola.suite.htmx.CatalogSegment
@@ -51,19 +52,19 @@ class AttributeHandler {
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         // The filter may name a draft (`letters@2.0.0`); its rows are then the draft's.
-        val segment = request.catalogParam()
+        val segment = request.catalogSegment()
         val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
         val catalogs = ListCatalogs(tenantId.key).query()
-        val attributes = ListAttributeDefinitions(tenantId = tenantId, catalogKey = segment?.key, catalogVersion = segment?.ref(tenantId.key)).query()
-        val bar = segment?.let { draftBarFor(tenantId, it) }
+        val attributes = ListAttributeDefinitions(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
+        val bar = segment.let { draftBarFor(tenantId, it) }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListAttributeDefinitions(tenantId = tenantId, catalogKey = it).query() }) { a, c, n -> FromOtherCatalog(a.displayName, "/tenants/${tenantId.key}/attributes?catalog=${c.value}", n) }
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListAttributeDefinitions(tenantId = tenantId, catalogKey = it).query() }) { a, c, n -> FromOtherCatalog(a.displayName, "/tenants/${tenantId.key}/catalogs/${c.value}/attributes", n) }
         return ServerResponse.ok().page("attributes/list") {
             "pageTitle" to "Attributes - Epistola"
             "tenant" to tenant
             "tenantId" to tenantId.key
             "catalogs" to catalogs
-            "selectedCatalog" to (segment?.value ?: "")
+            "selectedCatalog" to segment.value
             "draftSegment" to segment
             "draftBar" to bar
             "fromOtherCatalogs" to fromOtherCatalogs
@@ -206,10 +207,8 @@ class AttributeHandler {
         // step with the URL and sidesteps the catalog-filter desync an OOB
         // stay-on-list refresh would cause. onNonHtmx 303-redirects for the
         // non-HTMX fallback.
-        // Created in a draft, the list comes back filtered to it, which is where the attribute is.
-        val destination = catalogSegment?.takeIf { it.draft != null }
-            ?.let { "/tenants/${tenantId.key}/attributes?catalog=${it.value}" }
-            ?: "/tenants/${tenantId.key}/attributes"
+        // The list of the catalog (or draft) the attribute was created in, which is where it is.
+        val destination = "/tenants/${tenantId.key}/catalogs/${catalogSegment!!.value}/attributes"
         return request.htmx {
             dialogLocation(destination)
             onNonHtmx { redirect(destination) }
@@ -316,7 +315,7 @@ class AttributeHandler {
                 "draftSegment" to draftSegment
             }
             trigger("closeDialog")
-            onNonHtmx { redirect("/tenants/${tenantId.key}/attributes") }
+            onNonHtmx { redirect(CatalogPages.list(request, tenantId.key, "attributes")) }
         }
     }
 
@@ -343,7 +342,7 @@ class AttributeHandler {
                 "attributes" to attributes
                 "draftSegment" to draftSegment
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/attributes") }
+            onNonHtmx { redirect(CatalogPages.list(request, tenantId.key, "attributes")) }
         }
     }
 
@@ -366,7 +365,7 @@ class AttributeHandler {
         "attributes" to ListAttributeDefinitions(tenantId = tenantId).query()
     }
 
-    private fun draftBarFor(tenantId: TenantId, segment: CatalogSegment): CatalogDraftBar = CatalogDraftBar.of(tenantId.key, segment) { "/tenants/${tenantId.key}/attributes?catalog=${it.value}" }
+    private fun draftBarFor(tenantId: TenantId, segment: CatalogSegment): CatalogDraftBar = CatalogDraftBar.of(tenantId.key, segment) { "/tenants/${tenantId.key}/catalogs/${it.value}/attributes" }
 
     private fun parseAllowedValues(input: String): List<String> {
         if (input.isBlank()) return emptyList()

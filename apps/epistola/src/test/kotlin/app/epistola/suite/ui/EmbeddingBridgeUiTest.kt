@@ -83,7 +83,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         val tenant = createTestTenant()
         installMessageCapture()
 
-        gotoAndReady("/tenants/${tenant.id}/templates")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates")
         assertThat(page.locator("main")).isVisible()
 
         val navigated = latestMessageOfType("navigated")
@@ -102,7 +102,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         // The search box is only offered for a list with something in it
         // (.agents/rules/ui-affordances.md), so give the tenant a template to search among.
         createTemplateViaUi(tenant, "Search Subject", "search-subject")
-        gotoAndReady("/tenants/${tenant.id}/templates")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates")
         page.locator("[data-testid='search-input']").fill("private search text")
         // The search box is debounced, so htmxSettle() can return during the gap
         // before the request fires. Wait for the end state — the bridge message —
@@ -141,7 +141,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         installMessageCapture()
 
         createTemplateViaUi(tenant, "Boosted Row", "boosted-row")
-        gotoAndReady("/tenants/${tenant.id}/templates")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates")
 
         // The row link is a plain <a href>, boosted only via the shell's
         // hx-boost="true" — no hx-get of its own, unlike search/sort/
@@ -277,7 +277,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         installMessageCapture()
 
         createTemplateViaUi(tenant, "Navigate Target", "navigate-target")
-        gotoAndReady("/tenants/${tenant.id}/templates")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates")
 
         page.evaluate(
             """

@@ -14,6 +14,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.handlers.CatalogDraftBar
+import app.epistola.suite.handlers.CatalogPages
 import app.epistola.suite.handlers.FromOtherCatalog
 import app.epistola.suite.handlers.FromOtherCatalogs
 import app.epistola.suite.htmx.CatalogSegment
@@ -78,12 +79,12 @@ class ThemeHandler(
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         // The filter may name a draft (`letters@2.0.0`); its rows are then the draft's.
-        val segment = request.catalogParam()
-        val catalogFilter = segment?.key
+        val segment = request.catalogSegment()
+        val catalogFilter = segment.key
         val tenant = GetTenant(id = tenantId.key).query()
         val catalogs = ListCatalogs(tenantId.key).query()
-        val themes = ListThemes(tenantId = tenantId, catalogKey = catalogFilter, catalogVersion = segment?.ref(tenantId.key)).query()
-        val bar = segment?.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/themes?catalog=${it.value}" } }
+        val themes = ListThemes(tenantId = tenantId, catalogKey = catalogFilter, catalogVersion = segment.ref(tenantId.key)).query()
+        val bar = segment.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/catalogs/${it.value}/themes" } }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
         val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListThemes(tenantId = tenantId, catalogKey = it).query() }) { t, c, n -> FromOtherCatalog(t.name, "/tenants/${tenantId.key}/themes/${c.value}/${t.id.value}", n) }
         return ServerResponse.ok().page("themes/list") {
@@ -91,7 +92,7 @@ class ThemeHandler(
             "tenantId" to tenantId.key
             "tenant" to tenant
             "catalogs" to catalogs
-            "selectedCatalog" to (segment?.value ?: "")
+            "selectedCatalog" to segment.value
             "draftSegment" to segment
             "draftBar" to bar
             "fromOtherCatalogs" to fromOtherCatalogs
@@ -116,7 +117,7 @@ class ThemeHandler(
                 // this fragment, so the distinction has to reach it.
                 "searchTerm" to searchTerm.orEmpty()
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/themes") }
+            onNonHtmx { redirect(CatalogPages.list(request, tenantId.key, "themes")) }
         }
     }
 
@@ -411,7 +412,7 @@ class ThemeHandler(
                 "tenant" to tenant
                 "themes" to themes
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/themes") }
+            onNonHtmx { redirect(CatalogPages.list(request, tenantId.key, "themes")) }
         }
     }
 
@@ -447,7 +448,7 @@ class ThemeHandler(
                 "tenant" to tenant
                 "themes" to themes
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/themes") }
+            onNonHtmx { redirect(CatalogPages.list(request, tenantId.key, "themes")) }
         }
     }
 }

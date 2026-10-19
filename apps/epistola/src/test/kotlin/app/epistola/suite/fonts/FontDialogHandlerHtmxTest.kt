@@ -116,7 +116,7 @@ class FontDialogHandlerHtmxTest : BaseIntegrationTest() {
         given { testTenant = tenant("Font Plain List") }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/fonts", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/fonts", String::class.java)
         }
 
         then {
@@ -264,7 +264,7 @@ class FontDialogHandlerHtmxTest : BaseIntegrationTest() {
                 .isEqualTo("""{"closeDialog": null, "dialogSuccess": null}""")
             assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
             assertThat(response.headers.getFirst("HX-Replace-Url"))
-                .isEqualTo("/tenants/${testTenant.id}/fonts")
+                .isEqualTo("/tenants/${testTenant.id}/catalogs/default/fonts")
             // The OOB grid fragment carries its id + hx-swap-oob and the new family.
             assertThat(response.body).contains("""id="font-grid-items"""")
             assertThat(response.body).contains("hx-swap-oob=\"outerHTML\"")

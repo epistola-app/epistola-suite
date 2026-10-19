@@ -22,9 +22,10 @@ class DocumentTemplateRoutes(
 ) {
     @Bean
     fun templateRoutes(): RouterFunction<ServerResponse> = router {
+        // A list belongs to a catalog; there is none across the tenant.
+        GET("/tenants/{tenantId}/catalogs/{catalogId}/templates", handler::list)
         "/tenants/{tenantId}/templates".nest {
             // List and create (across all catalogs)
-            GET("", handler::list)
             GET("/search", handler::search)
             GET("/new", handler::newForm)
             POST("", handler::create)

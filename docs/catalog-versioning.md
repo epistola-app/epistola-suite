@@ -166,7 +166,7 @@ of `letters`, plain `letters` its next version (`CatalogSegment` in `epistola-we
 a catalog key). So `/tenants/acme/templates/letters@0193…/invoice` is the invoice in that work, and the
 same works for every per-catalog and per-resource route (catalog page, themes, stencils, code lists,
 fonts, images, the template editor and its preview). List pages take it as their `catalog` filter
-(`/attributes?catalog=letters@0193…`), and their create dialogs then create there.
+(`/catalogs/letters@0193…/attributes`), and their create dialogs then create there.
 
 - **Why the URL, not the session.** A link to a draft is shareable and survives reloads, two tabs
   can work in two drafts, and every link, HTMX request and editor call built from the segment stays

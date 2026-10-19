@@ -44,7 +44,7 @@ class ThemeDialogUiTest : BasePlaywrightTest() {
         // intercept the pointer on the top-of-page header action. Both triggers
         // issue the same hx-get into #dialog-mount, so this exercises the identical
         // open path (and the pushed /…/new URL).
-        gotoAndReady("/tenants/${tenant.id}/themes?catalog=default")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/themes")
         page.htmxSettle()
 
         // The always-present page-header action is the canonical trigger.
@@ -65,7 +65,7 @@ class ThemeDialogUiTest : BasePlaywrightTest() {
     fun `submitting the create form soft-navigates to the new theme and boots the editor`() {
         val tenant = createTestTenant()
 
-        gotoAndReady("/tenants/${tenant.id}/themes?catalog=default")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/themes")
         page.htmxSettle()
 
         page.openDialogByTrigger(

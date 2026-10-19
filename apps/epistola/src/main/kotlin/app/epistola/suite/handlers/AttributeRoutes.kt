@@ -14,8 +14,9 @@ import org.springframework.web.servlet.function.router
 class AttributeRoutes(private val handler: AttributeHandler) {
     @Bean
     fun attributeRouterFunction(): RouterFunction<ServerResponse> = router {
+        // A list belongs to a catalog; there is none across the tenant.
+        GET("/tenants/{tenantId}/catalogs/{catalogId}/attributes", handler::list)
         "/tenants/{tenantId}/attributes".nest {
-            GET("", handler::list)
             GET("/new", handler::newForm)
             POST("", handler::create)
             GET("/{catalogId}/{attributeId}/edit", handler::editForm)

@@ -302,7 +302,7 @@ class CodeListUiTest : BasePlaywrightTest() {
         // Filter to the tenant's `default` catalog — the bundled `system`
         // catalog also contributes code lists (bcp-47, iso-639-1,
         // iso-3166-1-alpha2) that the unfiltered listing would show.
-        gotoAndReady("/tenants/${tenant.id}/code-lists?catalog=default")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/code-lists")
 
         val rows = page.locator("table.ep-table tbody tr")
         assertThat(rows).hasCount(1)

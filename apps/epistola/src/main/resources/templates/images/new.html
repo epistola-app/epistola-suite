@@ -23,7 +23,7 @@
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='upload-image-dialog',
             title='Upload Image',
-            closeUrl=@{/tenants/{tenantId}/images(tenantId=${tenantId})},
+            closeUrl=${draftSegment != null} ? @{/tenants/{tenantId}/catalogs/{catalogSeg}/images(tenantId=${tenantId},catalogSeg=${draftSegment.value})} : @{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
             content=~{::image-upload-form})}"></div>
     </th:block>
 

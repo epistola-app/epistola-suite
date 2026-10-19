@@ -9,18 +9,6 @@
 
         <!--/* Filtered to a catalog with several drafts: which one the rows are from, and the others. */-->
 
-        <!--/* Inside a catalog the list is that catalog's: no catalog to choose (docs/workspace-shell.md). */-->
-        <div th:if="${draftBar == null and (catalogs != null and !catalogs.isEmpty())}" style="margin-bottom: var(--ep-space-4);">
-            <select id="catalog-filter" class="ep-select" style="max-width: 300px;"
-                    th:attr="data-catalog-filter-base=@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}">
-                <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
-                <!--/* Filtered to a draft (`letters@2.0.0`), its catalog's option keeps the draft. */-->
-                <option th:each="cat : ${catalogs}"
-                        th:value="${draftSegment?.linkFor(cat.id) ?: cat.id}"
-                        th:text="${cat.name}"
-                        th:selected="${#strings.equals(selectedCatalog, draftSegment?.linkFor(cat.id) ?: cat.id)}"></option>
-            </select>
-        </div>
 
         <!-- Whole grid body (empty-state + grid) in one OOB-swappable region,
              mirroring environments/list :: environment-list. A successful

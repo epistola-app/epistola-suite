@@ -140,8 +140,8 @@ object CatalogNav {
         }
         // What the catalog holds, templates first: what documents are made from, then what they are built from.
         val parts = buildList {
-            if (may(Permission.TEMPLATE_VIEW)) add(link("templates", "Templates", "$tenant/templates?catalog=$segment", "file-text"))
-            addAll(PARTS.filter { may(it.permission) }.map { link(it.key, it.label, "$tenant/${it.area}?catalog=$segment", it.icon) })
+            if (may(Permission.TEMPLATE_VIEW)) add(link("templates", "Templates", "$tenant/catalogs/$segment/templates", "file-text"))
+            addAll(PARTS.filter { may(it.permission) }.map { link(it.key, it.label, "$tenant/catalogs/$segment/${it.area}", it.icon) })
         }
         val catalog = listOf(
             link("versions", "Versions", "$tenant/catalogs/$key/versions", "history"),
@@ -171,7 +171,7 @@ object CatalogNav {
             else -> return null
         }
         val overview = if ('@' in segment) "/tenants/$tenant/catalogs/$segment/draft" else "/tenants/$tenant/catalogs/$segment/browse"
-        return SectionInVersion(label, "/tenants/$tenant/$area?catalog=$segment", overview)
+        return SectionInVersion(label, "/tenants/$tenant/catalogs/$segment/$area", overview)
     }
 
     /** Which catalog nav item [path] belongs to; null when none does. */
@@ -183,10 +183,20 @@ object CatalogNav {
             val page = parts.getOrNull(4)
             return when (page) {
                 "browse", "draft", null -> "overview"
+
                 "releases", "versions" -> "versions"
+
                 "deployments" -> "deployments"
+
                 "dependencies" -> "dependencies"
+
                 "settings" -> "settings"
+
+                // A list is the catalog's: `/catalogs/{catalog}/templates`.
+                "templates" -> "templates"
+
+                in PARTS.map { it.area } -> PARTS.first { it.area == page }.key
+
                 else -> null
             }.takeIf { parts.getOrNull(3)?.substringBefore('@') == catalogKey }
         }

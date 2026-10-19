@@ -52,7 +52,7 @@ class WorkspaceBoostHtmxTest : BaseIntegrationTest() {
         val tenant = seed("Boost Same Bar")
         val from = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs/letters/browse", String::class.java).body!!
 
-        val response = boosted(tenant, "/stencils?catalog=letters", shellKey(from))
+        val response = boosted(tenant, "/catalogs/letters/stencils", shellKey(from))
 
         assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#ws-page")
         assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("outerHTML")

@@ -43,7 +43,7 @@ object VersionSwitch {
                 }
             }
         }
-        // A list names its catalog in the query (`?catalog=letters@…`), a resource page in the path.
+        // A page that names its catalog in the query (quality: `?catalog=letters@…`), a resource page in the path.
         val catalogParam = Regex("(^|&)catalog=([^&]*)").find(query)
         if (catalogParam != null) {
             if (!isThisCatalog(java.net.URLDecoder.decode(catalogParam.groupValues[2], Charsets.UTF_8))) return null
