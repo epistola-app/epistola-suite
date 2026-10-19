@@ -136,7 +136,7 @@ object CatalogNav {
         val first = buildList {
             add(link("overview", "Overview", overview, "house"))
             // Quality findings are about this catalog's templates (alpha, behind its feature).
-            if (qualityAvailable && may(Permission.TEMPLATE_VIEW)) add(link("quality", "Quality", "$tenant/quality?catalog=$key", "scan"))
+            if (qualityAvailable && may(Permission.TEMPLATE_VIEW)) add(link("quality", "Quality", "$tenant/catalogs/$key/quality", "scan"))
         }
         // What the catalog holds, templates first: what documents are made from, then what they are built from.
         val parts = buildList {
@@ -190,6 +190,8 @@ object CatalogNav {
 
                 "dependencies" -> "dependencies"
 
+                "quality" -> "quality"
+
                 "settings" -> "settings"
 
                 // A list is the catalog's: `/catalogs/{catalog}/templates`.
@@ -202,7 +204,6 @@ object CatalogNav {
         }
         return when (area) {
             "templates" -> "templates"
-            "quality" -> "quality"
             in PARTS.map { it.area } -> PARTS.first { it.area == area }.key
             else -> null
         }

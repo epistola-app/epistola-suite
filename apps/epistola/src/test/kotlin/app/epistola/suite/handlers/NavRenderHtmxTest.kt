@@ -69,7 +69,7 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
             SaveFeatureToggle(tenant.id, KnownFeatures.QUALITY, enabled = true).execute()
         }
 
-        val quality = restTemplate.getForEntity("/tenants/${tenant.id.value}/quality?catalog=letters", String::class.java).body!!
+        val quality = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs/letters/quality", String::class.java).body!!
         assertThat(quality.substringAfter("data-testid=\"ws-crumb-catalog\"").substringBefore("</button>")).contains(">Letters<")
         assertThat(quality.replace(Regex("\\s+"), " ")).contains("class=\"ws-nav-item active\" data-testid=\"ws-nav-quality\"")
 

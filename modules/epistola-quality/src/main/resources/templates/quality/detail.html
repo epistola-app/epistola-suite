@@ -10,7 +10,7 @@
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${finding.ruleId},
-            backLinkHref=@{/tenants/{tenantId}/quality(tenantId=${tenantId})},
+            backLinkHref=@{/tenants/{tenantId}/catalogs/{catalog}/quality(tenantId=${tenantId},catalog=${finding.catalogKey})},
             backLinkLabel='Quality',
             actions=~{::quality-detail-actions}
         )}"></div>

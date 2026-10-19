@@ -42,7 +42,7 @@ class WorkspaceBuilder {
         // catalog it shows as `workspaceCatalog`.
         val bar = model["draftBar"] as? CatalogDraftBar
             ?: (model["workspaceCatalog"] as? CatalogSegment)?.let { segment ->
-                runCatching { CatalogDraftBar.of(tenantKey, segment) { "$path?catalog=${it.value}" } }.getOrNull()
+                runCatching { CatalogDraftBar.of(tenantKey, segment) { VersionSwitch.samePage(path, tenantKey.value, it) ?: "$path?catalog=${it.value}" } }.getOrNull()
             }
         val recent = if (auth.has(Permission.CATALOG_VIEW)) {
             ListRecentCatalogs(tenantKey).query()

@@ -28,6 +28,7 @@ import app.epistola.suite.htmx.variantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.quality.EffectiveQualityStatus
+import app.epistola.suite.quality.QualityFinding
 import app.epistola.suite.quality.QualityFindingPage
 import app.epistola.suite.quality.QualitySeverity
 import app.epistola.suite.quality.QualitySourceId
@@ -44,7 +45,6 @@ import app.epistola.suite.quality.queries.GetFindingsForSubject
 import app.epistola.suite.quality.queries.GetQualityFinding
 import app.epistola.suite.quality.queries.ListQualityFindings
 import app.epistola.suite.quality.queries.QualityFindingSort
-import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.tenants.queries.GetTenant
@@ -85,22 +85,23 @@ class QualityHandler(
             .body(editorPanel(variantId))
     }
 
+    /** A catalog's findings, at `/tenants/{t}/catalogs/{catalog}/quality`: like every list, it is the catalog's. */
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
+        val segment = request.pathCatalogSegment() ?: return ServerResponse.notFound().build()
         val filters = request.filters()
         val page = filters.toQuery(tenantId).query()
-        val templates = ListDocumentTemplates(tenantId, limit = TEMPLATE_FILTER_LIMIT).query()
 
         return ServerResponse.ok().page("quality/list") {
             "pageTitle" to "Quality - Epistola"
             "tenant" to tenant
             "activeNavSection" to "quality"
-            // Filtered to a catalog, the page is inside it: the shell shows that catalog's bar and nav.
-            "workspaceCatalog" to request.queryParam("catalog")?.takeIf { it.isNotBlank() }?.let { CatalogSegment.parse(it) }
+            // The page is inside the catalog: the shell shows that catalog's bar and nav.
+            "workspaceCatalog" to segment
+            "catalogSegment" to segment.value
             "stage" to KnownFeatures.metadata[KnownFeatures.QUALITY]?.stage
-            "catalogs" to catalogsOf(templates)
-            "templates" to templates.narrowedTo(filters.catalogKey)
+            "templates" to ListDocumentTemplates(tenantId, catalogKey = segment.key, limit = TEMPLATE_FILTER_LIMIT).query()
             "sources" to registry.availableFor(tenantId.key).map { SourceOption(it.sourceId.value, it.displayName) }
             findingsModel(tenantId, page, filters)
         }
@@ -115,36 +116,17 @@ class QualityHandler(
             fragment("quality/list", "findings") {
                 findingsModel(tenantId, page, filters)
             }
-            // The template picker rides along out-of-band, narrowed to whatever catalog is now
-            // selected — that is the "by extension" half of a catalog filter. One request does
-            // both, so the rows and the picker can never disagree about which catalog is in force.
-            oob("quality/list", "template-filter") {
-                "tenantId" to tenantId.key
-                "templates" to ListDocumentTemplates(tenantId, limit = TEMPLATE_FILTER_LIMIT).query()
-                    .narrowedTo(filters.catalogKey)
-                "selectedTemplate" to filters.selectedTemplateValue()
-            }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/quality") }
+            onFullPage { redirect(listPath(tenantId.key, filters.catalogKey?.value)) }
         }
     }
 
-    /**
-     * The catalogs worth offering: those that actually hold templates.
-     *
-     * Derived from the templates already loaded rather than read from `ListCatalogs`, for two
-     * reasons. `ListCatalogs` needs `CATALOG_VIEW` while this page needs only `TEMPLATE_VIEW`, so
-     * calling it would deny the whole report to a reader who is perfectly entitled to it. And a
-     * catalog with no templates can hold no findings, so offering it would be a filter that can
-     * only ever return nothing.
-     */
-    private fun catalogsOf(templates: List<DocumentTemplate>): List<String> = templates.map { it.catalogKey.value }.distinct().sorted()
-
-    private fun List<DocumentTemplate>.narrowedTo(catalogKey: CatalogKey?): List<DocumentTemplate> = if (catalogKey == null) this else filter { it.catalogKey == catalogKey }
-
+    /** A finding, at `/tenants/{t}/catalogs/{catalog}/quality/{finding}`, in the catalog of its template. */
     fun detail(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val segment = request.pathCatalogSegment() ?: return ServerResponse.notFound().build()
         val findingKey = request.findingKey() ?: return ServerResponse.badRequest().build()
         val finding = GetQualityFinding(tenantId.key, findingKey).query()
+            ?.takeIf { it.catalogKey == segment.key }
             ?: return ServerResponse.notFound().build()
         val tenant = GetTenant(tenantId.key).query()
 
@@ -153,8 +135,8 @@ class QualityHandler(
             "tenant" to tenant
             "tenantId" to tenantId.key
             "activeNavSection" to "quality"
-            // Filtered to a catalog, the page is inside it: the shell shows that catalog's bar and nav.
-            "workspaceCatalog" to request.queryParam("catalog")?.takeIf { it.isNotBlank() }?.let { CatalogSegment.parse(it) }
+            "workspaceCatalog" to segment
+            "catalogSegment" to segment.value
             "finding" to finding
             "comments" to GetFindingComments(tenantId.key, findingKey).query()
             "sourceName" to sourceName(finding.sourceId)
@@ -176,12 +158,13 @@ class QualityHandler(
             return request.htmx {
                 fragment("quality/detail", "ignore-form") {
                     "tenantId" to tenantId.key
+                    "catalogSegment" to finding.catalogKey.value
                     "finding" to finding
                     "formData" to form.formData
                     "errors" to form.errors
                 }
                 retarget("#quality-ignore-dialog-body")
-                onNonHtmx { redirect("/tenants/${tenantId.key}/quality/${findingKey.value}") }
+                onFullPage { redirect(detailPath(tenantId.key, finding)) }
             }
         }
 
@@ -218,29 +201,32 @@ class QualityHandler(
         if (form.hasErrors()) return ServerResponse.badRequest().build()
 
         AddFindingComment(tenantId.key, findingKey, form["body"]).execute()
+        val finding = GetQualityFinding(tenantId.key, findingKey).query() ?: return ServerResponse.notFound().build()
 
         return request.htmx {
             fragment("quality/detail", "comments-section") {
                 "tenantId" to tenantId.key
-                "finding" to GetQualityFinding(tenantId.key, findingKey).query()
+                "catalogSegment" to finding.catalogKey.value
+                "finding" to finding
                 "comments" to GetFindingComments(tenantId.key, findingKey).query()
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/quality/${findingKey.value}") }
+            onFullPage { redirect(detailPath(tenantId.key, finding)) }
         }
     }
 
-    /** The form for raising a finding by hand, loaded into the list page's dialog. */
+    /** The form for raising a finding by hand against one of the catalog's templates, loaded into the list page's dialog. */
     fun manualForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val catalogKey = request.catalogFilter() ?: return ServerResponse.badRequest().build()
 
         return request.htmx {
             // Named, so the trailing variant-options fragment does not ride along into the dialog.
             fragment("quality/manual-form", "content") {
                 "tenantId" to tenantId.key
-                "templates" to ListDocumentTemplates(tenantId, limit = TEMPLATE_FILTER_LIMIT).query()
+                "templates" to ListDocumentTemplates(tenantId, catalogKey = catalogKey, limit = TEMPLATE_FILTER_LIMIT).query()
                 "severities" to QualitySeverity.entries
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/quality") }
+            onFullPage { redirect(listPath(tenantId.key, catalogKey.value)) }
         }
     }
 
@@ -315,7 +301,7 @@ class QualityHandler(
         // filters admit it, and re-running the query is the one way to know. Navigating also
         // disposes of the dialog. A 303 would be followed transparently by the XHR and the header
         // lost — the reason BackupsHandler does the same.
-        return ServerResponse.ok().header("HX-Redirect", "/tenants/${tenantId.key}/quality").build()
+        return ServerResponse.ok().header("HX-Redirect", listPath(tenantId.key, parts[0])).build()
     }
 
     /**
@@ -336,13 +322,26 @@ class QualityHandler(
         return request.htmx {
             fragment("quality/detail", "finding-content") {
                 "tenantId" to tenantKey
+                "catalogSegment" to finding.catalogKey.value
                 "finding" to finding
                 "comments" to GetFindingComments(tenantKey, findingKey).query()
                 "sourceName" to sourceName(finding.sourceId)
             }
-            onNonHtmx { redirect("/tenants/$tenantKey/quality/${findingKey.value}") }
+            onFullPage { redirect(detailPath(tenantKey, finding)) }
         }
     }
+
+    /** A catalog's findings; without a catalog, the catalogs, since findings are listed per catalog. */
+    private fun listPath(tenantKey: TenantKey, catalog: String?): String = catalog?.let { "/tenants/${tenantKey.value}/catalogs/$it/quality" } ?: "/tenants/${tenantKey.value}/catalogs"
+
+    private fun detailPath(tenantKey: TenantKey, finding: QualityFinding): String = "/tenants/${tenantKey.value}/catalogs/${finding.catalogKey.value}/quality/${finding.key.value}"
+
+    /** The catalog a page is in, from its path (`/catalogs/{catalogId}/quality…`). */
+    private fun ServerRequest.pathCatalogSegment(): CatalogSegment? = pathVariables()["catalogId"]?.let { runCatching { CatalogSegment.parse(it) }.getOrNull() }
+
+    /** The catalog the findings are of: the page's, or for a partial its `catalog` parameter. */
+    private fun ServerRequest.catalogFilter(): CatalogKey? = pathCatalogSegment()?.key
+        ?: queryParam("catalog")?.takeIf { it.isNotBlank() }?.let { runCatching { CatalogSegment.parse(it).key }.getOrNull() }
 
     /**
      * A source's human name, falling back to its id.
@@ -411,8 +410,7 @@ class QualityHandler(
     }
 
     private fun ServerRequest.filters(): QualityFilters {
-        val catalogParam = queryParam("catalog")?.takeIf { it.isNotBlank() }
-            ?.let { runCatching { CatalogKey.of(it) }.getOrNull() }
+        val catalogParam = catalogFilter()
 
         // The template filter carries `catalogKey/templateKey` and sets *both* query filters — a
         // template key is unique only within its catalog, so filtering on the key alone would also

@@ -4,7 +4,7 @@
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Quality',
-            pageDescription='Findings reported against your templates, from every source.',
+            pageDescription='Findings reported against the templates of this catalog, from every source.',
             stage=${stage},
             actions=~{::quality-list-actions}
         )}"></div>
@@ -21,7 +21,7 @@
                     hx-get th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId})}"
                     hx-target="#quality-findings"
                     hx-swap="innerHTML"
-                    hx-include="[name='severity'],[name='source'],[name='template'],[name='q']">
+                    hx-include="[name='catalog'],[name='severity'],[name='source'],[name='template'],[name='q']">
                 <option value="">All statuses</option>
                 <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
                         th:selected="${selectedStatus != null && selectedStatus.name() == s.name()}">OPEN</option>
@@ -33,7 +33,7 @@
                     hx-get th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId})}"
                     hx-target="#quality-findings"
                     hx-swap="innerHTML"
-                    hx-include="[name='status'],[name='source'],[name='template'],[name='q']">
+                    hx-include="[name='catalog'],[name='status'],[name='source'],[name='template'],[name='q']">
                 <option value="">All severities</option>
                 <option th:each="s : ${severities}" th:value="${s.name()}" th:text="${s.name()}"
                         th:selected="${selectedSeverity != null && selectedSeverity.name() == s.name()}">ERROR</option>
@@ -45,7 +45,7 @@
                     hx-get th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId})}"
                     hx-target="#quality-findings"
                     hx-swap="innerHTML"
-                    hx-include="[name='status'],[name='severity'],[name='template'],[name='q']">
+                    hx-include="[name='catalog'],[name='status'],[name='severity'],[name='template'],[name='q']">
                 <option value="">All sources</option>
                 <!--/* Sources that have a bean here. A finding from a remote checker or a person
                        still lists; it just has no entry to filter by until one exists. */-->
@@ -54,23 +54,8 @@
                 <option value="manual" th:selected="${selectedSource == 'manual'}">Raised by hand</option>
             </select>
 
-            <!--/*
-              Catalog, and by extension template: choosing a catalog re-runs the search AND
-              swaps the template picker below to that catalog's templates (out-of-band, on the
-              same response). The handler drops a template selection from another catalog as
-              stale, so the rows can never be filtered by a template the picker no longer offers.
-            */-->
-            <select class="ep-select ep-select-sm form-control-auto"
-                    name="catalog"
-                    data-testid="quality-filter-catalog"
-                    hx-get th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId})}"
-                    hx-target="#quality-findings"
-                    hx-swap="innerHTML"
-                    hx-include="[name='status'],[name='severity'],[name='source'],[name='template'],[name='q']">
-                <option value="">All catalogs</option>
-                <option th:each="c : ${catalogs}" th:value="${c}" th:text="${c}"
-                        th:selected="${selectedCatalog != null && selectedCatalog == c}">default</option>
-            </select>
+            <!--/* The page is the catalog's: every filter request carries it. */-->
+            <input type="hidden" name="catalog" th:value="${selectedCatalog}" />
 
             <th:block th:replace="~{quality/list :: template-filter}"></th:block>
 
@@ -82,7 +67,7 @@
                    hx-target="#quality-findings"
                    hx-swap="innerHTML"
                    hx-trigger="input changed delay:300ms, search"
-                   hx-include="[name='status'],[name='severity'],[name='source'],[name='template']" />
+                   hx-include="[name='catalog'],[name='status'],[name='severity'],[name='source'],[name='template']" />
         </div>
 
         <div id="quality-findings">
@@ -112,7 +97,7 @@
                             <tr th:each="f : ${findings}" th:data-testid="'quality-row-' + ${f.key}">
                                 <td><th:block th:insert="~{quality/fragments/badges :: severity-badge(${f.severity})}" /></td>
                                 <td>
-                                    <a th:href="@{/tenants/{tenantId}/quality/{id}(tenantId=${tenantId},id=${f.key})}"
+                                    <a th:href="@{/tenants/{tenantId}/catalogs/{catalog}/quality/{id}(tenantId=${tenantId},catalog=${f.catalogKey},id=${f.key})}"
                                        style="font-weight: 500;"
                                        th:text="${f.message}">Message</a>
                                 </td>
@@ -141,8 +126,8 @@
                     <nav th:if="${totalPages > 1}" class="ep-pagination" aria-label="Quality findings pagination" data-testid="quality-pagination">
                         <a th:if="${hasPrev}" class="ep-btn ep-btn-ghost ep-btn-sm"
                            data-testid="pagination-prev"
-                           th:href="@{/tenants/{tenantId}/quality(tenantId=${tenantId},page=${prevPage},status=${selectedStatus},severity=${selectedSeverity},source=${selectedSource},template=${selectedTemplate},q=${searchTerm},sort=${sort},dir=${sortDir})}"
-                           th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId},page=${prevPage},status=${selectedStatus},severity=${selectedSeverity},source=${selectedSource},template=${selectedTemplate},q=${searchTerm},sort=${sort},dir=${sortDir})}"
+                           th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/quality(tenantId=${tenantId},catalogSeg=${selectedCatalog},page=${prevPage},status=${selectedStatus},severity=${selectedSeverity},source=${selectedSource},template=${selectedTemplate},q=${searchTerm},sort=${sort},dir=${sortDir})}"
+                           th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId},catalog=${selectedCatalog},page=${prevPage},status=${selectedStatus},severity=${selectedSeverity},source=${selectedSource},template=${selectedTemplate},q=${searchTerm},sort=${sort},dir=${sortDir})}"
                            hx-target="#quality-findings"
                            hx-swap="innerHTML">Previous</a>
                         <span th:unless="${hasPrev}" class="ep-btn ep-btn-ghost ep-btn-sm is-disabled" aria-disabled="true">Previous</span>
@@ -151,8 +136,8 @@
 
                         <a th:if="${hasNext}" class="ep-btn ep-btn-ghost ep-btn-sm"
                            data-testid="pagination-next"
-                           th:href="@{/tenants/{tenantId}/quality(tenantId=${tenantId},page=${nextPage},status=${selectedStatus},severity=${selectedSeverity},source=${selectedSource},template=${selectedTemplate},q=${searchTerm},sort=${sort},dir=${sortDir})}"
-                           th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId},page=${nextPage},status=${selectedStatus},severity=${selectedSeverity},source=${selectedSource},template=${selectedTemplate},q=${searchTerm},sort=${sort},dir=${sortDir})}"
+                           th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/quality(tenantId=${tenantId},catalogSeg=${selectedCatalog},page=${nextPage},status=${selectedStatus},severity=${selectedSeverity},source=${selectedSource},template=${selectedTemplate},q=${searchTerm},sort=${sort},dir=${sortDir})}"
+                           th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId},catalog=${selectedCatalog},page=${nextPage},status=${selectedStatus},severity=${selectedSeverity},source=${selectedSource},template=${selectedTemplate},q=${searchTerm},sort=${sort},dir=${sortDir})}"
                            hx-target="#quality-findings"
                            hx-swap="innerHTML">Next</a>
                         <span th:unless="${hasNext}" class="ep-btn ep-btn-ghost ep-btn-sm is-disabled" aria-disabled="true">Next</span>
@@ -170,24 +155,16 @@
         </dialog>
     </th:block>
 
-    <!--/*
-      The template picker, as its own fragment because /search swaps it out-of-band when the
-      catalog changes. `hx-swap-oob` and the id live on the element itself — an OOB response
-      replaces the whole element, so the fragment has to *be* the select, not its options.
-
-      Harmless on the initial render: hx-swap-oob is only read on a swapped-in response, and the
-      page includes this inline.
-    */-->
+    <!--/* The catalog's templates to filter by. */-->
     <select th:fragment="template-filter"
             id="template-filter"
-            hx-swap-oob="outerHTML"
             class="ep-select ep-select-sm form-control-auto"
             name="template"
             data-testid="quality-filter-template"
             hx-get th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId})}"
             hx-target="#quality-findings"
             hx-swap="innerHTML"
-            hx-include="[name='status'],[name='severity'],[name='source'],[name='catalog'],[name='q']">
+            hx-include="[name='catalog'],[name='status'],[name='severity'],[name='source'],[name='q']">
         <option value="">All templates</option>
         <!--/* catalogKey/templateKey: a template key is unique only within its catalog. */-->
         <option th:each="t : ${templates}"
@@ -199,7 +176,7 @@
     <th:block th:fragment="quality-list-actions">
         <button type="button" class="ep-btn ep-btn-primary"
                 data-testid="quality-raise-finding"
-                hx-get th:hx-get="@{/tenants/{tenantId}/quality/manual-form(tenantId=${tenantId})}"
+                hx-get th:hx-get="@{/tenants/{tenantId}/quality/manual-form(tenantId=${tenantId},catalog=${selectedCatalog})}"
                 hx-target="#quality-manual-dialog-content"
                 hx-swap="innerHTML"
                 data-open-dialog="quality-manual-dialog">

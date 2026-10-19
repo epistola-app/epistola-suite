@@ -102,7 +102,7 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         val subject = scenario()
         submit(subject, finding())
 
-        val response = restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/quality", String::class.java)
+        val response = restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/quality", String::class.java)
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!
@@ -120,7 +120,7 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         // A full-set submission that omits it: the ledger resolves it with nobody clicking.
         submit(subject, finding(fingerprint = "fp-2", message = "A different problem"))
 
-        val response = restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/quality", String::class.java)
+        val response = restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/quality", String::class.java)
 
         val body = response.body!!
         assertThat(body).contains("A different problem")
@@ -134,7 +134,7 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         submit(subject)
 
         val response = restTemplate.getForEntity(
-            "/tenants/${subject.tenantKey.value}/quality?status=",
+            "/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/quality?status=",
             String::class.java,
         )
 
@@ -148,7 +148,7 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         val key = onlyFinding(subject).key
 
         val response = restTemplate.getForEntity(
-            "/tenants/${subject.tenantKey.value}/quality/${key.value}",
+            "/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/quality/${key.value}",
             String::class.java,
         )
 
@@ -237,7 +237,7 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         // HX-Redirect rather than a swap: whether the new finding belongs under the active filters
         // is a question only a re-run query answers.
         assertThat(response.headers.getFirst("HX-Redirect"))
-            .isEqualTo("/tenants/${subject.tenantKey.value}/quality")
+            .isEqualTo("/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/quality")
 
         val raised = onlyFinding(subject)
         assertThat(raised.message).isEqualTo("The tone is wrong for a reminder")
@@ -282,7 +282,7 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         val subject = scenario()
 
         val response = restTemplate.exchange(
-            "/tenants/${subject.tenantKey.value}/quality/manual-form",
+            "/tenants/${subject.tenantKey.value}/quality/manual-form?catalog=${subject.catalogKey.value}",
             org.springframework.http.HttpMethod.GET,
             HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
             String::class.java,
@@ -304,7 +304,7 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         val subject = scenario()
 
         val response = restTemplate.exchange(
-            "/tenants/${subject.tenantKey.value}/quality/manual-form",
+            "/tenants/${subject.tenantKey.value}/quality/manual-form?catalog=${subject.catalogKey.value}",
             org.springframework.http.HttpMethod.GET,
             HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
             String::class.java,
@@ -319,7 +319,7 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         val subject = scenario()
         submit(subject, finding())
 
-        val response = restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/quality", String::class.java)
+        val response = restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/quality", String::class.java)
 
         val editorHref = "/tenants/${subject.tenantKey.value}/templates/${subject.catalogKey.value}" +
             "/${subject.templateKey.value}/variants/${subject.variantKey}/editor"
@@ -376,7 +376,7 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         val key = onlyFinding(subject).key
 
         val response = restTemplate.getForEntity(
-            "/tenants/${subject.tenantKey.value}/quality/${key.value}",
+            "/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/quality/${key.value}",
             String::class.java,
         )
 
@@ -385,23 +385,29 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(body).contains("quality-open-template")
     }
 
-    /** A catalog is a coarser filter than a template, and the report offers both. */
+    /** Findings are a catalog's, like its lists: its page has them, another catalog's does not, and the tenant has no page of them all. */
     @Test
-    fun `the report can filter by catalog`() {
+    fun `the report is the catalog's`() {
         val subject = scenario()
         submit(subject, finding(message = "In the default catalog"))
 
-        val matching = restTemplate.getForEntity(
-            "/tenants/${subject.tenantKey.value}/quality?catalog=${subject.catalogKey.value}",
-            String::class.java,
-        )
-        val other = restTemplate.getForEntity(
-            "/tenants/${subject.tenantKey.value}/quality?catalog=some-other-catalog",
-            String::class.java,
-        )
+        val matching = restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/quality", String::class.java)
+        val other = restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/catalogs/some-other-catalog/quality", String::class.java)
 
-        assertThat(matching.body!!).contains("In the default catalog")
+        assertThat(matching.body!!).contains("In the default catalog").doesNotContain("quality-filter-catalog")
         assertThat(other.body!!).doesNotContain("In the default catalog")
+        assertThat(restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/quality", String::class.java).statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+    }
+
+    @Test
+    fun `a finding is found only in the catalog of its template`() {
+        val subject = scenario()
+        submit(subject, finding())
+        val key = onlyFinding(subject).key
+
+        val elsewhere = restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/catalogs/some-other-catalog/quality/${key.value}", String::class.java)
+
+        assertThat(elsewhere.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
     }
 
     /**
@@ -415,8 +421,8 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         submit(subject, finding(message = "Should still be listed"))
 
         val response = restTemplate.getForEntity(
-            "/tenants/${subject.tenantKey.value}/quality" +
-                "?catalog=${subject.catalogKey.value}&template=some-other-catalog/some-template",
+            "/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/quality" +
+                "?template=some-other-catalog/some-template",
             String::class.java,
         )
 
@@ -431,9 +437,8 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         submit(subject, finding(message = "Only this template"))
 
         val response = restTemplate.getForEntity(
-            "/tenants/${subject.tenantKey.value}/quality" +
-                "?catalog=${subject.catalogKey.value}" +
-                "&template=${subject.catalogKey.value}/some-other-template",
+            "/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/quality" +
+                "?template=${subject.catalogKey.value}/some-other-template",
             String::class.java,
         )
 
@@ -441,30 +446,12 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(response.body!!).doesNotContain("Only this template")
     }
 
-    /** Choosing a catalog re-runs the search and re-renders the template picker in one response. */
-    @Test
-    fun `search swaps the template picker out-of-band`() {
-        val subject = scenario()
-        submit(subject, finding())
-
-        val response = restTemplate.exchange(
-            "/tenants/${subject.tenantKey.value}/quality/search?catalog=${subject.catalogKey.value}",
-            org.springframework.http.HttpMethod.GET,
-            HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
-            String::class.java,
-        )
-
-        val body = response.body!!
-        assertThat(body).contains("hx-swap-oob")
-        assertThat(body).contains("id=\"template-filter\"")
-    }
-
     @Test
     fun `an unknown finding is a 404`() {
         val subject = scenario()
 
         val response = restTemplate.getForEntity(
-            "/tenants/${subject.tenantKey.value}/quality/${QualityFindingKey.generate().value}",
+            "/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/quality/${QualityFindingKey.generate().value}",
             String::class.java,
         )
 

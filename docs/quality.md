@@ -62,13 +62,15 @@ The module ships its **own UI** (`ui/QualityHandler` + `templates/quality/`), fo
 module hosts its handlers and templates while the host app keeps owning the chrome
 (`layout/shell`, `layout/nav`). Quality is about a catalog's templates, so it is an item of the
 catalog's own nav (`CatalogNav`, docs/workspace-shell.md), shown while the feature is available:
-it opens the report filtered to that catalog, and the page passes the catalog as
+it opens the catalog's report, and the page passes the catalog as
 `workspaceCatalog`, so the shell shows that catalog's bar and nav around it.
 
 ## The report page
 
-`/tenants/{t}/quality` — every finding in the tenant, from every source. Filter by status,
-severity, source and template; search messages; page. All of it is pushed to SQL, including
+`/tenants/{t}/catalogs/{catalog}/quality` — every finding against the catalog's templates, from
+every source; a finding's page is `…/quality/{finding}`, in the catalog of its template. Like the
+catalog's lists, there is no page of every finding in the tenant. Filter by status, severity,
+source and template; search messages; page. All of it is pushed to SQL, including
 the filter on effective status, which is _derived_ (see [Ignores](#ignores)) — doing that in
 Kotlin would mean fetching every finding in the tenant to render fifty of them, and a total
 that disagreed with the rows.
