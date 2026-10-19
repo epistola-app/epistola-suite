@@ -25,6 +25,7 @@ class CatalogRoutes(
             // Registered before the {catalogId} routes below. `exchange` is a legal catalog slug,
             // and while every per-catalog route carries a verb suffix that keeps these unambiguous
             // today, relying on that is one route away from an ambush.
+            GET("/graph", handler::graph)
             GET("/exchange", exchange::browse)
             GET("/exchange/search", exchange::search)
             GET("/exchange/{namespace}/{catalogKey}", exchange::detail)

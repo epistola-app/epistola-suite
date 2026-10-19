@@ -9,6 +9,16 @@
             pageDescription='The catalogs ' + ${catalog.name} + ' builds on, and the ones that build on it. Its templates can use the stencils, themes, images and fonts of the catalogs it depends on; you change those in the catalog they belong to.'
         )}"></div>
         <div id="catalog-alert"></div>
+        <!--/* At a glance: what this catalog builds on (to its left) and what builds on it (to its right). */-->
+        <div class="ep-panel detail-section" data-testid="catalog-dependency-graph">
+            <div class="detail-section-header">
+                <h2>At a glance</h2>
+                <a th:href="@{/tenants/{tenantId}/catalogs/graph(tenantId=${tenantId})}">All catalogs</a>
+            </div>
+            <div class="detail-section-body">
+                <div th:replace="~{catalogs/graph :: graph(view=${dependencyGraph})}"></div>
+            </div>
+        </div>
         <th:block th:if="${readiness != null}">
             <div th:replace="~{catalogs/content :: borrowed}"></div>
         </th:block>

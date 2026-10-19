@@ -47,6 +47,7 @@ import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.CatalogReleaseSummary
 import app.epistola.suite.catalog.queries.FindResourceUsages
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.GetCatalogDependencyGraph
 import app.epistola.suite.catalog.queries.GetCatalogRelease
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
@@ -108,6 +109,24 @@ private const val CATALOG_LOCALE_ATTRIBUTE = "system.locale"
 class CatalogHandler {
 
     private val logger = LoggerFactory.getLogger(javaClass)
+
+    /** `GET /catalogs/graph`: which catalogs of the tenant use which, as a drawing. */
+    fun graph(request: ServerRequest): ServerResponse {
+        val tenantKey = request.tenantId().key
+        requirePermission(tenantKey, Permission.CATALOG_VIEW)
+        return ServerResponse.ok().page("catalogs/graph") {
+            "pageTitle" to "Catalog dependencies - Epistola"
+            "activeNavSection" to "catalogs"
+            "tenantId" to tenantKey
+            "graph" to catalogGraph(tenantKey, focus = null)
+        }
+    }
+
+    /** The dependency drawing; each catalog links to its own Dependencies page, which narrows the drawing to it. */
+    private fun catalogGraph(tenantKey: TenantKey, focus: CatalogKey?): CatalogGraphView = CatalogGraphView.of(
+        GetCatalogDependencyGraph(tenantKey).query(),
+        focus = focus?.value,
+    ) { key -> "/tenants/${tenantKey.value}/catalogs/$key/dependencies" }
 
     fun list(request: ServerRequest): ServerResponse {
         val saved = request.param("saved").isPresent
@@ -990,6 +1009,7 @@ class CatalogHandler {
                 "readiness" to readiness
                 "gettingStarted" to gettingStarted
                 "dependents" to dependents
+                if (template == "catalogs/dependencies") "dependencyGraph" to catalogGraph(tenantId.key, focus = catalogKey)
                 "mayEditDependencies" to (editsDependencies && auth.has(Permission.TEMPLATE_EDIT))
                 "dependenciesWithheld" to (editsDependencies && !auth.has(Permission.TEMPLATE_EDIT))
                 // What the version holds, by kind, with a way to add each kind there; nothing is

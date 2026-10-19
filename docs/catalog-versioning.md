@@ -309,6 +309,11 @@ and they are not deployed. Deploying them as well is a choice (`includeDependenc
 release nothing could render from refuses the deployment (`ReleaseDependenciesMissingException`,
 REST `release-dependencies-missing`); see [Environment Management](epistola.md#environment-management).
 
+**Seeing them.** `GetCatalogDependencyGraph` returns every catalog of the tenant and its current
+version's declarations; the catalog list's _Dependencies_ page draws it (`CatalogGraphView`, SVG
+rendered on the server), and a catalog's Dependencies page draws it narrowed to that catalog: what it
+uses and what uses it, transitively.
+
 **Retention** follows the pins: a release that a release of another catalog is pinned to cannot be
 deleted (`ReleaseInUseException` names the pinning releases), and neither can its catalog be deleted.
 Deleting the pinning release first frees it. A release always holds its content: deleting it is the

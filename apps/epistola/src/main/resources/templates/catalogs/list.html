@@ -680,6 +680,12 @@
              TEMPLATE_EDIT. Offering it to someone holding only one would fail after the
              download rather than before it. -->
         <a class="ep-btn ep-btn-outline"
+           th:href="@{/tenants/{tenantId}/catalogs/graph(tenantId=${tenantId})}"
+           data-testid="catalog-graph-open">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='layers', class='ep-icon')}" />
+            Dependencies
+        </a>
+        <a class="ep-btn ep-btn-outline"
            th:if="${exchangeInstallAvailable and auth.has('CATALOG_MANAGE') and auth.has('TEMPLATE_EDIT')}"
            th:href="@{/tenants/{tenantId}/catalogs/exchange(tenantId=${tenantId})}"
            data-testid="catalog-exchange-browse">
