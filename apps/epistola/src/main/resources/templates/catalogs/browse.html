@@ -58,7 +58,7 @@
     </th:block>
 
     <th:block th:fragment="catalog-overview-actions">
-        <a class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-about-settings"
+        <a class="ep-btn ep-btn-outline" data-testid="catalog-about-settings"
            th:href="@{/tenants/{t}/catalogs/{c}/settings(t=${tenantId},c=${catalogId})}"
            th:text="${catalog.type.name() == 'AUTHORED' and auth.has('CATALOG_MANAGE')} ? 'Change in Settings' : 'All settings'">Change in Settings</a>
     </th:block>

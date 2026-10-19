@@ -123,7 +123,7 @@
                 <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
                         th:selected="${feedback.status.name() == s.name()}">STATUS</option>
             </select>
-            <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Update Status</button>
+            <button type="submit" class="ep-btn ep-btn-outline">Update Status</button>
         </form>
     </th:block>
 
