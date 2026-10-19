@@ -17,7 +17,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployRelease
+import app.epistola.suite.environments.commands.DeployCatalogVersion
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.environments.queries.ListImplicitDeployments
 import app.epistola.suite.mediator.execute
@@ -60,7 +60,7 @@ class ImplicitDependenciesTest : IntegrationTestBase() {
     fun `a deploy uses what it is pinned to without deploying it, and the environment says it uses it`() {
         val (tenant, production) = setUp("implicit-deploy")
 
-        withMediator { DeployRelease(production, letters, "1.0.0", replace = true).execute() }
+        withMediator { DeployCatalogVersion(production, letters, "1.0.0", replace = true).execute() }
 
         assertThat(withMediator { ListDeployments(tenant).query() }.map { "${it.catalogKey.value}@${it.version}" })
             .`as`("only what was deployed").containsExactly("letters@1.0.0")
@@ -73,7 +73,7 @@ class ImplicitDependenciesTest : IntegrationTestBase() {
     fun `asked to, it deploys them explicitly too`() {
         val (tenant, production) = setUp("explicit-deploy")
 
-        withMediator { DeployRelease(production, letters, "1.0.0", includeDependencies = true).execute() }
+        withMediator { DeployCatalogVersion(production, letters, "1.0.0", includeDependencies = true).execute() }
 
         assertThat(withMediator { ListDeployments(tenant).query() }.map { "${it.catalogKey.value}@${it.version}" })
             .containsExactlyInAnyOrder("letters@1.0.0", "shared@1.0.0")

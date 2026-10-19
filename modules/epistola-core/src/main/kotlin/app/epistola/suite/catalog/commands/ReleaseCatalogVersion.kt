@@ -47,8 +47,7 @@ import app.epistola.suite.catalog.versions.GetCatalogDraft
 import app.epistola.suite.catalog.versions.UnreleasedDependency
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.config.bindJsonb
-import app.epistola.suite.environments.EnvironmentOverride
-import app.epistola.suite.environments.EnvironmentOverrideStore
+import app.epistola.suite.environments.DraftDeploymentStore
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.execute
@@ -386,9 +385,6 @@ class ReleaseCatalogVersionHandler(
         val archive = port?.let { archiveBuilder.build(content, manifest) }
         var publicationId: UUID? = null
         val highest = latest == null || newVersion > latest
-        val followers = jdbi.withHandle<List<EnvironmentOverride>, Exception> { handle ->
-            EnvironmentOverrideStore.list(handle, command.tenantKey, null, command.catalogKey).filter { it.draftId == draft.key }
-        }
 
         jdbi.useTransaction<Exception> { handle ->
             handle.createUpdate(
@@ -449,12 +445,9 @@ class ReleaseCatalogVersionHandler(
 
             // Declarations in other drafts that named this draft now pin the release it became.
             dependencyStore.pinDeclarationsOf(handle, command.tenantKey, draft.versionId, CatalogDependencyRelease(newVersion.toString(), fingerprint))
-            // The draft became the release: environments that followed it stop (contract ADR 0002).
-            handle.createUpdate("DELETE FROM environment_catalog_overrides WHERE tenant_key = :t AND draft_id = :v")
-                .bind("t", command.tenantKey)
-                .bind("v", draft.versionId)
-                .execute()
-            EnvironmentOverrideStore.recordEnded(handle, command.tenantKey, followers)
+            // The draft became the release, keeping its id: environments serving it serve the release
+            // (contract ADR 0003), logged as released.
+            DraftDeploymentStore.releaseFor(handle, command.tenantKey, draft.versionId, newVersion.toString())
             if (draft.isNext) {
                 // The next version, a convention of this suite, continues on this release: the same
                 // row, its content the release's, under a new id, now measured against it.

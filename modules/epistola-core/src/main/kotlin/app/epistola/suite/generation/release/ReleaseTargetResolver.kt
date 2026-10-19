@@ -24,8 +24,8 @@ import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.documents.NoReleaseDeployedException
 import app.epistola.suite.documents.ReleaseNotFoundException
 import app.epistola.suite.documents.TemplateNotInReleaseException
-import app.epistola.suite.environments.EnvironmentOverride
-import app.epistola.suite.environments.EnvironmentOverrideStore
+import app.epistola.suite.environments.DraftDeployment
+import app.epistola.suite.environments.DraftDeploymentStore
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.templates.services.VariantCandidate
@@ -39,7 +39,7 @@ import java.util.UUID
 /** What a generation request renders: a variant of a template, in one release. */
 data class ReleaseTarget(val release: ReleaseRef, val variantKey: VariantKey)
 
-/** A draft an environment uses, live, through its override ([app.epistola.suite.environments.EnvironmentOverride]). */
+/** A draft an environment serves, live ([app.epistola.suite.environments.DraftDeployment]). */
 data class DraftSource(val catalogKey: CatalogKey, val draftId: String, val label: String)
 
 /** What a catalog's requests through an environment render: a release, or a draft it follows. */
@@ -78,9 +78,9 @@ class EnvironmentUsesDraftException(val environmentKey: EnvironmentKey, val cata
  * attribute selection, then the default — so a variant added to the working copy since the release
  * is not offered, and one removed since still is.
  *
- * An environment's override ([app.epistola.suite.environments.EnvironmentOverride]) replaces the
- * choice for every request through it that names no exact release, a range included: it names one
- * of the releases the environment serves, or a draft, rendered live ([select], [resolveForGeneration]).
+ * An environment serving a draft of the catalog ([app.epistola.suite.environments.DraftDeployment])
+ * renders it, live, for every request through it that names no version; a request naming a range or
+ * a number gets a release, as a draft never matches one (contract ADR 0003, [select], [resolveForGeneration]).
  */
 @Component
 class ReleaseTargetResolver(
@@ -91,17 +91,14 @@ class ReleaseTargetResolver(
 ) {
 
     /**
-     * What a request for [catalogKey] renders: [environmentKey]'s override when it has one and
-     * [versionSelector] names no exact release, else the release [selectRelease] picks.
+     * What a request for [catalogKey] renders: the draft [environmentKey] serves when [versionSelector]
+     * names no version, else the release [selectRelease] picks.
      */
     fun select(tenantKey: TenantKey, catalogKey: CatalogKey, environmentKey: EnvironmentKey?, versionSelector: String?): CatalogSelection {
         val selector = versionSelector?.trim()?.ifEmpty { null }
-        if (environmentKey != null && !namesExactRelease(selector)) {
-            val override = jdbi.withHandle<EnvironmentOverride?, Exception> { EnvironmentOverrideStore.list(it, tenantKey, environmentKey, catalogKey).singleOrNull() }
-            when {
-                override?.version != null -> return CatalogSelection.Release(override.version)
-                override?.draftId != null -> return CatalogSelection.Draft(DraftSource(catalogKey, override.draftId, override.label))
-            }
+        if (environmentKey != null && selector == null) {
+            val draft = jdbi.withHandle<DraftDeployment?, Exception> { DraftDeploymentStore.list(it, tenantKey, environmentKey, catalogKey).singleOrNull() }
+            if (draft != null) return CatalogSelection.Draft(DraftSource(catalogKey, draft.draftId, draft.draftLabel))
         }
         return CatalogSelection.Release(highestCandidate(tenantKey, catalogKey, environmentKey, selector))
     }
@@ -172,13 +169,6 @@ class ReleaseTargetResolver(
     }
 
     /**
-     * Whether [selector] names one release outright, which an override does not replace: a version
-     * number, or a label that is no range (a release from before 2.0).
-     */
-    private fun namesExactRelease(selector: String?): Boolean = selector != null &&
-        (SemVer.parseOrNull(selector) != null || CatalogVersionSelector.parseOrNull(selector) == null)
-
-    /**
      * The release and variant a request renders: [selectRelease], then the variant within it.
      *
      * @throws TemplateNotInReleaseException when the release lacks the template, or the explicit variant
@@ -200,7 +190,7 @@ class ReleaseTargetResolver(
     )
 
     /**
-     * The release of [catalogKey] a request renders: its environment's override (a release), else the highest candidate satisfying
+     * The release of [catalogKey] a request renders: the highest candidate satisfying
      * [versionSelector], or the highest candidate without one. The candidates are the releases
      * [environmentKey] serves, or without it every release of the catalog that kept its content.
      *
@@ -215,7 +205,7 @@ class ReleaseTargetResolver(
      * @throws ReleaseNotFoundException when, without an environment, no release that kept its content satisfies the selector
      * @throws CatalogNotReleasedException when, without either, the catalog has no release that kept its content
      * @throws ValidationException when the selector names no candidate and is not a version selector
-     * @throws EnvironmentUsesDraftException when the environment's override names a draft
+     * @throws EnvironmentUsesDraftException when the environment serves a draft, which a request naming no version renders
      */
     fun selectRelease(tenantKey: TenantKey, catalogKey: CatalogKey, environmentKey: EnvironmentKey?, versionSelector: String?): String = when (val selection = select(tenantKey, catalogKey, environmentKey, versionSelector)) {
         is CatalogSelection.Release -> selection.version

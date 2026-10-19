@@ -13,7 +13,7 @@ import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.environments.EnvironmentOverrideStore
+import app.epistola.suite.environments.DraftDeploymentStore
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.execute
@@ -190,17 +190,15 @@ class MakeNextVersionHandler(
             if (keepAs != null && open.any { it.versionId != previous?.versionId && it.name.equals(keepAs, ignoreCase = true) }) {
                 throw CatalogDraftNameInUseException(catalogKey, keepAs)
             }
-            val ended = if (previous != null && keepAs == null) {
+            if (previous != null && keepAs == null) {
                 val holders = holdersCheck.holders(handle, tenantKey, previous.versionId)
                 if (holders.isNotEmpty()) throw CatalogVersionHeldException(catalogKey, previous.label, holders)
                 val namedBy = dependencyStore.namedBy(handle, tenantKey, previous.versionId)
                 if (namedBy.isNotEmpty()) throw CatalogDraftInUseException(catalogKey, previous.label, namedBy)
-                EnvironmentOverrideStore.list(handle, tenantKey, null, catalogKey).filter { it.draftId == previous.key }
-            } else {
-                emptyList()
+                // The previous next version is discarded: environments serving it stop, in their history.
+                DraftDeploymentStore.endFor(handle, tenantKey, previous.versionId)
             }
             drafts.promote(handle, tenantKey, work.versionId, previous?.versionId, keepAs)
-            EnvironmentOverrideStore.recordEnded(handle, tenantKey, ended)
             versions.all(handle, tenantKey, catalogKey).first { it.status == CatalogVersionStatus.DRAFT && it.versionId == work.key }
         }
     }
@@ -299,10 +297,9 @@ class DeleteCatalogDraftHandler(
             if (holders.isNotEmpty()) throw CatalogVersionHeldException(catalogKey, draft.label, holders)
             val namedBy = dependencyStore.namedBy(handle, tenantKey, draft.versionId)
             if (namedBy.isNotEmpty()) throw CatalogDraftInUseException(catalogKey, draft.label, namedBy)
-            // Environments following it stop: recorded in their history.
-            val ended = EnvironmentOverrideStore.list(handle, tenantKey, null, catalogKey).filter { it.draftId == draft.key }
+            // Environments serving it stop: recorded in their history.
+            DraftDeploymentStore.endFor(handle, tenantKey, draft.versionId)
             drafts.delete(handle, tenantKey, draft.versionId)
-            EnvironmentOverrideStore.recordEnded(handle, tenantKey, ended)
             draft
         }
         // The next version starts again on the latest release, so everyday work has somewhere to go.

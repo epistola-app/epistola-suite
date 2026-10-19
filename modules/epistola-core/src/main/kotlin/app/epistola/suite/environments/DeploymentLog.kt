@@ -4,6 +4,7 @@
 
 package app.epistola.suite.environments
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey
@@ -11,26 +12,23 @@ import app.epistola.suite.security.currentUserIdOrNull
 import org.jdbi.v3.core.Handle
 import java.time.OffsetDateTime
 
-/** What happened to one release an environment serves. */
+/** What happened to one catalog version an environment serves (contract `DeploymentAction`). */
 enum class DeploymentAction {
     DEPLOYED,
     UNDEPLOYED,
 
-    /** An override was set: the environment uses [DeploymentLogEntry.version] or the draft [DeploymentLogEntry.draftLabel] as its latest. */
-    OVERRIDE_SET,
-
-    /** An override was cleared: the environment uses the highest release it serves again. */
-    OVERRIDE_CLEARED,
+    /** A deployed draft was released: the environment serves that release, [DeploymentLogEntry.version], instead. */
+    RELEASED,
 }
 
 /**
- * One change to what an environment serves: one release of a catalog deployed or undeployed, or an
- * override set or cleared. An environment serves any number of releases of a catalog, so a deploy
- * replaces nothing.
+ * One change to what an environment serves: a release or a draft of a catalog deployed or
+ * undeployed, or a deployed draft released. An environment serves any number of releases of a
+ * catalog, so deploying one replaces nothing.
  *
- * @property version the release deployed or undeployed, or the release an override used; null for
- *   an override naming a draft.
- * @property draftLabel for an override naming a draft, the draft's name then; null otherwise.
+ * @property version the release deployed, undeployed or released; null for a draft deployed or undeployed.
+ * @property draftLabel for a draft, its name then; null for a release.
+ * @property versionKey the version's public id then (contract `versionId`); null for entries before it was recorded.
  * @property previousVersion for a deploy logged while an environment served one release per catalog
  *   (before 2.0), the release it replaced; null otherwise.
  * @property changedByName the display name of who made the change; null for a system change or a
@@ -49,6 +47,7 @@ data class DeploymentLogEntry(
     val registry: String? = null,
     val namespace: String? = null,
     val draftLabel: String? = null,
+    val versionKey: String? = null,
 )
 
 /**
@@ -65,20 +64,24 @@ internal object DeploymentLog {
         version: String?,
         /** The version a deploy replaced, so the history reads "made v1.1.0 live, replacing v1.0.0". */
         previousVersion: String? = null,
-        /** For an override naming a draft: the draft's name. */
+        /** For a draft: its name. */
         draftLabel: String? = null,
+        /** The version's public id; for a release looked up from its number when not given. */
+        versionKey: String? = null,
     ) {
-        // clock_timestamp(), not NOW(): one command can log several changes (an undeploy and the
-        // override it ends), and the history lists them in the order they happened.
+        // clock_timestamp(), not NOW(): one command can log several changes (a draft replaced and the
+        // one deployed in its place), and the history lists them in the order they happened.
         handle.createUpdate(
             """
             INSERT INTO environment_deployment_log
-                (tenant_key, environment_key, catalog_key, registry, namespace, action, version, previous_version, draft_label, changed_at, changed_by)
+                (tenant_key, environment_key, catalog_key, registry, namespace, action, version, previous_version, draft_label, version_key, changed_at, changed_by)
             VALUES (
                 :t, :e, :c,
                 (SELECT registry FROM catalogs WHERE tenant_key = :t AND catalog_key = :c),
                 (SELECT namespace FROM catalogs WHERE tenant_key = :t AND catalog_key = :c),
-                :action, :v, :previous, :draft, clock_timestamp(), :by
+                :action, :v, :previous, :draft,
+                COALESCE(CAST(:key AS VARCHAR), (SELECT r.version_key FROM catalog_releases r WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version = :v)),
+                clock_timestamp(), :by
             )
             """,
         )
@@ -89,6 +92,7 @@ internal object DeploymentLog {
             .bind("v", version)
             .bind("previous", previousVersion)
             .bind("draft", draftLabel)
+            .bind("key", versionKey)
             .bind("by", currentUserIdOrNull()?.value)
             .execute()
     }

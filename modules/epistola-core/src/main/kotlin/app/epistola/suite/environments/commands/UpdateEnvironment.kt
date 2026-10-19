@@ -5,9 +5,9 @@
 package app.epistola.suite.environments.commands
 
 import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.environments.DraftDeploymentStore
 import app.epistola.suite.environments.Environment
-import app.epistola.suite.environments.EnvironmentOverrideRefusedException
-import app.epistola.suite.environments.EnvironmentOverrideStore
+import app.epistola.suite.environments.EnvironmentDeploymentRefusedException
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
@@ -43,12 +43,12 @@ class UpdateEnvironmentHandler(
         val auditUser = currentUserIdOrNull()?.value
         return jdbi.inTransaction<Environment?, Exception> { handle ->
             if (command.production == true) {
-                // Production uses only published versions: a draft it follows has to go first.
-                val drafts = EnvironmentOverrideStore.list(handle, command.id.tenantKey, command.id.key, catalogKey = null).filter { it.draftId != null }
+                // Production serves only releases: a draft it serves has to go first.
+                val drafts = DraftDeploymentStore.list(handle, command.id.tenantKey, command.id.key, catalogKey = null)
                 if (drafts.isNotEmpty()) {
-                    throw EnvironmentOverrideRefusedException(
-                        "'${command.id.key.value}' uses work in progress (${drafts.joinToString { "${it.catalogKey.value}: ${it.label}" }}): " +
-                            "point it at a release, or clear the override, before marking it production.",
+                    throw EnvironmentDeploymentRefusedException(
+                        "'${command.id.key.value}' serves work in progress (${drafts.joinToString { "${it.catalogKey.value}: ${it.draftLabel}" }}): " +
+                            "undeploy it, or release it, before marking it production.",
                     )
                 }
             }

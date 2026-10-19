@@ -131,7 +131,7 @@ class ReleaseDependencies(
             """
             SELECT cat.catalog_key, d.version FROM environment_catalog_deployments d
             JOIN catalogs cat ON cat.tenant_key = d.tenant_key AND cat.catalog_id = d.catalog_id
-            WHERE d.tenant_key = :t AND d.environment_key = :e
+            WHERE d.tenant_key = :t AND d.environment_key = :e AND d.version IS NOT NULL
             """,
         )
         .bind("t", tenantKey)

@@ -76,17 +76,34 @@ class CatalogDependencyStore {
         )
         .bind("t", tenantKey)
         .bind("c", catalogKey)
-        .map { rs, _ ->
-            CatalogDependencyDeclaration(
-                rs.getString("registry"),
-                rs.getString("namespace"),
-                rs.getString("dependency_key"),
-                rs.getString("release_version"),
-                rs.getString("release_fingerprint"),
-                rs.getString("draft_key"),
-                rs.getString("draft_name"),
-            )
-        }
+        .map { rs, _ -> declarationOf(rs) }
+        .list()
+
+    private fun declarationOf(rs: java.sql.ResultSet) = CatalogDependencyDeclaration(
+        rs.getString("registry"),
+        rs.getString("namespace"),
+        rs.getString("dependency_key"),
+        rs.getString("release_version"),
+        rs.getString("release_fingerprint"),
+        rs.getString("draft_key"),
+        rs.getString("draft_name"),
+    )
+
+    /** The declarations of draft [versionId], by its internal id, whatever the running message targets. */
+    fun declarationsOf(handle: Handle, tenantKey: TenantKey, versionId: java.util.UUID): List<CatalogDependencyDeclaration> = handle
+        .createQuery(
+            """
+            SELECT d.registry, d.namespace, d.dependency_key, d.release_version, d.release_fingerprint,
+                   dv.version_key AS draft_key, $DRAFT_LABEL AS draft_name
+            FROM catalog_dependencies d
+            LEFT JOIN catalog_versions dv ON dv.tenant_key = d.tenant_key AND dv.version_id = d.dependency_version_id
+            WHERE d.tenant_key = :t AND d.version_id = :v
+            ORDER BY d.position
+            """,
+        )
+        .bind("t", tenantKey)
+        .bind("v", versionId)
+        .map { rs, _ -> declarationOf(rs) }
         .list()
 
     /** Replaces the declarations of [catalogKey] with [declarations], in that order. */

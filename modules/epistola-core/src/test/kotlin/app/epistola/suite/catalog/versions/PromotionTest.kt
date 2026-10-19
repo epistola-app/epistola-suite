@@ -23,7 +23,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployRelease
+import app.epistola.suite.environments.commands.DeployCatalogVersion
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate

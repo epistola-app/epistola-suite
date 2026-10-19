@@ -4,9 +4,12 @@
 
 package app.epistola.suite.environments.queries
 
+import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.environments.DraftDeploymentStore
 import app.epistola.suite.environments.ReleaseDependencies
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -16,8 +19,9 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
 /**
- * What an environment uses without deploying it: the releases the releases it serves are pinned to,
- * directly or transitively, that it does not serve itself. A pinned release renders from the tenant's
+ * What an environment uses without deploying it: the releases the versions it serves are pinned to,
+ * directly or transitively, that it does not serve itself. A deployed draft's are what its
+ * declarations pin. A pinned release renders from the tenant's
  * copy whatever the environment serves, so these come along with what is deployed. By catalog.
  */
 data class ListImplicitDeployments(
@@ -35,6 +39,7 @@ data class ImplicitDeployment(val catalogKey: CatalogKey, val version: String, v
 class ListImplicitDeploymentsHandler(
     private val jdbi: Jdbi,
     private val dependencies: ReleaseDependencies,
+    private val dependencyStore: CatalogDependencyStore,
 ) : QueryHandler<ListImplicitDeployments, List<ImplicitDeployment>> {
     override fun handle(query: ListImplicitDeployments): List<ImplicitDeployment> = jdbi.withHandle<List<ImplicitDeployment>, Exception> { handle ->
         val served = dependencies.served(handle, query.tenantKey, query.environmentKey)
@@ -42,6 +47,14 @@ class ListImplicitDeploymentsHandler(
         for (release in served) {
             for (needed in dependencies.needed(handle, query.tenantKey, listOf(release))) {
                 if (needed !in served) neededBy.getOrPut(needed) { mutableListOf() }.add(release.first)
+            }
+        }
+        for (draft in DraftDeploymentStore.list(handle, query.tenantKey, query.environmentKey, null)) {
+            val versionId = DraftDeploymentStore.draft(handle, query.tenantKey, draft.catalogKey, DraftRef.Id(draft.draftId))?.first ?: continue
+            val pins = dependencyStore.declarationsOf(handle, query.tenantKey, versionId)
+                .mapNotNull { declaration -> declaration.releaseVersion?.let { CatalogKey.of(declaration.catalogKey) to it } }
+            for (needed in dependencies.needed(handle, query.tenantKey, pins) + pins) {
+                if (needed !in served) neededBy.getOrPut(needed) { mutableListOf() }.add(draft.catalogKey)
             }
         }
         neededBy.map { (release, by) -> ImplicitDeployment(release.first, release.second, by.distinct()) }

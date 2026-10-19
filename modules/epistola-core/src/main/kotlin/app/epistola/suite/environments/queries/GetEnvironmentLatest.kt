@@ -7,7 +7,6 @@ package app.epistola.suite.environments.queries
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.environments.EnvironmentOverrideStore
 import app.epistola.suite.generation.release.CatalogSelection
 import app.epistola.suite.generation.release.ReleaseTargetResolver
 import app.epistola.suite.mediator.Query
@@ -19,7 +18,7 @@ import org.springframework.stereotype.Component
 
 /**
  * What a request through [environmentKey] that names no version gets, per catalog the environment
- * serves or follows: its override, else the highest release it serves. Generation decides the same
+ * serves: the draft it serves, else the highest release it serves. Generation decides the same
  * way ([ReleaseTargetResolver.select]); this is that answer, for showing it.
  */
 data class GetEnvironmentLatest(
@@ -46,7 +45,7 @@ class GetEnvironmentLatestHandler(
             )
                 .bind("t", query.tenantKey).bind("e", query.environmentKey)
                 .mapTo(String::class.java).list().map { CatalogKey.of(it) }
-            (served + EnvironmentOverrideStore.list(handle, query.tenantKey, query.environmentKey, null).map { it.catalogKey }).distinct()
+            served.distinct()
         }
         return catalogs.associateWith { resolver.select(query.tenantKey, it, query.environmentKey, null) }
     }

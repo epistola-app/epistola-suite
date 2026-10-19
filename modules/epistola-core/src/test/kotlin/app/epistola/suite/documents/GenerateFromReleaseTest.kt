@@ -135,7 +135,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
             released(variant, TestTemplateBuilder.buildMinimal(name = "Letter"))
             val production = app.epistola.suite.common.ids.EnvironmentId(app.epistola.suite.common.ids.EnvironmentKey.of("production"), TenantId(tenant.id))
             execute(app.epistola.suite.environments.commands.CreateEnvironment(production, "Production"))
-            execute(app.epistola.suite.environments.commands.DeployRelease(production, CatalogKey.DEFAULT, "1.0.0"))
+            execute(app.epistola.suite.environments.commands.DeployCatalogVersion(production, CatalogKey.DEFAULT, "1.0.0"))
             // The next version drops the letter; production still serves the release that has it.
             execute(app.epistola.suite.templates.commands.DeleteDocumentTemplate(templateId))
             Triple(tenant, templateId, variant)
@@ -191,7 +191,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
             released(variant, TestTemplateBuilder.buildMinimal(name = "Letter"))
             val production = app.epistola.suite.common.ids.EnvironmentId(app.epistola.suite.common.ids.EnvironmentKey.of("production"), TenantId(tenant.id))
             execute(app.epistola.suite.environments.commands.CreateEnvironment(production, "Production"))
-            execute(app.epistola.suite.environments.commands.DeployRelease(production, CatalogKey.DEFAULT, "1.0.0"))
+            execute(app.epistola.suite.environments.commands.DeployCatalogVersion(production, CatalogKey.DEFAULT, "1.0.0"))
             // A newer release exists, but production has not been moved to it.
             released(variant, TestTemplateBuilder.buildMinimal(name = "Letter"))
             Triple(tenant, templateId, variant)

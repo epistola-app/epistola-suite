@@ -26,7 +26,7 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployRelease
+import app.epistola.suite.environments.commands.DeployCatalogVersion
 import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontKind
@@ -135,8 +135,8 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
 
             CreateEnvironment(production, "Production").execute()
             // shared@1.0.0 comes along with letters, since letters renders with it; 1.1.0 is the highest served.
-            DeployRelease(production, shared.key, "1.1.0").execute()
-            DeployRelease(production, letters.key, "1.0.0", includeDependencies = true).execute()
+            DeployCatalogVersion(production, shared.key, "1.1.0").execute()
+            DeployCatalogVersion(production, letters.key, "1.0.0", includeDependencies = true).execute()
         }
 
         val inProduction = source.resolve(tenantOf(letters), ReleaseRef(letters.key, "1.0.0"), "invoice", VariantKey.INITIAL.value, production.key)

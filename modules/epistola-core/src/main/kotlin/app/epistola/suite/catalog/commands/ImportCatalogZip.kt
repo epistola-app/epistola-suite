@@ -275,9 +275,21 @@ class ImportCatalogZipHandler(
                 val installed = existing?.installedReleaseVersion?.let(SemVer::parseOrNull)
                 val incoming = SemVer.parseOrNull(version)
                 if (installed != null && incoming != null && incoming < installed) {
-                    // Its mirror is the highest release installed; recording an older one beside it
-                    // is not supported here yet.
-                    throw CatalogImportConflictException("${catalogKey.value} $version is below the installed release $installed; this installation installs a subscribed catalog's releases in order.")
+                    // Installed beside the others (contract `installCatalogRelease`): a release below
+                    // the installed one is recorded from the archive as published, and what the
+                    // catalog mirrors stays the highest release it has.
+                    val bound = parsed.manifest.resources.associate { entry ->
+                        val detail = parsed.entries[entry.detailUrl.removePrefix("./")]
+                            ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
+                        "${entry.type}/${entry.key}" to schemaMigrator.migrateAndBindResourceDetail(entry.type, detail, parsed.catalogCtx).resource
+                    }
+                    RecordInstalledRelease(
+                        command.tenantKey,
+                        catalogKey,
+                        published = publishedContent(manifest, bound, parsed.entries),
+                        release = RecordedRelease(version, published),
+                    ).execute()
+                    return result(newly = true)
                 }
                 val imported = importArchive(command, CatalogType.SUBSCRIBED)
                 // Nothing was advanced: the catalog stays on the release it had, and the caller

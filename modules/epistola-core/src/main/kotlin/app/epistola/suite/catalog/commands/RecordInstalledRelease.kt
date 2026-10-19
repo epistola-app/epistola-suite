@@ -57,8 +57,17 @@ data class RecordInstalledRelease(
      * seeded fonts).
      */
     val published: CatalogContent? = null,
+    /**
+     * A release recorded beside the installed one, with [published] as its content (a release
+     * installed below the highest): its number and its publisher's fingerprint. Null records the
+     * installed release.
+     */
+    val release: RecordedRelease? = null,
 ) : Command<String?>,
     SystemInternal
+
+/** A release's number and its publisher's fingerprint, when the archive carries one. */
+data class RecordedRelease(val version: String, val fingerprint: String?)
 
 /**
  * Lets the bundled-catalog bootstrap record a catalog's release itself, after seeding what its
@@ -88,7 +97,8 @@ class RecordInstalledReleaseHandler(
     override fun handle(command: RecordInstalledRelease): String? {
         val catalog = GetCatalog(command.tenantKey, command.catalogKey).query() ?: return null
         if (catalog.type != CatalogType.SUBSCRIBED) return null
-        val version = catalog.installedReleaseVersion ?: return null
+        val version = command.release?.version ?: catalog.installedReleaseVersion ?: return null
+        check(command.release == null || command.published != null) { "A release beside the installed one is recorded from its archive" }
 
         val exists = jdbi.withHandle<Boolean, Exception> { handle ->
             handle.createQuery("SELECT EXISTS (SELECT 1 FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v)")
@@ -105,11 +115,13 @@ class RecordInstalledReleaseHandler(
         // or earlier, or installed under 1.x) cannot be checked against this wire-v8 content, and a
         // release whose fingerprint names no algorithm cannot be locked to or pinned by a dependent
         // (contract ADR 0003), so such a release records the qualified fingerprint of what it holds.
-        val fingerprint = catalog.installedFingerprint?.takeIf { QualifiedCatalogFingerprint.parse(it) != null }
+        val publisherFingerprint = if (command.release != null) command.release.fingerprint else catalog.installedFingerprint
+        val fingerprint = publisherFingerprint?.takeIf { QualifiedCatalogFingerprint.parse(it) != null }
             ?: fingerprintService.fingerprint(content)
         // The publisher's per-resource digests where the install recorded them; a resource the
         // manifest does not carry (the system catalog's seeded fonts) gets its own.
-        val resourceFingerprints = fingerprintService.perResourceFingerprints(content) + catalog.installedResourceFingerprints.orEmpty()
+        val resourceFingerprints = fingerprintService.perResourceFingerprints(content) +
+            (if (command.release == null) catalog.installedResourceFingerprints.orEmpty() else emptyMap())
 
         jdbi.useTransaction<Exception> { handle ->
             val releasedAt = handle.createQuery("SELECT NOW()").mapTo(OffsetDateTime::class.java).one()

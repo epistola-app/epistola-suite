@@ -4,11 +4,15 @@
 
 package app.epistola.suite.environments
 
+import app.epistola.suite.catalog.commands.MarkCatalogReady
+import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
+import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.catalog.versions.DeleteCatalogDraft
 import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.versions.GetCatalogDraft
 import app.epistola.suite.catalog.versions.MakeNextVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -32,11 +36,12 @@ import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.documents.queries.ListGenerationJobs
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployRelease
-import app.epistola.suite.environments.commands.UndeployRelease
+import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.UndeployCatalogVersion
 import app.epistola.suite.environments.commands.UpdateEnvironment
 import app.epistola.suite.environments.queries.GetEnvironmentLatest
 import app.epistola.suite.environments.queries.ListDeploymentHistory
+import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.fonts.FontByteCache
 import app.epistola.suite.fonts.queries.ResolveFontFace
 import app.epistola.suite.generation.GenerationService
@@ -76,7 +81,7 @@ import tools.jackson.databind.node.ObjectNode
  * release is not affected; a range is.
  */
 @Import(FontLookupProbe::class)
-class EnvironmentOverridesTest : IntegrationTestBase() {
+class DraftDeploymentTest : IntegrationTestBase() {
 
     @Autowired private lateinit var fontLookups: FontLookupProbe
 
@@ -133,13 +138,18 @@ class EnvironmentOverridesTest : IntegrationTestBase() {
         mediator.publishAndRelease(variant)
         for (key in listOf(test, production)) {
             CreateEnvironment(EnvironmentId(key, TenantId(tenant)), key.value, production = key == production).execute()
-            DeployRelease(EnvironmentId(key, TenantId(tenant)), default, "1.0.0").execute()
-            DeployRelease(EnvironmentId(key, TenantId(tenant)), default, "1.0.1").execute()
+            DeployCatalogVersion(EnvironmentId(key, TenantId(tenant)), default, "1.0.0").execute()
+            DeployCatalogVersion(EnvironmentId(key, TenantId(tenant)), default, "1.0.1").execute()
         }
         Setup(tenant, variant)
     }
 
     private fun env(setup: Setup, key: EnvironmentKey) = EnvironmentId(key, TenantId(setup.tenant))
+
+    private fun nextVersion(setup: Setup): String = withMediator { GetCatalogDraft(setup.tenant, default).query()!!.versionId }
+
+    /** Deploys draft [draftId] (the next version by default) to [environment]. */
+    private fun deployDraft(setup: Setup, environment: EnvironmentKey, draftId: String = nextVersion(setup)) = withMediator { DeployCatalogVersion(env(setup, environment), default, draftId).execute() }
 
     private fun generate(setup: Setup, environment: EnvironmentKey?, selector: String? = null, field: String = "name"): DocumentGenerationRequest = withMediator {
         GenerateDocument(
@@ -154,49 +164,51 @@ class EnvironmentOverridesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a release override is what the environment uses for no version and for a range, not for an exact release`() {
-        val setup = setup("override-release")
+    fun `a request naming no version gets the highest release served, and rolling back is undeploying the newer one`() {
+        val setup = setup("deploy-rollback")
         assertThat(generate(setup, production).releaseVersion).`as`("the highest it serves").isEqualTo("1.0.1")
+        assertThat(generate(setup, production, "1.0.0").releaseVersion).`as`("an exact release").isEqualTo("1.0.0")
 
-        withMediator { SetEnvironmentOverride(env(setup, production), default, version = "1.0.0").execute() }
+        withMediator { UndeployCatalogVersion(env(setup, production), default, "1.0.1").execute() }
 
         assertThat(generate(setup, production).releaseVersion).isEqualTo("1.0.0")
-        assertThat(generate(setup, production, "^1.0.0").releaseVersion).`as`("a range gets the override").isEqualTo("1.0.0")
-        assertThat(generate(setup, production, "1.0.1").releaseVersion).`as`("an exact release is still served").isEqualTo("1.0.1")
+        assertThat(generate(setup, production, "^1.0.0").releaseVersion).isEqualTo("1.0.0")
         assertThat(generate(setup, test).releaseVersion).`as`("other environments are unaffected").isEqualTo("1.0.1")
-        assertThat(generate(setup, null).releaseVersion).`as`("so are requests without an environment").isEqualTo("1.0.1")
-
-        assertThat(withMediator { ClearEnvironmentOverride(env(setup, production), default).execute() }).isTrue()
-        assertThat(generate(setup, production).releaseVersion).isEqualTo("1.0.1")
     }
 
     @Test
-    fun `an override names a release the environment serves, and undeploying it ends the override`() {
-        val setup = setup("override-served")
-        withMediator { UndeployRelease(env(setup, test), default, "1.0.0").execute() }
-        assertThatThrownBy { withMediator { SetEnvironmentOverride(env(setup, test), default, version = "1.0.0").execute() } }
-            .isInstanceOf(EnvironmentOverrideRefusedException::class.java)
-            .hasMessageContaining("deploy it there first")
+    fun `a draft is deployed by its id, at most one per catalog, and another replaces it in the history`() {
+        val setup = setup("deploy-draft-replace")
+        val work = withMediator { CreateCatalogDraft(setup.tenant, default, name = "Redesign").execute() }
+        deployDraft(setup, test)
 
-        withMediator { SetEnvironmentOverride(env(setup, production), default, version = "1.0.0").execute() }
-        withMediator { UndeployRelease(env(setup, production), default, "1.0.0").execute() }
+        val replaced = deployDraft(setup, test, work.versionId)
 
-        assertThat(withMediator { ListEnvironmentOverrides(setup.tenant, production).query() }).isEmpty()
-        assertThat(generate(setup, production).releaseVersion).isEqualTo("1.0.1")
+        assertThat(replaced.isDraft).isTrue()
+        assertThat(replaced.draftName).isEqualTo("Redesign")
+        assertThat(withMediator { ListDeployments(setup.tenant, default, test).query() }.map { it.version ?: it.draftName })
+            .`as`("the draft first, then the releases").containsExactly("Redesign", "1.0.1", "1.0.0")
+        assertThat(withMediator { ListDeploymentHistory(env(setup, test)).query() }.take(3).map { Triple(it.action, it.version, it.draftLabel) }).containsExactly(
+            Triple(DeploymentAction.DEPLOYED, null, "Redesign"),
+            Triple(DeploymentAction.UNDEPLOYED, null, "Next version"),
+            Triple(DeploymentAction.DEPLOYED, null, "Next version"),
+        )
+        assertThat(withMediator { UndeployCatalogVersion(env(setup, test), default, work.versionId).execute() }).isTrue()
+        assertThat(generate(setup, test).releaseVersion).isEqualTo("1.0.1")
     }
 
     @Test
-    fun `an environment following a draft renders it live, and its documents say so`() {
+    fun `a deployed draft renders live for a request naming no version, and its documents say so`() {
         val setup = setup("override-draft")
-        withMediator { SetEnvironmentOverride(env(setup, test), default, draft = DraftRef.Next).execute() }
+        deployDraft(setup, test)
         // The draft now asks for another field than every release: only a render of the draft wants it.
         withMediator { UpdateDataContract(setup.variant.templateId, dataModel = contract("reference"), dataExamples = listOf(DataExample("e", "E", data("reference"))), forceUpdate = true).execute() }
 
         val accepted = generate(setup, test, field = "reference")
         assertThat(accepted.releaseVersion).isNull()
         assertThat(accepted.draftLabel).isEqualTo("Next version")
-        assertThat(generate(setup, test, "^1.0.0", field = "reference").draftId).`as`("a range gets the draft too").isEqualTo(accepted.draftId)
-        assertThat(generate(setup, test, "1.0.1").releaseVersion).`as`("an exact release is still served").isEqualTo("1.0.1")
+        assertThat(generate(setup, test, "^1.0.0").releaseVersion).`as`("a range matches releases only").isEqualTo("1.0.1")
+        assertThat(generate(setup, test, "1.0.1").releaseVersion).`as`("so does a number").isEqualTo("1.0.1")
 
         withMediator { realExecutor.execute(accepted) }
         val job = withMediator { GetGenerationJob(setup.tenant, accepted.id).query()!! }
@@ -218,9 +230,9 @@ class EnvironmentOverridesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a batch through an environment following a draft renders the draft`() {
+    fun `a batch through an environment serving a draft renders the draft`() {
         val setup = setup("override-batch")
-        withMediator { SetEnvironmentOverride(env(setup, test), default, draft = DraftRef.Next).execute() }
+        deployDraft(setup, test)
 
         val batch = withMediator {
             GenerateDocumentBatch(
@@ -235,74 +247,68 @@ class EnvironmentOverridesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `production uses only published versions`() {
+    fun `production serves only releases`() {
         val setup = setup("override-production")
-        assertThatThrownBy { withMediator { SetEnvironmentOverride(env(setup, production), default, draft = DraftRef.Next).execute() } }
-            .isInstanceOf(EnvironmentOverrideRefusedException::class.java)
+        assertThatThrownBy { deployDraft(setup, production) }
+            .isInstanceOf(EnvironmentDeploymentRefusedException::class.java)
             .hasMessageContaining("production")
 
-        withMediator { SetEnvironmentOverride(env(setup, test), default, draft = DraftRef.Next).execute() }
+        deployDraft(setup, test)
         assertThatThrownBy { withMediator { UpdateEnvironment(env(setup, test), "test", production = true).execute() } }
-            .`as`("marking it production while it follows a draft")
-            .isInstanceOf(EnvironmentOverrideRefusedException::class.java)
+            .`as`("marking it production while it serves a draft")
+            .isInstanceOf(EnvironmentDeploymentRefusedException::class.java)
             .hasMessageContaining("Next version")
     }
 
     @Test
-    fun `discarding the draft ends the override, and the history records each change`() {
+    fun `discarding a deployed draft undeploys it, recorded in the history`() {
         val setup = setup("override-discard")
         val work = withMediator { CreateCatalogDraft(setup.tenant, default, name = "Redesign").execute() }
-        withMediator { SetEnvironmentOverride(env(setup, test), default, draft = DraftRef.Id(work.versionId)).execute() }
+        deployDraft(setup, test, work.versionId)
         assertThat(generate(setup, test).draftLabel).isEqualTo("Redesign")
 
         withMediator { DeleteCatalogDraft(setup.tenant, default, DraftRef.Id(work.versionId)).execute() }
 
-        assertThat(withMediator { ListEnvironmentOverrides(setup.tenant, test).query() }).isEmpty()
+        assertThat(withMediator { ListDeployments(setup.tenant, default, test).query() }.none { it.isDraft }).isTrue()
         assertThat(generate(setup, test).releaseVersion).isEqualTo("1.0.1")
-        withMediator { SetEnvironmentOverride(env(setup, test), default, version = "1.0.0").execute() }
-        withMediator { ClearEnvironmentOverride(env(setup, test), default).execute() }
-        val history = withMediator { ListDeploymentHistory(env(setup, test)).query() }
-        assertThat(history.take(4).map { Triple(it.action, it.version, it.draftLabel) }).containsExactly(
-            Triple(DeploymentAction.OVERRIDE_CLEARED, "1.0.0", null),
-            Triple(DeploymentAction.OVERRIDE_SET, "1.0.0", null),
-            Triple(DeploymentAction.OVERRIDE_CLEARED, null, "Redesign"),
-            Triple(DeploymentAction.OVERRIDE_SET, null, "Redesign"),
+        assertThat(withMediator { ListDeploymentHistory(env(setup, test)).query() }.take(2).map { Triple(it.action, it.version, it.draftLabel) }).containsExactly(
+            Triple(DeploymentAction.UNDEPLOYED, null, "Redesign"),
+            Triple(DeploymentAction.DEPLOYED, null, "Redesign"),
         )
     }
 
     @Test
-    fun `an override follows a draft by its id, so making another draft the next version does not move it`() {
+    fun `a deployment names a draft by its id, so making another draft the next version does not move it`() {
         val setup = setup("override-promote")
-        val next = withMediator { SetEnvironmentOverride(env(setup, test), default, draft = DraftRef.Next).execute() }
+        val next = deployDraft(setup, test)
         val work = withMediator { CreateCatalogDraft(setup.tenant, default, name = "Redesign").execute() }
 
         withMediator { MakeNextVersion(setup.tenant, default, DraftRef.Id(work.versionId), keepPreviousAs = "Old next").execute() }
 
-        val override = withMediator { ListEnvironmentOverrides(setup.tenant, test).query() }.single()
-        assertThat(override.draftId).isEqualTo(next.draftId)
-        assertThat(override.draftLabel).isEqualTo("Old next")
+        val deployed = withMediator { ListDeployments(setup.tenant, default, test).query() }.single { it.isDraft }
+        assertThat(deployed.versionId).isEqualTo(next.versionId)
+        assertThat(deployed.draftName).isEqualTo("Old next")
     }
 
     @Test
-    fun `what each environment uses is the highest release it serves, or its override`() {
+    fun `what each environment uses for no version is the draft it serves, else its highest release`() {
         val setup = setup("override-latest")
-        withMediator { SetEnvironmentOverride(env(setup, production), default, version = "1.0.0").execute() }
-        withMediator { SetEnvironmentOverride(env(setup, test), default, draft = DraftRef.Next).execute() }
+        deployDraft(setup, test)
 
         assertThat(withMediator { GetEnvironmentLatest(setup.tenant, production).query() })
-            .isEqualTo(mapOf(default to CatalogSelection.Release("1.0.0")))
+            .isEqualTo(mapOf(default to CatalogSelection.Release("1.0.1")))
         assertThat((withMediator { GetEnvironmentLatest(setup.tenant, test).query() }.getValue(default) as CatalogSelection.Draft).source.label)
             .isEqualTo("Next version")
 
-        withMediator { ClearEnvironmentOverride(env(setup, production), default).execute() }
-        assertThat(withMediator { GetEnvironmentLatest(setup.tenant, production).query() })
+        withMediator { UndeployCatalogVersion(env(setup, test), default, nextVersion(setup)).execute() }
+        assertThat(withMediator { GetEnvironmentLatest(setup.tenant, test).query() })
             .isEqualTo(mapOf(default to CatalogSelection.Release("1.0.1")))
     }
 
     @Test
-    fun `analysing data through an environment following a draft checks the draft's contract`() {
+    fun `analysing data through an environment serving a draft checks the draft's contract`() {
         val setup = setup("override-analyze")
-        withMediator { SetEnvironmentOverride(env(setup, test), default, draft = DraftRef.Next).execute() }
+        deployDraft(setup, test)
         withMediator { UpdateDataContract(setup.variant.templateId, dataModel = contract("reference"), dataExamples = listOf(DataExample("e", "E", data("reference"))), forceUpdate = true).execute() }
         fun analyze(environment: EnvironmentKey) = withMediator {
             AnalyzeTemplateData(setup.tenant, default, setup.variant.templateId.key, data("name"), variantId = setup.variant.key, environmentId = environment).query()
@@ -313,24 +319,25 @@ class EnvironmentOverridesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `an override that ends because its release is undeployed or its draft discarded is recorded`() {
-        val setup = setup("override-ended")
-        withMediator { SetEnvironmentOverride(env(setup, production), default, version = "1.0.0").execute() }
-        withMediator { UndeployRelease(env(setup, production), default, "1.0.0").execute() }
-        assertThat(withMediator { ListDeploymentHistory(env(setup, production)).query() }.take(2).map { Triple(it.action, it.version, it.draftLabel) })
-            .containsExactly(Triple(DeploymentAction.OVERRIDE_CLEARED, "1.0.0", null), Triple(DeploymentAction.UNDEPLOYED, "1.0.0", null))
-
+    fun `releasing a deployed draft keeps the deployment, as the release that keeps its id, logged as released`() {
+        val setup = setup("deploy-released")
         val work = withMediator { CreateCatalogDraft(setup.tenant, default, name = "Redesign").execute() }
-        withMediator { SetEnvironmentOverride(env(setup, test), default, draft = DraftRef.Id(work.versionId)).execute() }
-        withMediator { DeleteCatalogDraft(setup.tenant, default, DraftRef.Id(work.versionId)).execute() }
-        assertThat(withMediator { ListDeploymentHistory(env(setup, test)).query() }.first().let { Triple(it.action, it.version, it.draftLabel) })
-            .isEqualTo(Triple(DeploymentAction.OVERRIDE_CLEARED, null, "Redesign"))
+        val ref = CatalogVersionRef(setup.tenant, default, DraftRef.Id(work.versionId))
+        withMediator {
+            app.epistola.suite.templates.commands.variants.UpdateVariantContent(setup.variant, TestTemplateBuilder.buildMinimal(name = "Letter 3"), catalogVersion = ref).execute()
+            MarkCatalogReady(setup.tenant, default, catalogVersion = ref).execute()
+        }
+        deployDraft(setup, test, work.versionId)
 
-        withMediator { SetEnvironmentOverride(env(setup, test), default, version = "1.0.0").execute() }
-        withMediator { DeployRelease(env(setup, test), default, "1.0.1", replace = true).execute() }
-        assertThat(withMediator { ListDeploymentHistory(env(setup, test)).query() }.map { it.action to it.version })
-            .`as`("deploying in its place ends it too").contains(DeploymentAction.OVERRIDE_CLEARED to "1.0.0")
-        assertThat(withMediator { ListEnvironmentOverrides(setup.tenant, test).query() }).isEmpty()
+        val released = withMediator { ReleaseCatalogVersion(setup.tenant, default, catalogVersion = ref).execute() }
+
+        val deployed = withMediator { ListDeployments(setup.tenant, default, test).query() }.first()
+        assertThat(deployed.isDraft).isFalse()
+        assertThat(deployed.version).isEqualTo(released.version)
+        assertThat(deployed.versionId).`as`("the release keeps the draft's id").isEqualTo(work.versionId)
+        assertThat(withMediator { ListDeploymentHistory(env(setup, test)).query() }.first().let { Triple(it.action, it.version, it.draftLabel) })
+            .isEqualTo(Triple(DeploymentAction.RELEASED, released.version, "Redesign"))
+        assertThat(generate(setup, test).releaseVersion).isEqualTo(released.version)
     }
 
     @Test
@@ -343,8 +350,8 @@ class EnvironmentOverridesTest : IntegrationTestBase() {
             // Using the system font pinned the system release, whose font the draft reads from that
             // release. Undeclared, the system catalog is read live, through the font query this watches.
             UpdateCatalogDependencies(setup.tenant, default, emptyList()).execute()
-            SetEnvironmentOverride(env(setup, test), default, draft = DraftRef.Next).execute()
         }
+        deployDraft(setup, test)
         val accepted = generate(setup, test)
         fontLookups.inTransaction.clear()
 

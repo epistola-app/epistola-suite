@@ -48,7 +48,7 @@ fun Mediator.releaseNext(catalogId: CatalogId): String {
  */
 fun Mediator.deployLatestRelease(environmentId: app.epistola.suite.common.ids.EnvironmentId, catalogId: CatalogId): String {
     val version = query(GetLatestCatalogRelease(catalogId.tenantKey, catalogId.key)).latestVersion ?: releaseNext(catalogId)
-    send(app.epistola.suite.environments.commands.DeployRelease(environmentId, catalogId.key, version))
+    send(app.epistola.suite.environments.commands.DeployCatalogVersion(environmentId, catalogId.key, version))
     return version
 }
 

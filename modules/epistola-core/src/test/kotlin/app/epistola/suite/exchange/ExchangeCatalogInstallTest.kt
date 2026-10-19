@@ -16,6 +16,10 @@ import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.sources.InstallCatalogRelease
+import app.epistola.suite.catalog.sources.ListAvailableCatalogReleases
+import app.epistola.suite.catalog.sources.ResourceChangeKind
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -131,6 +135,33 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             assertThat(upgraded.release.version).isEqualTo("2.0.0")
             assertThat(GetCatalog(consumer, CatalogKey.of("invoices")).query()!!.installedReleaseVersion).isEqualTo("2.0.0")
         }
+    }
+
+    @Test
+    fun `the source's releases it lacks are listed and installed beside the others, a fix to an older line too`() {
+        val consumer = connectedTenant("install-side-by-side")
+        exchange.publish("acme", "invoices", releaseArchive("invoices", "1.0.0"), version = "1.0.0")
+        val invoices = CatalogKey.of("invoices")
+        withMediator { InstallExchangeCatalog(consumer, "acme", "invoices").execute() }
+        exchange.publish("acme", "invoices", releaseArchive("invoices", "2.0.0"), version = "2.0.0")
+        withMediator { InstallCatalogRelease(consumer, invoices, "2.0.0").execute() }
+        exchange.publish("acme", "invoices", releaseArchive("invoices", "1.0.1"), version = "1.0.1")
+
+        val available = withMediator { ListAvailableCatalogReleases(consumer, invoices).query() }
+
+        assertThat(available.available.map { it.releaseVersion to it.comparedTo }).`as`("the fix, against the release below it")
+            .containsExactly("1.0.1" to "1.0.0")
+        assertThat(available.available.single().changes.map { it.type to it.change }).containsExactly("theme" to ResourceChangeKind.MODIFIED)
+
+        val installed = withMediator { InstallCatalogRelease(consumer, invoices, "1.0.1").execute() }
+
+        assertThat(installed.newlyInstalled).isTrue()
+        assertThat(withMediator { ListCatalogReleases(consumer, invoices).query() }.map { it.version }).containsExactlyInAnyOrder("1.0.0", "1.0.1", "2.0.0")
+        assertThat(withMediator { GetCatalog(consumer, invoices).query()!! }.installedReleaseVersion).`as`("what it mirrors stays the highest").isEqualTo("2.0.0")
+        assertThat(withMediator { InstallCatalogRelease(consumer, invoices, "1.0.1").execute() }.newlyInstalled).`as`("again, nothing changes").isFalse()
+        assertThat(withMediator { ListAvailableCatalogReleases(consumer, invoices).query() }.available).isEmpty()
+        assertThatThrownBy { withMediator { InstallCatalogRelease(consumer, invoices, "9.9.9").execute() } }
+            .isInstanceOf(app.epistola.suite.catalog.versions.CatalogVersionNotFoundException::class.java)
     }
 
     /**

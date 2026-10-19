@@ -5,14 +5,18 @@
 package app.epistola.suite.environments.commands
 
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.environments.CatalogDeployment
 import app.epistola.suite.environments.DeploymentAction
 import app.epistola.suite.environments.DeploymentLog
-import app.epistola.suite.environments.EnvironmentOverrideStore
+import app.epistola.suite.environments.DeploymentRows
+import app.epistola.suite.environments.DraftDeploymentStore
+import app.epistola.suite.environments.EnvironmentDeploymentRefusedException
 import app.epistola.suite.environments.MissingDependencyReason
 import app.epistola.suite.environments.ReleaseDependencies
 import app.epistola.suite.environments.ReleaseDependenciesMissingException
@@ -26,10 +30,20 @@ import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 /**
- * Deploys a release of a catalog to an environment: from now on the environment serves it, beside
- * any other releases of the catalog it already serves. Generation and preview naming the environment
+ * Deploys a version of a catalog to an environment (contract `deployCatalogVersion`): [version] names
+ * a release by its number or its `versionId`, or a draft by its `versionId`.
+ *
+ * **A draft** is served live, at most one per catalog: deploying another replaces it, logged as
+ * undeployed. A production environment serves only releases and refuses a draft
+ * ([EnvironmentDeploymentRefusedException]). A request through the environment that names no version
+ * renders the deployed draft; one naming a range or a number, a release. Releasing the draft makes
+ * the deployment one of that release, which keeps the draft's id; discarding it ends the deployment.
+ * With [includeDependencies], the releases its declarations pin are deployed along; never drafts.
+ *
+ * **A release** is served beside any other releases of the catalog the environment already serves. Generation and preview naming the environment
  * render the highest release of the catalog it serves, or the highest that satisfies the request's
  * version selector, so deploying a higher release moves such requests to it and undeploying it moves
  * them back. A request already accepted keeps the release it was bound to.
@@ -60,7 +74,7 @@ import org.springframework.stereotype.Component
  *
  * @return the deployment of the release asked for.
  */
-data class DeployRelease(
+data class DeployCatalogVersion(
     val environmentId: EnvironmentId,
     val catalogKey: CatalogKey,
     val version: String,
@@ -73,34 +87,44 @@ data class DeployRelease(
 }
 
 @Component
-class DeployReleaseHandler(
+class DeployCatalogVersionHandler(
     private val jdbi: Jdbi,
     private val dependencies: ReleaseDependencies,
-) : CommandHandler<DeployRelease, CatalogDeployment> {
-    override fun handle(command: DeployRelease): CatalogDeployment = jdbi.inTransaction<CatalogDeployment, Exception> { handle ->
+    private val dependencyStore: CatalogDependencyStore,
+) : CommandHandler<DeployCatalogVersion, CatalogDeployment> {
+    override fun handle(command: DeployCatalogVersion): CatalogDeployment = jdbi.inTransaction<CatalogDeployment, Exception> { handle ->
         val tenantKey = command.environmentId.tenantKey
         val environmentKey = command.environmentId.key
         // Locked, so deploys and undeploys on one environment run one after the other: the
         // dependency check below holds until this transaction commits.
-        val environmentExists = handle.createQuery("SELECT id FROM environments WHERE tenant_key = :t AND id = :e FOR UPDATE")
-            .bind("t", tenantKey)
-            .bind("e", environmentKey)
-            .mapTo<String>()
-            .findOne()
-            .isPresent
-        if (!environmentExists) throw EnvironmentNotFoundException(tenantKey, environmentKey)
+        val production = DraftDeploymentStore.lockEnvironment(handle, tenantKey, environmentKey)
 
-        requireDeployable(handle, tenantKey, command.catalogKey, command.version)
+        val release = releaseNamed(handle, tenantKey, command.catalogKey, command.version)
+        if (release == null) {
+            val draft = DraftDeploymentStore.draft(handle, tenantKey, command.catalogKey, DraftRef.Id(command.version))
+                ?: throw ReleaseNotDeployableException(command.catalogKey, command.version, "no such release or draft")
+            return@inTransaction deployDraft(handle, command, production, draft.first, draft.second)
+        }
+        deployRelease(handle, command.copy(version = release))
+    }
+
+    /** Serves the release [command] names by its number, beside or in place of the catalog's others. */
+    private fun deployRelease(handle: Handle, command: DeployCatalogVersion): CatalogDeployment {
+        val tenantKey = command.environmentId.tenantKey
+        val environmentKey = command.environmentId.key
         served(handle, command, command.catalogKey, command.version)?.let { deployment ->
             // Already deployed: replacing only takes the others away, each logged as undeployed, and
             // asking for its dependencies deploys the ones not served yet.
-            if (command.replace) replaceable(handle, command).forEach { stopServing(handle, command, it, log = true) }
+            if (command.replace) {
+                replaceable(handle, command).forEach { stopServing(handle, command, it, log = true) }
+                DraftDeploymentStore.undeploy(handle, tenantKey, environmentKey, command.catalogKey)
+            }
             if (command.includeDependencies) {
                 dependencies.missing(handle, tenantKey, environmentKey, command.catalogKey, command.version)
                     .filter { it.reason == MissingDependencyReason.NOT_DEPLOYED }
                     .forEach { deploy(handle, command, it.tenantCatalogKey, it.releaseVersion) }
             }
-            return@inTransaction deployment
+            return deployment
         }
 
         val missing = dependencies.missing(handle, tenantKey, environmentKey, command.catalogKey, command.version)
@@ -117,14 +141,63 @@ class DeployReleaseHandler(
         // are each logged as taken offline.
         val replaced = if (command.replace) replaceable(handle, command) else emptyList()
         replaced.forEach { stopServing(handle, command, it, log = replaced.size > 1) }
-        deploy(handle, command, command.catalogKey, command.version, previousVersion = replaced.singleOrNull())
+        // Replacing also takes a deployed draft away: what the UI shows deployed is then this release.
+        if (command.replace) DraftDeploymentStore.undeploy(handle, tenantKey, environmentKey, command.catalogKey)
+        return deploy(handle, command, command.catalogKey, command.version, previousVersion = replaced.singleOrNull())
+    }
+
+    /** The number of the release [version] names, by its number or its `versionId`; null when it names none. */
+    private fun releaseNamed(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): String? = handle.createQuery(
+        "SELECT version FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND (version = :v OR version_key = :v)",
+    )
+        .bind("t", tenantKey)
+        .bind("c", catalogKey)
+        .bind("v", version.trim())
+        .mapTo<String>()
+        .findOne()
+        .orElse(null)
+
+    /** Serves draft [versionId] in the environment, in place of a draft of the catalog it served. */
+    private fun deployDraft(handle: Handle, command: DeployCatalogVersion, production: Boolean, versionId: UUID, label: String): CatalogDeployment {
+        val tenantKey = command.environmentId.tenantKey
+        val environmentKey = command.environmentId.key
+        if (production) {
+            throw EnvironmentDeploymentRefusedException(
+                "'${environmentKey.value}' is a production environment: it serves only releases. Release $label first and deploy that.",
+            )
+        }
+        val current = DraftDeploymentStore.list(handle, tenantKey, environmentKey, command.catalogKey).singleOrNull()
+        if (current?.draftId == command.version) return deployment(handle, tenantKey, environmentKey, command.catalogKey, draftId = versionId)
+        DraftDeploymentStore.undeploy(handle, tenantKey, environmentKey, command.catalogKey)
+        handle.createUpdate(
+            """
+            INSERT INTO environment_catalog_deployments (tenant_key, environment_key, catalog_id, draft_id, deployed_at, deployed_by)
+            VALUES (:t, :e, ${catalogAt("t", "c")}, :d, NOW(), :by)
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("e", environmentKey)
+            .bind("c", command.catalogKey)
+            .bind("d", versionId)
+            .bind("by", currentUserIdOrNull()?.value)
+            .execute()
+        DeploymentLog.record(handle, tenantKey, environmentKey, command.catalogKey, DeploymentAction.DEPLOYED, null, draftLabel = label, versionKey = command.version)
+        // The releases its declarations pin, deployed along when asked; a draft it names never is.
+        if (command.includeDependencies) {
+            val served = dependencies.served(handle, tenantKey, environmentKey).toSet()
+            dependencyStore.declarationsOf(handle, tenantKey, versionId)
+                .mapNotNull { declaration -> declaration.releaseVersion?.let { CatalogKey.of(declaration.catalogKey) to it } }
+                .filter { it !in served }
+                .forEach { (catalog, version) -> deploy(handle, command, catalog, version) }
+        }
+        return deployment(handle, tenantKey, environmentKey, command.catalogKey, draftId = versionId)
     }
 
     /**
      * The catalog's other releases the environment serves, which [command] replaces: all of them. A
      * release another one deployed there is pinned to keeps rendering, implicitly.
      */
-    private fun replaceable(handle: Handle, command: DeployRelease): List<String> = handle.createQuery(
+    private fun replaceable(handle: Handle, command: DeployCatalogVersion): List<String> = handle.createQuery(
         """
         SELECT d.version FROM environment_catalog_deployments d
         WHERE d.tenant_key = :t AND d.environment_key = :e AND d.catalog_id = ${catalogAt("t", "c")} AND d.version <> :v
@@ -137,9 +210,8 @@ class DeployReleaseHandler(
         .mapTo<String>()
         .list()
 
-    private fun stopServing(handle: Handle, command: DeployRelease, version: String, log: Boolean) {
+    private fun stopServing(handle: Handle, command: DeployCatalogVersion, version: String, log: Boolean) {
         val tenantKey = command.environmentId.tenantKey
-        val ended = EnvironmentOverrideStore.list(handle, tenantKey, command.environmentId.key, command.catalogKey).filter { it.version == version }
         handle.createUpdate(
             "DELETE FROM environment_catalog_deployments WHERE tenant_key = :t AND environment_key = :e AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
         )
@@ -149,51 +221,26 @@ class DeployReleaseHandler(
             .bind("v", version)
             .execute()
         if (log) DeploymentLog.record(handle, tenantKey, command.environmentId.key, command.catalogKey, DeploymentAction.UNDEPLOYED, version)
-        EnvironmentOverrideStore.recordEnded(handle, tenantKey, ended)
-    }
-
-    /** Refuses a release that does not exist. */
-    private fun requireDeployable(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String) {
-        val exists = handle.createQuery(
-            "SELECT EXISTS (SELECT 1 FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v)",
-        )
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
-            .bind("v", version)
-            .mapTo<Boolean>()
-            .one()
-        if (!exists) throw ReleaseNotDeployableException(catalogKey, version, "no such release")
     }
 
     /** The deployment, when the environment already serves this release. */
-    private fun served(handle: Handle, command: DeployRelease, catalogKey: CatalogKey, version: String): CatalogDeployment? = handle.createQuery(
-        """
-        SELECT d.environment_key, cat.catalog_key AS catalog_key, d.version, d.deployed_at, d.deployed_by
-        FROM environment_catalog_deployments d
-        JOIN catalogs cat ON cat.tenant_key = d.tenant_key AND cat.catalog_id = d.catalog_id
-        WHERE d.tenant_key = :t AND d.environment_key = :e AND d.catalog_id = ${catalogAt("t", "c")} AND d.version = :v
-        """,
+    private fun served(handle: Handle, command: DeployCatalogVersion, catalogKey: CatalogKey, version: String): CatalogDeployment? = DeploymentRows.find(
+        handle,
+        command.environmentId.tenantKey,
+        command.environmentId.key,
+        catalogKey,
+        version = version,
     )
-        .bind("t", command.environmentId.tenantKey)
-        .bind("e", command.environmentId.key)
-        .bind("c", catalogKey)
-        .bind("v", version)
-        .mapTo<CatalogDeployment>()
-        .findOne()
-        .orElse(null)
+
+    private fun deployment(handle: Handle, tenantKey: TenantKey, environmentKey: EnvironmentKey, catalogKey: CatalogKey, version: String? = null, draftId: UUID? = null): CatalogDeployment = requireNotNull(DeploymentRows.find(handle, tenantKey, environmentKey, catalogKey, version, draftId))
 
     /** Serves the release in the environment and logs it. */
-    private fun deploy(handle: Handle, command: DeployRelease, catalogKey: CatalogKey, version: String, previousVersion: String? = null): CatalogDeployment {
+    private fun deploy(handle: Handle, command: DeployCatalogVersion, catalogKey: CatalogKey, version: String, previousVersion: String? = null): CatalogDeployment {
         val tenantKey = command.environmentId.tenantKey
-        val deployment = handle.createQuery(
+        handle.createUpdate(
             """
             INSERT INTO environment_catalog_deployments (tenant_key, environment_key, catalog_id, version, deployed_at, deployed_by)
             VALUES (:t, :e, ${catalogAt("t", "c")}, :v, NOW(), :by)
-            RETURNING environment_key,
-                      (SELECT catalog_key FROM catalogs cat
-                       WHERE cat.tenant_key = environment_catalog_deployments.tenant_key
-                         AND cat.catalog_id = environment_catalog_deployments.catalog_id) AS catalog_key,
-                      version, deployed_at, deployed_by
             """,
         )
             .bind("t", tenantKey)
@@ -201,9 +248,8 @@ class DeployReleaseHandler(
             .bind("c", catalogKey)
             .bind("v", version)
             .bind("by", currentUserIdOrNull()?.value)
-            .mapTo<CatalogDeployment>()
-            .one()
+            .execute()
         DeploymentLog.record(handle, tenantKey, command.environmentId.key, catalogKey, DeploymentAction.DEPLOYED, version, previousVersion)
-        return deployment
+        return deployment(handle, tenantKey, command.environmentId.key, catalogKey, version = version)
     }
 }

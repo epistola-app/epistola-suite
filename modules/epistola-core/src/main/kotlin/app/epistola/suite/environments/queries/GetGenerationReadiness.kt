@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component
 /**
  * What keeps a tenant's documents from being made, as the tenant home tells it.
  *
- * @property idleEnvironments environments that serve no catalog and follow no draft, by name: every
+ * @property idleEnvironments environments that serve no catalog version, by name: every
  *   request naming one fails. A new environment starts so, and after an upgrade from 1.x every
  *   environment does until its catalogs' first 2.0 releases are deployed.
  * @property catalogsUpgrading catalogs still waiting for their first 2.0 release.
@@ -45,7 +45,6 @@ class GetGenerationReadinessHandler(
             SELECT e.id, e.name FROM environments e
             WHERE e.tenant_key = :t
               AND NOT EXISTS (SELECT 1 FROM environment_catalog_deployments d WHERE d.tenant_key = e.tenant_key AND d.environment_key = e.id)
-              AND NOT EXISTS (SELECT 1 FROM environment_catalog_overrides o WHERE o.tenant_key = e.tenant_key AND o.environment_key = e.id)
             ORDER BY e.name
             """,
         )

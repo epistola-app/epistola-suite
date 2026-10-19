@@ -19,7 +19,7 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployRelease
+import app.epistola.suite.environments.commands.DeployCatalogVersion
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
@@ -167,12 +167,12 @@ class CatalogVersionsTest : IntegrationTestBase() {
         val workRef = DraftRef.Id(work.versionId)
         assertThatThrownBy { runAs(author) { DeleteCatalogDraft(tenant, letters, workRef).execute() } }.isInstanceOf(PermissionDeniedException::class.java)
         assertThatThrownBy { runAs(author) { ReleaseCatalogVersion(tenant, letters).execute() } }.isInstanceOf(PermissionDeniedException::class.java)
-        assertThatThrownBy { runAs(author) { DeployRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), letters, "1.0.0").execute() } }
+        assertThatThrownBy { runAs(author) { DeployCatalogVersion(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), letters, "1.0.0").execute() } }
             .isInstanceOf(PermissionDeniedException::class.java)
 
         runAs(publisher) {
             DeleteCatalogDraft(tenant, letters, workRef).execute()
-            DeployRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), letters, "1.0.0").execute()
+            DeployCatalogVersion(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), letters, "1.0.0").execute()
         }
         assertThat(versions(tenant).map { it.first }).doesNotContain("Redesign 2027")
     }

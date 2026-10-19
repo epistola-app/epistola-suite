@@ -10,7 +10,7 @@ import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployRelease
+import app.epistola.suite.environments.commands.DeployCatalogVersion
 import app.epistola.suite.environments.queries.GetGenerationReadiness
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -38,8 +38,8 @@ class GenerationReadinessTest : IntegrationTestBase() {
 
         withMediator {
             val version = mediator.releaseNext(app.epistola.suite.common.ids.CatalogId.default(TenantId(tenant)))
-            DeployRelease(production, CatalogKey.DEFAULT, version).execute()
-            SetEnvironmentOverride(test, CatalogKey.DEFAULT, draft = DraftRef.Next).execute()
+            DeployCatalogVersion(production, CatalogKey.DEFAULT, version).execute()
+            DeployCatalogVersion(test, CatalogKey.DEFAULT, app.epistola.suite.catalog.versions.GetCatalogDraft(tenant, CatalogKey.DEFAULT).query()!!.versionId).execute()
         }
         assertThat(withMediator { GetGenerationReadiness(tenant).query() }.ready).isTrue()
     }

@@ -18,8 +18,8 @@ import app.epistola.suite.documents.commands.BatchGenerationItem
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.documents.commands.GenerateDocumentBatch
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployRelease
-import app.epistola.suite.environments.commands.UndeployRelease
+import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.UndeployCatalogVersion
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -59,15 +59,15 @@ class DeploymentUsageTest : IntegrationTestBase() {
             mediator.publishAndRelease(variant)
             val test = EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant))
             CreateEnvironment(test, "Test").execute()
-            DeployRelease(test, CatalogKey.DEFAULT, "1.0.0").execute()
-            DeployRelease(test, CatalogKey.DEFAULT, "1.0.1").execute()
+            DeployCatalogVersion(test, CatalogKey.DEFAULT, "1.0.0").execute()
+            DeployCatalogVersion(test, CatalogKey.DEFAULT, "1.0.1").execute()
             tenant to variant
         }
         val test = EnvironmentKey.of("test")
         fun generate(environment: EnvironmentKey?, version: String? = null) = withMediator {
             GenerateDocument(tenantId = tenant, templateId = variant.templateId.key, variantId = variant.key, environmentId = environment, releaseVersion = version, data = objectMapper.createObjectNode(), filename = null).execute()
         }
-        fun deployments(): Map<String, CatalogDeployment> = withMediator { ListDeployments(tenant, environmentKey = test).query() }.associateBy { it.version }
+        fun deployments(): Map<String, CatalogDeployment> = withMediator { ListDeployments(tenant, environmentKey = test).query() }.filter { !it.isDraft }.associateBy { it.version!! }
 
         generate(test)
         generate(test, "1.0.0")
@@ -85,8 +85,8 @@ class DeploymentUsageTest : IntegrationTestBase() {
         assertThat(deployments().getValue("1.0.0").documentsRequested).`as`("the request naming it exactly").isEqualTo(1)
 
         withMediator {
-            UndeployRelease(EnvironmentId(test, TenantId(tenant)), CatalogKey.DEFAULT, "1.0.0").execute()
-            DeployRelease(EnvironmentId(test, TenantId(tenant)), CatalogKey.DEFAULT, "1.0.0").execute()
+            UndeployCatalogVersion(EnvironmentId(test, TenantId(tenant)), CatalogKey.DEFAULT, "1.0.0").execute()
+            DeployCatalogVersion(EnvironmentId(test, TenantId(tenant)), CatalogKey.DEFAULT, "1.0.0").execute()
         }
         assertThat(deployments().getValue("1.0.0").documentsRequested).`as`("a new deployment starts again").isZero()
         assertThat(deployments().getValue("1.0.0").lastUsedAt).isNull()
