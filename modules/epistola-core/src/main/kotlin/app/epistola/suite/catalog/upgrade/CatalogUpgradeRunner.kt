@@ -146,6 +146,12 @@ class CatalogUpgradeRunner(
         if (!hasRelease(catalog) &&
             contentBuilder.build(catalog.tenantKey, catalog.catalogKey, ContentSource.PUBLISHED_BEFORE_2_0).resourceEntries.isNotEmpty()
         ) {
+            // What it released using a catalog the tenant lacks cannot be declared: say which, not what releasing then trips over.
+            val unknown = declarer.unknownCatalogs(catalog.tenantKey, catalog.catalogKey, ContentSource.PUBLISHED_BEFORE_2_0)
+            check(unknown.isEmpty()) {
+                "its content uses ${if (unknown.size == 1) "catalog" else "catalogs"} ${unknown.joinToString { "'$it'" }}, which this tenant does not have: " +
+                    "install ${if (unknown.size == 1) "it" else "them"}, or change what uses ${if (unknown.size == 1) "it" else "them"}, and it is upgraded on the next run"
+            }
             requireNotNull(jdbi.withHandle<CatalogDraft?, Exception> { drafts.next(it, catalog.tenantKey, catalog.catalogKey) }) {
                 "catalog ${catalog.catalogKey.value} has no next version to release"
             }

@@ -351,6 +351,38 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         assertThat(versions(lettersCatalog)).contains("v1.0.0" to CatalogVersionStatus.RELEASED)
     }
 
+    /** A 1.x published variant on the `corporate` theme of catalog `ghost`, which the tenant does not have. */
+    private fun publishedOnGhostTheme(catalog: CatalogId) {
+        @Suppress("UNCHECKED_CAST")
+        val model = objectMapper.readValue(objectMapper.writeValueAsString(document("published")), Map::class.java) as MutableMap<String, Any?>
+        model["themeRef"] = mapOf("type" to "override", "themeKey" to "corporate", "catalogKey" to "ghost")
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                INSERT INTO catalog_upgrade_published (tenant_key, resource_id, kind, part, payload)
+                SELECT tenant_key, resource_id, 'variant', :part, CAST(:payload AS JSONB) FROM catalog_resources WHERE resource_id = :owner
+                """,
+            )
+                .bind("owner", resourceId(catalog, "template", "invoice"))
+                .bind("part", VariantKey.INITIAL.value)
+                .bind("payload", objectMapper.writeValueAsString(mapOf("templateModel" to model)))
+                .execute()
+        }
+    }
+
+    @Test
+    fun `a catalog whose published content uses a catalog the tenant does not have stays queued, naming that catalog`() {
+        val catalog = catalog(tenant("upgrade-unknown"), letters)
+        withMediator { CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice").execute().withRequiredDataExample() }
+        publishedOnGhostTheme(catalog)
+        queue(catalog)
+
+        runUpgrade()
+
+        assertThat(queueRow(catalog)).`as`("not \"dependency names no namespace\"").contains("catalog 'ghost', which this tenant does not have")
+        assertThat(versions(catalog)).containsExactly("Next version" to CatalogVersionStatus.DRAFT)
+    }
+
     @Test
     fun `a catalog created under 2_0 is not queued, so nothing is declared or released behind its author`() {
         val catalog = catalog(tenant("upgrade-not-queued"), letters)

@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.dependencies
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.ContentSource
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
@@ -54,6 +55,16 @@ class MissingDependencyDeclarer(
                 ?: declaration
         }
     }
+
+    /**
+     * The catalogs [catalogKey]'s content from [source] uses that the tenant does not have, by key: a
+     * reference whose catalog has no registry or namespace here, which no declaration can name.
+     */
+    fun unknownCatalogs(tenantKey: TenantKey, catalogKey: CatalogKey, source: ContentSource): List<String> = contentBuilder.build(tenantKey, catalogKey, source).dependencies.orEmpty()
+        .filter { it.registry == null || it.namespace == null }
+        .map { it.catalogKey }
+        .distinct()
+        .sorted()
 
     /**
      * Pins every declaration of [catalogKey] that pins nothing (and names no draft) to the highest
