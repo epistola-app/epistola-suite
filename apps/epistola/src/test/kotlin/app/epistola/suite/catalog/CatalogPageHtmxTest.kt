@@ -70,7 +70,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
         assertThat(status).contains("Start with a template.")
         assertThat(status).contains("data-testid=\"catalog-status-new-template\"").contains("hx-get=\"/tenants/${tenant.id}/catalogs/letters/templates/new\"")
         assertThat(status).doesNotContain("data-testid=\"catalog-release-open\"")
-        assertThat(status).contains("Not deployed anywhere yet.").contains("data-testid=\"catalog-step-no-environment\"")
+        assertThat(status).contains("data-testid=\"catalog-step-no-environment\"")
     }
 
     @Test
@@ -88,7 +88,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
 
         val published = get(tenant, "/catalogs/letters/browse").body!!
         assertThat(status(published)).contains("Everything is published, as v1.0.0.").doesNotContain("data-testid=\"catalog-release-open\"")
-        assertThat(status(published)).contains("Not deployed anywhere yet.").contains("href=\"/tenants/${tenant.id}/catalogs/letters/deployments\"")
+        assertThat(status(published)).contains("Not deployed").contains("The latest published version is v1.0.0.").contains("href=\"/tenants/${tenant.id}/catalogs/letters/deployments\"")
         assertThat(get(tenant, "/catalogs/letters/deployments").body!!).contains("id=\"catalog-deployments\"")
         assertThat(get(tenant, "/catalogs/letters/versions").body!!).contains("href=\"/tenants/${tenant.id}/catalogs/letters/releases/1.0.0\"")
     }
@@ -104,7 +104,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
 
         val status = status(get(tenant, "/catalogs/letters/browse").body!!)
 
-        assertThat(status).contains("Test (v1.0.0)")
+        assertThat(status.substringAfter("data-environment=\"test\"")).contains(">v1.0.0<")
         assertThat(status).contains("catalog <code>letters</code>").contains("template <code>invoice</code>").contains("environment <code>test</code>")
     }
 

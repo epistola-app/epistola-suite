@@ -140,7 +140,8 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
             UpdateCatalogMetadata(tenantKey = tenant.id, catalogKey = letters, name = "Letters", description = "Letters to customers", attributes = emptyList()).execute()
         }
 
-        val about = get(tenant, "/catalogs/letters/browse").substringAfter("data-testid=\"catalog-about\"")
+        // The description under the title, the key just below it, Settings beside it.
+        val about = get(tenant, "/catalogs/letters/browse").substringAfter("<main").substringBefore("data-testid=\"catalog-status\"")
         assertThat(about).contains("Letters to customers").contains("/letters</code>")
             .contains("href=\"/tenants/${tenant.id}/catalogs/letters/settings\"")
     }

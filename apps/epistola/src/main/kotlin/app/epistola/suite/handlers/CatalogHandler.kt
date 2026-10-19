@@ -700,6 +700,7 @@ class CatalogHandler {
                 implicit = ListImplicitDeployments(tenantKey, environment.id).query().filter { it.catalogKey == catalogKey }
                     .map { ImplicitUseView(it.version, it.neededBy.map { key -> names[key] ?: key.value }) },
                 uses = overrides[environment.id]?.label,
+                followsDraft = overrides[environment.id]?.draftId,
             )
         }
     }
@@ -1628,8 +1629,16 @@ class CatalogHandler {
         val implicit: List<ImplicitUseView> = emptyList(),
         /** What it uses instead of what is deployed (a followed draft, a pinned version); null when nothing. */
         val uses: String? = null,
+        /** The draft it follows, when [uses] is one. */
+        val followsDraft: java.util.UUID? = null,
     ) {
         val servedVersions: Set<String> get() = served.mapTo(HashSet()) { it.version }
+
+        /** The version an application gets there unless it asks for another: the highest it serves. */
+        val inUse: String? get() = served.firstOrNull()?.version
+
+        /** The environments following the draft [draftId]. */
+        fun follows(draftId: java.util.UUID?): Boolean = draftId != null && followsDraft == draftId
     }
 
     /** A version of this catalog an environment uses because [neededBy] (catalog names) depend on it. */

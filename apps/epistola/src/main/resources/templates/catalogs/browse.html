@@ -5,45 +5,27 @@
 
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${catalog.name},
-            pageDescription=null
+            pageDescription=${catalog.description != null and !#strings.isEmpty(catalog.description)} ? ${catalog.description} : null,
+            actions=~{::catalog-overview-actions}
         )}"></div>
+
+        <!--/* What it is at a glance: its key, keywords and, subscribed, the release installed. */-->
+        <div class="catalog-meta" data-testid="catalog-about">
+            <code th:text="${catalog.namespace} + '/' + ${catalog.id}">acme/letters</code>
+            <span th:each="keyword : ${keywords}" class="badge badge-outline" th:text="${keyword}">letters</span>
+            <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="text-muted text-sm"
+                  th:text="${catalog.installedReleaseVersion != null} ? 'Installed v' + ${catalog.installedReleaseVersion} : 'Not installed'">Installed v2.0.0</span>
+        </div>
 
         <div id="catalog-alert"></div>
 
-        <!--/* A catalog's overview (docs/workspace-shell.md), short on purpose: what the catalog is, what
-               is not published yet with the action that moves it on, and how much of each kind it
-               holds, each a link to its list. Everything else is a page in the catalog's nav. */-->
-
-        <!--/* What it is: its settings at a glance, changed on its Settings page. */-->
-        <div class="ep-panel detail-section" data-testid="catalog-about">
-            <div class="detail-section-header">
-                <h2>About</h2>
-                <a class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-about-settings"
-                   th:href="@{/tenants/{t}/catalogs/{c}/settings(t=${tenantId},c=${catalogId})}"
-                   th:text="${catalog.type.name() == 'AUTHORED' and auth.has('CATALOG_MANAGE')} ? 'Change in Settings' : 'All settings'">Change in Settings</a>
-            </div>
-            <dl class="description-list detail-section-body">
-                <dt>Description</dt>
-                <dd>
-                    <span th:if="${catalog.description != null and !#strings.isEmpty(catalog.description)}" th:text="${catalog.description}">Letters to customers</span>
-                    <span th:unless="${catalog.description != null and !#strings.isEmpty(catalog.description)}" class="text-muted">None yet</span>
-                </dd>
-                <dt>Key</dt>
-                <dd><code th:text="${catalog.namespace} + '/' + ${catalog.id}">acme/letters</code></dd>
-                <th:block th:unless="${keywords.isEmpty()}">
-                    <dt>Keywords</dt>
-                    <dd th:text="${#strings.listJoin(keywords, ', ')}">letters, invoices</dd>
-                </th:block>
-                <th:block th:if="${catalog.type.name() == 'SUBSCRIBED'}">
-                    <dt>Installed</dt>
-                    <dd th:text="${catalog.installedReleaseVersion != null} ? 'v' + ${catalog.installedReleaseVersion} : '—'">v2.0.0</dd>
-                </th:block>
-            </dl>
-        </div>
-
+        <!--/* A catalog's overview (docs/workspace-shell.md): what is in progress, where it is used, and
+               how much of each kind it holds. Everything else is a page in the catalog's nav. */-->
         <th:block th:if="${readiness != null}">
             <div th:replace="~{catalogs/overview :: status}"></div>
         </th:block>
+
+        <div th:replace="~{catalogs/overview :: environments}"></div>
 
         <div th:replace="~{catalogs/overview :: counts}"></div>
 
@@ -73,6 +55,12 @@
                 </div>
             </div>
         </dialog>
+    </th:block>
+
+    <th:block th:fragment="catalog-overview-actions">
+        <a class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-about-settings"
+           th:href="@{/tenants/{t}/catalogs/{c}/settings(t=${tenantId},c=${catalogId})}"
+           th:text="${catalog.type.name() == 'AUTHORED' and auth.has('CATALOG_MANAGE')} ? 'Change in Settings' : 'All settings'">Change in Settings</a>
     </th:block>
 
     <!-- Fragment: install preview content (loaded into dialog via HTMX) -->

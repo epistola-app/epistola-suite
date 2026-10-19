@@ -117,3 +117,71 @@ a.stat-card:hover {
   color: var(--ep-primary-strong);
   margin-top: var(--ep-space-1);
 }
+
+/* ── Catalog overview: what is in progress, where it is used ─────────── */
+
+.catalog-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ep-space-2);
+  margin: calc(-1 * var(--ep-space-2)) 0 var(--ep-space-6);
+}
+
+/* Tile width for .ep-auto-grid: a draft or an environment per box. */
+.catalog-boxes {
+  --ep-grid-min: 15rem;
+}
+
+.catalog-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-2);
+  padding: var(--ep-space-5);
+}
+
+/* The next version with something to publish: marked along its edge. */
+.catalog-box-pending {
+  box-shadow: inset 3px 0 0 var(--ep-primary);
+}
+
+.catalog-box-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--ep-space-2);
+  font-weight: 600;
+}
+
+.catalog-box-value {
+  font-size: var(--ep-text-xl);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.catalog-box-newer {
+  color: var(--ep-primary-strong);
+}
+
+.catalog-box-followers:empty {
+  display: none;
+}
+
+.catalog-box-followers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ep-space-1);
+}
+
+/* Actions sit at the box's foot, so boxes of a row line their buttons up. */
+.catalog-box-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ep-space-2);
+  margin-top: auto;
+  padding-top: var(--ep-space-2);
+}
+
+.catalog-box-actions:empty {
+  display: none;
+}

@@ -162,6 +162,22 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
         assertThat(envRow(get(deployments).body!!, "test")).doesNotContain("catalog-deployment-follows")
     }
 
+    @Test
+    fun `the overview shows each environment's version and the draft it follows, on the draft's box too`() {
+        val tenant = setup("overview-follow")
+        val work: UUID = withMediator { requireNotNull(CreateCatalogDraft(tenant.id, letters, "Redesign").execute().draftId) }
+        val overview = "/tenants/${tenant.id.value}/catalogs/letters/browse"
+        fun box(page: String, marker: String) = page.substringAfter(marker).substringBefore("catalog-box-actions")
+
+        val before = get(overview).body!!
+        assertThat(box(before, "data-environment=\"test\"")).`as`("the highest it serves").contains(">v1.0.1<")
+
+        post("/tenants/${tenant.id.value}/catalogs/letters/deployments", "environmentId" to "test", "version" to "draft:$work")
+        val after = get(overview).body!!
+        assertThat(after.substringAfter("data-environment=\"test\"")).contains(">Redesign<").contains("Follows this draft")
+        assertThat(box(after, "data-draft=\"$work\"")).contains("Used by Test")
+    }
+
     private fun getHtmx(url: String): ResponseEntity<String> = restTemplate.exchange(url, HttpMethod.GET, HttpEntity<Void>(HttpHeaders().apply { set("HX-Request", "true") }), String::class.java)
 
     private fun page(tenant: Tenant, environment: String): String = get("/tenants/${tenant.id.value}/environments/$environment").body!!
