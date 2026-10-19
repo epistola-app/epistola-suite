@@ -45,5 +45,9 @@
             <th:block th:replace="~{fragments/footer :: footer}" />
         </div>
     </div>
+    <!--/* The one confirm dialog (window.epistolaConfirm, data-confirm-*), on every page: without it
+           a confirmation falls back to the browser's own confirm(). Outside #ws-page, so a boosted
+           navigation keeps it. */-->
+    <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
 </body>
 </html>

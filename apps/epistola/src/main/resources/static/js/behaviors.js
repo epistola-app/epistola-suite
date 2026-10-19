@@ -296,7 +296,7 @@ document.addEventListener('change', function (event) {
   window.location.assign(url.href);
 });
 
-// ── Confirm-then-submit for plain (non-HTMX) forms ──────────────────────────
+// ── Confirm-then-submit ──────────────────────────
 // Usage: <button data-confirm-submit[="form-id"] data-confirm-submit-message="…"
 //                data-confirm-submit-title="…" data-confirm-submit-label="Delete"
 //                [data-confirm-submit-class="ep-btn-destructive"]>
@@ -314,7 +314,9 @@ document.addEventListener('click', function (event) {
       confirmClass: button.getAttribute('data-confirm-submit-class') || 'ep-btn-destructive',
     })
     .then(function (ok) {
-      if (ok) form.submit();
+      // requestSubmit, not submit(): it fires the submit event, so an HTMX form (hx-post) or a boosted
+      // one goes through HTMX with its CSRF header and swap; submit() would post natively past both.
+      if (ok) form.requestSubmit();
     });
 });
 
