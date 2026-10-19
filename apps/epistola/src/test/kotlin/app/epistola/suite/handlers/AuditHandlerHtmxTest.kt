@@ -136,7 +136,7 @@ class AuditHandlerHtmxTest : BaseIntegrationTest() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         // The variant row shows "template invoice › variant nl" linking to the template editor.
-        assertThat(response.body).contains("/tenants/demo/templates/default/invoice")
+        assertThat(response.body).contains("/tenants/demo/catalogs/default/templates/invoice")
         assertThat(response.body).contains("variant nl")
     }
 

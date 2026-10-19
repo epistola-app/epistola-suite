@@ -86,7 +86,7 @@ class ThemeHandler(
         val themes = ListThemes(tenantId = tenantId, catalogKey = catalogFilter, catalogVersion = segment.ref(tenantId.key)).query()
         val bar = segment.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/catalogs/${it.value}/themes" } }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListThemes(tenantId = tenantId, catalogKey = it).query() }) { t, c, n -> FromOtherCatalog(t.name, "/tenants/${tenantId.key}/themes/${c.value}/${t.id.value}", n) }
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListThemes(tenantId = tenantId, catalogKey = it).query() }) { t, c, n -> FromOtherCatalog(t.name, "/tenants/${tenantId.key}/catalogs/${c.value}/themes/${t.id.value}", n) }
         return ServerResponse.ok().page("themes/list") {
             "pageTitle" to "Themes - Epistola"
             "tenantId" to tenantId.key
@@ -258,7 +258,7 @@ class ThemeHandler(
         // Safe !!/of(): both fields were validated above and the create succeeded.
         val themeKey = ThemeKey.validateOrNull(form["slug"])!!
         val catalogKey = CatalogSegment.parse(form["catalog"]).value
-        val destination = "/tenants/${tenantId.key}/themes/$catalogKey/$themeKey"
+        val destination = "/tenants/${tenantId.key}/catalogs/$catalogKey/themes/$themeKey"
         return request.htmx {
             dialogLocation(destination)
             onNonHtmx { redirect(destination) }
@@ -330,7 +330,7 @@ class ThemeHandler(
             }
             onNonHtmx {
                 redirect(
-                    "/tenants/${tenantId.key}/themes/${themeId.catalogKey}/${themeId.key}",
+                    "/tenants/${tenantId.key}/catalogs/${themeId.catalogKey}/themes/${themeId.key}",
                 )
             }
         }

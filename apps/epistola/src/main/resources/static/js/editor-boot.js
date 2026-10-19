@@ -69,7 +69,7 @@ async function mount(container) {
       contentUrlPattern:
         '/tenants/' +
         tenantId +
-        '/images/{catalogId}/{imageKey}/content' +
+        '/catalogs/{catalogId}/images/{imageKey}/content' +
         (inDraft ? '?' + inParam : ''),
       listCatalogs: async () => {
         const resp = await fetch('/tenants/' + tenantId + '/images/catalogs', {
@@ -113,9 +113,9 @@ async function mount(container) {
       const stencilUrl = (ref) =>
         '/tenants/' +
         tenantId +
-        '/stencils/' +
+        '/catalogs/' +
         encodeURIComponent(segmentOf(ref.catalogKey)) +
-        '/' +
+        '/stencils/' +
         encodeURIComponent(ref.stencilKey);
       // Each stencil's revision as last read or saved here, by its URL; a save names it.
       const stencilRevisions = new Map();
@@ -213,9 +213,9 @@ async function mount(container) {
       const response = await fetch(
         '/tenants/' +
           tenantId +
-          '/templates/' +
+          '/catalogs/' +
           encodeURIComponent(catalogSegment) +
-          '/' +
+          '/templates/' +
           templateId +
           '/variants/' +
           variantId +
@@ -279,9 +279,9 @@ async function mount(container) {
       const response = await fetch(
         '/tenants/' +
           tenantId +
-          '/templates/' +
+          '/catalogs/' +
           encodeURIComponent(catalogSegment) +
-          '/' +
+          '/templates/' +
           templateId +
           '/variants/' +
           variantId +

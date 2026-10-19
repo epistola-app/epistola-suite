@@ -321,7 +321,7 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
 
         val response = restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/quality", String::class.java)
 
-        val editorHref = "/tenants/${subject.tenantKey.value}/templates/${subject.catalogKey.value}" +
+        val editorHref = "/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/templates" +
             "/${subject.templateKey.value}/variants/${subject.variantKey}/editor"
         assertThat(response.body!!).contains(editorHref)
     }
@@ -332,7 +332,7 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         submit(subject, finding())
 
         val response = restTemplate.exchange(
-            "/tenants/${subject.tenantKey.value}/templates/${subject.catalogKey.value}" +
+            "/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/templates" +
                 "/${subject.templateKey.value}/variants/${subject.variantKey}/quality",
             HttpMethod.GET,
             HttpEntity<Void>(HttpHeaders().apply { accept = listOf(MediaType.APPLICATION_JSON) }),
@@ -353,7 +353,7 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         val subject = scenario()
 
         val response = restTemplate.getForEntity(
-            "/tenants/${subject.tenantKey.value}/templates/${subject.catalogKey.value}" +
+            "/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/templates" +
                 "/${subject.templateKey.value}/variants/${subject.variantKey}/editor",
             String::class.java,
         )
@@ -364,7 +364,7 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(body).contains("\"id\": \"quality\"")
         assertThat(body).contains("\"factoryExport\": \"createQualityEditorPlugin\"")
         assertThat(body).contains(
-            "/tenants/${subject.tenantKey.value}/templates/${subject.catalogKey.value}" +
+            "/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/templates" +
                 "/${subject.templateKey.value}/variants/${subject.variantKey}/quality",
         )
     }

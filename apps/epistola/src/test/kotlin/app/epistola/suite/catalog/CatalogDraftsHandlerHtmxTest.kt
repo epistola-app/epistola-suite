@@ -142,7 +142,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(body).contains("<span id=\"page-title-text\">Redesign</span>")
             assertThat(body).contains("data-testid=\"catalog-long-term-not-published\"")
             // Its resources link into the draft, and its actions act on it.
-            assertThat(body).contains("/tenants/${tenant.id}/templates/letters@$work/invoice")
+            assertThat(body).contains("/tenants/${tenant.id}/catalogs/letters@$work/templates/invoice")
             assertThat(body).contains("/tenants/${tenant.id}/catalogs/letters@$work/drafts/discard")
             assertThat(body).`as`("long-term work is not published").doesNotContain("data-testid=\"catalog-release-open\"")
         }
@@ -155,7 +155,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Drafts Unknown")
             released(tenant)
         }
-        whenever { get("/tenants/${tenant.id}/templates/letters@${UUID.randomUUID()}/invoice") to get("/tenants/${tenant.id}/templates/letters@1.0.1/invoice") }
+        whenever { get("/tenants/${tenant.id}/catalogs/letters@${UUID.randomUUID()}/templates/invoice") to get("/tenants/${tenant.id}/catalogs/letters@1.0.1/templates/invoice") }
         then {
             val (unknown, number) = result<Pair<ResponseEntity<String>, ResponseEntity<String>>>()
             assertThat(unknown.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
@@ -171,13 +171,13 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Drafts Template")
             work = withRedesign(tenant)
         }
-        whenever { get("/tenants/${tenant.id}/templates/letters@$work/invoice") }
+        whenever { get("/tenants/${tenant.id}/catalogs/letters@$work/templates/invoice") }
         then {
             val body = result<ResponseEntity<String>>().body!!
             assertThat(body).contains("Invoice redesigned").doesNotContain("Invoice, fixed")
             assertThat(body).contains("data-testid=\"catalog-long-term-banner\"").contains("data-draft=\"$work\"")
-            assertThat(body).contains("/tenants/${tenant.id}/templates/letters@$work/invoice/settings")
-            assertThat(body).contains("/tenants/${tenant.id}/templates/letters@$work/invoice/variants/initial/editor")
+            assertThat(body).contains("/tenants/${tenant.id}/catalogs/letters@$work/templates/invoice/settings")
+            assertThat(body).contains("/tenants/${tenant.id}/catalogs/letters@$work/templates/invoice/variants/initial/editor")
         }
     }
 
@@ -199,18 +199,18 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             String::class.java,
         )
 
-        val boosted = switch("letters@$work", "/tenants/${tenant.id}/templates/letters/invoice", htmx = true)
-        assertThat(boosted.headers.getFirst("HX-Redirect")).isEqualTo("/tenants/${tenant.id}/templates/letters@$work/invoice")
+        val boosted = switch("letters@$work", "/tenants/${tenant.id}/catalogs/letters/templates/invoice", htmx = true)
+        assertThat(boosted.headers.getFirst("HX-Redirect")).isEqualTo("/tenants/${tenant.id}/catalogs/letters@$work/templates/invoice")
         assertThat(switch("letters", "/tenants/${tenant.id}/catalogs/letters@$work/templates", htmx = true).headers.getFirst("HX-Redirect"))
             .isEqualTo("/tenants/${tenant.id}/catalogs/letters/templates")
         assertThat(switch("letters@$work", "https://evil.example/", htmx = true).headers.getFirst("HX-Redirect"))
             .`as`("never anywhere else: the version's overview").isEqualTo("/tenants/${tenant.id}/catalogs/letters@$work/draft")
-        assertThat(switch("letters@$work", "/tenants/${tenant.id}/templates/letters/invoice").statusCode.is2xxSuccessful)
+        assertThat(switch("letters@$work", "/tenants/${tenant.id}/catalogs/letters/templates/invoice").statusCode.is2xxSuccessful)
             .`as`("without htmx, a redirect the browser follows").isTrue()
 
         // A page the other version does not have leads to that section of it, not a dead end.
         val missing = restTemplate.exchange(
-            "/tenants/${tenant.id}/templates/letters@$work/no-such-template",
+            "/tenants/${tenant.id}/catalogs/letters@$work/templates/no-such-template",
             HttpMethod.GET,
             HttpEntity<Void>(HttpHeaders().apply { accept = listOf(MediaType.TEXT_HTML) }),
             String::class.java,
@@ -230,10 +230,10 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             released(tenant)
         }
         whenever {
-            val one = get("/tenants/${tenant.id}/templates/letters/invoice").body!!
+            val one = get("/tenants/${tenant.id}/catalogs/letters/templates/invoice").body!!
             work = withMediator { requireNotNull(CreateCatalogDraft(tenant.id, letters, "Redesign").execute().draftId) }
             withMediator { UpdateDocumentTemplate(invoice(tenant), name = "Invoice redesigned", catalogVersion = at(tenant, DraftRef.Id(work))).execute() }
-            several = get("/tenants/${tenant.id}/templates/letters/invoice").body!!
+            several = get("/tenants/${tenant.id}/catalogs/letters/templates/invoice").body!!
             one
         }
         then {
@@ -256,7 +256,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             val variant = VariantId(VariantKey.INITIAL, invoice(tenant))
             val model = withMediator { GetVariantContent(variant, catalogVersion = at(tenant, DraftRef.Id(work))).query() }!!
             val json = objectMapper.writeValueAsString(mapOf("templateModel" to model.copy(documentStylesOverride = mapOf("color" to "#123456"))))
-            send(HttpMethod.PUT, "/tenants/${tenant.id}/templates/letters@$work/invoice/variants/initial/content", json)
+            send(HttpMethod.PUT, "/tenants/${tenant.id}/catalogs/letters@$work/templates/invoice/variants/initial/content", json)
         }
         then {
             assertThat(result<ResponseEntity<String>>().statusCode).isEqualTo(HttpStatus.OK)
@@ -275,9 +275,9 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             work = withRedesign(tenant)
         }
         whenever {
-            val page = get("/tenants/${tenant.id}/themes/letters@$work/brand").body!!
+            val page = get("/tenants/${tenant.id}/catalogs/letters@$work/themes/brand").body!!
             assertThat(page).contains("\"catalogSegment\": \"letters@$work\"")
-            send(HttpMethod.PATCH, "/tenants/${tenant.id}/themes/letters@$work/brand", """{"name":"Brand redesigned"}""")
+            send(HttpMethod.PATCH, "/tenants/${tenant.id}/catalogs/letters@$work/themes/brand", """{"name":"Brand redesigned"}""")
         }
         then {
             assertThat(result<ResponseEntity<String>>().statusCode).isEqualTo(HttpStatus.OK)
@@ -296,14 +296,14 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             withMediator { CreateStencil(StencilId(StencilKey.of("footer"), catalogId(tenant)), "Footer", catalogVersion = at(tenant, DraftRef.Id(work))).execute() }
         }
         whenever {
-            val inWork = get("/tenants/${tenant.id}/stencils/letters@$work/footer")
-            val current = get("/tenants/${tenant.id}/stencils/letters/footer")
+            val inWork = get("/tenants/${tenant.id}/catalogs/letters@$work/stencils/footer")
+            val current = get("/tenants/${tenant.id}/catalogs/letters/stencils/footer")
             inWork to current
         }
         then {
             val (inWork, current) = result<Pair<ResponseEntity<String>, ResponseEntity<String>>>()
             assertThat(inWork.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(inWork.body).contains("/tenants/${tenant.id}/stencils/letters@$work/footer/ready")
+            assertThat(inWork.body).contains("/tenants/${tenant.id}/catalogs/letters@$work/stencils/footer/ready")
             assertThat(current.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
         }
     }

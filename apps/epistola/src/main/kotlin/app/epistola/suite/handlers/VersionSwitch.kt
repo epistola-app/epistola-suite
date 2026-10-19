@@ -24,7 +24,7 @@ object VersionSwitch {
         val path = from.substringBefore('?')
         val query = from.substringAfter('?', missingDelimiterValue = "")
         val key = target.key.value
-        val parts = path.split('/').toMutableList() // "", "tenants", tenant, area, catalog, …
+        val parts = path.split('/').toMutableList() // "", "tenants", tenant, "catalogs", catalog, …
         fun isThisCatalog(segment: String) = segment.substringBefore('@') == key
 
         if (parts.getOrNull(3) == "catalogs") {
@@ -43,15 +43,9 @@ object VersionSwitch {
                 }
             }
         }
-        // A page that names its catalog in the query (quality: `?catalog=letters@…`), a resource page in the path.
-        val catalogParam = Regex("(^|&)catalog=([^&]*)").find(query)
-        if (catalogParam != null) {
-            if (!isThisCatalog(java.net.URLDecoder.decode(catalogParam.groupValues[2], Charsets.UTF_8))) return null
-            return path + "?" + query.replaceRange(catalogParam.groups[2]!!.range, target.value)
-        }
-        val segment = parts.getOrNull(4) ?: return null
-        if (!isThisCatalog(segment)) return null
-        parts[4] = target.value
-        return parts.joinToString("/") + (query.takeIf { it.isNotEmpty() }?.let { "?$it" } ?: "")
+        // A page that names its catalog in the query (a create form: `…/templates/new?catalog=letters@…`).
+        val catalogParam = Regex("(^|&)catalog=([^&]*)").find(query) ?: return null
+        if (!isThisCatalog(java.net.URLDecoder.decode(catalogParam.groupValues[2], Charsets.UTF_8))) return null
+        return path + "?" + query.replaceRange(catalogParam.groups[2]!!.range, target.value)
     }
 }

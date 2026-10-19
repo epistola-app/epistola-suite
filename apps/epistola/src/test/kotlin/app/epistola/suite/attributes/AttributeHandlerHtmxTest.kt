@@ -263,7 +263,7 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.exchange(
-                "/tenants/${testTenant.id}/attributes/default/brand/delete",
+                "/tenants/${testTenant.id}/catalogs/default/attributes/brand/delete",
                 HttpMethod.POST,
                 HttpEntity<Void>(htmxHeaders()),
                 String::class.java,

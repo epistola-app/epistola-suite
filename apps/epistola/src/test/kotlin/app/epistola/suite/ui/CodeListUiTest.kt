@@ -71,7 +71,7 @@ class CodeListUiTest : BasePlaywrightTest() {
         // The page has multiple `type="submit"` buttons (form + nav-bar logout
         // forms). Match by visible text to disambiguate.
         page.locator("button:has-text('Create code list')").click()
-        page.waitForURL(Pattern.compile(".*/code-lists/default/locales$"))
+        page.waitForURL(Pattern.compile(".*/catalogs/default/code-lists/locales$"))
 
         // Detail page: both entries listed in the entries table.
         assertThat(page.locator("#entries-tbody tr")).hasCount(2)
@@ -215,7 +215,7 @@ class CodeListUiTest : BasePlaywrightTest() {
             t to template
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}")
         val dialog = page.openDialogByTrigger(
             page.locator("button:has-text('New Variant')"),
             "#create-variant-dialog",
@@ -268,7 +268,7 @@ class CodeListUiTest : BasePlaywrightTest() {
             t to template
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}")
         val dialog = page.openDialogByTrigger(
             page.locator("button:has-text('New Variant')"),
             "#create-variant-dialog",
@@ -334,7 +334,7 @@ class CodeListUiTest : BasePlaywrightTest() {
             t
         }
 
-        gotoAndReady("/tenants/${tenant.id}/code-lists/default/locales")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/code-lists/locales")
 
         // Open the shared confirm dialog from the detail page's Delete action.
         // The button sits in the page header beneath the sticky top nav, whose

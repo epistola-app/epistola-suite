@@ -130,6 +130,6 @@ class FontPickerPlaywrightUiTest : BasePlaywrightTest() {
         )
         UpdateVariantContent(variantId = variantId, templateModel = body).execute()
 
-        return "/tenants/${tenant.id}/templates/default/${template.id}/variants/${variant.id}/editor"
+        return "/tenants/${tenant.id}/catalogs/default/templates/${template.id}/variants/${variant.id}/editor"
     }
 }

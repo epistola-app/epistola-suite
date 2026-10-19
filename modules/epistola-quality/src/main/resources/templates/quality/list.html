@@ -108,11 +108,11 @@
                                 <td style="font-size: var(--ep-text-sm);">
                                     <a
                                        th:if="${f.variantKey != null}"
-                                       th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${f.catalogKey},id=${f.templateKey},variantId=${f.variantKey})}"
+                                       th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${f.catalogKey},id=${f.templateKey},variantId=${f.variantKey})}"
                                        th:text="${f.templateKey}">invoice</a>
                                     <a
                                        th:unless="${f.variantKey != null}"
-                                       th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${f.catalogKey},id=${f.templateKey})}"
+                                       th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${f.catalogKey},id=${f.templateKey})}"
                                        th:text="${f.templateKey}">invoice</a>
                                 </td>
                                 <td class="text-muted" style="font-size: var(--ep-text-sm);" th:text="${f.ruleId}">example.empty-text</td>

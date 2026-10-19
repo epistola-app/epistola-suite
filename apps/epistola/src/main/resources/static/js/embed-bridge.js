@@ -67,7 +67,11 @@
 
   const RESOURCE_PATH_SEGMENT = { template: 'templates', theme: 'themes', stencil: 'stencils' };
   const RESOURCE_TYPE_BY_SEGMENT = { templates: 'template', themes: 'theme', stencils: 'stencil' };
-  const RESOURCE_URL_PATTERN = /^\/tenants\/([^/]+)\/(templates|themes|stencils)(\/.*)?$/;
+  // A resource is its catalog's: /tenants/{t}/catalogs/{catalog}/{type}/{key}/…; creating one posts
+  // to the tenant's collection, /tenants/{t}/{type}.
+  const RESOURCE_URL_PATTERN =
+    /^\/tenants\/([^/]+)\/catalogs\/([^/]+)\/(templates|themes|stencils)(\/.*)?$/;
+  const COLLECTION_URL_PATTERN = /^\/tenants\/([^/]+)\/(templates|themes|stencils)\/?$/;
 
   // The only way a resource identity becomes a URL: a closed lookup of the
   // three known detail-page shapes. The host cannot supply anything else.
@@ -84,10 +88,10 @@
     return (
       '/tenants/' +
       encodeURIComponent(resource.tenantId) +
+      '/catalogs/' +
+      encodeURIComponent(resource.catalogKey) +
       '/' +
       segment +
-      '/' +
-      encodeURIComponent(resource.catalogKey) +
       '/' +
       encodeURIComponent(resource.key)
     );
@@ -100,11 +104,19 @@
   // [catalogKey, key, 'delete'] for a delete POST).
   function parseResourcePath(path) {
     const match = RESOURCE_URL_PATTERN.exec(path);
-    if (!match) return null;
+    if (match) {
+      return {
+        tenantId: match[1],
+        resourceType: RESOURCE_TYPE_BY_SEGMENT[match[3]],
+        rest: [match[2]].concat((match[4] || '').split('/').filter(Boolean)),
+      };
+    }
+    const collection = COLLECTION_URL_PATTERN.exec(path);
+    if (!collection) return null;
     return {
-      tenantId: match[1],
-      resourceType: RESOURCE_TYPE_BY_SEGMENT[match[2]],
-      rest: (match[3] || '').split('/').filter(Boolean),
+      tenantId: collection[1],
+      resourceType: RESOURCE_TYPE_BY_SEGMENT[collection[2]],
+      rest: [],
     };
   }
 

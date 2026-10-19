@@ -97,13 +97,13 @@
                             </td>
                             <td>
                                 <a th:if="${change.type == 'template' and change.state.name() != 'REMOVED'}"
-                                   th:href="@{/tenants/{tenantId}/templates/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
+                                   th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
                                    th:text="${change.name ?: change.slug}"></a>
                                 <a th:if="${change.type == 'stencil' and change.state.name() != 'REMOVED'}"
-                                   th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
+                                   th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
                                    th:text="${change.name ?: change.slug}"></a>
                                 <a th:if="${change.type == 'theme' and change.state.name() != 'REMOVED'}"
-                                   th:href="@{/tenants/{tenantId}/themes/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
+                                   th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
                                    th:text="${change.name ?: change.slug}"></a>
                                 <span th:unless="${(change.type == 'template' or change.type == 'stencil' or change.type == 'theme') and change.state.name() != 'REMOVED'}"
                                       th:text="${change.name ?: change.slug}"></span>

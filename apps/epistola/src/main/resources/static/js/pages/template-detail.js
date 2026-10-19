@@ -137,7 +137,7 @@
     const { mountDataContractEditor } = await import('/editor/data-contract-editor.js');
 
     // The template's one data contract, edited in place (PATCH).
-    const contractUrl = `/tenants/${tenantId}/templates/${catalogId}/${templateId}/contract`;
+    const contractUrl = `/tenants/${tenantId}/catalogs/${catalogId}/templates/${templateId}/contract`;
     // The template's revision as last read or saved here. Every save names it, so a save over
     // someone else's is refused (412) instead of replacing their work; every answer moves it on.
     let revision = container.dataset.revision ? Number(container.dataset.revision) : null;
@@ -212,7 +212,7 @@
             onUpdateDataExample: async (exampleId, updates, forceUpdate) => {
               try {
                 const response = await fetch(
-                  `/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}`,
+                  `/tenants/${tenantId}/catalogs/${catalogId}/templates/${templateId}/data-examples/${exampleId}`,
                   {
                     method: 'PATCH',
                     headers: jsonHeaders,
@@ -235,7 +235,7 @@
             onDeleteDataExample: async (exampleId) => {
               try {
                 const response = await fetch(
-                  `/tenants/${tenantId}/templates/${catalogId}/${templateId}/data-examples/${exampleId}` +
+                  `/tenants/${tenantId}/catalogs/${catalogId}/templates/${templateId}/data-examples/${exampleId}` +
                     (revision === null ? '' : `?expectedRevision=${revision}`),
                   {
                     method: 'DELETE',

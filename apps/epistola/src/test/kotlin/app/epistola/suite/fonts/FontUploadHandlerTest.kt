@@ -332,7 +332,7 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
                 String::class.java,
             )
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/fonts/default/temp-sans/delete",
+                "/tenants/${testTenant.id}/catalogs/default/fonts/temp-sans/delete",
                 null,
                 String::class.java,
             )

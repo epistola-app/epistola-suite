@@ -34,7 +34,7 @@ class QualityRoutes(private val handler: QualityHandler) {
             POST("/{findingId}/resolve", handler::resolve)
             POST("/{findingId}/comments", handler::addComment)
         }
-        "/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality".nest {
+        "/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/quality".nest {
             GET("", handler::editorFindings)
             POST("/check", handler::runEditorChecks)
         }

@@ -120,7 +120,7 @@ class StencilPlaceholderPlaywrightUiTest : BasePlaywrightTest() {
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         val variant = CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()).execute()!!
         return TemplateAndStencil(
-            editorUrl = "/tenants/${tenant.id}/templates/default/${template.id}/variants/${variant.id}/editor",
+            editorUrl = "/tenants/${tenant.id}/catalogs/default/templates/${template.id}/variants/${variant.id}/editor",
             variantId = variantId,
             stencilKey = sId.key.value,
         )
@@ -280,6 +280,6 @@ class StencilPlaceholderPlaywrightUiTest : BasePlaywrightTest() {
         // The stencil is used by reference: editing its working copy reaches the template as is.
         UpdateStencil(id = sId, content = v2).execute()
 
-        return "/tenants/${tenant.id}/templates/default/${template.id}/variants/${variant.id}/editor"
+        return "/tenants/${tenant.id}/catalogs/default/templates/${template.id}/variants/${variant.id}/editor"
     }
 }

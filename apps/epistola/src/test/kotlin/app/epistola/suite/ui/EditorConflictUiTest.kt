@@ -38,7 +38,7 @@ class EditorConflictUiTest : BasePlaywrightTest() {
             CreateTenant(id = tenantKey, name = "Editor Conflict").execute()
             CreateDocumentTemplate(template, "Invoice").execute()
         }
-        gotoAndReady("/tenants/$tenantKey/templates/default/invoice/variants/${variant.key}/editor")
+        gotoAndReady("/tenants/$tenantKey/catalogs/default/templates/invoice/variants/${variant.key}/editor")
         page.waitForSelector("epistola-editor")
         // Someone else saves the variant while it is open here: its revision moves on.
         withMediator { UpdateVariant(variantId = variant, title = "Renamed elsewhere", attributes = emptyMap()).execute() }

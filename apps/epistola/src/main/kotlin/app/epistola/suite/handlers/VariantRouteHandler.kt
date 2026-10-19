@@ -210,7 +210,7 @@ class VariantRouteHandler {
         val catalogId = request.catalogSegment().value
         return request.htmx {
             globalFormError(errorId, message)
-            onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/$catalogId/${templateId.key}") }
+            onNonHtmx { redirect("/tenants/${tenantId.key.value}/catalogs/$catalogId/templates/${templateId.key}") }
         }
     }
 
@@ -278,7 +278,7 @@ class VariantRouteHandler {
                 }
             }
             trigger("closeDialog")
-            onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/${segment.value}/${templateId.key}") }
+            onNonHtmx { redirect("/tenants/${tenantId.key.value}/catalogs/${segment.value}/templates/${templateId.key}") }
         }
     }
 

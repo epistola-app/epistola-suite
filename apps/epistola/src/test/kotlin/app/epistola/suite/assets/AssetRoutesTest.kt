@@ -101,7 +101,7 @@ class AssetRoutesTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/images/default/municipality-mark/content",
+                "/tenants/${testTenant.id}/catalogs/default/images/municipality-mark/content",
                 ByteArray::class.java,
             )
         }

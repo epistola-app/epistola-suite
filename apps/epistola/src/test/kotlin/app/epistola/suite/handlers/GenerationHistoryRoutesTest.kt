@@ -149,7 +149,7 @@ class GenerationHistoryRoutesTest : BaseIntegrationTest() {
 
         then {
             val body = result<org.springframework.http.ResponseEntity<String>>().body!!
-            val href = "href=\"/tenants/${tenant.id}/templates/${billing.value}/${templateKey.value}\""
+            val href = "href=\"/tenants/${tenant.id}/catalogs/${billing.value}/templates/${templateKey.value}\""
             // Once under "Most Used Templates", once under "Recent Jobs".
             assertThat(Regex(Regex.escape(href)).findAll(body).count()).isEqualTo(2)
         }

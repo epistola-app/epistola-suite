@@ -56,7 +56,7 @@ In the web UI the stencil page shows the stencil's details, whether its content 
 template's data (a toggle), its parameter schema, whether its working copy is ready (with **Mark
 ready** while it is not), and the variants that use it, each with whether it still fits and why
 not. Content is edited in the template editor, which reads and saves the working copy through
-`GET`/`PUT /tenants/{tenant}/stencils/{catalog}/{stencil}/content` (see
+`GET`/`PUT /tenants/{tenant}/catalogs/{catalog}/stencils/{stencil}/content` (see
 [In the template editor](#in-the-template-editor)).
 
 ### In the template editor

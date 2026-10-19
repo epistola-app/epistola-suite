@@ -73,7 +73,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
         }
 
         whenever {
-            postHtmx("/tenants/${seeded.tenantKey}/code-lists/${seeded.catalogKey}/${seeded.codeListKey}/delete")
+            postHtmx("/tenants/${seeded.tenantKey}/catalogs/${seeded.catalogKey}/code-lists/${seeded.codeListKey}/delete")
         }
 
         then {
@@ -99,7 +99,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
             // TestRestTemplate follows redirects exactly as a browser would,
             // so the progressive-enhancement path (handler returns 303 →
             // GET the list) is observed end-to-end as the final 200 list page.
-            postPlain("/tenants/${seeded.tenantKey}/code-lists/${seeded.catalogKey}/${seeded.codeListKey}/delete")
+            postPlain("/tenants/${seeded.tenantKey}/catalogs/${seeded.catalogKey}/code-lists/${seeded.codeListKey}/delete")
         }
 
         then {
@@ -124,7 +124,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
         }
 
         whenever {
-            postHtmx("/tenants/${seeded.tenantKey}/code-lists/${seeded.catalogKey}/${seeded.codeListKey}/delete")
+            postHtmx("/tenants/${seeded.tenantKey}/catalogs/${seeded.catalogKey}/code-lists/${seeded.codeListKey}/delete")
         }
 
         then {
@@ -143,7 +143,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
         }
 
         whenever {
-            postPlain("/tenants/${seeded.tenantKey}/code-lists/${seeded.catalogKey}/${seeded.codeListKey}/delete")
+            postPlain("/tenants/${seeded.tenantKey}/catalogs/${seeded.catalogKey}/code-lists/${seeded.codeListKey}/delete")
         }
 
         then {
@@ -256,7 +256,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
             // Soft boosted navigation to the new code list's own detail page —
             // HX-Location, no OOB refresh, no closeDialog (the page navigates away).
             assertThat(response.headers.getFirst("HX-Location"))
-                .isEqualTo("/tenants/${testTenant.id}/code-lists/default/languages")
+                .isEqualTo("/tenants/${testTenant.id}/catalogs/default/code-lists/languages")
             assertThat(response.headers.getFirst("HX-Redirect")).isNull()
             assertThat(response.headers.getFirst("HX-Trigger")).isNull()
             // Persistence verified through the mediator, not the (absent) body.

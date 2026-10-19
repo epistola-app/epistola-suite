@@ -672,8 +672,9 @@ declare global {
 }
 
 /**
- * [path] with the moved resource's `/{catalog}/{key}` segments replaced by its destination's, or
- * [path] unchanged when it does not name the resource.
+ * [path] with the moved resource's catalog and key replaced by its destination's — a resource page is
+ * `/tenants/{t}/catalogs/{catalog}/{type}/{key}/…` — or [path] unchanged when it does not name the
+ * resource.
  */
 export function pathAfterMove(
   path: string,
@@ -682,11 +683,12 @@ export function pathAfterMove(
   const segments = path.split('/');
   const at = segments.findIndex(
     (segment, index) =>
+      segments[index - 1] === 'catalogs' &&
       segment === encodeURIComponent(plan.source.catalogKey) &&
-      segments[index + 1] === encodeURIComponent(plan.source.key),
+      segments[index + 2] === encodeURIComponent(plan.source.key),
   );
   if (at < 0) return path;
   segments[at] = encodeURIComponent(plan.target.catalogKey);
-  segments[at + 1] = encodeURIComponent(plan.target.key);
+  segments[at + 2] = encodeURIComponent(plan.target.key);
   return segments.join('/');
 }

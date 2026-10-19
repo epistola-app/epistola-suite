@@ -291,7 +291,7 @@ data class CatalogDraftBar(
 
         /**
          * [pageAt] for a page whose path holds the segment where every per-catalog UI route has it,
-         * `/tenants/{tenantId}/{area}/{catalogId}/…`; the query string is kept.
+         * `/tenants/{tenantId}/catalogs/{catalogId}/…`; the query string is kept.
          */
         fun inPath(path: String, segment: CatalogSegment, query: String? = null): (CatalogSegment) -> String = { target ->
             val parts = path.split('/').toMutableList()
@@ -299,7 +299,7 @@ data class CatalogDraftBar(
             parts.joinToString("/") + (query?.takeIf { it.isNotBlank() }?.let { "?$it" } ?: "")
         }
 
-        /** The index of `{catalogId}` in a split UI path: "", "tenants", tenant, area, catalog. */
+        /** The index of `{catalogId}` in a split UI path: "", "tenants", tenant, "catalogs", catalog. */
         private const val CATALOG_PART = 4
     }
 }

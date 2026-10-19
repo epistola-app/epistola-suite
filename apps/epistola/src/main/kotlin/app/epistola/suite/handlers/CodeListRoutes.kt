@@ -19,11 +19,14 @@ class CodeListRoutes(private val handler: CodeListHandler) {
         "/tenants/{tenantId}/code-lists".nest {
             GET("/new", handler::newForm)
             POST("", handler::create)
-            GET("/{catalogId}/{codeListId}", handler::detail)
-            POST("/{catalogId}/{codeListId}/refresh", handler::refresh)
-            POST("/{catalogId}/{codeListId}/delete", handler::delete)
-            PATCH("/{catalogId}/{codeListId}/entries/{code}/hidden", handler::toggleEntryHidden)
-            POST("/{catalogId}/{codeListId}/entries/{code}/hidden", handler::toggleEntryHidden)
+        }
+        // A resource's pages and actions are its catalog's, like its list.
+        "/tenants/{tenantId}/catalogs/{catalogId}/code-lists".nest {
+            GET("/{codeListId}", handler::detail)
+            POST("/{codeListId}/refresh", handler::refresh)
+            POST("/{codeListId}/delete", handler::delete)
+            PATCH("/{codeListId}/entries/{code}/hidden", handler::toggleEntryHidden)
+            POST("/{codeListId}/entries/{code}/hidden", handler::toggleEntryHidden)
         }
     }
 }

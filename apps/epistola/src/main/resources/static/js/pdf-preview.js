@@ -27,7 +27,7 @@ async function previewPdf(button) {
   const releaseVersion = button.dataset.releaseVersion;
   const testDataJson = button.dataset.testData || '{}';
 
-  const url = `/tenants/${tenantId}/templates/${catalogId}/${templateId}/variants/${variantId}/preview`;
+  const url = `/tenants/${tenantId}/catalogs/${catalogId}/templates/${templateId}/variants/${variantId}/preview`;
 
   // Show loading state
   const originalContent = button.innerHTML;

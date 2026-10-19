@@ -65,7 +65,7 @@
                             <!--/* Badge before the name: the cell clips at its end, so a long
                                    name would push a trailing badge out of view entirely. */-->
                             <span th:if="${isDefault}" class="badge badge-primary" style="margin-right: var(--ep-space-2);" data-testid="theme-default-badge">Default</span>
-                            <a th:href="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogKey) ?: theme.catalogKey},themeId=${theme.id})}"
+                            <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogKey) ?: theme.catalogKey},themeId=${theme.id})}"
                                th:text="${theme.name}" style="font-weight: 500;"></a>
                         </td>
                         <td th:title="${theme.catalogKey}"><span class="badge badge-default" th:text="${theme.catalogKey}"></span></td>
@@ -98,7 +98,7 @@
                                 </button>
                             </form>
                             <th:block th:if="${theme.catalogType.name() == 'AUTHORED'}">
-                                <a th:href="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogKey) ?: theme.catalogKey},themeId=${theme.id})}"
+                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogKey) ?: theme.catalogKey},themeId=${theme.id})}"
                                    class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Edit theme">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
                                 </a>
@@ -107,7 +107,7 @@
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete theme"
                                         data-confirm-title="Delete Theme"
-                                        th:attr="data-confirm-message='Delete theme &quot;' + ${theme.name} + '&quot;? Templates using it will fall back to their own styles.',data-confirm-url=@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogKey) ?: theme.catalogKey},themeId=${theme.id})}"
+                                        th:attr="data-confirm-message='Delete theme &quot;' + ${theme.name} + '&quot;? Templates using it will fall back to their own styles.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogKey) ?: theme.catalogKey},themeId=${theme.id})}"
                                         data-confirm-target="#theme-rows">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>

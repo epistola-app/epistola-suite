@@ -50,7 +50,7 @@ class VariantReadyHandlerHtmxTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${tenant.id}/templates/default/${template.id}", String::class.java)
+            restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/default/templates/${template.id}", String::class.java)
         }
 
         then {
@@ -79,7 +79,7 @@ class VariantReadyHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             val variant = variantsOf(tenant, template).single()
-            postHtmx("/tenants/${tenant.id}/templates/default/${template.id}/variants/${variant.id}/ready")
+            postHtmx("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/variants/${variant.id}/ready")
         }
 
         then {
@@ -105,7 +105,7 @@ class VariantReadyHandlerHtmxTest : BaseIntegrationTest() {
         }
 
         whenever {
-            postHtmx("/tenants/${tenant.id}/templates/default/${template.id}/ready")
+            postHtmx("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/ready")
         }
 
         then {
@@ -130,7 +130,7 @@ class VariantReadyHandlerHtmxTest : BaseIntegrationTest() {
         }
 
         whenever {
-            postHtmx("/tenants/${tenant.id}/templates/default/${template.id}/ready")
+            postHtmx("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/ready")
         }
 
         then {

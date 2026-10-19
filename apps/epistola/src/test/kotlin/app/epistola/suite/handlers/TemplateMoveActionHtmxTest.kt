@@ -43,7 +43,7 @@ class TemplateMoveActionHtmxTest : BaseIntegrationTest() {
         val (tenantKey, templateKey) = seedTemplate("Template move on", relocation = true)
 
         val body = restTemplate.getForEntity(
-            "/tenants/$tenantKey/templates/default/$templateKey/settings",
+            "/tenants/$tenantKey/catalogs/default/templates/$templateKey/settings",
             String::class.java,
         ).body!!
 
@@ -60,7 +60,7 @@ class TemplateMoveActionHtmxTest : BaseIntegrationTest() {
         val (tenantKey, templateKey) = seedTemplate("Template move off", relocation = false)
 
         val body = restTemplate.getForEntity(
-            "/tenants/$tenantKey/templates/default/$templateKey/settings",
+            "/tenants/$tenantKey/catalogs/default/templates/$templateKey/settings",
             String::class.java,
         ).body!!
 

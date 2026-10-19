@@ -198,13 +198,13 @@
                                 <!-- Authored: link to detail page for templates/themes/stencils -->
                                 <th:block th:if="${catalog.type.name() == 'AUTHORED'}">
                                     <a th:if="${resource.type == 'template'}"
-                                       th:href="@{/tenants/{tenantId}/templates/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},slug=${resource.slug})}"
+                                       th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},slug=${resource.slug})}"
                                        th:text="${resource.name}"></a>
                                     <a th:if="${resource.type == 'theme'}"
-                                       th:href="@{/tenants/{tenantId}/themes/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},slug=${resource.slug})}"
+                                       th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},slug=${resource.slug})}"
                                        th:text="${resource.name}"></a>
                                     <a th:if="${resource.type == 'stencil'}"
-                                       th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},slug=${resource.slug})}"
+                                       th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},slug=${resource.slug})}"
                                        th:text="${resource.name}"></a>
                                     <a th:if="${resource.type == 'attribute'}"
                                        th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/attributes(tenantId=${tenantId},catalogSeg=${catalogId ?: catalog.id})}"
@@ -365,7 +365,7 @@
                     <div th:if="${presentationIcon != null}" style="margin-bottom: var(--ep-space-3);">
                         <span class="catalog-detail-label">Icon</span>
                         <img th:if="${presentationIcon.available}" alt="Catalog icon" class="catalog-presentation-icon"
-                             th:src="@{/tenants/{tenantId}/images/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},assetId=${presentationIcon.asset.id})}" />
+                             th:src="@{/tenants/{tenantId}/catalogs/{catalogId}/images/{assetId}/content(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},assetId=${presentationIcon.asset.id})}" />
                         <div th:unless="${presentationIcon.available}" class="alert alert-warning">
                             Catalog icon is unavailable until asset <code th:text="${presentationIcon.slug}"></code> is installed.
                         </div>
@@ -375,7 +375,7 @@
                         <div class="ep-row ep-gap-3 ep-row-wrap">
                             <div th:each="image : ${presentationImages}">
                                 <img th:if="${image.available}" th:alt="${image.asset.name}" class="catalog-presentation-image"
-                                     th:src="@{/tenants/{tenantId}/images/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},assetId=${image.asset.id})}" />
+                                     th:src="@{/tenants/{tenantId}/catalogs/{catalogId}/images/{assetId}/content(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},assetId=${image.asset.id})}" />
                                 <div th:unless="${image.available}" class="catalog-presentation-placeholder text-muted text-sm">
                                     Unavailable until installed<br /><code th:text="${image.slug}"></code>
                                 </div>

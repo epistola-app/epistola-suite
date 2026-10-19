@@ -91,10 +91,10 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
         withMediator { CreateTheme(id = ThemeId(ThemeKey.of("extra"), CatalogId(catalogKey, TenantId(tenant.id))), name = "Extra").execute() }
 
         listOf(
-            "/templates/bar-cat/invoice",
-            "/stencils/bar-cat/address",
-            "/themes/bar-cat/house",
-            "/code-lists/bar-cat/locales",
+            "/catalogs/bar-cat/templates/invoice",
+            "/catalogs/bar-cat/stencils/address",
+            "/catalogs/bar-cat/themes/house",
+            "/catalogs/bar-cat/code-lists/locales",
         ).forEach { path ->
             val body = get(tenant, path)
             assertThat(body.substringAfter("data-testid=\"ws-crumb-catalog\"").substringBefore("</button>"))
@@ -125,16 +125,16 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
             draft.draftId!!
         }
 
-        val page = get(tenant, "/themes/bar-cat@$work/house")
+        val page = get(tenant, "/catalogs/bar-cat@$work/themes/house")
         assertThat(page).contains("ws-bar-side")
         assertThat(page.substringAfter("data-testid=\"ws-crumb-version\"").substringBefore("</button>")).contains(">Redesign 2027<")
         assertThat(page).contains("data-testid=\"catalog-long-term-banner\"").contains("You are changing Redesign 2027, long-term work kept apart from the next version")
         assertThat(page).contains("hx-get=\"/tenants/${tenant.id.value}/catalogs/bar-cat@$work/bar-status\"")
-        assertThat(page).contains("href=\"/tenants/${tenant.id.value}/themes/bar-cat/house\" data-testid=\"catalog-long-term-back\"")
+        assertThat(page).contains("href=\"/tenants/${tenant.id.value}/catalogs/bar-cat/themes/house\" data-testid=\"catalog-long-term-back\"")
         assertThat(barStatus(tenant, "bar-cat@$work")).`as`("only the next version is published").doesNotContain("data-testid=\"catalog-bar-publish\"")
             .`as`("its changes, not what is published").contains(">1 change<").doesNotContain("not published")
 
-        val next = get(tenant, "/themes/bar-cat/house")
+        val next = get(tenant, "/catalogs/bar-cat/themes/house")
         assertThat(next).doesNotContain("data-testid=\"catalog-long-term-banner\"")
         assertThat(next.substringAfter("data-testid=\"ws-version-menu\"").substringBefore("ws-menu-sep"))
             .contains(">Next version<").contains(">Redesign 2027<")
@@ -150,7 +150,7 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
         val installed: String = withMediator { GetCatalog(tenant.id, SYSTEM_CATALOG_KEY).query()!!.installedReleaseVersion!! }
         val theme: String = withMediator { ListThemes(TenantId(tenant.id)).query().first { it.catalogKey == SYSTEM_CATALOG_KEY }.id.value }
 
-        val body = get(tenant, "/themes/system/$theme")
+        val body = get(tenant, "/catalogs/system/themes/$theme")
         assertThat(body.substringAfter("data-testid=\"ws-crumb-version\"").substringBefore("</button>")).contains(">v$installed<")
         assertThat(body).contains("data-testid=\"catalog-version-bar-read-only\"").contains("it can't be edited here")
         assertThat(body).doesNotContain("/bar-status").doesNotContain(">Next version<")

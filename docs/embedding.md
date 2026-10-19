@@ -102,7 +102,7 @@ An unrecognized `resourceType` or a malformed identifier is silently ignored.
 {
   "source": "epistola-suite",
   "type": "navigated",
-  "path": "/tenants/acme/templates/default/invoice",
+  "path": "/tenants/acme/catalogs/default/templates/invoice",
   "resource": {
     "resourceType": "template",
     "tenantId": "acme",
@@ -187,9 +187,9 @@ to end (`DocumentTemplateRoutes`/`ThemeRoutes`/`StencilRoutes`), so a generic
 `htmx:afterRequest` listener classifies every create/update/delete from the
 request (and, for create, the response) alone:
 
-1. **`PATCH /tenants/{t}/{type}/{catalogKey}/{key}(/…)?`** → `update`. Identity
+1. **`PATCH /tenants/{t}/catalogs/{catalogKey}/{type}/{key}(/…)?`** → `update`. Identity
    comes straight from the request path.
-2. **`POST /tenants/{t}/{type}/{catalogKey}/{key}/delete`** → `delete`.
+2. **`POST /tenants/{t}/catalogs/{catalogKey}/{type}/{key}/delete`** → `delete`.
    Identity from the request path.
 3. **`POST /tenants/{t}/{type}`** (the bare collection root) → `create`.
    Identity comes from the response's `HX-Location`/`HX-Redirect` header — the

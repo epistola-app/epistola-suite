@@ -74,7 +74,7 @@ class AiPluginAutoConfiguration {
     @Bean
     fun aiRoutes(aiChatHandler: AiChatHandler, referenceUploadHandler: ReferenceUploadHandler): RouterFunction<ServerResponse> {
         return router {
-            "/tenants/{tenantId}/templates/{templateId}/ai".nest {
+            "/tenants/{tenantId}/catalogs/{templateId}/templates/ai".nest {
                 POST("/chat", aiChatHandler::handleChat)
                 POST("/references", referenceUploadHandler::handleUpload)
             }

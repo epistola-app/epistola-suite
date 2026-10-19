@@ -52,14 +52,14 @@
     <th:block th:fragment="theme-detail-actions">
         <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                 data-testid="theme-usage-open-action"
-                th:hx-get="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/usage(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},themeId=${theme.id})}"
+                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}/usage(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},themeId=${theme.id})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML">
             View usage
         </button>
         <!--/* Through HTMX: a refusal (the tenant's default theme) shows in the form; done, the list. */-->
         <form th:if="${editable}" id="delete-theme-form"
-              th:action="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/delete(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},themeId=${theme.id})}"
-              th:hx-post="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/delete(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},themeId=${theme.id})}"
+              th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}/delete(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},themeId=${theme.id})}"
+              th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}/delete(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},themeId=${theme.id})}"
               hx-swap="none"
               method="post">
             <input type="hidden" name="from" value="detail" />

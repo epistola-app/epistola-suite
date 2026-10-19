@@ -37,7 +37,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
     fun `variant cards render in grid layout`() {
         val (tenant, template) = withMediator { createTenantAndTemplate() }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}")
 
         assertThat(page.locator(".variant-card")).hasCount(1)
         assertThat(page.locator("table.ep-table")).hasCount(0)
@@ -56,7 +56,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}")
 
         val cards = page.locator(".variant-card")
         assertThat(cards).hasCount(2)
@@ -91,7 +91,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}")
 
         val filterBar = page.locator("#variant-filter-bar")
         assertThat(filterBar).isVisible()
@@ -136,7 +136,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}")
 
         val cards = page.locator(".variant-card")
         assertThat(cards).hasCount(3) // default + en + nl
@@ -167,7 +167,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}")
 
         // Apply filter
         page.locator("select[data-filter-key='default.lang']").selectOption("en")
@@ -214,7 +214,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}")
         assertThat(page.locator(".variant-card")).hasCount(4) // default + 3
 
         // Filter: language=en AND brand=acme
@@ -229,7 +229,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
     fun `create variant via HTMX adds a new card`() {
         val (tenant, template) = withMediator { createTenantAndTemplate() }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}")
         assertThat(page.locator(".variant-card")).hasCount(1)
 
         val dialog = page.openDialogByTrigger(
@@ -259,7 +259,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}")
         assertThat(page.locator(".variant-card")).hasCount(2)
 
         // Click delete on the non-default variant (opens confirm dialog).
@@ -283,7 +283,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
         // `LinkedHashSet<String>` fixes it; this test guards the fix.
         val (tenant, template) = withMediator { createTenantAndTemplate() }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}")
         assertThat(page.locator(".variant-card")).hasCount(1)
 
         // Open edit dialog on the default variant — it has empty attributes
@@ -310,7 +310,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}")
         assertThat(page.locator("#variant-filter-bar")).isHidden()
 
         val dialog = page.openDialogByTrigger(
@@ -348,7 +348,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}")
         assertThat(page.locator("#variant-filter-bar")).isVisible()
 
         // Delete the non-default variant.

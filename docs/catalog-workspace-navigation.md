@@ -20,7 +20,7 @@ catalog and which version it is in. The UI does not show that:
 - The navigation is by resource type across catalogs (Authoring: Templates, Themes, Stencils,
   Catalogs; Resources: Images, Fonts, Attributes, Code lists), a shape from 1.x where a resource had
   versions of its own and a catalog was a folder.
-- The version a page works in is only in its URL (`/tenants/t/templates/letters@2.0.0/invoice`). A
+- The version a page works in is only in its URL (`/tenants/t/catalogs/letters@2.0.0/templates/invoice`). A
   bar appears only when a catalog has several drafts or none, so with one draft nothing says "you are
   editing draft 1.0.1 of letters".
 - The catalog context strip (`catalog-context`, alpha) was off by default; the 2.0 design said it

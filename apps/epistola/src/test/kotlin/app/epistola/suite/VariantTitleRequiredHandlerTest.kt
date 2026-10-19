@@ -29,7 +29,7 @@ class VariantTitleRequiredHandlerTest : BaseIntegrationTest() {
     private lateinit var restTemplate: TestRestTemplate
 
     private fun postVariant(tenant: Tenant, templateKey: String, form: LinkedMultiValueMap<String, String>) = restTemplate.postForEntity(
-        "/tenants/${tenant.id.value}/templates/default/$templateKey/variants",
+        "/tenants/${tenant.id.value}/catalogs/default/templates/$templateKey/variants",
         HttpEntity(
             form,
             HttpHeaders().apply {
@@ -41,7 +41,7 @@ class VariantTitleRequiredHandlerTest : BaseIntegrationTest() {
     )
 
     private fun patchVariant(tenant: Tenant, templateKey: String, variantKey: String, form: LinkedMultiValueMap<String, String>) = restTemplate.exchange(
-        "/tenants/${tenant.id.value}/templates/default/$templateKey/variants/$variantKey",
+        "/tenants/${tenant.id.value}/catalogs/default/templates/$templateKey/variants/$variantKey",
         HttpMethod.PATCH,
         HttpEntity(
             form,

@@ -20,9 +20,11 @@ class FontRoutes(private val handler: FontHandler) {
             GET("/new", handler::newForm)
             POST("", handler::upload)
             GET("/search", handler::search)
-
-            GET("/{catalogId}/{slug}/{weight}/{italic}/content", handler::content)
-            POST("/{catalogId}/{slug}/delete", handler::delete)
+        }
+        // A resource's pages and actions are its catalog's, like its list.
+        "/tenants/{tenantId}/catalogs/{catalogId}/fonts".nest {
+            GET("/{slug}/{weight}/{italic}/content", handler::content)
+            POST("/{slug}/delete", handler::delete)
         }
     }
 }

@@ -153,7 +153,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
             // — asserted via the header, not a body. No HX-Redirect (full reload).
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.headers.getFirst("HX-Location"))
-                .isEqualTo("/tenants/${testTenant.id}/themes/default/corporate")
+                .isEqualTo("/tenants/${testTenant.id}/catalogs/default/themes/corporate")
             assertThat(response.headers.getFirst("HX-Redirect")).isNull()
         }
     }
@@ -207,7 +207,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/themes/default/brand",
+                "/tenants/${testTenant.id}/catalogs/default/themes/brand",
                 String::class.java,
             )
         }
@@ -248,7 +248,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.exchange(
-                "/tenants/${testTenant.id}/themes/default/brand/usage",
+                "/tenants/${testTenant.id}/catalogs/default/themes/brand/usage",
                 HttpMethod.GET,
                 HttpEntity<Void>(htmxHeaders()),
                 String::class.java,
@@ -261,7 +261,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body).contains("""id="theme-usage-dialog"""")
             assertThat(response.body).contains("Invoice")
             assertThat(response.body).contains("Template default")
-            assertThat(response.body).contains("/templates/default/${templateId.key}")
+            assertThat(response.body).contains("/catalogs/default/templates/${templateId.key}")
             assertThat(response.body).doesNotContain("<html")
         }
     }
@@ -283,7 +283,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.exchange(
-                "/tenants/${testTenant.id}/themes/default/unused/usage?page=1",
+                "/tenants/${testTenant.id}/catalogs/default/themes/unused/usage?page=1",
                 HttpMethod.GET,
                 HttpEntity<Void>(htmxHeaders()),
                 String::class.java,

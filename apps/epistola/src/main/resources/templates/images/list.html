@@ -52,7 +52,7 @@
                 <div th:if="${!#lists.isEmpty(assets)}" class="ep-auto-grid asset-grid">
                     <div th:each="asset : ${assets}" class="ep-panel asset-card">
                         <div class="asset-card-preview">
-                            <img th:src="@{/tenants/{tenantId}/images/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(asset.catalogKey) ?: asset.catalogKey},assetId=${asset.id})}"
+                            <img th:src="@{/tenants/{tenantId}/catalogs/{catalogId}/images/{assetId}/content(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(asset.catalogKey) ?: asset.catalogKey},assetId=${asset.id})}"
                                  th:alt="${asset.name}"
                                  loading="lazy" />
                         </div>
@@ -71,7 +71,7 @@
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete image"
                                         data-confirm-title="Delete Image"
-                                        th:attr="data-confirm-message='Delete image &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/images/{catalogId}/{assetId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(asset.catalogKey) ?: asset.catalogKey},assetId=${asset.id},catalog=${selectedCatalog})}"
+                                        th:attr="data-confirm-message='Delete image &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/images/{assetId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(asset.catalogKey) ?: asset.catalogKey},assetId=${asset.id},catalog=${selectedCatalog})}"
                                         data-confirm-target="#asset-grid-items">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>

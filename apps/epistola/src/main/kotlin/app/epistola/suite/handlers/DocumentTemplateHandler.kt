@@ -167,7 +167,7 @@ class DocumentTemplateHandler(
         val model = templateListModel(request, tenantId, segment)
         val bar = segment.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/catalogs/${it.value}/templates" } }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListTemplateSummaries(tenantId = tenantId, catalogKey = it, limit = 200).query().items }) { t, c, n -> FromOtherCatalog(t.name, "/tenants/${tenantId.key}/templates/${c.value}/${t.id.value}", n) }
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListTemplateSummaries(tenantId = tenantId, catalogKey = it, limit = 200).query().items }) { t, c, n -> FromOtherCatalog(t.name, "/tenants/${tenantId.key}/catalogs/${c.value}/templates/${t.id.value}", n) }
         return ServerResponse.ok().page("templates/list") {
             "pageTitle" to "Document Templates - Epistola"
             "catalogs" to catalogs
@@ -405,7 +405,7 @@ class DocumentTemplateHandler(
         // Safe !!/of(): both fields were validated above and the create succeeded.
         val templateKey = TemplateKey.validateOrNull(form["slug"])!!
         val catalogId = CatalogSegment.parse(form["catalog"])
-        val destination = "/tenants/${tenantId.key}/templates/${catalogId.value}/$templateKey"
+        val destination = "/tenants/${tenantId.key}/catalogs/${catalogId.value}/templates/$templateKey"
         return request.htmx {
             dialogLocation(destination)
             onNonHtmx { redirect(destination) }
@@ -557,7 +557,7 @@ class DocumentTemplateHandler(
                 "editable" to (template.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
             }
             onFullPage {
-                redirect("/tenants/${tenantId.key}/templates/$catalogId/${templateId.key}")
+                redirect("/tenants/${tenantId.key}/catalogs/$catalogId/templates/${templateId.key}")
             }
         }
     }
@@ -600,7 +600,7 @@ class DocumentTemplateHandler(
             fragment("templates/detail/settings", "name-input", model)
             oob("templates/detail/settings", "page-title-oob", model)
             onFullPage {
-                redirect("/tenants/${tenantId.key}/templates/$catalogId/${templateId.key}")
+                redirect("/tenants/${tenantId.key}/catalogs/$catalogId/templates/${templateId.key}")
             }
         }
     }
@@ -665,7 +665,7 @@ class DocumentTemplateHandler(
                 "editable" to (updated.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
             }
             onNonHtmx {
-                redirect("/tenants/${tenantId.key}/templates/$catalogId/${templateId.key}")
+                redirect("/tenants/${tenantId.key}/catalogs/$catalogId/templates/${templateId.key}")
             }
         }
     }

@@ -241,7 +241,7 @@ class TemplateHandlerHtmxTest : BaseIntegrationTest() {
             // asserted via the header, not a body. No HX-Redirect (full reload).
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.headers.getFirst("HX-Location"))
-                .isEqualTo("/tenants/${testTenant.id}/templates/default/monthly-invoice")
+                .isEqualTo("/tenants/${testTenant.id}/catalogs/default/templates/monthly-invoice")
             assertThat(response.headers.getFirst("HX-Redirect")).isNull()
         }
     }

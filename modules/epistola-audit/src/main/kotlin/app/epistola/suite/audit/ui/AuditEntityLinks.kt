@@ -53,11 +53,12 @@ class AuditEntityLinks {
 
             "stencil-version" -> AuditEntityLink("stencil ${s(2)} › v${s(3)}", catalogScoped("stencils", seg))
 
-            "attribute" -> AuditEntityLink("attribute ${s(2)}", catalogScoped("attributes", seg))
+            // No page of their own: the catalog's list of them.
+            "attribute" -> AuditEntityLink("attribute ${s(2)}", catalogList("attributes", seg))
 
             "code-list" -> AuditEntityLink("code list ${s(2)}", catalogScoped("code-lists", seg))
 
-            "font" -> AuditEntityLink("font ${s(2)}", catalogScoped("fonts", seg))
+            "font" -> AuditEntityLink("font ${s(2)}", catalogList("fonts", seg))
 
             "environment" -> AuditEntityLink("environment ${s(1)}", s(0)?.let { "/tenants/$it/environments/${s(1)}" })
 
@@ -66,10 +67,16 @@ class AuditEntityLinks {
         }
     }
 
-    /** `/tenants/{tenant}/{collection}/{catalog}/{key}` for a catalog-scoped resource `tenant/catalog/key/…`. */
+    /** `/tenants/{tenant}/catalogs/{catalog}/{collection}/{key}` for a catalog-scoped resource `tenant/catalog/key/…`. */
     private fun catalogScoped(collection: String, seg: List<String>): String? {
         val (tenant, catalog, key) = Triple(seg.getOrNull(0), seg.getOrNull(1), seg.getOrNull(2))
-        return if (tenant != null && catalog != null && key != null) "/tenants/$tenant/$collection/$catalog/$key" else null
+        return if (tenant != null && catalog != null && key != null) "/tenants/$tenant/catalogs/$catalog/$collection/$key" else null
+    }
+
+    /** `/tenants/{tenant}/catalogs/{catalog}/{collection}`: the list a resource without a page of its own is in. */
+    private fun catalogList(collection: String, seg: List<String>): String? {
+        val (tenant, catalog) = seg.getOrNull(0) to seg.getOrNull(1)
+        return if (tenant != null && catalog != null && seg.getOrNull(2) != null) "/tenants/$tenant/catalogs/$catalog/$collection" else null
     }
 
     /** Variants/versions/contract-versions live under the template editor, identified by `tenant/catalog/template`. */

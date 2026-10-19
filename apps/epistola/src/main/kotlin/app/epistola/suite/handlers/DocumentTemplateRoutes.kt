@@ -25,50 +25,44 @@ class DocumentTemplateRoutes(
         // A list belongs to a catalog; there is none across the tenant.
         GET("/tenants/{tenantId}/catalogs/{catalogId}/templates", handler::list)
         "/tenants/{tenantId}/templates".nest {
-            // List and create (across all catalogs)
+            // Search (the editors' pickers) and create; the pages are the catalog's, below
             GET("/search", handler::search)
             GET("/new", handler::newForm)
             POST("", handler::create)
-
+        }
+        // A resource's pages and actions are its catalog's, like its list.
+        "/tenants/{tenantId}/catalogs/{catalogId}/templates".nest {
             // Detail page — each tab has its own handler
-            GET("/{catalogId}/{id}", handler::detail)
-            GET("/{catalogId}/{id}/data-contract", dataContractTabHandler::dataContract)
-            GET("/{catalogId}/{id}/settings", settingsTabHandler::settings)
+            GET("/{id}", handler::detail)
+            GET("/{id}/data-contract", dataContractTabHandler::dataContract)
+            GET("/{id}/settings", settingsTabHandler::settings)
 
             // Template actions
-            POST("/{catalogId}/{id}/delete", handler::delete)
-            PATCH("/{catalogId}/{id}/name", handler::updateName)
-            PATCH("/{catalogId}/{id}/pdfa", handler::updatePdfa)
-            PATCH("/{catalogId}/{id}/theme", handler::updateTheme)
-            GET("/{catalogId}/{id}/api", handler::get)
-            POST("/{catalogId}/{id}/validate-schema", handler::validateSchema)
-
-            POST("/{catalogId}/{id}/ready", variantHandler::markTemplateReady)
+            POST("/{id}/delete", handler::delete)
+            PATCH("/{id}/name", handler::updateName)
+            PATCH("/{id}/pdfa", handler::updatePdfa)
+            PATCH("/{id}/theme", handler::updateTheme)
+            GET("/{id}/api", handler::get)
+            POST("/{id}/validate-schema", handler::validateSchema)
+            POST("/{id}/ready", variantHandler::markTemplateReady)
 
             // Data contract: one schema and its examples, edited in place
-            PATCH("/{catalogId}/{id}/contract", dataContractTabHandler::update)
+            PATCH("/{id}/contract", dataContractTabHandler::update)
+            PATCH("/{id}/data-examples/{exampleId}", handler::updateDataExample)
+            DELETE("/{id}/data-examples/{exampleId}", handler::deleteDataExample)
 
-            // Data example routes
-            PATCH("/{catalogId}/{id}/data-examples/{exampleId}", handler::updateDataExample)
-            DELETE("/{catalogId}/{id}/data-examples/{exampleId}", handler::deleteDataExample)
+            // Variants
+            POST("/{id}/variants", variantHandler::createVariant)
+            GET("/{id}/variants/{variantId}/edit", variantHandler::editVariantForm)
+            PATCH("/{id}/variants/{variantId}", variantHandler::updateVariant)
+            POST("/{id}/variants/{variantId}/delete", variantHandler::deleteVariant)
+            POST("/{id}/variants/{variantId}/set-default", variantHandler::setDefaultVariant)
+            POST("/{id}/variants/{variantId}/ready", variantHandler::markVariantReady)
 
-            // Variant routes
-            POST("/{catalogId}/{id}/variants", variantHandler::createVariant)
-            GET("/{catalogId}/{id}/variants/{variantId}/edit", variantHandler::editVariantForm)
-            PATCH("/{catalogId}/{id}/variants/{variantId}", variantHandler::updateVariant)
-            POST("/{catalogId}/{id}/variants/{variantId}/delete", variantHandler::deleteVariant)
-            POST("/{catalogId}/{id}/variants/{variantId}/set-default", variantHandler::setDefaultVariant)
-
-            POST("/{catalogId}/{id}/variants/{variantId}/ready", variantHandler::markVariantReady)
-
-            // Editor route
-            GET("/{catalogId}/{id}/variants/{variantId}/editor", handler::editor)
-
-            // PDF preview
-            POST("/{catalogId}/{id}/variants/{variantId}/preview", previewHandler::preview)
-
-            // The variant's working model, saved by the editor
-            PUT("/{catalogId}/{id}/variants/{variantId}/content", contentHandler::updateContent)
+            // The editor, its PDF preview, and the variant's working model it saves
+            GET("/{id}/variants/{variantId}/editor", handler::editor)
+            POST("/{id}/variants/{variantId}/preview", previewHandler::preview)
+            PUT("/{id}/variants/{variantId}/content", contentHandler::updateContent)
         }
     }
 }

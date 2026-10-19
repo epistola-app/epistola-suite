@@ -43,7 +43,7 @@ it defaults to `true` for backward compatibility.
 
 There is no REST API endpoint for this setting — it is configured through the settings UI
 only. The toggle issues a form-encoded
-`PATCH …/templates/{catalogId}/{templateId}/pdfa` UI request; UI routes are internal and
+`PATCH …/catalogs/{catalogId}/templates/{templateId}/pdfa` UI request; UI routes are internal and
 may change freely.
 
 ## How it works

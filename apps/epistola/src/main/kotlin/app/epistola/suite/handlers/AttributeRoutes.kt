@@ -19,9 +19,12 @@ class AttributeRoutes(private val handler: AttributeHandler) {
         "/tenants/{tenantId}/attributes".nest {
             GET("/new", handler::newForm)
             POST("", handler::create)
-            GET("/{catalogId}/{attributeId}/edit", handler::editForm)
-            PATCH("/{catalogId}/{attributeId}", handler::update)
-            POST("/{catalogId}/{attributeId}/delete", handler::delete)
+        }
+        // A resource's pages and actions are its catalog's, like its list.
+        "/tenants/{tenantId}/catalogs/{catalogId}/attributes".nest {
+            GET("/{attributeId}/edit", handler::editForm)
+            PATCH("/{attributeId}", handler::update)
+            POST("/{attributeId}/delete", handler::delete)
         }
     }
 }

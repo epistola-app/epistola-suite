@@ -23,11 +23,13 @@ class ThemeRoutes(private val handler: ThemeHandler) {
                 GET("/search", handler::search)
                 GET("/new", handler::newForm)
                 POST("", handler::create)
-
-                GET("/{catalogId}/{themeId}", handler::detail)
-                GET("/{catalogId}/{themeId}/usage", handler::usage)
-                PATCH("/{catalogId}/{themeId}", handler::update)
-                POST("/{catalogId}/{themeId}/delete", handler::delete)
+            }
+            // A resource's pages and actions are its catalog's, like its list.
+            "/catalogs/{catalogId}/themes".nest {
+                GET("/{themeId}", handler::detail)
+                GET("/{themeId}/usage", handler::usage)
+                PATCH("/{themeId}", handler::update)
+                POST("/{themeId}/delete", handler::delete)
             }
         }
     }

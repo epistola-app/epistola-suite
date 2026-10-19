@@ -34,7 +34,7 @@ class ThemeDetailDeleteHtmxTest : BaseIntegrationTest() {
     private lateinit var restTemplate: TestRestTemplate
 
     private fun deleteFromDetail(tenant: String) = restTemplate.postForEntity(
-        "/tenants/$tenant/themes/default/brand/delete",
+        "/tenants/$tenant/catalogs/default/themes/brand/delete",
         HttpEntity(
             LinkedMultiValueMap<String, String>().apply { add("from", "detail") },
             HttpHeaders().apply {

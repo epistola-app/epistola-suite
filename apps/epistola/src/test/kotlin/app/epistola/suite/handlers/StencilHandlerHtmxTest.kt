@@ -59,7 +59,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         whenever {
             val headers = HttpHeaders().apply { accept = listOf(MediaType.APPLICATION_JSON) }
             restTemplate.exchange(
-                "/tenants/${seeded.tenantId.key}/stencils/${seeded.catalogKey}/${seeded.stencilKey}/content",
+                "/tenants/${seeded.tenantId.key}/catalogs/${seeded.catalogKey}/stencils/${seeded.stencilKey}/content",
                 HttpMethod.GET,
                 HttpEntity<Void>(headers),
                 String::class.java,
@@ -87,7 +87,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
                 accept = listOf(MediaType.APPLICATION_JSON)
             }
             restTemplate.exchange(
-                "/tenants/${seeded.tenantId.key}/stencils/${seeded.catalogKey}/${seeded.stencilKey}/content",
+                "/tenants/${seeded.tenantId.key}/catalogs/${seeded.catalogKey}/stencils/${seeded.stencilKey}/content",
                 HttpMethod.PUT,
                 HttpEntity(mapOf("content" to stencilV2()), headers),
                 String::class.java,
@@ -105,7 +105,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
     @Test
     fun `JSON PUT content with clearParameterSchema removes the stored parameters`() = fixture {
         lateinit var seeded: Seeded
-        val url = { s: Seeded -> "/tenants/${s.tenantId.key}/stencils/${s.catalogKey}/${s.stencilKey}/content" }
+        val url = { s: Seeded -> "/tenants/${s.tenantId.key}/catalogs/${s.catalogKey}/stencils/${s.stencilKey}/content" }
         val headers = HttpHeaders().apply {
             contentType = MediaType.APPLICATION_JSON
             accept = listOf(MediaType.APPLICATION_JSON)
@@ -147,7 +147,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${seeded.tenantId.key}/stencils/${seeded.catalogKey}/${seeded.stencilKey}",
+                "/tenants/${seeded.tenantId.key}/catalogs/${seeded.catalogKey}/stencils/${seeded.stencilKey}",
                 String::class.java,
             )
         }
@@ -172,7 +172,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         given { seeded = seedStencil("Mark Ready", content = stencilV1()) }
 
         whenever {
-            postHtmx("/tenants/${seeded.tenantId.key}/stencils/${seeded.catalogKey}/${seeded.stencilKey}/ready")
+            postHtmx("/tenants/${seeded.tenantId.key}/catalogs/${seeded.catalogKey}/stencils/${seeded.stencilKey}/ready")
         }
 
         then {
@@ -190,7 +190,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         given { seeded = seedStencil("Mark Ready JSON", content = stencilV1()) }
 
         whenever {
-            postJson("/tenants/${seeded.tenantId.key}/stencils/${seeded.catalogKey}/${seeded.stencilKey}/ready", "{}")
+            postJson("/tenants/${seeded.tenantId.key}/catalogs/${seeded.catalogKey}/stencils/${seeded.stencilKey}/ready", "{}")
         }
 
         then {
@@ -208,7 +208,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.postForEntity(
-                "/tenants/${seeded.tenantId.key}/stencils/${seeded.catalogKey}/${seeded.stencilKey}/settings",
+                "/tenants/${seeded.tenantId.key}/catalogs/${seeded.catalogKey}/stencils/${seeded.stencilKey}/settings",
                 HttpEntity<MultiValueMap<String, String>>(LinkedMultiValueMap(mapOf("readsTemplateData" to listOf("true"))), htmxFormHeaders()),
                 String::class.java,
             )
@@ -235,7 +235,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         whenever {
             val headers = HttpHeaders().apply { set("HX-Request", "true") }
             restTemplate.exchange(
-                "/tenants/${seeded.tenantId.key}/stencils/${seeded.stencilCatalogKey}/${seeded.stencilKey}/usage",
+                "/tenants/${seeded.tenantId.key}/catalogs/${seeded.stencilCatalogKey}/stencils/${seeded.stencilKey}/usage",
                 HttpMethod.GET,
                 HttpEntity<Void>(headers),
                 String::class.java,
@@ -419,7 +419,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
             // asserted via the header, not a body. No HX-Redirect (full reload).
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.headers.getFirst("HX-Location"))
-                .isEqualTo("/tenants/${testTenant.id}/stencils/default/corporate-header")
+                .isEqualTo("/tenants/${testTenant.id}/catalogs/default/stencils/corporate-header")
             assertThat(response.headers.getFirst("HX-Redirect")).isNull()
         }
     }

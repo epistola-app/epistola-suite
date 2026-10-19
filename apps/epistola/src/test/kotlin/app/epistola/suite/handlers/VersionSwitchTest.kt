@@ -23,9 +23,9 @@ class VersionSwitchTest {
 
     @Test
     fun `a resource page stays the same page in the other version`() {
-        assertThat(switch("/tenants/acme/templates/letters/invoice/variants/standard/editor", redesign))
-            .isEqualTo("/tenants/acme/templates/letters@$work/invoice/variants/standard/editor")
-        assertThat(switch("/tenants/acme/stencils/letters@$work/header?tab=usage", next)).isEqualTo("/tenants/acme/stencils/letters/header?tab=usage")
+        assertThat(switch("/tenants/acme/catalogs/letters/templates/invoice/variants/standard/editor", redesign))
+            .isEqualTo("/tenants/acme/catalogs/letters@$work/templates/invoice/variants/standard/editor")
+        assertThat(switch("/tenants/acme/catalogs/letters@$work/stencils/header?tab=usage", next)).isEqualTo("/tenants/acme/catalogs/letters/stencils/header?tab=usage")
     }
 
     @Test
@@ -44,8 +44,8 @@ class VersionSwitchTest {
 
     @Test
     fun `anything else goes to the overview`() {
-        assertThat(switch("/tenants/acme/templates/invoices/invoice", redesign)).`as`("another catalog").isNull()
-        assertThat(switch("/tenants/other/templates/letters/invoice", redesign)).`as`("another tenant").isNull()
+        assertThat(switch("/tenants/acme/catalogs/invoices/templates/invoice", redesign)).`as`("another catalog").isNull()
+        assertThat(switch("/tenants/other/catalogs/letters/templates/invoice", redesign)).`as`("another tenant").isNull()
         assertThat(switch("https://evil.example/tenants/acme/templates/letters", redesign)).isNull()
         assertThat(switch("/tenants/acme//evil.example", redesign)).isNull()
         assertThat(switch("/tenants/acme/environments/test", redesign)).`as`("not a catalog page").isNull()

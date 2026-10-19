@@ -163,7 +163,7 @@ The REST API's `…/versions/{catalogVersion}/…` paths take `next`, a draft id
 
 The web UI names long-term work in the catalog's own path segment: `letters@<draft id>` is that work
 of `letters`, plain `letters` its next version (`CatalogSegment` in `epistola-web`; `@` cannot occur in
-a catalog key). So `/tenants/acme/templates/letters@0193…/invoice` is the invoice in that work, and the
+a catalog key). So `/tenants/acme/catalogs/letters@0193…/templates/invoice` is the invoice in that work, and the
 same works for every per-catalog and per-resource route (catalog page, themes, stencils, code lists,
 fonts, images, the template editor and its preview). List pages take it as their `catalog` filter
 (`/catalogs/letters@0193…/attributes`), and their create dialogs then create there.

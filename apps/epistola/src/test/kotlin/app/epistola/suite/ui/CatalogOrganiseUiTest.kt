@@ -92,13 +92,13 @@ class CatalogOrganiseUiTest : BasePlaywrightTest() {
         val tenant = tenant("Organise template dialog")
         withMediator { CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant))), "Invoice").execute() }
 
-        gotoAndReady("/tenants/$tenant/templates/letters/invoice/settings")
+        gotoAndReady("/tenants/$tenant/catalogs/letters/templates/invoice/settings")
         val dialog = page.openDialogByTrigger(page.getByTestId("template-move-action"), "#move-resource-dialog")
         dialog.getByTestId("organise-single-destination").selectOption("shared")
         dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Preview")).click()
         dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Move 1 resource(s)")).click()
 
-        assertThat(page).hasURL(Pattern.compile(".*/tenants/$tenant/templates/shared/invoice/settings$"))
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/$tenant/catalogs/shared/templates/invoice/settings$"))
     }
 
     @Test

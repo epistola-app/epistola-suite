@@ -775,7 +775,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"schema": {"type": "object", "properties": {"name": {"type": "string"}}}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/validate-schema",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/validate-schema",
                     request,
                     String::class.java,
                 )
@@ -821,7 +821,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"schema": {"type": "object", "properties": {"name": {"type": "string"}}}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/validate-schema",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/validate-schema",
                     request,
                     String::class.java,
                 )
@@ -865,7 +865,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"schema": {"type": "object", "properties": {"count": {"type": "string"}}}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/validate-schema",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/validate-schema",
                     request,
                     String::class.java,
                 )
@@ -895,7 +895,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"schema": {"type": "object", "properties": {"name": {"type": "string"}}}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/$nonExistentTemplateId/validate-schema",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/$nonExistentTemplateId/validate-schema",
                     request,
                     String::class.java,
                 )
@@ -941,7 +941,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 }"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/validate-schema",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/validate-schema",
                     request,
                     String::class.java,
                 )
@@ -995,7 +995,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"name": "Updated Example", "data": {"name": "Updated John"}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-examples/example-1",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -1047,7 +1047,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"name": "New Name"}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-examples/example-1",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -1078,7 +1078,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"name": "Updated"}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/non-existent",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-examples/non-existent",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -1106,7 +1106,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"name": "Updated"}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/$nonExistentTemplateId/data-examples/example-1",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/$nonExistentTemplateId/data-examples/example-1",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -1151,7 +1151,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {"count": "not-a-number"}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-examples/example-1",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -1195,7 +1195,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {"count": "not-a-number"}, "forceUpdate": true}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-examples/example-1",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -1240,7 +1240,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-examples/example-1",
                     HttpMethod.DELETE,
                     null,
                     String::class.java,
@@ -1284,7 +1284,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-examples/example-1",
                     HttpMethod.DELETE,
                     null,
                     String::class.java,
@@ -1332,7 +1332,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/non-existent",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-examples/non-existent",
                     HttpMethod.DELETE,
                     null,
                     String::class.java,
@@ -1356,7 +1356,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/$nonExistentTemplateId/data-examples/example-1",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/$nonExistentTemplateId/data-examples/example-1",
                     HttpMethod.DELETE,
                     null,
                     String::class.java,
@@ -1386,7 +1386,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.getForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-contract?edit=true",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-contract?edit=true",
                     String::class.java,
                 )
             }
@@ -1413,7 +1413,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.getForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-contract",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-contract",
                     String::class.java,
                 )
             }
@@ -1443,7 +1443,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"dataModel": {"type": "object", "properties": {"name": {"type": "string"}}},
                     "dataExamples": [{"id": "ex-1", "name": "Example", "data": {"name": "Ada"}}]}"""
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/contract",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/contract",
                     HttpMethod.PATCH,
                     HttpEntity(body, headers),
                     String::class.java,
@@ -1476,7 +1476,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             }
 
             whenever {
-                val url = "/tenants/${testTenant.id}/templates/default/${template.id}/contract"
+                val url = "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/contract"
                 restTemplate.exchange(url, HttpMethod.PATCH, HttpEntity(body(false), headers), String::class.java) to
                     restTemplate.exchange(url, HttpMethod.PATCH, HttpEntity(body(true), headers), String::class.java)
             }
@@ -1508,7 +1508,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.getForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/editor",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/editor",
                     String::class.java,
                 )
             }
@@ -1560,7 +1560,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.getForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/editor",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/editor",
                     String::class.java,
                 )
             }
@@ -1589,7 +1589,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.getForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/editor",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/editor",
                     String::class.java,
                 )
             }
@@ -1652,7 +1652,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val headers = HttpHeaders()
                 headers.contentType = MediaType.APPLICATION_JSON
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/gone/preview",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/gone/preview",
                     HttpEntity("""{"data": {}}""", headers),
                     String::class.java,
                 )
@@ -1692,7 +1692,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/preview",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/preview",
                     request,
                     String::class.java,
                 )
@@ -1733,7 +1733,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {"count": "not-a-number"}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/preview",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/preview",
                     request,
                     String::class.java,
                 )
@@ -1808,7 +1808,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                     headers,
                 )
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/preview",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/preview",
                     request,
                     String::class.java,
                 )
@@ -1848,7 +1848,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$nonExistentVariantId/preview",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$nonExistentVariantId/preview",
                     request,
                     String::class.java,
                 )
@@ -1876,7 +1876,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/$nonExistentTemplateId/variants/$nonExistentVariantId/preview",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/$nonExistentTemplateId/variants/$nonExistentVariantId/preview",
                     request,
                     String::class.java,
                 )
@@ -1928,7 +1928,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 }"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/preview",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/preview",
                     request,
                     ByteArray::class.java,
                 )
@@ -1990,7 +1990,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                     }"""
                     return requireNotNull(
                         restTemplate.postForEntity(
-                            "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/preview",
+                            "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/preview",
                             HttpEntity(body, headers),
                             ByteArray::class.java,
                         ).body,
@@ -2042,7 +2042,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 }"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/preview",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/preview",
                     request,
                     ByteArray::class.java,
                 )
@@ -2073,7 +2073,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             }
 
             then {
-                val url = "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/content"
+                val url = "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/content"
                 val opened = withMediator {
                     GetVariant(VariantId(variantId!!, TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))))).query()!!.revision
                 }
@@ -2148,7 +2148,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 }"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/content",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/content",
                     HttpMethod.PUT,
                     request,
                     String::class.java,

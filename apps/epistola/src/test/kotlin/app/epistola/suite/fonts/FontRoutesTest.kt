@@ -67,7 +67,7 @@ class FontRoutesTest : BaseIntegrationTest() {
             val regularFace = inter["css"]["faces"].values()
                 .first { it["weight"].asInt() == 400 && !it["italic"].asBoolean() }
             assertThat(regularFace["url"].asString())
-                .isEqualTo("/tenants/${testTenant.id}/fonts/system/inter/400/false/content")
+                .isEqualTo("/tenants/${testTenant.id}/catalogs/system/fonts/inter/400/false/content")
         }
     }
 
@@ -81,7 +81,7 @@ class FontRoutesTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/fonts/system/inter/400/false/content",
+                "/tenants/${testTenant.id}/catalogs/system/fonts/inter/400/false/content",
                 ByteArray::class.java,
             )
         }
@@ -106,7 +106,7 @@ class FontRoutesTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/fonts/system/does-not-exist/400/false/content",
+                "/tenants/${testTenant.id}/catalogs/system/fonts/does-not-exist/400/false/content",
                 String::class.java,
             )
         }

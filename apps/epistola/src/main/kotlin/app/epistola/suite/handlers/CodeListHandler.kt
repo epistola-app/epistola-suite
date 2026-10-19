@@ -65,7 +65,7 @@ class CodeListHandler(
         val codeLists = ListCodeLists(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
         val bar = segment.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/catalogs/${it.value}/code-lists" } }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListCodeLists(tenantId = tenantId, catalogKey = it).query() }) { l, c, n -> FromOtherCatalog(l.displayName, "/tenants/${tenantId.key}/code-lists/${c.value}/${l.slug.value}", n) }
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListCodeLists(tenantId = tenantId, catalogKey = it).query() }) { l, c, n -> FromOtherCatalog(l.displayName, "/tenants/${tenantId.key}/catalogs/${c.value}/code-lists/${l.slug.value}", n) }
         return ServerResponse.ok().page("code-lists/list") {
             "pageTitle" to "Code lists - Epistola"
             "tenant" to tenant
@@ -175,7 +175,7 @@ class CodeListHandler(
         // Success: soft-navigate to the newly created code list's page via a
         // boosted body-swap (HX-Location) — no full-page reload. The dialog goes
         // with the swapped-out body; the list is not refreshed.
-        val destination = "/tenants/${tenantId.key}/code-lists/${catalogSegment.value}/${slug.value}"
+        val destination = "/tenants/${tenantId.key}/catalogs/${catalogSegment.value}/code-lists/${slug.value}"
         return request.htmx {
             dialogLocation(destination)
             onNonHtmx { redirect(destination) }
@@ -250,7 +250,7 @@ class CodeListHandler(
         return ServerResponse.status(303)
             .header(
                 "Location",
-                "/tenants/${tenantId.key}/code-lists/${request.catalogSegment().value}/${codeListId.key.value}",
+                "/tenants/${tenantId.key}/catalogs/${request.catalogSegment().value}/code-lists/${codeListId.key.value}",
             )
             .build()
     }

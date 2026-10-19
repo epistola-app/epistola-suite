@@ -32,7 +32,7 @@ const dummyOptions = {
     listAssets: async () => [],
     uploadAsset: async () => dummyAsset,
   },
-  contentUrlPattern: '/tenants/t1/images/{catalogId}/{imageKey}/content',
+  contentUrlPattern: '/tenants/t1/catalogs/{catalogId}/images/{imageKey}/content',
   defaultCatalogKey: 'epistola-demo',
 };
 
@@ -68,7 +68,7 @@ describe('image reference', () => {
       container,
     );
     expect(container.querySelector('img')?.getAttribute('src')).toBe(
-      '/tenants/t1/images/system/logo/content',
+      '/tenants/t1/catalogs/system/images/logo/content',
     );
   });
 });
@@ -78,17 +78,17 @@ describe('image reference', () => {
 // ---------------------------------------------------------------------------
 
 describe('resolveContentUrl', () => {
-  const pattern = '/tenants/t1/images/{catalogId}/{imageKey}/content';
+  const pattern = '/tenants/t1/catalogs/{catalogId}/images/{imageKey}/content';
 
   it("substitutes the node's catalog key and image key", () => {
     expect(resolveContentUrl(pattern, 'a1', 'system', 'epistola-demo')).toBe(
-      '/tenants/t1/images/system/a1/content',
+      '/tenants/t1/catalogs/system/images/a1/content',
     );
   });
 
   it('falls back to the default catalog when the node has none', () => {
     expect(resolveContentUrl(pattern, 'a1', undefined, 'epistola-demo')).toBe(
-      '/tenants/t1/images/epistola-demo/a1/content',
+      '/tenants/t1/catalogs/epistola-demo/images/a1/content',
     );
   });
 });

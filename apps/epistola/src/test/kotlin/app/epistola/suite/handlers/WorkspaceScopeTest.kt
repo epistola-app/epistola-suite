@@ -104,7 +104,7 @@ class WorkspaceScopeTest {
 
     @Test
     fun `the catalog nav carries the page's segment to content, the plain key to versions and where it is live`() {
-        val nav = CatalogNav.sections(bar(work, published, onRedesign), "/tenants/acme/stencils", everything).flatten()
+        val nav = CatalogNav.sections(bar(work, published, onRedesign), "/tenants/acme/catalogs/letters@$redesignId/stencils/footer", everything).flatten()
 
         assertThat(nav.associate { it.key to it.href }).containsEntry("templates", "/tenants/acme/catalogs/letters@$redesignId/templates")
             .containsEntry("stencils", "/tenants/acme/catalogs/letters@$redesignId/stencils")
@@ -129,8 +129,8 @@ class WorkspaceScopeTest {
         assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters@$redesignId/draft", "letters")).isEqualTo("overview")
         assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters/releases/1.2.0", "letters")).isEqualTo("versions")
         assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters/deployments", "letters")).isEqualTo("deployments")
-        assertThat(CatalogNav.activeKey("/tenants/acme/templates/letters/invoice", "letters")).isEqualTo("templates")
-        assertThat(CatalogNav.activeKey("/tenants/acme/code-lists", "letters")).isEqualTo("code-lists")
+        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters/templates/invoice", "letters")).isEqualTo("templates")
+        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters/code-lists/countries", "letters")).isEqualTo("code-lists")
         assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/shared/browse", "letters")).`as`("another catalog").isNull()
     }
 
@@ -154,12 +154,12 @@ class WorkspaceScopeTest {
 
     @Test
     fun `a page missing from a version leads to its section in that version, and to the version's overview`() {
-        val template = CatalogNav.sectionOf("/tenants/acme/templates/letters@$redesignId/invoice/variants/standard/editor")!!
+        val template = CatalogNav.sectionOf("/tenants/acme/catalogs/letters@$redesignId/templates/invoice/variants/standard/editor")!!
         assertThat(template.label).isEqualTo("Templates")
         assertThat(template.href).isEqualTo("/tenants/acme/catalogs/letters@$redesignId/templates")
         assertThat(template.overviewHref).isEqualTo("/tenants/acme/catalogs/letters@$redesignId/draft")
 
-        val stencil = CatalogNav.sectionOf("/tenants/acme/stencils/letters/header")!!
+        val stencil = CatalogNav.sectionOf("/tenants/acme/catalogs/letters/stencils/header")!!
         assertThat(stencil.href).isEqualTo("/tenants/acme/catalogs/letters/stencils")
         assertThat(stencil.overviewHref).isEqualTo("/tenants/acme/catalogs/letters/browse")
 

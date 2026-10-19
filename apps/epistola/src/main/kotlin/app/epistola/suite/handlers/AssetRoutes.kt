@@ -21,9 +21,11 @@ class AssetRoutes(private val handler: AssetHandler) {
             POST("", handler::upload)
             GET("/search", handler::search)
             GET("/catalogs", handler::catalogs)
-
-            GET("/{catalogId}/{assetId}/content", handler::content)
-            POST("/{catalogId}/{assetId}/delete", handler::delete)
+        }
+        // A resource's pages and actions are its catalog's, like its list.
+        "/tenants/{tenantId}/catalogs/{catalogId}/images".nest {
+            GET("/{assetId}/content", handler::content)
+            POST("/{assetId}/delete", handler::delete)
         }
     }
 }

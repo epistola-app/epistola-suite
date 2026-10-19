@@ -261,7 +261,7 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
         variantId: String,
         leaderTiming: String? = null,
     ) {
-        val base = "/tenants/${tenant.id}/templates/default/${template.id}/variants/$variantId/editor"
+        val base = "/tenants/${tenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/editor"
         val path = if (leaderTiming == null) {
             base
         } else {

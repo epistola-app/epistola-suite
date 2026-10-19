@@ -47,7 +47,12 @@ async function mount(container) {
     },
     onSave: async function save(payload, overwrite = false) {
       const response = await fetch(
-        '/tenants/' + tenantId + '/themes/' + encodeURIComponent(catalogSegment) + '/' + themeId,
+        '/tenants/' +
+          tenantId +
+          '/catalogs/' +
+          encodeURIComponent(catalogSegment) +
+          '/themes/' +
+          themeId,
         {
           method: 'PATCH',
           headers: {

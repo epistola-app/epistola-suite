@@ -47,7 +47,7 @@ class SchemaArrayConstraintsUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/data-contract?edit=true")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/data-contract?edit=true")
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add field to data contract")).click()
         page.locator("[data-testid=dc-field-type-select]").selectOption("array")
@@ -119,7 +119,7 @@ class SchemaArrayConstraintsUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/data-contract?edit=true")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/data-contract?edit=true")
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add field to data contract")).click()
         page.locator("[data-testid=dc-field-type-select]").selectOption("integer")
@@ -175,7 +175,7 @@ class SchemaArrayConstraintsUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/data-contract?edit=true")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/data-contract?edit=true")
 
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Add field to data contract")).click()
         page.locator("[data-testid=dc-field-type-select]").selectOption("datetime")

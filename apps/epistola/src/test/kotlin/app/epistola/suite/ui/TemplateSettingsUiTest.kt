@@ -48,7 +48,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
     fun `escape reverts the rename input to the latest committed name`() {
         val (tenant, template) = withMediator { createTemplate() }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/settings")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/settings")
 
         val input = page.locator("[data-template-name-input]")
 
@@ -70,7 +70,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
     fun `a failed rename reverts the input to the persisted name`() {
         val (tenant, template) = withMediator { createTemplate() }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/settings")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/settings")
         failEveryRequestTo("**/templates/**/name")
 
         val input = page.locator("[data-template-name-input]")
@@ -96,7 +96,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
             seeded
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/settings")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/settings")
         failEveryRequestTo("**/templates/**/pdfa")
 
         val toggle = page.locator("#pdfa-toggle")
@@ -127,7 +127,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
             Triple(seeded.first, seeded.second, staleTheme)
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/settings")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/settings")
         val select = page.locator("#theme-select")
         assertThat(select).hasValue("default/current-theme")
 

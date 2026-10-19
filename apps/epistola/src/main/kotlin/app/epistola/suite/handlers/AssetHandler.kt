@@ -126,7 +126,7 @@ class AssetHandler(
                 "width" to asset.width,
                 "height" to asset.height,
                 "catalogKey" to asset.catalogKey.value,
-                "contentUrl" to "/tenants/${tenantId.value}/images/${segment?.linkFor(asset.catalogKey.value) ?: asset.catalogKey.value}/${asset.id.value}/content",
+                "contentUrl" to "/tenants/${tenantId.value}/catalogs/${segment?.linkFor(asset.catalogKey.value) ?: asset.catalogKey.value}/images/${asset.id.value}/content",
             )
         }
         return ServerResponse.ok()
@@ -327,7 +327,7 @@ class AssetHandler(
                     "sizeBytes" to created.sizeBytes,
                     "width" to created.width,
                     "height" to created.height,
-                    "contentUrl" to "/tenants/${tenantId.value}/images/${catalogSegment!!.linkFor(created.catalogKey.value)}/${created.id.value}/content",
+                    "contentUrl" to "/tenants/${tenantId.value}/catalogs/${catalogSegment!!.linkFor(created.catalogKey.value)}/images/${created.id.value}/content",
                 ),
             )
     }

@@ -118,7 +118,7 @@ data class CatalogContents(val groups: List<Group>) {
                                 slug = resource.slug,
                                 name = resource.name,
                                 description = resource.description,
-                                href = if (kind.ownPage) "$base/${kind.area}/$catalog/${resource.slug}" else "$base/catalogs/$catalog/${kind.area}",
+                                href = if (kind.ownPage) "$base/catalogs/$catalog/${kind.area}/${resource.slug}" else "$base/catalogs/$catalog/${kind.area}",
                                 change = when (changes["${resource.type}/${resource.slug}"]) {
                                     CatalogResourceState.NEW -> "New"
                                     CatalogResourceState.MODIFIED -> "Changed"

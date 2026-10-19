@@ -89,7 +89,7 @@ class TemplateDraftEncodingHtmxTest : BaseIntegrationTest() {
             val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
             val entity = HttpEntity(body.toByteArray(StandardCharsets.UTF_8), headers)
             restTemplate.exchange(
-                "/tenants/${seed.tenantKey}/templates/${seed.catalogKey}/${seed.templateKey}/variants/${seed.variantId.key}/content",
+                "/tenants/${seed.tenantKey}/catalogs/${seed.catalogKey}/templates/${seed.templateKey}/variants/${seed.variantId.key}/content",
                 HttpMethod.PUT,
                 entity,
                 String::class.java,

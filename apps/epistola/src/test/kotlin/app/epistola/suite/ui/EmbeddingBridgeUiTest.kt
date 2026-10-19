@@ -199,7 +199,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
 
         createTemplateViaUi(tenant, "Rename Source", "rename-source")
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/rename-source/settings")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/rename-source/settings")
         val input = page.locator("[data-template-name-input]")
         input.fill("Renamed Via Embed Test")
         input.press("Enter")
@@ -222,7 +222,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
 
         createTemplateViaUi(tenant, "Delete Source", "delete-source")
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/delete-source/settings")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/delete-source/settings")
         page.locator("[data-testid='delete-action']").click()
         page.locator("[data-testid='confirm-dialog-confirm']").click()
 
@@ -252,7 +252,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
 
         createTemplateViaUi(tenant, "Editor Bridge", "editor-bridge")
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/editor-bridge")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/editor-bridge")
         page.locator("[data-testid='template-tab'][data-tab-name='variants']").click()
         page.htmxSettle()
         // The editor is a standalone full page outside the shell
@@ -299,6 +299,6 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         page.htmxSettle()
 
         assertThat(page.locator("#page-title-text")).containsText("Navigate Target")
-        assertThat(page).hasURL(Pattern.compile(".*/templates/default/navigate-target$"))
+        assertThat(page).hasURL(Pattern.compile(".*/catalogs/default/templates/navigate-target$"))
     }
 }

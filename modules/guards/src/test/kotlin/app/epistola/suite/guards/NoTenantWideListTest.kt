@@ -44,4 +44,19 @@ class NoTenantWideListTest {
         }
         assertTrue(violations.isEmpty(), "Links or redirects to a list without a catalog (use CatalogPages.list or ?catalog=):\n" + violations.joinToString("\n"))
     }
+
+    /**
+     * A resource's pages are its catalog's too: `/tenants/{t}/catalogs/{catalog}/themes/{key}`, never
+     * `/tenants/{t}/themes/{catalog}/{key}`. Matches the old shape in templates, Kotlin and static JS;
+     * the tenant-level `/new`, `/search` and the image picker's `/catalogs` are not resource pages.
+     */
+    @Test
+    fun `nothing addresses a resource outside its catalog`() {
+        val oldShape = Regex("""(?<!/api)/tenants/[^/"'\s()]+/($types)/(?!(?:new|search|catalogs)\b)[^/"'?\s]+/""")
+        val sources = RepoSources.uiAssetFiles() + RepoSources.mainKotlinFiles()
+        val violations = sources.flatMap { path ->
+            Files.readAllLines(path).mapIndexedNotNull { i, line -> if (oldShape.containsMatchIn(line)) "${RepoSources.relativize(path)}:${i + 1}: ${line.trim()}" else null }
+        }
+        assertTrue(violations.isEmpty(), "Resource URLs outside their catalog (use /tenants/{t}/catalogs/{catalog}/{type}/{key}):\n" + violations.joinToString("\n"))
+    }
 }

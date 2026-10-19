@@ -74,7 +74,7 @@ class EditDialogRevisionHtmxTest : BaseIntegrationTest() {
             CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
             CreateVariant(id = variantId, title = "English", description = null).execute()
         }
-        val base = "/tenants/${tenant.id.value}/templates/default/invoice/variants/english"
+        val base = "/tenants/${tenant.id.value}/catalogs/default/templates/invoice/variants/english"
         val opened = revisionIn(get("$base/edit"))
 
         withMediator { UpdateVariant(variantId = variantId, title = "Changed elsewhere", attributes = emptyMap()).execute() }
@@ -94,7 +94,7 @@ class EditDialogRevisionHtmxTest : BaseIntegrationTest() {
         val tenant = tenant("Attribute Revision")
         val attributeId = AttributeId(AttributeKey.of("brand"), CatalogId.default(TenantId(tenant.id)))
         withMediator { CreateAttributeDefinition(id = attributeId, displayName = "Brand").execute() }
-        val base = "/tenants/${tenant.id.value}/attributes/default/brand"
+        val base = "/tenants/${tenant.id.value}/catalogs/default/attributes/brand"
         val opened = revisionIn(get("$base/edit"))
 
         withMediator { UpdateAttributeDefinition(id = attributeId, displayName = "Brand elsewhere").execute() }
@@ -110,7 +110,7 @@ class EditDialogRevisionHtmxTest : BaseIntegrationTest() {
         val tenant = tenant("Attribute Refusal")
         val attributeId = AttributeId(AttributeKey.of("brand"), CatalogId.default(TenantId(tenant.id)))
         withMediator { CreateAttributeDefinition(id = attributeId, displayName = "Brand").execute() }
-        val base = "/tenants/${tenant.id.value}/attributes/default/brand"
+        val base = "/tenants/${tenant.id.value}/catalogs/default/attributes/brand"
 
         // Only spaces passes the browser's `required`.
         val refused = patch(base, "displayName" to "   ", "constraintKind" to "inline", "allowedValues" to "a\nb", "expectedRevision" to revisionIn(get("$base/edit")))

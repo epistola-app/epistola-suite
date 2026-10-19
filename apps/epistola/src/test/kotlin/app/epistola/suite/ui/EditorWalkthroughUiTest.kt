@@ -100,7 +100,7 @@ class EditorWalkthroughUiTest : BasePlaywrightTest() {
         page.addInitScript(
             "try { localStorage.setItem('ep:walkthrough:template-editor:intro-seen', 'true'); } catch (e) {}",
         )
-        val path = "/tenants/${tenant.id}/templates/default/${template.id}/variants/$variantId/editor"
+        val path = "/tenants/${tenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/editor"
         gotoAndReady(path)
         page.getByTestId("editor-container").waitFor()
         page.waitForSelector("epistola-editor")

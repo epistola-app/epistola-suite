@@ -63,7 +63,7 @@
                     </tr>
                     <tr th:each="stencil : ${stencils}">
                         <td th:title="${stencil.name}">
-                            <a th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogKey) ?: stencil.catalogKey},stencilId=${stencil.id})}"
+                            <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{stencilId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogKey) ?: stencil.catalogKey},stencilId=${stencil.id})}"
                                th:text="${stencil.name}" style="font-weight: 500;"></a>
                         </td>
                         <td th:title="${stencil.catalogKey}"><span class="badge badge-default" th:text="${stencil.catalogKey}"></span></td>
@@ -76,7 +76,7 @@
                         </td>
                         <td th:text="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}" th:title="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
-                            <a th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogKey) ?: stencil.catalogKey},stencilId=${stencil.id})}"
+                            <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{stencilId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogKey) ?: stencil.catalogKey},stencilId=${stencil.id})}"
                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View stencil">
                                 <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                             </a>
@@ -87,7 +87,7 @@
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete stencil"
                                         data-confirm-title="Delete Stencil"
-                                        th:attr="data-confirm-message='Delete stencil &quot;' + ${stencil.name} + '&quot;? Templates using copies of this stencil are not affected.',data-confirm-url=@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogKey) ?: stencil.catalogKey},stencilId=${stencil.id})}"
+                                        th:attr="data-confirm-message='Delete stencil &quot;' + ${stencil.name} + '&quot;? Templates using copies of this stencil are not affected.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{stencilId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogKey) ?: stencil.catalogKey},stencilId=${stencil.id})}"
                                         data-confirm-target="#stencil-rows">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>

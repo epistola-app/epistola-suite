@@ -50,7 +50,7 @@ class DataContractExampleDefaultsUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/data-contract?edit=true")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/data-contract?edit=true")
 
         val country = page.locator("#dc-field-country")
         assertThat(country).hasAttribute("placeholder", "Netherlands (default)")

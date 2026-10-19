@@ -137,7 +137,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
         val body = page.body!!
         assertThat(body).contains("<span id=\"page-title-text\">Next version</span>")
         assertThat(body).contains("data-testid=\"catalog-next-release\"").contains("<h2>Not published yet</h2>")
-        assertThat(body).contains("href=\"/tenants/${tenant.id}/templates/letters/invoice\"")
+        assertThat(body).contains("href=\"/tenants/${tenant.id}/catalogs/letters/templates/invoice\"")
         assertThat(body).contains("href=\"/tenants/${tenant.id}/catalogs/letters/settings\"")
         assertThat(get(tenant, "/catalogs/letters/settings").body!!).contains("id=\"catalog-metadata\"")
     }

@@ -81,7 +81,7 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
         val stencils = get(tenant, "/catalogs/letters/stencils")
         assertThat(stencils).doesNotContain("id=\"catalog-filter\"")
         val others = stencils.substringAfter("data-testid=\"from-other-catalogs\"")
-        assertThat(others).contains(">Footer<").contains("In Shared").contains("href=\"/tenants/${tenant.id}/stencils/shared/footer\"")
+        assertThat(others).contains(">Footer<").contains("In Shared").contains("href=\"/tenants/${tenant.id}/catalogs/shared/stencils/footer\"")
 
         assertThat(get(tenant, "/catalogs/letters/themes").substringAfter("data-testid=\"from-other-catalogs\"")).contains(">Brand<")
         assertThat(restTemplate.getForEntity("/tenants/${tenant.id}/stencils", String::class.java).statusCode.value())
@@ -186,9 +186,9 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
 
         fun back(path: String) = Regex("""href="([^"]+)"\s+class="back-link"""").find(get(tenant, path))!!.groupValues[1]
 
-        assertThat(back("/templates/letters/invoice")).isEqualTo("/tenants/${tenant.id}/catalogs/letters/templates")
-        assertThat(back("/stencils/shared/footer")).isEqualTo("/tenants/${tenant.id}/catalogs/shared/stencils")
-        assertThat(back("/themes/shared/brand")).isEqualTo("/tenants/${tenant.id}/catalogs/shared/themes")
+        assertThat(back("/catalogs/letters/templates/invoice")).isEqualTo("/tenants/${tenant.id}/catalogs/letters/templates")
+        assertThat(back("/catalogs/shared/stencils/footer")).isEqualTo("/tenants/${tenant.id}/catalogs/shared/stencils")
+        assertThat(back("/catalogs/shared/themes/brand")).isEqualTo("/tenants/${tenant.id}/catalogs/shared/themes")
         assertThat(back("/catalogs/shared/releases/1.0.0")).isEqualTo("/tenants/${tenant.id}/catalogs/shared/versions")
     }
 

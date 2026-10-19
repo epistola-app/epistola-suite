@@ -45,7 +45,7 @@ class DataContractSaveBarUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/data-contract?edit=true")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/data-contract?edit=true")
 
         val statusBar = page.locator("#contract-status-bar")
         val saveButton = page.locator("#contract-save-controls .dc-save-btn")

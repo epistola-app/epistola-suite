@@ -157,14 +157,14 @@ object CatalogNav {
 
     /**
      * The section and catalog version of a page about one resource
-     * (`/tenants/{t}/{area}/{catalog}/{key}…`), so a page missing from that version (switching to a
+     * (`/tenants/{t}/catalogs/{catalog}/{area}/{key}…`), so a page missing from that version (switching to a
      * version without that template) leads to the section's list there instead of a dead end; null
      * for anything else.
      */
     fun sectionOf(path: String): SectionInVersion? {
         val parts = path.substringBefore('?').trim('/').split('/')
-        if (parts.size < 5 || parts[0] != "tenants") return null
-        val (tenant, area, segment) = Triple(parts[1], parts[2], parts[3])
+        if (parts.size < 6 || parts[0] != "tenants" || parts[2] != "catalogs") return null
+        val (tenant, segment, area) = Triple(parts[1], parts[3], parts[4])
         val label = when (area) {
             "templates" -> "Templates"
             in PARTS.map { it.area } -> PARTS.first { it.area == area }.label
@@ -177,35 +177,28 @@ object CatalogNav {
     /** Which catalog nav item [path] belongs to; null when none does. */
     fun activeKey(path: String, catalogKey: String): String? {
         val parts = path.substringBefore('?').trim('/').split('/')
-        // "tenants", tenant, area, catalog, page
-        val area = parts.getOrNull(2) ?: return null
-        if (area == "catalogs") {
-            val page = parts.getOrNull(4)
-            return when (page) {
-                "browse", "draft", null -> "overview"
+        // "tenants", tenant, "catalogs", catalog, page: every page of a catalog is under it.
+        if (parts.getOrNull(2) != "catalogs") return null
+        val page = parts.getOrNull(4)
+        return when (page) {
+            "browse", "draft", null -> "overview"
 
-                "releases", "versions" -> "versions"
+            "releases", "versions" -> "versions"
 
-                "deployments" -> "deployments"
+            "deployments" -> "deployments"
 
-                "dependencies" -> "dependencies"
+            "dependencies" -> "dependencies"
 
-                "quality" -> "quality"
+            "quality" -> "quality"
 
-                "settings" -> "settings"
+            "settings" -> "settings"
 
-                // A list is the catalog's: `/catalogs/{catalog}/templates`.
-                "templates" -> "templates"
-
-                in PARTS.map { it.area } -> PARTS.first { it.area == page }.key
-
-                else -> null
-            }.takeIf { parts.getOrNull(3)?.substringBefore('@') == catalogKey }
-        }
-        return when (area) {
+            // Lists and resource pages are the catalog's: `/catalogs/{catalog}/templates/…`.
             "templates" -> "templates"
-            in PARTS.map { it.area } -> PARTS.first { it.area == area }.key
+
+            in PARTS.map { it.area } -> PARTS.first { it.area == page }.key
+
             else -> null
-        }
+        }.takeIf { parts.getOrNull(3)?.substringBefore('@') == catalogKey }
     }
 }

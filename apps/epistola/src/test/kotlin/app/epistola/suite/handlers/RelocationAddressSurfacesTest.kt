@@ -75,8 +75,8 @@ class RelocationAddressSurfacesTest : BaseIntegrationTest() {
         move(tenant, ResourceAddress(CatalogResourceType.TEMPLATE, letters.value, "invoice").movedTo(shared))
 
         for (page in listOf("", "/settings")) {
-            assertThat(get("/tenants/$tenant/templates/letters/invoice$page").statusCode()).describedAs("old $page").isEqualTo(404)
-            assertThat(get("/tenants/$tenant/templates/shared/invoice$page").statusCode()).describedAs("new $page").isEqualTo(200)
+            assertThat(get("/tenants/$tenant/catalogs/letters/templates/invoice$page").statusCode()).describedAs("old $page").isEqualTo(404)
+            assertThat(get("/tenants/$tenant/catalogs/shared/templates/invoice$page").statusCode()).describedAs("new $page").isEqualTo(200)
         }
     }
 
@@ -86,7 +86,7 @@ class RelocationAddressSurfacesTest : BaseIntegrationTest() {
         withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(letters, TenantId(tenant))), "Brand").execute() }
         move(tenant, ResourceAddress(CatalogResourceType.THEME, letters.value, "brand").movedTo(shared))
 
-        assertThat(get("/tenants/$tenant/themes/letters/brand").statusCode()).isEqualTo(404)
+        assertThat(get("/tenants/$tenant/catalogs/letters/themes/brand").statusCode()).isEqualTo(404)
     }
 
     @Test

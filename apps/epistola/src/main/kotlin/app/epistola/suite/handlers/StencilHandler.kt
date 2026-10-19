@@ -89,7 +89,7 @@ class StencilHandler(
         val stencils = ListStencils(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
         val bar = segment.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/catalogs/${it.value}/stencils" } }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListStencils(tenantId = tenantId, catalogKey = it).query() }) { s, c, n -> FromOtherCatalog(s.name, "/tenants/${tenantId.key}/stencils/${c.value}/${s.id.value}", n) }
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListStencils(tenantId = tenantId, catalogKey = it).query() }) { s, c, n -> FromOtherCatalog(s.name, "/tenants/${tenantId.key}/catalogs/${c.value}/stencils/${s.id.value}", n) }
         return ServerResponse.ok().page("stencils/list") {
             "pageTitle" to "Stencils - Epistola"
             "tenantId" to tenantId.key
@@ -315,7 +315,7 @@ class StencilHandler(
         // Safe !!/of(): both fields were validated above and the create succeeded.
         val stencilKey = StencilKey.validateOrNull(form["slug"])!!
         val catalogKey = CatalogSegment.parse(form["catalog"]).value
-        val destination = "/tenants/${tenantId.key}/stencils/$catalogKey/$stencilKey"
+        val destination = "/tenants/${tenantId.key}/catalogs/$catalogKey/stencils/$stencilKey"
         return request.htmx {
             dialogLocation(destination)
             onNonHtmx { redirect(destination) }
@@ -492,7 +492,7 @@ class StencilHandler(
             "catalogSegment" to segment.value
             stencilModel(stencil, error, segment.ref(stencil.tenantKey))
         }
-        onFullPage { redirect("/tenants/${stencil.tenantKey}/stencils/${segment.value}/${stencil.id}") }
+        onFullPage { redirect("/tenants/${stencil.tenantKey}/catalogs/${segment.value}/stencils/${stencil.id}") }
     }
 
     fun delete(request: ServerRequest): ServerResponse {
@@ -568,7 +568,7 @@ class StencilHandler(
                 "usage" to usagePage.items
                 "usagePage" to usagePage
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils/${stencilId.catalogKey}/${stencilId.key}") }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/catalogs/${stencilId.catalogKey}/stencils/${stencilId.key}") }
         }
     }
 

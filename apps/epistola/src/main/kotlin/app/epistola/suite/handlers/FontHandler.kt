@@ -480,7 +480,7 @@ class FontHandler(
                         mapOf(
                             "weight" to row.weight,
                             "italic" to row.italic,
-                            "url" to "/tenants/${tenantKey.value}/fonts/$faceSegment/" +
+                            "url" to "/tenants/${tenantKey.value}/catalogs/$faceSegment/fonts/" +
                                 "${font.slug.value}/${row.weight}/${row.italic}/content",
                         )
                     },

@@ -51,7 +51,7 @@ class EditorDraftSaveUiTest : BasePlaywrightTest() {
             requireNotNull(CreateCatalogDraft(tenantKey, letters, "Redesign").execute().draftId)
         }
 
-        gotoAndReady("/tenants/$tenantKey/templates/letters@$work/invoice/variants/${variant.key}/editor")
+        gotoAndReady("/tenants/$tenantKey/catalogs/letters@$work/templates/invoice/variants/${variant.key}/editor")
         page.getByTestId("editor-container").waitFor()
         page.waitForSelector("epistola-editor")
         // Long-term work is named in the editor's bar, so nobody takes it for the next version.
@@ -63,7 +63,7 @@ class EditorDraftSaveUiTest : BasePlaywrightTest() {
         ) { page.getByTestId("palette-item-container").click() }
 
         Assertions.assertThat(saved.status()).isEqualTo(200)
-        Assertions.assertThat(saved.url()).contains("/templates/letters%40$work/invoice/")
+        Assertions.assertThat(saved.url()).contains("/catalogs/letters%40$work/templates/invoice/")
         fun containers(draft: DraftRef) = withMediator {
             GetVariantContent(variant, catalogVersion = CatalogVersionRef(tenantKey, letters, draft)).query()!!
         }.nodes.values.count { it.type == "container" }

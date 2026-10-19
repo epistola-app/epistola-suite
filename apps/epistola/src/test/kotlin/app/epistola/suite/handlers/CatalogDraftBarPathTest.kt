@@ -18,16 +18,16 @@ class CatalogDraftBarPathTest {
     @Test
     fun `only the catalog segment changes, even when the tenant has the catalog's name`() {
         val current = CatalogSegment.parse("letters")
-        val pageAt = CatalogDraftBar.inPath("/tenants/letters/templates/letters/invoice/settings", current)
+        val pageAt = CatalogDraftBar.inPath("/tenants/letters/catalogs/letters/templates/invoice/settings", current)
 
-        assertThat(pageAt(current.at(WORK))).isEqualTo("/tenants/letters/templates/letters@$WORK/invoice/settings")
+        assertThat(pageAt(current.at(WORK))).isEqualTo("/tenants/letters/catalogs/letters@$WORK/templates/invoice/settings")
     }
 
     @Test
     fun `a draft's page links back to the current version plainly, keeping the query`() {
         val draft = CatalogSegment.parse("letters@$WORK")
-        val pageAt = CatalogDraftBar.inPath("/tenants/acme/code-lists/letters@$WORK/colours", draft, "show=all")
+        val pageAt = CatalogDraftBar.inPath("/tenants/acme/catalogs/letters@$WORK/code-lists/colours", draft, "show=all")
 
-        assertThat(pageAt(draft.at(null))).isEqualTo("/tenants/acme/code-lists/letters/colours?show=all")
+        assertThat(pageAt(draft.at(null))).isEqualTo("/tenants/acme/catalogs/letters/code-lists/colours?show=all")
     }
 }
