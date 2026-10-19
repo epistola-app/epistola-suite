@@ -146,7 +146,7 @@ class GetCatalogBorrowingHandler(
         val borrowed = involved.mapNotNull { key ->
             val catalog = catalogs.firstOrNull { it.id.value == key } ?: return@mapNotNull null
             val declaration = declared.firstOrNull { it.catalogKey == key }
-            val release = declaration?.releaseVersion ?: latestRetained(query.tenantKey, catalog.id).takeIf { declaration == null }
+            val release = declaration?.releaseVersion ?: latestRelease(query.tenantKey, catalog.id).takeIf { declaration == null }
             val offers = release?.let { GetCatalogRelease(query.tenantKey, catalog.id, it).query() }?.resources.orEmpty()
                 .filter { it.resourceType in BORROWABLE }
                 .map { BorrowedResource(it.resourceType, it.resourceKey, it.name) }
@@ -173,7 +173,7 @@ class GetCatalogBorrowingHandler(
             val nextNumber = authoredWork?.takeIf { unpublished.isNotEmpty() }?.let {
                 AssessDraftNumber(query.tenantKey, catalog.id).query()?.suggested
             }
-            val latest = latestRetained(query.tenantKey, catalog.id)
+            val latest = latestRelease(query.tenantKey, catalog.id)
             val newerBreaks = if (release != null && latest != null && isAbove(latest, release) && uses.isNotEmpty()) {
                 compatibility.breaks(query.tenantKey, catalog.id, release, latest, uses)
             } else {
@@ -183,7 +183,7 @@ class GetCatalogBorrowingHandler(
         }.sortedWith(compareBy({ !it.used }, { it.name.lowercase() }))
 
         val others = catalogs.filter { c -> borrowed.none { it.catalogKey == c.id.value } }
-            .map { OtherCatalog(it.id.value, it.name, latestRetained(query.tenantKey, it.id)) }
+            .map { OtherCatalog(it.id.value, it.name, latestRelease(query.tenantKey, it.id)) }
             .sortedBy { it.name.lowercase() }
         return CatalogBorrowing(borrowed, others)
     }
@@ -194,7 +194,7 @@ class GetCatalogBorrowingHandler(
         return a > b
     }
 
-    private fun latestRetained(tenantKey: TenantKey, catalogKey: CatalogKey): String? = ListCatalogReleases(tenantKey, catalogKey).query().firstOrNull { it.retained }?.version
+    private fun latestRelease(tenantKey: TenantKey, catalogKey: CatalogKey): String? = ListCatalogReleases(tenantKey, catalogKey, limit = 1).query().firstOrNull()?.version
 
     private fun DependencyRef.toBorrowed(): Pair<String, BorrowedResource> = when (this) {
         is DependencyRef.Theme -> catalogKey to BorrowedResource("theme", key, null)

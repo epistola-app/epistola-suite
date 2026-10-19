@@ -34,18 +34,15 @@ import org.springframework.stereotype.Component
  * version selector, so deploying a higher release moves such requests to it and undeploying it moves
  * them back. A request already accepted keeps the release it was bound to.
  *
- * Only a release that kept its content can be deployed: one cut before releases retained their
- * content has nothing to render from. Deploying a release the environment already serves changes
- * nothing and logs nothing.
+ * Deploying a release the environment already serves changes nothing and logs nothing.
  *
  * A release renders with the releases of other catalogs it was cut with, direct and transitive
  * ([ReleaseDependencies]): it is pinned to them, and renders them from the tenant's copy whatever the
  * environment serves ([ReleaseRenderSource][app.epistola.suite.generation.release.ReleaseRenderSource]).
  * So the environment uses them **implicitly**: they are not deployed, and nothing else it serves
  * changes (contract ADR 0003). They must be there to render from: one the tenant does not have
- * (`UNAVAILABLE`; this installation does not fetch from a registry while deploying) or that kept no
- * content (`CONTENT_NOT_RETAINED`) refuses the deployment with [ReleaseDependenciesMissingException],
- * and nothing is deployed.
+ * (`UNAVAILABLE`; this installation does not fetch from a registry while deploying) refuses the
+ * deployment with [ReleaseDependenciesMissingException], and nothing is deployed.
  *
  * With [includeDependencies] they are also deployed **explicitly**, the ones the environment does not
  * serve yet, in the same transaction: so it serves those catalogs' own templates too.
@@ -155,21 +152,17 @@ class DeployReleaseHandler(
         EnvironmentOverrideStore.recordEnded(handle, tenantKey, ended)
     }
 
-    /** Refuses a release that does not exist or kept no content to render from. */
+    /** Refuses a release that does not exist. */
     private fun requireDeployable(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String) {
-        val retained = handle.createQuery(
-            "SELECT content_retained FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
+        val exists = handle.createQuery(
+            "SELECT EXISTS (SELECT 1 FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v)",
         )
             .bind("t", tenantKey)
             .bind("c", catalogKey)
             .bind("v", version)
             .mapTo<Boolean>()
-            .findOne()
-            .orElse(null)
-            ?: throw ReleaseNotDeployableException(catalogKey, version, "no such release")
-        if (!retained) {
-            throw ReleaseNotDeployableException(catalogKey, version, "it kept no content to render from")
-        }
+            .one()
+        if (!exists) throw ReleaseNotDeployableException(catalogKey, version, "no such release")
     }
 
     /** The deployment, when the environment already serves this release. */

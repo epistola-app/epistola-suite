@@ -44,7 +44,6 @@ data class CatalogVersion(
     val releasedAt: OffsetDateTime? = null,
     val notes: String? = null,
     val fingerprint: String? = null,
-    val contentRetained: Boolean? = null,
     val deployedTo: List<String> = emptyList(),
     val behind: List<BehindRelease> = emptyList(),
     val draftId: UUID? = null,

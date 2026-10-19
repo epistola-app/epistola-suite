@@ -140,7 +140,6 @@ data class CatalogDraftBar(
                 base = draft.base,
                 publishedAt = null,
                 liveIn = emptyList(),
-                contentKept = true,
                 href = pageAt(at),
                 offerRemove = mayDiscardDrafts,
                 removeWithheld = !mayDiscardDrafts,
@@ -156,7 +155,6 @@ data class CatalogDraftBar(
                 base = release.base,
                 publishedAt = release.releasedAt,
                 liveIn = release.deployedTo,
-                contentKept = release.contentRetained == true,
                 href = CatalogPages.release(tenantKey, catalogKey, version),
                 // A subscribed catalog's versions are its publisher's: nothing to delete here.
                 offerRemove = authored && mayDeleteReleases,
@@ -178,7 +176,6 @@ data class CatalogDraftBar(
         val base: String?,
         val publishedAt: java.time.OffsetDateTime?,
         val liveIn: List<String>,
-        val contentKept: Boolean,
         val href: String,
         /** Offer removing it from the row: discarding a draft, deleting a published version. */
         val offerRemove: Boolean = false,
@@ -214,13 +211,10 @@ data class CatalogDraftBar(
     val offerDiscard: Boolean get() = authored && mayDiscardDrafts && chosen != null
 
     /**
-     * Whether to offer opening the next version where there is none. The viewer may, and either nothing
-     * was ever released (an empty draft) or the latest release kept its content to copy.
+     * Whether to offer opening the next version where there is none: a copy of the latest release, or
+     * an empty draft when nothing was ever released.
      */
-    val offerOpenDraft: Boolean get() = noDraft && mayOpenDrafts && (latestRelease == null || openDraftFrom != null)
-
-    /** There is no next version and one cannot be opened from the latest release, which kept no content. */
-    val openDraftWithheldNoContent: Boolean get() = noDraft && mayOpenDrafts && !offerOpenDraft
+    val offerOpenDraft: Boolean get() = noDraft && mayOpenDrafts
 
     /** Starting work is withheld because the viewer may not edit the catalog's content. */
     val draftControlsWithheld: Boolean get() = authored && !mayOpenDrafts
@@ -228,8 +222,8 @@ data class CatalogDraftBar(
     /** Discarding the chosen draft is withheld because the viewer may not release the catalog. */
     val discardWithheld: Boolean get() = authored && chosen != null && !mayDiscardDrafts
 
-    /** What an opened next version copies when there is none: the latest release that kept its content. */
-    val openDraftFrom: String? get() = latestRelease?.takeIf { it.contentRetained == true }?.version
+    /** What an opened next version copies when there is none: the latest release. */
+    val openDraftFrom: String? get() = latestRelease?.version
 
     /** The draft links, the next version first, each to this page in that draft. */
     val draftLinks: List<DraftLink>
@@ -239,8 +233,8 @@ data class CatalogDraftBar(
             DraftLink(draft.label, draft.isNext, draft.draftId, draft.base, pageAt(target), active = draft.draftId == chosen?.draftId, behind = draft.behind.isNotEmpty())
         }
 
-    /** What long-term work can start from: the next version (null), or a release that kept its content. */
-    val createFromOptions: List<String> get() = releases.filter { it.contentRetained == true }.mapNotNull { it.version }
+    /** What long-term work can start from: the next version (null), or a release. */
+    val createFromOptions: List<String> get() = releases.mapNotNull { it.version }
 
     private val latestRelease: CatalogVersion? get() = releases.firstOrNull()
 

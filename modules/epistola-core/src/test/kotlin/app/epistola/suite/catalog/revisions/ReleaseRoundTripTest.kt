@@ -109,22 +109,6 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
         assertThat(fingerprintService.fingerprint(rebuiltSecond!!.content)).isEqualTo(second.fingerprint)
     }
 
-    @Test
-    fun `a release that retained nothing rebuilds to nothing, rather than to the working copy`() {
-        val catalog = authoredCatalog("rt-none")
-
-        withMediator {
-            seedResources(catalog)
-            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-            ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
-        }
-        // A release cut before V20261018200200 has no entries and its content was never retained.
-        jdbi.forgetRetainedContent(catalog.tenantKey, catalog.key)
-
-        assertThat(assembler.assemble(catalog.tenantKey, catalog.key, "1.0.0")).isNull()
-        assertThat(assembler.assembleLatest(catalog.tenantKey, catalog.key)).isNull()
-    }
-
     /** A theme, an image and a template with a published model — the shapes that can lose bytes. */
     private fun seedResources(catalog: CatalogId): AssetKey {
         CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()

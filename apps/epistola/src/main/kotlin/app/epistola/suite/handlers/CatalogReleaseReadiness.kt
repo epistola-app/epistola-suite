@@ -103,7 +103,7 @@ data class CatalogReleaseReadiness(
      * never published always has something: its first version.
      */
     val nothingToPublish: Boolean
-        get() = hasDraft && drafts.releases.isNotEmpty() && changes.baselineAvailable && !changes.hasUnreleasedChanges && outOfStep.isEmpty()
+        get() = hasDraft && drafts.releases.isNotEmpty() && !changes.hasUnreleasedChanges && outOfStep.isEmpty()
 
     /**
      * Nothing in this catalog itself changed, but a catalog it uses did, in a way publishing would
@@ -199,7 +199,7 @@ data class CatalogReleaseReadiness(
                 drafts = drafts,
                 // Without a draft there is nothing that changed, and nothing to declare dependencies in.
                 changes = if (draft == null) {
-                    CatalogResourceChanges(catalogKey, drafts.releases.firstOrNull()?.version, baselineAvailable = true, resources = emptyList())
+                    CatalogResourceChanges(catalogKey, drafts.releases.firstOrNull()?.version, resources = emptyList())
                 } else {
                     GetCatalogResourceChanges(tenantKey, catalogKey, catalogVersion = drafts.ref).query()
                 },

@@ -17,7 +17,6 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
-import app.epistola.suite.environments.MissingDependencyReason.CONTENT_NOT_RETAINED
 import app.epistola.suite.environments.MissingDependencyReason.UNAVAILABLE
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeployRelease
@@ -106,31 +105,6 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
         val along = refusedDeploying(production, letters, includeDependencies = true)
         assertThat(along.missing.map { it.catalogKey to it.reason }).containsExactly(shared.value to UNAVAILABLE)
         assertThat(served(tenant)).isEmpty()
-    }
-
-    @Test
-    fun `a transitive dependency without content refuses the deployment, and nothing is deployed`() {
-        val (tenant, production) = chain("deps-no-content")
-        // A pinned release cannot lose its content through a command while its pinner keeps its own
-        // (ReleaseInUse); a release imported without content is the state this stands for.
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                UPDATE catalog_releases SET content_retained = false
-                WHERE tenant_key = :t AND version = '1.0.0'
-                  AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'base')
-                """,
-            ).bind("t", tenant).execute()
-        }
-
-        val refused = refusedDeploying(production, letters, includeDependencies = false)
-        assertThat(refused.missing.map { it.catalogKey to it.reason }).`as`("only what nothing could render from").containsExactly(base.value to CONTENT_NOT_RETAINED)
-        assertThat(refused.deployableAlong).isFalse()
-
-        val along = refusedDeploying(production, letters, includeDependencies = true)
-        assertThat(along.missing.map { it.catalogKey to it.reason }).`as`("only what could not be deployed").containsExactly(base.value to CONTENT_NOT_RETAINED)
-        assertThat(served(tenant)).`as`("all or nothing: shared, which could be, was not deployed either").isEmpty()
-        assertThat(withMediator { ListDeploymentHistory(production).query() }).isEmpty()
     }
 
     @Test

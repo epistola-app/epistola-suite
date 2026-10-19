@@ -245,7 +245,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
     }
 
     private fun releases(catalog: CatalogId): List<Pair<String, String>> = jdbi.withHandle<List<Pair<String, String>>, Exception> { handle ->
-        handle.createQuery("SELECT version, fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND content_retained")
+        handle.createQuery("SELECT version, fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", catalog.tenantKey).bind("c", catalog.key)
             .map { rs, _ -> rs.getString(1) to rs.getString(2) }
             .list()

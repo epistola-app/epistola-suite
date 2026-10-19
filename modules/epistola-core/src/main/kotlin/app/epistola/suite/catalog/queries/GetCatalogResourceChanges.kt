@@ -61,9 +61,6 @@ enum class CatalogResourceState {
 
     /** In the last release and no longer in the working copy. */
     REMOVED,
-
-    /** Changed or not — the last release recorded no per-resource baseline to compare against. */
-    UNKNOWN,
 }
 
 data class CatalogResourceChange(
@@ -82,19 +79,13 @@ data class CatalogResourceChange(
     val blocksRelease: Boolean get() = state in CHANGED && !ready
 
     private companion object {
-        val CHANGED = setOf(CatalogResourceState.NEW, CatalogResourceState.MODIFIED, CatalogResourceState.UNKNOWN)
+        val CHANGED = setOf(CatalogResourceState.NEW, CatalogResourceState.MODIFIED)
     }
 }
 
 data class CatalogResourceChanges(
     val catalogKey: CatalogKey,
     val latestVersion: String?,
-    /**
-     * False when the catalog has drifted from a release cut before releases recorded their
-     * resources (V20261018200200), which cannot be reconstructed. Every resource is then
-     * [CatalogResourceState.UNKNOWN]; the next release restores the detail.
-     */
-    val baselineAvailable: Boolean,
     /** Ordered by type then slug, the order the manifest lists them in. */
     val resources: List<CatalogResourceChange>,
 ) {
@@ -132,11 +123,6 @@ class GetCatalogResourceChangesHandler(
         val working = fingerprintService.perResourceFingerprints(content)
         val release = loadBaseRelease(query.tenantKey, query.catalogKey)
         val released = release?.let { entriesOf(query.tenantKey, query.catalogKey, it.version) }.orEmpty()
-        val retainedVersions = release?.let {
-            jdbi.withHandle<List<String>, Exception> { handle ->
-                releaseEntryStore.retainedVersions(handle, query.tenantKey, query.catalogKey)
-            }
-        }.orEmpty()
 
         // The working copy names a resource it still has; the release names one dropped since.
         val names = content.resourceEntries.associate { "${it.type}/${it.key}" to it.name } +
@@ -157,25 +143,11 @@ class GetCatalogResourceChangesHandler(
             return CatalogResourceChanges(
                 catalogKey = query.catalogKey,
                 latestVersion = null,
-                baselineAvailable = true,
                 resources = working.keys.sorted().map { change(it, CatalogResourceState.NEW) },
             )
         }
 
-        val baseline = released.mapValues { (_, entry) -> entry.fingerprint }.takeIf { retainedVersions.contains(release.version) }
-            // A release cut before V20261018200200 recorded no resources. When the working copy
-            // still matches its fingerprint the content is identical by definition, so the working
-            // digests *are* that release's digests and the answer is exact without them.
-            ?: if (fingerprintService.matchesFingerprint(content, release.fingerprint)) {
-                working
-            } else {
-                return CatalogResourceChanges(
-                    catalogKey = query.catalogKey,
-                    latestVersion = release.version,
-                    baselineAvailable = false,
-                    resources = working.keys.sorted().map { change(it, CatalogResourceState.UNKNOWN) },
-                )
-            }
+        val baseline = released.mapValues { (_, entry) -> entry.fingerprint }
 
         val resources = (working.keys + baseline.keys).sorted().map { key ->
             val state = when {
@@ -190,7 +162,6 @@ class GetCatalogResourceChangesHandler(
         return CatalogResourceChanges(
             catalogKey = query.catalogKey,
             latestVersion = release.version,
-            baselineAvailable = true,
             resources = resources,
         )
     }

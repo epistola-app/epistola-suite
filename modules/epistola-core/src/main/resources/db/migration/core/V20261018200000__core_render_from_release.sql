@@ -1,14 +1,9 @@
 -- 2.0 generates documents from catalog releases (contract 2.0), never from template versions.
 --
 -- A release keeps the content it was cut with (resource_revisions, release_entries: see the release
--- content migration) and says so, and it records the rendering defaults it was cut against, so an
--- engine upgrade does not silently change what an existing release renders.
-
-ALTER TABLE catalog_releases
-    ADD COLUMN content_retained BOOLEAN NOT NULL DEFAULT FALSE;
-
-COMMENT ON COLUMN catalog_releases.content_retained IS
-    'Whether this release stored the content it contained, and so can be rebuilt and exported as released. FALSE for releases cut before this migration, which retained nothing. Not the same as having no release_entries: a catalog with no resources retains an empty release.';
+-- content migration; the 1.x releases, which kept none, are removed by the upgrade), and it records
+-- the rendering defaults it was cut against, so an engine upgrade does not silently change what an
+-- existing release renders.
 
 ALTER TABLE catalog_releases
     ADD COLUMN rendering_defaults_version INT;

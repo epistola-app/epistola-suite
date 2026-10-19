@@ -22,7 +22,7 @@ data class CatalogDeployment(
     val lastUsedAt: OffsetDateTime? = null,
 )
 
-/** A release cannot be deployed: it does not exist, or it kept no content to render from. */
+/** A release cannot be deployed: it does not exist. */
 class ReleaseNotDeployableException(
     val catalogKey: CatalogKey,
     val version: String,

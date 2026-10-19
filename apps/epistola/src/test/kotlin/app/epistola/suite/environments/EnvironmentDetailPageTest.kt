@@ -7,7 +7,7 @@ package app.epistola.suite.environments
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
-import app.epistola.suite.catalog.commands.ForgetReleaseContent
+import app.epistola.suite.catalog.commands.DeleteCatalogRelease
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
@@ -149,10 +149,10 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
                 CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
             }
         }
-        // Every tenant gets the system catalog, whose installed release can be deployed. Forgetting
-        // its content leaves the tenant with nothing deployable.
+        // Every tenant gets the system catalog, whose installed release can be deployed. Deleting it
+        // leaves the tenant with nothing deployable.
         withMediator {
-            ListDeployableReleases(tenant.id).query().forEach { ForgetReleaseContent(tenant.id, it.catalogKey, it.version).execute() }
+            ListDeployableReleases(tenant.id).query().forEach { DeleteCatalogRelease(tenant.id, it.catalogKey, it.version).execute() }
         }
 
         val body = page(tenant, "production")

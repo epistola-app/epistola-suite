@@ -103,7 +103,6 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         val one = exchange(HttpMethod.GET, "$catalog/versions/1.0.1", key)
         assertThat(one.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(one.body!!, "$.status")).isEqualTo("released")
-        assertThat(JsonPath.read<Boolean>(one.body!!, "$.contentRetained")).isTrue()
         assertThat(JsonPath.read<List<Any>>(one.body!!, "$.dependencies")).isEmpty()
 
         val missing = exchange(HttpMethod.GET, "$catalog/versions/9.9.9", key)

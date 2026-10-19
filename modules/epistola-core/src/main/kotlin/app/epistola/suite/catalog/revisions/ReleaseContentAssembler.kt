@@ -56,15 +56,9 @@ class ReleaseContentAssembler(
     private val releaseEntryStore: ReleaseEntryStore,
 ) {
 
-    /**
-     * The content of [version] of a catalog, or null when that release retained none — every
-     * release cut before `V20261018200200`, which cannot be reconstructed from the working copy
-     * and must not be guessed at from it.
-     */
+    /** The content of [version] of a catalog, or null when the catalog has no such release. */
     fun assemble(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): RetainedRelease? = jdbi.withHandle<RetainedRelease?, Exception> { handle ->
-        // The flag, not the entry count: a catalog with no resources retains a release that
-        // contains nothing, which is not the same as a release that kept nothing.
-        if (!releaseEntryStore.retainedVersions(handle, tenantKey, catalogKey).contains(version)) return@withHandle null
+        if (!releaseEntryStore.versions(handle, tenantKey, catalogKey).contains(version)) return@withHandle null
         val entries = releaseEntryStore.entriesOf(handle, tenantKey, catalogKey, version)
 
         val snapshot = loadManifestSnapshot(handle, tenantKey, catalogKey, version)
@@ -171,10 +165,10 @@ class ReleaseContentAssembler(
         return bytes.takeIf { sha256Hex(it) == contentHash }
     }
 
-    /** The latest release of a catalog that retained its content, or null when none has. */
+    /** The latest release of a catalog, or null when it has none. */
     fun assembleLatest(tenantKey: TenantKey, catalogKey: CatalogKey): RetainedRelease? {
         val latest = jdbi.withHandle<String?, Exception> { handle ->
-            releaseEntryStore.retainedVersions(handle, tenantKey, catalogKey).firstOrNull()
+            releaseEntryStore.versions(handle, tenantKey, catalogKey).firstOrNull()
         }
         return latest?.let { assemble(tenantKey, catalogKey, it) }
     }

@@ -501,7 +501,6 @@ class EpistolaCatalogApi(
             releasedAt = releasedAt,
             notes = notes,
             fingerprint = fingerprint,
-            contentRetained = contentRetained,
         )
     }
 
@@ -531,7 +530,7 @@ class EpistolaCatalogApi(
 
                 CatalogResourceState.REMOVED -> ResourceChangeDto.Change.REMOVED
 
-                CatalogResourceState.NEW, CatalogResourceState.MODIFIED, CatalogResourceState.UNKNOWN -> when {
+                CatalogResourceState.NEW, CatalogResourceState.MODIFIED -> when {
                     resource.ready -> ResourceChangeDto.Change.READY
                     resource.state == CatalogResourceState.NEW -> ResourceChangeDto.Change.NEW
                     else -> ResourceChangeDto.Change.MODIFIED

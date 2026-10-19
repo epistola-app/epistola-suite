@@ -36,9 +36,6 @@
                       th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts(tenantId=${tenantId},catalogId=${readiness.catalogKey})}">
                     <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="catalog-draft-open">Start editing</button>
                 </form>
-                <p th:if="${readiness.drafts.openDraftWithheldNoContent}" class="form-hint" data-testid="catalog-draft-open-withheld">
-                    Its latest published version kept no content to start from.
-                </p>
                 <p th:if="${readiness.drafts.draftControlsWithheld}" class="form-hint" data-testid="catalog-draft-open-withheld">
                     Editing needs the content author role.
                 </p>
@@ -84,10 +81,6 @@
                 </div>
             </div>
 
-            <p th:if="${!readiness.changes.baselineAvailable}" class="form-hint">
-                The previous version was published before Epistola kept track of its contents, so every
-                resource is listed below. From the next version on, only changes are.
-            </p>
             <p th:if="${readiness.nothingToPublish}" class="text-muted" data-testid="catalog-no-changes"
                th:text="${readiness.publishable} ? 'Everything is published. What you change from now on shows up here.'
                         : 'Nothing is changed in this work yet. What you change shows up here.'">Everything is published.</p>

@@ -82,7 +82,7 @@ class TemplateNotInReleaseException(
         if (variantId == null) " does not contain template '${templateId.value}'" else " has no variant '${variantId.value}' of template '${templateId.value}'",
 )
 
-/** A request names a release of the template's catalog that does not exist or kept no content to render. */
+/** A request names a release of the template's catalog that does not exist. */
 class ReleaseNotFoundException(
     val tenantKey: TenantKey,
     val catalogKey: CatalogKey,

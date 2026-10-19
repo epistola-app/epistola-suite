@@ -33,7 +33,6 @@ class WorkspaceScopeTest {
         version,
         CatalogVersionStatus.RELEASED,
         releasedAt = OffsetDateTime.parse("2026-10-01T10:00:00Z"),
-        contentRetained = true,
         deployedTo = liveIn,
     )
 

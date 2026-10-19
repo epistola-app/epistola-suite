@@ -230,13 +230,13 @@ class ReleaseTargetResolver(
                     """
                     SELECT r.version FROM environment_catalog_deployments d
                     JOIN catalog_releases r ON r.tenant_key = d.tenant_key AND r.catalog_id = d.catalog_id AND r.version = d.version
-                    WHERE d.tenant_key = :t AND d.environment_key = :e AND d.catalog_id = ${catalogAt("t", "c")} AND r.content_retained $condition
+                    WHERE d.tenant_key = :t AND d.environment_key = :e AND d.catalog_id = ${catalogAt("t", "c")} $condition
                     $LATEST_RELEASE_ORDER $limit
                     """
                 } else {
                     """
                     SELECT r.version FROM catalog_releases r
-                    WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.content_retained $condition
+                    WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} $condition
                     $LATEST_RELEASE_ORDER $limit
                     """
                 },

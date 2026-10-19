@@ -17,7 +17,7 @@ data class CatalogChangesInfo(
     val releasable: Boolean,
     val resources: List<Resource>,
 ) {
-    /** One resource; [state] is `NEW`, `MODIFIED`, `RELEASED`, `REMOVED` or `UNKNOWN`. */
+    /** One resource; [state] is `NEW`, `MODIFIED`, `RELEASED` or `REMOVED`. */
     data class Resource(val type: String, val key: String, val name: String?, val state: String, val ready: Boolean)
 
     companion object {

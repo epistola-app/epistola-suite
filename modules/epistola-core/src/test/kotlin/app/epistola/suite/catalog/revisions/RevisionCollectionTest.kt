@@ -10,7 +10,6 @@ import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeleteCatalogRelease
-import app.epistola.suite.catalog.commands.ForgetReleaseContent
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.UnregisterCatalog
@@ -48,8 +47,8 @@ import org.springframework.beans.factory.annotation.Autowired
  * Nothing deleted a revision. Not a sweep, not a command, not a cascade short of dropping the whole
  * tenant — so content accumulated for the life of an installation, and `revision_binaries` went on
  * holding the bytes it named against the content sweep. Two moments make a revision unreachable:
- * forgetting one release's content, and deleting a catalog, whose releases cascade away with it.
- * Both now collect, and these tests are what say so.
+ * deleting a release, and deleting a catalog, whose releases cascade away with it. Both collect, and
+ * these tests are what say so.
  *
  * The case that makes it more than a `DELETE` is a template: its revision names its models by
  * reference, so a model is reachable only through its parent. Collecting what no release entry names
@@ -61,7 +60,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
     private lateinit var jdbi: Jdbi
 
     @Test
-    fun `forgetting a release drops its content and keeps the release`() {
+    fun `deleting a release collects its content`() {
         val tenant = createTenant("Forget Content")
         val key = CatalogKey.of("forget-cat")
         withMediator {
@@ -72,39 +71,12 @@ class RevisionCollectionTest : IntegrationTestBase() {
 
             assertThat(revisionCount(tenant.id)).`as`("released content is retained").isGreaterThan(0)
 
-            assertThat(ForgetReleaseContent(tenant.id, key, "1.0.0").execute()).isTrue()
+            assertThat(DeleteCatalogRelease(tenant.id, key, "1.0.0").execute()).isTrue()
 
             assertThat(revisionCount(tenant.id)).`as`("and collected once nothing reaches it").isZero()
             assertThat(entryCount(tenant.id)).isZero()
         }
-
-        // The release itself survives, which is the whole point: the history and the fingerprint
-        // stay as the evidence of what that version was, for whoever installed it.
-        val release = releaseRow(tenant.id.value, "forget-cat", "1.0.0")
-        assertThat(release).`as`("the release row is still there").isNotNull()
-        assertThat(release!!["content_retained"]).isEqualTo(false)
-        assertThat(release["notes"]).isEqualTo("first")
-        assertThat(release["fingerprint"] as String).isNotBlank()
-    }
-
-    @Test
-    fun `forgetting is honest about having nothing to forget`() {
-        val tenant = createTenant("Forget Twice")
-        val key = CatalogKey.of("twice-cat")
-        withMediator {
-            CreateCatalog(tenantKey = tenant.id, id = key, name = "Twice cat").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant.id))), name = "Brand").execute()
-            MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
-
-            assertThat(ForgetReleaseContent(tenant.id, key, "1.0.0").execute()).isTrue()
-            assertThat(ForgetReleaseContent(tenant.id, key, "1.0.0").execute())
-                .`as`("a second click collected nothing, and says so")
-                .isFalse()
-            assertThat(ForgetReleaseContent(tenant.id, key, "9.9.9").execute())
-                .`as`("a version that was never released")
-                .isFalse()
-        }
+        assertThat(releaseRow(tenant.id.value, "forget-cat", "1.0.0")).`as`("the release is gone with it").isNull()
     }
 
     /**
@@ -114,7 +86,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
      * and a round-trip test of the *other* release would still pass, because it has its own.
      */
     @Test
-    fun `a release that keeps its content keeps the models its templates reference`() {
+    fun `a release that is kept keeps the models its templates reference`() {
         val tenant = createTenant("Forget Shared")
         val key = CatalogKey.of("shared-cat")
         val catalog = CatalogId(key, TenantId(tenant.id))
@@ -133,7 +105,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
             val models = revisionCount(tenant.id, kind = TEMPLATE_MODEL_KIND)
             assertThat(models).`as`("a template's model is a revision of its own").isGreaterThan(0)
 
-            ForgetReleaseContent(tenant.id, key, "1.0.0").execute()
+            DeleteCatalogRelease(tenant.id, key, "1.0.0").execute()
 
             assertThat(revisionCount(tenant.id, kind = TEMPLATE_MODEL_KIND))
                 .`as`("1.1.0 still holds the invoice, so its model is still reachable")
@@ -176,11 +148,11 @@ class RevisionCollectionTest : IntegrationTestBase() {
     /**
      * What the reclaim is actually for. A release holds an image's bytes through
      * `revision_binaries`, which is what stops the content sweep taking them when the asset is
-     * deleted from the working copy. Forgetting the release releases that hold, so the bytes become
+     * deleted from the working copy. Deleting the release releases that hold, so the bytes become
      * collectable — the sweep itself still owns when.
      */
     @Test
-    fun `forgetting a release releases the hold on the bytes it kept`() {
+    fun `deleting a release releases the hold on the bytes it kept`() {
         val tenant = createTenant("Forget Blobs")
         val key = CatalogKey.of("blob-cat")
         withMediator {
@@ -202,7 +174,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
                 .`as`("only the release holds those bytes now")
                 .isGreaterThan(0)
 
-            ForgetReleaseContent(tenant.id, key, "1.0.0").execute()
+            DeleteCatalogRelease(tenant.id, key, "1.0.0").execute()
 
             assertThat(binaryCount(tenant.id))
                 .`as`("nothing holds them any more, so the sweep may take them")
@@ -362,14 +334,13 @@ class RevisionCollectionTest : IntegrationTestBase() {
     private fun releaseRow(tenantKey: String, catalogKey: String, version: String): Map<String, Any?>? = jdbi.withHandle<Map<String, Any?>?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT content_retained, notes, fingerprint FROM catalog_releases
+                SELECT notes, fingerprint FROM catalog_releases
                 WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
                 """,
         )
             .bind("t", tenantKey).bind("c", catalogKey).bind("v", version)
             .map { rs, _ ->
                 mapOf(
-                    "content_retained" to rs.getBoolean("content_retained"),
                     "notes" to rs.getString("notes"),
                     "fingerprint" to rs.getString("fingerprint"),
                 )

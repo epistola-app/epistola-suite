@@ -28,12 +28,11 @@ class CatalogDraftBarVersionsTest {
 
     private fun work(name: String, base: String?, id: UUID = redesignId) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, draftId = id, name = name)
 
-    private fun release(version: String, retained: Boolean = true, liveIn: List<String> = emptyList(), base: String? = null) = CatalogVersion(
+    private fun release(version: String, liveIn: List<String> = emptyList(), base: String? = null) = CatalogVersion(
         version,
         CatalogVersionStatus.RELEASED,
         base = base,
         releasedAt = OffsetDateTime.parse("2026-10-01T10:00:00Z"),
-        contentRetained = retained,
         deployedTo = liveIn,
     )
 
@@ -107,24 +106,21 @@ class CatalogDraftBarVersionsTest {
     }
 
     @Test
-    fun `long-term work starts from the next version or a published version that kept its content, for an author`() {
-        val releases = listOf(release("1.2.0"), release("1.1.0", retained = false))
+    fun `long-term work starts from the next version or a published version, for an author`() {
+        val releases = listOf(release("1.2.0"), release("1.1.0"))
 
         assertThat(bar(listOf(next("1.2.0")), releases).offerCreateDraft).isTrue()
-        assertThat(bar(listOf(next("1.2.0")), releases).createFromOptions).containsExactly("1.2.0")
+        assertThat(bar(listOf(next("1.2.0")), releases).createFromOptions).containsExactly("1.2.0", "1.1.0")
         assertThat(bar(listOf(next("1.2.0")), releases, mayEdit = false).offerCreateDraft).isFalse()
         assertThat(bar(listOf(next("1.2.0")), releases, mayEdit = false).draftControlsWithheld).`as`("said why").isTrue()
     }
 
     @Test
-    fun `a catalog without a next version offers to start it on the latest release, unless that kept no content`() {
+    fun `a catalog without a next version offers to start it on the latest release`() {
         val none = bar(emptyList(), listOf(release("1.2.0")))
         assertThat(none.noDraft).isTrue()
         assertThat(none.offerOpenDraft).isTrue()
-
-        val notKept = bar(emptyList(), listOf(release("1.2.0", retained = false)))
-        assertThat(notKept.offerOpenDraft).isFalse()
-        assertThat(notKept.openDraftWithheldNoContent).`as`("said why").isTrue()
+        assertThat(none.openDraftFrom).isEqualTo("1.2.0")
     }
 
     @Test

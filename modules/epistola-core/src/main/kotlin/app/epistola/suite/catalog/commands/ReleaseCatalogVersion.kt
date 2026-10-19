@@ -237,8 +237,8 @@ class ReleaseCatalogVersionHandler(
             handle.createUpdate(
                 """
                 INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, notes, manifest_snapshot, released_at,
-                                              content_retained, rendering_defaults_version, base_version)
-                VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, TRUE, :renderingDefaults, :base)
+                                              rendering_defaults_version, base_version)
+                VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults, :base)
                 """,
             )
                 .bind("t", command.tenantKey)

@@ -6,7 +6,6 @@ package app.epistola.suite.environments
 
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeleteCatalogRelease
-import app.epistola.suite.catalog.commands.ForgetReleaseContent
 import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -86,13 +85,9 @@ class CatalogDeploymentTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a release that kept no content, or does not exist, cannot be deployed`() {
+    fun `a release that does not exist cannot be deployed`() {
         val (_, letters, production) = releasedTwice("dep-retained")
-        withMediator { ForgetReleaseContent(letters.tenantKey, letters.key, "1.0.0").execute() }
 
-        assertThatThrownBy { withMediator { DeployRelease(production, letters.key, "1.0.0").execute() } }
-            .isInstanceOf(ReleaseNotDeployableException::class.java)
-            .hasMessageContaining("kept no content")
         assertThatThrownBy { withMediator { DeployRelease(production, letters.key, "9.9.9").execute() } }
             .isInstanceOf(ReleaseNotDeployableException::class.java)
             .hasMessageContaining("no such release")
@@ -108,15 +103,13 @@ class CatalogDeploymentTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a deployed release cannot be deleted or forgotten, and its catalog cannot be deleted`() {
+    fun `a deployed release cannot be deleted, and neither can its catalog`() {
         val (_, letters, production) = releasedTwice("dep-inuse")
         withMediator { DeployRelease(production, letters.key, "1.0.0").execute() }
 
         assertThatThrownBy { withMediator { DeleteCatalogRelease(letters.tenantKey, letters.key, "1.0.0").execute() } }
             .isInstanceOf(ReleaseInUseException::class.java)
             .hasMessageContaining("deployed to 'production'")
-        assertThatThrownBy { withMediator { ForgetReleaseContent(letters.tenantKey, letters.key, "1.0.0").execute() } }
-            .isInstanceOf(ReleaseInUseException::class.java)
         assertThatThrownBy { withMediator { UnregisterCatalog(letters.tenantKey, letters.key, force = true).execute() } }
             .isInstanceOf(ReleaseInUseException::class.java)
 
@@ -125,7 +118,7 @@ class CatalogDeploymentTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a release another release is pinned to is kept until that release lets go of its content`() {
+    fun `a release another release is pinned to is kept until that release is deleted`() {
         val tenant = createTenant("dep-borrowed").id
         val shared = catalogIn(tenant, "shared")
         val letters = catalogIn(tenant, "letters")
@@ -141,16 +134,13 @@ class CatalogDeploymentTest : IntegrationTestBase() {
         }
 
         // letters@1.0.0 renders with shared@1.0.0, which no environment deploys.
-        assertThatThrownBy { withMediator { ForgetReleaseContent(tenant, shared.key, "1.0.0").execute() } }
-            .isInstanceOf(ReleaseInUseException::class.java)
-            .hasMessageContaining("pinned by letters@1.0.0")
         assertThatThrownBy { withMediator { DeleteCatalogRelease(tenant, shared.key, "1.0.0").execute() } }
             .isInstanceOf(ReleaseInUseException::class.java)
+            .hasMessageContaining("pinned by letters@1.0.0")
 
-        // Once letters@1.0.0 cannot render any more, nothing renders from shared@1.0.0 either.
+        // Once letters@1.0.0 is gone, nothing renders from shared@1.0.0 either.
         withMediator {
-            ForgetReleaseContent(tenant, letters.key, "1.0.0").execute()
-            ForgetReleaseContent(tenant, shared.key, "1.0.0").execute()
+            DeleteCatalogRelease(tenant, letters.key, "1.0.0").execute()
             DeleteCatalogRelease(tenant, shared.key, "1.0.0").execute()
         }
         assertThat(withMediator { ListCatalogReleases(tenant, shared.key).query() }.map { it.version }).doesNotContain("1.0.0")
@@ -223,14 +213,13 @@ class CatalogDeploymentTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `deployable releases are those that kept their content, newest first per catalog`() {
+    fun `every release is deployable, newest first per catalog`() {
         val (tenant, letters, _) = releasedTwice("dep-deployable")
-        withMediator { ForgetReleaseContent(tenant, letters.key, "1.0.0").execute() }
 
         val deployable = withMediator { ListDeployableReleases(tenant).query() }.filter { it.catalogKey == letters.key }
 
-        assertThat(deployable.map { it.version }).containsExactly("1.0.1")
-        assertThat(deployable.single().catalogName).isEqualTo("letters")
+        assertThat(deployable.map { it.version }).containsExactly("1.0.1", "1.0.0")
+        assertThat(deployable.map { it.catalogName }.distinct()).containsExactly("letters")
     }
 
     /** A catalog `letters` with releases 1.0.0 and 1.0.1, and an environment `production`. */

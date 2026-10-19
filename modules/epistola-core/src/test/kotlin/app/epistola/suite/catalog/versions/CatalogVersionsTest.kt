@@ -66,7 +66,7 @@ class CatalogVersionsTest : IntegrationTestBase() {
         val continued = withMediator { GetCatalogDraft(tenant, letters).query()!! }
         assertThat(continued.draftId).`as`("the same draft").isEqualTo(next.draftId)
         assertThat(continued.base).isEqualTo("1.0.0")
-        assertThat(withMediator { GetCatalogVersion(tenant, letters, "1.0.0").query()!! }.contentRetained).isTrue()
+        assertThat(withMediator { GetCatalogVersion(tenant, letters, "1.0.0").query()!! }.status).isEqualTo(CatalogVersionStatus.RELEASED)
         assertThat(withMediator { GetCatalogVersion(tenant, letters, "1.0.1").query() }).`as`("a draft is not found by a number").isNull()
     }
 

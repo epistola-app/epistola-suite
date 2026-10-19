@@ -19,8 +19,7 @@ import app.epistola.suite.mediator.query
  *
  * - unchanged since the last release: `released`;
  * - changed and marked ready: `ready`;
- * - otherwise `new` when the last release did not have it, else `modified` (a change the last release
- *   recorded no baseline for counts as modified).
+ * - otherwise `new` when the last release did not have it, else `modified`.
  *
  * Everything a released version holds is `released`, and so is a subscribed catalog's content: its
  * versions are the releases it installed.
@@ -40,7 +39,7 @@ internal class ResourceStatuses private constructor(
 
             CatalogResourceState.REMOVED -> ResourceStatus.NEW
 
-            CatalogResourceState.NEW, CatalogResourceState.MODIFIED, CatalogResourceState.UNKNOWN -> when {
+            CatalogResourceState.NEW, CatalogResourceState.MODIFIED -> when {
                 ready ?: change.ready -> ResourceStatus.READY
                 change.state == CatalogResourceState.NEW -> ResourceStatus.NEW
                 else -> ResourceStatus.MODIFIED

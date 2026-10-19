@@ -48,8 +48,8 @@ import java.util.concurrent.atomic.AtomicLong
  *    and nothing could render. The catalog is released once from what was last published before 2.0
  *    ([ContentSource.PUBLISHED_BEFORE_2_0]), numbered the patch after its highest 1.x release (or
  *    1.0.0), not published to Exchange and deployed nowhere: operators deploy it. Its draft, the working copy with any unpublished 1.x
- *    work, opens on top. A catalog with nothing to release, or one that already has a release with
- *    content, gets none.
+ *    work, opens on top. A catalog with nothing to release, or one that already has a release, gets
+ *    none.
  *
  * Then the catalog leaves the queue. A catalog released before the ones it depends on cannot pin
  * them, so catalogs are taken in rounds until a round finishes none; what is left stays queued with
@@ -141,7 +141,7 @@ class CatalogUpgradeRunner(
         if (declared.isNotEmpty()) {
             logger.info("Catalog {}/{} now declares {}", catalog.tenantKey.value, catalog.catalogKey.value, declared.joinToString())
         }
-        if (!hasRetainedRelease(catalog) &&
+        if (!hasRelease(catalog) &&
             contentBuilder.build(catalog.tenantKey, catalog.catalogKey, ContentSource.PUBLISHED_BEFORE_2_0).resourceEntries.isNotEmpty()
         ) {
             requireNotNull(jdbi.withHandle<CatalogDraft?, Exception> { drafts.next(it, catalog.tenantKey, catalog.catalogKey) }) {
@@ -177,8 +177,8 @@ class CatalogUpgradeRunner(
             .list()
     }
 
-    private fun hasRetainedRelease(catalog: Queued): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
-        handle.createQuery("SELECT EXISTS (SELECT 1 FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND content_retained)")
+    private fun hasRelease(catalog: Queued): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        handle.createQuery("SELECT EXISTS (SELECT 1 FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")})")
             .bind("t", catalog.tenantKey)
             .bind("c", catalog.catalogKey)
             .mapTo(Boolean::class.java)

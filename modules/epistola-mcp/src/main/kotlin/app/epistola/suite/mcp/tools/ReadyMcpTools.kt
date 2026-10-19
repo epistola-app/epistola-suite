@@ -39,7 +39,7 @@ class ReadyMcpTools {
     @McpTool(
         name = "get_catalog_changes",
         description = "List what an AUTHORED catalog's next release would contain that its last one did not: " +
-            "every resource with its state (`NEW`, `MODIFIED`, `RELEASED`, `REMOVED`, `UNKNOWN`) and whether it " +
+            "every resource with its state (`NEW`, `MODIFIED`, `RELEASED`, `REMOVED`) and whether it " +
             "is marked ready. `releasable` is false while a changed resource is not ready.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )

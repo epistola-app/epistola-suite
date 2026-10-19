@@ -172,14 +172,10 @@
                     <th:block th:unless="${readiness.nothingToPublish}">
                     <div class="form-group" data-testid="publish-changes">
                         <span class="ep-label">What changes</span>
-                        <p th:if="${!changes.baselineAvailable}" class="form-hint">
-                            The previous version was published before Epistola kept track of its contents, so the
-                            changes cannot be listed this time. From now on they can.
-                        </p>
                         <p th:if="${readiness.onlyOthersChanged}" style="margin: var(--ep-space-1) 0 0;" data-testid="publish-only-others">
                             Nothing here changed itself; it takes over changes from the catalogs it uses, below.
                         </p>
-                        <ul th:if="${changes.baselineAvailable and !readiness.onlyOthersChanged}" style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
+                        <ul th:if="${!readiness.onlyOthersChanged}" style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
                             <li th:each="change : ${readiness.changedForPeople}" data-testid="publish-change">
                                 <span th:text="${change.state.name() == 'NEW'} ? 'Added' : (${change.state.name() == 'REMOVED'} ? 'Removed' : 'Changed')">Changed</span>:
                                 <strong th:text="${change.name}">Invoice</strong>
@@ -446,12 +442,12 @@
                   th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId})}">
             <div class="ep-dialog-body">
                 <!--/* Offered only where there is something to choose: a catalog with no release
-                       that retained its content can only be exported as it stands. */-->
-                <div class="form-group" th:if="${retainedReleases != null and !retainedReleases.isEmpty()}">
+                       can only be exported as it stands. */-->
+                <div class="form-group" th:if="${releases != null and !releases.isEmpty()}">
                     <label class="ep-label" for="export-version">Export</label>
                     <select id="export-version" name="version" class="ep-select">
                         <option value="">The working copy, as it is now</option>
-                        <option th:each="version : ${retainedReleases}"
+                        <option th:each="version : ${releases}"
                                 th:value="${version}"
                                 th:text="'Release v' + ${version} + ' — exactly as released'"></option>
                     </select>

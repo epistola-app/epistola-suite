@@ -11,10 +11,10 @@
         )}"></div>
 
         <th:block th:fragment="release-actions">
-            <a th:if="${release.retained}" class="ep-btn ep-btn-outline"
+            <a class="ep-btn ep-btn-outline"
                th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId},version=${release.version})}"
                hx-boost="false" download>Export as ZIP</a>
-            <a th:if="${release.retained}" class="ep-btn ep-btn-ghost" data-testid="release-export-with-dependencies"
+            <a class="ep-btn ep-btn-ghost" data-testid="release-export-with-dependencies"
                th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId},version=${release.version},includeDependencies=true)}"
                title="One file with the versions of the other catalogs it uses, to install where they are not"
                hx-boost="false" download>Export with what it uses</a>
@@ -23,7 +23,7 @@
         <!--/* What a published version is for: where it is live, and what can still be done with it.
                It never changes, so changing it means a draft that starts from it. */-->
         <div class="ep-panel detail-section" data-testid="release-status"
-             th:with="bar=${draftBar}, canForget=${auth.has('CATALOG_MANAGE')}, version=${release.version}">
+             th:with="bar=${draftBar}, canManage=${auth.has('CATALOG_MANAGE')}, version=${release.version}">
             <div class="detail-section-body">
                 <p style="margin-top: 0;" data-testid="release-live">
                     <th:block th:if="${liveIn.isEmpty()}">Not deployed anywhere.</th:block>
@@ -49,18 +49,8 @@
                     <span th:if="${releaseView != null and releaseView.published}" class="badge badge-default"
                           title="Already sent to Epistola Exchange">On Epistola Exchange</span>
 
-                    <!--/* The only way to reclaim what a release holds. Offered while there is content to drop. */-->
-                    <form th:if="${releaseView != null and releaseView.forgettable and canForget}" method="post" style="display: inline;"
-                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/releases/{version}/forget(tenantId=${tenantId},catalogId=${catalogId},version=${version})}">
-                        <button type="button" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm" data-testid="release-forget"
-                                data-confirm-submit
-                                data-confirm-submit-title="Forget this version's content"
-                                th:attr="data-confirm-submit-message='v' + ${version} + ' stays in the list of versions with its number, date and fingerprint, but its content is deleted: it can no longer be exported, made live or published, and this cannot be undone.'"
-                                data-confirm-submit-label="Forget content"
-                                data-confirm-submit-class="ep-btn-destructive">Forget content</button>
-                    </form>
                     <!--/* The stronger of the two: the version leaves the list altogether. */-->
-                    <form th:if="${canForget}" method="post" style="display: inline;"
+                    <form th:if="${canManage}" method="post" style="display: inline;"
                           th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/releases/{version}/delete(tenantId=${tenantId},catalogId=${catalogId},version=${version})}">
                         <button type="button" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm" data-testid="release-delete"
                                 data-confirm-submit
@@ -70,9 +60,6 @@
                                 data-confirm-submit-class="ep-btn-destructive">Delete</button>
                     </form>
                 </div>
-                <p th:if="${!release.retained}" class="form-hint" style="margin-bottom: 0;">
-                    It was published before Epistola kept the content of a version, so it cannot be deployed, exported or changed.
-                </p>
             </div>
         </div>
 
@@ -86,7 +73,6 @@
                     <div class="catalog-detail-heading">
                         <h2>As published</h2>
                         <span class="badge badge-info" th:text="'v' + ${release.version}">v1.0.0</span>
-                        <span th:unless="${release.retained}" class="badge badge-default">content not kept</span>
                     </div>
                     <p class="text-muted text-sm" style="margin: var(--ep-space-1) 0 0;">
                         The details and contents this version went out with — not as they are now.
@@ -107,7 +93,7 @@
                 <div class="catalog-detail-summary-item">
                     <span class="catalog-detail-label">Resources</span>
                     <p class="catalog-detail-value"
-                       th:text="${release.retained} ? ${release.resources.size()} : 'not kept'"></p>
+                       th:text="${release.resources.size()}"></p>
                 </div>
             </div>
 
@@ -162,14 +148,7 @@
                 <h2>Contents</h2>
             </div>
             <div>
-                <!--/* A release that kept no content can still show its details -- the manifest
-                       snapshot was always stored -- but it cannot list what it contained, and an
-                       empty table would read as "this release was empty". */-->
-                <p th:if="${!release.retained}" class="text-muted">
-                    This version was published before Epistola kept the content of a version, so what it
-                    contained cannot be listed. Its details above are what it was published with.
-                </p>
-                <div th:if="${release.retained}" class="ep-table-scroll" role="region" aria-label="Released resources" tabindex="0">
+                <div class="ep-table-scroll" role="region" aria-label="Released resources" tabindex="0">
                 <table class="ep-table">
                     <thead>
                         <tr><th>Type</th><th>Name</th><th>Address</th><th>Description</th></tr>

@@ -57,10 +57,9 @@ class InstalledReleaseTest : IntegrationTestBase() {
 
         val catalog = withMediator { GetCatalog(tenant, SYSTEM_CATALOG_KEY).query()!! }
         val version = catalog.installedReleaseVersion!!
-        val (fingerprint, retained) = releaseRow(tenant, SYSTEM_CATALOG_KEY, version)
+        val fingerprint = releaseFingerprint(tenant, SYSTEM_CATALOG_KEY, version)
         val recorded = jdbi.withHandle<List<String>, Exception> { entries.entriesOf(it, tenant, SYSTEM_CATALOG_KEY, version).map { e -> e.contentKey } }
 
-        assertThat(retained).isTrue()
         assertThat(fingerprint).`as`("the publisher's fingerprint, not a recomputation").isEqualTo(catalog.installedFingerprint)
         assertThat(recorded).contains("theme/default")
         assertThat(recorded.filter { it.startsWith("font/") })
@@ -97,13 +96,13 @@ class InstalledReleaseTest : IntegrationTestBase() {
             .isNotEmpty()
     }
 
-    // Read-only: there is no query listing a catalog's releases with their fingerprint and flag together.
-    private fun releaseRow(tenant: TenantKey, catalog: CatalogKey, version: String): Pair<String, Boolean> = jdbi.withHandle<Pair<String, Boolean>, Exception> { handle ->
-        handle.createQuery("SELECT fingerprint, content_retained FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
+    // Read-only: the installed release's fingerprint as stored.
+    private fun releaseFingerprint(tenant: TenantKey, catalog: CatalogKey, version: String): String = jdbi.withHandle<String, Exception> { handle ->
+        handle.createQuery("SELECT fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
             .bind("t", tenant)
             .bind("c", catalog)
             .bind("v", version)
-            .map { rs, _ -> rs.getString("fingerprint") to rs.getBoolean("content_retained") }
+            .map { rs, _ -> rs.getString("fingerprint") }
             .one()
     }
 

@@ -48,7 +48,7 @@ class CatalogBundleImporter(
                 catalog.registry != dependency.registry || catalog.namespace != dependency.namespace ->
                     conflicts += "${dependency.catalogKey} here is ${catalog.registry}/${catalog.namespace}/${catalog.id.value}, not ${dependency.identity}"
 
-                ListCatalogReleases(command.tenantKey, key).query().any { it.version == dependency.version && it.retained } ||
+                ListCatalogReleases(command.tenantKey, key).query().any { it.version == dependency.version } ||
                     catalog.installedReleaseVersion == dependency.version -> present += dependency
 
                 else -> conflicts += "${dependency.catalogKey} is here at " + (catalog.installedReleaseVersion?.let { "v$it" } ?: catalog.releasedVersion?.let { "v$it" } ?: "no release") +

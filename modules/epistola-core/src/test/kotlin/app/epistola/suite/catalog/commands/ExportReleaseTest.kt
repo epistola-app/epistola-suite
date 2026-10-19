@@ -7,8 +7,8 @@ package app.epistola.suite.catalog.commands
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.revisions.forgetRetainedContent
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
+import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -71,24 +71,6 @@ class ExportReleaseTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a release that retained no content refuses rather than exporting the working copy`() {
-        val catalog = authoredCatalog("exp-legacy")
-
-        withMediator {
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
-            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-            ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
-        }
-        jdbi.forgetRetainedContent(catalog.tenantKey, catalog.key)
-
-        assertThatThrownBy {
-            withMediator { ExportCatalogZip(catalog.tenantKey, catalog.key, version = "1.0.0").execute() }
-        }
-            .isInstanceOf(CatalogReleaseNotRetainedException::class.java)
-            .hasMessageContaining("did not retain its content")
-    }
-
-    @Test
     fun `an unknown version refuses`() {
         val catalog = authoredCatalog("exp-unknown")
 
@@ -100,7 +82,7 @@ class ExportReleaseTest : IntegrationTestBase() {
 
         assertThatThrownBy {
             withMediator { ExportCatalogZip(catalog.tenantKey, catalog.key, version = "9.9.9").execute() }
-        }.isInstanceOf(CatalogReleaseNotRetainedException::class.java)
+        }.isInstanceOf(CatalogVersionNotFoundException::class.java)
     }
 
     @Test

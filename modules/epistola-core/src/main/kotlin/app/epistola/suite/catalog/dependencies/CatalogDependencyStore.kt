@@ -176,14 +176,14 @@ class CatalogDependencyStore {
         .orElse(null)
 
     /**
-     * The releases a declaration may lock to: those of the catalog it names that kept their content,
-     * so they can be rendered, and whose fingerprint names its algorithm, which a pin copies. A
-     * release cut before 2.0 has a bare fingerprint and is not a candidate.
+     * The releases a declaration may lock to: those of the catalog it names whose fingerprint names
+     * its algorithm, which a pin copies. A release installed with a legacy fingerprint has a bare one
+     * and is not a candidate.
      */
     fun candidates(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): List<CatalogDependencyRelease> {
         val catalog = catalogNamed(handle, tenantKey, declaration) ?: return emptyList()
         return handle
-            .createQuery("SELECT version, fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND content_retained")
+            .createQuery("SELECT version, fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", tenantKey)
             .bind("c", catalog)
             .map { rs, _ -> CatalogDependencyRelease(rs.getString("version"), rs.getString("fingerprint")) }

@@ -68,7 +68,6 @@ class CatalogRoutes(
             GET("/{catalogId}/settings", handler::settingsPage)
             GET("/{catalogId}/bar-status", handler::barStatus)
             GET("/{catalogId}/releases/{version}", handler::releaseDetail)
-            POST("/{catalogId}/releases/{version}/forget", handler::forgetReleaseContent)
             POST("/{catalogId}/releases/{version}/delete", handler::deleteRelease)
             POST("/{catalogId}/deployments", handler::deploy)
             POST("/{catalogId}/deployments/{environmentId}/undeploy", handler::undeploy)

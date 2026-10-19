@@ -5,7 +5,6 @@
 package app.epistola.suite.catalog.versions
 
 import app.epistola.suite.catalog.CatalogType
-import app.epistola.suite.catalog.commands.CatalogReleaseNotRetainedException
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallStatus
@@ -37,7 +36,7 @@ import java.util.UUID
  * - With [from], a released version, it starts as a copy of that release, which is its base.
  *
  * A copy keeps every resource's identity. Refused for a subscribed catalog, for a name another draft
- * of the catalog has, and when [from] is a release that kept no content.
+ * of the catalog has, and when [from] is not a release of the catalog.
  */
 data class CreateCatalogDraft(
     override val tenantKey: TenantKey,
@@ -94,7 +93,7 @@ data class DeleteCatalogDraft(
  * Opens an authored catalog's next version where it has none, as a copy of its latest release (empty
  * when there is none), so everyday work has somewhere to go. A catalog always has one, except one whose
  * drafts were all discarded before amendment 2 of ADR 0002 kept it; this opens it again. Refused when
- * the catalog already has a next version, and when its latest release kept no content to copy.
+ * the catalog already has a next version.
  */
 data class OpenNextVersion(
     override val tenantKey: TenantKey,
@@ -265,7 +264,6 @@ class CatalogReleaseCopier(
 ) {
     fun copy(tenantKey: TenantKey, catalogKey: CatalogKey, release: CatalogVersion, into: UUID) {
         val version = requireNotNull(release.version)
-        if (release.contentRetained != true) throw CatalogReleaseNotRetainedException(catalogKey, version)
         val archive = ExportCatalogZip(tenantKey, catalogKey, version).execute()
         val imported = targeting.within(into) {
             ImportCatalogZip(
@@ -296,7 +294,7 @@ class OpenNextVersionHandler(
         requireCatalogEditable(command.tenantKey, command.catalogKey)
         jdbi.withHandle<CatalogDraft?, Exception> { drafts.next(it, command.tenantKey, command.catalogKey) }
             ?.let { throw CatalogDraftIsNextException(command.catalogKey, "Catalog '${command.catalogKey.value}' has a next version already") }
-        val opened = nextVersions.open(command.tenantKey, command.catalogKey, requireContent = true)
+        val opened = nextVersions.open(command.tenantKey, command.catalogKey)
         return jdbi.withHandle<CatalogVersion, Exception> { handle -> versions.all(handle, command.tenantKey, command.catalogKey).first { it.draftId == opened } }
     }
 }
@@ -309,18 +307,14 @@ class NextVersionOpener(
     private val versions: CatalogVersionReader,
     private val copier: CatalogReleaseCopier,
 ) {
-    /**
-     * The new next version's id. A latest release that kept no content leaves it empty on that base,
-     * or, with [requireContent], refuses ([CatalogReleaseNotRetainedException]) before opening it.
-     */
-    fun open(tenantKey: TenantKey, catalogKey: CatalogKey, requireContent: Boolean): UUID {
+    /** The new next version's id: a copy of the latest release, or empty when there is none. */
+    fun open(tenantKey: TenantKey, catalogKey: CatalogKey): UUID {
         val latest = CatalogDrafts.latest(ListCatalogReleases(tenantKey, catalogKey).query().map { it.version })
         val release = latest?.let { version ->
             jdbi.withHandle<CatalogVersion, Exception> { handle -> versions.all(handle, tenantKey, catalogKey).first { it.status == CatalogVersionStatus.RELEASED && it.version == version } }
         }
-        if (requireContent && release != null && release.contentRetained != true) throw CatalogReleaseNotRetainedException(catalogKey, requireNotNull(release.version))
         val opened = jdbi.withHandle<UUID, Exception> { drafts.open(it, tenantKey, catalogKey, base = latest) }
-        if (release?.contentRetained == true) copier.copy(tenantKey, catalogKey, release, opened)
+        if (release != null) copier.copy(tenantKey, catalogKey, release, opened)
         return opened
     }
 }
@@ -345,7 +339,7 @@ class DeleteCatalogDraftHandler(
             draft
         }
         // The next version starts again on the latest release, so everyday work has somewhere to go.
-        if (draft.isNext) nextVersions.open(tenantKey, catalogKey, requireContent = false)
+        if (draft.isNext) nextVersions.open(tenantKey, catalogKey)
     }
 
     /**

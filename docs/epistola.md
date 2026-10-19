@@ -131,8 +131,7 @@ the environment use them implicitly: they are not deployed, and the environment'
 under "Comes along". Deploying them as well is a choice: deploy that catalog, or ask for them
 (`includeDependencies`), which deploys the ones not served yet in the same transaction. Only a
 pinned release nothing could render from refuses the deployment (`release-dependencies-missing`,
-409): one the tenant does not have (`UNAVAILABLE`; it is not fetched from its registry) or one that
-kept no content (`CONTENT_NOT_RETAINED`). A pin that recorded no release (a release imported from
+409): one the tenant does not have (`UNAVAILABLE`; it is not fetched from its registry). A pin that recorded no release (a release imported from
 catalog wire v7) cannot be checked and is skipped.
 
 Each environment has a page listing every release it serves and its history: every deploy and

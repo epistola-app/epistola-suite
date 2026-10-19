@@ -38,16 +38,6 @@ data class CatalogPublicationState(
     val canPublishCurrentRelease: Boolean,
     /** True when that action would retry a failed attempt rather than queue a new one. */
     val isRetry: Boolean,
-    /**
-     * A released version that was never published and no longer can be, because the catalog has
-     * changed since it was cut.
-     *
-     * A release is published exactly as it was released, and Suite keeps the bytes only for
-     * releases it actually queued — so once the working copy moves on, that version cannot be
-     * reproduced. The action simply disappearing says none of this, which is why the state names
-     * the version instead of leaving an author to wonder where the button went.
-     */
-    val unpublishableRelease: String?,
     /** False while the namespace is still a local choice — nothing has reached Exchange yet. */
     val namespaceLocked: Boolean,
     /** Namespaces the tenant's connection currently grants, for the namespace picker. */
@@ -179,17 +169,6 @@ class GetCatalogPublicationStateHandler(
             )
         }
 
-        // Unreleased changes only block publishing a release that has no content of its own to
-        // send. A release that retained its content is published from it, so the working copy may
-        // have moved on as far as it likes -- which is the normal case for anyone who kept
-        // authoring after releasing. The command decides the same way, from the same fact.
-        val blockedByDrift = releaseStatus.hasUnreleasedChanges &&
-            releaseStatus.latestVersion?.let { version ->
-                jdbi.withHandle<Boolean, Exception> { handle ->
-                    releaseEntryStore.retainedVersions(handle, query.tenantKey, query.catalogKey).contains(version)
-                }
-            } != true
-
         return CatalogPublicationState(
             available = available,
             policy = policy,
@@ -216,15 +195,8 @@ class GetCatalogPublicationStateHandler(
                 binding.namespace in binding.granted &&
                 policy != CatalogPublicationPolicy.NEVER &&
                 releaseStatus.latestVersion != null &&
-                (isRetry || (current == null && !blockedByDrift)),
+                (isRetry || current == null),
             isRetry = isRetry,
-            unpublishableRelease = releaseStatus.latestVersion?.takeIf {
-                available &&
-                    canPublish &&
-                    policy != CatalogPublicationPolicy.NEVER &&
-                    current == null &&
-                    blockedByDrift
-            },
         )
     }
 

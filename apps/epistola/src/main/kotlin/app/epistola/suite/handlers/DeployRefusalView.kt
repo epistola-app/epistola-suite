@@ -46,7 +46,6 @@ data class DeployRefusalView(
             MissingDependencyReason.NOT_DEPLOYED -> "this tenant has it, but this environment does not serve it"
             MissingDependencyReason.NOT_INSTALLED -> "this tenant does not have this release; install it first"
             MissingDependencyReason.UNAVAILABLE -> "this tenant does not have this release, and it is not fetched from its registry here; install it first"
-            MissingDependencyReason.CONTENT_NOT_RETAINED -> "this tenant has it without its content, so it cannot be deployed"
         }
     }
 }

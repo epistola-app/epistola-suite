@@ -73,9 +73,6 @@
                             data-testid="catalog-release-open">Publish…</button>
                 </div>
             </div>
-            <p th:if="${bar.openDraftWithheldNoContent}" class="form-hint" data-testid="catalog-draft-open-withheld">
-                The latest published version kept no content to start from.
-            </p>
             <p th:if="${bar.draftControlsWithheld and (bar.noDraft or contents.isEmpty)}" class="form-hint" data-testid="catalog-draft-open-withheld">
                 Editing needs the content author role.
             </p>
@@ -176,8 +173,6 @@
                                 </th:block>
                                 <th:block th:unless="${row.draft}">
                                     <span th:text="'Published ' + ${#temporals.format(row.publishedAt, 'yyyy-MM-dd')}">Published 2026-10-01</span>
-                                    <span th:unless="${row.contentKept}" class="text-muted" style="font-size: var(--ep-text-xs);"
-                                          title="Published before Epistola kept the content of a version">contents not kept</span>
                                 </th:block>
                             </td>
                             <td data-testid="catalog-version-live">

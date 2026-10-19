@@ -18,6 +18,7 @@ import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
+import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -39,12 +40,12 @@ import tools.jackson.databind.ObjectMapper
  *
  * With a [version] it exports **that release, as released**: rebuilt from the content the release
  * retained, carrying the version, timestamp and fingerprint it was cut with, whatever the working
- * copy has done since. Releases cut before content was retained cannot be rebuilt and say so.
+ * copy has done since.
  *
  * With [includeDependencies] it is a **fat export** ([CatalogBundle]): the archive together with the
  * releases of the catalogs it uses, as pinned (a release's pins; the working copy's locked
  * declarations), and theirs in turn, so it installs where none of them is. Refused while a
- * declaration is not locked to a release yet, and when a pinned release kept no content here.
+ * declaration is not locked to a release yet, and when a pinned release is not here.
  */
 data class ExportCatalogZip(
     override val tenantKey: TenantKey,
@@ -60,17 +61,6 @@ data class ExportCatalogZip(
 
 /** A fat export cannot be made: what it would bundle is not there to bundle, or does not agree. */
 class CatalogBundleException(message: String) : RuntimeException(message)
-
-/**
- * Thrown when a release cannot be exported because its content was never retained — every release
- * cut before `V20261018200200`. The working copy is not a substitute: it is whatever the catalog
- * looks like now, which is the thing the caller asked not to be given.
- */
-class CatalogReleaseNotRetainedException(catalogKey: CatalogKey, version: String) :
-    RuntimeException(
-        "Release $version of catalog '${catalogKey.value}' did not retain its content and cannot be exported as released. " +
-            "Export the working copy, or cut a new release.",
-    )
 
 data class ExportCatalogZipResult(
     val zipBytes: ByteArray,
@@ -114,8 +104,8 @@ class ExportCatalogZipHandler(
             val key = CatalogKey.of(pin.catalogKey)
             val archive = try {
                 exportRelease(ExportCatalogZip(command.tenantKey, key, version), version)
-            } catch (e: CatalogReleaseNotRetainedException) {
-                throw CatalogBundleException("${pin.catalogKey} v$version kept no content here, so it cannot be bundled.")
+            } catch (e: CatalogVersionNotFoundException) {
+                throw CatalogBundleException("${pin.catalogKey} v$version is not here, so it cannot be bundled.")
             }
             ListReleaseDependencies(command.tenantKey, key, version).query().forEach { add(it, "${pin.catalogKey} v$version") }
             ordered[identity] = CatalogBundle.Entry(pin.registry, pin.namespace, pin.catalogKey, version, pin.releaseFingerprint, archive.zipBytes)
@@ -147,7 +137,7 @@ class ExportCatalogZipHandler(
      */
     private fun exportRelease(command: ExportCatalogZip, version: String): ExportCatalogZipResult {
         val retained = assembler.assemble(command.tenantKey, command.catalogKey, version)
-            ?: throw CatalogReleaseNotRetainedException(command.catalogKey, version)
+            ?: throw CatalogVersionNotFoundException(command.catalogKey, version)
 
         val rebuilt = fingerprintService.fingerprint(retained.content)
         val released = retained.release.fingerprint

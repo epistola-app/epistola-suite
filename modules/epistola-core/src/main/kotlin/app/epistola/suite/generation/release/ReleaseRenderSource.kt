@@ -71,7 +71,7 @@ data class ReleaseRenderInputs(
     val fontFamilyResolver: FontFamilyResolver,
 )
 
-/** A release cannot be rendered: something it needs is not in it, or it kept no content. */
+/** A release cannot be rendered: something it needs is not in it. */
 class ReleaseRenderException(message: String) : IllegalStateException(message)
 
 /**
@@ -280,18 +280,17 @@ class ReleaseRenderSource(
     private fun loadRenderingDefaultsVersion(tenantKey: TenantKey, release: ReleaseRef): Int? = jdbi.withHandle<Int?, Exception> { handle ->
         val row = handle.createQuery(
             """
-            SELECT content_retained, rendering_defaults_version FROM catalog_releases
+            SELECT rendering_defaults_version FROM catalog_releases
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
             """,
         )
             .bind("t", tenantKey)
             .bind("c", release.catalogKey)
             .bind("version", release.version)
-            .map { rs, _ -> rs.getBoolean("content_retained") to rs.getObject("rendering_defaults_version") as Int? }
+            .map { rs, _ -> listOf(rs.getObject("rendering_defaults_version") as Int?) }
             .findOne()
             .orElse(null) ?: throw ReleaseRenderException("Release ${release.label()} does not exist")
-        if (!row.first) throw ReleaseRenderException("Release ${release.label()} did not keep its content and cannot be rendered")
-        row.second
+        row.single()
     }
 
     /**
@@ -334,11 +333,11 @@ class ReleaseRenderSource(
             }
         }
 
-        /** The pinned release, refused unless the tenant has it with its content and the fingerprint the pin recorded. */
+        /** The pinned release, refused unless the tenant has it with the fingerprint the pin recorded. */
         private fun pinned(catalog: CatalogKey, version: String, fingerprint: String): ReleaseRef {
             val stored = jdbi.withHandle<String?, Exception> { handle ->
                 handle.createQuery(
-                    "SELECT fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v AND content_retained",
+                    "SELECT fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
                 )
                     .bind("t", tenantKey)
                     .bind("c", catalog)
@@ -358,7 +357,7 @@ class ReleaseRenderSource(
 
         private fun unpinned(catalog: CatalogKey): ReleaseRef {
             val version = jdbi.withHandle<String?, Exception> { handle ->
-                environment?.let { deployedRelease(handle, it, catalog) } ?: entryStore.latestRetainedRelease(handle, tenantKey, catalog)
+                environment?.let { deployedRelease(handle, it, catalog) } ?: entryStore.latestRelease(handle, tenantKey, catalog)
             }
                 ?: throw ReleaseRenderException(
                     "Release ${release.label()} uses catalog '${catalog.value}', which has no release that kept its content",
@@ -372,7 +371,7 @@ class ReleaseRenderSource(
                 """
                 SELECT r.version FROM environment_catalog_deployments d
                 JOIN catalog_releases r ON r.tenant_key = d.tenant_key AND r.catalog_id = d.catalog_id AND r.version = d.version
-                WHERE d.tenant_key = :t AND d.environment_key = :e AND d.catalog_id = ${catalogAt("t", "c")} AND r.content_retained
+                WHERE d.tenant_key = :t AND d.environment_key = :e AND d.catalog_id = ${catalogAt("t", "c")}
                 $LATEST_RELEASE_ORDER LIMIT 1
                 """,
             )
@@ -384,7 +383,7 @@ class ReleaseRenderSource(
             .orElse(null)
 
         /** Every other catalog of the tenant, in catalog order: its pinned release, else its latest. */
-        fun otherCatalogs(): List<ReleaseRef> = jdbi.withHandle<Map<CatalogKey, String>, Exception> { handle -> entryStore.latestRetainedReleases(handle, tenantKey) }
+        fun otherCatalogs(): List<ReleaseRef> = jdbi.withHandle<Map<CatalogKey, String>, Exception> { handle -> entryStore.latestReleases(handle, tenantKey) }
             .filterKeys { it != release.catalogKey }
             .entries.sortedBy { it.key.value }
             .map { (catalog, version) -> if (catalog in pins) releaseOf(catalog) else ReleaseRef(catalog, version).also { latest.putIfAbsent(catalog, it) } }

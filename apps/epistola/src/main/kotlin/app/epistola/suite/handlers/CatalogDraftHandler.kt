@@ -4,7 +4,6 @@
 
 package app.epistola.suite.handlers
 
-import app.epistola.suite.catalog.commands.CatalogReleaseNotRetainedException
 import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
 import app.epistola.suite.catalog.versions.CatalogDraftNameInUseException
 import app.epistola.suite.catalog.versions.CatalogVersion
@@ -107,8 +106,6 @@ class CatalogDraftHandler(
             return refused("name", "Other work is called that already. Choose another name.")
         } catch (e: CatalogVersionNotFoundException) {
             return refused("from", e.message ?: "There is no such version to start from.")
-        } catch (e: CatalogReleaseNotRetainedException) {
-            return refused("from", e.message ?: "That published version kept no content to start from.")
         } catch (e: ValidationException) {
             return refused(if (e.field == "from") "from" else "name", e.message)
         }
@@ -123,8 +120,6 @@ class CatalogDraftHandler(
     private fun openNext(request: ServerRequest, tenantId: TenantId, segment: CatalogSegment): ServerResponse = try {
         OpenNextVersion(tenantId.key, segment.key).execute()
         ServerResponse.status(303).header("Location", CatalogPages.draft(tenantId, segment)).build()
-    } catch (e: CatalogReleaseNotRetainedException) {
-        catalogs.browseWithError(request, segment, e.message ?: "The latest published version kept no content to start from.")
     } catch (e: CatalogDraftIsNextException) {
         ServerResponse.status(303).header("Location", CatalogPages.draft(tenantId, segment)).build()
     }

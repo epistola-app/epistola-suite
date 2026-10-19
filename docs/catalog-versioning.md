@@ -309,9 +309,10 @@ and they are not deployed. Deploying them as well is a choice (`includeDependenc
 release nothing could render from refuses the deployment (`ReleaseDependenciesMissingException`,
 REST `release-dependencies-missing`); see [Environment Management](epistola.md#environment-management).
 
-**Retention** follows the pins: a release that a retained release of another catalog is pinned to
-cannot be deleted or have its content forgotten (`ReleaseInUseException` names the pinning releases),
-and neither can its catalog be deleted. Forgetting the pinning release's content first frees it.
+**Retention** follows the pins: a release that a release of another catalog is pinned to cannot be
+deleted (`ReleaseInUseException` names the pinning releases), and neither can its catalog be deleted.
+Deleting the pinning release first frees it. A release always holds its content: deleting it is the
+only way to reclaim what it holds.
 
 **Moving** a resource into another catalog declares what the move creates: every authored catalog
 whose content now references a catalog it did not declare gets a declaration `*`, locked to that
@@ -492,8 +493,8 @@ it when it was cut, it is immutable, and a rule that has tightened since must no
 a published release unexportable. The fingerprint _is_ recomputed and a mismatch refuses the export
 — it should be impossible, and if it happens the retained content has been altered.
 
-A release that retained no content (one from 1.x; the 2.0 upgrade removes them) refuses with
-`CatalogReleaseNotRetainedException` rather than quietly substituting the working copy.
+A version the catalog does not have refuses with `CatalogVersionNotFoundException` rather than
+quietly substituting the working copy.
 
 ### With what it uses (fat export)
 
@@ -502,7 +503,7 @@ A release that retained no content (one from 1.x; the 2.0 upgrade removes them) 
 releases the export is pinned to (a release's pins; the working copy's locked declarations), followed
 transitively, dependencies first and the exported catalog last. It is how a catalog reaches an
 installation that receives catalogs as files. Refused (`CatalogBundleException`) while a
-declaration is not tied to a release, or when a pinned release kept no content here. The export dialog
+declaration is not tied to a release, or when a pinned release is not here. The export dialog
 has _Include the catalogs it uses_; a published version's page has _Export with what it uses_.
 
 Importing one (`ImportCatalogZip` detects `bundle.json`) checks every bundled dependency before writing

@@ -25,7 +25,6 @@ import app.epistola.suite.catalog.commands.CheckCatalogUpstream
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeleteCatalogRelease
 import app.epistola.suite.catalog.commands.ExportCatalogZip
-import app.epistola.suite.catalog.commands.ForgetReleaseContent
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
@@ -53,7 +52,6 @@ import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.queries.ListCatalogs
-import app.epistola.suite.catalog.queries.ListRetainedReleases
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.catalog.queries.ResourceStatus
@@ -595,29 +593,9 @@ class CatalogHandler {
     }
 
     /**
-     * Drops the content a release retained, and lands back on its page, which now says "not kept". A
-     * rejection lands on Versions with its reason.
-     */
-    fun forgetReleaseContent(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        val catalogKey = request.catalogId()
-        return try {
-            ForgetReleaseContent(tenantId.key, catalogKey, request.pathVariable("version")).execute()
-            ServerResponse.status(303)
-                .header("Location", CatalogPages.release(tenantId.key, catalogKey, request.pathVariable("version")))
-                .build()
-        } catch (failure: ReleaseInUseException) {
-            section(request, "catalogs/versions", failure.message)
-        } catch (failure: ValidationException) {
-            logger.warn("Forgetting the content of a release of '{}' was rejected: {}", catalogKey.value, failure.message)
-            section(request, "catalogs/versions", failure.message)
-        }
-    }
-
-    /**
      * Deploys a release of this catalog to an environment, beside what it serves. With
      * `includeDependencies`, the releases of other catalogs it renders with are deployed along.
-     * Refusals -- the release kept no content, the environment is gone, a dependency release is not
+     * Refusals -- the release is gone, the environment is gone, a dependency release is not
      * served -- come back on the catalog's Deployments page with the reason.
      */
     fun deploy(request: ServerRequest): ServerResponse {
@@ -957,9 +935,8 @@ class CatalogHandler {
             // it installed (each install records its release). Either can be deployed.
             val releases = ListCatalogReleases(tenantId.key, catalogKey).query()
             val deployments = deploymentRows(tenantId.key, catalogKey)
-            // Only a release that kept its content can be deployed; one cut before releases retained
-            // content has nothing to render from. Newest first, as the list is.
-            val deployableVersions = releases.filter { it.retained }.map { it.version }
+            // Every release can be deployed. Newest first, as the list is.
+            val deployableVersions = releases.map { it.version }
             val releaseViews = releaseViews(releases, publication)
             // The catalog's page on Exchange, when it came from there. Null for a plain URL
             // subscription, a ZIP import, or an authored catalog — the view falls back to the text
@@ -1061,11 +1038,7 @@ class CatalogHandler {
             CatalogReleaseView(
                 release = release,
                 published = release.version in publishedVersions,
-                // Nothing to forget about a release that kept nothing, which is also the state
-                // forgetting one leaves behind -- so the action disappears once it has been used.
-                forgettable = release.retained,
-                publishable = release.retained &&
-                    publication != null &&
+                publishable = publication != null &&
                     publication.canPublish &&
                     publication.hasPublishableDestination &&
                     release.version !in publishedVersions,
@@ -1545,9 +1518,8 @@ class CatalogHandler {
             mapOf(
                 "tenantId" to tenantId.key,
                 "catalogId" to catalogKey.value,
-                // Only releases that retained their content can be handed over as released;
-                // the dialog offers exactly these, so the choice cannot fail at download.
-                "retainedReleases" to ListRetainedReleases(tenantId.key, catalogKey).query(),
+                // Every release can be handed over exactly as released.
+                "releases" to ListCatalogReleases(tenantId.key, catalogKey).query().map { it.version },
             ),
         )
     }
@@ -1611,8 +1583,6 @@ class CatalogHandler {
         val published: Boolean,
         /** Publishing this release would be accepted — the command decides the same way. */
         val publishable: Boolean,
-        /** There is retained content to drop, so forgetting it would actually reclaim something. */
-        val forgettable: Boolean,
     )
 
     /**

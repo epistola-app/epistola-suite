@@ -29,7 +29,7 @@ class UseCompatibility(
 
     /**
      * What version [to] of [catalogKey] breaks, against version [from], of what is [used]. Empty when it
-     * fits, and when either version kept no content to compare.
+     * fits, and when either version is not here to compare.
      */
     fun breaks(tenantKey: TenantKey, catalogKey: CatalogKey, from: String, to: String, used: List<BorrowedResource>): List<UseBreak> {
         if (used.isEmpty() || from == to) return emptyList()

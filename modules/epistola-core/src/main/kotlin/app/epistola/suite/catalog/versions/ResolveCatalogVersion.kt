@@ -97,7 +97,7 @@ data class GetReleasedResource(
     override val permission get() = Permission.CATALOG_VIEW
 }
 
-/** Every resource of [type] a released version holds, in key order; empty when it kept no content. */
+/** Every resource of [type] a released version holds, in key order. */
 data class ListReleasedResources(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,

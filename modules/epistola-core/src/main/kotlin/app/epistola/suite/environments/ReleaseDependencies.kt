@@ -26,9 +26,6 @@ enum class MissingDependencyReason {
      * unavailable.
      */
     UNAVAILABLE,
-
-    /** The tenant has the release without its content, so it cannot be deployed at all. */
-    CONTENT_NOT_RETAINED,
 }
 
 /**
@@ -116,7 +113,6 @@ class ReleaseDependencies(
                 val reason = when {
                     catalog == null || release == null -> MissingDependencyReason.NOT_INSTALLED
                     serves(handle, tenantKey, environmentKey, catalog, pinnedVersion) -> null
-                    !release.contentRetained -> MissingDependencyReason.CONTENT_NOT_RETAINED
                     else -> MissingDependencyReason.NOT_DEPLOYED
                 }
                 if (reason != null) {
@@ -162,14 +158,14 @@ class ReleaseDependencies(
         return needed
     }
 
-    private data class Release(val contentRetained: Boolean, val fingerprint: String)
+    private data class Release(val fingerprint: String)
 
     private fun release(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): Release? = handle
-        .createQuery("SELECT content_retained, fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
+        .createQuery("SELECT fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
         .bind("t", tenantKey)
         .bind("c", catalogKey)
         .bind("v", version)
-        .map { rs, _ -> Release(rs.getBoolean("content_retained"), rs.getString("fingerprint")) }
+        .map { rs, _ -> Release(rs.getString("fingerprint")) }
         .findOne()
         .orElse(null)
 

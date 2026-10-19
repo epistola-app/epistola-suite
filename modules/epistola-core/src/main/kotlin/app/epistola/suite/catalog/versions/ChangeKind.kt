@@ -265,8 +265,7 @@ class DraftChangeKinds(
 ) {
 
     /**
-     * Null when the catalog has no release [base] that retained its content, so there is nothing to
-     * compare. The draft counts the catalogs it uses but does not declare as declared: publishing
+     * Null when the catalog has no release [base], so there is nothing to compare. The draft counts the catalogs it uses but does not declare as declared: publishing
      * declares them before it releases, so the number it is released as has to account for them.
      */
     fun against(tenantKey: TenantKey, catalogKey: CatalogKey, base: String): ChangeAssessment? {

@@ -41,7 +41,7 @@ data class AssessDraftNumber(
  * @property latest the catalog's latest release, which the draft is measured against; null when it was
  *   never released.
  * @property needs the kind of change the draft holds against [latest]; null when there is nothing to
- *   compare with (never released, or [latest] kept no content), so any higher number fits.
+ *   compare with (never released), so any higher number fits.
  * @property reasons what makes the change [needs], breaking first; empty for a fix.
  * @property suggested the lowest number that fits.
  */

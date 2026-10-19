@@ -7,7 +7,6 @@ package app.epistola.suite.catalog
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
-import app.epistola.suite.catalog.commands.ForgetReleaseContent
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
@@ -180,14 +179,11 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `with no release that kept its content there is nothing to deploy, and the card says why`() {
+    fun `with no release there is nothing to deploy, and the card says why`() {
         val tenant = tenantWithCatalog("dep-norelease")
         withMediator {
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
-            MarkCatalogReady(tenant.id, CatalogKey.of("dep-norelease")).execute()
-            ReleaseCatalogVersion(tenant.id, CatalogKey.of("dep-norelease"), version = "1.0.0").execute()
-            ForgetReleaseContent(tenant.id, CatalogKey.of("dep-norelease"), "1.0.0").execute()
         }
 
         val body = live(tenant, "dep-norelease")
@@ -197,7 +193,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `forgetting a deployed release is refused on the page, naming the environment`() {
+    fun `deleting a deployed release is refused on the page, naming the environment`() {
         val tenant = tenantWithCatalog("dep-guard")
         withMediator {
             val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id))
@@ -209,7 +205,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         }
 
         val response = restTemplate.postForEntity(
-            "/tenants/${tenant.id.value}/catalogs/dep-guard/releases/1.0.0/forget",
+            "/tenants/${tenant.id.value}/catalogs/dep-guard/releases/1.0.0/delete",
             HttpEntity<Void>(HttpHeaders()),
             String::class.java,
         )

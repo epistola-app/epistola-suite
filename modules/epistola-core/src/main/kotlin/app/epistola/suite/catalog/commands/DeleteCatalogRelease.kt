@@ -21,11 +21,9 @@ import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Component
 
 /**
- * Removes a release from a catalog's history, with its content.
- *
- * The stronger of the two ways to reclaim what releases hold — [ForgetReleaseContent] keeps the row
- * and its fingerprint as a record of what the version was; this removes the record too, for a
- * version that should not be part of the history at all.
+ * Removes a release from a catalog's history, with its content: the way to reclaim what a release
+ * holds, such as an image released by mistake. A release either exists with its content or not at
+ * all.
  *
  * **Already published is not a reason to refuse.** The copy on Epistola Exchange is Exchange's, it
  * stays there, and withdrawing it is a separate conversation with a separate authority. What goes
