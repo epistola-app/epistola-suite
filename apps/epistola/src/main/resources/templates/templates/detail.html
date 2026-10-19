@@ -42,6 +42,8 @@
               hx-target="#variants-section"
               hx-swap="outerHTML">
             <div th:replace="~{epistola-web/form-error :: form-error(id='edit-variant-error')}"></div>
+            <!--/* The variant as it was opened: saving over someone else's change since is refused. */-->
+            <input type="hidden" name="expectedRevision" th:value="${variant.revision}" />
             <div class="ep-dialog-body">
                 <div class="form-group">
                     <label class="ep-label" for="edit-variant-title">Title</label>

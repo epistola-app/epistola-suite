@@ -304,3 +304,9 @@ fun ServerRequest.queryParam(name: String, default: String): String = param(name
  * ```
  */
 fun ServerRequest.queryParamInt(name: String, default: Int): Int = param(name).orElse(null)?.toIntOrNull() ?: default
+
+/**
+ * The revision an edit form was opened at (its hidden `expectedRevision` field), for optimistic
+ * locking; null when the form sends none, so the write is last write wins.
+ */
+fun ServerRequest.expectedRevision(): Long? = param("expectedRevision").orElse(null)?.toLongOrNull()

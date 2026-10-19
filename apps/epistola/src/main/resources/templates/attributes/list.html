@@ -152,6 +152,8 @@
               data-radio-panes="constraintKind" data-pane-attr="data-constraint-pane"
 >
             <div th:replace="~{epistola-web/form-error :: form-error(id='edit-attribute-error')}"></div>
+            <!--/* The attribute as it was opened: saving over someone else's change since is refused. */-->
+            <input type="hidden" name="expectedRevision" th:value="${attribute.revision}" />
             <div class="ep-dialog-body">
                 <div class="form-group">
                     <label class="ep-label" for="edit-attr-displayName">Display Name</label>

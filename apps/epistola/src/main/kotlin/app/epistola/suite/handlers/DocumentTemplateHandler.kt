@@ -31,6 +31,7 @@ import app.epistola.suite.htmx.catalogParam
 import app.epistola.suite.htmx.catalogSegment
 import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.executeOrFormError
+import app.epistola.suite.htmx.expectedRevision
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
@@ -764,7 +765,7 @@ class DocumentTemplateHandler(
                 templateId = templateId,
                 exampleId = exampleId,
                 catalogVersion = request.catalogVersion(),
-                expectedRevision = request.param("expectedRevision").orElse(null)?.toLongOrNull(),
+                expectedRevision = request.expectedRevision(),
             ).execute() ?: return ServerResponse.notFound().build()
         } catch (e: ResourceModifiedException) {
             return ServerResponse.status(HttpStatus.PRECONDITION_FAILED)

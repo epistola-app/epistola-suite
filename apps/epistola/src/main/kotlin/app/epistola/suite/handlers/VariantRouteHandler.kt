@@ -7,6 +7,7 @@ package app.epistola.suite.templates
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.catalog.queries.IsCatalogEditable
 import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -19,6 +20,7 @@ import app.epistola.suite.handlers.resolveVariantAttributes
 import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.catalogSegment
 import app.epistola.suite.htmx.catalogVersion
+import app.epistola.suite.htmx.expectedRevision
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
@@ -150,12 +152,18 @@ class VariantRouteHandler {
             return variantFormError(request, tenantId, templateId, "edit-variant-error", form.errors.values.first())
         }
 
-        UpdateVariant(
-            variantId = variantId,
-            title = form["title"],
-            attributes = readAttributesFromForm(request, tenantId),
-            catalogVersion = request.catalogVersion(),
-        ).execute()
+        try {
+            UpdateVariant(
+                variantId = variantId,
+                title = form["title"],
+                attributes = readAttributesFromForm(request, tenantId),
+                catalogVersion = request.catalogVersion(),
+                expectedRevision = request.expectedRevision(),
+            ).execute()
+        } catch (_: ResourceModifiedException) {
+            // What was typed stays in the dialog; reopening it shows the other change to apply it to.
+            return variantFormError(request, tenantId, templateId, "edit-variant-error", "Someone else changed this variant since you opened it. Close this and open it again to see their change, then make yours.")
+        }
 
         return renderVariantsSection(request, tenantId, templateId)
     }

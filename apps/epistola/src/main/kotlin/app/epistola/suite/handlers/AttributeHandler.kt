@@ -13,6 +13,7 @@ import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -33,6 +34,7 @@ import app.epistola.suite.htmx.catalogParam
 import app.epistola.suite.htmx.catalogSegment
 import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.executeOrFormError
+import app.epistola.suite.htmx.expectedRevision
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
@@ -287,8 +289,10 @@ class AttributeHandler {
                 allowedValues = allowedValues,
                 codeListId = codeListId,
                 catalogVersion = version,
+                expectedRevision = request.expectedRevision(),
             ).execute() ?: return ServerResponse.notFound().build()
         } catch (e: Exception) {
+            // A stale revision re-renders the form from the attribute as it is now, with its revision.
             val attribute = GetAttributeDefinition(
                 id = attributeId,
                 catalogVersion = version,
@@ -299,7 +303,11 @@ class AttributeHandler {
                     "attribute" to attribute
                     "codeLists" to codeLists
                     "draftSegment" to draftSegment
-                    "error" to (e.message ?: "Update failed")
+                    "error" to if (e is ResourceModifiedException) {
+                        "Someone else changed this attribute since you opened it. The form now shows their version; make your change again."
+                    } else {
+                        e.message ?: "Update failed"
+                    }
                 }
                 retarget("#edit-attribute-dialog-body")
                 reswap(HxSwap.INNER_HTML)
