@@ -77,7 +77,7 @@ data class NavLink(val key: String, val label: String, val href: String, val ico
  *
  * @property versionLabel what the bar calls the version: "Next version", "Fix of v1.2.0", or a
  *   subscribed catalog's "v2.0.0".
- * @property sideWork the page works in long-term work, not the next version, which the bar marks so
+ * @property sideWork the page works in parallel work, not the next version, which the bar marks so
  *   nobody edits it thinking it is their everyday work.
  * @property sections the catalog nav, in groups: the catalog and its templates; the parts templates
  *   are built from; its versions, where it is live, what it uses and its details.
@@ -132,7 +132,7 @@ object CatalogNav {
         val active = activeKey(path, key)
         fun link(key: String, label: String, href: String, icon: String) = NavLink(key, label, href, icon, active == key)
 
-        val overview = if (bar.onLongTermWork) bar.draftPageHref else CatalogPages.browse(TenantId(bar.tenantKey), bar.segment)
+        val overview = if (bar.onParallelWork) bar.draftPageHref else CatalogPages.browse(TenantId(bar.tenantKey), bar.segment)
         val first = buildList {
             add(link("overview", "Overview", overview, "house"))
             // Quality findings are about this catalog's templates (alpha, behind its feature).

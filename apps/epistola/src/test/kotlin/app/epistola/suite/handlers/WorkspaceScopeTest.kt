@@ -27,7 +27,7 @@ class WorkspaceScopeTest {
 
     private fun next(base: String?) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, versionId = "n3xtv3rs", isNext = true)
 
-    private fun longTerm(name: String, base: String?) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, versionId = redesignId, name = name)
+    private fun parallel(name: String, base: String?) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, versionId = redesignId, name = name)
 
     private fun release(version: String, liveIn: List<String> = emptyList()) = CatalogVersion(
         version,
@@ -60,18 +60,18 @@ class WorkspaceScopeTest {
 
     private val everything: (Permission) -> Boolean = { true }
 
-    private val work = listOf(next("1.2.0"), longTerm("Redesign", "1.1.0"))
+    private val work = listOf(next("1.2.0"), parallel("Redesign", "1.1.0"))
     private val onRedesign = CatalogSegment(letters, redesignId)
     private val published = listOf(release("1.2.0", liveIn = listOf("production")), release("1.1.0", liveIn = listOf("test")))
 
     @Test
-    fun `the bar names the next version plainly, long-term work by its name`() {
+    fun `the bar names the next version plainly, parallel work by its name`() {
         assertThat(WorkspaceBuilder.scope(bar(work, published), null, "/tenants/acme/templates", everything).versionLabel)
             .isEqualTo("Next version")
 
-        val longTerm = WorkspaceBuilder.scope(bar(work, published, onRedesign), null, "/tenants/acme/templates", everything)
-        assertThat(longTerm.versionLabel).isEqualTo("Redesign")
-        assertThat(longTerm.sideWork).isTrue()
+        val parallel = WorkspaceBuilder.scope(bar(work, published, onRedesign), null, "/tenants/acme/templates", everything)
+        assertThat(parallel.versionLabel).isEqualTo("Redesign")
+        assertThat(parallel.sideWork).isTrue()
     }
 
     @Test
@@ -86,12 +86,12 @@ class WorkspaceScopeTest {
     }
 
     @Test
-    fun `the version menu lists the next version first, then long-term work by name and what it started from, each at the same page`() {
+    fun `the version menu lists the next version first, then parallel work by name and what it started from, each at the same page`() {
         val versions = WorkspaceBuilder.scope(bar(work, published), null, "/tenants/acme/templates", everything).versions
 
         assertThat(versions.map { it.label to it.detail }).containsExactly(
             "Next version" to "Based on v1.2.0",
-            "Redesign" to "Long-term work, started from v1.1.0",
+            "Redesign" to "Parallel work, started from v1.1.0",
         )
         // The same from every page, so the bar is not sent again while moving around in a version; the
         // switch takes the page along (VersionSwitch).
@@ -112,7 +112,7 @@ class WorkspaceScopeTest {
             .containsEntry("settings", "/tenants/acme/catalogs/letters@$redesignId/settings")
             .containsEntry("versions", "/tenants/acme/catalogs/letters/versions")
             .containsEntry("deployments", "/tenants/acme/catalogs/letters/deployments")
-            .`as`("long-term work's overview is its draft page").containsEntry("overview", "/tenants/acme/catalogs/letters@$redesignId/draft")
+            .`as`("parallel work's overview is its draft page").containsEntry("overview", "/tenants/acme/catalogs/letters@$redesignId/draft")
         assertThat(nav.filter { it.active }.map { it.key }).containsExactly("stencils")
     }
 
@@ -135,7 +135,7 @@ class WorkspaceScopeTest {
     }
 
     @Test
-    fun `the way back names the catalog, and the long-term work when it was that`() {
+    fun `the way back names the catalog, and the parallel work when it was that`() {
         assertThat(WorkspaceBuilder.backLabel(WorkspaceBuilder.scope(bar(work, published), null, "/", everything))).isEqualTo("Back to Letters")
         assertThat(WorkspaceBuilder.backLabel(WorkspaceBuilder.scope(bar(work, published, onRedesign), null, "/", everything)))
             .`as`("a name as people wrote it").isEqualTo("Back to Letters, Redesign")

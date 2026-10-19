@@ -32,8 +32,8 @@ build one — the catalog's segment as `workspaceCatalog` (the quality report do
   _Subscribed_. The system catalog, part of every tenant, is left out; every catalog is under _All
   catalogs_. Built as a list, so a filter and a _Starred_ group can be added without changing it.
 - **Version (Next version ▾):** the next version nearly always. The menu holds the advanced cases out
-  of the way: long-term work, each by its name and what it started from, _Start long-term work…_,
-  and _Published versions_. Long-term work turns the bar amber, with a strip under it saying it is
+  of the way: parallel work, each by its name and what it started from, _Start parallel work…_,
+  and _Published versions_. Parallel work turns the bar amber, with a strip under it saying it is
   kept apart from the next version, offering _Make this the next version…_, and a way back. Hotfixes of
   what is deployed come later (contract ADR 0001), fitted to the next-version model.
 - **Status:** what the version has not published yet and **Publish…**, or, with nothing in progress,
@@ -78,7 +78,7 @@ Deploy, the state "deployed to production". "Live" is not used. Deploying uses t
 (they render from the tenant's copy), so they are never deployed along; the environment page lists
 them under "Comes along".
 
-Long-term work's overview is its draft page (`/catalogs/letters@<draft id>/draft`); the next
+Parallel work's overview is its draft page (`/catalogs/letters@<draft id>/draft`); the next
 version's is the catalog page (`/catalogs/letters/browse`).
 
 ## The editor

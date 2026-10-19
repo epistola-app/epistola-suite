@@ -28,7 +28,7 @@ import app.epistola.suite.security.SecurityContext
  * Which version of a catalog a page works in, and the controls for it (contract ADR 0002, amendment 2),
  * in the terms people use (docs/catalog-working-model.md): an authored catalog has a **next version** —
  * where everyday work goes, which a plain segment (`letters`) means and which has no number until it is
- * published — and at times **long-term work** next to it, a named draft (`letters@<draft id>`) that is
+ * published — and at times **parallel work** next to it, a named draft (`letters@<draft id>`) that is
  * not published until it becomes the next version. A subscribed catalog shows its installed release,
  * which cannot be edited.
  *
@@ -37,10 +37,10 @@ import app.epistola.suite.security.SecurityContext
  * may be done to it. Templates gate on the names below, never on the raw flags.
  *
  * @property segment the route's catalog segment, which every link on the page carries.
- * @property drafts the open drafts: the next version first, then long-term work.
+ * @property drafts the open drafts: the next version first, then parallel work.
  * @property chosen the draft worked in; null for a catalog that has none (subscribed, or a next version
  *   discarded and not opened again).
- * @property mayOpenDrafts the viewer holds `TEMPLATE_EDIT`, which starting long-term work needs.
+ * @property mayOpenDrafts the viewer holds `TEMPLATE_EDIT`, which starting parallel work needs.
  * @property mayDiscardDrafts the viewer holds `CATALOG_RELEASE`, which publishing and discarding need.
  */
 data class CatalogDraftBar(
@@ -89,23 +89,23 @@ data class CatalogDraftBar(
     /** The segment links on this page carry, as it appears in a URL. */
     val segmentValue: String get() = segment.value
 
-    /** Long-term work is open next to the next version, so the page says which draft it works in. */
+    /** Parallel work is open next to the next version, so the page says which draft it works in. */
     val severalDrafts: Boolean get() = drafts.size > 1
 
     /**
-     * The page works in long-term work, not the next version. Shown as a banner, so nobody mistakes it
+     * The page works in parallel work, not the next version. Shown as a banner, so nobody mistakes it
      * for everyday work, and publishing is not offered: only the next version is published.
      */
-    val onLongTermWork: Boolean get() = authored && chosen != null && !chosen.isNext
+    val onParallelWork: Boolean get() = authored && chosen != null && !chosen.isNext
 
-    /** The same page in the next version, for "go to the next version" from long-term work. */
+    /** The same page in the next version, for "go to the next version" from parallel work. */
     val workHref: String get() = pageAt(segment.at(null))
 
     /** The chosen draft's own page, for the bar above a content page. */
     val draftPageHref: String get() = CatalogPages.draft(TenantId(tenantKey), segment)
 
-    /** Long-term work open next to the next version, each linked to this page in that draft. */
-    val longTermWork: List<DraftLink> get() = draftLinks.filter { !it.next }
+    /** Parallel work open next to the next version, each linked to this page in that draft. */
+    val parallelWork: List<DraftLink> get() = draftLinks.filter { !it.next }
 
     /** Per published version, the environments it is live in. */
     val liveIn: Map<String, List<String>> get() = releases.associate { requireNotNull(it.version) to it.deployedTo }
@@ -115,7 +115,7 @@ data class CatalogDraftBar(
     /** The page works in the next version, the one people work in 99% of the time. */
     val isNext: Boolean get() = authored && chosen?.isNext == true
 
-    /** What the chosen draft is called: "Next version", or long-term work's name. */
+    /** What the chosen draft is called: "Next version", or parallel work's name. */
     val draftTitle: String? get() = chosen?.label
 
     /** The latest published version: what the next version is based on. */
@@ -161,7 +161,7 @@ data class CatalogDraftBar(
         }
 
     /**
-     * One version on the catalog page: a draft by [label] ("Next version", or long-term work's name), a
+     * One version on the catalog page: a draft by [label] ("Next version", or parallel work's name), a
      * published one by [version]; [base] is the published version it started from (null when it
      * started from nothing); [publishedAt] is null for a draft.
      */
@@ -196,7 +196,7 @@ data class CatalogDraftBar(
         chosen?.draftRef?.let { ref -> GetCatalogDraft(tenantKey, catalogKey, ref, withBehind = true).query()?.behind }.orEmpty()
     }
 
-    /** Whether to offer starting long-term work. */
+    /** Whether to offer starting parallel work. */
     val offerCreateDraft: Boolean get() = authored && mayOpenDrafts && current != null
 
     /**
@@ -206,8 +206,8 @@ data class CatalogDraftBar(
      */
     val offerRelease: Boolean get() = isNext && mayDiscardDrafts
 
-    /** Whether to offer making long-term work the next version (`CATALOG_RELEASE`). */
-    val offerPromote: Boolean get() = onLongTermWork && mayDiscardDrafts
+    /** Whether to offer making parallel work the next version (`CATALOG_RELEASE`). */
+    val offerPromote: Boolean get() = onParallelWork && mayDiscardDrafts
 
     /** Whether to offer discarding the chosen draft. */
     val offerDiscard: Boolean get() = authored && mayDiscardDrafts && chosen != null
@@ -221,17 +221,17 @@ data class CatalogDraftBar(
     /** The draft links, the next version first, each to this page in that draft. */
     val draftLinks: List<DraftLink>
         get() = drafts.map { draft ->
-            // The next version is linked plainly, long-term work by its id.
+            // The next version is linked plainly, parallel work by its id.
             val target = if (draft.isNext) segment.at(null) else segment.at(draft.versionId)
             DraftLink(draft.label, draft.isNext, draft.versionId, draft.base, pageAt(target), active = draft.versionId == chosen?.versionId)
         }
 
-    /** What long-term work can start from: the next version (null), or a release. */
+    /** What parallel work can start from: the next version (null), or a release. */
     val createFromOptions: List<String> get() = releases.mapNotNull { it.version }
 
     private val latestRelease: CatalogVersion? get() = releases.firstOrNull()
 
-    /** A draft to switch to: the [next] version, or long-term work by [label] and [draftId]. */
+    /** A draft to switch to: the [next] version, or parallel work by [label] and [draftId]. */
     data class DraftLink(val label: String, val next: Boolean, val draftId: String, val base: String?, val href: String, val active: Boolean)
 
     companion object {
@@ -312,7 +312,7 @@ object CatalogPages {
     /** The catalog page: the next version, every version, where each is live. */
     fun browse(tenantId: TenantId, segment: CatalogSegment): String = "/tenants/${tenantId.key}/catalogs/${segment.key.value}/browse"
 
-    /** A draft's own page: the next version at a plain segment, long-term work at `key@<draft id>`. */
+    /** A draft's own page: the next version at a plain segment, parallel work at `key@<draft id>`. */
     fun draft(tenantId: TenantId, segment: CatalogSegment): String = "/tenants/${tenantId.key}/catalogs/${segment.value}/draft"
 
     /** A published version's own page. */

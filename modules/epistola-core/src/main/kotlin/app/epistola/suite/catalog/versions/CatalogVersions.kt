@@ -51,7 +51,7 @@ data class CatalogVersion(
     val name: String? = null,
     val isNext: Boolean = false,
 ) {
-    /** What people call it: "Next version", long-term work's name, or a release's number. */
+    /** What people call it: "Next version", parallel work's name, or a release's number. */
     val label: String get() = when {
         status == CatalogVersionStatus.RELEASED -> "v$version"
         isNext -> CatalogDraft.NEXT_LABEL
@@ -103,7 +103,7 @@ data class CatalogDraft(
  * The SQL of catalog drafts, the `draft` rows of `catalog_versions`. Callers own the transaction.
  *
  * A draft row is what a draft's content rows belong to (their `version_id`), and each holds its own
- * copy of its content. An authored catalog has one next version and any number of long-term drafts
+ * copy of its content. An authored catalog has one next version and any number of parallel drafts
  * (contract ADR 0002, amendment 2).
  */
 @Component
@@ -125,7 +125,7 @@ class CatalogDrafts {
     /** The catalog's next version, whichever draft a message targets; null when it has none. */
     fun next(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): CatalogDraft? = drafts(handle, tenantKey, catalogKey).firstOrNull { it.isNext }
 
-    /** Every open draft of the catalog: the next version first, then long-term work, oldest first. */
+    /** Every open draft of the catalog: the next version first, then parallel work, oldest first. */
     fun drafts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): List<CatalogDraft> = handle
         .createQuery("$SELECT WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND kind = 'draft' ORDER BY is_next DESC, created_at, version_id")
         .bind("t", tenantKey)
@@ -209,7 +209,7 @@ class CatalogDrafts {
         check(moved == 1) { "no draft $promoted to make the next version" }
     }
 
-    /** Renames long-term work [versionId]. */
+    /** Renames parallel work [versionId]. */
     fun rename(handle: Handle, tenantKey: TenantKey, versionId: UUID, name: String) {
         handle.createUpdate("UPDATE catalog_versions SET name = :name WHERE tenant_key = :t AND version_id = :v AND kind = 'draft' AND NOT is_next")
             .bind("t", tenantKey)

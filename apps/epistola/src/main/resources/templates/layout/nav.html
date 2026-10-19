@@ -58,7 +58,7 @@
                     </div>
 
                     <span class="ws-crumb-sep" aria-hidden="true">/</span>
-                    <!--/* The version: the next version nearly always; long-term work is here, out of the way. */-->
+                    <!--/* The version: the next version nearly always; parallel work is here, out of the way. */-->
                     <div class="app-nav-dropdown ws-menu">
                         <button type="button" class="app-nav-dropdown-trigger ws-crumb ws-crumb-version" data-testid="ws-crumb-version"
                                 th:classappend="${scope.sideWork} ? 'ws-crumb-side' : ''"
@@ -75,14 +75,14 @@
                                 </span>
                                 <th:block th:if="${v.current}"><th:block th:replace="~{epistola-web/icon :: icon(name='check', class='ep-icon ep-icon-sm ws-menu-check')}" /></th:block>
                             </a>
-                            <!--/* Starting long-term work: kept apart from the next version until it is ready. */-->
+                            <!--/* Starting parallel work: kept apart from the next version until it is ready. */-->
                             <th:block th:if="${scope.bar.offerCreateDraft}">
                                 <div class="ws-menu-sep"></div>
-                                <button type="button" class="app-nav-dropdown-item ws-menu-item" role="menuitem" data-testid="ws-start-long-term"
+                                <button type="button" class="app-nav-dropdown-item ws-menu-item" role="menuitem" data-testid="ws-start-parallel"
                                         th:hx-get="@{/tenants/{t}/catalogs/{c}/drafts/new(t=${scope.bar.tenantKey},c=${scope.bar.catalogKey})}"
                                         hx-target="#ws-dialog-mount" hx-swap="innerHTML">
                                     <span class="ws-menu-text">
-                                        <span>Start long-term work…</span>
+                                        <span>Start parallel work…</span>
                                         <span class="ws-menu-detail">A large change, kept apart until it is ready</span>
                                     </span>
                                 </button>
@@ -195,18 +195,18 @@
         </th:block>
     </aside>
 
-    <!--/* Long-term work is hard to miss: what is being changed, and that the next version is not. */-->
+    <!--/* Parallel work is hard to miss: what is being changed, and that the next version is not. */-->
     <div th:fragment="side-strip" th:with="bar=${workspace.catalog.bar}" class="ws-side-strip" role="status"
-         data-testid="catalog-long-term-banner" th:attr="data-catalog=${bar.catalogKey},data-draft=${bar.chosen.versionId}">
+         data-testid="catalog-parallel-banner" th:attr="data-catalog=${bar.catalogKey},data-draft=${bar.chosen.versionId}">
         <span>
-            <span th:text="'You are changing ' + ${bar.chosen.label} + ', long-term work kept apart from the next version.'">You are changing Redesign 2027.</span>
-            <strong th:if="${bar.followedByText != null}" data-testid="catalog-long-term-followed" th:text="${bar.followedByText} + '.'">Test follows it.</strong>
+            <span th:text="'You are changing ' + ${bar.chosen.label} + ', parallel work kept apart from the next version.'">You are changing Redesign 2027.</span>
+            <strong th:if="${bar.followedByText != null}" data-testid="catalog-parallel-followed" th:text="${bar.followedByText} + '.'">Test follows it.</strong>
         </span>
         <span class="ep-row" style="gap: var(--ep-space-2);">
             <button th:if="${bar.offerPromote}" type="button" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-promote-open"
                     th:hx-get="@{/tenants/{t}/catalogs/{c}/promote(t=${bar.tenantKey},c=${bar.segmentValue})}"
                     hx-target="#ws-dialog-mount" hx-swap="innerHTML">Make this the next version…</button>
-            <a class="ep-btn ep-btn-outline ep-btn-sm" th:href="${bar.workHref}" data-testid="catalog-long-term-back">Back to the next version</a>
+            <a class="ep-btn ep-btn-outline ep-btn-sm" th:href="${bar.workHref}" data-testid="catalog-parallel-back">Back to the next version</a>
         </span>
     </div>
 </body>

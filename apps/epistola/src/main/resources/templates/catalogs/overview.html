@@ -11,7 +11,7 @@
            (CatalogReleaseReadiness) or `gettingStarted` (CatalogGettingStarted). */-->
 
     <!--/* What is in progress, one box per open draft: the next version with what is not published
-           yet and Publish…, and each long-term work with what it started from and Continue. A box
+           yet and Publish…, and each parallel work with what it started from and Continue. A box
            says which environments follow its draft. Every control gates on one name of `readiness`,
            `draftBar` (readiness.drafts) or `contents`. */-->
     <div th:fragment="status" class="ep-panel detail-section" data-testid="catalog-status"
@@ -89,12 +89,12 @@
                     </div>
                 </div>
 
-                <!--/* Long-term work open next to the next version, each to continue. */-->
-                <div th:each="work : ${bar.longTermWork}" class="ep-panel catalog-box" data-testid="catalog-long-term"
+                <!--/* Parallel work open next to the next version, each to continue. */-->
+                <div th:each="work : ${bar.parallelWork}" class="ep-panel catalog-box" data-testid="catalog-parallel"
                      th:attr="data-draft=${work.draftId}">
                     <div class="catalog-box-title">
                         <span th:text="${work.label}">Redesign 2027</span>
-                        <span class="badge badge-muted">Long-term work</span>
+                        <span class="badge badge-muted">Parallel work</span>
                     </div>
                     <div class="text-muted text-sm" th:text="${work.base != null} ? 'Started from v' + ${work.base} + ', open next to the next version.' : 'Open next to the next version.'">Started from v1.0.0.</div>
                     <div class="catalog-box-followers">
@@ -102,7 +102,7 @@
                               data-testid="catalog-draft-follower" th:text="'Used by ' + ${row.environmentName}">Used by Test</span>
                     </div>
                     <div class="catalog-box-actions">
-                        <a th:href="${work.href}" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-long-term-continue">Continue</a>
+                        <a th:href="${work.href}" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-parallel-continue">Continue</a>
                     </div>
                 </div>
             </div>
@@ -172,7 +172,7 @@
                     th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts/new(tenantId=${tenantId},catalogId=${catalog.id})}"
                     hx-target="#ws-dialog-mount" hx-swap="innerHTML"
                     title="For a large change that is not ready to go out with everyday work"
-                    data-testid="catalog-draft-new">Start long-term work…</button>
+                    data-testid="catalog-draft-new">Start parallel work…</button>
         </div>
         <div class="detail-section-body">
             <p th:if="${bar.versionRows.isEmpty()}" class="text-muted">This catalog has no versions.</p>
@@ -192,7 +192,7 @@
                             th:attr="data-version=${row.version},data-status=${row.draft} ? 'draft' : 'published',data-next=${row.next}">
                             <td style="font-weight: 500;">
                                 <a th:href="${row.href}" data-testid="catalog-version-link" th:text="${row.label}">v1.0.0</a>
-                                <span th:if="${row.draft and !row.next}" class="text-muted" style="font-size: var(--ep-text-xs);">long-term work</span>
+                                <span th:if="${row.draft and !row.next}" class="text-muted" style="font-size: var(--ep-text-xs);">parallel work</span>
                             </td>
                             <!--/* Every version starts from a published one, unless it started from nothing. */-->
                             <td data-testid="catalog-version-base">
@@ -222,7 +222,7 @@
                                             data-confirm-submit
                                             th:attr="data-confirm-submit-title=${row.draft} ? 'Discard this draft' : 'Delete this version',
                                                      data-confirm-submit-message=${row.draft}
-                                                         ? (${row.next} ? 'Every change in the next version is thrown away; it starts again from the latest published version. Published versions and long-term work are not affected. This cannot be undone.' : ${row.label} + ' is discarded with every change made in it. Published versions and the next version are not affected. This cannot be undone.')
+                                                         ? (${row.next} ? 'Every change in the next version is thrown away; it starts again from the latest published version. Published versions and parallel work are not affected. This cannot be undone.' : ${row.label} + ' is discarded with every change made in it. Published versions and the next version are not affected. This cannot be undone.')
                                                          : 'v' + ${row.version} + ' is removed entirely, with its content, its notes and its fingerprint. Anything already sent to Epistola Exchange stays there. This cannot be undone.',
                                                      data-confirm-submit-label=${row.draft} ? 'Discard draft' : 'Delete version'"
                                             data-confirm-submit-class="ep-btn-destructive"

@@ -112,8 +112,8 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `long-term work is named, with a strip and the way back, and is published on its own`() {
-        val tenant = seed("Version Bar Long Term")
+    fun `parallel work is named, with a strip and the way back, and is published on its own`() {
+        val tenant = seed("Version Bar Parallel")
         val work = withMediator {
             val draft = CreateCatalogDraft(tenant.id, catalogKey, "Redesign 2027").execute()
             // The work changes something, so it has changes of its own.
@@ -128,20 +128,20 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
         val page = get(tenant, "/catalogs/bar-cat@$work/themes/house")
         assertThat(page).contains("ws-bar-side")
         assertThat(page.substringAfter("data-testid=\"ws-crumb-version\"").substringBefore("</button>")).contains(">Redesign 2027<")
-        assertThat(page).contains("data-testid=\"catalog-long-term-banner\"").contains("You are changing Redesign 2027, long-term work kept apart from the next version")
+        assertThat(page).contains("data-testid=\"catalog-parallel-banner\"").contains("You are changing Redesign 2027, parallel work kept apart from the next version")
         assertThat(page).contains("hx-get=\"/tenants/${tenant.id.value}/catalogs/bar-cat@$work/bar-status\"")
-        assertThat(page).contains("href=\"/tenants/${tenant.id.value}/catalogs/bar-cat/themes/house\" data-testid=\"catalog-long-term-back\"")
+        assertThat(page).contains("href=\"/tenants/${tenant.id.value}/catalogs/bar-cat/themes/house\" data-testid=\"catalog-parallel-back\"")
         assertThat(barStatus(tenant, "bar-cat@$work")).`as`("any draft is published on its own").contains("data-testid=\"catalog-bar-publish\"")
             .`as`("its changes, not what is published").contains(">1 change<").doesNotContain("not published")
 
         val next = get(tenant, "/catalogs/bar-cat/themes/house")
-        assertThat(next).doesNotContain("data-testid=\"catalog-long-term-banner\"")
+        assertThat(next).doesNotContain("data-testid=\"catalog-parallel-banner\"")
         assertThat(next.substringAfter("data-testid=\"ws-version-menu\"").substringBefore("ws-menu-sep"))
             .contains(">Next version<").contains(">Redesign 2027<")
             .`as`("a switch keeps the page someone is on").contains("href=\"/tenants/${tenant.id.value}/catalogs/bar-cat@$work/switch\"")
         assertThat(Regex("ws-menu-check").findAll(next.substringAfter("data-testid=\"ws-version-menu\"").substringBefore("ws-menu-sep")).count())
             .`as`("only the version the page is in is ticked").isEqualTo(1)
-        assertThat(next).`as`("long-term work is started from the bar").contains("data-testid=\"ws-start-long-term\"")
+        assertThat(next).`as`("parallel work is started from the bar").contains("data-testid=\"ws-start-parallel\"")
     }
 
     @Test

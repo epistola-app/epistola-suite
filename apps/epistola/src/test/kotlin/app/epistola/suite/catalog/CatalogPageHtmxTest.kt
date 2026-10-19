@@ -143,7 +143,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `long-term work in the catalog page's address goes to its own page`() {
+    fun `parallel work in the catalog page's address goes to its own page`() {
         lateinit var work: String
         val tenant = catalog("Page Redirects") { tenant, catalog ->
             invoice(catalog)

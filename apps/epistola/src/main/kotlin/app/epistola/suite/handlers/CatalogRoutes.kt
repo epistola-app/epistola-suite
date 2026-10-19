@@ -39,7 +39,7 @@ class CatalogRoutes(
             POST("/{catalogId}/delete", handler::deleteCatalog)
             GET("/{catalogId}/release", handler::releaseDialog)
             POST("/{catalogId}/release", handler::release)
-            // A catalog's drafts (contract ADR 0002, amendment 2). `{catalogId}` may name long-term
+            // A catalog's drafts (contract ADR 0002, amendment 2). `{catalogId}` may name parallel
             // work as `key@<draft id>`, on these routes and every other per-catalog and per-resource route.
             GET("/{catalogId}/drafts/new", drafts::createForm)
             POST("/{catalogId}/drafts", drafts::create)
@@ -50,7 +50,7 @@ class CatalogRoutes(
             GET("/{catalogId}/follow", drafts::followForm)
             POST("/{catalogId}/follow", drafts::follow)
             POST("/{catalogId}/unfollow", drafts::unfollow)
-            // Long-term work becomes the next version when it is ready.
+            // Parallel work becomes the next version when it is ready.
             GET("/{catalogId}/promote", drafts::promoteForm)
             POST("/{catalogId}/promote", drafts::promote)
             // Preparing the next release: readiness, declared dependencies

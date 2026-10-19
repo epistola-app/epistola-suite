@@ -91,7 +91,7 @@ class WorkspaceBuilder {
                         label = link.label,
                         detail = when {
                             link.next -> link.base?.let { "Based on v$it" }
-                            else -> "Long-term work" + (link.base?.let { ", started from v$it" } ?: "")
+                            else -> "Parallel work" + (link.base?.let { ", started from v$it" } ?: "")
                         },
                         // The same page in that version (VersionSwitch). The link is the same on every
                         // page, so the bar is not sent again while moving around in a version.
@@ -105,7 +105,7 @@ class WorkspaceBuilder {
             return CatalogScope(
                 bar = bar,
                 versionLabel = label,
-                sideWork = bar.onLongTermWork,
+                sideWork = bar.onParallelWork,
                 sections = CatalogNav.sections(bar, path, may, qualityAvailable),
                 versions = versions,
                 statusHref = if (bar.authored && publishedVersion == null) "$tenant/catalogs/${bar.segmentValue}/bar-status" else null,
@@ -113,7 +113,7 @@ class WorkspaceBuilder {
             )
         }
 
-        /** How the way back names where someone was: "Back to Letters", and the long-term work when it was that. */
+        /** How the way back names where someone was: "Back to Letters", and the parallel work when it was that. */
         fun backLabel(scope: CatalogScope): String = "Back to ${scope.name}" + if (scope.sideWork) ", ${scope.versionLabel}" else ""
 
         private fun remember(request: HttpServletRequest, tenantKey: TenantKey, back: BackLink) {

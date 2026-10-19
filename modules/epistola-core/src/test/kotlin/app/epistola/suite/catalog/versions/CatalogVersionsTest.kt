@@ -36,7 +36,7 @@ import java.util.UUID
 
 /**
  * A catalog consists of versions (contract ADR 0002, amendment 2): released ones and, for an authored
- * catalog, its next version (and any long-term work, [SeveralDraftsTest]). A draft has no number until
+ * catalog, its next version (and any parallel work, [SeveralDraftsTest]). A draft has no number until
  * it is released; releasing the next version continues it on the release.
  */
 class CatalogVersionsTest : IntegrationTestBase() {
@@ -141,7 +141,7 @@ class CatalogVersionsTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `an author starts and renames long-term work, and only a publisher releases, discards and deploys (contract 2_0)`() {
+    fun `an author starts and renames parallel work, and only a publisher releases, discards and deploys (contract 2_0)`() {
         val tenant = catalog("versions-permissions")
         withMediator { mediator.releaseNext(CatalogId(letters, TenantId(tenant))) }
         withMediator { CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute() }

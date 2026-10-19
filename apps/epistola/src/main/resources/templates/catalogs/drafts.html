@@ -1,16 +1,16 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-    <!--/* Long-term work of an authored catalog (contract ADR 0002, amendment 2). Which draft a page
+    <!--/* Parallel work of an authored catalog (contract ADR 0002, amendment 2). Which draft a page
            works in is shown by the workspace bar (layout/nav), built from CatalogDraftBar. */-->
 
-    <!--/* Start long-term work: a name, and what it starts from — the next version, unpublished changes
+    <!--/* Start parallel work: a name, and what it starts from — the next version, unpublished changes
            included, or a published version that kept its content.
            Model: `tenantId`, `bar`, and on re-render `formData`/`errors`. */-->
     <th:block th:fragment="create-dialog">
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='create-draft-dialog',
-            title='Start long-term work',
+            title='Start parallel work',
             closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${bar.catalogKey})},
             content=~{::create-form})}"></div>
     </th:block>
@@ -72,7 +72,7 @@
                 <span class="ep-label">The current next version</span>
                 <label style="display: flex; gap: var(--ep-space-2);">
                     <input type="radio" name="previous" value="keep" checked data-testid="promote-keep">
-                    <span>Keep it as long-term work, named</span>
+                    <span>Keep it as parallel work, named</span>
                 </label>
                 <input type="text" name="keepAs" class="ep-input" maxlength="100" th:value="${keepAsSuggestion}"
                        style="margin: var(--ep-space-1) 0 var(--ep-space-2) var(--ep-space-6); width: calc(100% - var(--ep-space-6));"

@@ -31,13 +31,13 @@
                     <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments(tenantId=${tenantId},catalogId=${catalogId})}">Deploy a version or undeploy it</a>
                     under Deployments.
                 </p>
-                <p class="form-hint">A published version does not change. Change the next version and publish that; for a large change that is not ready yet, start long-term work from this version.</p>
+                <p class="form-hint">A published version does not change. Change the next version and publish that; for a large change that is not ready yet, start parallel work from this version.</p>
 
                 <div class="ep-row" style="gap: var(--ep-space-2); flex-wrap: wrap;">
                     <button th:if="${bar.offerCreateDraft and bar.createFromOptions.contains(version)}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                             data-testid="release-start-draft"
                             th:hx-get="@{/tenants/{t}/catalogs/{c}/drafts/new(t=${tenantId},c=${catalogId},from=${version})}"
-                            hx-target="#ws-dialog-mount" hx-swap="innerHTML">Start long-term work from this version</button>
+                            hx-target="#ws-dialog-mount" hx-swap="innerHTML">Start parallel work from this version</button>
 
                     <!--/* Offered where it can be carried out: the catalog can publish at all, this
                            release kept content to send, and it has not been sent already. */-->

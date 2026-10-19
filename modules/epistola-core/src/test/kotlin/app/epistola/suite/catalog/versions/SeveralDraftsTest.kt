@@ -64,7 +64,7 @@ import java.util.UUID
 
 /**
  * The drafts of one catalog (contract ADR 0002, amendment 2): its next version, where everyday work
- * goes, and long-term work next to it. Each is an independent copy with a fixed base, a message that
+ * goes, and parallel work next to it. Each is an independent copy with a fixed base, a message that
  * names a draft ([CatalogVersionScoped]) reads and writes that draft, and only the next version is
  * released, numbered when it is.
  */
@@ -154,7 +154,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `the next version and long-term work are edited independently, and a caller that names none means the next version`() {
+    fun `the next version and parallel work are edited independently, and a caller that names none means the next version`() {
         val tenant = released("drafts-independent")
         val redesign = work(tenant, "Redesign")
 
@@ -214,7 +214,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `long-term work started from a release holds what the release holds, on that release`() {
+    fun `parallel work started from a release holds what the release holds, on that release`() {
         val tenant = released("drafts-from-release")
         val releasedDigests = digests(tenant, DraftRef.Next)
         withMediator { UpdateTheme(brand(tenant), name = "Brand, edited later").execute() }
@@ -256,7 +256,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `long-term work can be renamed, the next version cannot`() {
+    fun `parallel work can be renamed, the next version cannot`() {
         val tenant = released("drafts-rename")
         val redesign = work(tenant, "Redesign") as DraftRef.Id
         work(tenant, "Other")
@@ -269,7 +269,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `discarding long-term work deletes only its content, and a resource keeps its identity while another draft or a release holds it`() {
+    fun `discarding parallel work deletes only its content, and a resource keeps its identity while another draft or a release holds it`() {
         val tenant = released("drafts-delete")
         val redesign = work(tenant, "Redesign")
         val kept = rowsIn(tenant, DraftRef.Next)
@@ -413,7 +413,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a resource cannot be relocated while its catalog has long-term work`() {
+    fun `a resource cannot be relocated while its catalog has parallel work`() {
         val tenant = released("drafts-relocate")
         withMediator { CreateCatalog(tenant, CatalogKey.of("shared"), "Shared").execute() }
         val move = listOf(ResourceAddress(CatalogResourceType.THEME, letters.value, "brand").movedTo(CatalogKey.of("shared")))

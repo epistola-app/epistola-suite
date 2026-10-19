@@ -25,7 +25,7 @@ import app.epistola.suite.security.SecurityContext
  * Where an authored catalog's next release stands, and which of its actions to offer: the draft's
  * number, what changed since the last release and whether each change is ready, and the declared
  * dependencies the release is cut with. It is about the draft the page works in, [drafts]`.chosen`;
- * only the next version is published (contract ADR 0002, amendment 2), so long-term work shows what
+ * only the next version is published (contract ADR 0002, amendment 2), so parallel work shows what
  * changed in it but offers no publishing.
  *
  * Built for one catalog's page (it builds the working copy once, like [GetCatalogResourceChanges]);
@@ -47,7 +47,7 @@ data class CatalogReleaseReadiness(
     val mayRelease: Boolean,
     val mayEditDraft: Boolean,
     val mayMarkReady: Boolean,
-    /** The number the next version would be published as, and why; null for long-term work and without a draft. */
+    /** The number the next version would be published as, and why; null for parallel work and without a draft. */
     val numbering: DraftNumberAssessment? = null,
     /** What the draft takes from other catalogs, and whether each is declared. */
     val borrowing: CatalogBorrowing = CatalogBorrowing(emptyList(), emptyList()),

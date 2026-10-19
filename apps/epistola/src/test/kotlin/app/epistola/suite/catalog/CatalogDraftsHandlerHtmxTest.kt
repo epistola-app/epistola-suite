@@ -57,7 +57,7 @@ import tools.jackson.databind.ObjectMapper
 import java.util.UUID
 
 /**
- * The drafts of a catalog in the UI (contract ADR 0002, amendment 2): long-term work travels in the
+ * The drafts of a catalog in the UI (contract ADR 0002, amendment 2): parallel work travels in the
  * catalog's path segment (`letters@<draft id>`), the plain segment is the next version, the catalog
  * page and the content pages work on the draft the segment names, and only the next version is
  * published.
@@ -94,7 +94,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         ReleaseCatalogVersion(tenant.id, letters, "1.0.0").execute()
     }
 
-    /** [released], then long-term work "Redesign", and the invoice named differently in each; its id. */
+    /** [released], then parallel work "Redesign", and the invoice named differently in each; its id. */
     private fun withRedesign(tenant: Tenant): String {
         released(tenant)
         return withMediator {
@@ -108,7 +108,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     private fun drafts(tenant: Tenant) = withMediator { ListCatalogVersions(tenant.id, letters, CatalogVersionStatus.DRAFT).query() }.map { it.label }
 
     @Test
-    fun `the next version's page says it is numbered when published, and the Versions page offers long-term work`() = fixture {
+    fun `the next version's page says it is numbered when published, and the Versions page offers parallel work`() = fixture {
         lateinit var tenant: Tenant
         given {
             tenant = tenant("Drafts One")
@@ -118,12 +118,12 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val (draft, catalog) = result<Pair<ResponseEntity<String>, ResponseEntity<String>>>()
             assertThat(draft.body!!).contains("has no number until it is published").doesNotContain("catalog-renumber-open")
-            assertThat(catalog.body!!).contains("data-testid=\"catalog-draft-new\"").contains("Start long-term work")
+            assertThat(catalog.body!!).contains("data-testid=\"catalog-draft-new\"").contains("Start parallel work")
         }
     }
 
     @Test
-    fun `with long-term work the Versions page lists both, and a draft's page works on the one its segment names`() = fixture {
+    fun `with parallel work the Versions page lists both, and a draft's page works on the one its segment names`() = fixture {
         lateinit var tenant: Tenant
         lateinit var work: String
         given {
@@ -132,7 +132,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         }
         whenever {
             val catalog = get("/tenants/${tenant.id}/catalogs/letters/versions").body!!
-            // The next version is linked plainly, long-term work by its id.
+            // The next version is linked plainly, parallel work by its id.
             assertThat(catalog).contains("href=\"/tenants/${tenant.id}/catalogs/letters/draft\"")
             assertThat(catalog).contains("href=\"/tenants/${tenant.id}/catalogs/letters@$work/draft\"").contains(">Redesign<")
             get("/tenants/${tenant.id}/catalogs/letters@$work/draft")
@@ -140,11 +140,11 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val body = result<ResponseEntity<String>>().body!!
             assertThat(body).contains("<span id=\"page-title-text\">Redesign</span>")
-            assertThat(body).contains("data-testid=\"catalog-long-term-hint\"")
+            assertThat(body).contains("data-testid=\"catalog-parallel-hint\"")
             // Its resources link into the draft, and its actions act on it.
             assertThat(body).contains("/tenants/${tenant.id}/catalogs/letters@$work/templates/invoice")
             assertThat(body).contains("/tenants/${tenant.id}/catalogs/letters@$work/drafts/discard")
-            assertThat(body).`as`("long-term work is published on its own").contains("data-testid=\"catalog-release-open\"")
+            assertThat(body).`as`("parallel work is published on its own").contains("data-testid=\"catalog-release-open\"")
         }
     }
 
@@ -164,7 +164,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `the template page in long-term work shows its template, under the banner, and links stay in it`() = fixture {
+    fun `the template page in parallel work shows its template, under the banner, and links stay in it`() = fixture {
         lateinit var tenant: Tenant
         lateinit var work: String
         given {
@@ -175,7 +175,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val body = result<ResponseEntity<String>>().body!!
             assertThat(body).contains("Invoice redesigned").doesNotContain("Invoice, fixed")
-            assertThat(body).contains("data-testid=\"catalog-long-term-banner\"").contains("data-draft=\"$work\"")
+            assertThat(body).contains("data-testid=\"catalog-parallel-banner\"").contains("data-draft=\"$work\"")
             assertThat(body).contains("/tenants/${tenant.id}/catalogs/letters@$work/templates/invoice/settings")
             assertThat(body).contains("/tenants/${tenant.id}/catalogs/letters@$work/templates/invoice/variants/initial/editor")
         }
@@ -221,7 +221,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `the plain template page is the next version, and offers long-term work once there is some`() = fixture {
+    fun `the plain template page is the next version, and offers parallel work once there is some`() = fixture {
         lateinit var tenant: Tenant
         lateinit var several: String
         lateinit var work: String
@@ -237,7 +237,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             one
         }
         then {
-            // The context bar names the version; its menu offers the long-term work.
+            // The context bar names the version; its menu offers the parallel work.
             assertThat(result<String>()).contains("data-testid=\"ws-crumb-version\"").contains(">Next version<")
                 .doesNotContain("/templates/letters@")
             assertThat(several).doesNotContain("Invoice redesigned").contains("data-testid=\"ws-version-link\"").contains("/catalogs/letters@$work/switch")
@@ -267,7 +267,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `a theme saved from its page in long-term work changes only that work`() = fixture {
+    fun `a theme saved from its page in parallel work changes only that work`() = fixture {
         lateinit var tenant: Tenant
         lateinit var work: String
         given {
@@ -287,7 +287,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `a stencil page in long-term work shows the work's stencil`() = fixture {
+    fun `a stencil page in parallel work shows the work's stencil`() = fixture {
         lateinit var tenant: Tenant
         lateinit var work: String
         given {
@@ -309,7 +309,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `the attributes list filtered to long-term work lists its attributes, and creating there lands in it`() = fixture {
+    fun `the attributes list filtered to parallel work lists its attributes, and creating there lands in it`() = fixture {
         lateinit var tenant: Tenant
         lateinit var work: String
         given {
@@ -336,7 +336,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `Start long-term work opens it and lands on it, starting from a published version when asked, and a name in use is refused on the field`() = fixture {
+    fun `Start parallel work opens it and lands on it, starting from a published version when asked, and a name in use is refused on the field`() = fixture {
         lateinit var tenant: Tenant
         given {
             tenant = tenant("Drafts Create")
@@ -363,7 +363,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `discarding long-term work removes it and lands on the catalog`() = fixture {
+    fun `discarding parallel work removes it and lands on the catalog`() = fixture {
         lateinit var tenant: Tenant
         lateinit var work: String
         given {
@@ -420,7 +420,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `long-term work is published on its own, numbered from its base, and the next version is left as it was`() = fixture {
+    fun `parallel work is published on its own, numbered from its base, and the next version is left as it was`() = fixture {
         lateinit var tenant: Tenant
         lateinit var work: String
         given {
@@ -440,7 +440,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `making long-term work the next version keeps the old one by name, and neither base moves`() = fixture {
+    fun `making parallel work the next version keeps the old one by name, and neither base moves`() = fixture {
         lateinit var tenant: Tenant
         lateinit var work: String
         given {

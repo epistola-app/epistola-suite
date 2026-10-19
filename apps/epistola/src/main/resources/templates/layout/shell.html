@@ -36,7 +36,7 @@
                 </main>
                 <!--/* The publish dialog, opened from the bar's Publish… and from the catalog's own pages. */-->
                 <div th:if="${workspace?.catalog != null}" id="release-dialog-container" data-open-dialog-on-swap="release-dialog"></div>
-                <!--/* Dialogs the context bar opens on any catalog page, such as starting long-term work. */-->
+                <!--/* Dialogs the context bar opens on any catalog page, such as starting parallel work. */-->
                 <div th:if="${workspace?.catalog != null}" id="ws-dialog-mount" data-dialog-mount></div>
                 <!--/* Which bar and nav this page was rendered with, sent back on the next boosted
                        navigation so the server sends them again only when they change. */-->

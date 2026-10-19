@@ -53,7 +53,7 @@ class ReleaseBaseTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `long-term work is behind every release since its base, each with what it changed`() {
+    fun `parallel work is behind every release since its base, each with what it changed`() {
         val invoice = { tenant: TenantKey -> TemplateId(TemplateKey.of("invoice"), catalogId(tenant)) }
         val tenant = withMediator {
             val tenant = createTenant("release-base-behind").id

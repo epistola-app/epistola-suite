@@ -51,7 +51,7 @@ class DeleteCatalogVersionHeldTest : IntegrationTestBase() {
     private fun id(tenant: TenantKey, catalog: CatalogKey = letters) = CatalogId(catalog, TenantId(tenant))
 
     /**
-     * `letters` with a `brand` theme, released as 1.0.0, its next version, and long-term work "Redesign".
+     * `letters` with a `brand` theme, released as 1.0.0, its next version, and parallel work "Redesign".
      * What is created below goes into the next version, the one everything outside the catalog sees:
      * discarding it would take a resource that is in no release away from what uses it.
      */

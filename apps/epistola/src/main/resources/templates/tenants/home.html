@@ -86,11 +86,11 @@
                                               th:text="${catalog.next.behind.size() == 1} ? 'v' + ${catalog.next.behind[0]} + ' not in it yet' : ${catalog.next.behind.size()} + ' published versions not in it yet'">v1.4.1 not in it yet</span>
                                     </div>
                                 </div>
-                                <!--/* Long-term work next to the next version, each by its name. */-->
-                                <div th:each="work : ${catalog.drafts}" th:unless="${work.isNext}" data-testid="catalog-overview-long-term">
+                                <!--/* Parallel work next to the next version, each by its name. */-->
+                                <div th:each="work : ${catalog.drafts}" th:unless="${work.isNext}" data-testid="catalog-overview-parallel">
                                     <a th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenant.id},c=${catalog.catalogKey + '@' + work.draftId})}"
                                        th:text="${work.label}">Redesign 2027</a>
-                                    <span class="text-muted">· long-term work</span>
+                                    <span class="text-muted">· parallel work</span>
                                 </div>
                             </dd>
                         </th:block>

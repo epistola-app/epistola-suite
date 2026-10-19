@@ -839,7 +839,7 @@ class CatalogHandler {
 
     /**
      * `GET /{catalogId}/draft`: a draft's own page — what is not published yet, its contents and its
-     * details. A plain segment is the next version; `key@<draft id>` long-term work. A subscribed
+     * details. A plain segment is the next version; `key@<draft id>` parallel work. A subscribed
      * catalog has no drafts, and a catalog with nothing open goes to its catalog page, which offers to
      * start.
      */
@@ -965,7 +965,7 @@ class CatalogHandler {
             val deployments = deploymentRows(tenantId.key, catalogKey)
             // Every release can be deployed. Newest first, as the list is.
             val deployableVersions = releases.map { it.version }
-            // The open drafts an environment can follow (not production): the next version and long-term work.
+            // The open drafts an environment can follow (not production): the next version and parallel work.
             val followableDrafts = if (result.catalog.type == CatalogType.AUTHORED) {
                 ListCatalogVersions(tenantId.key, catalogKey).query().filter { it.status == CatalogVersionStatus.DRAFT }
             } else {

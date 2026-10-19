@@ -112,9 +112,9 @@
                 A draft has no number until it is published: publishing picks it from the kind of change since
                 the version it started from.
             </p>
-            <p th:if="${readiness.drafts.onLongTermWork}" class="form-hint" style="margin-top: var(--ep-space-2);"
-               data-testid="catalog-long-term-hint">
-                This is long-term work, kept apart from the next version: publish it on its own when it is
+            <p th:if="${readiness.drafts.onParallelWork}" class="form-hint" style="margin-top: var(--ep-space-2);"
+               data-testid="catalog-parallel-hint">
+                This is parallel work, kept apart from the next version: publish it on its own when it is
                 ready, or try it first by pointing a test environment at it.
             </p>
             <div class="ep-row" style="gap: var(--ep-space-2); margin: var(--ep-space-2) 0;">
@@ -125,7 +125,7 @@
                             data-confirm-submit
                             th:attr="data-confirm-submit-title=${readiness.drafts.isNext} ? 'Discard all changes' : 'Discard this work',
                                      data-confirm-submit-message=${readiness.drafts.isNext}
-                                         ? 'Every change in the next version is thrown away; it starts again from the latest published version. Published versions and long-term work are not affected. This cannot be undone.'
+                                         ? 'Every change in the next version is thrown away; it starts again from the latest published version. Published versions and parallel work are not affected. This cannot be undone.'
                                          : ${readiness.draft.label} + ' is discarded with every change made in it. Published versions and the next version are not affected. This cannot be undone.',
                                      data-confirm-submit-label=${readiness.drafts.isNext} ? 'Discard all changes' : 'Discard work'"
                             data-confirm-submit-class="ep-btn-destructive"
@@ -141,7 +141,7 @@
                th:text="${readiness.notReady.size() == 1} ? '1 change is not marked ready yet; publishing marks it.' : ${readiness.notReady.size()} + ' changes are not marked ready yet; publishing marks them.'"></p>
             <p th:if="${readiness.drafts.draftControlsWithheld and readiness.drafts.severalDrafts}" class="form-hint"
                data-testid="catalog-draft-controls-withheld">
-                Starting long-term work needs the content author role.
+                Starting parallel work needs the content author role.
             </p>
             <p th:if="${readiness.drafts.discardWithheld}" class="form-hint"
                data-testid="catalog-draft-discard-withheld">

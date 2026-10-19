@@ -38,7 +38,7 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
     private lateinit var restTemplate: TestRestTemplate
 
     @Test
-    fun `the tenant home shows each catalog's next version, long-term work, published version and where it is live`() {
+    fun `the tenant home shows each catalog's next version, parallel work, published version and where it is live`() {
         val tenant = createTenant("Home Overview")
         val letters = CatalogKey.of("letters")
         val catalog = CatalogId(letters, TenantId(tenant.id))
@@ -62,8 +62,8 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
         assertThat(card).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/browse\"")
         assertThat(card).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/draft\"").contains(">Next version<")
         val redesign = withMediator { ListCatalogVersions(tenant.id, letters).query() }.single { it.name == "Redesign" }.versionId
-        assertThat(card).`as`("long-term work, by its name").contains("href=\"/tenants/${tenant.id.value}/catalogs/letters@$redesign/draft\"")
-            .contains(">Redesign<").contains("long-term work")
+        assertThat(card).`as`("parallel work, by its name").contains("href=\"/tenants/${tenant.id.value}/catalogs/letters@$redesign/draft\"")
+            .contains(">Redesign<").contains("parallel work")
         assertThat(card).contains("1 change not published yet")
         assertThat(card).contains("v1.0.0")
         assertThat(card).contains(">production</a>")

@@ -30,7 +30,7 @@ import java.util.UUID
 
 /**
  * The drafts of a catalog over MCP (contract ADR 0002, amendment 2): the version tools list drafts and
- * releases, start, rename and discard long-term work, preview the number the next version gets and
+ * releases, start, rename and discard parallel work, preview the number the next version gets and
  * release it; the content tools read and write the draft their `catalogVersion` argument names, the
  * next version without one.
  */
@@ -106,7 +106,7 @@ class CatalogVersionMcpToolsIntegrationTest : IntegrationTestBase() {
 
         runAsApiKey(tenantId) {
             assertThat(themeTools.getTheme("default", "brand", catalogVersion = redesign)!!.name).isEqualTo("Brand redesigned")
-            // Without one, the next version, however new long-term work is.
+            // Without one, the next version, however new parallel work is.
             assertThat(themeTools.getTheme("default", "brand")!!.name).isEqualTo("Brand, fixed")
             assertThat(themeTools.listThemes("default", null, catalogVersion = redesign).map { it.name }).contains("Brand redesigned")
             assertThat(readyTools.getCatalogChanges("default", catalogVersion = redesign).resources.single { it.key == "brand" }.state).isEqualTo("MODIFIED")
@@ -114,7 +114,7 @@ class CatalogVersionMcpToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a template created in long-term work exists only there`() {
+    fun `a template created in parallel work exists only there`() {
         val tenantId = newTenant()
         released(tenantId)
         val redesign = work(tenantId, "Redesign")

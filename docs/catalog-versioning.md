@@ -186,8 +186,8 @@ fonts, images, the template editor and its preview). List pages take it as their
   `GetThemeUsagePage`, `ResolveTemplateTheme`, `PreviewVariant`, `BrowseCatalog`, …).
 - **The context bar** (read model `CatalogDraftBar`, [`workspace-shell.md`](workspace-shell.md)) says
   which draft a page works in: "Next version", or another draft by its name with a strip saying it is
-  kept apart (the UI still calls such a draft _long-term work_). Its version menu lists the next version and each piece of long-term work, and offers
-  _Start long-term work…_ (`catalogs/drafts.html`: a name, and a published version or the next version
+  kept apart (the UI calls such a draft _parallel work_). Its version menu lists the next version and each piece of parallel work, and offers
+  _Start parallel work…_ (`catalogs/drafts.html`: a name, and a published version or the next version
   to start from).
 - **Publishing** is offered for every draft, numbered from its changes against its base; the release
   dialog lists the releases it is behind, with their changes, and asks to confirm each

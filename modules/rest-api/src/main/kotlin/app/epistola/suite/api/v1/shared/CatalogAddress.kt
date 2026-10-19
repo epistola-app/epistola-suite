@@ -56,7 +56,7 @@ internal val ResolvedCatalogVersion.tenantKey: TenantKey get() = catalog.tenantK
  */
 internal val ResolvedCatalogVersion.ref: CatalogVersionRef? get() = if (isDraft) CatalogVersionRef(catalog.tenantKey, catalogKey, draftRef) else null
 
-/** How a message names the draft this address names: `next`, or long-term work by its id. */
+/** How a message names the draft this address names: `next`, or parallel work by its id. */
 internal val ResolvedCatalogVersion.draftRef: DraftRef get() = requireNotNull(version.draftRef) { "not a draft" }
 
 internal val ResolvedCatalogVersion.catalogId: CatalogId get() = catalog.catalogId

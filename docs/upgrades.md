@@ -139,7 +139,7 @@ that outage, and tell the teams whose applications request documents.
    ```
 
 Work that was unpublished in 1.x is in each catalog's draft, to be marked ready and released as usual. Each catalog comes across with that one draft, its next version; from 2.0 a catalog can also hold
-long-term work next to it (see [drafts](catalog-versioning.md#catalog-versions-and-drafts)).
+parallel work next to it (see [drafts](catalog-versioning.md#catalog-versions-and-drafts)).
 
 ## Backups and upgrades
 

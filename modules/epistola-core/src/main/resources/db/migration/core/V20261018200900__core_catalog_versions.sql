@@ -3,7 +3,7 @@
 -- - drafts of an authored catalog. A draft is numbered when it is released (ADR 0002, amendment 2),
 --   so it has no number here: it is identified by its version_id. Every authored catalog has one
 --   next version (is_next), the draft everyday work goes into and the one a caller that names no
---   version means; any other draft is long-term work, with a name people see.
+--   version means; any other draft is parallel work, with a name people see.
 -- - the installed release of a subscribed catalog: its content is the mirror an install put in
 --   place, read-only, numbered by the installed release.
 -- A content row belongs to one of these by version_id (the content-per-version migration), so several
@@ -51,7 +51,7 @@ COMMENT ON COLUMN catalog_versions.version IS
 COMMENT ON COLUMN catalog_versions.is_next IS
     'The catalog''s next version: the draft everyday work goes into, and the one a caller that names no version means. One per authored catalog.';
 COMMENT ON COLUMN catalog_versions.name IS
-    'What people call a draft that is long-term work (not the next version), e.g. "Redesign 2027". NULL for the next version, which is always "Next version".';
+    'What people call a draft that is parallel work (not the next version), e.g. "Redesign 2027". NULL for the next version, which is always "Next version".';
 COMMENT ON COLUMN catalog_versions.created_from IS
     'The version_key of the draft this draft was copied from, unreleased changes included; NULL when it was started from a release, its base, or from nothing.';
 COMMENT ON COLUMN catalog_versions.version_key IS
@@ -98,9 +98,9 @@ CREATE TRIGGER trg_catalogs_installed_version_update
 EXECUTE FUNCTION catalog_installed_version();
 
 -- The version a caller means: the one its transaction targets (epistola.content_version), else a
--- subscribed catalog's installed release, else the authored catalog's next version. Long-term work
+-- subscribed catalog's installed release, else the authored catalog's next version. Parallel work
 -- is reached only by targeting it: a catalog without a next version has no current version, so a
--- write that names none fails instead of landing in long-term work.
+-- write that names none fails instead of landing in parallel work.
 CREATE VIEW catalog_current_versions AS
 SELECT DISTINCT ON (v.tenant_key, v.catalog_id) v.tenant_key, v.catalog_id, v.version_id
 FROM catalog_versions v

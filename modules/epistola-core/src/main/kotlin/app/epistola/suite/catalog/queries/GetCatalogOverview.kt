@@ -61,7 +61,7 @@ data class CatalogOverview(
 }
 
 /**
- * An open draft: the next version, or long-term work by [label]; and the releases it does not
+ * An open draft: the next version, or parallel work by [label]; and the releases it does not
  * contain that are above its base.
  */
 data class DraftOverview(val draftId: String, val label: String, val isNext: Boolean, val base: String?, val behind: List<String>)

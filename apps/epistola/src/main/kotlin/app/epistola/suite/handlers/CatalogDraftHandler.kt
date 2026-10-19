@@ -51,7 +51,7 @@ class CatalogDraftHandler(
 ) {
 
     /**
-     * `GET /{catalogId}/drafts/new`: the dialog starting long-term work, from the next version or, with
+     * `GET /{catalogId}/drafts/new`: the dialog starting parallel work, from the next version or, with
      * `from`, the published version it was opened on.
      */
     fun createForm(request: ServerRequest): ServerResponse {
@@ -137,13 +137,13 @@ class CatalogDraftHandler(
         }
     }
 
-    /** `GET /{catalogId}/promote` at long-term work: the dialog making it the next version. */
+    /** `GET /{catalogId}/promote` at parallel work: the dialog making it the next version. */
     fun promoteForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.CATALOG_RELEASE)
         val segment = request.catalogSegment()
         val bar = bar(tenantId, segment)
-        val work = bar.chosen?.takeIf { bar.onLongTermWork } ?: return ServerResponse.notFound().build()
+        val work = bar.chosen?.takeIf { bar.onParallelWork } ?: return ServerResponse.notFound().build()
         return request.htmx {
             fragment("catalogs/drafts", "promote-dialog") {
                 promoteModel(tenantId, segment, bar, work)
@@ -153,7 +153,7 @@ class CatalogDraftHandler(
     }
 
     /**
-     * `POST /{catalogId}/promote` at long-term work, with `previous` (`keep` with `keepAs`, or
+     * `POST /{catalogId}/promote` at parallel work, with `previous` (`keep` with `keepAs`, or
      * `discard`) and `acknowledgedBehind` per release it is behind: makes it the next version and lands
      * on the catalog. A refusal comes back in the dialog.
      */
@@ -162,7 +162,7 @@ class CatalogDraftHandler(
         requirePermission(tenantId.key, Permission.CATALOG_RELEASE)
         val segment = request.catalogSegment()
         val bar = bar(tenantId, segment)
-        val work = bar.chosen?.takeIf { bar.onLongTermWork } ?: return ServerResponse.notFound().build()
+        val work = bar.chosen?.takeIf { bar.onParallelWork } ?: return ServerResponse.notFound().build()
         val keep = request.param("previous").orElse("keep") != "discard"
         val keepAs = request.param("keepAs").orElse("").trim().ifBlank { null }
 

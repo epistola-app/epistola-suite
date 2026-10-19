@@ -39,7 +39,7 @@ internal fun catalogFilter(catalogId: String?): CatalogKey? {
 }
 
 /** The description of the optional `catalogVersion` argument of every tool that addresses catalog content. */
-internal const val CATALOG_VERSION_DESCRIPTION = "Draft of the catalog to work in: `next`, or long-term work by its " +
+internal const val CATALOG_VERSION_DESCRIPTION = "Draft of the catalog to work in: `next`, or parallel work by its " +
     "`draftId` from `list_catalog_versions`. Omit for the catalog's current version: its next version (a SUBSCRIBED " +
     "catalog's installed release)."
 

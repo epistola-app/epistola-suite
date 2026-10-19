@@ -233,7 +233,7 @@ internal fun GenerateBatchRequest.toCommand(
 
 /**
  * A preview renders a release (`version`, `environmentKey`) or, with `draft`, a draft: `next`, or
- * long-term work by its id. [requireDraft] resolves the draft and refuses one the catalog does not have.
+ * parallel work by its id. [requireDraft] resolves the draft and refuses one the catalog does not have.
  */
 internal fun PreviewDocumentRequest.toQuery(
     tenantKey: String,
@@ -255,7 +255,7 @@ internal fun PreviewDocumentRequest.toQuery(
         releaseVersion = versionRange,
         workingCopy = draft != null,
         environmentId = environmentKey?.let { EnvironmentKey.of(it) },
-        // The draft it names: the next version, or long-term work by its id.
+        // The draft it names: the next version, or parallel work by its id.
         catalogVersion = draft?.let { CatalogVersionRef(catalog.tenantKey, catalog.id, requireNotNull(DraftRef.parse(it)) { "Not a draft: '$it'" }) },
     )
 }

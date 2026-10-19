@@ -16,7 +16,7 @@ import java.util.UUID
 
 /**
  * The catalog page's view of an authored catalog's versions (docs/catalog-working-model.md, contract
- * ADR 0002 amendment 2): the next version, long-term work next to it, and the published versions.
+ * ADR 0002 amendment 2): the next version, parallel work next to it, and the published versions.
  */
 class CatalogDraftBarVersionsTest {
 
@@ -57,7 +57,7 @@ class CatalogDraftBarVersionsTest {
     )
 
     @Test
-    fun `versions list the next version first, then long-term work, then published versions newest first, each to its own page`() {
+    fun `versions list the next version first, then parallel work, then published versions newest first, each to its own page`() {
         val rows = bar(
             drafts = listOf(next("1.2.0"), work("Redesign", "1.2.0")),
             releases = listOf(release("1.2.0", liveIn = listOf("production")), release("1.1.0")),
@@ -90,24 +90,24 @@ class CatalogDraftBarVersionsTest {
     }
 
     @Test
-    fun `the next version is called so, long-term work by its name, and only the next version is published`() {
+    fun `the next version is called so, parallel work by its name, and only the next version is published`() {
         val drafts = listOf(next("1.2.0"), work("Redesign", "1.2.0"))
 
         val onNext = bar(drafts, listOf(release("1.2.0")))
         assertThat(onNext.draftTitle).isEqualTo("Next version")
         assertThat(onNext.isNext).isTrue()
-        assertThat(onNext.onLongTermWork).isFalse()
+        assertThat(onNext.onParallelWork).isFalse()
         assertThat(onNext.offerRelease).isTrue()
-        assertThat(onNext.longTermWork.map { it.label to it.href }).containsExactly("Redesign" to "/tenants/acme/catalogs/letters@$redesignId/draft")
+        assertThat(onNext.parallelWork.map { it.label to it.href }).containsExactly("Redesign" to "/tenants/acme/catalogs/letters@$redesignId/draft")
 
         val onWork = bar(drafts, listOf(release("1.2.0")), CatalogSegment(letters, redesignId))
         assertThat(onWork.draftTitle).isEqualTo("Redesign")
-        assertThat(onWork.onLongTermWork).isTrue()
-        assertThat(onWork.offerRelease).`as`("long-term work is not published").isFalse()
+        assertThat(onWork.onParallelWork).isTrue()
+        assertThat(onWork.offerRelease).`as`("parallel work is not published").isFalse()
     }
 
     @Test
-    fun `long-term work starts from the next version or a published version, for an author`() {
+    fun `parallel work starts from the next version or a published version, for an author`() {
         val releases = listOf(release("1.2.0"), release("1.1.0"))
 
         assertThat(bar(listOf(next("1.2.0")), releases).offerCreateDraft).isTrue()

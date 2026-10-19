@@ -96,19 +96,19 @@ class CatalogDraftsMigrationTest {
             ).single().single()
             assertThat(current("released")).isEqualTo(next)
 
-            // Long-term work is reached only by targeting it.
+            // Parallel work is reached only by targeting it.
             connection.exec(
                 "INSERT INTO catalog_versions (tenant_key, catalog_id, kind, base_version, name) SELECT tenant_key, catalog_id, 'draft', '1.0.0', 'Redesign' FROM catalogs WHERE catalog_key = 'released'",
             )
-            val longTerm = connection.rows("SELECT version_id FROM catalog_versions WHERE name = 'Redesign'").single().single()
+            val parallel = connection.rows("SELECT version_id FROM catalog_versions WHERE name = 'Redesign'").single().single()
             assertThat(current("released")).isEqualTo(next)
             connection.autoCommit = false
-            connection.exec("SELECT set_config('epistola.content_version', '$longTerm', TRUE)")
-            assertThat(current("released")).`as`("unless the transaction targets another").isEqualTo(longTerm)
+            connection.exec("SELECT set_config('epistola.content_version', '$parallel', TRUE)")
+            assertThat(current("released")).`as`("unless the transaction targets another").isEqualTo(parallel)
             connection.commit()
             connection.autoCommit = true
 
-            // One next version per catalog; a draft has no number; long-term work has a name.
+            // One next version per catalog; a draft has no number; parallel work has a name.
             assertThatThrownBy { connection.exec("INSERT INTO catalog_versions (tenant_key, catalog_id, kind, is_next) SELECT tenant_key, catalog_id, 'draft', TRUE FROM catalogs WHERE catalog_key = 'released'") }
                 .hasMessageContaining("uq_catalog_versions_one_next")
             assertThatThrownBy { connection.exec("INSERT INTO catalog_versions (tenant_key, catalog_id, kind, version, name) SELECT tenant_key, catalog_id, 'draft', '4.0.0', 'Four' FROM catalogs WHERE catalog_key = 'released'") }

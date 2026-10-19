@@ -243,7 +243,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `long-term work is behind a release of the next version, which names it`() {
+    fun `parallel work is behind a release of the next version, which names it`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val catalogSlug = "behind-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)

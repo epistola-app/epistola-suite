@@ -79,8 +79,8 @@ class CurrentCatalogVersionTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `long-term work is never an authored catalog's current version, however new it is`() {
-        val tenantKey = createTenant("Current long-term").id
+    fun `parallel work is never an authored catalog's current version, however new it is`() {
+        val tenantKey = createTenant("Current parallel").id
         withMediator { CreateCatalog(tenantKey, letters, "Letters").execute() }
         val (next, _) = versionRow(tenantKey, letters)
         withMediator { CreateCatalogDraft(tenantKey, letters, "Redesign").execute() }

@@ -29,7 +29,7 @@ import java.util.UUID
 
 /**
  * A render resolves a font family in the version it renders. Two drafts of a catalog can give the
- * same family different files (long-term work replacing the house font); the bytes a render embeds
+ * same family different files (parallel work replacing the house font); the bytes a render embeds
  * must be its own version's, however recently the other version was rendered.
  */
 class FontBytesPerVersionTest : IntegrationTestBase() {

@@ -30,7 +30,7 @@ import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.Test
 
 /**
- * The template editor opened in long-term work (contract ADR 0002, amendment 2) saves into that
+ * The template editor opened in parallel work (contract ADR 0002, amendment 2) saves into that
  * work: its own requests carry the catalog segment (`letters@<draft id>`) from the editor config.
  */
 class EditorDraftSaveUiTest : BasePlaywrightTest() {
@@ -38,7 +38,7 @@ class EditorDraftSaveUiTest : BasePlaywrightTest() {
     private val letters = CatalogKey.of("letters")
 
     @Test
-    fun `the editor opened in long-term work saves the variant into that work`() {
+    fun `the editor opened in parallel work saves the variant into that work`() {
         val tenantKey = TenantKey.of("test-editor-draft-${System.nanoTime()}")
         val template = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenantKey)))
         val variant = VariantId(VariantKey.INITIAL, template)
@@ -54,7 +54,7 @@ class EditorDraftSaveUiTest : BasePlaywrightTest() {
         gotoAndReady("/tenants/$tenantKey/catalogs/letters@$work/templates/invoice/variants/${variant.key}/editor")
         page.getByTestId("editor-container").waitFor()
         page.waitForSelector("epistola-editor")
-        // Long-term work is named in the editor's bar, so nobody takes it for the next version.
+        // Parallel work is named in the editor's bar, so nobody takes it for the next version.
         assertThat(page.getByTestId("editor-crumb-version")).hasText("Redesign")
 
         // Adding a block marks the document dirty; its autosave is the PUT asserted on.
