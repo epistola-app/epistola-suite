@@ -15,7 +15,7 @@ class CatalogGettingStartedTest {
         published: Boolean = false,
         environments: List<String> = listOf("test"),
         liveIn: List<String> = emptyList(),
-    ) = CatalogGettingStarted("letters", templateKey, published, environments, liveIn, mayEdit = true, mayPublish = true, mayDeploy = true)
+    ) = CatalogGettingStarted("acme", "letters", templateKey, published, environments, liveIn, mayEdit = true, mayPublish = true, mayDeploy = true)
 
     @Test
     fun `the steps go template, then publish and make live as one, and stop showing once something is live`() {

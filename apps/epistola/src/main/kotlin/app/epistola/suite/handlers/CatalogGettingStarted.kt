@@ -13,11 +13,13 @@ package app.epistola.suite.handlers
  * An application asks an environment for documents and gets what is live there, so being live is
  * the end of the road; publishing alone is not.
  *
+ * @property namespace the catalog's namespace, which the application names with its key.
  * @property templateKey the first template in the next version, which the application asks for.
  * @property environmentKeys the tenant's environments, live or not.
  * @property liveIn the environments a version of this catalog is live in.
  */
 data class CatalogGettingStarted(
+    val namespace: String,
     val catalogKey: String,
     val templateKey: String?,
     val published: Boolean,

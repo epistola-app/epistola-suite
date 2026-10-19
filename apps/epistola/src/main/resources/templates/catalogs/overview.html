@@ -63,7 +63,8 @@
                                          : (${readiness.onlyOthersChanged} ? 'Changes from other catalogs are not published here yet.'
                                          : (${readiness.changed.size() == 1} ? '1 change not published yet.' : ${readiness.changed.size()} + ' changes not published yet.'))">2 changes not published yet.</strong>
                         <div class="text-muted text-sm" th:unless="${readiness.changed.isEmpty()}"
-                             th:text="${#strings.listJoin(readiness.changedForPeople.![name], ', ')}">Invoice, Brand</div>
+                             data-testid="catalog-status-changed"
+                             th:text="(${bar.latestPublished == null} ? 'In it: ' : 'Changed: ') + ${#strings.listJoin(readiness.changedForPeople.![name], ', ')}">Changed: Invoice, Brand</div>
                         <div class="text-muted text-sm" th:each="other : ${readiness.publishedAlong}" data-testid="catalog-status-others"
                              th:text="'From ' + ${other.name} + ': ' + ${#strings.listJoin(other.unpublished.![name ?: key], ', ')} + ', not published there yet'">From Shared: Brand</div>
                         <div th:if="${readiness.publishBlocked}" class="text-sm" data-testid="catalog-release-blocked">
@@ -132,7 +133,7 @@
                      th:attr="data-environment=${row.environmentKey}">
                     <div class="catalog-box-title">
                         <a th:href="@{/tenants/{t}/environments/{e}(t=${tenantId},e=${row.environmentKey})}" th:text="${row.environmentName}">Production</a>
-                        <span th:if="${row.production}" class="badge badge-muted">Production</span>
+                        <span th:if="${row.production and !#strings.equalsIgnoreCase(row.environmentName, 'Production')}" class="badge badge-muted" data-testid="catalog-environment-production">Production</span>
                     </div>
                     <th:block th:if="${row.uses != null}">
                         <div class="catalog-box-value" th:text="${row.uses}">Redesign</div>
@@ -158,7 +159,7 @@
                 </div>
             </div>
             <div th:if="${gs != null and gs.live}" class="text-muted text-sm" style="margin-top: var(--ep-space-3);" data-testid="catalog-step-application">
-                Your application asks for catalog <code th:text="${gs.catalogKey}">letters</code><th:block th:if="${gs.templateKey != null}">,
+                Your application asks for namespace <code th:text="${gs.namespace}">acme</code>, catalog <code th:text="${gs.catalogKey}">letters</code><th:block th:if="${gs.templateKey != null}">,
                 template <code th:text="${gs.templateKey}">invoice</code></th:block> and environment <code th:text="${gs.exampleEnvironment}">test</code>.
             </div>
         </div>

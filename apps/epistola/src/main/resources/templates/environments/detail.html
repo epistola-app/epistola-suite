@@ -19,7 +19,7 @@
                     Only published versions are used here.
                 </p>
                 <p style="margin: 0;" th:unless="${environment.production}" class="text-muted">
-                    Not production: it can follow work in progress, so it can be used to try changes before they are published.
+                    Not production: a draft can be deployed here, so changes can be tried before they are published.
                 </p>
                 <form th:if="${auth.has('TENANT_SETTINGS')}" method="post"
                       th:action="@{/tenants/{t}/environments/{e}/production(t=${tenantId},e=${environment.id})}">

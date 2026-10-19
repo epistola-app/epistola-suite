@@ -83,6 +83,9 @@ class GenerationHistoryRoutesTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("No template usage data")
             assertThat(response.body).contains("No generation jobs yet")
+            // Says where documents come from, and the statuses read as words, not enum names.
+            assertThat(response.body).contains("through the REST API").contains("href=\"/api-docs\"")
+            assertThat(response.body).contains(">In progress<").doesNotContain(">IN_PROGRESS<")
         }
     }
 

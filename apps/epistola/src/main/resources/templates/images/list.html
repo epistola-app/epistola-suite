@@ -40,7 +40,7 @@
                     </div>
                     <div class="empty-state-title">No images yet</div>
                     <div class="empty-state-description">Upload images to use in your document templates.</div>
-                    <button type="button" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
+                    <button th:if="${auth.has('TEMPLATE_EDIT') and workspace?.catalog?.readOnly != true}" type="button" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
                             th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/images/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                             hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                             data-testid="image-create-open">
@@ -100,7 +100,7 @@
 
     </th:block>
     <th:block th:fragment="asset-list-actions">
-        <button type="button" class="ep-btn ep-btn-primary"
+        <button th:if="${auth.has('TEMPLATE_EDIT') and workspace?.catalog?.readOnly != true}" type="button" class="ep-btn ep-btn-primary"
                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/images/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="image-create-open-action">

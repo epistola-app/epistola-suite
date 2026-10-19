@@ -17,6 +17,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeployCatalogVersion
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.releaseNext
@@ -82,6 +83,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
 
         val unpublished = status(get(tenant, "/catalogs/letters/browse").body!!)
         assertThat(unpublished).contains("Not published yet.").contains("data-testid=\"catalog-release-open\"")
+        assertThat(unpublished).`as`("the names say what they are").contains("In it: Invoice")
         assertThat(unpublished).doesNotContain("data-testid=\"catalog-status-make-live\"")
 
         withMediator { mediator.releaseNext(CatalogId(letters, TenantId(tenant.id))) }
@@ -106,6 +108,22 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
 
         assertThat(status.substringAfter("data-environment=\"test\"")).contains(">v1.0.0<")
         assertThat(status).contains("catalog <code>letters</code>").contains("template <code>invoice</code>").contains("environment <code>test</code>")
+        val namespace = withMediator { app.epistola.suite.catalog.queries.GetCatalog(tenant.id, letters).query()!!.namespace }
+        assertThat(status).`as`("the API refuses a request without it").contains("namespace <code>$namespace</code>")
+    }
+
+    @Test
+    fun `a production environment is marked unless its name says so already`() {
+        val tenant = catalog("Page Production Mark") { tenant, _ ->
+            CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production", production = true).execute()
+            CreateEnvironment(EnvironmentId(EnvironmentKey.of("live"), TenantId(tenant.id)), "Live", production = true).execute()
+        }
+
+        val page = get(tenant, "/catalogs/letters/browse").body!!
+
+        fun box(key: String) = page.substringAfter("data-environment=\"$key\"").substringBefore("catalog-box\"")
+        assertThat(box("production")).`as`("not \"Production Production\"").doesNotContain("catalog-environment-production")
+        assertThat(box("live")).contains("catalog-environment-production")
     }
 
     @Test

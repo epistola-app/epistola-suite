@@ -20,7 +20,7 @@
             </div>
             <div class="empty-state-title">No stencils yet</div>
             <div class="empty-state-description">Create a stencil to build reusable template components.</div>
-            <button th:if="${auth.has('STENCIL_EDIT')}" type="button"
+            <button th:if="${auth.has('STENCIL_EDIT') and workspace?.catalog?.readOnly != true}" type="button"
                     class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
                     th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/stencils/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                     hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
@@ -118,7 +118,7 @@
         </div>
     </th:block>
     <th:block th:fragment="stencil-list-actions">
-        <button th:if="${auth.has('STENCIL_EDIT')}" type="button" class="ep-btn ep-btn-primary"
+        <button th:if="${auth.has('STENCIL_EDIT') and workspace?.catalog?.readOnly != true}" type="button" class="ep-btn ep-btn-primary"
                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/stencils/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="stencil-create-open-action">

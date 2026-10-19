@@ -1005,6 +1005,7 @@ class CatalogHandler {
             // From a new catalog to an application generating from it; until something is live.
             val gettingStarted = if (authored) {
                 CatalogGettingStarted(
+                    namespace = result.catalog.namespace,
                     catalogKey = catalogKey.value,
                     templateKey = result.resources.firstOrNull { it.type == "template" }?.slug,
                     published = releases.isNotEmpty(),

@@ -7,7 +7,7 @@
                from the [data-search-param] hidden inputs in #template-table. */-->
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Templates',
-            pageDescription='All of your templates are here.',
+            pageDescription='The templates in this catalog.',
             searchPlaceholder='Search templates...',
             searchUrl=@{/tenants/{tenantId}/templates/search(tenantId=${tenantId},catalog=${selectedCatalog})},
             searchTargetId='template-table',
@@ -41,7 +41,7 @@
                         </div>
                         <div class="empty-state-title">No templates in this catalog</div>
                         <div class="empty-state-description">This catalog has no templates yet. Create one here.</div>
-                        <button th:if="${auth.has('TEMPLATE_EDIT')}" type="button"
+                        <button th:if="${auth.has('TEMPLATE_EDIT') and workspace?.catalog?.readOnly != true}" type="button"
                                 class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates/new(tenantId=${tenantId},catalogSeg=${selectedCatalog})}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
@@ -168,7 +168,7 @@
     </th>
 
     <th:block th:fragment="template-list-actions">
-        <button th:if="${auth.has('TEMPLATE_EDIT')}" type="button" class="ep-btn ep-btn-primary"
+        <button th:if="${auth.has('TEMPLATE_EDIT') and workspace?.catalog?.readOnly != true}" type="button" class="ep-btn ep-btn-primary"
                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates/new(tenantId=${tenantId},catalogSeg=${selectedCatalog})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="template-create-open-action">

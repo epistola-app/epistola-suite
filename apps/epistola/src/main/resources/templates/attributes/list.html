@@ -27,7 +27,7 @@
             </div>
             <div class="empty-state-title">No attributes yet</div>
             <div class="empty-state-description">Define attributes to classify template variants (e.g., language, brand, audience).</div>
-            <button th:if="${auth.has('TENANT_SETTINGS')}" type="button"
+            <button th:if="${auth.has('TENANT_SETTINGS') and workspace?.catalog?.readOnly != true}" type="button"
                     class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
                     th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/attributes/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                     hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
@@ -228,7 +228,7 @@
         </form>
     </th:block>
     <th:block th:fragment="attribute-list-actions">
-        <button th:if="${auth.has('TENANT_SETTINGS')}" type="button" class="ep-btn ep-btn-primary"
+        <button th:if="${auth.has('TENANT_SETTINGS') and workspace?.catalog?.readOnly != true}" type="button" class="ep-btn ep-btn-primary"
                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/attributes/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="attribute-create-open-action">

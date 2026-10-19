@@ -440,6 +440,26 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `publishing a fix to an older line says the number it gets, from its own base, not the latest release`() = fixture {
+        lateinit var tenant: Tenant
+        lateinit var work: String
+        given {
+            tenant = tenant("Drafts Older Line")
+            work = withRedesign(tenant) // from 1.0.0
+            withMediator {
+                MarkCatalogReady(tenant.id, letters).execute()
+                ReleaseCatalogVersion(tenant.id, letters, version = "2.0.0").execute()
+            }
+        }
+        whenever { getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/release").body!! }
+        then {
+            val dialog = result<String>()
+            assertThat(dialog).contains("It will be published as <strong>v1.0.1</strong>")
+            assertThat(dialog).`as`("not the patch after 2.0.0").contains("value=\"1.0.1\"").doesNotContain("value=\"2.0.1\"")
+        }
+    }
+
+    @Test
     fun `publishing parallel work can let everyday work continue from it, keeping the old next version by name`() = fixture {
         lateinit var tenant: Tenant
         lateinit var work: String

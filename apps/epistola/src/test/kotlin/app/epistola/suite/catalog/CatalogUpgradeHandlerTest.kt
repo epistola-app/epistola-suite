@@ -299,7 +299,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("Up to date")
+            assertThat(response.body).`as`("said in words, not only as a tooltip").contains("· up to date<")
             assertThat(response.body).doesNotContain("catalog-upgrade-review")
         }
     }

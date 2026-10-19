@@ -200,7 +200,8 @@ data class CatalogReleaseReadiness(
                 mayRelease = auth.has(Permission.CATALOG_RELEASE),
                 mayEditDraft = auth.has(Permission.TEMPLATE_EDIT),
                 mayMarkReady = auth.has(Permission.TEMPLATE_EDIT),
-                numbering = draft?.takeIf { it.isNext }?.let { AssessDraftNumber(tenantKey, catalogKey).query() },
+                // The number this draft needs against its own base: a fix to an older line is numbered on that line.
+                numbering = draft?.draftRef?.let { AssessDraftNumber(tenantKey, catalogKey, it).query() },
                 borrowing = if (draft == null) CatalogBorrowing(emptyList(), emptyList()) else GetCatalogBorrowing(tenantKey, catalogKey, catalogVersion = drafts.ref).query(),
             )
         }
