@@ -31,13 +31,20 @@ import app.epistola.catalog.canonical.CatalogCanonicalizer as PortableCatalogCan
  * while canonicalization itself is owned by epistola-catalog.
  */
 class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
+    /**
+     * The V5 fingerprint of a catalog given as its manifest's parts and serialized details. The
+     * manifest's [resourceEntries] (each resource's type, key, name and description) and [publisher]
+     * are part of what V5 covers, so a caller that has them passes them.
+     */
     fun fingerprintFromSerializedDetails(
         catalog: CatalogInfo,
         serializedDetails: Map<String, ByteArray>,
         dependencies: List<DependencyRef>?,
         catalogDependencies: List<CatalogDependency>? = null,
+        resourceEntries: List<ResourceEntry> = emptyList(),
+        publisher: PublisherInfo = PublisherInfo("Epistola"),
         assetBytes: (contentUrl: String) -> ByteArray?,
-    ): String = archive(catalog, serializedDetails, dependencies, catalogDependencies, assetBytes = assetBytes).use {
+    ): String = archive(catalog, serializedDetails, dependencies, catalogDependencies, resourceEntries, publisher = publisher, assetBytes = assetBytes).use {
         PortableCatalogCanonicalizer.currentQualifiedFingerprint(it).toString()
     }
 
@@ -48,6 +55,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         content.catalogDependencies,
         content.resourceEntries,
         includeSerializedDetails = false,
+        publisher = content.publisher,
     ) { contentPath ->
         content.assetContents[contentPath]
     }.use { PortableCatalogCanonicalizer.currentQualifiedFingerprint(it).toString() }
@@ -63,7 +71,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         resourceDetails.mapValues { (_, detail) -> objectMapper.writeValueAsBytes(detail) },
         dependencies,
         catalogDependencies,
-        assetBytes,
+        assetBytes = assetBytes,
     )
 
     fun matchesFingerprint(content: CatalogContent, expected: String): Boolean = archive(
@@ -73,6 +81,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         content.catalogDependencies,
         content.resourceEntries,
         includeSerializedDetails = false,
+        publisher = content.publisher,
     ) { contentPath ->
         content.assetContents[contentPath]
     }.use { archive ->
@@ -140,6 +149,8 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
             serializedDetails,
             manifest.dependencies,
             manifest.catalogDependencies,
+            manifest.resources,
+            manifest.publisher,
         ) { contentUrl ->
             catalogClient.fetchBinaryContent(contentUrl, manifestUrl, authType, credential)
         }
@@ -152,6 +163,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         catalogDependencies: List<CatalogDependency>? = null,
         resourceEntries: List<ResourceEntry> = emptyList(),
         includeSerializedDetails: Boolean = true,
+        publisher: PublisherInfo = PublisherInfo("Epistola"),
         assetBytes: (contentUrl: String) -> ByteArray?,
     ): CatalogArchive {
         val details = serializedDetails.mapValues { (_, bytes) ->
@@ -173,7 +185,7 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
             manifest = CatalogManifest(
                 schemaVersion = CATALOG_SCHEMA_VERSION,
                 catalog = catalog,
-                publisher = PublisherInfo("Epistola"),
+                publisher = publisher,
                 release = ReleaseInfo("0.0.0"),
                 resources = resourceEntries,
                 dependencies = dependencies,

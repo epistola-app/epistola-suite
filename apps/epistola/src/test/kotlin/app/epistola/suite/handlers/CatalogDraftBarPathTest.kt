@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test
 class CatalogDraftBarPathTest {
 
     private companion object {
-        val WORK: java.util.UUID = java.util.UUID.fromString("0193a6b2-7f4e-7c1d-9a2b-3c4d5e6f7a8b")
+        val WORK: String = "k7m2x9qa"
     }
 
     @Test

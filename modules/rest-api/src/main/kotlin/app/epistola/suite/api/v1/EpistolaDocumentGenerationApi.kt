@@ -310,7 +310,7 @@ class EpistolaDocumentGenerationApi(
 
     private companion object {
         const val HEADER_NODE_ID = "X-EP-Node-Id"
-        const val NDJSON_CONTENT_TYPE = "application/vnd.epistola.v1+ndjson"
+        const val NDJSON_CONTENT_TYPE = "application/vnd.epistola.v2+ndjson"
         const val DEFAULT_COLLECT_LIMIT = 100
     }
 

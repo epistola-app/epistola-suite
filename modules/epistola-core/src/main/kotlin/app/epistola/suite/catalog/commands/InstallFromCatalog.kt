@@ -181,7 +181,11 @@ class InstallFromCatalogHandler(
             catalog.installedReleaseVersion == manifest.release.version &&
             !InstalledReleaseRecording.isDeferred
         ) {
-            RecordInstalledRelease(command.tenantKey, command.catalogKey).execute()
+            // The publisher's content as fetched, when the install covered all of it.
+            val published = staged.takeIf { items -> items.size == manifest.resources.size && items.all { it.resource != null } }?.let { items ->
+                publishedContent(manifest, items.associate { "${it.entry.type}/${it.entry.key}" to it.resource!! }, items.flatMap { it.binaries.entries }.associate { it.key to it.value })
+            }
+            RecordInstalledRelease(command.tenantKey, command.catalogKey, published = published).execute()
         }
         results
     }

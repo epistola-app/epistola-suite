@@ -54,18 +54,20 @@ end to end.
 
 ## Catalog versions and drafts
 
-A catalog consists of **versions** (contract ADR 0002, amendment 2): released ones, kept in
+A catalog consists of **versions** (contract ADR 0002): released ones, kept in
 `catalog_releases` with their retained content, and the versions whose content is in the content
 tables, identified by `catalog_versions`: the open **drafts** of an authored catalog, and the one
 **installed** release of a subscribed catalog. A draft has **no number until it is released**; only
 releases (and an installed release) are numbered.
 
-- **One next version, and long-term work.** Every authored catalog has exactly one **next version**
-  (`catalog_versions.is_next`, one per catalog): the draft everyday work goes into, the one a caller
-  that names no version means, and the only one released as a release. Any other draft is **long-term
-  work**: named (`catalog_versions.name`, unique per catalog ignoring case), kept apart from the next
-  version, tried through an environment override, and made the next version when it is ready
-  (`PromoteCatalogDraft`); only then is it released. A draft is identified by its `version_id`, its `draftId`.
+- **Every draft is the same; one is the next version.** Any draft can be released (contract ADR
+  0002). Every authored catalog marks one draft the **next version**
+  (`catalog_versions.is_next`, one per catalog): the draft everyday work goes into and the one a
+  caller that names no version means. The mark is a suite default, not a kind of draft. Every other
+  draft is named (`catalog_versions.name`, unique per catalog ignoring case): a redesign, a fix to an
+  older line, work tried through an environment override. A version is identified by its
+  **version id** (`version_key`, eight characters such as `k7m2x9qa`, from `epistola_version_key()`),
+  which a release keeps from the draft it was released from; `next` names the next version.
 - **Content belongs to a version.** Every content row (`themes`, `document_templates`,
   `template_variants`, `variant_attribute_definitions`, `code_lists`, `code_list_entries`, `assets`,
   `fonts`, `font_variants`, `stencils`) is keyed `(tenant_key, version_id, resource_id)`; its address
@@ -77,13 +79,14 @@ releases (and an installed release) are numbered.
   names the identity. A row inserted into another version at the same address adopts its identity;
   deleting a row deletes the identity only when no version holds the resource any more. A reference
   resolves in the version being read.
-- **Long-term work is an independent copy.** `CreateCatalogDraft` starts it, named: without `from` as
-  a copy of the next version, unreleased changes included, on the next version's base
-  (`createdFrom` = `next`); with `from`, a release, as a copy of that release's retained content,
-  rebuilt as its archive and imported, which is its base. `RenameCatalogDraft` renames it.
-- **Discarding.** `DeleteCatalogDraft` discards a draft and everything in it. Long-term work is gone;
+- **Starting a draft.** `CreateCatalogDraft` starts one, named, as an independent copy: from a
+  release (its number or version id; the default is the highest release), rebuilt as its archive and
+  imported, which is its base; or from a draft (its version id, or `next`), unreleased changes
+  included, on that draft's base. `RenameCatalogDraft` renames it.
+- **Discarding.** `DeleteCatalogDraft` discards a draft and everything in it. Another draft is gone;
   the **next version** starts again as a copy of the latest release (`NextVersionOpener`), so everyday
-  work always has somewhere to go. It is refused (`CatalogVersionHeldException`, REST
+  work always has somewhere to go. It is refused while a draft of another catalog names it as a dependency
+  (`CatalogDraftInUseException`), and (`CatalogVersionHeldException`, REST
   `CATALOG_VERSION_HELD`, 409, `heldBy`) while the draft alone holds a resource something outside it
   still references: the tenant's default theme, a code list an attribute of another version or
   catalog binds, or a theme a template of another version or catalog uses. Discarding would delete the
@@ -91,27 +94,33 @@ releases (and an installed release) are numbered.
   theme, be cleared silently. The refusal names each holder, e.g. `the tenant's default theme (theme
   letters/seasonal)`. `OpenNextVersion` opens a missing next version again, for a catalog whose drafts
   were all discarded before the amendment.
-- **Behind.** A draft is _behind_ every release above its base: it does not contain their changes
-  unless an author applied them by hand. `CatalogVersion.behind` lists them, each with what it changed
-  against its own base. The next version continues on each release, so it is behind none in the
-  ordinary course; long-term work is behind every release since it started. Releasing a draft that is
-  behind is refused (`CATALOG_VERSION_BEHIND`, 409) until `acknowledgedBehind` names every one.
+- **Behind.** A draft is _behind_ a release it does not contain: (a) one above its base, or (b) one
+  below it released after the draft started, a fix to an older line (`CatalogDrafts.behind`). It
+  lists each with what it changed against its own base. The next version continues on each release
+  it is released as, so in the ordinary course it is behind only fixes to older lines; another draft
+  is behind every release since it started. Releasing a draft that is behind is refused
+  (`CATALOG_VERSION_BEHIND`, 409) until `acknowledgedBehind` names every one. Behind is computed only
+  when asked for (`ListCatalogVersions(withBehind)`, `GetCatalogDraft(withBehind)`), since it reads
+  every release's content.
 - **A release records its base** (`catalog_releases.base_version`, `V20261018200200`): the release
   its draft started from, which `getCatalogVersion` reports as a released version's `base` and which
   `behind` measures its changes against. It is null for a catalog's first release, a release installed
   from elsewhere (`RecordInstalledRelease`; the archive does not carry the publisher's base), and every
   release cut before the column. Those fall back to the release below them.
-- **Releasing** (`ReleaseCatalogVersion`, contract `releaseCatalogDraft`) releases the next version,
-  numbered as asked or, without a number, as its changes need against the latest release
-  (`AssessDraftNumber`, contract `previewCatalogDraftRelease`): breaking changes the next major,
-  additions the next minor, anything else the next patch; a catalog never released starts at `1.0.0`.
-  A number must be above every release and is never lower than the changes need
-  (`CatalogReleaseVersionException`); the author may raise it, to mark a major on purpose. Releasing
-  long-term work is refused (`CatalogDraftIsNextException`, REST `CATALOG_DRAFT_KIND`, 409). After the
-  release the next version **continues** on it: the same draft, its content the release's, its base
-  the new release. Long-term work is untouched and now behind it (`draftsBehind`, by name). The 2.0
-  upgrade releases what was published before 2.0 under the next patch of the latest release, as its
-  draft was numbered then, and is not held to the change rule.
+- **Releasing** (`ReleaseCatalogVersion`, contract `releaseCatalogDraft`) releases any draft,
+  numbered as asked or, without a number, as its changes need against its base
+  (`AssessDraftNumber`, contract `previewCatalogDraftRelease`: `base`, `changeKind`, `needed`,
+  `suggested`): breaking changes the next major, additions the next minor, anything else the next
+  patch; a draft with no base starts at `1.0.0`. The suggestion is the next free number of that kind,
+  so a fix to 1.2.x on a catalog that has 1.2.1 and 2.0.0 is 1.2.2. A number must be free, above the
+  base and never lower than the changes need (`CatalogReleaseVersionException`); the author may raise
+  it, to mark a major on purpose. The release takes the draft's version id. Releasing the next version
+  **continues** it: the same draft under a new version id, its content the release's, its base the new
+  release. Releasing another draft removes it: environments following it stop (recorded as
+  override-cleared), and another catalog's draft that named it as a dependency now pins the release.
+  Other drafts are untouched and may now be behind it (`draftsBehind`, by name). The 2.0 upgrade
+  releases what was published before 2.0 under the next patch of the latest release, as its draft was
+  numbered then, and is not held to the change rule.
 - **What a draft's changes need** (`ChangeKindEvaluator`, ADR 0001's rules for a hotfix) compares the
   draft's content with a release's retained content. Breaking, needing a major: a resource removed; a
   data contract that no longer accepts every input the base accepted (`SchemaCompatibilityChecker`),
@@ -126,10 +135,10 @@ releases (and an installed release) are numbered.
   widened or dropped; a parameter no longer required or removed (a binding of it is ignored); values
   allowed or a restriction lifted; a code-list entry added or its label, order or hidden flag changed;
   a dependency added (an installation brings it along). Everything else is a fix, including a
-  dependency removed or its range changed: neither changes what others rely on. The same rules
+  dependency removed: it changes nothing others rely on. The same rules
   decide whether a newer release of a catalog this one uses fits what it uses (`GetCatalogBorrowing`).
 - **Relocation** moves the next version's rows, so it is refused (`several-drafts`) while the source
-  or target catalog has long-term work.
+  or target catalog has another draft.
 
 ### Which version a statement means
 
@@ -161,12 +170,12 @@ The REST API's `…/versions/{catalogVersion}/…` paths take `next`, a draft id
 
 ### Choosing a draft in the UI
 
-The web UI names long-term work in the catalog's own path segment: `letters@<draft id>` is that work
-of `letters`, plain `letters` its next version (`CatalogSegment` in `epistola-web`; `@` cannot occur in
-a catalog key). So `/tenants/acme/catalogs/letters@0193…/templates/invoice` is the invoice in that work, and the
+The web UI names a draft other than the next version in the catalog's own path segment:
+`letters@<version id>` is that draft of `letters`, plain `letters` its next version (`CatalogSegment` in `epistola-web`; `@` cannot occur in
+a catalog key). So `/tenants/acme/catalogs/letters@k7m2x9qa/templates/invoice` is the invoice in that work, and the
 same works for every per-catalog and per-resource route (catalog page, themes, stencils, code lists,
 fonts, images, the template editor and its preview). List pages take it as their `catalog` filter
-(`/catalogs/letters@0193…/attributes`), and their create dialogs then create there.
+(`/catalogs/letters@k7m2x9qa/attributes`), and their create dialogs then create there.
 
 - **Why the URL, not the session.** A link to a draft is shareable and survives reloads, two tabs
   can work in two drafts, and every link, HTMX request and editor call built from the segment stays
@@ -178,19 +187,19 @@ fonts, images, the template editor and its preview). List pages take it as their
   and query they dispatch, including the UI-only ones (`GetEditorContext`, `ListTemplateSummaries`,
   `GetThemeUsagePage`, `ResolveTemplateTheme`, `PreviewVariant`, `BrowseCatalog`, …).
 - **The context bar** (read model `CatalogDraftBar`, [`workspace-shell.md`](workspace-shell.md)) says
-  which draft a page works in: "Next version", or long-term work by its name with a strip saying it is
-  kept apart. Its version menu lists the next version and each piece of long-term work, and offers
-  _Start long-term work…_ (`catalogs/drafts.html`: a name, and the next version or a published version
+  which draft a page works in: "Next version", or another draft by its name with a strip saying it is
+  kept apart (the UI still calls such a draft _long-term work_). Its version menu lists the next version and each piece of long-term work, and offers
+  _Start long-term work…_ (`catalogs/drafts.html`: a name, and a published version or the next version
   to start from).
-- **Publishing** is offered for the next version only, numbered from its changes; the release dialog
-  lists the releases it is behind, with their changes, and asks to confirm each (`acknowledgedBehind`).
-  _Discard_ on the next version throws its changes away; on long-term work it removes it. An authored
-  catalog without a next version offers to open it from its latest release.
+- **Publishing** is offered for every draft, numbered from its changes against its base; the release
+  dialog lists the releases it is behind, with their changes, and asks to confirm each
+  (`acknowledgedBehind`). _Discard_ on the next version throws its changes away; on another draft it
+  removes it. An authored catalog without a next version offers to open it from its latest release.
 - A route naming a draft the catalog does not have is a 404; a number names no draft.
 
-Over MCP the content tools take an optional `catalogVersion` argument (`next` or a `draftId`), and the
-version tools list versions, start, rename and discard long-term work, preview the release number and
-release the next version (see [`mcp.md`](mcp.md)).
+Over MCP the content tools take an optional `catalogVersion` argument (`next` or a version id), and
+the version tools list versions, start, rename and discard drafts, preview a draft's release number,
+release a draft and make one the next version (see [`mcp.md`](mcp.md)).
 
 ## Versioning scheme: SemVer + content fingerprint
 
@@ -278,22 +287,21 @@ everyone than one large catalog nobody wants all of.
 ## Declared dependencies
 
 A catalog that uses another catalog's resources declares that catalog once (wire v8
-`catalogDependencies`, contract ADR 0003): by registry, namespace and key, with a version selector in
-the npm range grammar (`^1.4.0`, `~1.4.0`, `>=1.0.0 <2.0.0`, `1.4.2`, `*`). Ivy's interval syntax
-(`[1.0,2.0)`) is refused. `UpdateCatalogDependencies` (`TEMPLATE_EDIT`) replaces the declarations of an
-authored catalog; each must name a catalog the tenant has, not itself, and not twice.
+`catalogDependencies`, contract ADR 0003): by registry, namespace and key, **pinned to one exact
+release** of it (`releaseVersion`), not a range. A draft may instead name a **draft** of that catalog
+(`versionId`; column `dependency_version_id`), to build on work not released yet; it renders with that
+draft. `UpdateCatalogDependencies` (`TEMPLATE_EDIT`) replaces the declarations of an authored catalog;
+each must name a catalog the tenant has, not itself, not twice, and a release it has with a `v5:`
+fingerprint (a release cut before 2.0 has none) or a draft it has. The pin stays when the dependency
+releases again; `ResolveCatalogDependencies` moves every pin to the highest release, the way a
+library upgrade does. Renaming the dependency's namespace carries the declarations that name it.
 
-Each declaration is **locked** to one release of the dependency, like a lockfile: the highest release
-the selector matches when it is declared, among the dependency's releases that kept their content and
-carry a `v5:` fingerprint (a release cut before 2.0 does not). The lock stays when the dependency
-releases again; `ResolveCatalogDependencies` moves every lock to the highest match, the way a library
-upgrade does. Changing a selector keeps a lock it still matches. Renaming the dependency's namespace
-carries the declarations that name it.
-
-**Releasing** is cut with the locks. A declaration still unlocked is locked first if a release matches
-now; the release is refused (`CATALOG_DEPENDENCY_UNRESOLVED`) when one matches nothing, or its locked
-release is gone or no longer matches. A resource reference into a catalog the catalog does not
-declare is refused too. The release records each declaration with its pin (`releaseVersion` and
+**Releasing** is cut with the pins. A declaration that names a draft must have that draft released
+first: `releaseDependencies` releases each such draft first, recursively, each numbered as its
+changes need; without it the release is refused (`CatalogDependenciesUnreleasedException`, REST
+`release-dependencies-unreleased`, naming each). A pinned release that is gone refuses the release
+(`CATALOG_DEPENDENCY_UNRESOLVED`), and so does a resource reference into a catalog the catalog does
+not declare. The release records each declaration with its pin (`releaseVersion` and
 `releaseFingerprint`) in its manifest and in `catalog_release_dependencies`
 (`ListReleaseDependencies`).
 
@@ -320,18 +328,19 @@ Deleting the pinning release first frees it. A release always holds its content:
 only way to reclaim what it holds.
 
 **Moving** a resource into another catalog declares what the move creates: every authored catalog
-whose content now references a catalog it did not declare gets a declaration `*`, locked to that
-catalog's highest release.
+whose content now references a catalog it did not declare gets a declaration pinned to that
+catalog's highest release, or naming its next version when it has none (`MissingDependencyDeclarer`).
 
-**Installing** keeps the archive's pins: a subscribed catalog's declarations, locks and the pins of
-its installed release are the publisher's. An authored import takes them as its locks, and adopts the
-archive's release only when the tenant has every pinned release.
+**Installing** keeps the archive's pins: a subscribed catalog's declarations and the pins of its
+installed release are the publisher's, and so are an imported authored release's. Every pinned
+release must be present, carried in the archive or installed already
+(`CatalogImportDependenciesMissingException`, REST `release-dependencies-missing`).
 
 **Upgrading from 1.x** declares what 1.x left undeclared, and cuts each catalog's first release:
 1.x had no declarations, and no 1.x release kept its content. The upgrade queues every authored
 catalog that exists then (`catalog_upgrade_queue`), and a background task (`CatalogUpgradeRunner`)
-gives each a declaration `*` for every catalog it references, locked to that catalog's highest
-release (as a move does), then releases it from what was last published before 2.0, numbered the
+gives each a declaration for every catalog it references, pinned to that catalog's highest
+release (as a move does), and pins every declaration still unpinned (`pinUnpinned`), then releases it from what was last published before 2.0, numbered the
 patch after its highest 1.x release, or 1.0.0. The upgrade migration records that number in the queue
 (`continues_after`) and removes the 1.x releases, which kept no content, so each catalog starts 2.0
 with that one release and its next version on top. A template whose default variant was never published, and a stencil never published, are left
@@ -340,7 +349,7 @@ first releases. Catalogs are taken in rounds, so one is released after the catal
 one that cannot be released yet stays queued with the reason (`last_error`) and is retried. A catalog
 created after the upgrade is never queued. A subscribed catalog with an installed release is queued too, and gets
 that release recorded as one it can render from; a legacy fingerprint is replaced by the qualified one
-of the installed content, so dependents can lock to it.
+of the installed content, so dependents can pin it.
 
 ## Ready marks
 
@@ -435,7 +444,7 @@ table `environment_catalog_overrides`) names what it uses instead, per catalog:
 
 - **A release it serves**, for a rollback or to hold back a newer one. Only a release the environment
   serves can be named; undeploying it ends the override.
-- **A draft**, the next version or long-term work, rendered **live**: what is changed in it is what the
+- **A draft**, the next version or any other, rendered **live**: what is changed in it is what the
   next document gets, with no release in between. This is how work is tried before it is published.
 
 | A request through the environment asks for | With an override | Without one                          |
@@ -456,115 +465,71 @@ table `environment_catalog_overrides`) names what it uses instead, per catalog:
   and carry the preview watermark, so nobody takes one for a published document. They do not pin
   the draft's exact content: a document says which draft it came from and when, not a fingerprint.
 - **Changes to what it names**: undeploying the release, deploying another in its place, or
-  discarding the followed draft ends the override, recorded in the history as cleared; promoting
-  long-term work moves environments following the next version to the new next version.
+  discarding or releasing the followed draft ends the override, recorded in the history as cleared.
 - **History.** Setting and clearing an override is recorded in the environment's history beside
   deploys (`OVERRIDE_SET`, `OVERRIDE_CLEARED`).
 - **In the UI** the environment page marks the release that is _Latest here_, offers _Use as latest_
   on every other release it serves, lists the work in progress it follows, and shows the production
   mark. A draft's version menu offers _Try it on an environment…_, listing production environments
-  without offering them; the long-term work banner names the environments following it.
-- **Over REST** `setEnvironmentOverride` (`releaseVersion` or `catalogVersion`), `clearEnvironmentOverride`
+  without offering them; the banner of a draft other than the next version names the environments following it.
+- **Over REST** `setEnvironmentOverride` (`releaseVersion` or `versionId`), `clearEnvironmentOverride`
   and `listEnvironmentOverrides`; a refusal is 409 `environment-override-refused`. `EnvironmentDto.production`,
-  history actions `override-set`/`override-cleared`, and `draftId`/`draftLabel` on documents, job items
+  history actions `override-set`/`override-cleared`, and `versionId`/`draftLabel` on documents, job items
   and collected results.
 - **Over MCP** nothing sets an override, as nothing deploys; `preview_document` and
   `analyze_template_data` with an `environmentId` follow it.
 
-## Promotion
+## Making a draft the next version
 
-Long-term work is not released; it is tried by pointing a test environment at it (an
-[environment override](#what-an-environment-uses)) and released once it is the next version.
-
-- **Promotion.** `PromoteCatalogDraft` makes long-term work the next version. It must contain every
-  release published since it started, or `acknowledgedBehind` names those it leaves out; it then
-  continues on the latest release (its base moves there), behind nothing. The draft that was the next
-  version is discarded (held resources refuse it, as discarding does) or kept as long-term work under
-  `keepPreviousAs`.
-- **In the UI** the long-term work banner offers _Make this the next version…_: releases published
-  since it started are confirmed one by one, and the old next version is kept under a suggested name,
-  or discarded.
+Which draft is the next version is only a default: any draft is released as it is.
+`PromoteCatalogDraft` moves the mark to another draft. Neither draft's base moves and nothing is
+acknowledged; the draft that was the next version is discarded (held resources refuse it, as
+discarding does) or kept under `keepPreviousAs`. REST has no promote operation; MCP has
+`make_next_version`, the UI _Make this the next version…_ on the draft's banner.
 
 ## Exporting a release
 
-`ExportCatalogZip` takes an optional `version`. With one, it hands over **that release as it was
-released**: rebuilt by `ReleaseContentAssembler` from the content the release retained, carrying the
-version, timestamp and fingerprint it was cut with, whatever the working copy has done since. The
-export dialog offers the versions `ListRetainedReleases` reports, which is the same set the command
-will accept, so the offer cannot fail at download.
+`ExportCatalogZip` exports a **release**: the one named by `version`, or without one the highest
+release. It hands over that release as it was released, rebuilt by `ReleaseContentAssembler` from the
+content it retained, carrying the version, timestamp and fingerprint it was cut with, whatever the
+drafts have done since. An installed release exports the content it was installed with. The export
+dialog offers the versions `ListRetainedReleases` reports, which is the same set the command will
+accept, so the offer cannot fail at download. A catalog with no release has nothing to export.
 
-`requirePublishable` does not run for a release. It describes the working copy; the release passed
-it when it was cut, it is immutable, and a rule that has tightened since must not retroactively make
-a published release unexportable. The fingerprint _is_ recomputed and a mismatch refuses the export
+`requirePublishable` does not run for a release. It describes a draft; the release passed it when it
+was cut, it is immutable, and a rule that has tightened since must not retroactively make a
+published release unexportable. The fingerprint _is_ recomputed and a mismatch refuses the export
 — it should be impossible, and if it happens the retained content has been altered.
 
 A version the catalog does not have refuses with `CatalogVersionNotFoundException` rather than
 quietly substituting the working copy.
 
-### With what it uses (fat export)
+### With what it uses
 
-`ExportCatalogZip(includeDependencies = true)` writes a **catalog bundle** (`CatalogBundle`, contract
-`docs/catalog-bundle.md`): one ZIP with `bundle.json` and one ordinary archive per catalog, the
-releases the export is pinned to (a release's pins; the working copy's locked declarations), followed
-transitively, dependencies first and the exported catalog last. It is how a catalog reaches an
-installation that receives catalogs as files. Refused (`CatalogBundleException`) while a
-declaration is not tied to a release, or when a pinned release is not here. The export dialog
-has _Include the catalogs it uses_; a published version's page has _Export with what it uses_.
+`ExportCatalogZip(includeDependencies = true)` carries the releases the export pins inside the
+archive, under `dependencies/` (contract ADR 0004), followed transitively; the bundled `system`
+catalog is left out, as every installation has it. It is how a catalog reaches an installation that
+receives catalogs as files. Refused while a pinned release is not here. The export dialog has
+_Include the catalogs it uses_; a published version's page has _Export with what it uses_.
 
-Importing one (`ImportCatalogZip` detects `bundle.json`) checks every bundled dependency before writing
-anything: one the tenant has at that release is left alone, one it lacks is installed as subscribed, and
-one it has at another release or under another registry or namespace refuses the whole import (REST
-`CATALOG_BUNDLE_CONFLICT`, 409), naming each, since installing it would move that catalog for what else
-uses it. The bundled catalog is then imported as asked. The result names what was installed and what
-was there (`installedDependencies`, `presentDependencies`).
+Importing one installs every carried release first, as subscribed when the tenant lacks its catalog;
+one the tenant has at that release with the same fingerprint is left alone, and one with another
+fingerprint, or a catalog of another type, refuses the whole import (`CatalogImportConflictException`,
+REST `conflict`, 409). The catalog is then installed as asked.
 
-## Export drift policy
+## Importing installs a release
 
-Without a version, `ExportCatalogZip` exports the working copy and always emits a fingerprint
-describing the **actual exported bytes**. The version label encodes release state and export is never
-blocked:
+`ImportCatalogZip` installs the archive's release (contract ADR 0004). The import that creates a
+catalog names its type (`catalogType`); after that the catalog's type decides. The same release with
+the same fingerprint again changes nothing (`newlyInstalled = false`); the same number with other
+content is refused. Into a **subscribed** catalog it replaces the installed release; a release lower
+than the installed one is refused. Into an **authored** catalog it is added beside its releases with
+the publisher's fingerprint and pins, and its drafts are untouched; a new authored catalog's next
+version is opened on it. `intoDraft` (load an archive into a draft, `TEMPLATE_EDIT`) and `restore`
+(snapshots) are internal.
 
-- never released → `0.0.0-dev` (logged WARN)
-- working copy differs from the latest release → `<version>-dev` (logged WARN)
-- working copy matches the latest release → the clean released version
-
-`-dev` makes drift unmistakable in the filename and manifest. (Serving an
-immutable release snapshot so subscribers never see in-progress edits is a
-Phase 2 hardening.)
-
-### Drift hint in the catalog list
-
-So the `-dev` outcome isn't only discovered at download time, the catalog
-list shows `v0.1.0 · pending changes` for an AUTHORED, released catalog whose
-working copy drifted. This is a **cheap heuristic, not the fingerprint** (the
-export `-dev`/fingerprint stays authoritative): the catalog-management list
-query `ListCatalogsForManagement` returns each catalog as a `CatalogListRow`
-(the shared `Catalog` plus a list-only `pendingChanges` flag), the flag
-computed in one `LEFT JOIN` comparing `MAX(updated_at | created_at)` across
-the catalog's resource tables to the baseline
-`GREATEST(released_at, imported_at)`. The flag is **not** on `Catalog` itself
-(browse/REST/MCP read that shared model and don't show drift); it is purely a
-list-page concern, so the list-page query owns it and the template reads
-`row.pendingChanges` — no parallel id set, no template-side cross-reference.
-
-All three timestamps share the **database** clock: resource `updated_at` and
-`catalogs.imported_at` are Postgres `NOW()`, and `ReleaseCatalogVersion`
-stamps `released_at` via `SELECT NOW()` (not JVM time) precisely so this
-comparison is exact and not skewed by JVM↔DB clock drift.
-
-`catalogs.imported_at` is set at the **end** of `ImportCatalogZip` (after the
-resource upserts, so ≥ their `updated_at`). It exists specifically so a no-op
-ZIP **re-import** — which bumps every resource's `updated_at` — advances the
-baseline in lockstep and is **not** mistaken for an edit. Column choice
-mirrors what the fingerprint sees: `updated_at` for the live resource rows
-(templates, variants, themes, stencils, attributes, code lists, fonts), which
-hold the working copy a release and an export are built from, and `created_at`
-for `assets`.
-
-Conservative by construction: it can **over-warn** (edit-then-revert to
-byte-identical, a re-save of unchanged content) and the only **under-warn**
-is a deletion-only change (no surviving row's timestamp moves) — in every case
-the export's `-dev` label/fingerprint is the authoritative backstop.
+A tenant snapshot exports each catalog's next version as a working copy, labelled with its latest
+release or `0.0.0`; that is the only export of a draft.
 
 ## Publishing a release to Epistola Exchange
 
@@ -582,44 +547,13 @@ A ZIP import always targets a catalog **type**. A slug that already exists with
 a _different_ type is rejected (it would flip ownership semantics). What the
 import then means depends entirely on that type:
 
-### AUTHORED — content transport into your editable copy
+### AUTHORED — the archive's release, added beside yours
 
-A release is an **authorship act**, so a ZIP import only adopts a release in
-the one case where there is no authorship to protect:
-
-- **Import that _creates_ the catalog** → no release history yet, so the
-  manifest's version becomes the **initial release**, provided it is a clean
-  SemVer (not a `-dev`/legacy label), a `release.fingerprint` is present, and
-  every resource imported. The ZIP round-trip fingerprint is deterministic, so
-  the recorded release row is real and consistent — not fabricated. Result: the
-  catalog shows the imported release, not "unreleased".
-- **Import into an _existing_ AUTHORED catalog** → an _edit_ to a catalog you
-  already version. Release state is **never** fabricated or changed; the
-  working copy shows as drift ("unreleased changes") and the owner releases
-  deliberately. The import dialog's **"If this catalog already exists"** choice
-  (`ImportCatalogZip.authoredMode`) decides what happens to resources you have
-  locally that the ZIP doesn't:
-  - **`MERGE`** (default) — upsert the ZIP's resources, **keep** local-only
-    resources (overlay);
-  - **`REPLACE`** — make the catalog _exactly_ the ZIP: also **delete**
-    local-only resources. Conflict-checked **before mutating** — a pruned
-    resource still referenced from another catalog blocks the whole import
-    (`CatalogUpgradeConflictException`), the same shared
-    `CatalogUpgradeAnalyzer` the SUBSCRIBED path uses. A failed install skips
-    the prune (no half-replace). Release state is _still_ untouched.
-
-  (Either way, resources present in the ZIP overwrite the local copy — that is
-  inherent to importing them; the choice is only about local-_only_ resources.)
-
-  The REST `importCatalog` operation exposes the same choice as an optional
-  `authoredMode` form field (`MERGE` default, `REPLACE`), and its
-  `ImportCatalogResponse.aborted` boolean reports whether a SUBSCRIBED-ZIP
-  upgrade aborted on a failed install (catalog left on its previous release —
-  a retry-safe outcome the `installed`/`updated`/`failed`/`total` counts alone
-  cannot express). There is no MCP import tool yet, so import is not an MCP
-  surface.
-
-- **`-dev`/never-released manifest** → nothing real to adopt; stays unreleased.
+An import into an authored catalog adds the archive's release as it was published: its number,
+fingerprint and pins, never a merge into a draft (see [Importing installs a release](#importing-installs-a-release)).
+Its drafts are untouched; they are behind the new release if it is above their base. The import that
+creates the catalog opens its next version on the release. There is no MCP import tool, so import is
+not an MCP surface.
 
 ### SUBSCRIBED — the ZIP _is_ the upgrade
 
@@ -661,12 +595,12 @@ To regenerate after an intentional change: run the test, paste the reported
 
 ## Surfaces
 
-| Surface  | Exposure                                                                                                                                                                                  |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Web UI   | Version column (`v<version>` / `unreleased`); the next version and long-term work (start, discard, publish the next version with `acknowledgedBehind`)                                    |
-| REST     | Catalog versions: list, create long-term work, rename, discard, preview the release number, release the next version (`…/versions/{next, draft id or number}/…`)                          |
-| MCP      | `list_catalog_versions`, `start_long_term_work`, `rename_long_term_work`, `discard_catalog_work`, `preview_release_number`, `release_next_version`; `catalogVersion` on the content tools |
-| Exchange | `ReleaseInfo.fingerprint` in the manifest; `schemaVersion` 4                                                                                                                              |
+| Surface  | Exposure                                                                                                                                                                       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Web UI   | Version column (`v<version>` / `unreleased`); drafts (start, discard, make the next version, publish any with `acknowledgedBehind`)                                            |
+| REST     | Catalog versions: list, create a draft, rename, discard, preview a draft's release number, release a draft (`…/versions/{next, version id or number}/…`)                       |
+| MCP      | `list_catalog_versions`, `start_draft`, `rename_draft`, `discard_draft`, `preview_release_number`, `release_draft`, `make_next_version`; `catalogVersion` on the content tools |
+| Exchange | `ReleaseInfo.fingerprint` in the manifest; `schemaVersion` 4                                                                                                                   |
 
 ## Roadmap
 

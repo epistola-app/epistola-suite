@@ -55,10 +55,15 @@ data class CatalogContent(
     val catalogDependencies: List<CatalogDependency>? = null,
     /** Asset content filename (the part after `./resources/asset/`) -> bytes. */
     val assetContents: Map<String, ByteArray>,
+    /**
+     * Who released it: this installation for content it authors, the publisher's own for a release
+     * installed from an archive. Part of the fingerprint, so an installed release keeps it.
+     */
+    val publisher: PublisherInfo = PublisherInfo(name = "Epistola"),
 ) {
     fun toManifest(
         release: ReleaseInfo,
-        publisher: PublisherInfo = PublisherInfo(name = "Epistola"),
+        publisher: PublisherInfo = this.publisher,
     ): CatalogManifest = CatalogManifest(
         schemaVersion = CATALOG_SCHEMA_VERSION,
         catalog = catalog,

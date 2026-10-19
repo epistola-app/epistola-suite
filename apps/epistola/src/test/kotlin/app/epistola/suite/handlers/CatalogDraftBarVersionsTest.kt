@@ -21,16 +21,17 @@ import java.util.UUID
 class CatalogDraftBarVersionsTest {
 
     private val letters = CatalogKey.of("letters")
-    private val redesignId = UUID.fromString("0193a6b2-7f4e-7c1d-9a2b-3c4d5e6f7a8b")
-    private val nextId = UUID.fromString("0193a6b2-7f4e-7c1d-9a2b-000000000001")
+    private val redesignId = "k7m2x9qa"
+    private val nextId = "n3xtv3rs"
 
-    private fun next(base: String?) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, draftId = nextId, isNext = true)
+    private fun next(base: String?) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, versionId = nextId, isNext = true)
 
-    private fun work(name: String, base: String?, id: UUID = redesignId) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, draftId = id, name = name)
+    private fun work(name: String, base: String?, id: String = redesignId) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, versionId = id, name = name)
 
     private fun release(version: String, liveIn: List<String> = emptyList(), base: String? = null) = CatalogVersion(
         version,
         CatalogVersionStatus.RELEASED,
+        versionId = "r" + version.replace(".", ""),
         base = base,
         releasedAt = OffsetDateTime.parse("2026-10-01T10:00:00Z"),
         deployedTo = liveIn,
@@ -49,7 +50,7 @@ class CatalogDraftBarVersionsTest {
         segment = segment,
         drafts = drafts,
         releases = releases,
-        chosen = segment.draft?.let { id -> drafts.first { it.draftId == id } } ?: drafts.firstOrNull { it.isNext },
+        chosen = segment.draft?.let { id -> drafts.first { it.versionId == id } } ?: drafts.firstOrNull { it.isNext },
         mayOpenDrafts = mayEdit,
         mayDiscardDrafts = true,
         pageAt = { "/tenants/acme/catalogs/${it.value}/draft" },

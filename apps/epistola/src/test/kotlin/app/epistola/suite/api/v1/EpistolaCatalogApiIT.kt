@@ -66,10 +66,14 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
     private lateinit var restTemplate: TestRestTemplate
 
     @Test
-    fun `releasing the next version numbers it and continues it on the release`() {
+    fun `releasing the next version numbers it, keeps its id, and the next version continues on the release`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val catalogSlug = "rel-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
+        val before = JsonPath.read<String>(
+            restTemplate.exchange(versionPath(tenantKey, catalogSlug, "next"), HttpMethod.GET, HttpEntity<String>(baseHeaders(apiKey)), String::class.java).body!!,
+            "$.versionId",
+        )
 
         val response = restTemplate.exchange(
             "${versionPath(tenantKey, catalogSlug)}/release",
@@ -86,9 +90,14 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(body, "$.catalogVersion.notes")).isEqualTo("first cut")
         assertThat(JsonPath.read<Boolean>(body, "$.unchangedContent")).isFalse
         assertThat(JsonPath.read<Map<String, Any>>(body, "$")).doesNotContainKey("openedDraft")
+        assertThat(JsonPath.read<String>(body, "$.catalogVersion.versionId")).`as`("the release keeps the draft's id").isEqualTo(before)
+        assertThat(JsonPath.read<List<Any>>(body, "$.releasedDependencies")).isEmpty()
 
+        val byId = restTemplate.exchange(versionPath(tenantKey, catalogSlug, before), HttpMethod.GET, HttpEntity<String>(baseHeaders(apiKey)), String::class.java).body!!
+        assertThat(JsonPath.read<String>(byId, "$.version")).`as`("its id addresses the release").isEqualTo("1.0.0")
         val next = restTemplate.exchange(versionPath(tenantKey, catalogSlug, "next"), HttpMethod.GET, HttpEntity<String>(baseHeaders(apiKey)), String::class.java).body!!
-        assertThat(JsonPath.read<Boolean>(next, "$.isNext")).isTrue
+        assertThat(JsonPath.read<String>(next, "$.name")).isEqualTo("Next version")
+        assertThat(JsonPath.read<String>(next, "$.versionId")).isNotEqualTo(before)
         assertThat(JsonPath.read<String?>(next, "$.version")).`as`("numbered only when released").isNull()
         assertThat(JsonPath.read<String>(next, "$.base")).isEqualTo("1.0.0")
     }
@@ -153,7 +162,8 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
 
         val preview = call(HttpMethod.GET, "${versionPath(tenantKey, catalogSlug, "next")}/release-preview")
         assertThat(preview.statusCode).describedAs(preview.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(preview.body!!, "$.latest")).isEqualTo("1.0.0")
+        assertThat(JsonPath.read<String>(preview.body!!, "$.base")).isEqualTo("1.0.0")
+        assertThat(JsonPath.read<String>(preview.body!!, "$.needed")).isEqualTo("2.0.0")
         assertThat(JsonPath.read<String>(preview.body!!, "$.changeKind")).isEqualTo("breaking")
         assertThat(JsonPath.read<List<String>>(preview.body!!, "$.reasons")).contains("theme 'tha': removed")
         assertThat(JsonPath.read<String>(preview.body!!, "$.suggested")).isEqualTo("2.0.0")
@@ -185,12 +195,12 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
     }
 
     /**
-     * Long-term work (contract ADR 0002, amendment 2): started next to the next version, written to
-     * and read back by its id without touching the next version, renamed, never released, and
-     * discarded taking only its content; the listing puts the next version first.
+     * A draft (contract ADR 0002): started next to the next version, written to and read back by its
+     * id without touching the next version, renamed, and released on its own, after which its id
+     * addresses the release and it is no longer a draft.
      */
     @Test
-    fun `long-term work is started, written to by its id, renamed, not released, and discarded`() {
+    fun `a draft is started, written to by its id, renamed, and released on its own`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val catalogSlug = "drafts-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
@@ -200,10 +210,9 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
 
         val created = call(HttpMethod.POST, versions, """{"name":"Redesign"}""")
         assertThat(created.statusCode).describedAs(created.body).isEqualTo(HttpStatus.CREATED)
-        val work = JsonPath.read<String>(created.body!!, "$.draftId")
+        val work = JsonPath.read<String>(created.body!!, "$.versionId")
         assertThat(created.headers.location.toString()).endsWith("/versions/$work")
         assertThat(JsonPath.read<String>(created.body!!, "$.status")).isEqualTo("draft")
-        assertThat(JsonPath.read<Boolean>(created.body!!, "$.isNext")).isFalse
         assertThat(JsonPath.read<String>(created.body!!, "$.name")).isEqualTo("Redesign")
         assertThat(JsonPath.read<String>(created.body!!, "$.base")).isEqualTo("1.0.0")
         val taken = call(HttpMethod.POST, versions, """{"name":"redesign"}""")
@@ -215,24 +224,20 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(call(HttpMethod.GET, "$versions/$work/themes/tha").body!!, "$.name")).isEqualTo("Th, redesigned")
         assertThat(JsonPath.read<String>(call(HttpMethod.GET, "$versions/next/themes/tha").body!!, "$.name")).isEqualTo("Th")
         val listed = call(HttpMethod.GET, versions).body!!
-        assertThat(JsonPath.read<List<Boolean>>(listed, "$.items[*].isNext")).containsExactly(true, false, false)
+        assertThat(JsonPath.read<List<String?>>(listed, "$.items[*].name")).containsExactly("Next version", "Redesign", null)
         assertThat(JsonPath.read<List<String?>>(listed, "$.items[*].version")).containsExactly(null, null, "1.0.0")
 
         val renamed = call(HttpMethod.PATCH, "$versions/$work", """{"name":"Redesign 2027"}""")
         assertThat(renamed.statusCode).describedAs(renamed.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(renamed.body!!, "$.name")).isEqualTo("Redesign 2027")
-        val renameNext = call(HttpMethod.PATCH, "$versions/next", """{"name":"Mine"}""")
-        assertThat(renameNext.statusCode).isEqualTo(HttpStatus.CONFLICT)
-        assertThat(JsonPath.read<String>(renameNext.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-draft-kind")
 
         assertThat(call(HttpMethod.POST, "$versions/$work/mark-ready").statusCode).isEqualTo(HttpStatus.OK)
         val release = call(HttpMethod.POST, "$versions/$work/release", "{}")
-        assertThat(release.statusCode).`as`("only the next version is released").isEqualTo(HttpStatus.CONFLICT)
-        assertThat(JsonPath.read<String>(release.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-draft-kind")
-
-        assertThat(call(HttpMethod.DELETE, "$versions/$work").statusCode).isEqualTo(HttpStatus.NO_CONTENT)
-        assertThat(call(HttpMethod.GET, "$versions/$work/themes/tha").statusCode).isEqualTo(HttpStatus.NOT_FOUND)
-        assertThat(JsonPath.read<String>(call(HttpMethod.GET, "$versions/next/themes/tha").body!!, "$.name")).isEqualTo("Th")
+        assertThat(release.statusCode).describedAs(release.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(release.body!!, "$.catalogVersion.version")).`as`("a fix against its base").isEqualTo("1.0.1")
+        assertThat(JsonPath.read<String>(call(HttpMethod.GET, "$versions/$work").body!!, "$.status")).`as`("its id addresses the release").isEqualTo("released")
+        assertThat(call(HttpMethod.PATCH, "$versions/$work/themes/tha", """{"name":"Again"}""").statusCode).`as`("a release does not change").isEqualTo(HttpStatus.CONFLICT)
+        assertThat(JsonPath.read<String>(call(HttpMethod.GET, "$versions/next/themes/tha").body!!, "$.name")).`as`("the next version is untouched").isEqualTo("Th")
         assertThat(call(HttpMethod.DELETE, "$versions/1.0.0").statusCode).isEqualTo(HttpStatus.CONFLICT)
     }
 
@@ -244,7 +249,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         withMediator { ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.0.0").execute() }
         val versions = "${withMediator { CatalogApiPaths.catalog(tenantKey, catalogSlug) }}/versions"
         fun call(method: HttpMethod, path: String, body: String? = null) = restTemplate.exchange(path, method, HttpEntity(body, baseHeaders(apiKey)), String::class.java)
-        val work = JsonPath.read<String>(call(HttpMethod.POST, versions, """{"name":"Redesign"}""").body!!, "$.draftId")
+        val work = JsonPath.read<String>(call(HttpMethod.POST, versions, """{"name":"Redesign"}""").body!!, "$.versionId")
 
         assertThat(call(HttpMethod.PATCH, "$versions/next/themes/tha", """{"name":"Th, fixed"}""").statusCode).isEqualTo(HttpStatus.OK)
         assertThat(call(HttpMethod.POST, "$versions/next/mark-ready").statusCode).isEqualTo(HttpStatus.OK)
@@ -314,10 +319,9 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
 
         assertThat(response.statusCode).describedAs(response.body).isEqualTo(HttpStatus.OK)
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.newVersion")).isNotBlank()
-        assertThat(JsonPath.read<Boolean>(body, "$.aborted")).isFalse
-        assertThat(JsonPath.read<List<Any>>(body, "$.installResults")).isNotNull
-        assertThat(JsonPath.read<List<Any>>(body, "$.removedResources")).isNotNull
+        assertThat(JsonPath.read<String>(body, "$.releaseVersion")).isNotBlank()
+        assertThat(JsonPath.read<Boolean>(body, "$.newlyInstalled")).`as`("the release offered is the one installed").isFalse
+        assertThat(JsonPath.read<Int>(body, "$.total")).isPositive()
     }
 
     @Test
@@ -352,8 +356,8 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
     }
 
     private fun baseHeaders(apiKey: String): HttpHeaders = HttpHeaders().apply {
-        contentType = MediaType.parseMediaType("application/vnd.epistola.v1+json")
-        accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v1+json"))
+        contentType = MediaType.parseMediaType("application/vnd.epistola.v2+json")
+        accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v2+json"))
         set(HttpHeaders.USER_AGENT, "epistola-contract/0.14.0 catalog-it")
         set("X-EP-Node-Id", "test-node-${UUID.randomUUID()}")
         set("X-API-Key", apiKey)
@@ -364,24 +368,5 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         CreateTenant(id = tenantKey, name = "Catalog API Tenant").execute()
         val created = CreateApiKey(tenantId = tenantKey, name = "ca-it").execute()
         tenantKey to created.plaintextKey
-    }
-
-    @Test
-    fun `long-term work is made the next version over the API, keeping the old one by name`() {
-        val (tenantKey, apiKey) = seedTenantAndKey()
-        val catalogSlug = "promote-${UUID.randomUUID().toString().take(8)}"
-        seedAuthoredCatalog(tenantKey, catalogSlug)
-        withMediator { ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.0.0").execute() }
-        val versions = "${withMediator { CatalogApiPaths.catalog(tenantKey, catalogSlug) }}/versions"
-        fun call(method: HttpMethod, path: String, body: String? = null) = restTemplate.exchange(path, method, HttpEntity(body, baseHeaders(apiKey)), String::class.java)
-        val work = JsonPath.read<String>(call(HttpMethod.POST, versions, """{"name":"Redesign"}""").body!!, "$.draftId")
-
-        val promoted = call(HttpMethod.POST, "$versions/$work/promote", """{"keepPreviousAs":"Old next"}""")
-
-        assertThat(promoted.statusCode).describedAs(promoted.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<Boolean>(promoted.body!!, "$.isNext")).isTrue
-        assertThat(JsonPath.read<List<String?>>(call(HttpMethod.GET, "$versions?status=draft").body!!, "$.items[*].name")).containsExactly(null, "Old next")
-        val again = call(HttpMethod.POST, "$versions/next/promote", "{}")
-        assertThat(again.statusCode).isEqualTo(HttpStatus.CONFLICT)
     }
 }

@@ -18,7 +18,7 @@ import java.util.UUID
 class CatalogSegmentTest {
 
     private val tenant = TenantKey.of("acme")
-    private val work = UUID.fromString("0193a6b2-7f4e-7c1d-9a2b-3c4d5e6f7a8b")
+    private val work = "k7m2x9qa"
 
     @Test
     fun `a plain key names the catalog's current version, its next version`() {
@@ -43,7 +43,9 @@ class CatalogSegmentTest {
     @Test
     fun `a version number, anything else that is not a draft id, or a bad key, is refused`() {
         assertThatThrownBy { CatalogSegment.parse("letters@2.0.0") }.`as`("a draft has no number: not there, as an old link").isInstanceOf(CatalogVersionNotFoundException::class.java)
-        assertThatThrownBy { CatalogSegment.parse("letters@latest") }.isInstanceOf(CatalogVersionNotFoundException::class.java)
+        assertThatThrownBy { CatalogSegment.parse("letters@Not_An_Id") }.isInstanceOf(CatalogVersionNotFoundException::class.java)
+        assertThatThrownBy { CatalogSegment.parse("letters@abc") }.`as`("a version id has at least four characters").isInstanceOf(CatalogVersionNotFoundException::class.java)
+        assertThatThrownBy { CatalogSegment.parse("letters@next") }.`as`("the next version is the plain key").isInstanceOf(CatalogVersionNotFoundException::class.java)
         assertThatThrownBy { CatalogSegment.parse("Bad Key@$work") }.isInstanceOf(IllegalArgumentException::class.java)
         assertThat(CatalogSegment.parseOrNull("letters@")).isNull()
         assertThat(CatalogSegment.parseOrNull("  ")).isNull()

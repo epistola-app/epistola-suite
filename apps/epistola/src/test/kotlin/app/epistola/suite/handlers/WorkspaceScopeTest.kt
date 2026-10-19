@@ -23,15 +23,16 @@ class WorkspaceScopeTest {
 
     private val letters = CatalogKey.of("letters")
 
-    private val redesignId = UUID.fromString("0193a6b2-7f4e-7c1d-9a2b-3c4d5e6f7a8b")
+    private val redesignId = "k7m2x9qa"
 
-    private fun next(base: String?) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, draftId = UUID.fromString("0193a6b2-7f4e-7c1d-9a2b-000000000001"), isNext = true)
+    private fun next(base: String?) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, versionId = "n3xtv3rs", isNext = true)
 
-    private fun longTerm(name: String, base: String?) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, draftId = redesignId, name = name)
+    private fun longTerm(name: String, base: String?) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, versionId = redesignId, name = name)
 
     private fun release(version: String, liveIn: List<String> = emptyList()) = CatalogVersion(
         version,
         CatalogVersionStatus.RELEASED,
+        versionId = "r" + version.replace(".", ""),
         releasedAt = OffsetDateTime.parse("2026-10-01T10:00:00Z"),
         deployedTo = liveIn,
     )
@@ -50,7 +51,7 @@ class WorkspaceScopeTest {
         segment = segment,
         drafts = drafts,
         releases = releases,
-        chosen = segment.draft?.let { id -> drafts.first { it.draftId == id } } ?: drafts.firstOrNull { it.isNext },
+        chosen = segment.draft?.let { id -> drafts.first { it.versionId == id } } ?: drafts.firstOrNull { it.isNext },
         mayOpenDrafts = true,
         mayDiscardDrafts = true,
         installed = installed,

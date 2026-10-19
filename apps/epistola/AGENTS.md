@@ -13,7 +13,7 @@ The repo-wide source guards live in `modules/guards`; the ones needing the Sprin
 | Path       | `/api/**`                                      | `/tenants/**`, `/themes/**`, …          |
 | Auth       | API key or OAuth2 JWT, stateless, no CSRF      | session                                 |
 | Built from | `@RestController` in `modules/rest-api`        | `@Component` + functional routing here  |
-| Returns    | JSON DTOs (`application/vnd.epistola.v1+json`) | Thymeleaf, HTMX fragments, minimal JSON |
+| Returns    | JSON DTOs (`application/vnd.epistola.v2+json`) | Thymeleaf, HTMX fragments, minimal JSON |
 | For        | external systems; stable and versioned         | this UI; free to change                 |
 
 **UI code — Thymeleaf, JavaScript, TypeScript — must never call `/api/**`.** A UI need gets a UI

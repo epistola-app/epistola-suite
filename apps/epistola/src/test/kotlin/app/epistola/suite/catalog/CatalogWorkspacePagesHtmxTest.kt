@@ -121,7 +121,7 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
             HttpEntity(
                 LinkedMultiValueMap<String, String>().apply {
                     add("catalog", sharedOption)
-                    add("version", "*")
+                    add("version", "")
                 },
                 HttpHeaders().apply {
                     contentType = MediaType.APPLICATION_FORM_URLENCODED

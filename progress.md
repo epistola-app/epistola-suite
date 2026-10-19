@@ -364,27 +364,39 @@ still render bare when opened directly. `EmbeddingBridgeUiTest` navigate and
 `ExpressionClipboardPlaywrightUiTest` fail intermittently under load. Running Gradle tests rewrites
 module jars under a running demo (ZipException): restart the demo after.
 
-### Contract catch-up 2: `642b6e2`..`ae39e22` (19 October, in progress)
+### Contract catch-up 2: `642b6e2`..`ae39e22` (19 October)
 
 Five breaking contract commits landed on 19 October and were published as the local
 `2.0.0-SNAPSHOT`; the branch stopped compiling. Decided with the user: keep "Next version" as a
-suite convention (one draft marked as the default; promote removed, any draft releasable; after
-the default is released a new default opens from that release), and use short random version ids
-(the unreleased migrations are rewritten, the demo database is reset).
+suite convention (one draft marked as the default; promote removed from REST, any draft releasable;
+after the default is released it continues on that release under a new id), and use short random
+version ids (the unreleased migrations are rewritten, the demo database is reset).
 
-| Step | Contract                                                                                                                                    | Status      |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| 1    | `642b6e2` dependencies pin an exact release; `ReleaseVersion` everywhere; generation takes ranges                                           | in progress |
-| 2    | `5f3b81f` every version has a `versionId`, kept when released; addressed by id or number                                                    | to do       |
-| 3    | `17e623c` any draft is released; free number above base; behind (a)/(b); dependency drafts, `releaseDependencies`; overrides end on release | to do       |
-| 4    | `70a5c77` import installs the archive's release, never a draft; `catalogType` required on create                                            | to do       |
-| 5    | `5f3b81f` archive carries pinned releases under `dependencies/`, replacing `bundle.json`                                                    | to do       |
-| 6    | `ae39e22` upgrade installs a release; preview lists available releases; no in-place reconcile                                               | to do       |
-| 7    | REST, MCP, UI, docs, demo catalog, changelog                                                                                                | to do       |
+| Step | Contract                                                                                                                                                                                      | Where                                                                                                                                                   | Coverage                                                                                                                   |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| 1    | `642b6e2` dependencies pin an exact release (or, in a draft, name a draft); `ReleaseVersion` everywhere; generation keeps ranges                                                              | `CatalogDependencyStore`, `UpdateCatalogDependencies`, `MissingDependencyDeclarer`, `CatalogUpgradeRunner.pinUnpinned`, migrations `…201100`, `…200200` | ✅ `CatalogDependenciesTest`, `CatalogUpgradeTest`, `CatalogDependencyMcpToolsIntegrationTest`                             |
+| 2    | `5f3b81f` every version has a `versionId` (8 chars, `epistola_version_key()`), kept when released                                                                                             | `CatalogVersions`, `DraftRef`, `CatalogSegment`, documents/overrides `draftId: String`, migrations `…200900`, `…201300`                                 | ✅ `PromotionTest` "the release keeps its id", `CatalogSegmentTest`, `EnvironmentOverridesTest`                            |
+| 3    | `17e623c` any draft is released; free number above base; behind (a)/(b); `releaseDependencies`; overrides end on release                                                                      | `ReleaseCatalogVersion`, `AssessDraftNumber`, `CatalogDrafts.behind`                                                                                    | ✅ `PromotionTest`, `ReleaseNumberTest`, `SeveralDraftsTest`, `CatalogDependenciesTest` (release-dependencies)             |
+| 4    | `70a5c77` import installs the archive's release; `catalogType` only on create                                                                                                                 | `ImportCatalogZip.install`, `CatalogImportRows`                                                                                                         | ✅ `CatalogZipVersioningTest` (same release no-op, other content refused, type required), `ExchangeCatalogInstallTest`     |
+| 5    | `5f3b81f` archive carries pinned releases under `dependencies/`; `CatalogBundle` deleted                                                                                                      | `ExportCatalogZip.withDependencies`, `CatalogArchiveBuilder`                                                                                            | ✅ `CatalogBundleTest` (rewritten), `ExportReleaseTest`                                                                    |
+| 6    | `ae39e22` upgrade takes `releaseVersion`; preview lists available releases                                                                                                                    | `EpistolaCatalogApi`, `PreviewCatalogUpgrade`                                                                                                           | ✅ `EpistolaCatalogApiIT`                                                                                                  |
+| 7    | REST, MCP, UI, docs, demo catalog, changelog                                                                                                                                                  | `rest-api`, `CatalogVersionMcpTools`, catalog templates, `docs/catalog-versioning.md`, `docs/mcp.md`, fragments corrected in place                      | ✅ app IT 691, MCP IT 80, core IT 1106, guards 27, unit all, UI 116 (one flake in `EmbeddingBridgeUiTest`, green on rerun) |
+| fix  | Fingerprint mismatch "rebuilds to … but was released as …": `fingerprintFromSource` left out the manifest's resource entries and publisher; installed releases now keep the archive's content | `CatalogCanonicalizer`, `CatalogContent.publisher`, `RecordInstalledRelease.published`                                                                  | ✅ `InstalledReleaseExportTest` (2, failed before); bundled fingerprints regenerated                                       |
+| fix  | Import dialog offered Merge/Replace, which an install no longer uses (the installing draft starts empty)                                                                                      | `catalogs/import.html`, `CatalogHandler.importZip`                                                                                                      | ✅ `CatalogListHandlerTest` "HTMX GET import" (failed before)                                                              |
 
-Found while starting: a fat export in the demo failed with "Release 2.0.0 of catalog 'system'
-rebuilds to fingerprint … but was released as …". Not yet known whether stale demo data or a bug;
-re-test once the build compiles (a fresh tenant exporting `system` 2.0.0).
+Known gaps, not touched:
+
+- A SUBSCRIBED import of a release lower than the installed one is refused (contract allows a gap?).
+- Upgrade still reconciles the mirror in place and keeps the cross-catalog conflict check.
+- The upgrade preview's dependency list is always empty.
+- The bundled `system` catalog cannot be exported: its seeded fonts are not in its manifest.
+- An import that creates an authored catalog opens a next version (contract says no draft).
+- The home page's "behind" hint is empty since behind is computed on request only.
+- UI copy still says "long-term work" for a draft other than the next version; the UI keeps
+  _Make this the next version_ (MCP `make_next_version`, no REST).
+- A draft naming another catalog's draft renders that catalog from its release pin, not live from
+  the draft.
+- Contract `41ee3fb` (undeploy removes only explicit deployments) not checked yet.
 
 ### Contract `feature/v2` (local, not pushed)
 

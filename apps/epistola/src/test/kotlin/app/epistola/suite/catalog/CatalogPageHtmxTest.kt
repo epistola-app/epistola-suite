@@ -144,11 +144,11 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
 
     @Test
     fun `long-term work in the catalog page's address goes to its own page`() {
-        lateinit var work: java.util.UUID
+        lateinit var work: String
         val tenant = catalog("Page Redirects") { tenant, catalog ->
             invoice(catalog)
             mediator.releaseNext(catalog)
-            work = requireNotNull(CreateCatalogDraft(tenant.id, CatalogKey.of("letters"), "Redesign").execute().draftId)
+            work = requireNotNull(CreateCatalogDraft(tenant.id, CatalogKey.of("letters"), "Redesign").execute().versionId)
         }
 
         assertThat(get(tenant, "/catalogs/letters@$work/browse").headers.location.toString())

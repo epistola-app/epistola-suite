@@ -174,7 +174,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
             MarkCatalogReady(tenant, shared).execute()
             ReleaseCatalogVersion(tenant, shared, "1.0.0").execute()
             val target = GetCatalog(tenant, shared).query()!!
-            UpdateCatalogDependencies(tenant, CatalogKey.DEFAULT, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "*"))).execute()
+            UpdateCatalogDependencies(tenant, CatalogKey.DEFAULT, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
             mediator.releaseNext(CatalogId.default(TenantId(tenant)))
         }
 
@@ -256,7 +256,8 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<List<String>>(exchange(HttpMethod.GET, "$environments/production/overrides", key).body!!, "$.items[*].releaseVersion")).containsExactly("1.0.0")
         assertThat(JsonPath.read<String>(exchange(HttpMethod.GET, "$environments/production/deployment-history", key).body!!, "$.items[0].action")).isEqualTo("override-set")
 
-        val both = exchange(HttpMethod.PUT, override, key, """{"releaseVersion":"1.0.0","catalogVersion":"next"}""")
+        val next = withMediator { app.epistola.suite.catalog.versions.GetCatalogDraft(tenant, CatalogKey.DEFAULT).query()!!.versionId }
+        val both = exchange(HttpMethod.PUT, override, key, """{"releaseVersion":"1.0.0","versionId":"$next"}""")
         assertThat(both.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
 
         // Production uses only published versions.
@@ -264,15 +265,16 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         assertThat(marked.statusCode).describedAs(marked.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(marked.body!!, "$.name")).`as`("a partial update keeps the name").isEqualTo("Production")
         assertThat(JsonPath.read<Boolean>(marked.body!!, "$.production")).isTrue()
-        val refused = exchange(HttpMethod.PUT, override, key, """{"catalogVersion":"next"}""")
+        val refused = exchange(HttpMethod.PUT, override, key, """{"versionId":"$next"}""")
         assertThat(refused.statusCode).isEqualTo(HttpStatus.CONFLICT)
         assertThat(JsonPath.read<String>(refused.body!!, "$.type")).isEqualTo("https://epistola.app/errors/environment-override-refused")
 
         assertThat(exchange(HttpMethod.PATCH, "$environments/production", key, """{"production":false}""").statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(exchange(HttpMethod.PUT, override, key, """{"catalogVersion":"next"}""").statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(exchange(HttpMethod.PUT, override, key, """{"versionId":"$next"}""").statusCode).isEqualTo(HttpStatus.OK)
         val fromDraft = generated("production")
         assertThat(JsonPath.read<String?>(fromDraft, "$.items[0].releaseVersion")).isNull()
         assertThat(JsonPath.read<String>(fromDraft, "$.items[0].draftLabel")).isEqualTo("Next version")
+        assertThat(JsonPath.read<String>(fromDraft, "$.items[0].versionId")).isEqualTo(next)
 
         assertThat(exchange(HttpMethod.DELETE, override, key).statusCode).isEqualTo(HttpStatus.NO_CONTENT)
         assertThat(exchange(HttpMethod.DELETE, override, key).statusCode).`as`("idempotent").isEqualTo(HttpStatus.NO_CONTENT)
@@ -333,8 +335,8 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
     private fun exchange(method: HttpMethod, path: String, key: String, body: String? = null) = restTemplate.exchange(path, method, HttpEntity(body, headers(key)), String::class.java)
 
     private fun headers(apiKey: String): HttpHeaders = HttpHeaders().apply {
-        contentType = MediaType.parseMediaType("application/vnd.epistola.v1+json")
-        accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v1+json"))
+        contentType = MediaType.parseMediaType("application/vnd.epistola.v2+json")
+        accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v2+json"))
         set(HttpHeaders.USER_AGENT, "epistola-contract/2.0.0 release-it")
         set("X-EP-Node-Id", "test-node-${UUID.randomUUID()}")
         set("X-API-Key", apiKey)

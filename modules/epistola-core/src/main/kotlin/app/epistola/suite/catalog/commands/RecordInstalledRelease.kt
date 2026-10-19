@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.commands
 import app.epistola.catalog.canonical.QualifiedCatalogFingerprint
 import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.generation.pdf.RenderingDefaults
+import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogType
@@ -49,6 +50,13 @@ import java.time.OffsetDateTime
 data class RecordInstalledRelease(
     val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
+    /**
+     * The release's content as its archive carries it, when the caller has the archive: retained
+     * instead of a rebuild from the installed rows, so the release exports with its publisher's
+     * fingerprint. Null rebuilds it from what is installed (an upgrade from 1.x, the system catalog's
+     * seeded fonts).
+     */
+    val published: CatalogContent? = null,
 ) : Command<String?>,
     SystemInternal
 
@@ -92,7 +100,7 @@ class RecordInstalledReleaseHandler(
         }
         if (exists) return version
 
-        val content = contentBuilder.build(command.tenantKey, command.catalogKey)
+        val content = command.published ?: contentBuilder.build(command.tenantKey, command.catalogKey)
         // The publisher's fingerprint when it names its algorithm. A legacy one (a catalog from wire v7
         // or earlier, or installed under 1.x) cannot be checked against this wire-v8 content, and a
         // release whose fingerprint names no algorithm cannot be locked to or pinned by a dependent
@@ -139,4 +147,35 @@ class RecordInstalledReleaseHandler(
         logger.info("Recorded installed release {}@{} for tenant {}", command.catalogKey.value, version, command.tenantKey.value)
         return version
     }
+}
+
+/**
+ * A release's content as its publisher released it: [manifest], every resource as the archive binds
+ * it ([bound], by `type/key`), and the binaries it carries ([binaries], by archive path). A rebuild
+ * from the rows an install mirrors it into writes every default out (an absent list as empty, an
+ * absent sort order as 0): the same content, but no longer the publisher's fingerprint.
+ */
+internal fun publishedContent(
+    manifest: app.epistola.catalog.protocol.CatalogManifest,
+    bound: Map<String, app.epistola.catalog.protocol.CatalogResource>,
+    binaries: Map<String, ByteArray>,
+): CatalogContent {
+    val details = bound.mapValues { (_, resource) -> app.epistola.catalog.protocol.ResourceDetail(app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION, resource) }
+    val paths = details.values.flatMap { detail ->
+        when (val resource = detail.resource) {
+            is app.epistola.catalog.protocol.ImageResource -> listOf(resource.contentPath())
+            is app.epistola.catalog.protocol.FontResource -> resource.variants.map { it.contentPath() }
+            else -> emptyList()
+        }
+    }
+    val byPath = binaries.mapKeys { it.key.removePrefix("./") }
+    return CatalogContent(
+        catalog = manifest.catalog,
+        resourceEntries = manifest.resources,
+        resourceDetails = details,
+        dependencies = manifest.dependencies,
+        catalogDependencies = manifest.catalogDependencies,
+        assetContents = paths.distinct().mapNotNull { path -> byPath[path]?.let { path to it } }.toMap(),
+        publisher = manifest.publisher,
+    )
 }

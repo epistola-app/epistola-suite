@@ -61,7 +61,7 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
         assertThat(card).contains(">Authored<")
         assertThat(card).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/browse\"")
         assertThat(card).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/draft\"").contains(">Next version<")
-        val redesign = withMediator { ListCatalogVersions(tenant.id, letters).query() }.single { it.name == "Redesign" }.draftId
+        val redesign = withMediator { ListCatalogVersions(tenant.id, letters).query() }.single { it.name == "Redesign" }.versionId
         assertThat(card).`as`("long-term work, by its name").contains("href=\"/tenants/${tenant.id.value}/catalogs/letters@$redesign/draft\"")
             .contains(">Redesign<").contains("long-term work")
         assertThat(card).contains("1 change not published yet")

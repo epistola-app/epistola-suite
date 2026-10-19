@@ -15,7 +15,7 @@ import java.util.UUID
 @Tag("unit")
 class VersionSwitchTest {
 
-    private val work = UUID.fromString("0193a6b2-7f4e-7c1d-9a2b-3c4d5e6f7a8b")
+    private val work = "k7m2x9qa"
     private val next = CatalogSegment(CatalogKey.of("letters"))
     private val redesign = CatalogSegment(CatalogKey.of("letters"), work)
 

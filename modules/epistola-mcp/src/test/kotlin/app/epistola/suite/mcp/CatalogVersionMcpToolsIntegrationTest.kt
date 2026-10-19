@@ -5,6 +5,7 @@
 package app.epistola.suite.mcp
 
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
+import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
 import app.epistola.suite.catalog.versions.CatalogVersionHeldException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.common.ids.CatalogKey
@@ -63,20 +64,20 @@ class CatalogVersionMcpToolsIntegrationTest : IntegrationTestBase() {
     private fun released(tenantId: TenantId): String = runAsApiKey(tenantId) {
         themeTools.createTheme("default", "brand", "Brand", null, null, null, null, null)
         readyTools.markCatalogReady("default")
-        versionTools.releaseNextVersion("default", null, "first", null).version
+        versionTools.releaseDraft("default", null, null, "first", null, null).version
     }
 
     private fun newTenant(): TenantId = TenantId(createTenant("MCP Versions ${UUID.randomUUID()}").id)
 
-    /** Starts long-term work called [name]; its `draftId`. */
-    private fun work(tenantId: TenantId, name: String): String = runAsApiKey(tenantId) { versionTools.startLongTermWork("default", name, null) }.draftId!!
+    /** Starts a draft called [name]; its `versionId`. */
+    private fun work(tenantId: TenantId, name: String): String = runAsApiKey(tenantId) { versionTools.startDraft("default", name, null) }.versionId
 
     @Test
-    fun `long-term work is started from the next version and listed after it, without a number`() {
+    fun `a draft is started from the highest release and listed after the next version, without a number`() {
         val tenantId = newTenant()
         val first = released(tenantId)
 
-        val created = runAsApiKey(tenantId) { versionTools.startLongTermWork("default", "Redesign", null) }
+        val created = runAsApiKey(tenantId) { versionTools.startDraft("default", "Redesign", null) }
 
         assertThat(created.status).isEqualTo("DRAFT")
         assertThat(created.version).isNull()
@@ -85,10 +86,11 @@ class CatalogVersionMcpToolsIntegrationTest : IntegrationTestBase() {
         assertThat(created.base).isEqualTo(first)
         val versions = runAsApiKey(tenantId) { versionTools.listCatalogVersions("default", null) }
         assertThat(versions.map { Triple(it.isNext, it.name, it.version) }).containsExactly(
-            Triple(true, null, null),
+            Triple(true, "Next version", null),
             Triple(false, "Redesign", null),
             Triple(false, null, first),
         )
+        assertThat(versions.map { it.versionId }).doesNotHaveDuplicates().allMatch { it.matches(Regex("^[a-z0-9]{8}$")) }
     }
 
     @Test
@@ -140,15 +142,15 @@ class CatalogVersionMcpToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `long-term work is renamed, and the next version has no name to change`() {
+    fun `a draft is renamed, and the next version has no name to change`() {
         val tenantId = newTenant()
         released(tenantId)
         val redesign = work(tenantId, "Redesign")
 
-        val renamed = runAsApiKey(tenantId) { versionTools.renameLongTermWork("default", redesign, "Redesign 2027") }
+        val renamed = runAsApiKey(tenantId) { versionTools.renameDraft("default", redesign, "Redesign 2027") }
 
         assertThat(renamed.name).isEqualTo("Redesign 2027")
-        assertThatThrownBy { runAsApiKey(tenantId) { versionTools.renameLongTermWork("default", "next", "Mine") } }.isInstanceOf(ValidationException::class.java)
+        assertThatThrownBy { runAsApiKey(tenantId) { versionTools.renameDraft("default", "next", "Mine") } }.isInstanceOf(CatalogDraftIsNextException::class.java)
     }
 
     @Test
@@ -160,19 +162,20 @@ class CatalogVersionMcpToolsIntegrationTest : IntegrationTestBase() {
             readyTools.markCatalogReady("default")
         }
 
-        val preview = runAsApiKey(tenantId) { versionTools.previewReleaseNumber("default") }
+        val preview = runAsApiKey(tenantId) { versionTools.previewReleaseNumber("default", null) }
 
-        assertThat(preview.latest).isEqualTo(first)
+        assertThat(preview.base).isEqualTo(first)
+        assertThat(preview.needed).isEqualTo("1.1.0")
         assertThat(preview.changeKind).isEqualTo("ADDITIVE")
         assertThat(preview.reasons).containsExactly("theme 'extra': added")
         assertThat(preview.suggested).isEqualTo("1.1.0")
-        assertThatThrownBy { runAsApiKey(tenantId) { versionTools.releaseNextVersion("default", "1.0.1", null, null) } }
+        assertThatThrownBy { runAsApiKey(tenantId) { versionTools.releaseDraft("default", null, "1.0.1", null, null, null) } }
             .`as`("never lower than the changes need").isInstanceOf(CatalogReleaseVersionException::class.java)
-        assertThat(runAsApiKey(tenantId) { versionTools.releaseNextVersion("default", null, null, null) }.version).isEqualTo("1.1.0")
+        assertThat(runAsApiKey(tenantId) { versionTools.releaseDraft("default", null, null, null, null, null) }.version).isEqualTo("1.1.0")
     }
 
     @Test
-    fun `releasing the next version continues it, and long-term work is behind the release`() {
+    fun `releasing the next version continues it, and another draft is behind the release`() {
         val tenantId = newTenant()
         released(tenantId)
         work(tenantId, "Redesign")
@@ -180,7 +183,7 @@ class CatalogVersionMcpToolsIntegrationTest : IntegrationTestBase() {
         val release = runAsApiKey(tenantId) {
             themeTools.updateTheme("default", "brand", "Brand, fixed", null, null, null, null, null, null, null)
             readyTools.markCatalogReady("default")
-            versionTools.releaseNextVersion("default", null, null, null)
+            versionTools.releaseDraft("default", null, null, null, null, null)
         }
 
         assertThat(release.version).isEqualTo("1.0.1")
@@ -193,32 +196,32 @@ class CatalogVersionMcpToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `discarding long-term work removes it, discarding the next version starts it again, and one holding the default theme alone is refused`() {
+    fun `discarding a draft removes it, and the next version holding the default theme alone is refused`() {
         val tenantId = newTenant()
         released(tenantId)
         val redesign = work(tenantId, "Redesign")
         runAsApiKey(tenantId) { themeTools.createTheme("default", "seasonal", "Seasonal", null, null, null, null, null) }
         withMediator { SetTenantDefaultTheme(tenantId.key, ThemeKey.of("seasonal"), CatalogKey.of("default")).execute() }
 
-        val left = runAsApiKey(tenantId) { versionTools.discardCatalogWork("default", redesign) }
+        val left = runAsApiKey(tenantId) { versionTools.discardDraft("default", redesign) }
 
         assertThat(left.map { it.name }).doesNotContain("Redesign")
-        assertThatThrownBy { runAsApiKey(tenantId) { versionTools.discardCatalogWork("default", "next") } }
+        assertThatThrownBy { runAsApiKey(tenantId) { versionTools.discardDraft("default", "next") } }
             .isInstanceOf(CatalogVersionHeldException::class.java)
             .hasMessageContaining("default theme")
     }
 
     @Test
-    fun `long-term work is made the next version, keeping the old one by name`() {
+    fun `a draft is made the next version, keeping the old one by name`() {
         val tenantId = newTenant()
         released(tenantId)
         val redesign = work(tenantId, "Redesign")
         runAsApiKey(tenantId) { themeTools.updateTheme("default", "brand", "Brand redesigned", null, null, null, null, null, null, null, catalogVersion = redesign) }
 
-        val promoted = runAsApiKey(tenantId) { versionTools.promoteLongTermWork("default", redesign, "Old next", null) }
+        val promoted = runAsApiKey(tenantId) { versionTools.makeNextVersion("default", redesign, "Old next") }
 
         assertThat(promoted.isNext).isTrue()
-        assertThat(runAsApiKey(tenantId) { versionTools.listCatalogVersions("default", "DRAFT") }.map { it.name }).containsExactly(null, "Old next")
+        assertThat(runAsApiKey(tenantId) { versionTools.listCatalogVersions("default", "DRAFT") }.map { it.name }).containsExactly("Next version", "Old next")
         assertThat(runAsApiKey(tenantId) { themeTools.getTheme("default", "brand")!!.name }).isEqualTo("Brand redesigned")
     }
 }

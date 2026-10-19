@@ -153,8 +153,8 @@ class StencilParameterSchemaApiTest : IntegrationTestBase() {
     private fun get(path: String, apiKey: String) = restTemplate.exchange(path, HttpMethod.GET, HttpEntity<String>(null, headers(apiKey)), String::class.java)
 
     private fun headers(apiKey: String): HttpHeaders = HttpHeaders().apply {
-        contentType = MediaType.parseMediaType("application/vnd.epistola.v1+json")
-        accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v1+json"))
+        contentType = MediaType.parseMediaType("application/vnd.epistola.v2+json")
+        accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v2+json"))
         set(HttpHeaders.USER_AGENT, "epistola-contract/0.9.0 stencil-param-it")
         set("X-EP-Node-Id", "test-node-${UUID.randomUUID()}")
         set("X-API-Key", apiKey)

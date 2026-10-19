@@ -81,6 +81,7 @@ class ReleaseContentAssembler(
                 dependencies = snapshot.dependencies,
                 catalogDependencies = snapshot.catalogDependencies,
                 assetContents = loadAssetContents(handle, tenantKey, details.values),
+                publisher = snapshot.publisher,
             ),
             release = snapshot.release,
         )

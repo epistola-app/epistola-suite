@@ -1643,8 +1643,8 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     }
 
     private fun baseHeaders(apiKey: String): HttpHeaders = HttpHeaders().apply {
-        contentType = MediaType.parseMediaType("application/vnd.epistola.v1+json")
-        accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v1+json"))
+        contentType = MediaType.parseMediaType("application/vnd.epistola.v2+json")
+        accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v2+json"))
         set(HttpHeaders.USER_AGENT, "epistola-contract/0.5.0 template-it")
         set("X-EP-Node-Id", "test-node-${UUID.randomUUID()}")
         set("X-API-Key", apiKey)

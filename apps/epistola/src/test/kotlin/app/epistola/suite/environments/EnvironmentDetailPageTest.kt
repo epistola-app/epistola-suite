@@ -188,7 +188,7 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
         MarkCatalogReady(tenant.id, shared).execute()
         ReleaseCatalogVersion(tenant.id, shared, version = "1.0.0").execute()
         val target = GetCatalog(tenant.id, shared).query()!!
-        UpdateCatalogDependencies(tenant.id, LETTERS, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "*"))).execute()
+        UpdateCatalogDependencies(tenant.id, LETTERS, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
         MarkCatalogReady(tenant.id, LETTERS).execute()
         // A dependency added is a breaking change: released as the number that needs.
         ReleaseCatalogVersion(tenant.id, LETTERS).execute().version

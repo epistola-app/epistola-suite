@@ -15,6 +15,8 @@ SPDX-License-Identifier: AGPL-3.0-only
 > until it becomes the next version (promotion and pre-releases are stage 2). The fix of what is live
 > described below is not built: hotfixes follow ADR 0001, fitted to this model later. Dependencies are
 > exact pins checked per use. The current behaviour is in [catalog-versioning.md](catalog-versioning.md).
+> **Since 19 October 2026** (ADR 0002, rewritten as one decision): every draft is the same and any draft is
+> released on its own; _next version_ is only the default mark, and promotion only moves it.
 
 ## The balance
 

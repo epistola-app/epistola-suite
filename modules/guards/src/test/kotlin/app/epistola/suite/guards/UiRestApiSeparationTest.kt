@@ -24,7 +24,7 @@ class UiRestApiSeparationTest {
     /** `/api/` in a string literal or an attribute value: a fetch, an `hx-*` target or an import. */
     private val restCall = Regex("""["'(=]/api/""")
 
-    private val restMediaType = "application/vnd.epistola.v1+json"
+    private val restMediaType = "application/vnd.epistola.v2+json"
 
     @Test
     fun `UI code must not call the REST API`() {

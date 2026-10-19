@@ -71,8 +71,11 @@ class McpWriteToolsHttpIT : IntegrationTestBase() {
             "update_theme", "upload_image", "upload_font", "get_authoring_schemas",
             "mark_variant_ready", "mark_template_ready", "mark_stencil_ready", "mark_catalog_ready",
         )
-        // No versions any more: nothing to publish or upgrade.
-        assertThat(tools.keys).noneMatch { it.startsWith("publish_") || it.startsWith("upgrade_stencil") || it.endsWith("_draft") }
+        // No resource versions any more: nothing to publish or upgrade per resource. A draft is a
+        // version of a whole catalog, which only the catalog version tools handle.
+        val catalogDraftTools = setOf("start_draft", "rename_draft", "discard_draft", "release_draft")
+        assertThat(tools.keys).noneMatch { it.startsWith("publish_") || it.startsWith("upgrade_stencil") || (it.endsWith("_draft") && it !in catalogDraftTools) }
+        assertThat(tools.keys).containsAll(catalogDraftTools)
         val stencilArgs = tools.getValue("create_stencil").get("inputSchema")
         assertThat(stencilArgs.get("properties").get("tags").get("type").asString()).isEqualTo("array")
         assertThat(stencilArgs.get("required").values().map { it.asString() })

@@ -32,7 +32,7 @@
   "release": {
     "version": "5.17.2",
     "releasedAt": "2026-08-21T00:00:00Z",
-    "fingerprint": "v5:02e124e10d54fae3678610d229d9a29d171acc699ff3615709c38e5629d91fb6"
+    "fingerprint": "v5:90a3be94c528ac92eecf82799b7542d14b433d6a67ee4045a594eb97d35b244e"
   },
   "catalogDependencies": [
     {
@@ -40,7 +40,7 @@
       "namespace": "epistola",
       "catalogKey": "system",
       "releaseVersion": "2.0.0",
-      "releaseFingerprint": "v5:ca81faf3377fd558f5b634b7e566f59f520ef4b6380ae0ee991cf7e7d060f808"
+      "releaseFingerprint": "v5:1f73863389e0b2085d5bd3ccd0965993197105eaf69f4eb56f95ba065e102004"
     }
   ],
   "resources": [

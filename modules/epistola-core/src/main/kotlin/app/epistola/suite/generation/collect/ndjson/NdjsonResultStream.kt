@@ -59,7 +59,7 @@ class NdjsonResultStream(
      * gzip if [encoding] is [Encoding.GZIP].
      *
      * The caller is responsible for setting `Content-Type:
-     * application/vnd.epistola.v1+ndjson` and (when applicable)
+     * application/vnd.epistola.v2+ndjson` and (when applicable)
      * `Content-Encoding: gzip` on the response. This class only emits bytes.
      *
      * @param meta computed by the controller from the result of

@@ -197,7 +197,7 @@
 
     <!--/* Long-term work is hard to miss: what is being changed, and that the next version is not. */-->
     <div th:fragment="side-strip" th:with="bar=${workspace.catalog.bar}" class="ws-side-strip" role="status"
-         data-testid="catalog-long-term-banner" th:attr="data-catalog=${bar.catalogKey},data-draft=${bar.chosen.draftId}">
+         data-testid="catalog-long-term-banner" th:attr="data-catalog=${bar.catalogKey},data-draft=${bar.chosen.versionId}">
         <span>
             <span th:text="'You are changing ' + ${bar.chosen.label} + ', long-term work kept apart from the next version.'">You are changing Redesign 2027.</span>
             <strong th:if="${bar.followedByText != null}" data-testid="catalog-long-term-followed" th:text="${bar.followedByText} + '.'">Test follows it.</strong>

@@ -71,8 +71,8 @@ data class CatalogReleaseReadiness(
     /** There is a draft to show changes for and declare dependencies in. */
     val hasDraft: Boolean get() = draft != null
 
-    /** The draft is the next version, the only one that is published. */
-    val publishable: Boolean get() = draft?.isNext == true
+    /** There is a draft to publish: any draft is released on its own (contract ADR 0002). */
+    val publishable: Boolean get() = draft != null
 
     /** The changed resources not marked ready; releasing refuses while there is one. */
     val notReady: List<CatalogResourceChange> get() = changes.notReady

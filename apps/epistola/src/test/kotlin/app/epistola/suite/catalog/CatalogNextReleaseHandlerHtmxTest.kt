@@ -173,7 +173,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `the dependency dialog declares a catalog, locked to its highest matching release`() = fixture {
+    fun `the dependency dialog declares a catalog, pinned to its highest release`() = fixture {
         lateinit var tenant: Tenant
         lateinit var dependencyValue: String
 
@@ -188,7 +188,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
         whenever {
             postForm(
                 "/tenants/${tenant.id}/catalogs/letters/dependencies",
-                mapOf("catalog" to dependencyValue, "version" to "^1.0.0"),
+                mapOf("catalog" to dependencyValue, "version" to ""),
             )
         }
 
@@ -204,7 +204,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `an unresolved dependency withholds Release and says where to fix it`() = fixture {
+    fun `a release the catalog depended on does not have is refused on its row`() = fixture {
         lateinit var tenant: Tenant
         lateinit var dependencyValue: String
 
@@ -219,18 +219,15 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
         whenever {
             postForm(
                 "/tenants/${tenant.id}/catalogs/letters/dependencies",
-                mapOf("catalog" to dependencyValue, "version" to "^2.0.0"),
+                mapOf("catalog" to dependencyValue, "version" to "2.0.0"),
             )
-            postHtmx("/tenants/${tenant.id}/catalogs/letters/ready")
         }
 
         then {
-            val body = result<ResponseEntity<String>>().body!!
-            assertThat(body).contains("data-testid=\"catalog-release-blocked-dependencies\"")
-            assertThat(body).contains("It uses shared, which has no published version that fits yet.")
-            assertThat(body).contains("change its range under Advanced")
-            assertThat(body).contains("No matching release")
-            assertThat(body).doesNotContain("data-testid=\"catalog-release-open\"")
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode.value()).isEqualTo(422)
+            assertThat(response.body).contains("data-testid=\"catalog-dependency-error\"").contains("no release 2.0.0 of shared")
+            assertThat(withMediator { ListCatalogDependencies(tenant.id, CatalogKey.of("letters")).query() }).`as`("nothing declared").isEmpty()
         }
     }
 
@@ -247,7 +244,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
         whenever {
             postForm(
                 "/tenants/${tenant.id}/catalogs/letters/dependencies",
-                mapOf("catalog" to "exchange.epistola.app~nobody/missing", "version" to "*"),
+                mapOf("catalog" to "exchange.epistola.app~nobody/missing", "version" to ""),
             )
         }
 

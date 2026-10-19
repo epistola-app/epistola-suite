@@ -211,7 +211,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.headers.contentType.toString())
-            .isEqualTo("application/vnd.epistola.v1+ndjson")
+            .isEqualTo("application/vnd.epistola.v2+ndjson")
         // We can't reliably check Content-Encoding here: TestRestTemplate's
         // underlying Apache client transparently decodes gzip and STRIPS the
         // Content-Encoding header. To verify negotiation actually happened,
@@ -252,7 +252,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.headers.contentType.toString())
-            .isEqualTo("application/vnd.epistola.v1+ndjson")
+            .isEqualTo("application/vnd.epistola.v2+ndjson")
         // Negotiated identity → server should NOT advertise gzip (or any encoding).
         // Apache HttpClient leaves Content-Encoding intact when it didn't decode.
         assertThat(response.headers[HttpHeaders.CONTENT_ENCODING])
@@ -338,7 +338,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
     }
 
     private companion object {
-        const val EPISTOLA_JSON = "application/vnd.epistola.v1+json"
-        const val EPISTOLA_NDJSON = "application/vnd.epistola.v1+ndjson"
+        const val EPISTOLA_JSON = "application/vnd.epistola.v2+json"
+        const val EPISTOLA_NDJSON = "application/vnd.epistola.v2+ndjson"
     }
 }

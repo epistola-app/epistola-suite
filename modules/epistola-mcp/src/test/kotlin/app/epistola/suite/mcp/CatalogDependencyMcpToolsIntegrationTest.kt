@@ -60,17 +60,18 @@ class CatalogDependencyMcpToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a dependency is declared by catalog key and locked to the highest release its range matches`() {
+    fun `a dependency is declared by catalog key and pins the release named, or the highest`() {
         val tenantId = setUp()
 
-        val declared = runAsApiKey(tenantId) { catalogTools.updateCatalogDependencies("letters", listOf(CatalogDependencyInput("shared", "~1.0.0"))) }
+        val declared = runAsApiKey(tenantId) { catalogTools.updateCatalogDependencies("letters", listOf(CatalogDependencyInput("shared", release = "1.0.0"))) }
 
-        assertThat(declared.single().lockedRelease).isEqualTo("1.0.0")
+        assertThat(declared.single().release).isEqualTo("1.0.0")
         assertThat(declared.single().namespace).isEqualTo(tenantId.key.value)
         assertThat(runAsApiKey(tenantId) { catalogTools.listCatalogDependencies("letters") }).isEqualTo(declared)
 
-        runAsApiKey(tenantId) { catalogTools.updateCatalogDependencies("letters", listOf(CatalogDependencyInput("shared", "^1.0.0"))) }
-        assertThat(runAsApiKey(tenantId) { catalogTools.resolveCatalogDependencies("letters") }.single().lockedRelease).isEqualTo("1.1.0")
+        assertThat(runAsApiKey(tenantId) { catalogTools.resolveCatalogDependencies("letters") }.single().release).isEqualTo("1.1.0")
+        assertThat(runAsApiKey(tenantId) { catalogTools.updateCatalogDependencies("letters", listOf(CatalogDependencyInput("shared"))) }.single().release)
+            .`as`("none named: the highest").isEqualTo("1.1.0")
     }
 
     @Test

@@ -85,7 +85,7 @@
                         </div>
                         <div th:if="${bar.publishWithheld}" class="form-hint" data-testid="catalog-publish-withheld">Publishing needs the publisher role.</div>
                     </th:block>
-                    <div class="catalog-box-followers" th:with="current=${bar.current.draftId}">
+                    <div class="catalog-box-followers" th:with="current=${bar.current.versionId}">
                         <span th:each="row : ${deployments}" th:if="${row.follows(current)}" class="badge badge-outline"
                               data-testid="catalog-draft-follower" th:text="'Used by ' + ${row.environmentName}">Used by Test</span>
                     </div>

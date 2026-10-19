@@ -88,9 +88,9 @@ class CatalogMcpTools(
 
     @McpTool(
         name = "list_catalog_dependencies",
-        description = "List the catalogs a catalog declares it depends on: each with its version selector " +
-            "(an npm range) and the release it is locked to, which the catalog's next release is cut with " +
-            "and renders with. A catalog that uses another catalog's themes, stencils, fonts, images or " +
+        description = "List the catalogs a catalog declares it depends on: each with the exact `release` it " +
+            "pins, which the catalog's next release is cut with and renders with, or the draft of it it builds on " +
+            "(`draftId`, `draftName`). A catalog that uses another catalog's themes, stencils, fonts, images or " +
             "code lists must declare that catalog before it can be released.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
@@ -105,16 +105,16 @@ class CatalogMcpTools(
     @McpTool(
         name = "update_catalog_dependencies",
         description = "Replace the catalogs an AUTHORED catalog depends on, in the order given. Each names " +
-            "another catalog of this tenant by key and selects its releases with an npm range: `^1.4.0`, " +
-            "`~1.4.0`, `>=1.0.0 <2.0.0`, `1.4.2` or `*`. A dependency keeps the release it is locked to " +
-            "while the range still matches it; otherwise it is locked to the highest release that matches, " +
-            "or left unlocked when none does. Requires the TEMPLATE_EDIT permission.",
+            "another catalog of this tenant by key and pins the exact `release` of it to render with (not a " +
+            "range), or, to build on work not released yet, one of its drafts by `draftId`. Neither: its highest " +
+            "release. Releasing a catalog that builds on a draft needs that draft released first, or along " +
+            "(`release_draft` with `releaseDependencies`). Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
     fun updateCatalogDependencies(
         @McpToolParam(description = "Catalog key of an AUTHORED catalog. From `list_catalogs`.")
         catalogId: String,
-        @McpToolParam(description = "Every dependency, as `{catalogId, version}`; an empty list declares none.")
+        @McpToolParam(description = "Every dependency, as `{catalogId, release?, draftId?}`; an empty list declares none.")
         dependencies: List<CatalogDependencyInput>,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
@@ -138,8 +138,8 @@ class CatalogMcpTools(
 
     @McpTool(
         name = "resolve_catalog_dependencies",
-        description = "Move every dependency of an AUTHORED catalog to the highest release its version " +
-            "range matches, as upgrading a library does. The catalog's next release is cut with the result. " +
+        description = "Move every dependency of an AUTHORED catalog to the highest release of it, as " +
+            "upgrading a library does. The catalog's next release is cut with the result. " +
             "Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )

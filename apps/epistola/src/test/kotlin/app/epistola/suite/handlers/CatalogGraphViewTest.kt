@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test
 class CatalogGraphViewTest {
 
     private fun node(key: String) = CatalogGraphNode(key, key.replaceFirstChar { it.uppercase() }, CatalogType.AUTHORED, "r/n/$key")
-    private fun edge(from: String, to: String?, release: String? = "1.0.0") = CatalogGraphEdge(from, to, "r/n/${to ?: "elsewhere"}", "*", release)
+    private fun edge(from: String, to: String?, release: String? = "1.0.0") = CatalogGraphEdge(from, to, "r/n/${to ?: "elsewhere"}", release)
 
     // base <- shared <- letters ; reports -> shared ; unrelated stands alone ; letters -> elsewhere (not in the tenant)
     private val graph = CatalogDependencyGraph(

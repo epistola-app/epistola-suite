@@ -21,8 +21,9 @@
         <div th:replace="~{epistola-web/form-error :: form-error(id='create-draft-error')}"></div>
         <div class="ep-dialog-body">
             <p class="form-hint">
-                For a large change that is not ready to go out with everyday work, such as a redesign.
-                It is kept apart from the next version and is not published until it is ready.
+                For a large change that is not ready to go out with everyday work, such as a redesign, or a
+                fix to a version already published. It is kept apart from the next version and published on
+                its own when it is ready.
             </p>
             <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
                 <label class="ep-label" for="create-draft-name">Name</label>
@@ -35,7 +36,7 @@
             <div class="form-group" th:classappend="${errors?.containsKey('from')} ? 'error' : ''">
                 <label class="ep-label" for="create-draft-from">Start from</label>
                 <select id="create-draft-from" name="from" class="ep-select" data-testid="create-draft-from">
-                    <option value="">The next version, with what is not published yet</option>
+                    <option value="next">The next version, with what is not published yet</option>
                     <option th:each="option : ${bar.createFromOptions}" th:value="${option}" th:text="'Published v' + ${option}"
                             th:selected="${formData != null and option == formData.get('from')}">Published v1.0.0</option>
                 </select>
@@ -47,9 +48,9 @@
             <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-draft-submit">Start</button>
         </div>
     </form>
-    <!--/* Make long-term work the next version (ADR 0002, amendment 2). What was published since it started
-           is confirmed one by one; the current next version is kept under a name, or discarded.
-           Model: `tenantId`, `bar`, `segment`, `workName`, `behind`, `keepAsSuggestion`, optionally `error`. */-->
+    <!--/* Make a draft the next version, where everyday work goes (a convention of this suite). Neither
+           draft's content changes; the current next version is kept under a name, or discarded.
+           Model: `tenantId`, `bar`, `segment`, `workName`, `keepAsSuggestion`, optionally `error`. */-->
     <th:block th:fragment="promote-dialog">
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='promote-dialog',
@@ -67,17 +68,6 @@
                 <strong th:text="${workName}">Redesign 2027</strong> becomes where everyday work goes, and what is
                 published next.
             </p>
-            <div th:unless="${behind.isEmpty()}" class="form-group" data-testid="promote-behind">
-                <span class="ep-label">Published since it started</span>
-                <p class="form-hint" style="margin-top: 0;">These are not in this work unless someone made the same change here. Confirm each.</p>
-                <label th:each="release : ${behind}" style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-1);">
-                    <input type="checkbox" name="acknowledgedBehind" th:value="${release.version}" required>
-                    <span>
-                        <strong th:text="'v' + ${release.version}">v1.0.1</strong><span th:unless="${release.changes.isEmpty()}"
-                            th:text="': changed ' + ${#strings.listJoin(release.changes.![key], ', ')}"></span>
-                    </span>
-                </label>
-            </div>
             <div class="form-group">
                 <span class="ep-label">The current next version</span>
                 <label style="display: flex; gap: var(--ep-space-2);">

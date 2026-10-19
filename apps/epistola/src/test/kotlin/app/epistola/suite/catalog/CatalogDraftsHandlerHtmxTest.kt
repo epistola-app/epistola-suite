@@ -95,10 +95,10 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     /** [released], then long-term work "Redesign", and the invoice named differently in each; its id. */
-    private fun withRedesign(tenant: Tenant): UUID {
+    private fun withRedesign(tenant: Tenant): String {
         released(tenant)
         return withMediator {
-            val work = requireNotNull(CreateCatalogDraft(tenant.id, letters, "Redesign").execute().draftId)
+            val work = CreateCatalogDraft(tenant.id, letters, "Redesign").execute().versionId
             UpdateDocumentTemplate(invoice(tenant), name = "Invoice, fixed", catalogVersion = next(tenant)).execute()
             UpdateDocumentTemplate(invoice(tenant), name = "Invoice redesigned", catalogVersion = at(tenant, DraftRef.Id(work))).execute()
             work
@@ -125,7 +125,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     @Test
     fun `with long-term work the Versions page lists both, and a draft's page works on the one its segment names`() = fixture {
         lateinit var tenant: Tenant
-        lateinit var work: UUID
+        lateinit var work: String
         given {
             tenant = tenant("Drafts Picker")
             work = withRedesign(tenant)
@@ -140,11 +140,11 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val body = result<ResponseEntity<String>>().body!!
             assertThat(body).contains("<span id=\"page-title-text\">Redesign</span>")
-            assertThat(body).contains("data-testid=\"catalog-long-term-not-published\"")
+            assertThat(body).contains("data-testid=\"catalog-long-term-hint\"")
             // Its resources link into the draft, and its actions act on it.
             assertThat(body).contains("/tenants/${tenant.id}/catalogs/letters@$work/templates/invoice")
             assertThat(body).contains("/tenants/${tenant.id}/catalogs/letters@$work/drafts/discard")
-            assertThat(body).`as`("long-term work is not published").doesNotContain("data-testid=\"catalog-release-open\"")
+            assertThat(body).`as`("long-term work is published on its own").contains("data-testid=\"catalog-release-open\"")
         }
     }
 
@@ -155,7 +155,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Drafts Unknown")
             released(tenant)
         }
-        whenever { get("/tenants/${tenant.id}/catalogs/letters@${UUID.randomUUID()}/templates/invoice") to get("/tenants/${tenant.id}/catalogs/letters@1.0.1/templates/invoice") }
+        whenever { get("/tenants/${tenant.id}/catalogs/letters@nosuchdft/templates/invoice") to get("/tenants/${tenant.id}/catalogs/letters@1.0.1/templates/invoice") }
         then {
             val (unknown, number) = result<Pair<ResponseEntity<String>, ResponseEntity<String>>>()
             assertThat(unknown.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
@@ -166,7 +166,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     @Test
     fun `the template page in long-term work shows its template, under the banner, and links stay in it`() = fixture {
         lateinit var tenant: Tenant
-        lateinit var work: UUID
+        lateinit var work: String
         given {
             tenant = tenant("Drafts Template")
             work = withRedesign(tenant)
@@ -184,7 +184,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     @Test
     fun `switching versions lands on the same page in the other version`() {
         lateinit var tenant: Tenant
-        lateinit var work: UUID
+        lateinit var work: String
         fixture {
             given {
                 tenant = tenant("Drafts Switch")
@@ -224,14 +224,14 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     fun `the plain template page is the next version, and offers long-term work once there is some`() = fixture {
         lateinit var tenant: Tenant
         lateinit var several: String
-        lateinit var work: UUID
+        lateinit var work: String
         given {
             tenant = tenant("Drafts Template Plain")
             released(tenant)
         }
         whenever {
             val one = get("/tenants/${tenant.id}/catalogs/letters/templates/invoice").body!!
-            work = withMediator { requireNotNull(CreateCatalogDraft(tenant.id, letters, "Redesign").execute().draftId) }
+            work = withMediator { CreateCatalogDraft(tenant.id, letters, "Redesign").execute().versionId }
             withMediator { UpdateDocumentTemplate(invoice(tenant), name = "Invoice redesigned", catalogVersion = at(tenant, DraftRef.Id(work))).execute() }
             several = get("/tenants/${tenant.id}/catalogs/letters/templates/invoice").body!!
             one
@@ -247,7 +247,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     @Test
     fun `the editor saves the variant into the draft its route names`() = fixture {
         lateinit var tenant: Tenant
-        lateinit var work: UUID
+        lateinit var work: String
         given {
             tenant = tenant("Drafts Save")
             work = withRedesign(tenant)
@@ -269,7 +269,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     @Test
     fun `a theme saved from its page in long-term work changes only that work`() = fixture {
         lateinit var tenant: Tenant
-        lateinit var work: UUID
+        lateinit var work: String
         given {
             tenant = tenant("Drafts Theme")
             work = withRedesign(tenant)
@@ -289,7 +289,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     @Test
     fun `a stencil page in long-term work shows the work's stencil`() = fixture {
         lateinit var tenant: Tenant
-        lateinit var work: UUID
+        lateinit var work: String
         given {
             tenant = tenant("Drafts Stencil")
             work = withRedesign(tenant)
@@ -311,7 +311,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     @Test
     fun `the attributes list filtered to long-term work lists its attributes, and creating there lands in it`() = fixture {
         lateinit var tenant: Tenant
-        lateinit var work: UUID
+        lateinit var work: String
         given {
             tenant = tenant("Drafts Attributes")
             work = withRedesign(tenant)
@@ -358,14 +358,14 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             val fromOne = withMediator { ListCatalogVersions(tenant.id, letters).query() }.single { it.name == "From one" }
             assertThat(fromOne.base).isEqualTo("1.0.0")
             assertThat(drafts(tenant)).containsExactly("Next version", "Redesign", "From one")
-            assertThat(response.headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters@${fromOne.draftId}/draft")
+            assertThat(response.headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters@${fromOne.versionId}/draft")
         }
     }
 
     @Test
     fun `discarding long-term work removes it and lands on the catalog`() = fixture {
         lateinit var tenant: Tenant
-        lateinit var work: UUID
+        lateinit var work: String
         given {
             tenant = tenant("Drafts Discard")
             work = withRedesign(tenant)
@@ -420,87 +420,29 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `publishing is refused for long-term work, leaving it as it was, and the next version is published as its changes need`() = fixture {
+    fun `long-term work is published on its own, numbered from its base, and the next version is left as it was`() = fixture {
         lateinit var tenant: Tenant
-        lateinit var work: UUID
+        lateinit var work: String
         given {
             tenant = tenant("Drafts Release")
             work = withRedesign(tenant)
         }
         whenever {
-            val refused = postForm("/tenants/${tenant.id}/catalogs/letters@$work/release", mapOf("version" to "2.0.0"))
-            assertThat(refused.body).contains("Long-term work is not published")
-            assertThat(withMediator { GetVariantSummaries(invoice(tenant), catalogVersion = at(tenant, DraftRef.Id(work))).query() }.map { it.ready })
-                .`as`("not marked ready by the refused publish").containsOnly(false)
-            val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
-            assertThat(dialog).contains("Publish Letters").contains("value=\"1.0.1\"")
-            postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.0.1"))
+            val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/release").body!!
+            assertThat(dialog).`as`("a fix against the release it started from").contains("value=\"1.0.1\"")
+            postForm("/tenants/${tenant.id}/catalogs/letters@$work/release", mapOf("version" to "1.0.1"))
         }
         then {
             assertThat(result<ResponseEntity<String>>().headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters/browse")
-            val versions = withMediator { ListCatalogVersions(tenant.id, letters).query() }.map { it.label to it.status }
-            assertThat(versions).containsExactly(
-                "Next version" to CatalogVersionStatus.DRAFT,
-                "Redesign" to CatalogVersionStatus.DRAFT,
-                "v1.0.1" to CatalogVersionStatus.RELEASED,
-                "v1.0.0" to CatalogVersionStatus.RELEASED,
-            )
-            assertThat(withMediator { GetDocumentTemplate(invoice(tenant), catalogVersion = at(tenant, DraftRef.Id(work))).query() }!!.name).isEqualTo("Invoice redesigned")
+            assertThat(drafts(tenant)).`as`("the work became the release").containsExactly("Next version")
+            assertThat(withMediator { GetTheme(brand(tenant)).query() }!!.name).`as`("the next version is left as it was").isEqualTo("Brand")
         }
     }
 
     @Test
-    fun `long-term work behind a release names it with its changes`() = fixture {
+    fun `making long-term work the next version keeps the old one by name, and neither base moves`() = fixture {
         lateinit var tenant: Tenant
-        lateinit var work: UUID
-        given {
-            tenant = tenant("Drafts Behind")
-            work = withRedesign(tenant)
-            withMediator {
-                UpdateTheme(brand(tenant), name = "Brand, fixed").execute()
-                MarkCatalogReady(tenant.id, letters).execute()
-                ReleaseCatalogVersion(tenant.id, letters).execute()
-            }
-        }
-        whenever { get("/tenants/${tenant.id}/catalogs/letters@$work/draft").body!! }
-        then {
-            val page = result<String>()
-            assertThat(page).contains("data-testid=\"catalog-draft-behind-list\"")
-            assertThat(page).contains("is not in this draft").contains(": it changed").contains("brand")
-        }
-    }
-
-    @Test
-    fun `a catalog without a next version offers to start it from its latest release`() = fixture {
-        lateinit var tenant: Tenant
-        given {
-            tenant = tenant("Drafts Empty")
-            released(tenant)
-            // No command leaves a catalog without a next version any more; one whose drafts were all
-            // discarded before ADR 0002 amendment 2 is the state this page offers to repair.
-            jdbi.useHandle<Exception> {
-                it.createUpdate("DELETE FROM catalog_versions WHERE tenant_key = :t AND is_next").bind("t", tenant.id).execute()
-            }
-        }
-        whenever {
-            val page = get("/tenants/${tenant.id}/catalogs/letters/browse")
-            assertThat(page.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(page.body).contains("data-testid=\"catalog-draft-open\"").contains("Start the next version")
-            assertThat(page.body).doesNotContain("data-testid=\"catalog-release-open\"").doesNotContain("data-testid=\"catalog-mark-ready\"")
-            postForm("/tenants/${tenant.id}/catalogs/letters/drafts", emptyMap(), htmx = false)
-        }
-        then {
-            val response = result<ResponseEntity<String>>()
-            assertThat(response.statusCode.is3xxRedirection || response.statusCode == HttpStatus.OK).isTrue()
-            assertThat(drafts(tenant)).containsExactly("Next version")
-            assertThat(withMediator { GetTheme(brand(tenant)).query() }!!.name).isEqualTo("Brand")
-        }
-    }
-
-    @Test
-    fun `making long-term work the next version asks to confirm what was published meanwhile, and keeps the old one by name`() = fixture {
-        lateinit var tenant: Tenant
-        lateinit var work: UUID
+        lateinit var work: String
         given {
             tenant = tenant("Drafts Promote")
             work = withRedesign(tenant)
@@ -511,13 +453,11 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         }
         whenever {
             val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/promote").body!!
-            assertThat(dialog).contains("data-testid=\"promote-behind\"").contains("name=\"acknowledgedBehind\" value=\"1.0.1\" required")
-                .contains("value=\"Next version before Redesign\"")
-            val refused = postForm("/tenants/${tenant.id}/catalogs/letters@$work/promote", mapOf("previous" to "keep", "keepAs" to "Old"))
-            assertThat(refused.body).contains("Confirm each version published since this work started: v1.0.1")
+            assertThat(dialog).doesNotContain("acknowledgedBehind").contains("value=\"Next version before Redesign\"")
+            val refused = postForm("/tenants/${tenant.id}/catalogs/letters@$work/promote", mapOf("previous" to "keep", "keepAs" to ""))
             assertThat(refused.statusCode.value()).`as`("a refusal is not a success").isEqualTo(422)
             assertThat(refused.headers.getFirst("HX-Reswap")).isEqualTo("innerHTML")
-            postForm("/tenants/${tenant.id}/catalogs/letters@$work/promote", mapOf("previous" to "keep", "keepAs" to "Old", "acknowledgedBehind" to "1.0.1"))
+            postForm("/tenants/${tenant.id}/catalogs/letters@$work/promote", mapOf("previous" to "keep", "keepAs" to "Old"))
         }
         then {
             assertThat(result<ResponseEntity<String>>().headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters/browse")
@@ -527,7 +467,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `a release exports with what it uses as one bundle`() = fixture {
+    fun `a release exports with what it uses as one archive`() = fixture {
         lateinit var tenant: Tenant
         given {
             tenant = tenant("Drafts Fat Export")
@@ -538,7 +478,9 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             val response = result<ResponseEntity<ByteArray>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.headers.getFirst("Content-Disposition")).contains("letters-1.0.0-with-dependencies.zip")
-            assertThat(app.epistola.suite.catalog.CatalogBundle.isBundle(response.body!!)).isTrue()
+            // One catalog archive, whose release carries the releases it pins (none here beside system).
+            val names = java.util.zip.ZipInputStream(response.body!!.inputStream()).use { zip -> generateSequence { zip.nextEntry }.map { it.name }.toList() }
+            assertThat(names).contains("catalog.json")
             assertThat(get("/tenants/${tenant.id}/catalogs/letters/releases/1.0.0").body!!).contains("data-testid=\"release-export-with-dependencies\"")
         }
     }

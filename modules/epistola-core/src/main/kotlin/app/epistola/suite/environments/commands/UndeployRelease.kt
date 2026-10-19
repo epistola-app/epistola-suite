@@ -24,8 +24,9 @@ import org.springframework.stereotype.Component
  *
  * Logged in `environment_deployment_log` with the release it stopped serving.
  *
- * Another release the environment serves may render with this one (contract ADR 0003 leaves open
- * whether undeploying it should be refused); it is not refused.
+ * Only an explicit deployment is removed. It is never refused because another release the
+ * environment serves renders with this one: that release keeps using it implicitly (contract ADR
+ * 0003). A release used only implicitly is not deployed, so undeploying it finds nothing.
  *
  * @return whether the environment served the release.
  */

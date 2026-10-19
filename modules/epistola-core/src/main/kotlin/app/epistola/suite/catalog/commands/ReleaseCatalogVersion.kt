@@ -9,6 +9,7 @@ import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogArchiveBuilder
+import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
@@ -143,8 +144,12 @@ data class ReleaseCatalogVersionResult(
     val versionId: String = "",
 )
 
-/** The archive release an import installs: its fingerprint and when its publisher released it. */
-data class ImportedRelease(val fingerprint: String?, val releasedAt: OffsetDateTime?)
+/**
+ * The archive release an import installs: its fingerprint, when its publisher released it, and its
+ * content as the archive carries it ([content]), which the release retains instead of a rebuild from
+ * the draft that holds it, so it exports with its publisher's fingerprint.
+ */
+data class ImportedRelease(val fingerprint: String?, val releasedAt: OffsetDateTime?, val content: CatalogContent? = null)
 
 /** A draft of another catalog released along with a release, and the release it became. */
 data class ReleasedDependency(val registry: String, val namespace: String, val catalogKey: String, val versionId: String, val releaseVersion: String)
@@ -283,7 +288,7 @@ class ReleaseCatalogVersionHandler(
         } else {
             pinDependencies(command.tenantKey, command.catalogKey)
         }
-        val content = contentBuilder.build(command.tenantKey, command.catalogKey, command.source)
+        val content = command.imported?.content ?: contentBuilder.build(command.tenantKey, command.catalogKey, command.source)
         fingerprintService.requirePublishable(content)
         stencilCheck.requireInstancesFit(command.tenantKey, command.catalogKey, content)
         val rebuilt = fingerprintService.fingerprint(content)

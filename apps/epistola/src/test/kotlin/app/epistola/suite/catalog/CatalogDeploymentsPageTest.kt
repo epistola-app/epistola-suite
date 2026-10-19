@@ -147,7 +147,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             MarkCatalogReady(tenant.id, shared).execute()
             ReleaseCatalogVersion(tenant.id, shared, version = "1.0.0").execute()
             val target = GetCatalog(tenant.id, shared).query()!!
-            UpdateCatalogDependencies(tenant.id, key, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "*"))).execute()
+            UpdateCatalogDependencies(tenant.id, key, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
             CreateTheme(ThemeId(ThemeKey.of("own"), catalog(tenant)), "Own").execute()
             MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenant.id, key, version = "1.0.0").execute()

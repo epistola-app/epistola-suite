@@ -112,7 +112,7 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `long-term work is named, with a strip and the way back, and offers no publishing`() {
+    fun `long-term work is named, with a strip and the way back, and is published on its own`() {
         val tenant = seed("Version Bar Long Term")
         val work = withMediator {
             val draft = CreateCatalogDraft(tenant.id, catalogKey, "Redesign 2027").execute()
@@ -120,9 +120,9 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
             CreateTheme(
                 id = ThemeId(ThemeKey.of("fixed"), CatalogId(catalogKey, TenantId(tenant.id))),
                 name = "Fixed",
-                catalogVersion = CatalogVersionRef(tenant.id, catalogKey, DraftRef.Id(draft.draftId!!)),
+                catalogVersion = CatalogVersionRef(tenant.id, catalogKey, DraftRef.Id(draft.versionId)),
             ).execute()
-            draft.draftId!!
+            draft.versionId
         }
 
         val page = get(tenant, "/catalogs/bar-cat@$work/themes/house")
@@ -131,7 +131,7 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
         assertThat(page).contains("data-testid=\"catalog-long-term-banner\"").contains("You are changing Redesign 2027, long-term work kept apart from the next version")
         assertThat(page).contains("hx-get=\"/tenants/${tenant.id.value}/catalogs/bar-cat@$work/bar-status\"")
         assertThat(page).contains("href=\"/tenants/${tenant.id.value}/catalogs/bar-cat/themes/house\" data-testid=\"catalog-long-term-back\"")
-        assertThat(barStatus(tenant, "bar-cat@$work")).`as`("only the next version is published").doesNotContain("data-testid=\"catalog-bar-publish\"")
+        assertThat(barStatus(tenant, "bar-cat@$work")).`as`("any draft is published on its own").contains("data-testid=\"catalog-bar-publish\"")
             .`as`("its changes, not what is published").contains(">1 change<").doesNotContain("not published")
 
         val next = get(tenant, "/catalogs/bar-cat/themes/house")

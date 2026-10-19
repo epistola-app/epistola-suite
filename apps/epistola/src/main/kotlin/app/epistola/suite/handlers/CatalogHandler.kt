@@ -18,7 +18,6 @@ import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
 import app.epistola.suite.catalog.CatalogPublicationPolicy
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.SemVer
-import app.epistola.suite.catalog.commands.AuthoredImportMode
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.commands.CheckCatalogUpstream
@@ -510,12 +509,6 @@ class CatalogHandler {
             publication?.available != true || !publication.allowsReleaseOverride -> ReleasePublication.DEFAULT
             request.params().getFirst("publishToExchange") == "true" -> ReleasePublication.PUBLISH
             else -> ReleasePublication.SKIP
-        }
-
-        // Only the next version is published (ADR 0002, amendment 2): refused before anything is
-        // marked ready or published along, so long-term work is left as it was.
-        if (draftBar(tenantId, segment).onLongTermWork) {
-            return reRenderWithError("Long-term work is not published. Its changes go out once it becomes the next version.")
         }
 
         return try {
@@ -1478,14 +1471,6 @@ class CatalogHandler {
             return importError(request, "Invalid catalog type: $catalogTypeStr")
         }
 
-        // Only consulted when the catalog already exists as AUTHORED; ignored
-        // for a new catalog or SUBSCRIBED. MERGE = keep local-only resources;
-        // REPLACE = mirror the ZIP (delete local-only, conflict-checked).
-        val authoredMode = multipartData["authoredMode"]?.firstOrNull()?.let {
-            String(it.inputStream.readAllBytes()).trim()
-        }?.let { runCatching { AuthoredImportMode.valueOf(it) }.getOrNull() }
-            ?: AuthoredImportMode.MERGE
-
         // Set when the operator confirmed updating an AUTHORED ZIP that is below the
         // current catalog schema version but migratable (re-submitted from the
         // "update?" prompt).
@@ -1498,7 +1483,6 @@ class CatalogHandler {
                 tenantKey = tenantId.key,
                 zipBytes = zipBytes,
                 catalogType = catalogType,
-                authoredMode = authoredMode,
                 confirmMigration = confirmMigration,
             ).execute()
 

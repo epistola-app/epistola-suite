@@ -46,7 +46,7 @@ class CatalogGraphPageTest : BaseIntegrationTest() {
                     CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand").execute()
                     mediator.releaseNext(shared)
                     val target = GetCatalog(created.id, shared.key).query()!!
-                    UpdateCatalogDependencies(created.id, CatalogKey.of("letters"), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "*"))).execute()
+                    UpdateCatalogDependencies(created.id, CatalogKey.of("letters"), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
                 }
             }
         }
@@ -60,7 +60,7 @@ class CatalogGraphPageTest : BaseIntegrationTest() {
         val graph = page("/tenants/${tenant.id.value}/catalogs/graph")
         assertThat(graph).contains("data-testid=\"catalog-graph\"")
         listOf("shared", "letters", "unrelated").forEach { assertThat(graph).contains("data-catalog=\"$it\"") }
-        assertThat(graph).contains("data-testid=\"catalog-graph-edge\"").contains("* · v1.0.0")
+        assertThat(graph).contains("data-testid=\"catalog-graph-edge\"").contains(">v1.0.0<")
         assertThat(graph).`as`("each catalog opens its own Dependencies page").contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/dependencies\"")
 
         assertThat(page("/tenants/${tenant.id.value}/catalogs")).contains("href=\"/tenants/${tenant.id.value}/catalogs/graph\"")

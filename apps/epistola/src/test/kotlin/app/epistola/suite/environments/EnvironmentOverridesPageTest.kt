@@ -115,7 +115,7 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
     @Test
     fun `a draft is tried on an environment from its version menu, and its banner names who follows it`() {
         val tenant = setup("follow")
-        val work: UUID = withMediator { requireNotNull(CreateCatalogDraft(tenant.id, letters, "Redesign").execute().draftId) }
+        val work: String = withMediator { CreateCatalogDraft(tenant.id, letters, "Redesign").execute().versionId }
         val at = "/tenants/${tenant.id.value}/catalogs/letters@$work"
         assertThat(get("$at/draft").body).contains("data-testid=\"ws-follow\"").contains("Documents there use it as it is changed")
 
@@ -147,7 +147,7 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
     @Test
     fun `the deployments page lets an environment follow a draft, not production, and stop again`() {
         val tenant = setup("deploy-follow")
-        val work: UUID = withMediator { requireNotNull(CreateCatalogDraft(tenant.id, letters, "Redesign").execute().draftId) }
+        val work: String = withMediator { CreateCatalogDraft(tenant.id, letters, "Redesign").execute().versionId }
         val deployments = "/tenants/${tenant.id.value}/catalogs/letters/deployments"
         fun envRow(page: String, key: String) = page.substringAfter("data-environment=\"$key\"").substringBefore("</tr>")
 
@@ -165,7 +165,7 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
     @Test
     fun `the overview shows each environment's version and the draft it follows, on the draft's box too`() {
         val tenant = setup("overview-follow")
-        val work: UUID = withMediator { requireNotNull(CreateCatalogDraft(tenant.id, letters, "Redesign").execute().draftId) }
+        val work: String = withMediator { CreateCatalogDraft(tenant.id, letters, "Redesign").execute().versionId }
         val overview = "/tenants/${tenant.id.value}/catalogs/letters/browse"
         fun box(page: String, marker: String) = page.substringAfter(marker).substringBefore("catalog-box-actions")
 

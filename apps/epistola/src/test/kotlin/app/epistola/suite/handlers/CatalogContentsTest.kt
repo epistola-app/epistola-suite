@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test
 class CatalogContentsTest {
 
     private val acme = TenantKey.of("acme")
-    private val work = java.util.UUID.fromString("0193a6b2-7f4e-7c1d-9a2b-3c4d5e6f7a8b")
+    private val work = "k7m2x9qa"
 
     private fun resource(type: String, slug: String, name: String) = BrowseResource(type, slug, name, null, ResourceStatus.INSTALLED)
 

@@ -113,6 +113,8 @@ Supports both SaaS multi-tenant deployment and self-hosted single-tenant deploym
 
 Environments represent deployment stages (e.g. `staging`, `production`). An environment serves any
 number of releases of each catalog; deploying adds one beside the others, undeploying removes one.
+Undeploying is never refused because another served release renders with that release: it keeps
+using it implicitly, and a release used only implicitly has no deployment to remove.
 This enables:
 
 - Testing a new release in staging before promoting it to production.

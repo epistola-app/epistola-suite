@@ -331,13 +331,12 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     }
 
     /**
-     * A real exported catalog archive, released at [version] — the same bytes a publisher submits.
+     * Release [version] of catalog [slug] in exchange namespace [namespace], as its publisher exports
+     * it — the same bytes a publisher submits.
      *
      * Built in a throwaway tenant of its own so the publisher's copy can never be mistaken for the
      * consumer's, and so a second call for a later version starts from a clean catalog.
      */
-
-    /** Release [version] of catalog [slug] in exchange namespace [namespace], as its publisher exports it. */
     private fun releaseArchive(slug: String, version: String, namespace: String = "acme"): ByteArray {
         val publisher = createTenant("publisher-$slug-$version").id
         lastPublisher = publisher

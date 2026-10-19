@@ -570,6 +570,8 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             // The dialog-shell chrome + the caller-owned multipart form with its fields.
             assertThat(body).contains("id=\"import-catalog-dialog\"")
             assertThat(body).contains("id=\"import-catalog-form\"")
+            // An import adds the archive's release as it is; there is nothing to merge or replace.
+            assertThat(body).doesNotContain("name=\"authoredMode\"")
             assertThat(body).contains("type=\"file\"")
             assertThat(body).contains("name=\"catalogType\"")
             // It is a fragment, not the whole page (no app shell).

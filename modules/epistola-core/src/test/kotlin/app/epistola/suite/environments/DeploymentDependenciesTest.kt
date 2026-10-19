@@ -20,6 +20,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.MissingDependencyReason.UNAVAILABLE
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeployRelease
+import app.epistola.suite.environments.commands.UndeployRelease
 import app.epistola.suite.environments.queries.ListDeploymentHistory
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.environments.queries.ListImplicitDeployments
@@ -82,6 +83,29 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
         assertThat(served(tenant)).containsExactlyInAnyOrder("base@1.0.0", "shared@1.0.0", "letters@1.0.0")
         assertThat(withMediator { ListDeploymentHistory(production).query() }.map { "${it.catalogKey.value}@${it.version}" })
             .containsExactlyInAnyOrder("base@1.0.0", "shared@1.0.0", "letters@1.0.0")
+    }
+
+    @Test
+    fun `undeploying a release another served release renders with is not refused, and it is used implicitly from then on`() {
+        val (tenant, production) = chain("deps-undeploy-used")
+        withMediator { DeployRelease(production, letters, "1.0.0", includeDependencies = true).execute() }
+
+        val undeployed = withMediator { UndeployRelease(production, shared, "1.0.0").execute() }
+
+        assertThat(undeployed).isTrue()
+        assertThat(served(tenant)).containsExactlyInAnyOrder("base@1.0.0", "letters@1.0.0")
+        assertThat(implicit(tenant, production)).`as`("letters still renders with it").containsExactly("shared@1.0.0")
+    }
+
+    @Test
+    fun `a release used only implicitly is not deployed, so there is nothing to undeploy`() {
+        val (tenant, production) = chain("deps-undeploy-implicit")
+        withMediator { DeployRelease(production, letters, "1.0.0").execute() }
+
+        val undeployed = withMediator { UndeployRelease(production, shared, "1.0.0").execute() }
+
+        assertThat(undeployed).`as`("REST answers 404").isFalse()
+        assertThat(implicit(tenant, production)).containsExactlyInAnyOrder("shared@1.0.0", "base@1.0.0")
     }
 
     @Test

@@ -17,7 +17,7 @@
     <div th:fragment="next-release" id="catalog-next-release" class="ep-panel detail-section" data-testid="catalog-next-release"
          th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null">
         <div class="detail-section-header">
-            <h2 th:text="${readiness.publishable or !readiness.hasDraft} ? 'Not published yet' : 'Changed in this work'">Not published yet</h2>
+            <h2 th:text="${readiness.drafts.isNext or !readiness.hasDraft} ? 'Not published yet' : 'Changed in this work'">Not published yet</h2>
             <button th:if="${readiness.offerPublish}" type="button" class="ep-btn ep-btn-primary ep-btn-sm"
                     th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
                     hx-target="#release-dialog-container" hx-swap="innerHTML"
@@ -82,7 +82,7 @@
             </div>
 
             <p th:if="${readiness.nothingToPublish}" class="text-muted" data-testid="catalog-no-changes"
-               th:text="${readiness.publishable} ? 'Everything is published. What you change from now on shows up here.'
+               th:text="${readiness.drafts.isNext} ? 'Everything is published. What you change from now on shows up here.'
                         : 'Nothing is changed in this work yet. What you change shows up here.'">Everything is published.</p>
             <th:block th:unless="${readiness.nothingToPublish or readiness.changed.isEmpty()}">
                         <div class="ep-table-scroll" role="region" aria-label="Not published yet" tabindex="0">
@@ -123,12 +123,13 @@
                  th:attr="open=${nextReleaseError != null} ? 'open' : null">
             <summary>Advanced</summary>
             <p th:if="${readiness.publishable}" class="form-hint" style="margin-top: var(--ep-space-2);">
-                The next version has no number until it is published: publishing picks it from the kind of change.
+                A draft has no number until it is published: publishing picks it from the kind of change since
+                the version it started from.
             </p>
-            <p th:if="${readiness.hasDraft and !readiness.publishable}" class="form-hint" style="margin-top: var(--ep-space-2);"
-               data-testid="catalog-long-term-not-published">
-                This is long-term work: try it by pointing a test environment at it, and make it the next version
-                when it is ready to go out with everyday work.
+            <p th:if="${readiness.drafts.onLongTermWork}" class="form-hint" style="margin-top: var(--ep-space-2);"
+               data-testid="catalog-long-term-hint">
+                This is long-term work, kept apart from the next version: publish it on its own when it is
+                ready, or try it first by pointing a test environment at it.
             </p>
             <div class="ep-row" style="gap: var(--ep-space-2); margin: var(--ep-space-2) 0;">
                 <form th:if="${readiness.drafts.offerDiscard}" method="post" style="display: inline;"
@@ -136,13 +137,13 @@
                     <button type="button" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
                             data-testid="catalog-draft-discard"
                             data-confirm-submit
-                            th:attr="data-confirm-submit-title=${readiness.publishable} ? 'Discard all changes' : 'Discard this work',
-                                     data-confirm-submit-message=${readiness.publishable}
+                            th:attr="data-confirm-submit-title=${readiness.drafts.isNext} ? 'Discard all changes' : 'Discard this work',
+                                     data-confirm-submit-message=${readiness.drafts.isNext}
                                          ? 'Every change in the next version is thrown away; it starts again from the latest published version. Published versions and long-term work are not affected. This cannot be undone.'
                                          : ${readiness.draft.label} + ' is discarded with every change made in it. Published versions and the next version are not affected. This cannot be undone.',
-                                     data-confirm-submit-label=${readiness.publishable} ? 'Discard all changes' : 'Discard work'"
+                                     data-confirm-submit-label=${readiness.drafts.isNext} ? 'Discard all changes' : 'Discard work'"
                             data-confirm-submit-class="ep-btn-destructive"
-                            th:text="${readiness.publishable} ? 'Discard all changes' : 'Discard this work'">Discard draft</button>
+                            th:text="${readiness.drafts.isNext} ? 'Discard all changes' : 'Discard this work'">Discard draft</button>
                 </form>
                 <form th:if="${readiness.offerMarkAllReady}" style="display: inline;"
                       th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/ready(tenantId=${tenantId},catalogId=${catalogId})}"
@@ -185,17 +186,17 @@
                 <thead>
                     <tr>
                         <th>Catalog</th>
-                        <th>Range</th>
-                        <th>Locked to</th>
+                        <th>Renders with</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr th:each="dependency : ${readiness.dependencies}" data-testid="catalog-dependency-row">
                         <td><code th:text="${dependency.namespace + '/' + dependency.catalogKey}"></code></td>
-                        <td><code th:text="${dependency.version}"></code></td>
                         <td>
-                            <span th:if="${dependency.locked}" th:text="'v' + ${dependency.releaseVersion}"></span>
-                            <span th:unless="${dependency.locked}" class="badge badge-warning">No matching release</span>
+                            <span th:if="${dependency.pinned}" th:text="'v' + ${dependency.releaseVersion}"></span>
+                            <span th:if="${dependency.namesDraft}" class="badge badge-muted"
+                                  th:text="'Its draft ' + ${dependency.draftName} + ', published along'">Its draft Next version, published along</span>
+                            <span th:unless="${dependency.pinned or dependency.namesDraft}" class="badge badge-warning">No release chosen</span>
                         </td>
                     </tr>
                 </tbody>
@@ -231,8 +232,8 @@
             </p>
             <th:block th:unless="${dependencyOptions.isEmpty()}">
                 <p class="form-hint">
-                    Choose the catalogs this one uses. Each is tied to its latest published version; a newer one is
-                    used once it fits what this catalog uses. Leave the catalog empty to remove a row.
+                    Choose the catalogs this one uses. Each is tied to its latest published version, or, while it has
+                    none, to its next version, which is then published along. Leave the catalog empty to remove a row.
                 </p>
                 <div th:each="row, stat : ${rows}" class="ep-row" style="gap: var(--ep-space-2); align-items: flex-start;"
                      data-testid="catalog-dependency-input-row">
@@ -246,9 +247,9 @@
                         <span class="form-error" th:if="${errors?.containsKey('dependencies[' + stat.index + ']')}"
                               th:text="${errors.get('dependencies[' + stat.index + ']')}" data-testid="catalog-dependency-error"></span>
                     </div>
-                    <!--/* No version range to choose: compatibility is checked per use (docs/workspace-shell.md).
-                           A range set over the API is kept as it is. */-->
-                    <input type="hidden" name="version" th:value="${#strings.isEmpty(row.version)} ? '*' : ${row.version}">
+                    <!--/* No version to choose here: a row keeps the release it is tied to, and a new one is tied to
+                           the latest (docs/workspace-shell.md). */-->
+                    <input type="hidden" name="version" th:value="${row.version}">
                 </div>
             </th:block>
         </div>

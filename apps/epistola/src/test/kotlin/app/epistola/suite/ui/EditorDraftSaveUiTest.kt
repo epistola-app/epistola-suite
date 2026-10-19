@@ -48,7 +48,7 @@ class EditorDraftSaveUiTest : BasePlaywrightTest() {
             CreateDocumentTemplate(template, "Invoice").execute().withRequiredDataExample()
             MarkCatalogReady(tenantKey, letters).execute()
             ReleaseCatalogVersion(tenantKey, letters, "1.0.0").execute()
-            requireNotNull(CreateCatalogDraft(tenantKey, letters, "Redesign").execute().draftId)
+            requireNotNull(CreateCatalogDraft(tenantKey, letters, "Redesign").execute().versionId)
         }
 
         gotoAndReady("/tenants/$tenantKey/catalogs/letters@$work/templates/invoice/variants/${variant.key}/editor")

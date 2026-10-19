@@ -254,7 +254,7 @@
                                             <!--/* Not for production: a draft changes as it is edited. */-->
                                             <optgroup th:if="${!row.production and !followableDrafts.isEmpty()}" label="Follow a draft">
                                                 <option th:each="draft : ${followableDrafts}"
-                                                        th:value="'draft:' + ${draft.draftId}"
+                                                        th:value="'draft:' + ${draft.versionId}"
                                                         th:text="${draft.label} + ' (follows its changes)'">Next version (follows its changes)</option>
                                             </optgroup>
                                         </select>
