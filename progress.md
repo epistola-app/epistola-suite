@@ -425,6 +425,41 @@ Noticed, not touched:
   can disagree. Unifying them is the remaining item of this follow-up.
 - Contract `a99594e` (subscribed catalogs list and install their source's releases) not adapted.
 
+### 1.x → 2.0 upgrade test (19–20 October)
+
+Real 1.5.0 image (amd64, emulated) on its own database, seeded over its REST API and UI: the demo
+catalog imported as authored, activations per environment with production behind test, versions
+2 and 3 with one archived, unpublished drafts, a never-published template, a 1.x catalog release
+(5.21.0), a cross-catalog template on another catalog's theme and stencil, an unpublished contract
+change, a stencil published past the version templates pin, a second tenant with nothing
+published, completed documents, and 300–400 requests still queued. Dumped, then upgraded with this
+branch's jar, several times from the same dump.
+
+Held up: all 16 migrations apply; a `kill -9` mid-migration recovers on restart; the runner releases
+the patch after the 1.x release (5.21.1) and 1.0.0, records subscribed releases, pins the
+cross-catalog declaration; releases hold what was last published, drafts the unpublished work
+(contract changes included), the never-published template only the draft; queued requests fail
+with "resubmit it"; 1.x documents still download; the 1.x API key works; generation is refused
+until a deploy and works after, cross-catalog too; tenant home names environments without a
+catalog; editors open upgraded content without errors; `upgrade-1x-history` and
+`upgrade-2.0-template-content` are written.
+
+Fixed (`43d188555`, `feb62bbe9`, each with a failing-before test): queued requests logged an error
+with a stack trace each (1,601 lines for 400); a catalog using a catalog the tenant lacks waited
+with "dependency names no namespace" instead of naming it. Docs: which documents change, and
+`deployCatalogVersion`.
+
+Open, for discussion:
+
+- **Live output changes at the upgrade.** An environment on an older 1.x version gets what was last
+  published once deployed (production on v1 serves test's v2), and a stencil pinned to an older
+  version renders as it is now. Verified in a generated PDF. The older content is not kept, so it
+  cannot be deployed instead. Option: cut a release per distinct environment activation set.
+- **No guard against a live 1.x node.** 2.0 migrated while a 1.x node heartbeated; the 1.x node then
+  fails every call (500, nothing written). Option: refuse a breaking migration while `cluster_nodes`
+  shows another node seen in the last minute, with an override.
+- A refusal for an environment with nothing deployed is 404 `no-release-deployed`.
+
 ### User test as a newcomer (19 October)
 
 Walked the demo as a first-time user: login → tenant → catalog → template → data contract →
