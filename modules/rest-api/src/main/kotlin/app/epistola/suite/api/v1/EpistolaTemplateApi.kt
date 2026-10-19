@@ -539,8 +539,6 @@ class EpistolaTemplateApi(
         return variant.toDto(ResourceStatuses.of(at).of(TEMPLATE, variant.templateKey.value, ready))
     }
 
-    /** The variant's working model, with its status. When it was marked ready is not recorded where this reads it. */
-
     /** The variant's working content, with the revision the model was read at. */
     private fun workingContent(at: ResolvedCatalogVersion, templateKey: String, variantKey: String): Pair<VariantContentDto, Long> {
         val variant = workingVariant(at, templateKey, variantKey)

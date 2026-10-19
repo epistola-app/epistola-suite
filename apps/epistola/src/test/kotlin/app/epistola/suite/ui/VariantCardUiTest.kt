@@ -367,10 +367,6 @@ class VariantCardUiTest : BasePlaywrightTest() {
         assertThat(page.locator("#variant-filter-bar")).isHidden()
     }
 
-    /**
-     * Helper to create a tenant + template. Creating a template auto-creates a default variant.
-     */
-
     /** Making a variant the default asks in the app's dialog (`hx-confirm`, routed there by app-shell.js), then does it. */
     @Test
     fun `making a variant the default asks in the app's dialog`() {
