@@ -16,40 +16,25 @@
         dialogFieldErrors). Faces share ONE aggregate `faces` key (per-row
         errors are out of scope), mirroring code-list's `errors.entries`.
 
-    Model it needs: `tenantId` (URLs), `authoredCatalogs` (catalog <select>,
-    AUTHORED only — a distinct key from the list's own `catalogs` filter), and on
+    Model it needs: `tenantId` (URLs), `draftSegment` (the catalog it creates in, from the path), and on
     error `errors` (field → message).
     -->
     <th:block th:fragment="dialog">
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='upload-font-dialog',
             title='Upload Font',
-            closeUrl=${draftSegment != null} ? @{/tenants/{tenantId}/catalogs/{catalogSeg}/fonts(tenantId=${tenantId},catalogSeg=${draftSegment.value})} : @{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogSeg}/fonts(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
             content=~{::font-upload-form})}"></div>
     </th:block>
 
     <form th:fragment="font-upload-form" id="upload-font-form"
-          th:hx-post="@{/tenants/{tenantId}/fonts(tenantId=${tenantId})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogSeg}/fonts(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
           hx-encoding="multipart/form-data"
           hx-target="#font-grid-items" hx-swap="outerHTML">
         <div th:replace="~{epistola-web/form-error :: form-error(id='upload-font-error')}"></div>
+        <!--/* The catalog it uploads into refusing (a subscribed one is read-only): said above the fields. */-->
+        <span th:replace="~{epistola-web/form-error :: field-error(id='font-catalog-error', message=${errors?.get('catalog')}, oob=${false})}"></span>
         <div class="ep-dialog-body">
-            <!--/* Opened inside a catalog, it creates there: no catalog to choose (docs/workspace-shell.md). */-->
-            <input th:if="${draftSegment != null}" type="hidden" name="catalog" th:value="${draftSegment.value}">
-            <th:block th:unless="${draftSegment != null}">
-                <div th:if="${authoredCatalogs != null and !authoredCatalogs.isEmpty()}" class="form-group">
-                    <label class="ep-label" for="catalog">Catalog</label>
-                    <select id="catalog" name="catalog" class="ep-select" required>
-                        <!--/* Opened from a list filtered to a draft, its catalog's option is that draft
-                               (`letters@2.0.0`), selected, so the new resource lands where the list is. */-->
-                        <option th:each="cat : ${authoredCatalogs}"
-                                th:value="${draftSegment?.linkFor(cat.id) ?: cat.id}"
-                                th:text="${cat.name}"
-                                th:selected="${draftSegment != null and #strings.equals(draftSegment.key, cat.id)}"></option>
-                    </select>
-                    <span th:replace="~{epistola-web/form-error :: field-error(id='font-catalog-error', message=${errors?.get('catalog')}, oob=${false})}"></span>
-                </div>
-            </th:block>
             <div class="form-group">
                 <label class="ep-label" for="slug">Slug</label>
                 <input type="text" id="slug" name="slug" class="ep-input"

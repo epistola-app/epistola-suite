@@ -16,12 +16,10 @@ class CodeListRoutes(private val handler: CodeListHandler) {
     fun codeListRouterFunction(): RouterFunction<ServerResponse> = router {
         // A list belongs to a catalog; there is none across the tenant.
         GET("/tenants/{tenantId}/catalogs/{catalogId}/code-lists", handler::list)
-        "/tenants/{tenantId}/code-lists".nest {
-            GET("/new", handler::newForm)
-            POST("", handler::create)
-        }
         // A resource's pages and actions are its catalog's, like its list.
         "/tenants/{tenantId}/catalogs/{catalogId}/code-lists".nest {
+            GET("/new", handler::newForm)
+            POST("", handler::create)
             GET("/{codeListId}", handler::detail)
             POST("/{codeListId}/refresh", handler::refresh)
             POST("/{codeListId}/delete", handler::delete)

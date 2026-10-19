@@ -31,7 +31,8 @@ class VersionSwitchTest {
     @Test
     fun `a list stays the same list`() {
         assertThat(switch("/tenants/acme/catalogs/letters/templates", redesign)).isEqualTo("/tenants/acme/catalogs/letters@$work/templates")
-        assertThat(switch("/tenants/acme/themes?q=brand&catalog=letters%40$work", next)).isEqualTo("/tenants/acme/themes?q=brand&catalog=letters")
+        assertThat(switch("/tenants/acme/catalogs/letters@$work/themes/new", next)).`as`("a create form too").isEqualTo("/tenants/acme/catalogs/letters/themes/new")
+        assertThat(switch("/tenants/acme/themes/search?catalog=letters%40$work", next)).`as`("a tenant-level partial is no page of the catalog").isNull()
     }
 
     @Test

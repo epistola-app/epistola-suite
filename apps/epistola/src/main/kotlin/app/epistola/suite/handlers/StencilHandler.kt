@@ -81,26 +81,7 @@ class StencilHandler(
 
     // ── List & Search ──────────────────────────────────────────────────────
 
-    fun list(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        // The filter may name a draft (`letters@2.0.0`); its rows are then the draft's.
-        val segment = request.catalogSegment()
-        val catalogs = ListCatalogs(tenantId.key).query()
-        val stencils = ListStencils(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
-        val bar = segment.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/catalogs/${it.value}/stencils" } }
-        // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListStencils(tenantId = tenantId, catalogKey = it).query() }) { s, c, n -> FromOtherCatalog(s.name, "/tenants/${tenantId.key}/catalogs/${c.value}/stencils/${s.id.value}", n) }
-        return ServerResponse.ok().page("stencils/list") {
-            "pageTitle" to "Stencils - Epistola"
-            "tenantId" to tenantId.key
-            "catalogs" to catalogs
-            "selectedCatalog" to segment.value
-            "draftSegment" to segment
-            "draftBar" to bar
-            "fromOtherCatalogs" to fromOtherCatalogs
-            "stencils" to stencils
-        }
-    }
+    fun list(request: ServerRequest): ServerResponse = ServerResponse.ok().page("stencils/list") { stencilPageModel(request) }
 
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -144,18 +125,27 @@ class StencilHandler(
     // ── Create ─────────────────────────────────────────────────────────────
 
     /**
-     * The full-page list model, used by the newForm non-HTMX branch so the list
-     * renders behind the embedded create dialog. `authoredCatalogs` (the dialog's
-     * catalog `<select>` source) is threaded separately — the list puts *all*
-     * `catalogs` in the model for its filter, so the dialog uses a distinct key to
-     * avoid rendering the wrong (non-authored) options.
+     * The catalog's stencils as the list page shows them: the page itself, and behind the create dialog
+     * when `/new` is opened directly or a create is refused without HTMX. The segment may name a draft
+     * (`letters@<draft>`); its rows are then the draft's.
      */
-    private fun ModelBuilder.stencilPageModel(tenantId: TenantId, catalogs: List<Catalog>) {
+    private fun ModelBuilder.stencilPageModel(request: ServerRequest) {
+        val tenantId = request.tenantId()
+        // The filter may name a draft (`letters@2.0.0`); its rows are then the draft's.
+        val segment = request.catalogSegment()
+        val catalogs = ListCatalogs(tenantId.key).query()
+        val stencils = ListStencils(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
+        val bar = segment.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/catalogs/${it.value}/stencils" } }
+        // What the catalogs this one depends on hold of this kind, listed read-only below its own.
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListStencils(tenantId = tenantId, catalogKey = it).query() }) { s, c, n -> FromOtherCatalog(s.name, "/tenants/${tenantId.key}/catalogs/${c.value}/stencils/${s.id.value}", n) }
         "pageTitle" to "Stencils - Epistola"
         "tenantId" to tenantId.key
         "catalogs" to catalogs
-        "selectedCatalog" to ""
-        "stencils" to ListStencils(tenantId = tenantId).query()
+        "selectedCatalog" to segment.value
+        "draftSegment" to segment
+        "draftBar" to bar
+        "fromOtherCatalogs" to fromOtherCatalogs
+        "stencils" to stencils
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
@@ -180,7 +170,7 @@ class StencilHandler(
             // embedded in its mount (openDialog=true), opened on load by the JS.
             onNonHtmx {
                 page("stencils/list") {
-                    stencilPageModel(tenantId, allCatalogs)
+                    stencilPageModel(request)
                     "openDialog" to true
                     "authoredCatalogs" to authoredCatalogs
                 }
@@ -223,13 +213,6 @@ class StencilHandler(
         requirePermission(tenantId.key, Permission.STENCIL_EDIT)
 
         val form = request.form {
-            // Validated like any other field so a missing or malformed catalog
-            // lands in the dialog's error path rather than a bodyless 400 (which
-            // HTMX does not swap) or a CatalogKey.of throw (a 500).
-            field("catalog") {
-                required()
-                asCatalogId()
-            }
             field("slug") {
                 required()
                 pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
@@ -263,7 +246,7 @@ class StencilHandler(
             form
         } else {
             form.executeOrFormError {
-                val segment = CatalogSegment.parse(form["catalog"])
+                val segment = request.catalogSegment()
                 CreateStencil(
                     id = StencilId(
                         StencilKey.validateOrNull(form["slug"])!!,
@@ -294,11 +277,12 @@ class StencilHandler(
                     formData = result,
                 ) {
                     "tenantId" to tenantId.key
+                    "draftSegment" to request.catalogParam()
                     "authoredCatalogs" to authoredCatalogs
                 }
                 onNonHtmx {
                     page(422, "stencils/list") {
-                        stencilPageModel(tenantId, allCatalogs)
+                        stencilPageModel(request)
                         "openDialog" to true
                         "authoredCatalogs" to authoredCatalogs
                         "formData" to result.formData
@@ -314,7 +298,7 @@ class StencilHandler(
         // history-restore only) redirects to the same page.
         // Safe !!/of(): both fields were validated above and the create succeeded.
         val stencilKey = StencilKey.validateOrNull(form["slug"])!!
-        val catalogKey = CatalogSegment.parse(form["catalog"]).value
+        val catalogKey = request.catalogSegment().value
         val destination = "/tenants/${tenantId.key}/catalogs/$catalogKey/stencils/$stencilKey"
         return request.htmx {
             dialogLocation(destination)
@@ -510,11 +494,13 @@ class StencilHandler(
                 .body(mapOf("error" to e.message))
         }
 
-        val stencils = ListStencils(tenantId = tenantId).query()
+        // The catalog's rows, refreshed in place.
+        val segment = request.catalogSegment()
         return request.htmx {
             fragment("stencils/list", "rows") {
                 "tenantId" to tenantId.key
-                "stencils" to stencils
+                "draftSegment" to segment
+                "stencils" to ListStencils(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
             }
             onNonHtmx { redirect(CatalogPages.list(request, tenantId.key, "stencils")) }
         }

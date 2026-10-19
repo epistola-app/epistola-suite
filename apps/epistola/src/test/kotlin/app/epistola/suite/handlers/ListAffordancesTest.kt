@@ -119,7 +119,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
         withMediator { CreateCatalog(tenant.id, filtered, "ZZZ Last").execute() }
 
         val body = restTemplate.exchange(
-            "/tenants/${tenant.id.value}/templates/new?catalog=${filtered.value}",
+            "/tenants/${tenant.id.value}/catalogs/${filtered.value}/templates/new",
             HttpMethod.GET,
             HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
             String::class.java,
@@ -128,31 +128,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
             requireNotNull(it.body)
         }
 
-        assertThat(body).contains("type=\"hidden\" name=\"catalog\" value=\"${filtered.value}\"").doesNotContain("<select id=\"catalog\"")
-    }
-
-    @Test
-    fun `the new-template dialog falls back to the first catalog when the list is unfiltered`() {
-        val tenant = createTenant("New Template Unfiltered")
-        withMediator { CreateCatalog(tenant.id, CatalogKey.of("zzz-last"), "ZZZ Last").execute() }
-
-        val body = restTemplate.exchange(
-            "/tenants/${tenant.id.value}/templates/new?catalog=",
-            HttpMethod.GET,
-            HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
-            String::class.java,
-        ).let { requireNotNull(it.body) }
-
-        // Nothing marked selected: the browser takes the first option, which is correct when the
-        // reader has expressed no preference.
-        assertThat(selectedOption(body)).isNull()
-    }
-
-    /** The value of the catalog `<option>` carrying `selected`, or null if none does. */
-    private fun selectedOption(body: String): String? {
-        val select = body.substringAfter("""name="catalog"""", "").substringBefore("</select>")
-        return Regex("""<option[^>]*value="([^"]*)"[^>]*\bselected\b""").find(select)?.groupValues?.get(1)
-            ?: Regex("""<option[^>]*\bselected\b[^>]*value="([^"]*)"""").find(select)?.groupValues?.get(1)
+        assertThat(body).contains("/catalogs/${filtered.value}/templates\"").doesNotContain("<select id=\"catalog\"")
     }
 
     @Test

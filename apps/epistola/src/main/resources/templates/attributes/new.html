@@ -10,15 +10,14 @@
         #create-attribute-form), so the form swaps in place with inline errors and
         preserved values, leaving the <dialog> untouched.
 
-    Model it needs: `tenantId` (URLs), `authoredCatalogs` (catalog <select> — a
-    distinct key from the list's own `catalogs` filter var), `codeLists` (the
+    Model it needs: `tenantId` (URLs), `draftSegment` (the catalog it creates in, from the path), `codeLists` (the
     code-list <select>), and on error re-render `formData`/`errors`.
     -->
     <th:block th:fragment="dialog">
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='create-attribute-dialog',
             title='New Attribute',
-            closeUrl=${draftSegment != null} ? @{/tenants/{tenantId}/catalogs/{catalogSeg}/attributes(tenantId=${tenantId},catalogSeg=${draftSegment.value})} : @{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogSeg}/attributes(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
             content=~{::attribute-form})}"></div>
     </th:block>
 
@@ -27,29 +26,12 @@
          enhancement is kept (method+action alongside th:hx-post) — the attribute
          create has no JSON path, so a non-HTMX submit lands on the same handler. -->
     <form th:fragment="attribute-form" id="create-attribute-form"
-          method="post" th:action="@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}"
-          th:hx-post="@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}"
+          method="post" th:action="@{/tenants/{tenantId}/catalogs/{catalogSeg}/attributes(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogSeg}/attributes(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
           hx-target="#attribute-list" hx-swap="outerHTML"
           data-radio-panes="constraintKind" data-pane-attr="data-constraint-pane">
         <div th:replace="~{epistola-web/form-error :: form-error(id='create-attribute-error')}"></div>
         <div class="ep-dialog-body">
-            <!--/* Opened inside a catalog, it creates there: no catalog to choose (docs/workspace-shell.md). */-->
-            <input th:if="${draftSegment != null}" type="hidden" name="catalog" th:value="${draftSegment.value}">
-            <th:block th:unless="${draftSegment != null}">
-                <div th:if="${authoredCatalogs != null && !authoredCatalogs.isEmpty()}" class="form-group"
-                     th:classappend="${errors?.containsKey('catalog')} ? 'error' : ''">
-                    <label class="ep-label" for="catalog">Catalog</label>
-                    <select id="catalog" name="catalog" class="ep-select">
-                        <!--/* Opened from a list filtered to a draft, its catalog's option is that draft
-                               (`letters@2.0.0`), selected, so the new resource lands where the list is. */-->
-                        <option th:each="cat : ${authoredCatalogs}"
-                                th:value="${draftSegment?.linkFor(cat.id) ?: cat.id}"
-                                th:text="${cat.name}"
-                                th:selected="${formData?.catalog != null ? #strings.equals(formData.catalog, draftSegment?.linkFor(cat.id) ?: cat.id) : (draftSegment != null and #strings.equals(draftSegment.key, cat.id))}"></option>
-                    </select>
-                    <span class="form-error" th:if="${errors?.containsKey('catalog')}" th:text="${errors.catalog}"></span>
-                </div>
-            </th:block>
             <div class="form-group" th:classappend="${errors?.containsKey('displayName')} ? 'error' : ''">
                 <label class="ep-label" for="displayName">Display Name</label>
                 <input type="text" id="displayName" name="displayName" class="ep-input"

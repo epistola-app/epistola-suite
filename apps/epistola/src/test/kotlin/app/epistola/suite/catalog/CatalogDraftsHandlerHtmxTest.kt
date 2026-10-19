@@ -321,9 +321,9 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             val list = get("/tenants/${tenant.id}/catalogs/letters@$work/attributes").body!!
             assertThat(list).contains("Tone")
             assertThat(get("/tenants/${tenant.id}/catalogs/letters/attributes").body!!).doesNotContain(">Tone<")
-            val dialog = getHtmx("/tenants/${tenant.id}/attributes/new?catalog=letters@$work").body!!
-            assertThat(dialog).contains("value=\"letters@$work\"")
-            postForm("/tenants/${tenant.id}/attributes", mapOf("catalog" to "letters@$work", "slug" to "mood", "displayName" to "Mood"))
+            val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/attributes/new").body!!
+            assertThat(dialog).contains("/catalogs/letters@$work/attributes\"")
+            postForm("/tenants/${tenant.id}/catalogs/letters@$work/attributes", mapOf("catalog" to "letters@$work", "slug" to "mood", "displayName" to "Mood"))
         }
         then {
             val response = result<ResponseEntity<String>>()

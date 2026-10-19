@@ -51,7 +51,7 @@ class CodeListUiTest : BasePlaywrightTest() {
     fun `create INLINE code list via new form lands on detail page with entries rendered`() {
         val tenant = withMediator { createUiTenant() }
 
-        gotoAndReady("/tenants/${tenant.id}/code-lists/new")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/code-lists/new")
 
         // The inline editor's bootstrap script auto-seeds one empty row when
         // there's no prior submission, so we don't need to click add for the
@@ -83,7 +83,7 @@ class CodeListUiTest : BasePlaywrightTest() {
     fun `duplicate inline entry codes show validation error on new form`() {
         val tenant = withMediator { createUiTenant() }
 
-        gotoAndReady("/tenants/${tenant.id}/code-lists/new")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/code-lists/new")
         assertThat(page.locator("#entries-tbody tr").first()).isVisible()
 
         page.locator("#displayName").fill("Duplicate Codes")
@@ -106,7 +106,7 @@ class CodeListUiTest : BasePlaywrightTest() {
         // Server-sent dialog: a validation error retargets the form (422) and swaps it
         // in place, leaving the dialog open on the /new route (no HX-Push-Url on the
         // error response). The form + errors + entered values stay shown (asserted here).
-        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists/new$"))
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/catalogs/default/code-lists/new$"))
         assertThat(page.locator("#entries-tbody tr")).hasCount(2)
         assertThat(page.locator("#entries-tbody tr").first().locator("input[placeholder='code']")).hasValue("test")
         assertThat(page.locator("#entries-tbody tr").nth(1).locator("input[placeholder='code']")).hasValue("test")
@@ -126,7 +126,7 @@ class CodeListUiTest : BasePlaywrightTest() {
             t
         }
 
-        gotoAndReady("/tenants/${tenant.id}/code-lists/new")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/code-lists/new")
         assertThat(page.locator("#entries-tbody tr").first()).isVisible()
 
         page.locator("#displayName").fill("Locales Again")
@@ -141,7 +141,7 @@ class CodeListUiTest : BasePlaywrightTest() {
         // Server-sent dialog: a duplicate slug retargets the form (422) and swaps it in
         // place, leaving the dialog open on the /new route (no HX-Push-Url on the error
         // response). The form + errors + entered value stay shown (asserted above/below).
-        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists/new$"))
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/catalogs/default/code-lists/new$"))
         assertThat(page.locator("#slug")).hasValue("locales")
     }
 
@@ -159,7 +159,7 @@ class CodeListUiTest : BasePlaywrightTest() {
             t
         }
 
-        gotoAndReady("/tenants/${tenant.id}/attributes/new")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/attributes/new")
 
         page.locator("#displayName").fill("Language")
         page.locator("#slug").fill("language")

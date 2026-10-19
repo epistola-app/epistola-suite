@@ -43,9 +43,7 @@ object VersionSwitch {
                 }
             }
         }
-        // A page that names its catalog in the query (a create form: `…/templates/new?catalog=letters@…`).
-        val catalogParam = Regex("(^|&)catalog=([^&]*)").find(query) ?: return null
-        if (!isThisCatalog(java.net.URLDecoder.decode(catalogParam.groupValues[2], Charsets.UTF_8))) return null
-        return path + "?" + query.replaceRange(catalogParam.groups[2]!!.range, target.value)
+        // Every page of a catalog is under `/catalogs/{catalog}/`; anything else is not one.
+        return null
     }
 }

@@ -17,7 +17,7 @@ class SlugAutoFillUiTest : BasePlaywrightTest() {
     fun `slug field should reject invalid characters`() {
         val tenant = createTestTenant()
 
-        gotoAndReady("/tenants/${tenant.id}/templates/new")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/new")
         assertThat(page.locator("#slug")).isVisible()
 
         val slugInput = page.locator("#slug")
@@ -39,7 +39,7 @@ class SlugAutoFillUiTest : BasePlaywrightTest() {
     fun `a derived slug is truncated to the slug field's own maxlength`() {
         val tenant = createTestTenant()
 
-        gotoAndReady("/tenants/${tenant.id}/themes/new")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/themes/new")
         val slug = page.locator("#slug")
         assertThat(slug).isVisible()
 
@@ -65,7 +65,7 @@ class SlugAutoFillUiTest : BasePlaywrightTest() {
     fun `a form that arrives with an already-truncated slug keeps auto-filling`() {
         val tenant = createTestTenant()
 
-        gotoAndReady("/tenants/${tenant.id}/templates")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates")
         assertThat(page.locator("main")).isVisible()
 
         page.evaluate(
@@ -85,7 +85,7 @@ class SlugAutoFillUiTest : BasePlaywrightTest() {
     fun `auto-fill keeps working after truncation, and still stops once the slug is edited by hand`() {
         val tenant = createTestTenant()
 
-        gotoAndReady("/tenants/${tenant.id}/themes/new")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/themes/new")
         val name = page.locator("#name")
         val slug = page.locator("#slug")
 
@@ -116,7 +116,7 @@ class SlugAutoFillUiTest : BasePlaywrightTest() {
         // This test is about the document-level MutationObserver wiring up elements
         // added after load, which is host-page-independent; the list page keeps
         // <main> interactive.
-        gotoAndReady("/tenants/${tenant.id}/templates")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates")
         assertThat(page.locator("main")).isVisible()
 
         page.evaluate(

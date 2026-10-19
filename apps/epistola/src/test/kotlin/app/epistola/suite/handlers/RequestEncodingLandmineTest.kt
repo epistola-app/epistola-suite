@@ -77,7 +77,7 @@ class RequestEncodingLandmineTest : BaseIntegrationTest() {
             val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_FORM_URLENCODED }
             val entity = HttpEntity(body.toByteArray(StandardCharsets.US_ASCII), headers)
             restTemplate.exchange(
-                "/tenants/${seed.tenantKey}/templates",
+                "/tenants/${seed.tenantKey}/catalogs/default/templates",
                 HttpMethod.POST,
                 entity,
                 String::class.java,

@@ -51,28 +51,7 @@ import org.springframework.web.servlet.function.ServerResponse
 @Component
 class AttributeHandler {
 
-    fun list(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        // The filter may name a draft (`letters@2.0.0`); its rows are then the draft's.
-        val segment = request.catalogSegment()
-        val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
-        val catalogs = ListCatalogs(tenantId.key).query()
-        val attributes = ListAttributeDefinitions(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
-        val bar = segment.let { draftBarFor(tenantId, it) }
-        // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListAttributeDefinitions(tenantId = tenantId, catalogKey = it).query() }) { a, c, n -> FromOtherCatalog(a.displayName, "/tenants/${tenantId.key}/catalogs/${c.value}/attributes", n) }
-        return ServerResponse.ok().page("attributes/list") {
-            "pageTitle" to "Attributes - Epistola"
-            "tenant" to tenant
-            "tenantId" to tenantId.key
-            "catalogs" to catalogs
-            "selectedCatalog" to segment.value
-            "draftSegment" to segment
-            "draftBar" to bar
-            "fromOtherCatalogs" to fromOtherCatalogs
-            "attributes" to attributes
-        }
-    }
+    fun list(request: ServerRequest): ServerResponse = ServerResponse.ok().page("attributes/list") { attributePageModel(request) }
 
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -98,7 +77,7 @@ class AttributeHandler {
             // embedded in its mount (openDialog=true), opened on load by the JS.
             onNonHtmx {
                 page("attributes/list") {
-                    attributePageModel(tenantId, allCatalogs)
+                    attributePageModel(request)
                     "openDialog" to true
                     "authoredCatalogs" to authoredCatalogs
                     "codeLists" to codeLists
@@ -112,13 +91,6 @@ class AttributeHandler {
         requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
 
         val form = request.form {
-            // Validated like any other field so a missing or malformed catalog
-            // lands in the dialog's error path rather than a bodyless 400 (which
-            // HTMX does not swap) or a CatalogKey.of throw (a 500).
-            field("catalog") {
-                required()
-                asCatalogId()
-            }
             field("constraintKind") {}
             field("slug") {
                 required()
@@ -144,7 +116,7 @@ class AttributeHandler {
         val allowedValuesInput = request.params().getFirst("allowedValues")?.trim().orEmpty()
         val codeListSelection = request.params().getFirst("codeList")?.ifBlank { null }
         val (allowedValues, codeListId) = parseConstraint(constraintKind, allowedValuesInput, codeListSelection, tenantId)
-        val catalogSegment = CatalogSegment.parseOrNull(form.formData["catalog"])
+        val catalogSegment = request.catalogSegment()
 
         // Field validation (incl. slug/AttributeKey) and the command-level failure
         // (duplicate slug) both land as `errors` on the FormData, so they share one
@@ -159,7 +131,7 @@ class AttributeHandler {
                     // is reached only with a valid slug and catalog.
                     id = AttributeId(
                         AttributeKey.validateOrNull(form["slug"])!!,
-                        CatalogId(catalogSegment!!.key, tenantId),
+                        CatalogId(catalogSegment.key, tenantId),
                     ),
                     displayName = form["displayName"],
                     allowedValues = allowedValues,
@@ -186,12 +158,13 @@ class AttributeHandler {
                     formData = result,
                 ) {
                     "tenantId" to tenantId.key
+                    "draftSegment" to request.catalogParam()
                     "authoredCatalogs" to authored
                     "codeLists" to codeLists
                 }
                 onNonHtmx {
                     page(422, "attributes/list") {
-                        attributePageModel(tenantId, allCatalogs)
+                        attributePageModel(request)
                         "openDialog" to true
                         "authoredCatalogs" to authored
                         "codeLists" to codeLists
@@ -210,7 +183,7 @@ class AttributeHandler {
         // stay-on-list refresh would cause. onNonHtmx 303-redirects for the
         // non-HTMX fallback.
         // The list of the catalog (or draft) the attribute was created in, which is where it is.
-        val destination = "/tenants/${tenantId.key}/catalogs/${catalogSegment!!.value}/attributes"
+        val destination = "/tenants/${tenantId.key}/catalogs/${catalogSegment.value}/attributes"
         return request.htmx {
             dialogLocation(destination)
             onNonHtmx { redirect(destination) }
@@ -336,22 +309,29 @@ class AttributeHandler {
     }
 
     /**
-     * The full-page list model, used by the newForm / create non-HTMX branches so
-     * the list renders behind the embedded create dialog. `authoredCatalogs` (the
-     * dialog's catalog `<select>` source) is threaded separately by the callers —
-     * the list already puts *all* `catalogs` in the model for its filter, so the
-     * dialog uses a distinct key to avoid rendering the wrong (non-authored) options.
+     * The catalog's attributes as the list page shows them: the page itself, and behind the create dialog
+     * when `/new` is opened directly or a create is refused without HTMX. The segment may name a draft
+     * (`letters@<draft>`); its rows are then the draft's.
      */
-    private fun ModelBuilder.attributePageModel(
-        tenantId: TenantId,
-        catalogs: List<Catalog>,
-    ) {
+    private fun ModelBuilder.attributePageModel(request: ServerRequest) {
+        val tenantId = request.tenantId()
+        // The filter may name a draft (`letters@2.0.0`); its rows are then the draft's.
+        val segment = request.catalogSegment()
+        val tenant = GetTenant(tenantId.key).query()
+        val catalogs = ListCatalogs(tenantId.key).query()
+        val attributes = ListAttributeDefinitions(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
+        val bar = segment.let { draftBarFor(tenantId, it) }
+        // What the catalogs this one depends on hold of this kind, listed read-only below its own.
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListAttributeDefinitions(tenantId = tenantId, catalogKey = it).query() }) { a, c, n -> FromOtherCatalog(a.displayName, "/tenants/${tenantId.key}/catalogs/${c.value}/attributes", n) }
         "pageTitle" to "Attributes - Epistola"
-        "tenant" to GetTenant(tenantId.key).query()
+        "tenant" to tenant
         "tenantId" to tenantId.key
         "catalogs" to catalogs
-        "selectedCatalog" to ""
-        "attributes" to ListAttributeDefinitions(tenantId = tenantId).query()
+        "selectedCatalog" to segment.value
+        "draftSegment" to segment
+        "draftBar" to bar
+        "fromOtherCatalogs" to fromOtherCatalogs
+        "attributes" to attributes
     }
 
     private fun draftBarFor(tenantId: TenantId, segment: CatalogSegment): CatalogDraftBar = CatalogDraftBar.of(tenantId.key, segment) { "/tenants/${tenantId.key}/catalogs/${it.value}/attributes" }

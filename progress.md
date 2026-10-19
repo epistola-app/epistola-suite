@@ -354,8 +354,7 @@ Noticed, not touched: catalog details (name, description, keywords, presentation
 | Attribute edit keeps input on refusal                                                  | `AttributeHandler`, `a01501a7f`                               | ✅ `EditDialogRevisionHtmxTest`                                      |
 | Resource pages and actions under `/catalogs/{c}/{type}/{key}`                          | all resource routes, templates, JS, embed bridge, audit links | 🟡 app suites being run; `NoTenantWideListTest` guards the old shape |
 
-Noticed, not touched (HTMX audit): `/new` and the create POSTs still take `?catalog=` (next step);
-hand-rolled create dialogs (variants, quality manual, feedback) and action dialogs re-rendering with
+Noticed, not touched (HTMX audit): hand-rolled create dialogs (variants, quality manual, feedback) and action dialogs re-rendering with
 200 instead of `dialogFieldErrors`; missing `maxlength` on several inputs (`InputMaxLengthTest` is an
 allowlist); `htmx.md` contradicts `dialog-forms.md`; three ways to open a dialog; ~20 hand-built
 303s; partial GETs render a bare fragment when opened directly; `EmbeddingBridgeUiTest` navigate and

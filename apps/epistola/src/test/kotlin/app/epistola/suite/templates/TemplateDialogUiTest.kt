@@ -18,7 +18,7 @@ class TemplateDialogUiTest : BasePlaywrightTest() {
     // the create dialog's catalog <select> is never empty.
     private fun createTestTenant(): Tenant = createTenant("Template Dialog Test")
 
-    private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/templates/new\\?catalog=default$")
+    private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/catalogs/default/templates/new$")
 
     @Test
     fun `dialog is not open on initial load of the templates list`() {

@@ -67,11 +67,10 @@
 
   const RESOURCE_PATH_SEGMENT = { template: 'templates', theme: 'themes', stencil: 'stencils' };
   const RESOURCE_TYPE_BY_SEGMENT = { templates: 'template', themes: 'theme', stencils: 'stencil' };
-  // A resource is its catalog's: /tenants/{t}/catalogs/{catalog}/{type}/{key}/…; creating one posts
-  // to the tenant's collection, /tenants/{t}/{type}.
+  // A resource is its catalog's: /tenants/{t}/catalogs/{catalog}/{type}/{key}/…, and creating one
+  // posts to the catalog's collection, /tenants/{t}/catalogs/{catalog}/{type}.
   const RESOURCE_URL_PATTERN =
     /^\/tenants\/([^/]+)\/catalogs\/([^/]+)\/(templates|themes|stencils)(\/.*)?$/;
-  const COLLECTION_URL_PATTERN = /^\/tenants\/([^/]+)\/(templates|themes|stencils)\/?$/;
 
   // The only way a resource identity becomes a URL: a closed lookup of the
   // three known detail-page shapes. The host cannot supply anything else.
@@ -99,24 +98,16 @@
 
   // The reverse direction: a URL path (a request path, or a create response's
   // HX-Location/HX-Redirect target) back into {tenantId, resourceType, rest[]},
-  // where `rest` is whatever path segments follow the collection root (e.g. []
+  // where `rest` is the catalog and whatever follows the type (e.g. [catalogKey]
   // for a create POST, [catalogKey, key] for a plain resource path, or
   // [catalogKey, key, 'delete'] for a delete POST).
   function parseResourcePath(path) {
     const match = RESOURCE_URL_PATTERN.exec(path);
-    if (match) {
-      return {
-        tenantId: match[1],
-        resourceType: RESOURCE_TYPE_BY_SEGMENT[match[3]],
-        rest: [match[2]].concat((match[4] || '').split('/').filter(Boolean)),
-      };
-    }
-    const collection = COLLECTION_URL_PATTERN.exec(path);
-    if (!collection) return null;
+    if (!match) return null;
     return {
-      tenantId: collection[1],
-      resourceType: RESOURCE_TYPE_BY_SEGMENT[collection[2]],
-      rest: [],
+      tenantId: match[1],
+      resourceType: RESOURCE_TYPE_BY_SEGMENT[match[3]],
+      rest: [match[2]].concat((match[4] || '').split('/').filter(Boolean)),
     };
   }
 
@@ -287,7 +278,8 @@
       return;
     }
 
-    if (verb === 'POST' && parsed.rest.length === 0) {
+    // A create posts to the catalog's collection: only the catalog follows the type.
+    if (verb === 'POST' && parsed.rest.length === 1) {
       const createdUrl =
         xhr.getResponseHeader('HX-Location') || xhr.getResponseHeader('HX-Redirect');
       if (!createdUrl) return;

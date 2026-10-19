@@ -30,7 +30,7 @@ class CatalogContentsUiTest : BasePlaywrightTest() {
         val dialog = page.locator("dialog[open]#create-template-dialog")
         assertThat(dialog).isVisible()
         // Inside a catalog there is no catalog to choose: it creates here.
-        assertThat(dialog.locator("input[type='hidden'][name='catalog']")).hasValue("letters")
+        assertThat(dialog.locator("form#create-template-form")).hasAttribute("hx-post", java.util.regex.Pattern.compile(".*/catalogs/letters/templates$"))
         assertThat(dialog.locator("select#catalog")).hasCount(0)
 
         page.keyboard().press("Escape")

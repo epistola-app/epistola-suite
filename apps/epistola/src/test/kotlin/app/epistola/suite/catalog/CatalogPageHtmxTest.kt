@@ -68,7 +68,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
         val status = status(get(tenant, "/catalogs/letters/browse").body!!)
 
         assertThat(status).contains("Start with a template.")
-        assertThat(status).contains("data-testid=\"catalog-status-new-template\"").contains("hx-get=\"/tenants/${tenant.id}/templates/new?catalog=letters\"")
+        assertThat(status).contains("data-testid=\"catalog-status-new-template\"").contains("hx-get=\"/tenants/${tenant.id}/catalogs/letters/templates/new\"")
         assertThat(status).doesNotContain("data-testid=\"catalog-release-open\"")
         assertThat(status).contains("Not deployed anywhere yet.").contains("data-testid=\"catalog-step-no-environment\"")
     }
@@ -163,17 +163,17 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
 
         listOf("templates", "themes", "stencils", "images", "fonts", "code-lists", "attributes").forEach { area ->
             val dialog = restTemplate.exchange(
-                "/tenants/${tenant.id}/$area/new?catalog=letters",
+                "/tenants/${tenant.id}/catalogs/letters/$area/new",
                 HttpMethod.GET,
                 HttpEntity<Void>(HttpHeaders().apply { set("HX-Request", "true") }),
                 String::class.java,
             ).body!!
-            assertThat(dialog).`as`("$area creates in the catalog it was opened on").contains("type=\"hidden\" name=\"catalog\" value=\"letters\"")
+            assertThat(dialog).`as`("$area creates in the catalog it was opened on").contains("/catalogs/letters/$area\"")
         }
     }
 
     /**
-     * The catalog's nav leads to each kind's list filtered to it, plainly (`?catalog=letters`); the
+     * The catalog's nav leads to each kind's list in it (`/catalogs/letters/stencils`); the
      * list's New must create in that catalog, not in the one that sorts first.
      */
     @Test
@@ -184,7 +184,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
 
         listOf("stencils", "themes", "images", "fonts", "code-lists").forEach { area ->
             val list = get(tenant, "/catalogs/letters/$area").body!!
-            assertThat(list).`as`("$area New carries the catalog").contains("hx-get=\"/tenants/${tenant.id}/$area/new?catalog=letters\"")
+            assertThat(list).`as`("$area New carries the catalog").contains("hx-get=\"/tenants/${tenant.id}/catalogs/letters/$area/new\"")
         }
     }
 

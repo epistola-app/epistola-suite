@@ -33,7 +33,7 @@ class CatalogContentsTest {
         val templates = contents.groups.first()
         assertThat(templates.items.map { it.name }).containsExactly("Invoice", "Reminder")
         assertThat(templates.items.first().href).isEqualTo("/tenants/acme/catalogs/letters@$work/templates/invoice")
-        assertThat(templates.newHref).isEqualTo("/tenants/acme/templates/new?catalog=letters@$work")
+        assertThat(templates.newHref).isEqualTo("/tenants/acme/catalogs/letters@$work/templates/new")
         assertThat(contents.groups.first { it.type == "stencil" }.items).isEmpty()
         assertThat(contents.filled.map { it.type }).containsExactly("template", "theme")
         assertThat(contents.addable.map { it.type }).containsExactly("stencil", "image", "font", "attribute", "codeList")

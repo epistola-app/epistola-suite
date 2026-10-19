@@ -75,7 +75,7 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.exchange(
-                "/tenants/${testTenant.id}/attributes/new",
+                "/tenants/${testTenant.id}/catalogs/default/attributes/new",
                 HttpMethod.GET,
                 HttpEntity<Void>(htmxHeaders()),
                 String::class.java,
@@ -94,9 +94,8 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body).contains("""name="displayName"""")
             assertThat(response.body).contains("""name="slug"""")
             // The catalog <select> populated from authored catalogs.
-            assertThat(response.body).contains("""name="catalog"""")
-            assertThat(response.body).contains("Marketing")
-            assertThat(response.body).contains("Default")
+            // Opened in a catalog, it creates there: no catalog to choose.
+            assertThat(response.body).contains("/catalogs/default/attributes\"").doesNotContain("<select id=\"catalog\"")
             // The code-list <select> populated from code lists.
             assertThat(response.body).contains("""name="codeList"""")
             assertThat(response.body).contains("Locales")
@@ -127,7 +126,7 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
             form.add("displayName", "Valid Name")
             form.add("slug", "INVALID SLUG") // uppercase + space → fails asAttributeId
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/attributes",
+                "/tenants/${testTenant.id}/catalogs/default/attributes",
                 HttpEntity(form, htmxFormHeaders()),
                 String::class.java,
             )
@@ -148,8 +147,8 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body).contains("value=\"Valid Name\"")
             assertThat(response.body).contains("value=\"INVALID SLUG\"")
             // Prefills survived → both <select>s are still populated.
-            assertThat(response.body).contains("""name="catalog"""")
-            assertThat(response.body).contains("Default")
+            // Opened in a catalog, it creates there: no catalog to choose.
+            assertThat(response.body).contains("/catalogs/default/attributes\"").doesNotContain("<select id=\"catalog\"")
             assertThat(response.body).contains("""name="codeList"""")
             assertThat(response.body).contains("Locales")
         }
@@ -168,7 +167,7 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
             form.add("slug", "language")
             form.add("constraintKind", "free")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/attributes",
+                "/tenants/${testTenant.id}/catalogs/default/attributes",
                 HttpEntity(form, htmxFormHeaders()),
                 String::class.java,
             )
@@ -210,7 +209,7 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
             form.add("constraintKind", "inline")
             form.add("allowedValues", "dutch\nenglish\ngerman")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/attributes",
+                "/tenants/${testTenant.id}/catalogs/default/attributes",
                 HttpEntity(form, htmxFormHeaders()),
                 String::class.java,
             )
@@ -294,7 +293,7 @@ class AttributeHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/attributes/new",
+                "/tenants/${testTenant.id}/catalogs/default/attributes/new",
                 String::class.java,
             )
         }

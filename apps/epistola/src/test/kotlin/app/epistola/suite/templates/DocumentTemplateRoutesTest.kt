@@ -584,7 +584,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             formData.add("name", "New Template")
             formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
-            restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
+            restTemplate.postForEntity("/tenants/${testTenant.id}/catalogs/default/templates", request, String::class.java)
         }
 
         then {
@@ -615,7 +615,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             formData.add("name", "HTMX Template")
             formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
-            restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
+            restTemplate.postForEntity("/tenants/${testTenant.id}/catalogs/default/templates", request, String::class.java)
         }
 
         then {
@@ -648,7 +648,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             formData.add("name", "")
             formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
-            restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
+            restTemplate.postForEntity("/tenants/${testTenant.id}/catalogs/default/templates", request, String::class.java)
         }
 
         then {
@@ -683,7 +683,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             formData.add("name", "   ")
             formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
-            restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
+            restTemplate.postForEntity("/tenants/${testTenant.id}/catalogs/default/templates", request, String::class.java)
         }
 
         then {
@@ -714,7 +714,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             formData.add("name", "a".repeat(101))
             formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
-            restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
+            restTemplate.postForEntity("/tenants/${testTenant.id}/catalogs/default/templates", request, String::class.java)
         }
 
         then {
@@ -744,7 +744,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             formData.add("name", "a".repeat(256))
             formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
-            restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
+            restTemplate.postForEntity("/tenants/${testTenant.id}/catalogs/default/templates", request, String::class.java)
         }
 
         then {

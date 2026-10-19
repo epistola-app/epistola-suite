@@ -16,12 +16,10 @@ class AttributeRoutes(private val handler: AttributeHandler) {
     fun attributeRouterFunction(): RouterFunction<ServerResponse> = router {
         // A list belongs to a catalog; there is none across the tenant.
         GET("/tenants/{tenantId}/catalogs/{catalogId}/attributes", handler::list)
-        "/tenants/{tenantId}/attributes".nest {
-            GET("/new", handler::newForm)
-            POST("", handler::create)
-        }
         // A resource's pages and actions are its catalog's, like its list.
         "/tenants/{tenantId}/catalogs/{catalogId}/attributes".nest {
+            GET("/new", handler::newForm)
+            POST("", handler::create)
             GET("/{attributeId}/edit", handler::editForm)
             PATCH("/{attributeId}", handler::update)
             POST("/{attributeId}/delete", handler::delete)

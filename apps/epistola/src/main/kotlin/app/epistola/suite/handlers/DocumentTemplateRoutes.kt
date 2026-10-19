@@ -27,11 +27,11 @@ class DocumentTemplateRoutes(
         "/tenants/{tenantId}/templates".nest {
             // Search (the editors' pickers) and create; the pages are the catalog's, below
             GET("/search", handler::search)
-            GET("/new", handler::newForm)
-            POST("", handler::create)
         }
         // A resource's pages and actions are its catalog's, like its list.
         "/tenants/{tenantId}/catalogs/{catalogId}/templates".nest {
+            GET("/new", handler::newForm)
+            POST("", handler::create)
             // Detail page — each tab has its own handler
             GET("/{id}", handler::detail)
             GET("/{id}/data-contract", dataContractTabHandler::dataContract)

@@ -309,6 +309,8 @@ class DocumentTemplateHandler(
             onNonHtmx {
                 page("templates/list") {
                     templatePageModel(request, tenantId, allCatalogs)
+                    // The embedded dialog creates in this catalog, draft or not.
+                    "draftSegment" to request.catalogSegment()
                     "openDialog" to true
                     "authoredCatalogs" to authoredCatalogs
                 }
@@ -321,16 +323,6 @@ class DocumentTemplateHandler(
         requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
 
         val form = request.form {
-            // Validated like any other field so a missing or malformed catalog
-            // lands in the dialog's error path. It used to bypass the form: a blank
-            // value returned a bodyless 400 (which HTMX does not swap, so the dialog
-            // just froze with no explanation) and a malformed one reached
-            // CatalogKey.of and threw, i.e. a 500.
-            // The catalog, or one of its drafts (`letters@2.0.0`) when the dialog was opened in one.
-            field("catalog") {
-                required()
-                asCatalogId()
-            }
             field("slug") {
                 required()
                 pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
@@ -356,7 +348,7 @@ class DocumentTemplateHandler(
             form
         } else {
             form.executeOrFormError {
-                val segment = CatalogSegment.parse(form["catalog"])
+                val segment = request.catalogSegment()
                 CreateDocumentTemplate(
                     id = TemplateId(
                         TemplateKey.validateOrNull(form["slug"])!!,
@@ -384,11 +376,16 @@ class DocumentTemplateHandler(
                     formData = result,
                 ) {
                     "tenantId" to tenantId.key
+                    "draftSegment" to request.catalogParam()
                     "authoredCatalogs" to authoredCatalogs
                 }
                 onNonHtmx {
                     page(422, "templates/list") {
                         templatePageModel(request, tenantId, allCatalogs)
+                        // The embedded dialog creates in this catalog, draft or not.
+                        "draftSegment" to request.catalogSegment()
+                        // The embedded dialog creates in this catalog, draft or not.
+                        "draftSegment" to request.catalogSegment()
                         "openDialog" to true
                         "authoredCatalogs" to authoredCatalogs
                         "formData" to result.formData
@@ -404,7 +401,7 @@ class DocumentTemplateHandler(
         // swapped-out body; the list is not refreshed.
         // Safe !!/of(): both fields were validated above and the create succeeded.
         val templateKey = TemplateKey.validateOrNull(form["slug"])!!
-        val catalogId = CatalogSegment.parse(form["catalog"])
+        val catalogId = request.catalogSegment()
         val destination = "/tenants/${tenantId.key}/catalogs/${catalogId.value}/templates/$templateKey"
         return request.htmx {
             dialogLocation(destination)

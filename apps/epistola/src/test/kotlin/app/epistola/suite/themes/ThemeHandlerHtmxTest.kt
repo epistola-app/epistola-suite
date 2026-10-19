@@ -62,7 +62,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.exchange(
-                "/tenants/${testTenant.id}/themes/new",
+                "/tenants/${testTenant.id}/catalogs/default/themes/new",
                 HttpMethod.GET,
                 HttpEntity<Void>(htmxHeaders()),
                 String::class.java,
@@ -77,9 +77,8 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body).contains("ep-dialog")
             assertThat(response.body).contains("""id="create-theme-form"""")
             // The catalog <select> populated from authored catalogs.
-            assertThat(response.body).contains("""name="catalog"""")
-            assertThat(response.body).contains("Marketing")
-            assertThat(response.body).contains("Default")
+            // Opened in a catalog, it creates there: no catalog to choose.
+            assertThat(response.body).contains("/catalogs/default/themes\"").doesNotContain("<select id=\"catalog\"")
             assertThat(response.body).contains("""name="name"""")
             assertThat(response.body).contains("""name="slug"""")
             assertThat(response.body).contains("""name="description"""")
@@ -100,7 +99,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
             form.add("name", "Valid Name")
             form.add("slug", "INVALID SLUG") // uppercase + space → fails the pattern
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/themes",
+                "/tenants/${testTenant.id}/catalogs/default/themes",
                 HttpEntity(form, htmxFormHeaders()),
                 String::class.java,
             )
@@ -122,8 +121,8 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body).contains("value=\"Valid Name\"")
             assertThat(response.body).contains("value=\"INVALID SLUG\"")
             // authoredCatalogs prefill survived → the <select> is still populated.
-            assertThat(response.body).contains("""name="catalog"""")
-            assertThat(response.body).contains("Default")
+            // Opened in a catalog, it creates there: no catalog to choose.
+            assertThat(response.body).contains("/catalogs/default/themes\"").doesNotContain("<select id=\"catalog\"")
         }
     }
 
@@ -140,7 +139,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
             form.add("slug", "corporate")
             form.add("description", "Our house style")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/themes",
+                "/tenants/${testTenant.id}/catalogs/default/themes",
                 HttpEntity(form, htmxFormHeaders()),
                 String::class.java,
             )

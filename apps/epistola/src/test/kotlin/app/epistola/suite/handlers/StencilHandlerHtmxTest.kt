@@ -323,7 +323,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.exchange(
-                "/tenants/${testTenant.id}/stencils/new",
+                "/tenants/${testTenant.id}/catalogs/default/stencils/new",
                 HttpMethod.GET,
                 HttpEntity<Void>(htmxHeaders()),
                 String::class.java,
@@ -338,9 +338,8 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body).contains("ep-dialog")
             assertThat(response.body).contains("""id="create-stencil-form"""")
             // The catalog <select> populated from authored catalogs.
-            assertThat(response.body).contains("""name="catalog"""")
-            assertThat(response.body).contains("Marketing")
-            assertThat(response.body).contains("Default")
+            // Opened in a catalog, it creates there: no catalog to choose.
+            assertThat(response.body).contains("/catalogs/default/stencils\"").doesNotContain("<select id=\"catalog\"")
             assertThat(response.body).contains("""name="name"""")
             assertThat(response.body).contains("""name="slug"""")
             assertThat(response.body).contains("""name="description"""")
@@ -363,7 +362,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
             form.add("slug", "INVALID SLUG") // uppercase + space → fails the pattern
             form.add("tags", "header, corporate")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/stencils",
+                "/tenants/${testTenant.id}/catalogs/default/stencils",
                 HttpEntity(form, htmxFormHeaders()),
                 String::class.java,
             )
@@ -387,8 +386,8 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
             // The tags field is declared, so its value survives the error re-render.
             assertThat(response.body).contains("value=\"header, corporate\"")
             // authoredCatalogs prefill survived → the <select> is still populated.
-            assertThat(response.body).contains("""name="catalog"""")
-            assertThat(response.body).contains("Default")
+            // Opened in a catalog, it creates there: no catalog to choose.
+            assertThat(response.body).contains("/catalogs/default/stencils\"").doesNotContain("<select id=\"catalog\"")
         }
     }
 
@@ -406,7 +405,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
             form.add("description", "Our house header")
             form.add("tags", "header, corporate")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/stencils",
+                "/tenants/${testTenant.id}/catalogs/default/stencils",
                 HttpEntity(form, htmxFormHeaders()),
                 String::class.java,
             )
@@ -446,7 +445,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
                 contentType = MediaType.APPLICATION_FORM_URLENCODED
             }
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/stencils",
+                "/tenants/${testTenant.id}/catalogs/default/stencils",
                 HttpEntity(form, headers),
                 String::class.java,
             )
@@ -499,7 +498,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         whenever {
             val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/stencils",
+                "/tenants/${testTenant.id}/catalogs/default/stencils",
                 HttpEntity(
                     """{"id":"json-created","name":"JSON Created","catalogKey":"default"}""",
                     headers,

@@ -22,7 +22,7 @@
             <div class="empty-state-description">Create a stencil to build reusable template components.</div>
             <button th:if="${auth.has('STENCIL_EDIT')}" type="button"
                     class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-                    th:hx-get="${draftSegment != null} ? @{/tenants/{tenantId}/stencils/new(tenantId=${tenantId},catalog=${draftSegment.value})} : @{/tenants/{tenantId}/stencils/new(tenantId=${tenantId})}"
+                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/stencils/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                     hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                     data-testid="stencil-create-open">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
@@ -119,7 +119,7 @@
     </th:block>
     <th:block th:fragment="stencil-list-actions">
         <button th:if="${auth.has('STENCIL_EDIT')}" type="button" class="ep-btn ep-btn-primary"
-                th:hx-get="${draftSegment != null} ? @{/tenants/{tenantId}/stencils/new(tenantId=${tenantId},catalog=${draftSegment.value})} : @{/tenants/{tenantId}/stencils/new(tenantId=${tenantId})}"
+                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/stencils/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="stencil-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />

@@ -189,10 +189,13 @@ fun ServerRequest.catalogIdOrNull(): CatalogKey? = try {
 fun ServerRequest.catalogVersion(): CatalogVersionRef? = catalogSegment().ref(tenantId().key)
 
 /**
- * The `catalog` filter or form parameter, which may name a draft as `letters@<draft id>`; null when absent
- * or blank.
+ * The catalog a request is in: the `catalogId` path variable of a page or action under
+ * `/catalogs/{catalogId}/…`, else the `catalog` filter or form parameter of a tenant-level partial
+ * (an editor's picker search). Either may name a draft as `letters@<draft id>`; null when neither is
+ * there or it is blank.
  */
-fun ServerRequest.catalogParam(name: String = "catalog"): CatalogSegment? = param(name).orElse(null)?.ifBlank { null }?.let { CatalogSegment.parse(it.trim()) }
+fun ServerRequest.catalogParam(name: String = "catalog"): CatalogSegment? = pathVariables()["catalogId"]?.let { CatalogSegment.parse(it) }
+    ?: param(name).orElse(null)?.ifBlank { null }?.let { CatalogSegment.parse(it.trim()) }
 
 /**
  * Extract and validate a [TemplateId] from the `id` and `catalogId` path variables.

@@ -109,7 +109,7 @@ data class CatalogContents(val groups: List<Group>) {
                         type = kind.type,
                         label = kind.label,
                         newLabel = kind.newLabel,
-                        newHref = "$base/${kind.area}/new?catalog=$catalog",
+                        newHref = "$base/catalogs/$catalog/${kind.area}/new",
                         listHref = "$base/catalogs/$catalog/${kind.area}",
                         mayCreate = may(kind.permission),
                         items = resources.filter { it.type == kind.type }.sortedBy { it.name.lowercase() }.map { resource ->

@@ -39,6 +39,7 @@ import app.epistola.suite.htmx.catalogParam
 import app.epistola.suite.htmx.catalogSegment
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
+import app.epistola.suite.htmx.page
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
@@ -72,35 +73,7 @@ class FontHandler(
      * with its weight/italic faces and whether its catalog is editable
      * (AUTHORED) or read-only (SUBSCRIBED, e.g. `system`).
      */
-    fun list(request: ServerRequest): ServerResponse {
-        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
-        // The filter may name a draft (`letters@2.0.0`); its families are then the draft's.
-        val segment = request.catalogSegment()
-        val version = segment.ref(tenantKey)
-        val tenant = GetTenant(id = tenantKey).query()
-        val catalogs = ListCatalogs(tenantKey).query()
-        val fonts = ListFonts(tenantId = tenantId, catalogKey = segment.key, catalogVersion = version).query()
-        val bar = segment.let { s -> CatalogDraftBar.of(tenantKey, s) { "/tenants/${tenantKey.value}/catalogs/${it.value}/fonts" } }
-        // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListFonts(tenantId = tenantId, catalogKey = it).query() }) { f, c, n -> FromOtherCatalog(f.name, "/tenants/${tenantKey.value}/catalogs/${c.value}/fonts", n) }
-        return ServerResponse.ok().render(
-            "layout/shell",
-            mapOf(
-                "contentView" to "fonts/list",
-                "pageTitle" to "Fonts - Epistola",
-                "tenantId" to tenantKey.value,
-                "tenant" to tenant,
-                "catalogs" to catalogs,
-                "selectedCatalog" to segment.value,
-                "draftSegment" to segment,
-                "draftBar" to bar,
-                "fromOtherCatalogs" to fromOtherCatalogs,
-                "fonts" to fonts.map { toFontView(tenantId, it, version) },
-                "activeNavSection" to "fonts",
-            ),
-        )
-    }
+    fun list(request: ServerRequest): ServerResponse = ServerResponse.ok().page("fonts/list") { fontPageModel(request) }
 
     /**
      * Upload dialog (mirrors `AssetHandler.newForm`). URL-addressable create
@@ -127,7 +100,7 @@ class FontHandler(
             }
             onNonHtmx {
                 page("fonts/list") {
-                    fontPageModel(tenantKey, allCatalogs)
+                    fontPageModel(request)
                     "openDialog" to true
                     "authoredCatalogs" to authoredCatalogs
                 }
@@ -135,15 +108,32 @@ class FontHandler(
         }
     }
 
-    /** The full-page list model (shared by the newForm / upload non-HTMX branches). */
-    private fun ModelBuilder.fontPageModel(tenantKey: TenantKey, catalogs: List<Catalog>) {
+    /**
+     * The catalog's fonts as the list page shows them: the page itself, and behind the create dialog
+     * when `/new` is opened directly or a create is refused without HTMX. The segment may name a draft
+     * (`letters@<draft>`); its rows are then the draft's.
+     */
+    private fun ModelBuilder.fontPageModel(request: ServerRequest) {
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
         val tenantId = TenantId(tenantKey)
+        // The filter may name a draft (`letters@2.0.0`); its families are then the draft's.
+        val segment = request.catalogSegment()
+        val version = segment.ref(tenantKey)
+        val tenant = GetTenant(id = tenantKey).query()
+        val catalogs = ListCatalogs(tenantKey).query()
+        val fonts = ListFonts(tenantId = tenantId, catalogKey = segment.key, catalogVersion = version).query()
+        val bar = segment.let { s -> CatalogDraftBar.of(tenantKey, s) { "/tenants/${tenantKey.value}/catalogs/${it.value}/fonts" } }
+        // What the catalogs this one depends on hold of this kind, listed read-only below its own.
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListFonts(tenantId = tenantId, catalogKey = it).query() }) { f, c, n -> FromOtherCatalog(f.name, "/tenants/${tenantKey.value}/catalogs/${c.value}/fonts", n) }
         "pageTitle" to "Fonts - Epistola"
         "tenantId" to tenantKey.value
-        "tenant" to GetTenant(id = tenantKey).query()
+        "tenant" to tenant
         "catalogs" to catalogs
-        "selectedCatalog" to ""
-        "fonts" to ListFonts(tenantId = tenantId).query().map { toFontView(tenantId, it) }
+        "selectedCatalog" to segment.value
+        "draftSegment" to segment
+        "draftBar" to bar
+        "fromOtherCatalogs" to fromOtherCatalogs
+        "fonts" to fonts.map { toFontView(tenantId, it, version) }
         "activeNavSection" to "fonts"
     }
 
@@ -197,20 +187,10 @@ class FontHandler(
                 null
             }
         }
-        val catalogStr = field("catalog")
-        // The catalog, or one of its drafts (`letters@2.0.0`) when uploading from inside one.
-        val catalogSegment: CatalogSegment? = when {
-            catalogStr == null -> {
-                errors["catalog"] = "Catalog is required"
-                null
-            }
-
-            else -> CatalogSegment.parseOrNull(catalogStr).also {
-                if (it == null) errors["catalog"] = "Invalid catalog ID format"
-            }
-        }
-        val catalogKey: CatalogKey? = catalogSegment?.key
-        val version = catalogSegment?.ref(tenantKey)
+        // The catalog the dialog was opened in, or one of its drafts (`letters@<draft>`), from the path.
+        val catalogSegment = request.catalogSegment()
+        val catalogKey = catalogSegment.key
+        val version = catalogSegment.ref(tenantKey)
 
         // Read each provided face ONCE (Part streams are one-shot), then validate
         // ALL of them before persisting anything — so a bad face reports an error
@@ -294,7 +274,7 @@ class FontHandler(
                         content = row.bytes,
                         width = null,
                         height = null,
-                        catalogKey = catalogKey!!,
+                        catalogKey = catalogKey,
                         catalogVersion = version,
                     ).execute()
                     ImportFontVariant(
@@ -306,7 +286,7 @@ class FontHandler(
                 }
                 ImportFont(
                     tenantId = tenantId,
-                    catalogKey = catalogKey!!,
+                    catalogKey = catalogKey,
                     slug = slug!!.value,
                     name = name!!,
                     kind = kind!!.wire,
@@ -332,7 +312,7 @@ class FontHandler(
                     // full navigation regardless).
                     onNonHtmx {
                         page(422, "fonts/list") {
-                            fontPageModel(tenantKey, ListCatalogs(tenantKey).query())
+                            fontPageModel(request)
                             "openDialog" to true
                             "authoredCatalogs" to authoredCatalogs
                             "errors" to errors
@@ -348,7 +328,7 @@ class FontHandler(
 
         // Success. Browser dialog: close + OOB-refresh the grid; boosted: redirect.
         if (request.isHtmx) {
-            val draft = catalogSegment?.takeIf { it.draft != null }
+            val draft = catalogSegment.takeIf { it.draft != null }
             val fonts = ListFonts(tenantId = tenantId, catalogKey = draft?.key, catalogVersion = version).query().map { toFontView(tenantId, it, version) }
             return request.htmx {
                 dialogSuccess("fonts/list", "font-grid-items", CatalogPages.list(request, tenantKey, "fonts")) {
@@ -363,7 +343,7 @@ class FontHandler(
         // Editor / non-HTMX JSON contract (unchanged).
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("slug" to slug!!.value, "catalogKey" to catalogKey!!.value))
+            .body(mapOf("slug" to slug!!.value, "catalogKey" to catalogKey.value))
     }
 
     /**

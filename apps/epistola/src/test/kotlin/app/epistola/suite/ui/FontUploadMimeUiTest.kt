@@ -30,7 +30,7 @@ class FontUploadMimeUiTest : BasePlaywrightTest() {
             ).execute()
         }
 
-        gotoAndReady("/tenants/${tenant.id}/fonts/new")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/fonts/new")
         page.locator("#slug").fill("corporate-sans")
         page.locator("#name").fill("Corporate Sans")
 

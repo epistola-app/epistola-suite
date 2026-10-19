@@ -13,18 +13,19 @@ import kotlin.test.assertTrue
  * images, fonts, code lists or attributes. A list is at `/tenants/{t}/catalogs/{catalog}/themes`, and
  * `/tenants/{t}/themes` (with or without `?catalog=`) is no page. This finds links and redirects to
  * it, in templates (`@{/tenants/{tenantId}/themes(tenantId=${tenantId})}`) and in handlers
- * (`"/tenants/${tenantId.key}/themes"`, `…/themes?catalog=…`). A form posting there is fine: that
- * creates, it does not list; so are `/new` and `/search`, which are partial responses.
+ * (`"/tenants/${tenantId.key}/themes"`, `…/themes?catalog=…`). Creating is the catalog's too
+ * (`…/catalogs/{catalog}/themes/new`, a post to `…/catalogs/{catalog}/themes`); only the editors'
+ * pickers stay at tenant level: `/search`, and the image picker's `/catalogs`.
  */
 class NoTenantWideListTest {
 
     private val types = "templates|stencils|themes|images|fonts|code-lists|attributes"
 
-    /** A template link to `/tenants/{tenantId}/<type>(…)`: the old list, unless it is a form's action. */
-    private val templateLink = Regex("""@\{/tenants/\{tenantId}/($types)\(""")
+    /** A template link, redirect or form action to `/tenants/{tenantId}/<type>(…)`, or to its `/new`. */
+    private val templateLink = Regex("""@\{/tenants/\{tenantId}/($types)(/new)?\(""")
 
     /** A Kotlin string that is a tenant-level list path, with or without a query. */
-    private val kotlinPath = Regex(""""(/tenants/\$\{[A-Za-z.]+}|\${'$'}tenant)/($types)(\?[^"]*)?"""")
+    private val kotlinPath = Regex(""""(/tenants/\$\{[A-Za-z.]+}|\${'$'}tenant)/($types)(/new)?(\?[^"]*)?"""")
 
     @Test
     fun `nothing links or redirects to a list across catalogs`() {
@@ -32,7 +33,7 @@ class NoTenantWideListTest {
         RepoSources.uiAssetFiles().filter { it.toString().endsWith(".html") }.forEach { path ->
             val text = RepoSources.stripHtmlComments(Files.readString(path))
             text.lineSequence().forEachIndexed { i, line ->
-                if (templateLink.containsMatchIn(line) && "th:action=" !in line && "hx-post=" !in line) {
+                if (templateLink.containsMatchIn(line)) {
                     violations += "${RepoSources.relativize(path)}:${i + 1}: ${line.trim()}"
                 }
             }

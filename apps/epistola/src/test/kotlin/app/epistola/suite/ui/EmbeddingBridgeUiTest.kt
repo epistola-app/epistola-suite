@@ -71,7 +71,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
     private fun latestMessageOfType(type: String): Map<String, Any?>? = capturedMessages().lastOrNull { (it["message"] as? Map<*, *>)?.get("type") == type }
 
     private fun createTemplateViaUi(tenant: Tenant, name: String, slug: String) {
-        gotoAndReady("/tenants/${tenant.id}/templates/new")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/new")
         page.locator("#name").fill(name)
         page.locator("#slug").fill(slug)
         page.locator("[data-testid='create-form-submit']").click()

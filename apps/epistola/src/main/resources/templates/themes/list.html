@@ -22,7 +22,7 @@
             <div class="empty-state-description">Create a theme to define the visual styling of your documents.</div>
             <button th:if="${auth.has('THEME_EDIT')}" type="button"
                     class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-                    th:hx-get="${draftSegment != null} ? @{/tenants/{tenantId}/themes/new(tenantId=${tenantId},catalog=${draftSegment.value})} : @{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}"
+                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/themes/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                     hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                     data-testid="theme-create-open">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
@@ -139,7 +139,7 @@
     </th:block>
     <th:block th:fragment="theme-list-actions">
         <button th:if="${auth.has('THEME_EDIT')}" type="button" class="ep-btn ep-btn-primary"
-                th:hx-get="${draftSegment != null} ? @{/tenants/{tenantId}/themes/new(tenantId=${tenantId},catalog=${draftSegment.value})} : @{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}"
+                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/themes/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="theme-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />

@@ -94,10 +94,11 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
         val tenant = seed("Workspace Create")
 
         listOf("templates", "themes", "stencils", "images", "fonts", "code-lists", "attributes").forEach { area ->
-            val dialog = htmx(tenant, "/$area/new?catalog=letters")
-            assertThat(dialog).`as`(area).contains("type=\"hidden\" name=\"catalog\" value=\"letters\"").doesNotContain("<select id=\"catalog\"")
+            val dialog = htmx(tenant, "/catalogs/letters/$area/new")
+            assertThat(dialog).`as`(area).contains("/catalogs/letters/$area\"").doesNotContain("<select id=\"catalog\"")
         }
-        assertThat(htmx(tenant, "/stencils/new")).`as`("outside a catalog it asks").contains("<select id=\"catalog\"")
+        assertThat(restTemplate.getForEntity("/tenants/${tenant.id}/stencils/new", String::class.java).statusCode.value())
+            .`as`("creating is the catalog's: there is no create outside one").isEqualTo(404)
     }
 
     @Test

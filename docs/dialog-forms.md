@@ -146,7 +146,7 @@ to. When the dialog closes (Cancel / ESC / a handler's
   `EnvironmentDialogUiTest`.
 
 > **Known limitation — query string.** `closeUrl` is the list **path** only, so
-> a list that carries filters/paging in its query string (`?catalog=…`, search,
+> a list that carries filters/paging in its query string (search, sort,
 > page) would lose them on close. The environment list has no such filters, so
 > this is a non-issue there; a filtered list adopting this convention will need
 > `closeUrl` to preserve (or the close handler to merge) the query string.

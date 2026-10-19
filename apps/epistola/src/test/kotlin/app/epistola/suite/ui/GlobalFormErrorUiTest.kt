@@ -78,7 +78,7 @@ class GlobalFormErrorUiTest : BasePlaywrightTest() {
         withMediator { tenant = createUiTenant() }
 
         // Direct navigation renders the fonts list with the upload dialog open.
-        gotoAndReady("/tenants/${tenant.id}/fonts/new")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/fonts/new")
 
         page.locator("#slug").fill("acme-sans")
         page.locator("#name").fill("Acme Sans")

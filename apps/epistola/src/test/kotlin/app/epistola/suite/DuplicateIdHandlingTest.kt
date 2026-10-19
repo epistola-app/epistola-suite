@@ -128,7 +128,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity(
-                "/tenants/${tenant.id}/themes",
+                "/tenants/${tenant.id}/catalogs/default/themes",
                 request,
                 String::class.java,
             )
@@ -167,7 +167,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity(
-                "/tenants/${tenant.id}/templates",
+                "/tenants/${tenant.id}/catalogs/default/templates",
                 request,
                 String::class.java,
             )
@@ -209,7 +209,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity(
-                "/tenants/${tenant.id}/stencils",
+                "/tenants/${tenant.id}/catalogs/default/stencils",
                 request,
                 String::class.java,
             )
@@ -248,7 +248,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity(
-                "/tenants/${tenant.id}/attributes",
+                "/tenants/${tenant.id}/catalogs/default/attributes",
                 request,
                 String::class.java,
             )
@@ -292,7 +292,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             formData.add("entriesJson", """[{"code":"nl","label":"Dutch","sortOrder":0}]""")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity(
-                "/tenants/${tenant.id}/code-lists",
+                "/tenants/${tenant.id}/catalogs/default/code-lists",
                 request,
                 String::class.java,
             )

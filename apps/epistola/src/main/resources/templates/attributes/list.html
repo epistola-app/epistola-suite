@@ -29,7 +29,7 @@
             <div class="empty-state-description">Define attributes to classify template variants (e.g., language, brand, audience).</div>
             <button th:if="${auth.has('TENANT_SETTINGS')}" type="button"
                     class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-                    th:hx-get="${draftSegment != null} ? @{/tenants/{tenantId}/attributes/new(tenantId=${tenantId},catalog=${draftSegment.value})} : @{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}"
+                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/attributes/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                     hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                     data-testid="attribute-create-open">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
@@ -229,7 +229,7 @@
     </th:block>
     <th:block th:fragment="attribute-list-actions">
         <button th:if="${auth.has('TENANT_SETTINGS')}" type="button" class="ep-btn ep-btn-primary"
-                th:hx-get="${draftSegment != null} ? @{/tenants/{tenantId}/attributes/new(tenantId=${tenantId},catalog=${draftSegment.value})} : @{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}"
+                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/attributes/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="attribute-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />

@@ -18,11 +18,11 @@ class StencilRoutes(private val handler: StencilHandler) {
         GET("/tenants/{tenantId}/catalogs/{catalogId}/stencils", handler::list)
         "/tenants/{tenantId}/stencils".nest {
             GET("/search", handler::search)
-            GET("/new", handler::newForm)
-            POST("", handler::create)
         }
         // A resource's pages and actions are its catalog's, like its list.
         "/tenants/{tenantId}/catalogs/{catalogId}/stencils".nest {
+            GET("/new", handler::newForm)
+            POST("", handler::create)
             "/{stencilId}".nest {
                 GET("", handler::detail)
                 PATCH("", handler::update)

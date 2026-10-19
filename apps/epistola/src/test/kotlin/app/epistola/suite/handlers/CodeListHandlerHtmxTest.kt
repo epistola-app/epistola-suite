@@ -170,7 +170,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.exchange(
-                "/tenants/${testTenant.id}/code-lists/new",
+                "/tenants/${testTenant.id}/catalogs/default/code-lists/new",
                 HttpMethod.GET,
                 HttpEntity<Void>(htmxHeaders()),
                 String::class.java,
@@ -188,8 +188,6 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body).contains("""name="displayName"""")
             assertThat(response.body).contains("""name="slug"""")
             // The catalog <select> populated from authored catalogs.
-            assertThat(response.body).contains("""name="catalog"""")
-            assertThat(response.body).contains("Marketing")
             // It is a fragment, not the whole page (no app shell).
             assertThat(response.body).doesNotContain("<html")
         }
@@ -208,7 +206,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
             form.add("slug", "BAD SLUG") // uppercase + space → fails asCodeListId
             form.add("sourceType", "INLINE")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/code-lists",
+                "/tenants/${testTenant.id}/catalogs/default/code-lists",
                 HttpEntity(form, htmxFormHeaders()),
                 String::class.java,
             )
@@ -244,7 +242,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
             form.add("sourceType", "INLINE")
             form.add("entriesJson", """[{"code":"en","label":"English"}]""")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/code-lists",
+                "/tenants/${testTenant.id}/catalogs/default/code-lists",
                 HttpEntity(form, htmxFormHeaders()),
                 String::class.java,
             )
@@ -278,7 +276,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/code-lists/new",
+                "/tenants/${testTenant.id}/catalogs/default/code-lists/new",
                 String::class.java,
             )
         }

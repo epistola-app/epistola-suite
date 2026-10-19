@@ -191,7 +191,7 @@ request (and, for create, the response) alone:
    comes straight from the request path.
 2. **`POST /tenants/{t}/catalogs/{catalogKey}/{type}/{key}/delete`** → `delete`.
    Identity from the request path.
-3. **`POST /tenants/{t}/{type}`** (the bare collection root) → `create`.
+3. **`POST /tenants/{t}/catalogs/{catalogKey}/{type}`** (the catalog's collection) → `create`.
    Identity comes from the response's `HX-Location`/`HX-Redirect` header — the
    same header `dialogLocation`/`dialogRedirect` (`HtmxDsl.kt`) already set for
    unrelated, pre-existing navigation reasons, read via
