@@ -258,60 +258,41 @@ class AttributeHandler {
         val draftSegment = request.catalogSegment().takeIf { it.draft != null }
         val codeLists = ListCodeLists(tenantId, catalogVersion = version).query()
 
-        if (form.hasErrors()) {
-            val attribute = GetAttributeDefinition(
-                id = attributeId,
-                catalogVersion = version,
-            ).query() ?: return ServerResponse.notFound().build()
-            return request.htmx {
-                fragment("attributes/list", "edit-attribute-form") {
-                    "tenantId" to tenantId.key
-                    "attribute" to attribute
-                    "codeLists" to codeLists
-                    "draftSegment" to draftSegment
-                    "error" to form.errors.values.firstOrNull()
-                }
-                retarget("#edit-attribute-dialog-body")
-                reswap(HxSwap.INNER_HTML)
-            }
-        }
-
-        val displayName = form["displayName"]
-        val constraintKind = form.formData["constraintKind"]?.ifBlank { null } ?: "free"
-        val allowedValuesInput = request.params().getFirst("allowedValues")?.trim().orEmpty()
-        val codeListSelection = request.params().getFirst("codeList")?.ifBlank { null }
-        val (allowedValues, codeListId) = parseConstraint(constraintKind, allowedValuesInput, codeListSelection, tenantId)
+        // A refusal is said in the dialog's error slot, leaving what was typed in place.
+        if (form.hasErrors()) return request.htmx { globalFormError("edit-attribute-error", form.errors.values.first()) }
 
         try {
+            val constraintKind = form.formData["constraintKind"]?.ifBlank { null } ?: "free"
+            val allowedValuesInput = request.params().getFirst("allowedValues")?.trim().orEmpty()
+            val codeListSelection = request.params().getFirst("codeList")?.ifBlank { null }
+            val (allowedValues, codeListId) = parseConstraint(constraintKind, allowedValuesInput, codeListSelection, tenantId)
             UpdateAttributeDefinition(
                 id = attributeId,
-                displayName = displayName,
+                displayName = form["displayName"],
                 allowedValues = allowedValues,
                 codeListId = codeListId,
                 catalogVersion = version,
                 expectedRevision = request.expectedRevision(),
             ).execute() ?: return ServerResponse.notFound().build()
-        } catch (e: Exception) {
-            // A stale revision re-renders the form from the attribute as it is now, with its revision.
-            val attribute = GetAttributeDefinition(
-                id = attributeId,
-                catalogVersion = version,
-            ).query() ?: return ServerResponse.notFound().build()
+        } catch (_: ResourceModifiedException) {
+            // Saved by someone else since it was opened: the form again, from the attribute as it is
+            // now and at its revision, to make the change on.
+            val attribute = GetAttributeDefinition(id = attributeId, catalogVersion = version).query()
+                ?: return ServerResponse.notFound().build()
             return request.htmx {
                 fragment("attributes/list", "edit-attribute-form") {
                     "tenantId" to tenantId.key
                     "attribute" to attribute
                     "codeLists" to codeLists
                     "draftSegment" to draftSegment
-                    "error" to if (e is ResourceModifiedException) {
-                        "Someone else changed this attribute since you opened it. The form now shows their version; make your change again."
-                    } else {
-                        e.message ?: "Update failed"
-                    }
+                    "error" to "Someone else changed this attribute since you opened it. The form now shows their version; make your change again."
                 }
                 retarget("#edit-attribute-dialog-body")
                 reswap(HxSwap.INNER_HTML)
+                status(409)
             }
+        } catch (e: Exception) {
+            return request.htmx { globalFormError("edit-attribute-error", e.message ?: "Update failed") }
         }
 
         // Back to the list as it was shown: the draft's attributes when it was filtered to one.

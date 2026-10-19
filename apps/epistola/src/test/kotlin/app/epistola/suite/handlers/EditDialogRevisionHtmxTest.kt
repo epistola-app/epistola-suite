@@ -104,4 +104,19 @@ class EditDialogRevisionHtmxTest : BaseIntegrationTest() {
         assertThat(stale.body).`as`("the form shows their version, at its revision").contains("Brand elsewhere").doesNotContain("name=\"expectedRevision\" value=\"$opened\"")
         assertThat(withMediator { GetAttributeDefinition(attributeId).query() }!!.displayName).isEqualTo("Brand elsewhere")
     }
+
+    @Test
+    fun `a refused attribute edit keeps what was typed`() {
+        val tenant = tenant("Attribute Refusal")
+        val attributeId = AttributeId(AttributeKey.of("brand"), CatalogId.default(TenantId(tenant.id)))
+        withMediator { CreateAttributeDefinition(id = attributeId, displayName = "Brand").execute() }
+        val base = "/tenants/${tenant.id.value}/attributes/default/brand"
+
+        // Only spaces passes the browser's `required`.
+        val refused = patch(base, "displayName" to "   ", "constraintKind" to "inline", "allowedValues" to "a\nb", "expectedRevision" to revisionIn(get("$base/edit")))
+
+        assertThat(refused.statusCode.value()).isEqualTo(422)
+        assertThat(refused.headers.getFirst("HX-Reswap")).`as`("only the error slot swaps; the form stays as typed").isEqualTo("none")
+        assertThat(refused.body).contains("id=\"edit-attribute-error\"").doesNotContain("name=\"displayName\"")
+    }
 }
