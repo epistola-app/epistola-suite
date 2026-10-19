@@ -8,6 +8,7 @@ import app.epistola.catalog.protocol.CatalogNamespaces
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.CatalogReleasePublicationPort
 import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.versions.CatalogDrafts
 import app.epistola.suite.common.ids.TenantKey
@@ -19,7 +20,9 @@ import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Component
 
 data class CreateCatalog(
@@ -52,10 +55,12 @@ class CreateCatalogHandler(
     private val jdbi: Jdbi,
     private val identity: CatalogIdentityProperties,
     private val drafts: CatalogDrafts,
+    private val publicationPort: ObjectProvider<CatalogReleasePublicationPort>,
 ) : CommandHandler<CreateCatalog, Catalog> {
 
     override fun handle(command: CreateCatalog): Catalog = executeOrThrowDuplicate("catalog", command.id.value) {
         jdbi.withHandle<Catalog, Exception> { handle ->
+            val namespace = namespaceFor(handle, command)
             handle.createUpdate(
                 """
                 INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, description, type, created_at, updated_at)
@@ -64,7 +69,7 @@ class CreateCatalogHandler(
             )
                 .bind("id", command.id)
                 .bind("registry", command.registry ?: identity.defaultRegistry)
-                .bind("namespace", command.namespace ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey))
+                .bind("namespace", namespace)
                 .bind("tenantKey", command.tenantKey)
                 .bind("name", command.name)
                 .bind("description", command.description)
@@ -74,5 +79,22 @@ class CreateCatalogHandler(
 
             handle.findCatalog(command.tenantKey, command.id)!!
         }
+    }
+
+    /**
+     * The namespace a catalog under this key was published under, which it returns to; otherwise the
+     * one asked for, the publishing integration's preferred one, or the tenant's key.
+     */
+    private fun namespaceFor(handle: Handle, command: CreateCatalog): String {
+        val port = publicationPort.ifAvailable
+        port?.publishedNamespace(handle, command.tenantKey, command.id)?.let { published ->
+            validate("namespace", command.namespace == null || command.namespace == published, ValidationCode.CATALOG_NAMESPACE_INVALID) {
+                "A catalog '${command.id.value}' was published under namespace '$published', so it is recreated there"
+            }
+            return published
+        }
+        return command.namespace
+            ?: port?.preferredNamespace(handle, command.tenantKey)?.takeIf(CatalogNamespaces::isValid)
+            ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey)
     }
 }

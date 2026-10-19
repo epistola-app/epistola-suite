@@ -32,17 +32,18 @@ data class CatalogPublicationState(
     val policy: CatalogPublicationPolicy,
     val allowsReleaseOverride: Boolean,
     val defaultPublish: Boolean,
-    val boundNamespace: String?,
+    /** The catalog's namespace, which it publishes under (contract ADR 0003). */
+    val namespace: String,
     val publications: List<CatalogReleasePublication>,
     /** True when "publish current release" is a legitimate action right now. */
     val canPublishCurrentRelease: Boolean,
     /** True when that action would retry a failed attempt rather than queue a new one. */
     val isRetry: Boolean,
-    /** False while the namespace is still a local choice — nothing has reached Exchange yet. */
+    /** False while the namespace can still change: nothing has reached Exchange yet. */
     val namespaceLocked: Boolean,
     /** Namespaces the tenant's connection currently grants, for the namespace picker. */
     val availableNamespaces: List<String>,
-    /** Whether this principal may publish this catalog at all, and therefore set its namespace. */
+    /** Whether this principal may publish this catalog at all, and therefore choose its namespace. */
     val canPublish: Boolean,
     /**
      * Whether the tenant holds a usable Exchange enrollment.
@@ -60,9 +61,8 @@ data class CatalogPublicationState(
      */
     val exchangeOrganizationUrl: String?,
     /**
-     * The value a namespace picker should start on: the catalog's own choice once made, otherwise
-     * the tenant default. The tenant default only ever pre-fills — it never binds a catalog by
-     * itself, because a binding becomes permanent and a fallback should not make that decision.
+     * The value a namespace picker should start on: the catalog's namespace when the connection
+     * grants it, otherwise the tenant default.
      */
     val suggestedNamespace: String?,
     /**
@@ -76,16 +76,19 @@ data class CatalogPublicationState(
      */
     val exchangeAuthorityUrl: String?,
 ) {
-    /** True while the catalog has nowhere to publish and this principal could give it one. */
-    val needsNamespaceChoice: Boolean get() = available && canPublish && boundNamespace == null
+    /**
+     * True while the catalog's namespace is not one the connection grants, it can still change, and
+     * this principal could choose a granted one: publishing asks for it.
+     */
+    val needsNamespaceChoice: Boolean
+        get() = available && canPublish && !namespaceLocked && namespace !in availableNamespaces && availableNamespaces.isNotEmpty()
 
     /**
-     * The catalog is bound to a namespace the connection no longer grants — an organization can
-     * withdraw one, and nothing about the binding changes when it does. Nothing publishes until the
-     * catalog is pointed somewhere it is still allowed, or the grant returns.
+     * The catalog published under a namespace the connection no longer grants — an organization can
+     * withdraw one, and the namespace is fixed. Nothing publishes until the grant returns.
      */
     val namespaceRevoked: Boolean
-        get() = available && boundNamespace != null && boundNamespace !in availableNamespaces
+        get() = available && namespaceLocked && namespace !in availableNamespaces
 
     /**
      * Publications that have been in flight far too long.
@@ -105,13 +108,13 @@ data class CatalogPublicationState(
      *
      * Offering to publish without this is the one combination that strands someone: the release
      * form would take the instruction, then refuse to submit because the namespace it must ask for
-     * has no options, saying only "please select an item in the list". A catalog already bound to a
+     * has no options, saying only "please select an item in the list". A catalog fixed to a
      * namespace the connection has since lost is the same dead end reached from the other side.
      */
     val hasPublishableDestination: Boolean
         get() = available &&
             connected &&
-            if (boundNamespace != null) boundNamespace in availableNamespaces else availableNamespaces.isNotEmpty()
+            (namespace in availableNamespaces || (!namespaceLocked && availableNamespaces.isNotEmpty()))
 
     /**
      * Where this publication can be inspected on Exchange, or null when there is nothing to look at.
@@ -162,7 +165,7 @@ class GetCatalogPublicationStateHandler(
 
         val binding = jdbi.withHandle<Binding, Exception> { handle ->
             Binding(
-                namespace = namespaceBinder.existingBinding(handle, query.tenantKey, query.catalogKey),
+                namespace = catalog.namespace,
                 locked = namespaceBinder.isLocked(handle, query.tenantKey, query.catalogKey),
                 granted = namespaceBinder.grantedNamespaces(handle, query.tenantKey).sorted(),
                 tenantDefault = namespaceBinder.tenantDefault(handle, query.tenantKey),
@@ -174,7 +177,7 @@ class GetCatalogPublicationStateHandler(
             policy = policy,
             allowsReleaseOverride = policy.allowsReleaseOverride(),
             defaultPublish = policy.defaultPublish(tenant.publishCatalogsByDefault),
-            boundNamespace = binding.namespace,
+            namespace = binding.namespace,
             publications = publications,
             namespaceLocked = binding.locked,
             availableNamespaces = binding.granted,
@@ -182,16 +185,13 @@ class GetCatalogPublicationStateHandler(
             connected = available && connection != null,
             exchangeOrganizationUrl = connection?.organizationSlug
                 ?.let { slug -> "${connection.baseUrl.trimEnd('/')}/organizations/$slug" },
-            suggestedNamespace = binding.namespace ?: binding.tenantDefault,
-            exchangeAuthorityUrl = binding.namespace?.let { namespace ->
-                connection?.tenantConnectionId?.let { proposed ->
-                    "${connection.baseUrl.trimEnd('/')}/catalogs/$namespace/${query.catalogKey.value}/settings?proposed=$proposed"
-                }
+            suggestedNamespace = binding.namespace.takeIf { it in binding.granted } ?: binding.tenantDefault,
+            exchangeAuthorityUrl = connection?.tenantConnectionId?.let { proposed ->
+                "${connection.baseUrl.trimEnd('/')}/catalogs/${binding.namespace}/${query.catalogKey.value}/settings?proposed=$proposed"
             },
             // Nothing is queued without a destination, so the action is only offered once there is one.
             canPublishCurrentRelease = available &&
                 canPublish &&
-                binding.namespace != null &&
                 binding.namespace in binding.granted &&
                 policy != CatalogPublicationPolicy.NEVER &&
                 releaseStatus.latestVersion != null &&
@@ -201,7 +201,7 @@ class GetCatalogPublicationStateHandler(
     }
 
     private data class Binding(
-        val namespace: String?,
+        val namespace: String,
         val locked: Boolean,
         val granted: List<String>,
         val tenantDefault: String?,

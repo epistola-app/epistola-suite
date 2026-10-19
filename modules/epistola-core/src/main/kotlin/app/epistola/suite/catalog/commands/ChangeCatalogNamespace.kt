@@ -28,9 +28,9 @@ import org.springframework.stereotype.Component
 /**
  * Gives an authored catalog another namespace (contract ADR 0003).
  *
- * Existing catalogs were given their tenant's key as namespace on the move to 2.0, so changing it has
- * to be easy: it is one statement, allowed as long as the catalog has never been published under its
- * namespace. A subscribed catalog is named by its publisher and is refused.
+ * The namespace is also where it publishes on Exchange: there is one. Changing it is one statement,
+ * allowed as long as the catalog has never been published under its namespace; work queued for
+ * Exchange and not sent yet follows it. A subscribed catalog is named by its publisher and is refused.
  *
  * Releases already cut keep the namespace they were cut with: they are history. The declarations of
  * the tenant's other catalogs that name it follow the new namespace.
@@ -41,7 +41,8 @@ data class ChangeCatalogNamespace(
     val namespace: String,
 ) : Command<Catalog>,
     RequiresPermission {
-    override val permission get() = Permission.CATALOG_MANAGE
+    // The namespace is where it publishes: deciding it is part of publishing (CATALOG_PUBLISH).
+    override val permission get() = Permission.CATALOG_PUBLISH
 
     init {
         validate("namespace", CatalogNamespaces.isValid(namespace), ValidationCode.CATALOG_NAMESPACE_INVALID) {
@@ -90,6 +91,7 @@ class ChangeCatalogNamespaceHandler(
             .bind("previous", catalog.namespace)
             .bind("catalogKey", command.catalogKey)
             .execute()
+        publicationPort.ifAvailable?.namespaceChanged(handle, command.tenantKey, command.catalogKey, command.namespace)
         handle.findCatalog(command.tenantKey, command.catalogKey)!!
     }
 }

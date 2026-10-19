@@ -20,6 +20,7 @@ import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
+import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.commands.CheckCatalogUpstream
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeleteCatalog
@@ -82,7 +83,6 @@ import app.epistola.suite.exchange.ExchangeSourceUri
 import app.epistola.suite.exchange.GetCatalogPublicationState
 import app.epistola.suite.exchange.GetExchangeCatalogLink
 import app.epistola.suite.exchange.PublishCurrentCatalogRelease
-import app.epistola.suite.exchange.SetCatalogPublicationNamespace
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.htmx.CatalogSegment
@@ -440,6 +440,9 @@ class CatalogHandler {
             "tenantId" to tenantId.key,
             // The catalog segment: the dialog releases the draft the page works in.
             "catalogId" to segment.value,
+            // Its full name, which publishing to Exchange publishes it under (contract ADR 0003).
+            "catalogRegistry" to GetCatalog(tenantId.key, segment.key).query()?.registry,
+            "catalogKey" to segment.key.value,
             // A LinkedHashSet: SpEL cannot call contains() on Kotlin's EmptySet.
             "acknowledgedBehind" to LinkedHashSet(acknowledged),
             "status" to status,
@@ -568,17 +571,12 @@ class CatalogHandler {
     }
 
     /**
-     * Applies a namespace picked on the publish form. Offered only when the catalog has no binding
-     * and nothing would resolve one, so publishing would otherwise queue work that cannot move.
+     * Applies a namespace picked on a form: the catalog's own (contract ADR 0003), which is also where
+     * it publishes. Offered only while it can change, and only granted ones.
      */
     private fun chooseNamespaceIfOffered(request: ServerRequest, tenantKey: TenantKey, catalogKey: CatalogKey) {
         request.params().getFirst("chosenNamespace")?.trim()?.ifBlank { null }?.let { namespace ->
-            SetCatalogPublicationNamespace(
-                tenantKey = tenantKey,
-                catalogKey = catalogKey,
-                namespace = namespace,
-                acknowledgeAlreadyPublished = request.params().getFirst("acknowledgeAlreadyPublished") == "true",
-            ).execute()
+            ChangeCatalogNamespace(tenantKey, catalogKey, namespace).execute()
         }
     }
 

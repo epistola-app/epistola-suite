@@ -338,9 +338,9 @@
                             into. It has to grant one before anything from this catalog can be published.
                         </p>
                         <p class="form-hint" th:if="${publication.connected && !publication.noNamespacesGranted}">
-                            This catalog is bound to <code th:text="${publication.boundNamespace}">namespace</code>,
-                            which the Exchange connection no longer grants. Point it at a namespace this tenant
-                            still holds on the catalog page, and this release can be published afterwards.
+                            This catalog published under <code th:text="${publication.namespace}">namespace</code>,
+                            which the Exchange connection no longer grants. Its namespace is fixed, so it publishes
+                            again once the organization grants it again.
                         </p>
                         <p class="form-hint">Releasing is unaffected: this version is created either way.</p>
                     </div>
@@ -367,18 +367,17 @@
                             <select id="release-namespace" class="ep-select" name="chosenNamespace"
                                     data-required-when="publishToExchange"
                                     th:required="${!publication.allowsReleaseOverride}">
-                                <option value="" th:if="${publication.suggestedNamespace == null}">Choose a namespace</option>
                                 <option th:each="option : ${publication.availableNamespaces}"
                                         th:value="${option}" th:text="${option}"
                                         th:selected="${option == publication.suggestedNamespace}">community</option>
                             </select>
                             <p class="form-hint">
-                                This catalog has not published before. The namespace becomes permanent once a
-                                release reaches Exchange.
+                                This catalog's namespace is not one the Exchange connection grants. The one chosen
+                                here becomes its namespace, and permanent once a release reaches Exchange.
                             </p>
                         </th:block>
                         <p class="form-hint" th:unless="${publication.needsNamespaceChoice}">
-                            Publishes to <code th:text="${publication.boundNamespace}">namespace</code>.
+                            Publishes as <code th:text="${catalogRegistry} + '/' + ${publication.namespace} + '/' + ${catalogKey}">exchange.epistola.app/acme/letters</code><th:block th:unless="${publication.namespaceLocked}">, which becomes permanent once Exchange accepts it</th:block>.
                         </p>
                     </div>
 

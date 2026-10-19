@@ -48,11 +48,15 @@ class CatalogIdentityMigrationTest {
             assertThat(rows(connection, "SELECT tenant_key, catalog_key, registry, namespace FROM catalogs ORDER BY 1, 2"))
                 .containsExactly(
                     listOf("ab", "default", "exchange.epistola.app", "ab0"),
+                    // Installed from Exchange: named by its publisher, as its source says.
+                    listOf("acme", "brand", "exchange.epistola.app", "huisstijl"),
                     listOf("acme", "default", "exchange.epistola.app", "acme"),
+                    // Bound for publishing to Exchange: that is its namespace.
+                    listOf("acme", "forms", "exchange.epistola.app", "acme-corp"),
                     listOf("acme", "letters", "exchange.epistola.app", "acme"),
                     listOf("acme", "system", "exchange.epistola.app", "epistola"),
                 )
-            assertThat(rows(connection, "SELECT count(DISTINCT catalog_id) FROM catalogs")).containsExactly(listOf("4"))
+            assertThat(rows(connection, "SELECT count(DISTINCT catalog_id) FROM catalogs")).containsExactly(listOf("6"))
 
             // Each row reaches the catalog it named by key, now by id.
             val owners = """
@@ -79,7 +83,10 @@ class CatalogIdentityMigrationTest {
                     ('default', 'acme', 'Default', 'AUTHORED', NULL),
                     ('letters', 'acme', 'Letters', 'AUTHORED', NULL),
                     ('system', 'acme', 'System', 'SUBSCRIBED', 'classpath:epistola/catalogs/system/catalog.json'),
+                    ('brand', 'acme', 'Brand', 'SUBSCRIBED', 'exchange:huisstijl/brand'),
+                    ('forms', 'acme', 'Forms', 'AUTHORED', NULL),
                     ('default', 'ab', 'Default', 'AUTHORED', NULL);
+                INSERT INTO catalog_exchange_bindings (tenant_key, catalog_key, namespace) VALUES ('acme', 'forms', 'acme-corp');
                 INSERT INTO themes (id, tenant_key, catalog_key, name) VALUES
                     ('plain', 'acme', 'default', 'Plain'),
                     ('corporate', 'acme', 'letters', 'Corporate');

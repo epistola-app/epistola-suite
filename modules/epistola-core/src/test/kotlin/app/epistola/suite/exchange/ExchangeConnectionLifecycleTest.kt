@@ -5,9 +5,12 @@
 package app.epistola.suite.exchange
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.commands.CatalogNamespaceFixedException
+import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
@@ -76,7 +79,7 @@ class ExchangeConnectionLifecycleTest : ExchangeIntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Grant revoked").execute()
-            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
 
             // The organization withdraws the namespace. Suite is not told and cannot know: the granted
@@ -93,9 +96,11 @@ class ExchangeConnectionLifecycleTest : ExchangeIntegrationTestBase() {
             assertThat(waiting.failure?.code).isEqualTo(ExchangeFailureCode.NAMESPACE_NOT_GRANTED)
             assertThat(waiting.attempts).isZero()
 
-            // The grant list was repaired on the way through, so the catalog page can say so.
+            // The grant list was repaired on the way through, so the catalog page can say so. Nothing
+            // reached Exchange, so the namespace can still change: it asks for a granted one.
             val revoked = state(tenant.id, catalogKey)
-            assertThat(revoked.namespaceRevoked).isTrue()
+            assertThat(revoked.namespaceRevoked).`as`("only a fixed namespace is revoked").isFalse()
+            assertThat(revoked.needsNamespaceChoice).isTrue()
             assertThat(revoked.availableNamespaces).containsExactly("internal-forms")
             assertThat(revoked.canPublishCurrentRelease).isFalse()
         }
@@ -109,7 +114,7 @@ class ExchangeConnectionLifecycleTest : ExchangeIntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Connection refused").execute()
-            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
 
             // Refused while the namespace is still granted: the connection itself is the problem.
@@ -129,7 +134,7 @@ class ExchangeConnectionLifecycleTest : ExchangeIntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Grant withdrawn").execute()
-            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             assertThat(publication(tenant.id, catalogKey).namespace).isEqualTo("public-services")
 
@@ -147,7 +152,7 @@ class ExchangeConnectionLifecycleTest : ExchangeIntegrationTestBase() {
     }
 
     @Test
-    fun `a namespace is freely corrected before publishing, and moved deliberately after`() {
+    fun `a catalog's namespace is freely changed before publishing, and fixed once Exchange accepts a release`() {
         val tenant = createTenant("exchange-rebind")
         val catalogKey = CatalogKey.of("rebind-me")
         exchange.namespaces = listOf("public-services", "internal-forms")
@@ -157,58 +162,40 @@ class ExchangeConnectionLifecycleTest : ExchangeIntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Rebind me").execute()
-            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
-            assertThat(state(tenant.id, catalogKey).boundNamespace).isEqualTo("public-services")
+            assertThat(state(tenant.id, catalogKey).namespace).isEqualTo("public-services")
             assertThat(state(tenant.id, catalogKey).namespaceLocked).isFalse()
 
-            SetCatalogPublicationNamespace(tenant.id, catalogKey, "internal-forms").execute()
+            ChangeCatalogNamespace(tenant.id, catalogKey, "internal-forms").execute()
 
-            // The binding moves, and the queued release follows it — nothing was submitted anywhere.
-            assertThat(state(tenant.id, catalogKey).boundNamespace).isEqualTo("internal-forms")
+            // The catalog's own name changes, and the queued release follows it: nothing was submitted.
+            assertThat(GetCatalog(tenant.id, catalogKey).query()!!.namespace).isEqualTo("internal-forms")
+            assertThat(state(tenant.id, catalogKey).namespace).isEqualTo("internal-forms")
             assertThat(publication(tenant.id, catalogKey).namespace).isEqualTo("internal-forms")
 
-            // Once Exchange has accepted it, the coordinates are fixed.
+            // Once Exchange has accepted it, the coordinates are fixed: publishing elsewhere would be another catalog.
             worker.run()
             assertThat(state(tenant.id, catalogKey).namespaceLocked).isTrue()
-
-            // Once published it is no longer a casual change: an unacknowledged move is refused.
-            assertThatThrownBy { SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute() }
-                .isInstanceOfSatisfying(ValidationException::class.java) {
-                    assertThat(it.code).isEqualTo(ValidationCode.EXCHANGE_NAMESPACE_LOCKED)
-                }
-
-            // Acknowledged, it goes through — and the new namespace has published nothing, so the
-            // catalog is freely movable again until it does.
-            SetCatalogPublicationNamespace(
-                tenant.id,
-                catalogKey,
-                "public-services",
-                acknowledgeAlreadyPublished = true,
-            ).execute()
-            val moved = state(tenant.id, catalogKey)
-            assertThat(moved.boundNamespace).isEqualTo("public-services")
-            assertThat(moved.namespaceLocked).isFalse()
-            // What was already published stays where it was; Suite does not move it.
-            assertThat(moved.publications.single().namespace).isEqualTo("internal-forms")
+            assertThatThrownBy { ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute() }
+                .isInstanceOf(CatalogNamespaceFixedException::class.java)
         }
     }
 
     @Test
-    fun `a catalog cannot be moved to a namespace the connection does not grant`() {
+    fun `a catalog whose namespace the connection does not grant asks for a granted one before publishing`() {
         val tenant = createTenant("exchange-rebind-ungranted")
         val catalogKey = CatalogKey.of("rebind-ungranted")
 
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Rebind ungranted").execute()
-            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(tenant.id, catalogKey, "not-ours").execute()
 
-            assertThatThrownBy { SetCatalogPublicationNamespace(tenant.id, catalogKey, "not-ours").execute() }
-                .isInstanceOfSatisfying(ValidationException::class.java) {
-                    assertThat(it.code).isEqualTo(ValidationCode.EXCHANGE_NAMESPACE_UNAVAILABLE)
-                }
+            val state = state(tenant.id, catalogKey)
+            assertThat(state.needsNamespaceChoice).isTrue()
+            assertThat(state.hasPublishableDestination).`as`("a granted one can still be chosen").isTrue()
+            assertThat(state.canPublishCurrentRelease).isFalse()
         }
     }
 

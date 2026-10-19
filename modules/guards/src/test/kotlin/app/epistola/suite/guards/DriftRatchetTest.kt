@@ -60,7 +60,7 @@ class DriftRatchetTest {
         Counter("UUID.randomUUID() in main", 8, "UUIDv7.generate()") {
             mainLines(Regex("""UUID\.randomUUID\(\)"""))
         },
-        Counter("files importing the catalog.CatalogKey typealias", 35, "common.ids.CatalogKey") {
+        Counter("files importing the catalog.CatalogKey typealias", 34, "common.ids.CatalogKey") {
             RepoSources.mainKotlinFiles().count { path ->
                 "import app.epistola.suite.catalog.CatalogKey" in Files.readString(path)
             }

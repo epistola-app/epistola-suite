@@ -4,17 +4,24 @@
 -- Existing catalogs are named on the default registry, exchange.epistola.app, with `epistola` as
 -- namespace for the catalogs Epistola ships (installed from the classpath), and otherwise their
 -- tenant's key, padded with `0` to the 3 characters a namespace needs, as the contract pads a short
--- key. The namespace stays changeable until the catalog is first published.
+-- key, unless Exchange already names it (below). The namespace stays changeable until the catalog is
+-- first published.
 ALTER TABLE catalogs
     ADD COLUMN registry TEXT,
     ADD COLUMN namespace TEXT;
 
-UPDATE catalogs
+-- A catalog installed from Exchange is named by its publisher, as its source says
+-- (`exchange:<namespace>/<key>`); one bound to an Exchange namespace for publishing takes that
+-- namespace, which is the same one (ADR 0003: the registry grants it).
+UPDATE catalogs c
 SET registry  = 'exchange.epistola.app',
     namespace = CASE
-        WHEN source_url LIKE 'classpath:epistola/catalogs/%' THEN 'epistola'
-        WHEN length(tenant_key) < 3 THEN rpad(tenant_key, 3, '0')
-        ELSE tenant_key
+        WHEN c.source_url LIKE 'classpath:epistola/catalogs/%' THEN 'epistola'
+        WHEN c.source_url LIKE 'exchange:%/%' THEN split_part(substring(c.source_url FROM length('exchange:') + 1), '/', 1)
+        WHEN EXISTS (SELECT 1 FROM catalog_exchange_bindings b WHERE b.tenant_key = c.tenant_key AND b.catalog_key = c.id)
+            THEN (SELECT b.namespace FROM catalog_exchange_bindings b WHERE b.tenant_key = c.tenant_key AND b.catalog_key = c.id)
+        WHEN length(c.tenant_key) < 3 THEN rpad(c.tenant_key, 3, '0')
+        ELSE c.tenant_key
     END;
 
 ALTER TABLE catalogs

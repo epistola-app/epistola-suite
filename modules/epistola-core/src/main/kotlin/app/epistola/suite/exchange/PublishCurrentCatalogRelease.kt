@@ -80,14 +80,14 @@ class PublishCurrentCatalogReleaseHandler(
             ValidationCode.PUBLICATION_FORBIDDEN_BY_POLICY,
         ) { "This catalog's publication policy forbids Exchange publishing." }
 
-        // Nothing is queued without a destination, so this is checked before any work is done.
+        // Nothing is queued without a destination the connection grants, so this is checked first.
         validate(
             "namespace",
             jdbi.withHandle<Boolean, Exception> { handle ->
-                namespaceBinder.existingBinding(handle, command.tenantKey, command.catalogKey) != null
+                namespaceBinder.namespaceOf(handle, command.tenantKey, command.catalogKey) in namespaceBinder.grantedNamespaces(handle, command.tenantKey)
             },
             ValidationCode.EXCHANGE_NAMESPACE_UNAVAILABLE,
-        ) { "Choose the Exchange namespace for this catalog before publishing it." }
+        ) { "This catalog's namespace is not one the Exchange connection grants. Choose a granted one in its settings." }
 
         val release = releaseToPublish(command)
         // Read the status without the archive: a 10 MB blob must not be fetched just to branch.
@@ -114,7 +114,7 @@ class PublishCurrentCatalogReleaseHandler(
         val archive = if (previousStatus == CatalogPublicationStatus.FAILED) null else buildReleaseArchive(command, release)
 
         return jdbi.inTransaction<UUID, Exception> { handle ->
-            val namespace = requireNotNull(namespaceBinder.existingBinding(handle, command.tenantKey, command.catalogKey))
+            val namespace = requireNotNull(namespaceBinder.namespaceOf(handle, command.tenantKey, command.catalogKey))
             val existing = store.findByVersion(handle, command.tenantKey, command.catalogKey, release.version)
             when {
                 existing == null -> UUIDv7.generate().also { id ->

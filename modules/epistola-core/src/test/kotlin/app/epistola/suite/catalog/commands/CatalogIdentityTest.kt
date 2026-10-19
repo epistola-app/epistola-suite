@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.commands
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.mediator.execute

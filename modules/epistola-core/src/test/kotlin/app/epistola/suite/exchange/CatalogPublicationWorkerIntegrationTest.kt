@@ -5,6 +5,7 @@
 package app.epistola.suite.exchange
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
@@ -136,8 +137,8 @@ class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
             // these coordinates. Locking the namespace here would freeze a catalog that has never
             // published, and tell its author it had.
             assertThat(state(tenant.id, catalogKey).namespaceLocked).isFalse()
-            SetCatalogPublicationNamespace(tenant.id, catalogKey, "internal-forms").execute()
-            assertThat(state(tenant.id, catalogKey).boundNamespace).isEqualTo("internal-forms")
+            ChangeCatalogNamespace(tenant.id, catalogKey, "internal-forms").execute()
+            assertThat(state(tenant.id, catalogKey).namespace).isEqualTo("internal-forms")
         }
     }
 
@@ -202,7 +203,7 @@ class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
                 .isTrue()
 
             // Picking one at the point of publishing is the whole setup — no visit to settings.
-            SetCatalogPublicationNamespace(tenant.id, catalogKey, "epistola").execute()
+            ChangeCatalogNamespace(tenant.id, catalogKey, "epistola").execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
 
@@ -286,7 +287,7 @@ class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
      */
     private fun releaseWithPublication(tenant: Tenant, catalogKey: CatalogKey, namespace: String? = "public-services") {
         CreateCatalog(tenant.id, catalogKey, catalogKey.value).execute()
-        namespace?.let { SetCatalogPublicationNamespace(tenant.id, catalogKey, it).execute() }
+        namespace?.let { ChangeCatalogNamespace(tenant.id, catalogKey, it).execute() }
         ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
     }
 

@@ -32,11 +32,11 @@ class ExchangeReleasePublicationAdapter(
     override fun isPublicationAvailable(tenantKey: TenantKey, catalogKey: CatalogKey): Boolean = availability.isAvailable(tenantKey) &&
         SecurityContext.current().hasPermission(tenantKey, Permission.CATALOG_PUBLISH) &&
         jdbi.withHandle<Boolean, Exception> { handle ->
-            // Bound is not the same as still permitted: an organization can withdraw a namespace.
-            // Queueing into one we no longer hold would create work that cannot move, which is the
-            // thing this check exists to prevent.
-            val bound = namespaceBinder.existingBinding(handle, tenantKey, catalogKey)
-            bound != null && bound in namespaceBinder.grantedNamespaces(handle, tenantKey)
+            // The catalog's namespace must be one the connection grants now: an organization can
+            // withdraw a namespace, and queueing into one we no longer hold would create work that
+            // cannot move, which is the thing this check exists to prevent.
+            val namespace = namespaceBinder.namespaceOf(handle, tenantKey, catalogKey)
+            namespace != null && namespace in namespaceBinder.grantedNamespaces(handle, tenantKey)
         }
 
     /**
@@ -52,6 +52,12 @@ class ExchangeReleasePublicationAdapter(
 
     override fun isNamespaceFixed(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): Boolean = namespaceBinder.isLocked(handle, tenantKey, catalogKey)
 
+    override fun publishedNamespace(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): String? = namespaceBinder.publishedNamespace(handle, tenantKey, catalogKey)
+
+    override fun preferredNamespace(handle: Handle, tenantKey: TenantKey): String? = namespaceBinder.tenantDefault(handle, tenantKey)
+
+    override fun namespaceChanged(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, namespace: String) = store.repointUnsubmitted(handle, tenantKey, catalogKey, namespace)
+
     override fun recordReleasePublication(handle: Handle, request: CatalogReleasePublicationRequest): UUID {
         val id = UUIDv7.generate()
         store.insert(
@@ -61,7 +67,7 @@ class ExchangeReleasePublicationAdapter(
             catalogKey = request.catalogKey,
             version = request.version,
             fingerprint = request.fingerprint,
-            namespace = requireNotNull(namespaceBinder.existingBinding(handle, request.tenantKey, request.catalogKey)) {
+            namespace = requireNotNull(namespaceBinder.namespaceOf(handle, request.tenantKey, request.catalogKey)) {
                 "A release reached the outbox without a namespace; isPublicationAvailable should have refused it"
             },
             archive = request.archive,
