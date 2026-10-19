@@ -56,9 +56,14 @@
                 hx-target="#dialog-mount" hx-swap="innerHTML">
             View usage
         </button>
+        <!--/* Through HTMX: a refusal (the tenant's default theme) shows in the form; done, the list. */-->
         <form th:if="${editable}" id="delete-theme-form"
               th:action="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/delete(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},themeId=${theme.id})}"
+              th:hx-post="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/delete(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},themeId=${theme.id})}"
+              hx-swap="none"
               method="post">
+            <input type="hidden" name="from" value="detail" />
+            <div th:replace="~{epistola-web/form-error :: form-error(id='delete-theme-error')}"></div>
             <button type="button" class="ep-btn ep-btn-destructive ep-btn-sm" data-testid="delete-action"
                     data-confirm-submit="delete-theme-form"
                     data-confirm-submit-message="Are you sure you want to delete this theme? Templates using this theme will fall back to their own styles."

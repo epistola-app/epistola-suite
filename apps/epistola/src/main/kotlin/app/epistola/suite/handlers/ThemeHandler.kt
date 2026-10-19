@@ -395,12 +395,27 @@ class ThemeHandler(
         val themeId = request.themeId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
+        // The detail page's Delete: a refusal shows in its form, and done, the list it came from.
+        val fromDetail = request.param("from").orElse("") == "detail"
         try {
             DeleteTheme(id = themeId, catalogVersion = request.catalogVersion()).execute()
         } catch (e: ThemeInUseException) {
+            if (fromDetail) {
+                return request.htmx {
+                    globalFormError("delete-theme-error", e.message ?: "The theme is in use.")
+                    onFullPage { redirect(request.path().removeSuffix("/delete")) }
+                }
+            }
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(mapOf("error" to e.message))
+        }
+        if (fromDetail) {
+            val list = CatalogPages.list(request, tenantId.key, "themes")
+            return request.htmx {
+                dialogLocation(list)
+                onFullPage { redirect(list) }
+            }
         }
 
         // Return updated rows for HTMX
