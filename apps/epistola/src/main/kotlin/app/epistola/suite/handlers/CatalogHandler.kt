@@ -1134,11 +1134,11 @@ class CatalogHandler {
                 .build()
         } catch (e: Exception) {
             logger.warn("Failed to update catalog metadata: {}", e.message)
-            ServerResponse.status(422).render(
-                "catalogs/metadata :: dialog",
-                catalogMetadataModel(tenantId.key, catalogKey, section) +
-                    ("error" to (e.message ?: "Failed to save catalog metadata.")),
-            )
+            // Into the dialog's error slot; what was typed stays.
+            request.htmx {
+                globalFormError("catalog-metadata-error", e.message ?: "Failed to save catalog metadata.")
+                onFullPage { redirect(CatalogPages.browse(tenantId, request.catalogSegment())) }
+            }
         }
     }
 

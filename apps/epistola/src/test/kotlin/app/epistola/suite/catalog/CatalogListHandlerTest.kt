@@ -792,7 +792,9 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                 String::class.java,
             )
             assertThat(unsupportedAttributeResponse.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
-            assertThat(unsupportedAttributeResponse.body).contains("Only the locale discovery attribute can be changed")
+            // Shaped for HTMX (it swaps an error status only with HX-Reswap): into the dialog's error slot.
+            assertThat(unsupportedAttributeResponse.headers.getFirst("HX-Reswap")).isEqualTo("none")
+            assertThat(unsupportedAttributeResponse.body).contains("id=\"catalog-metadata-error\"").contains("Only the locale discovery attribute can be changed")
 
             val locale = LinkedMultiValueMap<String, String>()
             locale.add("section", "attributes")
@@ -815,7 +817,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(invalidKeywordsResponse.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
             assertThat(invalidKeywordsResponse.body)
                 .contains("Keywords must be unique")
-                .contains("name=\"section\" value=\"keywords\"")
+                .contains("id=\"catalog-metadata-error\"")
 
             val keywords = LinkedMultiValueMap<String, String>()
             keywords.add("section", "keywords")
